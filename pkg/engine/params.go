@@ -4,21 +4,21 @@
 package engine
 
 import (
-	"encoding/base64"
 	"fmt"
-	"strings"
+	"github.com/Azure/go-autorest/autorest/to"
+	"strconv"
 
 	"github.com/Azure/aks-engine/pkg/api"
 )
 
-func getParameters(cs *api.ContainerService, generatorCode string, aksEngineVersion string) paramsMap {
+func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion string) paramsMap {
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
 	cloudSpecConfig := cs.GetCloudSpecConfig()
 
 	// aksengine Parameters
-	addValue(parametersMap, "aksEngineVersion", aksEngineVersion)
+	addValue(parametersMap, "bakerVersion", bakerVersion)
 
 	// Master Parameters
 	addValue(parametersMap, "location", location)

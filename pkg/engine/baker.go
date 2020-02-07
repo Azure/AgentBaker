@@ -1,0 +1,577 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
+package engine
+
+import (
+	"archive/zip"
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"github.com/Azure/go-autorest/autorest/to"
+	"strings"
+	"text/template"
+
+	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/aks-engine/pkg/i18n"
+)
+
+// Context represents the object that is passed to the package
+type Context struct {
+	Translator *i18n.Translator
+}
+
+// TemplateGenerator represents the object that performs the template generation.
+type TemplateGenerator struct {
+	Translator     *i18n.Translator
+	cloudInitFiles map[string]interface{}
+	parameters     paramsMap
+}
+
+// InitializeTemplateGenerator creates a new template generator object
+func InitializeTemplateGenerator(ctx Context, cs *api.ContainerService) (*TemplateGenerator, error) {
+	t := &TemplateGenerator{
+		Translator: ctx.Translator,
+	}
+
+	if t.Translator == nil {
+		t.Translator = &i18n.Translator{}
+	}
+
+	if err := t.verifyFiles(); err != nil {
+		return nil, err
+	}
+
+	t.parameters = getParameters(cs, "baker", "1.0")
+	return t, nil
+}
+
+func (t *TemplateGenerator) verifyFiles() error {
+	allFiles := commonTemplateFiles
+	for _, file := range allFiles {
+		if _, err := Asset(file); err != nil {
+			return t.Translator.Errorf("template file %s does not exist", file)
+		}
+	}
+	return nil
+}
+
+func (t *TemplateGenerator) GetNodeCustomDataStr(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+	if profile.IsWindows() {
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(cs, profile))
+	}
+	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(cs, profile))
+}
+
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
+// { "customData": "[base64(concat(<customData string>))]" }
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+	//get parameters
+	parameters := getParameters(cs, "", "")
+	//get variable cloudInit
+	variables := getVariables(cs, "", "")
+	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
+		cs, profile, t.getBakerFuncMap(cs, parameters, variables))
+
+	if e != nil {
+		panic(e)
+	}
+
+	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+}
+
+// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
+// { "customData": "[base64(concat(<customData string>))]" }
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+	//get parameters
+	parameters := getParameters(cs, "", "")
+	//get variable cloudInit
+	variables := getVariables(cs, "", "")
+	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
+		cs, profile, t.getBakerFuncMap(cs, parameters, variables))
+
+	if e != nil {
+		panic(e)
+	}
+
+	preprovisionCmd := ""
+
+	if profile.PreprovisionExtension != nil {
+		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
+	}
+
+	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
+
+	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+}
+
+// getSingleLineForTemplate returns the file as a single line for embedding in an arm template
+func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, cs *api.ContainerService, profile interface{},
+	funcMap template.FuncMap) (string, error) {
+	expandedTemplate, err := t.getSingleLine(textFilename, cs, profile, funcMap)
+	if err != nil {
+		return "", err
+	}
+
+	textStr := escapeSingleLine(expandedTemplate)
+
+	return textStr, nil
+}
+
+// getSingleLine returns the file as a single line
+func (t *TemplateGenerator) getSingleLine(textFilename string, cs *api.ContainerService, profile interface{},
+	funcMap template.FuncMap) (string, error) {
+	b, err := Asset(textFilename)
+	if err != nil {
+		return "", t.Translator.Errorf("yaml file %s does not exist", textFilename)
+	}
+
+	// use go templates to process the text filename
+	templ := template.New("customdata template").Funcs(funcMap)
+	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
+		return "", t.Translator.Errorf("error parsing file %s: %v", textFilename, err)
+	}
+
+	var buffer bytes.Buffer
+	if err = templ.ExecuteTemplate(&buffer, textFilename, profile); err != nil {
+		return "", t.Translator.Errorf("error executing template for file %s: %v", textFilename, err)
+	}
+	expandedTemplate := buffer.String()
+
+	return expandedTemplate, nil
+}
+
+// getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
+func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, params paramsMap, variables paramsMap) template.FuncMap {
+	funcMap := getContainerServiceFuncMap(cs)
+
+	funcMap["GetParameter"] = func(s string) string {
+		return params[s].(string)
+	}
+
+	funcMap["GetVariable"] = func(s string) string {
+		return variables[s].(string)
+	}
+
+	return funcMap
+}
+
+// getContainerServiceFuncMap returns all functions used in template generation
+// These funcs are a thin wrapper for template generation operations,
+// all business logic is implemented in the underlying func
+func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
+	return template.FuncMap{
+		"IsAzureStackCloud": func() bool {
+			return cs.Properties.IsAzureStackCloud()
+		},
+		"IsMultiMasterCluster": func() bool {
+			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasMultipleNodes()
+		},
+		"IsMasterVirtualMachineScaleSets": func() bool {
+			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.IsVirtualMachineScaleSets()
+		},
+		"IsHostedMaster": func() bool {
+			return cs.Properties.IsHostedMasterProfile()
+		},
+		"IsIPMasqAgentEnabled": func() bool {
+			return cs.Properties.IsIPMasqAgentEnabled()
+		},
+		"IsDCOS19": func() bool {
+			return cs.Properties.OrchestratorProfile != nil && cs.Properties.OrchestratorProfile.IsDCOS19()
+		},
+		"IsKubernetesVersionGe": func(version string) bool {
+			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
+		},
+		"IsKubernetesVersionLt": func(version string) bool {
+			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
+		},
+		"GetAgentKubernetesLabels": func(profile *api.AgentPoolProfile, rg string) string {
+			return profile.GetKubernetesLabels(rg, false)
+		},
+		"GetAgentKubernetesLabelsDeprecated": func(profile *api.AgentPoolProfile, rg string) string {
+			return profile.GetKubernetesLabels(rg, true)
+		},
+		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig) string {
+			if kc == nil {
+				return ""
+			}
+			return kc.GetOrderedKubeletConfigString()
+		},
+		"GetKubeletConfigKeyValsPsh": func(kc *api.KubernetesConfig) string {
+			if kc == nil {
+				return ""
+			}
+			return kc.GetOrderedKubeletConfigStringForPowershell()
+		},
+		"HasPrivateRegistry": func() bool {
+			if cs.Properties.OrchestratorProfile.DcosConfig != nil {
+				return cs.Properties.OrchestratorProfile.DcosConfig.HasPrivateRegistry()
+			}
+			return false
+		},
+		"IsSwarmMode": func() bool {
+			return cs.Properties.OrchestratorProfile.IsSwarmMode()
+		},
+		"IsKubernetes": func() bool {
+			return cs.Properties.OrchestratorProfile.IsKubernetes()
+		},
+		"IsAzureCNI": func() bool {
+			return cs.Properties.OrchestratorProfile.IsAzureCNI()
+		},
+		"HasCosmosEtcd": func() bool {
+			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasCosmosEtcd()
+		},
+		"GetCosmosEndPointUri": func() string {
+			if cs.Properties.MasterProfile != nil {
+				return cs.Properties.MasterProfile.GetCosmosEndPointURI()
+			}
+			return ""
+		},
+		"IsPrivateCluster": func() bool {
+			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
+		},
+		"ProvisionJumpbox": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision()
+		},
+		"UseManagedIdentity": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
+		},
+		"GetVNETSubnetDependencies": func() string {
+			return getVNETSubnetDependencies(cs.Properties)
+		},
+		"GetLBRules": func(name string, ports []int) string {
+			return getLBRules(name, ports)
+		},
+		"GetProbes": func(ports []int) string {
+			return getProbes(ports)
+		},
+		"GetSecurityRules": func(ports []int) string {
+			return getSecurityRules(ports)
+		},
+		"GetUniqueNameSuffix": func() string {
+			return cs.Properties.GetClusterID()
+		},
+		"GetVNETAddressPrefixes": func() string {
+			return getVNETAddressPrefixes(cs.Properties)
+		},
+		"GetVNETSubnets": func(addNSG bool) string {
+			return getVNETSubnets(cs.Properties, addNSG)
+		},
+		"GetDataDisks": func(profile *api.AgentPoolProfile) string {
+			return getDataDisks(profile)
+		},
+		"HasBootstrap": func() bool {
+			return cs.Properties.OrchestratorProfile.DcosConfig != nil && cs.Properties.OrchestratorProfile.DcosConfig.HasBootstrap()
+		},
+		"GetDefaultVNETCIDR": func() string {
+			return DefaultVNETCIDR
+		},
+		"GetDefaultVNETCIDRIPv6": func() string {
+			return DefaultVNETCIDRIPv6
+		},
+		"GetSshPublicKeysPowerShell": func() string {
+			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
+		},
+		"GetWindowsMasterSubnetARMParam": func() string {
+			return getWindowsMasterSubnetARMParam(cs.Properties.MasterProfile)
+		},
+		"GetKubernetesMasterPreprovisionYaml": func() string {
+			str := ""
+			if cs.Properties.MasterProfile.PreprovisionExtension != nil {
+				str += "\n"
+				str += makeMasterExtensionScriptCommands(cs)
+			}
+			return str
+		},
+		"GetKubernetesAgentPreprovisionYaml": func(profile *api.AgentPoolProfile) string {
+			str := ""
+			if profile.PreprovisionExtension != nil {
+				str += "\n"
+				str += makeAgentExtensionScriptCommands(cs, profile)
+			}
+			return str
+		},
+		"GetSwarmAgentPreprovisionExtensionCommands": func(profile *api.AgentPoolProfile) string {
+			str := ""
+			if profile.PreprovisionExtension != nil {
+				makeAgentExtensionScriptCommands(cs, profile)
+			}
+			str = escapeSingleLine(str)
+			return str
+		},
+		"GetLocation": func() string {
+			return cs.Location
+		},
+		"GetKubernetesWindowsAgentFunctions": func() string {
+			// Collect all the parts into a zip
+			var parts = []string{
+				kubernetesWindowsAgentFunctionsPS1,
+				kubernetesWindowsConfigFunctionsPS1,
+				kubernetesWindowsKubeletFunctionsPS1,
+				kubernetesWindowsCniFunctionsPS1,
+				kubernetesWindowsAzureCniFunctionsPS1,
+				kubernetesWindowsOpenSSHFunctionPS1}
+
+			// Create a buffer, new zip
+			buf := new(bytes.Buffer)
+			zw := zip.NewWriter(buf)
+
+			for _, part := range parts {
+				f, err := zw.Create(part)
+				if err != nil {
+					panic(err)
+				}
+				partContents, err := Asset(part)
+				if err != nil {
+					panic(err)
+				}
+				_, err = f.Write(partContents)
+				if err != nil {
+					panic(err)
+				}
+			}
+			err := zw.Close()
+			if err != nil {
+				panic(err)
+			}
+			return base64.StdEncoding.EncodeToString(buf.Bytes())
+		},
+		"WrapAsVariable": func(s string) string {
+			return fmt.Sprintf("',variables('%s'),'", s)
+		},
+		"AnyAgentUsesAvailabilitySets": func() bool {
+			return cs.Properties.AnyAgentUsesAvailabilitySets()
+		},
+		"AnyAgentIsLinux": func() bool {
+			return cs.Properties.AnyAgentIsLinux()
+		},
+		"IsNSeriesSKU": func(profile *api.AgentPoolProfile) bool {
+			return IsNvidiaEnabledSKU(profile.VMSize)
+		},
+		"HasAvailabilityZones": func(profile *api.AgentPoolProfile) bool {
+			return profile.HasAvailabilityZones()
+		},
+		"HasLinuxSecrets": func() bool {
+			return cs.Properties.LinuxProfile.HasSecrets()
+		},
+		"HasCustomSearchDomain": func() bool {
+			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain()
+		},
+		"GetSearchDomainName": func() string {
+			if cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain() {
+				return cs.Properties.LinuxProfile.CustomSearchDomain.Name
+			}
+			return ""
+		},
+		"GetSearchDomainRealmUser": func() string {
+			if cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain() {
+				return cs.Properties.LinuxProfile.CustomSearchDomain.RealmUser
+			}
+			return ""
+		},
+		"GetSearchDomainRealmPassword": func() string {
+			if cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain() {
+				return cs.Properties.LinuxProfile.CustomSearchDomain.RealmPassword
+			}
+			return ""
+		},
+		"HasCiliumNetworkPlugin": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginCilium
+		},
+		"HasCustomNodesDNS": func() bool {
+			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasCustomNodesDNS()
+		},
+		"HasWindowsSecrets": func() bool {
+			return cs.Properties.WindowsProfile.HasSecrets()
+		},
+		"HasWindowsCustomImage": func() bool {
+			return cs.Properties.WindowsProfile.HasCustomImage()
+		},
+		"WindowsSSHEnabled": func() bool {
+			return cs.Properties.WindowsProfile.SSHEnabled
+		},
+		"GetConfigurationScriptRootURL": func() string {
+			linuxProfile := cs.Properties.LinuxProfile
+			if linuxProfile == nil || linuxProfile.ScriptRootURL == "" {
+				return DefaultConfigurationScriptRootURL
+			}
+			return linuxProfile.ScriptRootURL
+		},
+		"GetMasterOSImageOffer": func() string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageOffer)
+		},
+		"GetMasterOSImagePublisher": func() string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImagePublisher)
+		},
+		"GetMasterOSImageSKU": func() string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageSku)
+		},
+		"GetMasterOSImageVersion": func() string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageVersion)
+		},
+		"GetAgentOSImageOffer": func(profile *api.AgentPoolProfile) string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageOffer)
+		},
+		"GetAgentOSImagePublisher": func(profile *api.AgentPoolProfile) string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImagePublisher)
+		},
+		"GetAgentOSImageSKU": func(profile *api.AgentPoolProfile) string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageSku)
+		},
+		"GetAgentOSImageVersion": func(profile *api.AgentPoolProfile) string {
+			cloudSpecConfig := cs.GetCloudSpecConfig()
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageVersion)
+		},
+		"UseCloudControllerManager": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager
+		},
+		"AdminGroupID": func() bool {
+			return cs.Properties.AADProfile != nil && cs.Properties.AADProfile.AdminGroupID != ""
+		},
+		"EnableDataEncryptionAtRest": func() bool {
+			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableDataEncryptionAtRest)
+		},
+		"EnableEncryptionWithExternalKms": func() bool {
+			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableEncryptionWithExternalKms)
+		},
+		"EnableAggregatedAPIs": func() bool {
+			if cs.Properties.OrchestratorProfile.KubernetesConfig.EnableAggregatedAPIs {
+				return true
+			} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.9.0") {
+				return true
+			}
+			return false
+		},
+		"EnablePodSecurityPolicy": func() bool {
+			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnablePodSecurityPolicy)
+		},
+		"IsCustomVNET": func() bool {
+			return cs.Properties.AreAgentProfilesCustomVNET()
+		},
+		"IsIPv6DualStackFeatureEnabled": func() bool {
+			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
+		},
+		"GetBase64EncodedEnvironmentJSON": func() string {
+			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
+			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
+		},
+		"GetIdentitySystem": func() string {
+			if cs.Properties.IsAzureStackCloud() {
+				return cs.Properties.CustomCloudProfile.IdentitySystem
+			}
+
+			return api.AzureADIdentitySystem
+		},
+		"GetPodInfraContainerSpec": func() string {
+			return cs.Properties.OrchestratorProfile.GetPodInfraContainerSpec()
+		},
+		"IsKubenet": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
+		},
+		"NeedsContainerd": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+		},
+		"IsKataContainerRuntime": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.KataContainers
+		},
+		"IsDockerContainerRuntime": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
+		},
+		"HasNSeriesSKU": func() bool {
+			return cs.Properties.HasNSeriesSKU()
+		},
+		"HasDCSeriesSKU": func() bool {
+			return cs.Properties.HasDCSeriesSKU()
+		},
+		"HasCoreOS": func() bool {
+			return cs.Properties.HasCoreOS()
+		},
+		"RequiresDocker": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
+		},
+		"GetComponentImageReference": func(name string) string {
+			k := cs.Properties.OrchestratorProfile.KubernetesConfig
+			switch name {
+			case "kube-apiserver":
+				if k.CustomKubeAPIServerImage != "" {
+					return k.CustomKubeAPIServerImage
+				}
+			case "kube-controller-manager":
+				if k.CustomKubeControllerManagerImage != "" {
+					return k.CustomKubeControllerManagerImage
+				}
+			case "kube-scheduler":
+				if k.CustomKubeSchedulerImage != "" {
+					return k.CustomKubeSchedulerImage
+				}
+			}
+			kubernetesImageBase := k.KubernetesImageBase
+			if cs.Properties.IsAzureStackCloud() {
+				kubernetesImageBase = cs.GetCloudSpecConfig().KubernetesSpecConfig.KubernetesImageBase
+			}
+			k8sComponents := api.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+			return kubernetesImageBase + k8sComponents[name]
+		},
+		"GetHyperkubeImageReference": func() string {
+			hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
+			k8sComponents := api.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+			hyperkubeImage := hyperkubeImageBase + k8sComponents["hyperkube"]
+			if cs.Properties.IsAzureStackCloud() {
+				hyperkubeImage = hyperkubeImage + AzureStackSuffix
+			}
+			if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
+				hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
+			}
+			return hyperkubeImage
+		},
+		"GetTargetEnvironment": func() string {
+			return GetCloudTargetEnv(cs.Location)
+		},
+		"GetCustomCloudConfigCSEScriptFilepath": func() string {
+			return customCloudConfigCSEScriptFilepath
+		},
+		"GetCSEHelpersScriptFilepath": func() string {
+			return cseHelpersScriptFilepath
+		},
+		"GetCSEInstallScriptFilepath": func() string {
+			return cseInstallScriptFilepath
+		},
+		"GetCSEConfigScriptFilepath": func() string {
+			return cseConfigScriptFilepath
+		},
+		"GetCustomSearchDomainsCSEScriptFilepath": func() string {
+			return customSearchDomainsCSEScriptFilepath
+		},
+		"GetDHCPv6ServiceCSEScriptFilepath": func() string {
+			return dhcpV6ServiceCSEScriptFilepath
+		},
+		"GetDHCPv6ConfigCSEScriptFilepath": func() string {
+			return dhcpV6ConfigCSEScriptFilepath
+		},
+		"HasPrivateAzureRegistryServer": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer != ""
+		},
+		"GetPrivateAzureRegistryServer": func() string {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer
+		},
+		"HasTelemetryEnabled": func() bool {
+			return cs.Properties.FeatureFlags != nil && cs.Properties.FeatureFlags.EnableTelemetry
+		},
+		"GetApplicationInsightsTelemetryKey": func() string {
+			return cs.Properties.TelemetryProfile.ApplicationInsightsKey
+		},
+		"OpenBraces": func() string {
+			return "{{"
+		},
+		"CloseBraces": func() string {
+			return "}}"
+		},
+	}
+}

@@ -9,12 +9,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/blang/semver"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -22,9 +22,6 @@ import (
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"
 )
-
-var commonTemplateFiles = []string{agentOutputs, agentParams, masterOutputs, iaasOutputs, masterParams, windowsParams}
-var kubernetesParamFiles = []string{armParameters, kubernetesParams, masterParams, agentParams, windowsParams}
 
 var keyvaultSecretPathRe *regexp.Regexp
 
@@ -355,40 +352,6 @@ func getSecurityRules(ports []int) string {
 	return buf.String()
 }
 
-// getSingleLine returns the file as a single line
-func (t *TemplateGenerator) getSingleLine(textFilename string, cs *api.ContainerService, profile interface{}) (string, error) {
-	b, err := Asset(textFilename)
-	if err != nil {
-		return "", t.Translator.Errorf("yaml file %s does not exist", textFilename)
-	}
-
-	// use go templates to process the text filename
-	templ := template.New("customdata template").Funcs(t.getTemplateFuncMap(cs))
-	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
-		return "", t.Translator.Errorf("error parsing file %s: %v", textFilename, err)
-	}
-
-	var buffer bytes.Buffer
-	if err = templ.ExecuteTemplate(&buffer, textFilename, profile); err != nil {
-		return "", t.Translator.Errorf("error executing template for file %s: %v", textFilename, err)
-	}
-	expandedTemplate := buffer.String()
-
-	return expandedTemplate, nil
-}
-
-// getSingleLineForTemplate returns the file as a single line for embedding in an arm template
-func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, cs *api.ContainerService, profile interface{}) (string, error) {
-	expandedTemplate, err := t.getSingleLine(textFilename, cs, profile)
-	if err != nil {
-		return "", err
-	}
-
-	textStr := escapeSingleLine(expandedTemplate)
-
-	return textStr, nil
-}
-
 func escapeSingleLine(escapedStr string) string {
 	// template.JSEscapeString leaves undesirable chars that don't work with pretty print
 	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
@@ -535,59 +498,6 @@ func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.Contain
 			return "false"
 		},
 	}
-}
-
-func getContainerAddonsString(cs *api.ContainerService, sourcePath string) string {
-	properties := cs.Properties
-	var result string
-	settingsMap := kubernetesContainerAddonSettingsInit(properties)
-
-	var addonNames []string
-
-	for addonName := range settingsMap {
-		addonNames = append(addonNames, addonName)
-	}
-
-	sort.Strings(addonNames)
-
-	for _, addonName := range addonNames {
-		setting := settingsMap[addonName]
-		if cs.Properties.OrchestratorProfile.KubernetesConfig.IsAddonEnabled(addonName) {
-			var input string
-			if setting.base64Data != "" {
-				var err error
-				input, err = getStringFromBase64(setting.base64Data)
-				if err != nil {
-					return ""
-				}
-			} else {
-				orchProfile := properties.OrchestratorProfile
-				versions := strings.Split(orchProfile.OrchestratorVersion, ".")
-				addon := orchProfile.KubernetesConfig.GetAddonByName(addonName)
-				var templ *template.Template
-				switch addonName {
-				case "cluster-autoscaler":
-					templ = template.New("addon resolver template").Funcs(getClusterAutoscalerAddonFuncMap(addon, cs))
-				default:
-					templ = template.New("addon resolver template").Funcs(getAddonFuncMap(addon))
-				}
-				addonFile := getCustomDataFilePath(setting.sourceFile, sourcePath, versions[0]+"."+versions[1])
-				addonFileBytes, err := Asset(addonFile)
-				if err != nil {
-					return ""
-				}
-				_, err = templ.Parse(string(addonFileBytes))
-				if err != nil {
-					return ""
-				}
-				var buffer bytes.Buffer
-				templ.Execute(&buffer, addon)
-				input = buffer.String()
-			}
-			result += getAddonString(input, "/etc/kubernetes/addons", setting.destinationFile)
-		}
-	}
-	return result
 }
 
 func buildYamlFileWithWriteFiles(files []string, cs *api.ContainerService) string {
@@ -902,4 +812,13 @@ func IsKubernetesVersionGe(actualVersion, version string) bool {
 	v1, _ := semver.Make(actualVersion)
 	v2, _ := semver.Make(version)
 	return v1.GE(v2)
+}
+
+func getCustomDataFromJSON(jsonStr string) string {
+	var customDataObj map[string]string
+	err := json.Unmarshal([]byte(jsonStr), &customDataObj)
+	if err != nil {
+		panic(err)
+	}
+	return customDataObj["customData"]
 }
