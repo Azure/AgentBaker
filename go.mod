@@ -1,4 +1,4 @@
-module github.com/Azure/baker
+module github.com/Azure/agentbaker
 
 go 1.12
 

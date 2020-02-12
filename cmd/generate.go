@@ -243,16 +243,16 @@ func (gc *generateCmd) run() error {
 	fmt.Println("+++++++++++++++++++++++++++++++++++++")
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
-	customDataStr := templateGenerator.GetNodeCustomDataStr(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
+	customDataStr := templateGenerator.GetNodeBootstrappingPayload(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
 
-	customDataStr := templateGenerator.GetNodeC(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
+	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
 
 	writer := &engine.ArtifactWriter{
 		Translator: &i18n.Translator{
 			Locale: gc.locale,
 		},
 	}
-	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, "", gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
+	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 

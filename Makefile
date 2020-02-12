@@ -154,7 +154,7 @@ clean: tools-clean
 
 GIT_BASEDIR    = $(shell git rev-parse --show-toplevel 2>/dev/null)
 ifneq ($(GIT_BASEDIR),)
-	LDFLAGS += -X github.com/Azure/baker/pkg/test.JUnitOutDir=$(GIT_BASEDIR)/test/junit
+	LDFLAGS += -X github.com/Azure/agentbaker/pkg/test.JUnitOutDir=$(GIT_BASEDIR)/test/junit
 endif
 
 ginkgoBuild: generate

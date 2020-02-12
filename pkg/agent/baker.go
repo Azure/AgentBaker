@@ -106,7 +106,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, pro
 	//get parameters
 	parameters := getParameters(cs, "", "")
 	//get variable
-	variables := getCSECommandVariables(cs, "", "")
+	variables := getCSECommandVariables(cs, profile, parameters, "mockidentityidclientid", "", "")
 	str, e := t.getSingleLineForTemplate(kubernetesCSECommandString,
 		profile, t.getBakerFuncMap(cs, parameters, variables))
 
@@ -157,16 +157,21 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(cs)
 
-	funcMap["GetParameter"] = func(s string) string {
-		return params[s].(string)
+	funcMap["GetParameter"] = func(s string) interface{} {
+		return params[s]
 	}
 
-	funcMap["GetVariable"] = func(s string) string {
-		return variables[s].(string)
+	//TODO: GetParameterPropertyLower
+	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
+		return params[s].(map[string]interface{})[p]
 	}
 
-	funcMap["GetVariableProperty"] = func(v, p string) string {
-		return variables[v].(map[string]interface{})[p].(string)
+	funcMap["GetVariable"] = func(s string) interface{} {
+		return variables[s]
+	}
+
+	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
+		return variables[v].(map[string]interface{})[p]
 	}
 
 	return funcMap

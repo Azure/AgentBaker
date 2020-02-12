@@ -3,12 +3,12 @@ GIT_SHA    = $(shell git rev-parse --short HEAD)
 GIT_TAG    = $(shell git describe --tags --abbrev=0 --exact-match 2>/dev/null || echo "canary")
 GIT_DIRTY  = $(shell test -n "`git status --porcelain`" && echo "dirty" || echo "clean")
 
-LDFLAGS += -X github.com/Azure/baker/cmd.BuildSHA=${GIT_SHA}
-LDFLAGS += -X github.com/Azure/baker/cmd.GitTreeState=${GIT_DIRTY}
+LDFLAGS += -X github.com/Azure/agentbaker/cmd.BuildSHA=${GIT_SHA}
+LDFLAGS += -X github.com/Azure/agentbaker/cmd.GitTreeState=${GIT_DIRTY}
 DOCKER_VERSION ?= git-${GIT_SHA}
 
 ifneq ($(GIT_TAG),)
-	LDFLAGS += -X github.com/Azure/baker/cmd.BuildTag=${GIT_TAG}
+	LDFLAGS += -X github.com/Azure/agentbaker/cmd.BuildTag=${GIT_TAG}
 endif
 
 info:

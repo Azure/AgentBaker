@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/blang/semver"
 	"io/ioutil"
 	"log"
@@ -363,7 +364,7 @@ func escapeSingleLine(escapedStr string) string {
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
 func getBase64EncodedGzippedCustomScript(csFilename string, cs *api.ContainerService) string {
-	b, err := Asset(csFilename)
+	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))

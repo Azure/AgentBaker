@@ -6,6 +6,9 @@ package agent
 import (
 	"fmt"
 	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/aks-engine/pkg/api/common"
+	"github.com/Azure/go-autorest/autorest/to"
+	"strconv"
 	"strings"
 )
 
@@ -25,37 +28,45 @@ func getCustomDataVariables(cs *api.ContainerService, generatorCode string, aksE
 	}
 }
 
-func getCSECommandVariables(cs *api.ContainerService, params paramsMap, generatorCode string, aksEngineVersion string) paramsMap {
-
+func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile, params paramsMap, userAssignedIdentityID, generatorCode string, aksEngineVersion string) paramsMap {
 	variables := map[string]interface{}{
-		"outBoundCmd":                getOutBoundCmd(cs),
-		"tenantID":                   getTenantID(),
-		"subscriptionId":             getSubscriptionID(),
-		"resourceGroup":              getResourceGroupName(),
-		"location":                   getLocation(),
-		"vmType":                     getVMType(cs),
-		"agentNamePrefix":            fmt.Sprintf("%s-agentpool-%s-", params["orchestratorName"], params["nameSuffix"]),
-		"primaryAvailabilitySetName": getPrimaryAvailabilitySetName(cs, params),
-		"primaryScaleSetName":        cs.Properties.GetPrimaryScaleSetName(),
+		"outBoundCmd":                  getOutBoundCmd(cs),
+		"tenantID":                     getTenantID(),
+		"subscriptionId":               getSubscriptionID(),
+		"resourceGroup":                getResourceGroupName(),
+		"location":                     getLocation(),
+		"vmType":                       getVMType(cs),
+		"agentNamePrefix":              fmt.Sprintf("%s-agentpool-%s-", params["orchestratorName"], params["nameSuffix"]),
+		"primaryAvailabilitySetName":   getPrimaryAvailabilitySetName(cs, params),
+		"primaryScaleSetName":          cs.Properties.GetPrimaryScaleSetName(),
+		"useManagedIdentityExtension":  useManagedIdentity(cs),
+		"useInstanceMetadata":          useInstanceMetadata(cs),
+		"loadBalancerSku":              cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+		"excludeMasterFromStandardLB":  true,
+		"maximumLoadBalancerRuleCount": getMaximumLoadBalancerRuleCount(cs),
+		"userAssignedIdentityID":       userAssignedIdentityID,
+		"isVHD":                        isVHD(profile),
+		"gpuNode":                      strconv.FormatBool(common.IsNvidiaEnabledSKU(profile.VMSize)),
+		"sgxNode":                      strconv.FormatBool(common.IsSgxEnabledSKU(profile.VMSize)),
+		"auditdEnabled":                strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 	}
 	variables["nsgName"] = fmt.Sprintf("%snsg", variables["agentNamePrefix"])
 	variables["routeTableName"] = fmt.Sprintf("%sroutetable", variables["agentNamePrefix"])
 
-	profiles := cs.Properties.AgentPoolProfiles
 	vnetSubnetID := ""
 	subnetName := ""
 	vnetID := ""
 	virtualNetworkName := ""
 	virtualNetworkResourceGroupName := ""
 	if cs.Properties.AreAgentProfilesCustomVNET() {
-		vnetSubnetID = params[fmt.Sprintf("%sVnetSubnetID", profiles[0].Name)].(string)
+		vnetSubnetID = params[fmt.Sprintf("%sVnetSubnetID", profile.Name)].(string)
 		subnetName = strings.Split(vnetSubnetID, "/")[10]
 		virtualNetworkName = strings.Split(vnetSubnetID, "/")[8]
 		virtualNetworkResourceGroupName = strings.Split(vnetSubnetID, "/")[4]
 	} else {
 		virtualNetworkName = fmt.Sprintf("%s-vnet-%s", params["orchestratorName"], params["nameSuffix"])
 		vnetID = getResourceID("Microsoft.Network/virtualNetworks", virtualNetworkName)
-		subnetName = fmt.Sprintf("%s-subnet", params["orchestratorName"].(string))
+		subnetName = fmt.Sprintf("%s-subnet", params["orchestratorName"].(paramsMap)["value"])
 		vnetSubnetID = getSubResourceID(vnetID, "subnets", subnetName)
 		variables["vnetID"] = vnetID
 	}
@@ -96,6 +107,31 @@ func getPrimaryAvailabilitySetName(cs *api.ContainerService, params paramsMap) s
 		return ""
 	}
 	return fmt.Sprintf("%s-availabilitySet-%s", cs.Properties.AgentPoolProfiles[0].Name, params["nameSuffix"])
+}
+
+func useManagedIdentity(cs *api.ContainerService) string {
+	useManagedIdentity := cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
+		cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
+	return strconv.FormatBool(useManagedIdentity)
+}
+
+func useInstanceMetadata(cs *api.ContainerService) string {
+	useInstanceMetadata := cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
+		cs.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata != nil &&
+		*cs.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata
+	return strconv.FormatBool(useInstanceMetadata)
+}
+
+func getMaximumLoadBalancerRuleCount(cs *api.ContainerService) int {
+	if cs.Properties.OrchestratorProfile.KubernetesConfig != nil {
+		return cs.Properties.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount
+	}
+	return 0
+}
+
+func isVHD(profile *api.AgentPoolProfile) string {
+	//NOTE: update as new distro is introduced
+	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
 func getResourceID(resourceType, resourceName string) string {

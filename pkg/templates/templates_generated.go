@@ -1,7 +1,7 @@
 // Code generated for package main by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
-// linux/cloud-init/artifacts/cse_customcloud.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
@@ -11,6 +11,7 @@
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
 // linux/cloud-init/nodecustomdata.yml
+// windows/csecmd.ps1
 // windows/kuberneteswindowsfunctions.ps1
 // windows/kuberneteswindowssetup.ps1
 // windows/windowsazurecnifunc.ps1
@@ -70,6 +71,80 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
+{{GetVariable "outBoundCmd"}}
+for i in $(seq 1 1200); do
+grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
+if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+done;
+CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+MOBY_VERSION={{GetParameter "mobyVersion"}}
+TENANT_ID={{GetVariable "tenantID"}}
+KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
+HYPERKUBE_URL={{GetParameter "kubernetesHyperkubeSpec"}}
+APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
+SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
+RESOURCE_GROUP={{GetVariable "resourceGroup"}}
+LOCATION={{GetVariable "location"}}
+VM_TYPE={{GetVariable "vmType"}}
+SUBNET={{GetVariable "subnetName"}}
+NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
+VIRTUAL_NETWORK={{GetVariable "virtualNetworkName"}}
+VIRTUAL_NETWORK_RESOURCE_GROUP={{GetVariable "virtualNetworkResourceGroupName"}}
+ROUTE_TABLE={{GetVariable "routeTableName"}}
+PRIMARY_AVAILABILITY_SET={{GetVariable "primaryAvailabilitySetName"}}
+PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
+SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
+SERVICE_PRINCIPAL_CLIENT_SECRET='{{GetParameter "servicePrincipalClientSecret"}}'
+KUBELET_PRIVATE_KEY={{GetParameter "clientPrivateKey"}}
+NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
+NETWORK_POLICY={{GetParameter "networkPolicy"}}
+VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
+CNI_PLUGINS_URL={{GetParameter "cniPluginsURL"}}
+CLOUDPROVIDER_BACKOFF={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoff"}}
+CLOUDPROVIDER_BACKOFF_MODE={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffMode"}}
+CLOUDPROVIDER_BACKOFF_RETRIES={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffRetries"}}
+CLOUDPROVIDER_BACKOFF_EXPONENT={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffExponent"}}
+CLOUDPROVIDER_BACKOFF_DURATION={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffDuration"}}
+CLOUDPROVIDER_BACKOFF_JITTER={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffJitter"}}
+CLOUDPROVIDER_RATELIMIT={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimit"}}
+CLOUDPROVIDER_RATELIMIT_QPS={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitQPS"}}
+CLOUDPROVIDER_RATELIMIT_QPS_WRITE={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitQPSWrite"}}
+CLOUDPROVIDER_RATELIMIT_BUCKET={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitBucket"}}
+CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitBucketWrite"}}
+LOAD_BALANCER_DISABLE_OUTBOUND_SNAT={{GetParameterProperty "cloudproviderConfig" "cloudProviderDisableOutboundSNAT"}}
+USE_MANAGED_IDENTITY_EXTENSION={{GetVariable "useManagedIdentityExtension"}}
+USE_INSTANCE_METADATA={{GetVariable "useInstanceMetadata"}}
+LOAD_BALANCER_SKU={{GetVariable "loadBalancerSku"}}
+EXCLUDE_MASTER_FROM_STANDARD_LB={{GetVariable "excludeMasterFromStandardLB"}}
+MAXIMUM_LOADBALANCER_RULE_COUNT={{GetVariable "maximumLoadBalancerRuleCount"}}
+CONTAINER_RUNTIME={{GetParameter "containerRuntime"}}
+CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
+NETWORK_MODE={{GetParameter "networkMode"}}
+KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
+USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
+IS_VHD={{GetVariable "isVHD"}}
+GPU_NODE={{GetVariable "gpuNode"}}
+SGX_NODE={{GetVariable "sgxNode"}}
+AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"
+`)
+
+func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_cmdSh, nil
+}
+
+func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_cmdShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3672, mode: os.FileMode(420), modTime: time.Unix(1581501112, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
@@ -519,201 +594,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18835, mode: os.FileMode(493), modTime: time.Unix(1580844353, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsCse_customcloudSh = []byte(`#!/bin/bash
-
-ensureCertificates() {
-    AZURESTACK_ENVIRONMENT_JSON_PATH="/etc/kubernetes/azurestackcloud.json"
-    AZURESTACK_RESOURCE_MANAGER_ENDPOINT=$(jq .resourceManagerEndpoint $AZURESTACK_ENVIRONMENT_JSON_PATH | tr -d "\"")
-    AZURESTACK_RESOURCE_METADATA_ENDPOINT="$AZURESTACK_RESOURCE_MANAGER_ENDPOINT/metadata/endpoints?api-version=2015-01-01"
-    curl $AZURESTACK_RESOURCE_METADATA_ENDPOINT
-    CURL_RETURNCODE=$?
-    KUBE_CONTROLLER_MANAGER_FILE=/etc/kubernetes/manifests/kube-controller-manager.yaml
-    if [ $CURL_RETURNCODE != 0 ]; then
-        # Replace placeholder for ssl binding
-        if [ -f $KUBE_CONTROLLER_MANAGER_FILE ]; then
-            sed -i "s|<volumessl>|- name: ssl\n      hostPath:\n        path: \\/etc\\/ssl\\/certs|g" $KUBE_CONTROLLER_MANAGER_FILE
-            sed -i "s|<volumeMountssl>|- name: ssl\n          mountPath: \\/etc\\/ssl\\/certs\n          readOnly: true|g" $KUBE_CONTROLLER_MANAGER_FILE
-        fi
-
-        # Copying the AzureStack root certificate to the appropriate store to be updated.
-        AZURESTACK_ROOT_CERTIFICATE_SOURCE_PATH="/var/lib/waagent/Certificates.pem"
-        AZURESTACK_ROOT_CERTIFICATE__DEST_PATH="/usr/local/share/ca-certificates/azsCertificate.crt"
-        cp $AZURESTACK_ROOT_CERTIFICATE_SOURCE_PATH $AZURESTACK_ROOT_CERTIFICATE__DEST_PATH
-        update-ca-certificates
-    else
-        if [ -f $KUBE_CONTROLLER_MANAGER_FILE ]; then
-            # the ARM resource manager endpoint binding certificate is trusted, remove the placeholder for ssl binding
-            sed -i "/<volumessl>/d" $KUBE_CONTROLLER_MANAGER_FILE
-            sed -i "/<volumeMountssl>/d" $KUBE_CONTROLLER_MANAGER_FILE
-        fi
-    fi
-
-    # ensureCertificates will be retried if the exit code is not 0
-    curl $AZURESTACK_RESOURCE_METADATA_ENDPOINT
-    exit $?
-}
-
-configureK8sCustomCloud() {
-    export -f ensureCertificates
-    retrycmd_if_failure 60 10 30 bash -c ensureCertificates
-    set +x
-    # When AUTHENTICATION_METHOD is client_certificate, the certificate is stored into key valut,
-    # And SERVICE_PRINCIPAL_CLIENT_SECRET will be the following json payload with based64 encode
-    #{
-    #    "data": "$pfxAsBase64EncodedString",
-    #    "dataType" :"pfx",
-    #    "password": "$password"
-    #}
-    if [[ "${AUTHENTICATION_METHOD,,}" == "client_certificate" ]]; then
-        SERVICE_PRINCIPAL_CLIENT_SECRET_DECODED=$(echo ${SERVICE_PRINCIPAL_CLIENT_SECRET} | base64 --decode)
-        SERVICE_PRINCIPAL_CLIENT_SECRET_CERT=$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET_DECODED | jq .data)
-        SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD=$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET_DECODED | jq .password)
-
-        # trim the starting and ending "
-        SERVICE_PRINCIPAL_CLIENT_SECRET_CERT=${SERVICE_PRINCIPAL_CLIENT_SECRET_CERT#"\""}
-        SERVICE_PRINCIPAL_CLIENT_SECRET_CERT=${SERVICE_PRINCIPAL_CLIENT_SECRET_CERT%"\""}
-
-        SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD=${SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD#"\""}
-        SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD=${SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD%"\""}
-
-        KUBERNETES_FILE_DIR=$(dirname "${AZURE_JSON_PATH}")
-        K8S_CLIENT_CERT_PATH="${KUBERNETES_FILE_DIR}/k8s_auth_certificate.pfx"
-        echo $SERVICE_PRINCIPAL_CLIENT_SECRET_CERT | base64 --decode > $K8S_CLIENT_CERT_PATH
-        # shellcheck disable=SC2002,SC2005
-        echo $(cat "${AZURE_JSON_PATH}" | \
-            jq --arg K8S_CLIENT_CERT_PATH ${K8S_CLIENT_CERT_PATH} '. + {aadClientCertPath:($K8S_CLIENT_CERT_PATH)}' | \
-            jq --arg SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD ${SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD} '. + {aadClientCertPassword:($SERVICE_PRINCIPAL_CLIENT_SECRET_PASSWORD)}' |\
-            jq 'del(.aadClientSecret)') > ${AZURE_JSON_PATH}
-    fi
-
-    if [[ "${IDENTITY_SYSTEM,,}" == "adfs"  ]]; then
-        # update the tenent id for ADFS environment.
-        # shellcheck disable=SC2002,SC2005
-        echo $(cat "${AZURE_JSON_PATH}" | jq '.tenantId = "adfs"') > ${AZURE_JSON_PATH}
-    fi
-
-    # Decrease eth0 MTU to mitigate Azure Stack's NRP issue
-    echo "iface eth0 inet dhcp" | sudo tee -a /etc/network/interfaces
-    echo "    post-up /sbin/ifconfig eth0 mtu 1350" | sudo tee -a /etc/network/interfaces
-
-    ifconfig eth0 mtu 1350
-
-    set -x
-}
-
-configureAzureStackInterfaces() {
-    set +x
-
-    NETWORK_INTERFACES_FILE="/etc/kubernetes/network_interfaces.json"
-    AZURE_CNI_CONFIG_FILE="/etc/kubernetes/interfaces.json"
-    AZURESTACK_ENVIRONMENT_JSON_PATH="/etc/kubernetes/azurestackcloud.json"
-    SERVICE_MANAGEMENT_ENDPOINT=$(jq -r '.serviceManagementEndpoint' ${AZURESTACK_ENVIRONMENT_JSON_PATH})
-    ACTIVE_DIRECTORY_ENDPOINT=$(jq -r '.activeDirectoryEndpoint' ${AZURESTACK_ENVIRONMENT_JSON_PATH})
-    RESOURCE_MANAGER_ENDPOINT=$(jq -r '.resourceManagerEndpoint' ${AZURESTACK_ENVIRONMENT_JSON_PATH})
-
-    if [[ "${IDENTITY_SYSTEM,,}" == "adfs"  ]]; then
-        TOKEN_URL="${ACTIVE_DIRECTORY_ENDPOINT}adfs/oauth2/token"
-    else
-        TOKEN_URL="${ACTIVE_DIRECTORY_ENDPOINT}${TENANT_ID}/oauth2/token"
-    fi
-
-    echo "Generating token for Azure Resource Manager"
-    echo "------------------------------------------------------------------------"
-    echo "Parameters"
-    echo "------------------------------------------------------------------------"
-    echo "SERVICE_PRINCIPAL_CLIENT_ID:     ..."
-    echo "SERVICE_PRINCIPAL_CLIENT_SECRET: ..."
-    echo "SERVICE_MANAGEMENT_ENDPOINT:     $SERVICE_MANAGEMENT_ENDPOINT"
-    echo "ACTIVE_DIRECTORY_ENDPOINT:       $ACTIVE_DIRECTORY_ENDPOINT"
-    echo "TENANT_ID:                       $TENANT_ID"
-    echo "IDENTITY_SYSTEM:                 $IDENTITY_SYSTEM"
-    echo "TOKEN_URL:                       $TOKEN_URL"
-    echo "------------------------------------------------------------------------"
-
-    TOKEN=$(curl -s --retry 5 --retry-delay 10 --max-time 60 -f -X POST \
-        -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "grant_type=client_credentials" \
-        -d "client_id=$SERVICE_PRINCIPAL_CLIENT_ID" \
-        --data-urlencode "client_secret=$SERVICE_PRINCIPAL_CLIENT_SECRET" \
-        --data-urlencode "resource=$SERVICE_MANAGEMENT_ENDPOINT" \
-        ${TOKEN_URL} | jq '.access_token' | xargs)
-
-    if [[ -z "$TOKEN" ]]; then
-        echo "Error generating token for Azure Resource Manager"
-        exit ${ERR_AZURE_STACK_GET_ARM_TOKEN}
-    fi
-
-    echo "Fetching network interface configuration for node"
-    echo "------------------------------------------------------------------------"
-    echo "Parameters"
-    echo "------------------------------------------------------------------------"
-    echo "RESOURCE_MANAGER_ENDPOINT: $RESOURCE_MANAGER_ENDPOINT"
-    echo "SUBSCRIPTION_ID:           $SUBSCRIPTION_ID"
-    echo "RESOURCE_GROUP:            $RESOURCE_GROUP"
-    echo "NETWORK_API_VERSION:       $NETWORK_API_VERSION"
-    echo "------------------------------------------------------------------------"
-
-    curl -s --retry 5 --retry-delay 10 --max-time 60 -f -X GET \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "Content-Type: application/json" \
-        "${RESOURCE_MANAGER_ENDPOINT}subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkInterfaces?api-version=$NETWORK_API_VERSION" > ${NETWORK_INTERFACES_FILE}
-
-    if [[ ! -s ${NETWORK_INTERFACES_FILE} ]]; then
-        echo "Error fetching network interface configuration for node"
-        exit ${ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION}
-    fi
-
-    echo "Generating Azure CNI interface file"
-
-    mapfile -t local_interfaces < <(cat /sys/class/net/*/address | tr -d : | sed 's/.*/\U&/g')
-
-    SDN_INTERFACES=$(jq ".value | map(select(.properties.macAddress | inside(\"${local_interfaces[*]}\"))) | map(select((.properties.ipConfigurations | length) > 0))" ${NETWORK_INTERFACES_FILE})
-
-    AZURE_CNI_CONFIG=$(echo ${SDN_INTERFACES} | jq "{Interfaces: [.[] | {MacAddress: .properties.macAddress, IsPrimary: .properties.primary, IPSubnets: [{Prefix: .properties.ipConfigurations[0].properties.subnet.id, IPAddresses: .properties.ipConfigurations | [.[] | {Address: .properties.privateIPAddress, IsPrimary: .properties.primary}]}]}]}")
-
-    mapfile -t SUBNET_IDS < <(echo ${SDN_INTERFACES} | jq '[.[].properties.ipConfigurations[0].properties.subnet.id] | unique | .[]' -r)
-
-    for SUBNET_ID in "${SUBNET_IDS[@]}"; do
-        SUBNET_PREFIX=$(curl -s --retry 5 --retry-delay 10 --max-time 60 -f -X GET \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            "${RESOURCE_MANAGER_ENDPOINT}${SUBNET_ID:1}?api-version=$NETWORK_API_VERSION" | \
-            jq '.properties.addressPrefix' -r)
-
-        if [[ -z "$SUBNET_PREFIX" ]]; then
-            echo "Error fetching the subnet address prefix for a subnet ID"
-            exit ${ERR_AZURE_STACK_GET_SUBNET_PREFIX}
-        fi
-
-        # shellcheck disable=SC2001
-        AZURE_CNI_CONFIG=$(echo ${AZURE_CNI_CONFIG} | sed "s|$SUBNET_ID|$SUBNET_PREFIX|g")
-    done
-
-    echo ${AZURE_CNI_CONFIG} > ${AZURE_CNI_CONFIG_FILE}
-
-    chmod 0444 ${AZURE_CNI_CONFIG_FILE}
-
-    set -x
-}
-#EOF
-`)
-
-func linuxCloudInitArtifactsCse_customcloudShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsCse_customcloudSh, nil
-}
-
-func linuxCloudInitArtifactsCse_customcloudSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsCse_customcloudShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_customcloud.sh", size: 9131, mode: os.FileMode(493), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18835, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -998,7 +879,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 10984, mode: os.FileMode(493), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 10984, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1281,12 +1162,6 @@ pullContainerImage() {
 cleanUpContainerImages() {
     docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'hyperkube') &
     docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'cloud-controller-manager') &
-    if [ "$IS_HOSTED_MASTER" = "false" ]; then
-        echo "Cleaning up AKS container images, not an AKS cluster"
-        docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'hcp-tunnel-front') &
-        docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'kube-svc-redirect') &
-        docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'nginx') &
-    fi
 
     docker rmi registry:2.7.1 &
 }
@@ -1322,7 +1197,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 14352, mode: os.FileMode(493), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12973, mode: os.FileMode(493), modTime: time.Unix(1581317564, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1440,7 +1315,7 @@ if [[ "${SGX_NODE}" = true ]]; then
 fi
 {{end}}
 
-    removeEtcd
+removeEtcd
 
 {{- if HasCustomSearchDomain}}
 wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1456,13 +1331,6 @@ fi
 {{end}}
 
 configureK8s
-
-{{- if IsAzureStackCloud}}
-configureK8sCustomCloud
-    {{- if IsAzureCNI}}
-    configureAzureStackInterfaces
-    {{end}}
-{{end}}
 
 configureCNI
 
@@ -1523,7 +1391,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 4689, mode: os.FileMode(493), modTime: time.Unix(1580844228, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 4555, mode: os.FileMode(493), modTime: time.Unix(1581322915, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1551,7 +1419,7 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 174, mode: os.FileMode(420), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 174, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1595,7 +1463,7 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1652,7 +1520,7 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1918, mode: os.FileMode(420), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1918, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1679,7 +1547,7 @@ func linuxCloudInitArtifactsSetupCustomSearchDomainsSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 561, mode: os.FileMode(493), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 561, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1709,7 +1577,7 @@ func linuxCloudInitArtifactsSysFsBpfMount() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 236, mode: os.FileMode(420), modTime: time.Unix(1580670002, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 236, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1722,35 +1590,35 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionSource"}}
+    {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionScript"}}
+    {{GetVariableProperty "cloudInitData" "provisionScript"}}
 
 - path: {{GetCSEInstallScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionInstalls"}}
+    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
 - path: {{GetCSEConfigScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionConfigs"}}
+    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kubeletSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -1758,14 +1626,14 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6SystemdService"}}
+    {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
 
 - path: {{GetDHCPv6ConfigCSEScriptFilepath}}
   permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6ConfigurationScript"}}
+    {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 {{end}}
 
 {{if .KubernetesConfig.RequiresDocker}}
@@ -1806,7 +1674,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "systemdBPFMount"}}
+    {{GetVariableProperty "cloudInitData" "systemdBPFMount"}}
 {{end}}
 
 {{if NeedsContainerd}}
@@ -1898,7 +1766,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "customSearchDomainsScript"}}
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
 - path: /var/lib/kubelet/kubeconfig
@@ -1967,7 +1835,24 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 6193, mode: os.FileMode(420), modTime: time.Unix(1581061023, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 6409, mode: os.FileMode(420), modTime: time.Unix(1581486702, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _windowsCsecmdPs1 = []byte(`"[concat('echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"', '$arguments = ', variables('singleQuote'),'-MasterIP ',parameters('kubernetesEndpoint'),' -KubeDnsServiceIp ',parameters('kubeDnsServiceIp'),' -MasterFQDNPrefix ',variables('masterFqdnPrefix'),' -Location ',variables('location'),' -TargetEnvironment ',parameters('targetEnvironment'),' -AgentKey ',parameters('clientPrivateKey'),' -AADClientId ',variables('servicePrincipalClientId'),' -AADClientSecret ',variables('singleQuote'),variables('singleQuote'),base64(variables('servicePrincipalClientSecret')),variables('singleQuote'),variables('singleQuote'),' -NetworkAPIVersion ',variables('apiVersionNetwork'),' ',variables('singleQuote'), ' ; ', variables('windowsCustomScriptSuffix'), '\" > %SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.log 2>&1 ; exit $LASTEXITCODE')]"`)
+
+func windowsCsecmdPs1Bytes() ([]byte, error) {
+	return _windowsCsecmdPs1, nil
+}
+
+func windowsCsecmdPs1() (*asset, error) {
+	bytes, err := windowsCsecmdPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/csecmd.ps1", size: 879, mode: os.FileMode(420), modTime: time.Unix(1581318551, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2123,7 +2008,7 @@ func windowsKuberneteswindowsfunctionsPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/kuberneteswindowsfunctions.ps1", size: 4993, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/kuberneteswindowsfunctions.ps1", size: 4993, mode: os.FileMode(420), modTime: time.Unix(1581323873, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2206,18 +2091,18 @@ $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
 {{if eq GetIdentitySystem "adfs"}}
 $global:TenantId = "adfs"
 {{else}}
-$global:TenantId = "{{GetVariable"tenantID"}}"
+$global:TenantId = "{{GetVariable "tenantID"}}"
 {{end}}
-$global:SubscriptionId = "{{GetVariable"subscriptionId"}}"
-$global:ResourceGroup = "{{GetVariable"resourceGroup"}}"
-$global:VmType = "{{GetVariable"vmType"}}"
-$global:SubnetName = "{{GetVariable"subnetName"}}"
+$global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
+$global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
+$global:VmType = "{{GetVariable "vmType"}}"
+$global:SubnetName = "{{GetVariable "subnetName"}}"
 $global:MasterSubnet = "{{GetWindowsMasterSubnetARMParam}}"
-$global:SecurityGroupName = "{{GetVariable"nsgName"}}"
-$global:VNetName = "{{GetVariable"virtualNetworkName"}}"
-$global:RouteTableName = "{{GetVariable"routeTableName"}}"
-$global:PrimaryAvailabilitySetName = "{{GetVariable"primaryAvailabilitySetName"}}"
-$global:PrimaryScaleSetName = "{{GetVariable"primaryScaleSetName"}}"
+$global:SecurityGroupName = "{{GetVariable "nsgName"}}"
+$global:VNetName = "{{GetVariable "virtualNetworkName"}}"
+$global:RouteTableName = "{{GetVariable "routeTableName"}}"
+$global:PrimaryAvailabilitySetName = "{{GetVariable "primaryAvailabilitySetName"}}"
+$global:PrimaryScaleSetName = "{{GetVariable "primaryScaleSetName"}}"
 
 $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
@@ -2229,12 +2114,12 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . "',variables
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
 
-$global:UseManagedIdentityExtension = "{{GetVariable"useManagedIdentityExtension"}}"
-$global:UserAssignedClientID = "{{GetVariable"userAssignedClientID"}}"
-$global:UseInstanceMetadata = "{{GetVariable"useInstanceMetadata"}}"
+$global:UseManagedIdentityExtension = "{{GetVariable "useManagedIdentityExtension"}}"
+$global:UserAssignedClientID = "{{GetVariable "userAssignedClientID"}}"
+$global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 
-$global:LoadBalancerSku = "{{GetVariable"loadBalancerSku"}}"
-$global:ExcludeMasterFromStandardLB = "{{GetVariable"excludeMasterFromStandardLB"}}"
+$global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
+$global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
 
 # Windows defaults, not changed by aks-engine
@@ -2477,7 +2362,7 @@ func windowsKuberneteswindowssetupPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/kuberneteswindowssetup.ps1", size: 14213, mode: os.FileMode(420), modTime: time.Unix(1580833413, 0)}
+	info := bindataFileInfo{name: "windows/kuberneteswindowssetup.ps1", size: 14168, mode: os.FileMode(420), modTime: time.Unix(1581323869, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2751,7 +2636,7 @@ func windowsWindowsazurecnifuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsazurecnifunc.ps1", size: 11014, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/windowsazurecnifunc.ps1", size: 11014, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2784,7 +2669,7 @@ func windowsWindowsazurecnifuncTestsPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 710, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 710, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2825,7 +2710,7 @@ func windowsWindowscnifuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowscnifunc.ps1", size: 815, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/windowscnifunc.ps1", size: 815, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2953,7 +2838,7 @@ func windowsWindowsconfigfuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsconfigfunc.ps1", size: 5342, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/windowsconfigfunc.ps1", size: 5342, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3029,7 +2914,7 @@ func windowsWindowsinstallopensshfuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsinstallopensshfunc.ps1", size: 1883, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/windowsinstallopensshfunc.ps1", size: 1883, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3737,7 +3622,7 @@ func windowsWindowskubeletfuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowskubeletfunc.ps1", size: 24784, mode: os.FileMode(420), modTime: time.Unix(1580715856, 0)}
+	info := bindataFileInfo{name: "windows/windowskubeletfunc.ps1", size: 24784, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3794,8 +3679,8 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/cse_cmd.sh":                     linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                  linuxCloudInitArtifactsCse_configSh,
-	"linux/cloud-init/artifacts/cse_customcloud.sh":             linuxCloudInitArtifactsCse_customcloudSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                 linuxCloudInitArtifactsCse_helpersSh,
 	"linux/cloud-init/artifacts/cse_install.sh":                 linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                    linuxCloudInitArtifactsCse_mainSh,
@@ -3805,6 +3690,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh": linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":               linuxCloudInitArtifactsSysFsBpfMount,
 	"linux/cloud-init/nodecustomdata.yml":                       linuxCloudInitNodecustomdataYml,
+	"windows/csecmd.ps1":                                        windowsCsecmdPs1,
 	"windows/kuberneteswindowsfunctions.ps1":                    windowsKuberneteswindowsfunctionsPs1,
 	"windows/kuberneteswindowssetup.ps1":                        windowsKuberneteswindowssetupPs1,
 	"windows/windowsazurecnifunc.ps1":                           windowsWindowsazurecnifuncPs1,
@@ -3859,8 +3745,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"cse_cmd.sh":                     &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                  &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
-				"cse_customcloud.sh":             &bintree{linuxCloudInitArtifactsCse_customcloudSh, map[string]*bintree{}},
 				"cse_helpers.sh":                 &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
 				"cse_install.sh":                 &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                    &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
@@ -3874,6 +3760,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 	}},
 	"windows": &bintree{nil, map[string]*bintree{
+		"csecmd.ps1":                     &bintree{windowsCsecmdPs1, map[string]*bintree{}},
 		"kuberneteswindowsfunctions.ps1": &bintree{windowsKuberneteswindowsfunctionsPs1, map[string]*bintree{}},
 		"kuberneteswindowssetup.ps1":     &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"windowsazurecnifunc.ps1":        &bintree{windowsWindowsazurecnifuncPs1, map[string]*bintree{}},

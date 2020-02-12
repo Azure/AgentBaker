@@ -6,7 +6,7 @@ package main
 import (
 	"os"
 
-	"github.com/Azure/baker/cmd"
+	"github.com/Azure/agentbaker/cmd"
 	colorable "github.com/mattn/go-colorable"
 	log "github.com/sirupsen/logrus"
 )
