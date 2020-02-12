@@ -111,7 +111,7 @@ if [[ "${SGX_NODE}" = true ]]; then
 fi
 {{end}}
 
-    removeEtcd
+removeEtcd
 
 {{- if HasCustomSearchDomain}}
 wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
@@ -127,13 +127,6 @@ fi
 {{end}}
 
 configureK8s
-
-{{- if IsAzureStackCloud}}
-configureK8sCustomCloud
-    {{- if IsAzureCNI}}
-    configureAzureStackInterfaces
-    {{end}}
-{{end}}
 
 configureCNI
 

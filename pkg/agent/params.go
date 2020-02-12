@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-package engine
+package agent
 
 import (
 	"fmt"
@@ -180,6 +180,8 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 	if orchestratorProfile.IsKubernetes() {
 
 		k8sVersion := orchestratorProfile.OrchestratorVersion
+		addValue(parametersMap, "kubernetesVersion", k8sVersion)
+
 		k8sComponents := api.K8sComponentsByVersionMap[k8sVersion]
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
 		kubernetesImageBase := kubernetesConfig.KubernetesImageBase

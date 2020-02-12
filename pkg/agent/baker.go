@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-package engine
+package agent
 
 import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
 	"strings"
 	"text/template"
@@ -38,25 +39,12 @@ func InitializeTemplateGenerator(ctx Context, cs *api.ContainerService) (*Templa
 		t.Translator = &i18n.Translator{}
 	}
 
-	if err := t.verifyFiles(); err != nil {
-		return nil, err
-	}
-
 	t.parameters = getParameters(cs, "baker", "1.0")
 	return t, nil
 }
 
-func (t *TemplateGenerator) verifyFiles() error {
-	allFiles := commonTemplateFiles
-	for _, file := range allFiles {
-		if _, err := Asset(file); err != nil {
-			return t.Translator.Errorf("template file %s does not exist", file)
-		}
-	}
-	return nil
-}
-
-func (t *TemplateGenerator) GetNodeCustomDataStr(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+// GetNodeBootstrappingPayload get node bootstrapping data
+func (t *TemplateGenerator) GetNodeBootstrappingPayload(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	if profile.IsWindows() {
 		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(cs, profile))
 	}
@@ -69,9 +57,9 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerSe
 	//get parameters
 	parameters := getParameters(cs, "", "")
 	//get variable cloudInit
-	variables := getVariables(cs, "", "")
+	variables := getCustomDataVariables(cs, "", "")
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		cs, profile, t.getBakerFuncMap(cs, parameters, variables))
+		profile, t.getBakerFuncMap(cs, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -86,9 +74,9 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 	//get parameters
 	parameters := getParameters(cs, "", "")
 	//get variable cloudInit
-	variables := getVariables(cs, "", "")
+	variables := getCustomDataVariables(cs, "", "")
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		cs, profile, t.getBakerFuncMap(cs, parameters, variables))
+		profile, t.getBakerFuncMap(cs, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -105,10 +93,34 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
 }
 
+// GetNodeBootstrappingCmd get node bootstrapping cmd
+func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+	if profile.IsWindows() {
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(cs, profile))
+	}
+	return getCustomDataFromJSON(t.getLinuxNodeCSECommand(cs, profile))
+}
+
+// getLinuxNodeCSECommand returns Linux node custom script extension execution command
+func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+	//get parameters
+	parameters := getParameters(cs, "", "")
+	//get variable
+	variables := getCSECommandVariables(cs, "", "")
+	str, e := t.getSingleLineForTemplate(kubernetesCSECommandString,
+		profile, t.getBakerFuncMap(cs, parameters, variables))
+
+	if e != nil {
+		panic(e)
+	}
+
+	return str
+}
+
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template
-func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, cs *api.ContainerService, profile interface{},
+func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{},
 	funcMap template.FuncMap) (string, error) {
-	expandedTemplate, err := t.getSingleLine(textFilename, cs, profile, funcMap)
+	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap)
 	if err != nil {
 		return "", err
 	}
@@ -119,9 +131,9 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, cs *ap
 }
 
 // getSingleLine returns the file as a single line
-func (t *TemplateGenerator) getSingleLine(textFilename string, cs *api.ContainerService, profile interface{},
+func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{},
 	funcMap template.FuncMap) (string, error) {
-	b, err := Asset(textFilename)
+	b, err := templates.Asset(textFilename)
 	if err != nil {
 		return "", t.Translator.Errorf("yaml file %s does not exist", textFilename)
 	}
@@ -153,6 +165,10 @@ func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, params par
 		return variables[s].(string)
 	}
 
+	funcMap["GetVariableProperty"] = func(v, p string) string {
+		return variables[v].(map[string]interface{})[p].(string)
+	}
+
 	return funcMap
 }
 
@@ -175,9 +191,6 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
-		},
-		"IsDCOS19": func() bool {
-			return cs.Properties.OrchestratorProfile != nil && cs.Properties.OrchestratorProfile.IsDCOS19()
 		},
 		"IsKubernetesVersionGe": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
@@ -321,7 +334,7 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 				if err != nil {
 					panic(err)
 				}
-				partContents, err := Asset(part)
+				partContents, err := templates.Asset(part)
 				if err != nil {
 					panic(err)
 				}
@@ -335,9 +348,6 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 				panic(err)
 			}
 			return base64.StdEncoding.EncodeToString(buf.Bytes())
-		},
-		"WrapAsVariable": func(s string) string {
-			return fmt.Sprintf("',variables('%s'),'", s)
 		},
 		"AnyAgentUsesAvailabilitySets": func() bool {
 			return cs.Properties.AnyAgentUsesAvailabilitySets()

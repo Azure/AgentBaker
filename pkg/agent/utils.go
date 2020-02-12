@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-package engine
+package agent
 
 import (
 	"bytes"
@@ -711,10 +711,6 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
-}
-
-func wrapAsVariableObject(o, v string) string {
-	return fmt.Sprintf("',variables('%s').%s,'", o, v)
 }
 
 func getSSHPublicKeysPowerShell(linuxProfile *api.LinuxProfile) string {

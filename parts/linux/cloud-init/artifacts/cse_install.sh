@@ -21,21 +21,6 @@ removeMoby() {
     apt-get purge -y moby-engine moby-cli
 }
 
-installEtcd() {
-    CURRENT_VERSION=$(etcd --version | grep "etcd Version" | cut -d ":" -f 2 | tr -d '[:space:]')
-    if [[ "$CURRENT_VERSION" == "${ETCD_VERSION}" ]]; then
-        echo "etcd version ${ETCD_VERSION} is already installed, skipping download"
-    else
-        retrycmd_get_tarball 120 5 /tmp/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz ${ETCD_DOWNLOAD_URL}/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz || exit $ERR_ETCD_DOWNLOAD_TIMEOUT
-        removeEtcd
-        if [[ $OS == $COREOS_OS_NAME ]]; then
-            tar -xzvf /tmp/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz -C /opt/bin/ --strip-components=1 || exit $ERR_ETCD_DOWNLOAD_TIMEOUT
-        else
-            tar -xzvf /tmp/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz -C /usr/bin/ --strip-components=1 || exit $ERR_ETCD_DOWNLOAD_TIMEOUT
-        fi
-    fi
-}
-
 installDeps() {
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
@@ -291,12 +276,6 @@ pullContainerImage() {
 cleanUpContainerImages() {
     docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'hyperkube') &
     docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'cloud-controller-manager') &
-    if [ "$IS_HOSTED_MASTER" = "false" ]; then
-        echo "Cleaning up AKS container images, not an AKS cluster"
-        docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'hcp-tunnel-front') &
-        docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'kube-svc-redirect') &
-        docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'nginx') &
-    fi
 
     docker rmi registry:2.7.1 &
 }

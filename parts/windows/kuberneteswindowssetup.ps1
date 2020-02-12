@@ -76,18 +76,18 @@ $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
 {{if eq GetIdentitySystem "adfs"}}
 $global:TenantId = "adfs"
 {{else}}
-$global:TenantId = "{{WrapAsVariable "tenantID"}}"
+$global:TenantId = "{{GetVariable "tenantID"}}"
 {{end}}
-$global:SubscriptionId = "{{WrapAsVariable "subscriptionId"}}"
-$global:ResourceGroup = "{{WrapAsVariable "resourceGroup"}}"
-$global:VmType = "{{WrapAsVariable "vmType"}}"
-$global:SubnetName = "{{WrapAsVariable "subnetName"}}"
+$global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
+$global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
+$global:VmType = "{{GetVariable "vmType"}}"
+$global:SubnetName = "{{GetVariable "subnetName"}}"
 $global:MasterSubnet = "{{GetWindowsMasterSubnetARMParam}}"
-$global:SecurityGroupName = "{{WrapAsVariable "nsgName"}}"
-$global:VNetName = "{{WrapAsVariable "virtualNetworkName"}}"
-$global:RouteTableName = "{{WrapAsVariable "routeTableName"}}"
-$global:PrimaryAvailabilitySetName = "{{WrapAsVariable "primaryAvailabilitySetName"}}"
-$global:PrimaryScaleSetName = "{{WrapAsVariable "primaryScaleSetName"}}"
+$global:SecurityGroupName = "{{GetVariable "nsgName"}}"
+$global:VNetName = "{{GetVariable "virtualNetworkName"}}"
+$global:RouteTableName = "{{GetVariable "routeTableName"}}"
+$global:PrimaryAvailabilitySetName = "{{GetVariable "primaryAvailabilitySetName"}}"
+$global:PrimaryScaleSetName = "{{GetVariable "primaryScaleSetName"}}"
 
 $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
@@ -99,12 +99,12 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . "',variables
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
 
-$global:UseManagedIdentityExtension = "{{WrapAsVariable "useManagedIdentityExtension"}}"
-$global:UserAssignedClientID = "{{WrapAsVariable "userAssignedClientID"}}"
-$global:UseInstanceMetadata = "{{WrapAsVariable "useInstanceMetadata"}}"
+$global:UseManagedIdentityExtension = "{{GetVariable "useManagedIdentityExtension"}}"
+$global:UserAssignedClientID = "{{GetVariable "userAssignedClientID"}}"
+$global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 
-$global:LoadBalancerSku = "{{WrapAsVariable "loadBalancerSku"}}"
-$global:ExcludeMasterFromStandardLB = "{{WrapAsVariable "excludeMasterFromStandardLB"}}"
+$global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
+$global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
 
 # Windows defaults, not changed by aks-engine

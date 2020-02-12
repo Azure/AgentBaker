@@ -9,12 +9,12 @@ import (
 	"os"
 	"path"
 
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/engine"
 	"github.com/Azure/aks-engine/pkg/engine/transform"
 	"github.com/Azure/aks-engine/pkg/helpers"
 	"github.com/Azure/aks-engine/pkg/i18n"
-	bkengine "github.com/Azure/baker/pkg/engine"
 	"github.com/google/uuid"
 	"github.com/leonelquinteros/gotext"
 	"github.com/pkg/errors"
@@ -212,7 +212,7 @@ func (gc *generateCmd) validateAPIModelAsVLabs() error {
 func (gc *generateCmd) run() error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
 
-	ctx := bkengine.Context{
+	ctx := agent.Context{
 		Translator: &i18n.Translator{
 			Locale: gc.locale,
 		},
@@ -227,7 +227,7 @@ func (gc *generateCmd) run() error {
 		return errors.Wrapf(err, "in SetPropertiesDefaults template %s", gc.apimodelPath)
 	}
 
-	templateGenerator, err := bkengine.InitializeTemplateGenerator(ctx, gc.containerService)
+	templateGenerator, err := agent.InitializeTemplateGenerator(ctx, gc.containerService)
 	if err != nil {
 		return errors.Wrap(err, "initializing template generator")
 	}
@@ -244,6 +244,8 @@ func (gc *generateCmd) run() error {
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
 	customDataStr := templateGenerator.GetNodeCustomDataStr(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
+
+	customDataStr := templateGenerator.GetNodeC(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
 
 	writer := &engine.ArtifactWriter{
 		Translator: &i18n.Translator{

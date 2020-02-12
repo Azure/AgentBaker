@@ -6,35 +6,35 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionSource"}}
+    {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionScript"}}
+    {{GetVariableProperty "cloudInitData" "provisionScript"}}
 
 - path: {{GetCSEInstallScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionInstalls"}}
+    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
 - path: {{GetCSEConfigScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionConfigs"}}
+    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kubeletSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -42,14 +42,14 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6SystemdService"}}
+    {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
 
 - path: {{GetDHCPv6ConfigCSEScriptFilepath}}
   permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6ConfigurationScript"}}
+    {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 {{end}}
 
 {{if .KubernetesConfig.RequiresDocker}}
@@ -90,7 +90,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "systemdBPFMount"}}
+    {{GetVariableProperty "cloudInitData" "systemdBPFMount"}}
 {{end}}
 
 {{if NeedsContainerd}}
@@ -182,7 +182,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "customSearchDomainsScript"}}
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
 - path: /var/lib/kubelet/kubeconfig

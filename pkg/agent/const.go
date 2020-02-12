@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-package engine
+package agent
 
 const (
 	// DefaultVNETCIDR is the default CIDR block for the VNET
@@ -79,16 +79,14 @@ const (
 
 // cloud-init (i.e. ARM customData) source file references
 const (
-	kubernetesMasterNodeCustomDataYaml = "linux/cloud-init/masternodecustomdata.yml"
-	kubernetesNodeCustomDataYaml       = "linux/cloud-init/nodecustomdata.yml"
-	kubernetesJumpboxCustomDataYaml    = "linux/cloud-init/jumpboxcustomdata.yml"
-	kubernetesCSEMainScript            = "linux/cloud-init/artifacts/cse_main.sh"
-	kubernetesCSEHelpersScript         = "linux/cloud-init/artifacts/cse_helpers.sh"
-	kubernetesCSEInstall               = "linux/cloud-init/artifacts/cse_install.sh"
-	kubernetesCSEConfig                = "linux/cloud-init/artifacts/cse_config.sh"
-	kubernetesCISScript                = "linux/cloud-init/artifacts/cis.sh"
-	kubernetesCSECustomCloud           = "linux/cloud-init/artifacts/cse_customcloud.sh"
-	kubernetesHealthMonitorScript      = "linux/cloud-init/artifacts/health-monitor.sh"
+	kubernetesNodeCustomDataYaml  = "linux/cloud-init/nodecustomdata.yml"
+	kubernetesCSECommandString    = "linux/cloud-init/artifacts/cse_cmd.sh"
+	kubernetesCSEMainScript       = "linux/cloud-init/artifacts/cse_main.sh"
+	kubernetesCSEHelpersScript    = "linux/cloud-init/artifacts/cse_helpers.sh"
+	kubernetesCSEInstall          = "linux/cloud-init/artifacts/cse_install.sh"
+	kubernetesCSEConfig           = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCISScript           = "linux/cloud-init/artifacts/cis.sh"
+	kubernetesHealthMonitorScript = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
 	kubernetesKubeletMonitorSystemdService = "linux/cloud-init/artifacts/kubelet-monitor.service"
 	kubernetesDockerMonitorSystemdTimer    = "linux/cloud-init/artifacts/docker-monitor.timer"
