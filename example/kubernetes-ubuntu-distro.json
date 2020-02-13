@@ -2,20 +2,62 @@
   "apiVersion": "vlabs",
   "properties": {
     "orchestratorProfile": {
-      "orchestratorType": "Kubernetes"
+      "orchestratorType": "Kubernetes",
+      "orchestratorRelease": "1.13",
+      "kubernetesConfig": {
+        "cloudProviderBackoff": true,
+        "cloudProviderBackoffRetries": 6,
+        "cloudProviderBackoffJitter": 1,
+        "cloudProviderBackoffDuration": 6,
+        "cloudProviderBackoffExponent": 1.5,
+        "cloudProviderRateLimit": true,
+        "cloudProviderRateLimitQPS": 3,
+        "cloudProviderRateLimitBucket": 10,
+        "kubeletConfig": {
+          "--node-status-update-frequency": "1m"
+        },
+        "controllerManagerConfig": {
+          "--node-monitor-grace-period": "5m",
+          "--pod-eviction-timeout": "1m",
+          "--route-reconciliation-period": "1m"
+        }
+      }
     },
     "masterProfile": {
       "count": 1,
-      "dnsPrefix": "dummydns",
-      "vmSize": "Standard_D2_v3",
-      "distro": "ubuntu"
+      "dnsPrefix": "abafd",
+      "vmSize": "Standard_D5_v2"
     },
     "agentPoolProfiles": [
       {
-        "name": "agentpool1",
-        "count": 2,
-        "vmSize": "Standard_D2_v3",
-        "distro": "ubuntu"
+        "name": "pool1",
+        "count": 20,
+        "vmSize": "Standard_D3_v2",
+        "availabilityProfile": "AvailabilitySet"
+      },
+      {
+        "name": "pool2",
+        "count": 20,
+        "vmSize": "Standard_D3_v2",
+        "availabilityProfile": "AvailabilitySet"
+      },
+      {
+        "name": "pool3",
+        "count": 20,
+        "vmSize": "Standard_D3_v2",
+        "availabilityProfile": "AvailabilitySet"
+      },
+      {
+        "name": "pool4",
+        "count": 20,
+        "vmSize": "Standard_D3_v2",
+        "availabilityProfile": "AvailabilitySet"
+      },
+      {
+        "name": "pool5",
+        "count": 20,
+        "vmSize": "Standard_D3_v2",
+        "availabilityProfile": "AvailabilitySet"
       }
     ],
     "linuxProfile": {
@@ -23,14 +65,14 @@
       "ssh": {
         "publicKeys": [
           {
-            "keyData": "12345"
+            "keyData": "fafafs"
           }
         ]
       }
     },
     "servicePrincipalProfile": {
-      "clientId": "ldkfajlkfas",
-      "secret": "fafsf"
+      "clientId": "fafasf",
+      "secret": "fafasfasf"
     }
   }
 }

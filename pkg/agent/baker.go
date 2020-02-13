@@ -24,9 +24,7 @@ type Context struct {
 
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct {
-	Translator     *i18n.Translator
-	cloudInitFiles map[string]interface{}
-	parameters     paramsMap
+	Translator *i18n.Translator
 }
 
 // InitializeTemplateGenerator creates a new template generator object
@@ -38,8 +36,6 @@ func InitializeTemplateGenerator(ctx Context, cs *api.ContainerService) (*Templa
 	if t.Translator == nil {
 		t.Translator = &i18n.Translator{}
 	}
-
-	t.parameters = getParameters(cs, "baker", "1.0")
 	return t, nil
 }
 
@@ -55,7 +51,7 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(cs *api.ContainerService
 // { "customData": "[base64(concat(<customData string>))]" }
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	//get parameters
-	parameters := getParameters(cs, "", "")
+	parameters := getParameters(cs, "baker", "1.0")
 	//get variable cloudInit
 	variables := getCustomDataVariables(cs, "", "")
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
@@ -96,9 +92,9 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	if profile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(cs, profile))
+		return t.getWindowsNodeCustomDataJSONObject(cs, profile)
 	}
-	return getCustomDataFromJSON(t.getLinuxNodeCSECommand(cs, profile))
+	return t.getLinuxNodeCSECommand(cs, profile)
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
@@ -113,8 +109,8 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, pro
 	if e != nil {
 		panic(e)
 	}
-
-	return str
+	// we want all content to be run in one command
+	return strings.Replace(str, "\\n", " ", -1)
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template
@@ -139,7 +135,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	}
 
 	// use go templates to process the text filename
-	templ := template.New("customdata template").Funcs(funcMap)
+	templ := template.New("customdata template").Option("missingkey=zero").Funcs(funcMap)
 	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
 		return "", t.Translator.Errorf("error parsing file %s: %v", textFilename, err)
 	}
@@ -158,20 +154,45 @@ func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, params par
 	funcMap := getContainerServiceFuncMap(cs)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
-		return params[s]
+		if v, ok := params[s].(paramsMap); ok && v != nil {
+			if v["value"] == nil {
+				// return empty string so we don't get <no value> from go template
+				return ""
+			}
+			return v["value"]
+		}
+		return ""
 	}
 
 	//TODO: GetParameterPropertyLower
 	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
-		return params[s].(map[string]interface{})[p]
+		if v, ok := params[s].(paramsMap); ok && v != nil {
+			if v["value"].(paramsMap)[p] == nil {
+				// return empty string so we don't get <no value> from go template
+				return ""
+			}
+			return v["value"].(paramsMap)[p]
+		}
+		return ""
 	}
 
 	funcMap["GetVariable"] = func(s string) interface{} {
+		if variables[s] == nil {
+			// return empty string so we don't get <no value> from go template
+			return ""
+		}
 		return variables[s]
 	}
 
 	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
-		return variables[v].(map[string]interface{})[p]
+		if v, ok := variables[v].(paramsMap); ok && v != nil {
+			if v[p] == nil {
+				// return empty string so we don't get <no value> from go template
+				return ""
+			}
+			return v[p]
+		}
+		return ""
 	}
 
 	return funcMap
@@ -293,28 +314,12 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		"GetWindowsMasterSubnetARMParam": func() string {
 			return getWindowsMasterSubnetARMParam(cs.Properties.MasterProfile)
 		},
-		"GetKubernetesMasterPreprovisionYaml": func() string {
-			str := ""
-			if cs.Properties.MasterProfile.PreprovisionExtension != nil {
-				str += "\n"
-				str += makeMasterExtensionScriptCommands(cs)
-			}
-			return str
-		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *api.AgentPoolProfile) string {
 			str := ""
 			if profile.PreprovisionExtension != nil {
 				str += "\n"
 				str += makeAgentExtensionScriptCommands(cs, profile)
 			}
-			return str
-		},
-		"GetSwarmAgentPreprovisionExtensionCommands": func(profile *api.AgentPoolProfile) string {
-			str := ""
-			if profile.PreprovisionExtension != nil {
-				makeAgentExtensionScriptCommands(cs, profile)
-			}
-			str = escapeSingleLine(str)
 			return str
 		},
 		"GetLocation": func() string {

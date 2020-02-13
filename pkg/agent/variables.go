@@ -14,7 +14,7 @@ import (
 
 func getCustomDataVariables(cs *api.ContainerService, generatorCode string, aksEngineVersion string) paramsMap {
 	return map[string]interface{}{
-		"cloudInitData": map[string]interface{}{
+		"cloudInitData": paramsMap{
 			"provisionScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs),
 			"provisionSource":           getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, cs),
 			"provisionInstalls":         getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, cs),
@@ -36,7 +36,7 @@ func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 		"resourceGroup":                getResourceGroupName(),
 		"location":                     getLocation(),
 		"vmType":                       getVMType(cs),
-		"agentNamePrefix":              fmt.Sprintf("%s-agentpool-%s-", params["orchestratorName"], params["nameSuffix"]),
+		"agentNamePrefix":              fmt.Sprintf("%s-agentpool-%s-", params["orchestratorName"].(paramsMap)["value"], params["nameSuffix"].(paramsMap)["value"]),
 		"primaryAvailabilitySetName":   getPrimaryAvailabilitySetName(cs, params),
 		"primaryScaleSetName":          cs.Properties.GetPrimaryScaleSetName(),
 		"useManagedIdentityExtension":  useManagedIdentity(cs),
@@ -59,12 +59,12 @@ func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 	virtualNetworkName := ""
 	virtualNetworkResourceGroupName := ""
 	if cs.Properties.AreAgentProfilesCustomVNET() {
-		vnetSubnetID = params[fmt.Sprintf("%sVnetSubnetID", profile.Name)].(string)
+		vnetSubnetID = params[fmt.Sprintf("%sVnetSubnetID", profile.Name)].(paramsMap)["value"].(string)
 		subnetName = strings.Split(vnetSubnetID, "/")[10]
 		virtualNetworkName = strings.Split(vnetSubnetID, "/")[8]
 		virtualNetworkResourceGroupName = strings.Split(vnetSubnetID, "/")[4]
 	} else {
-		virtualNetworkName = fmt.Sprintf("%s-vnet-%s", params["orchestratorName"], params["nameSuffix"])
+		virtualNetworkName = fmt.Sprintf("%s-vnet-%s", params["orchestratorName"].(paramsMap)["value"], params["nameSuffix"].(paramsMap)["value"])
 		vnetID = getResourceID("Microsoft.Network/virtualNetworks", virtualNetworkName)
 		subnetName = fmt.Sprintf("%s-subnet", params["orchestratorName"].(paramsMap)["value"])
 		vnetSubnetID = getSubResourceID(vnetID, "subnets", subnetName)
@@ -97,16 +97,15 @@ func getResourceGroupName() string {
 func getVMType(cs *api.ContainerService) string {
 	if cs.Properties.AnyAgentUsesVirtualMachineScaleSets() {
 		return "vmss"
-	} else {
-		return "standard"
 	}
+	return "standard"
 }
 
 func getPrimaryAvailabilitySetName(cs *api.ContainerService, params paramsMap) string {
 	if cs.Properties.AnyAgentUsesVirtualMachineScaleSets() || len(cs.Properties.AgentPoolProfiles) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%s-availabilitySet-%s", cs.Properties.AgentPoolProfiles[0].Name, params["nameSuffix"])
+	return fmt.Sprintf("%s-availabilitySet-%s", cs.Properties.AgentPoolProfiles[0].Name, params["nameSuffix"].(paramsMap)["value"])
 }
 
 func useManagedIdentity(cs *api.ContainerService) string {

@@ -108,15 +108,6 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
 }
 
-func makeMasterExtensionScriptCommands(cs *api.ContainerService) string {
-	curlCaCertOpt := ""
-	if cs.Properties.IsAzureStackCloud() {
-		curlCaCertOpt = fmt.Sprintf("--cacert %s", AzureStackCaCertLocation)
-	}
-	return makeExtensionScriptCommands(cs.Properties.MasterProfile.PreprovisionExtension,
-		curlCaCertOpt, cs.Properties.ExtensionProfiles)
-}
-
 func makeAgentExtensionScriptCommands(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	if profile.OSType == api.Windows {
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
@@ -370,7 +361,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, cs *api.ContainerSer
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters
-	templ := template.New("ContainerService template").Funcs(getContainerServiceFuncMap(cs))
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(cs))
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug

@@ -238,9 +238,7 @@ func (gc *generateCmd) run() error {
 	}
 	gc.containerService.Properties.MasterProfile.VnetCidr = "vnetcidr"
 	gc.containerService.Properties.MasterProfile.VnetSubnetID = "VnetSubnetID"
-	fmt.Println("+++++++++++++++++++++++++++++++++++++")
 	fmt.Printf("Cs%++v", gc.containerService.Properties.MasterProfile)
-	fmt.Println("+++++++++++++++++++++++++++++++++++++")
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
 	customDataStr := templateGenerator.GetNodeBootstrappingPayload(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])

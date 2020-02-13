@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+//"copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
 package agent
@@ -35,7 +35,7 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 		}
 	}
 
-	addValue(parametersMap, "fqdnEndpointSuffix", cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix)
+	addValue(parametersMap, "nameSuffix", cs.Properties.GetClusterID())
 	addValue(parametersMap, "targetEnvironment", GetCloudTargetEnv(cs.Location))
 	linuxProfile := properties.LinuxProfile
 	if linuxProfile != nil {
@@ -178,7 +178,6 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 	orchestratorProfile := properties.OrchestratorProfile
 
 	if orchestratorProfile.IsKubernetes() {
-
 		k8sVersion := orchestratorProfile.OrchestratorVersion
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
@@ -188,11 +187,8 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 		mcrKubernetesImageBase := kubernetesConfig.MCRKubernetesImageBase
 		hyperkubeImageBase := kubernetesConfig.KubernetesImageBase
 
-		if properties.IsAzureStackCloud() {
-			kubernetesImageBase = cloudSpecConfig.KubernetesSpecConfig.KubernetesImageBase
-		}
-
 		if kubernetesConfig != nil {
+
 			kubeProxySpec := kubernetesImageBase + k8sComponents["kube-proxy"]
 			if kubernetesConfig.CustomKubeProxyImage != "" {
 				kubeProxySpec = kubernetesConfig.CustomKubeProxyImage
@@ -225,19 +221,19 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 				addValue(parametersMap, "kubernetesACIConnectorEnabled", false)
 			}
 			addValue(parametersMap, "kubernetesPodInfraContainerSpec", mcrKubernetesImageBase+k8sComponents["pause"])
-			addValue(parametersMap, "cloudproviderConfig", api.CloudProviderConfig{
-				CloudProviderBackoffMode:          kubernetesConfig.CloudProviderBackoffMode,
-				CloudProviderBackoff:              kubernetesConfig.CloudProviderBackoff,
-				CloudProviderBackoffRetries:       kubernetesConfig.CloudProviderBackoffRetries,
-				CloudProviderBackoffJitter:        strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffJitter, 'f', -1, 64),
-				CloudProviderBackoffDuration:      kubernetesConfig.CloudProviderBackoffDuration,
-				CloudProviderBackoffExponent:      strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffExponent, 'f', -1, 64),
-				CloudProviderRateLimit:            kubernetesConfig.CloudProviderRateLimit,
-				CloudProviderRateLimitQPS:         strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPS, 'f', -1, 64),
-				CloudProviderRateLimitQPSWrite:    strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPSWrite, 'f', -1, 64),
-				CloudProviderRateLimitBucket:      kubernetesConfig.CloudProviderRateLimitBucket,
-				CloudProviderRateLimitBucketWrite: kubernetesConfig.CloudProviderRateLimitBucketWrite,
-				CloudProviderDisableOutboundSNAT:  kubernetesConfig.CloudProviderDisableOutboundSNAT,
+			addValue(parametersMap, "cloudproviderConfig", paramsMap{
+				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
+				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
+				"cloudProviderBackoffRetries":       kubernetesConfig.CloudProviderBackoffRetries,
+				"cloudProviderBackoffJitter":        strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffJitter, 'f', -1, 64),
+				"cloudProviderBackoffDuration":      kubernetesConfig.CloudProviderBackoffDuration,
+				"cloudProviderBackoffExponent":      strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffExponent, 'f', -1, 64),
+				"cloudProviderRateLimit":            kubernetesConfig.CloudProviderRateLimit,
+				"cloudProviderRateLimitQPS":         strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPS, 'f', -1, 64),
+				"cloudProviderRateLimitQPSWrite":    strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPSWrite, 'f', -1, 64),
+				"cloudProviderRateLimitBucket":      kubernetesConfig.CloudProviderRateLimitBucket,
+				"cloudProviderRateLimitBucketWrite": kubernetesConfig.CloudProviderRateLimitBucketWrite,
+				"cloudProviderDisableOutboundSNAT":  kubernetesConfig.CloudProviderDisableOutboundSNAT,
 			})
 			addValue(parametersMap, "kubeClusterCidr", kubernetesConfig.ClusterSubnet)
 			addValue(parametersMap, "dockerBridgeCidr", kubernetesConfig.DockerBridgeSubnet)
