@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func getCustomDataVariables(cs *api.ContainerService, generatorCode string, aksEngineVersion string) paramsMap {
+func getCustomDataVariables(cs *api.ContainerService, generatorCode string, agentBakerVersion string) paramsMap {
 	return map[string]interface{}{
 		"cloudInitData": paramsMap{
 			"provisionScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs),
@@ -28,7 +28,7 @@ func getCustomDataVariables(cs *api.ContainerService, generatorCode string, aksE
 	}
 }
 
-func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile, params paramsMap, userAssignedIdentityID, generatorCode string, aksEngineVersion string) paramsMap {
+func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile, params paramsMap, userAssignedIdentityID, generatorCode string, agentBakerVersion string) paramsMap {
 	variables := map[string]interface{}{
 		"outBoundCmd":                  getOutBoundCmd(cs),
 		"tenantID":                     getTenantID(),

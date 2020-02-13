@@ -17,10 +17,7 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 	parametersMap := paramsMap{}
 	cloudSpecConfig := cs.GetCloudSpecConfig()
 
-	// aksengine Parameters
 	addValue(parametersMap, "bakerVersion", bakerVersion)
-
-	// Master Parameters
 	addValue(parametersMap, "location", location)
 
 	// Identify Master distro

@@ -28,7 +28,7 @@ const (
 	// NetworkPluginFlannel is the string expression for flannel network plugin
 	NetworkPluginFlannel = "flannel"
 	// DefaultGeneratorCode specifies the source generator of the cluster template.
-	DefaultGeneratorCode = "aksengine"
+	DefaultGeneratorCode = "agentbaker"
 	// DefaultKubernetesKubeletMaxPods is the max pods per kubelet
 	DefaultKubernetesKubeletMaxPods = 110
 	// DefaultMasterEtcdServerPort is the default etcd server port for Kubernetes master nodes
