@@ -5,6 +5,8 @@ go 1.12
 require (
 	github.com/Azure/aks-engine v0.45.1-0.20200114013209-f92c424b076c
 	github.com/Azure/go-autorest/autorest v0.9.2
+	github.com/Azure/go-autorest/autorest/to v0.3.0
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/leonelquinteros/gotext v1.4.0
 	github.com/mattn/go-colorable v0.0.9
