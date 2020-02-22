@@ -1,4 +1,4 @@
-module github.com/xuto2/agentbaker
+module github.com/Azure/agentbaker
 
 go 1.12
 

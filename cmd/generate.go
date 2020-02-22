@@ -227,10 +227,7 @@ func (gc *generateCmd) run() error {
 		return errors.Wrapf(err, "in SetPropertiesDefaults template %s", gc.apimodelPath)
 	}
 
-	templateGenerator, err := agent.InitializeTemplateGenerator(ctx, gc.containerService)
-	if err != nil {
-		return errors.Wrap(err, "initializing template generator")
-	}
+	templateGenerator := agent.InitializeTemplateGenerator()
 
 	//extra parameters
 	gc.containerService.Properties.HostedMasterProfile = &api.HostedMasterProfile{

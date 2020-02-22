@@ -28,15 +28,12 @@ type TemplateGenerator struct {
 }
 
 // InitializeTemplateGenerator creates a new template generator object
-func InitializeTemplateGenerator(ctx Context, cs *api.ContainerService) (*TemplateGenerator, error) {
+func InitializeTemplateGenerator() *TemplateGenerator {
 	t := &TemplateGenerator{
-		Translator: ctx.Translator,
+		Translator: &i18n.Translator{},
 	}
 
-	if t.Translator == nil {
-		t.Translator = &i18n.Translator{}
-	}
-	return t, nil
+	return t
 }
 
 // GetNodeBootstrappingPayload get node bootstrapping data
