@@ -212,12 +212,6 @@ func (gc *generateCmd) validateAPIModelAsVLabs() error {
 func (gc *generateCmd) run() error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
 
-	ctx := agent.Context{
-		Translator: &i18n.Translator{
-			Locale: gc.locale,
-		},
-	}
-
 	certsGenerated, err := gc.containerService.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,

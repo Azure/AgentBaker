@@ -81,7 +81,10 @@ validate-shell:
 generate: bootstrap
 	@echo $(GOFLAGS)
 	@echo "$$(go-bindata --version)"
-	go generate $(GOFLAGS) -v ./... > /dev/null 2>&1
+	(pushd parts && \
+	../hack/tools/bin/go-bindata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
+	popd \
+	)
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
