@@ -39,14 +39,14 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 // GetNodeBootstrappingPayload get node bootstrapping data
 func (t *TemplateGenerator) GetNodeBootstrappingPayload(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	if profile.IsWindows() {
-		return t.getWindowsNodeCustomDataStr(cs, profile)
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(cs, profile))
 	}
-	return t.getLinuxNodeCustomDataStr(cs, profile)
+	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(cs, profile))
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getLinuxNodeCustomDataStr(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	//get parameters
 	parameters := getParameters(cs, "baker", "1.0")
 	//get variable cloudInit
@@ -58,12 +58,12 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataStr(cs *api.ContainerService, 
 		panic(e)
 	}
 
-	return fmt.Sprintf("[base64(concat('%s'))]", str)
+	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataStr(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	//get parameters
 	parameters := getParameters(cs, "", "")
 	//get variable cloudInit
@@ -83,13 +83,13 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataStr(cs *api.ContainerService
 
 	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
 
-	return fmt.Sprintf("[base64(concat('%s'))]", str)
+	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	if profile.IsWindows() {
-		return t.getWindowsNodeCustomDataStr(cs, profile)
+		return t.getWindowsNodeCustomDataJSONObject(cs, profile)
 	}
 	return t.getLinuxNodeCSECommand(cs, profile)
 }

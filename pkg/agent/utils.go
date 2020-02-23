@@ -801,3 +801,12 @@ func IsKubernetesVersionGe(actualVersion, version string) bool {
 	v2, _ := semver.Make(version)
 	return v1.GE(v2)
 }
+
+func getCustomDataFromJSON(jsonStr string) string {
+	var customDataObj map[string]string
+	err := json.Unmarshal([]byte(jsonStr), &customDataObj)
+	if err != nil {
+		panic(err)
+	}
+	return customDataObj["customData"]
+}
