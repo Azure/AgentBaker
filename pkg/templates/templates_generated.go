@@ -72,7 +72,7 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`set +x
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`set +x;
 echo $(date),$(hostname);
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
@@ -142,7 +142,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3679, mode: os.FileMode(420), modTime: time.Unix(1582425767, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3680, mode: os.FileMode(420), modTime: time.Unix(1582426628, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
