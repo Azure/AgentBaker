@@ -129,8 +129,7 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"
-`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -142,7 +141,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3680, mode: os.FileMode(420), modTime: time.Unix(1582426628, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3679, mode: os.FileMode(420), modTime: time.Unix(1582569038, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
