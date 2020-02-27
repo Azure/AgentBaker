@@ -14534,7 +14534,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    {{GetVariable "provisionSource"}}
+    {{CloudInitData "provisionSource"}}
 
 - path: "/home/{{WrapAsParameter "jumpboxUsername"}}/.kube/config"
   permissions: "0644"
@@ -14576,28 +14576,28 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionSource"}}
+    {{CloudInitData "provisionSource"}}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionScript"}}
+    {{CloudInitData "provisionScript"}}
 
 - path: {{GetCSEInstallScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionInstalls"}}
+    {{CloudInitData "provisionInstalls"}}
 
 - path: {{GetCSEConfigScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionConfigs"}}
+    {{CloudInitData "provisionConfigs"}}
 
 {{if not .MasterProfile.IsVHDDistro}}
 - path: /opt/azure/containers/provision_cis.sh
@@ -14605,7 +14605,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionCIS"}}
+    {{CloudInitData "provisionCIS"}}
 {{end}}
 
 {{if not .MasterProfile.IsVHDDistro}}
@@ -14615,7 +14615,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "auditdRules"}}
+    {{CloudInitData "auditdRules"}}
   {{end}}
 {{end}}
 
@@ -14633,7 +14633,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kubeletSystemdService"}}
+    {{CloudInitData "kubeletSystemdService"}}
 
 {{if not .MasterProfile.IsVHDDistro}}
     {{if .MasterProfile.IsCoreOS}}
@@ -14645,56 +14645,56 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "healthMonitorScript"}}
+    {{CloudInitData "healthMonitorScript"}}
 
 - path: /etc/systemd/system/kubelet-monitor.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kubeletMonitorSystemdService"}}
+    {{CloudInitData "kubeletMonitorSystemdService"}}
 
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dockerMonitorSystemdTimer"}}
+    {{CloudInitData "dockerMonitorSystemdTimer"}}
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dockerMonitorSystemdService"}}
+    {{CloudInitData "dockerMonitorSystemdService"}}
 
 - path: /opt/azure/containers/label-nodes.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "labelNodesScript"}}
+    {{CloudInitData "labelNodesScript"}}
 
 - path: /etc/systemd/system/label-nodes.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "labelNodesSystemdService"}}
+    {{CloudInitData "labelNodesSystemdService"}}
 
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kmsSystemdService"}}
+    {{CloudInitData "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "aptPreferences"}}
+    {{CloudInitData "aptPreferences"}}
 {{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
@@ -14703,14 +14703,14 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6SystemdService"}}
+    {{CloudInitData "dhcpv6SystemdService"}}
 
 - path: {{GetDHCPv6ConfigCSEScriptFilepath}}
   permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6ConfigurationScript"}}
+    {{CloudInitData "dhcpv6ConfigurationScript"}}
 {{end}}
 
 {{if .OrchestratorProfile.KubernetesConfig.RequiresDocker}}
@@ -14721,7 +14721,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dockerClearMountPropagationFlags"}}
+    {{CloudInitData "dockerClearMountPropagationFlags"}}
          {{end}}
     {{end}}
 
@@ -14834,7 +14834,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "generateProxyCertsScript"}}
+    {{CloudInitData "generateProxyCertsScript"}}
 {{end}}
 
 {{if HasCustomSearchDomain}}
@@ -14843,7 +14843,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "customSearchDomainsScript"}}
+    {{CloudInitData "customSearchDomainsScript"}}
 {{end}}
 
 - path: /var/lib/kubelet/kubeconfig
@@ -14985,14 +14985,14 @@ MASTER_CONTAINER_ADDONS_PLACEHOLDER
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "mountEtcdScript"}}
+    {{CloudInitData "mountEtcdScript"}}
 {{ if not HasCosmosEtcd  }}
 - path: /etc/systemd/system/etcd.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "etcdSystemdService"}}
+    {{CloudInitData "etcdSystemdService"}}
 
 - path: /opt/azure/containers/setup-etcd.sh
   permissions: "0744"
@@ -15167,28 +15167,28 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionSource"}}
+    {{CloudInitData "provisionSource"}}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionScript"}}
+    {{CloudInitData "provisionScript"}}
 
 - path: {{GetCSEInstallScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionInstalls"}}
+    {{CloudInitData "provisionInstalls"}}
 
 - path: {{GetCSEConfigScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionConfigs"}}
+    {{CloudInitData "provisionConfigs"}}
 
 {{if not .IsVHDDistro}}
 - path: /opt/azure/containers/provision_cis.sh
@@ -15196,7 +15196,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "provisionCIS"}}
+    {{CloudInitData "provisionCIS"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -15206,7 +15206,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "auditdRules"}}
+    {{CloudInitData "auditdRules"}}
   {{end}}
 {{end}}
 
@@ -15224,7 +15224,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kubeletSystemdService"}}
+    {{CloudInitData "kubeletSystemdService"}}
 
 {{if not .IsVHDDistro}}
     {{if .IsCoreOS}}
@@ -15236,42 +15236,42 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "healthMonitorScript"}}
+    {{CloudInitData "healthMonitorScript"}}
 
 - path: /etc/systemd/system/kubelet-monitor.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kubeletMonitorSystemdService"}}
+    {{CloudInitData "kubeletMonitorSystemdService"}}
 
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dockerMonitorSystemdTimer"}}
+    {{CloudInitData "dockerMonitorSystemdTimer"}}
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dockerMonitorSystemdService"}}
+    {{CloudInitData "dockerMonitorSystemdService"}}
 
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "kmsSystemdService"}}
+    {{CloudInitData "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "aptPreferences"}}
+    {{CloudInitData "aptPreferences"}}
 {{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
@@ -15280,14 +15280,14 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6SystemdService"}}
+    {{CloudInitData "dhcpv6SystemdService"}}
 
 - path: {{GetDHCPv6ConfigCSEScriptFilepath}}
   permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "dhcpv6ConfigurationScript"}}
+    {{CloudInitData "dhcpv6ConfigurationScript"}}
 {{end}}
 
 {{if .KubernetesConfig.RequiresDocker}}
@@ -15298,7 +15298,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    {{GetVariable "dockerClearMountPropagationFlags"}}
+    {{CloudInitData "dockerClearMountPropagationFlags"}}
         {{end}}
     {{end}}
 
@@ -15435,7 +15435,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariable "customSearchDomainsScript"}}
+    {{CloudInitData "customSearchDomainsScript"}}
 {{end}}
 
 - path: /var/lib/kubelet/kubeconfig

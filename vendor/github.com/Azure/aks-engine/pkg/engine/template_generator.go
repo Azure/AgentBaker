@@ -526,7 +526,7 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		"WrapAsVariable": func(s string) string {
 			return common.WrapAsARMVariable(s)
 		},
-		"GetVariable": func(s string) string {
+		"CloudInitData": func(s string) string {
 			return wrapAsVariableObject("cloudInitFiles", s)
 		},
 		"WrapAsParameter": func(s string) string {
