@@ -87,19 +87,19 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
-func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile, userAssignedIdentityClientID string) string {
 	if profile.IsWindows() {
 		return t.getWindowsNodeCustomDataJSONObject(cs, profile)
 	}
-	return t.getLinuxNodeCSECommand(cs, profile)
+	return t.getLinuxNodeCSECommand(cs, profile, userAssignedIdentityClientID)
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
-func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, profile *api.AgentPoolProfile, userAssignedIdentityClientID string) string {
 	//get parameters
 	parameters := getParameters(cs, "", "")
 	//get variable
-	variables := getCSECommandVariables(cs, profile, parameters, "mockidentityidclientid", "", "")
+	variables := getCSECommandVariables(cs, profile, parameters, userAssignedIdentityClientID, "", "")
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(kubernetesCSECommandString,
 		profile, t.getBakerFuncMap(cs, parameters, variables))
