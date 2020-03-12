@@ -43,6 +43,8 @@ else
     REBOOTREQUIRED=false
 fi
 
+configureAdminUser
+
 {{- if not NeedsContainerd}}
 cleanUpContainerd
 {{end}}

@@ -49,30 +49,9 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 		// Agents only, use cluster DNS prefix
 		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
 	}
-	if properties.MasterProfile != nil {
-		if properties.MasterProfile.IsCustomVNET() {
-			addValue(parametersMap, "masterVnetSubnetID", properties.MasterProfile.VnetSubnetID)
-			if properties.MasterProfile.IsVirtualMachineScaleSets() {
-				addValue(parametersMap, "agentVnetSubnetID", properties.MasterProfile.AgentVnetSubnetID)
-			}
-			if properties.OrchestratorProfile.IsKubernetes() && properties.MasterProfile.VnetCidr != "" {
-				addValue(parametersMap, "vnetCidr", properties.MasterProfile.VnetCidr)
-			}
-		} else {
-			addValue(parametersMap, "masterSubnet", properties.MasterProfile.Subnet)
-			addValue(parametersMap, "agentSubnet", properties.MasterProfile.AgentSubnet)
-			if cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") {
-				addValue(parametersMap, "masterSubnetIPv6", properties.MasterProfile.SubnetIPv6)
-			}
-		}
-		addValue(parametersMap, "firstConsecutiveStaticIP", properties.MasterProfile.FirstConsecutiveStaticIP)
-		addValue(parametersMap, "masterVMSize", properties.MasterProfile.VMSize)
-		if properties.MasterProfile.HasAvailabilityZones() {
-			addValue(parametersMap, "availabilityZones", properties.MasterProfile.AvailabilityZones)
-		}
-	}
 	if properties.HostedMasterProfile != nil {
 		addValue(parametersMap, "masterSubnet", properties.HostedMasterProfile.Subnet)
+		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
 	}
 
 	if linuxProfile != nil {
