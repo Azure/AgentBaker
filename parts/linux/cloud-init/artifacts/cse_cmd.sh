@@ -1,4 +1,3 @@
-set +x;
 echo $(date),$(hostname);
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do

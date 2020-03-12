@@ -455,12 +455,6 @@ func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.Contain
 		"GetClusterAutoscalerNodesConfig": func() string {
 			return api.GetClusterAutoscalerNodesConfig(addon, cs)
 		},
-		"GetVMType": func() string {
-			if cs.Properties.AnyAgentUsesVirtualMachineScaleSets() {
-				return base64.StdEncoding.EncodeToString([]byte("vmss"))
-			}
-			return base64.StdEncoding.EncodeToString([]byte("standard"))
-		},
 		"GetVolumeMounts": func() string {
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity {
 				return fmt.Sprintf("\n        - mountPath: /var/lib/waagent/\n          name: waagent\n          readOnly: true")

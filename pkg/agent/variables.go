@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-func getCustomDataVariables(cs *api.ContainerService, generatorCode string, agentBakerVersion string) paramsMap {
+func getCustomDataVariables(cs *api.ContainerService) paramsMap {
 	return map[string]interface{}{
 		"cloudInitData": paramsMap{
 			"provisionScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs),
@@ -27,7 +27,7 @@ func getCustomDataVariables(cs *api.ContainerService, generatorCode string, agen
 }
 
 func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID, generatorCode, agentBakerVersion string) paramsMap {
+	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID string) paramsMap {
 	return map[string]interface{}{
 		"outBoundCmd":                     getOutBoundCmd(cs),
 		"tenantID":                        tenantID,

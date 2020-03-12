@@ -72,13 +72,13 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`set +x;
-echo $(date),$(hostname);
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+ADMINUSER={{GetParameter "linuxAdminUsername"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -141,7 +141,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3679, mode: os.FileMode(420), modTime: time.Unix(1582569038, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3719, mode: os.FileMode(420), modTime: time.Unix(1584001556, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -171,11 +171,9 @@ systemctlEnableAndStart() {
     fi
 }
 
-configureEtcdUser(){
-    useradd -U "etcd"
-    usermod -p "$(head -c 32 /dev/urandom | base64)" "etcd"
-    passwd -u "etcd"
-    id "etcd"
+configureAdminUser(){
+    chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
+    chage -l "${ADMINUSER}"
 }
 
 configureSecrets(){
@@ -365,11 +363,11 @@ configureCNI() {
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
-    if [[ "${NETWORK_PLUGIN}" = "cilium" ]]; then
-        systemctl enable sys-fs-bpf.mount
-        systemctl restart sys-fs-bpf.mount
-        REBOOTREQUIRED=true
-    fi
+    {{if HasCiliumNetworkPlugin}}
+    systemctl enable sys-fs-bpf.mount
+    systemctl restart sys-fs-bpf.mount
+    REBOOTREQUIRED=true
+    {{end}}
 {{- if IsAzureStackCloud}}
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         {{/* set environment to mas when using Azure CNI on Azure Stack */}}
@@ -450,6 +448,21 @@ ensureKubelet() {
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
+    {{if HasCiliumNetworkPolicy}}
+    while [ ! -f /etc/cni/net.d/05-cilium.conf ]; do
+        sleep 3
+    done
+    {{end}}
+    {{if HasAntreaNetworkPolicy}}
+    while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
+        sleep 3
+    done
+    {{end}}
+    {{if HasFlannelNetworkPlugin}}
+    while [ ! -f /etc/cni/net.d/10-flannel.conf ]; do
+        sleep 3
+    done
+    {{end}}
 }
 
 ensureLabelNodes() {
@@ -593,7 +606,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18835, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 19149, mode: os.FileMode(493), modTime: time.Unix(1583993830, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -878,7 +891,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 10984, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 10984, mode: os.FileMode(493), modTime: time.Unix(1583992027, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -892,6 +905,7 @@ CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
+APMZ_DOWNLOADS_DIR="/opt/apmz/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 
 removeEtcd() {
@@ -986,7 +1000,7 @@ installContainerRuntime() {
 }
 
 installMoby() {
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3)
+    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     if [[ "$CURRENT_VERSION" == "${MOBY_VERSION}" ]]; then
         echo "dockerd $MOBY_VERSION is already installed, skipping Moby download"
     else
@@ -1000,7 +1014,7 @@ installMoby() {
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
         fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION} moby-cli=${MOBY_CLI} --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
 }
 
@@ -1048,7 +1062,7 @@ downloadContainerd() {
 }
 
 installCNI() {
-    CNI_TGZ_TMP=$(echo ${CNI_PLUGINS_URL} | cut -d "/" -f 5)
+    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
         downloadCNI
     fi
@@ -1059,7 +1073,7 @@ installCNI() {
 }
 
 installAzureCNI() {
-    CNI_TGZ_TMP=$(echo ${VNET_CNI_PLUGINS_URL} | cut -d "/" -f 5)
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
         downloadAzureCNI
     fi
@@ -1122,28 +1136,13 @@ extractHyperkube() {
     fi
 }
 
-extractKubeBinaries() {
-    KUBE_BINARY_URL=${KUBE_BINARY_URL:-"https://dl.k8s.io/v${KUBERNETES_VERSION}/kubernetes-node-linux-amd64.tar.gz"}
-    # Split by "/" and get the last element
-    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
-    mkdir -p "${K8S_DOWNLOADS_DIR}"
-    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-    tar --transform="s|.*|&-${KUBERNETES_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-    rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
-}
-
 installKubeletAndKubectl() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        if version_gte ${KUBERNETES_VERSION} 1.17; then  # don't use hyperkube
-            extractKubeBinaries
+        if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
+            extractHyperkube "docker"
         else
-            if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-                extractHyperkube "docker"
-            else
-                installImg
-                extractHyperkube "img"
-            fi
+            installImg
+            extractHyperkube "img"
         fi
     fi
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
@@ -1159,10 +1158,8 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'hyperkube') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'cloud-controller-manager') &
-
-    docker rmi registry:2.7.1 &
+    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube') &
+    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager') &
 }
 
 cleanUpGPUDrivers() {
@@ -1196,7 +1193,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12973, mode: os.FileMode(493), modTime: time.Unix(1581317564, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12374, mode: os.FileMode(493), modTime: time.Unix(1583994932, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1245,6 +1242,8 @@ if [ -f /var/run/reboot-required ]; then
 else
     REBOOTREQUIRED=false
 fi
+
+configureAdminUser
 
 {{- if not NeedsContainerd}}
 cleanUpContainerd
@@ -1390,7 +1389,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 4555, mode: os.FileMode(493), modTime: time.Unix(1582366751, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 4575, mode: os.FileMode(493), modTime: time.Unix(1583999161, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1529,7 +1528,7 @@ set -x
 source {{GetCSEHelpersScriptFilepath}}
 
 echo "  dns-search {{GetSearchDomainName}}" | tee -a /etc/network/interfaces.d/50-cloud-init.cfg
-systemctl_restart 20 5 10 restart networking
+systemctl_restart 20 5 10 networking
 wait_for_apt_locks
 retrycmd_if_failure 10 5 120 apt-get -y install realmd sssd sssd-tools samba-common samba samba-common python2.7 samba-libs packagekit
 wait_for_apt_locks
@@ -1546,7 +1545,7 @@ func linuxCloudInitArtifactsSetupCustomSearchDomainsSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 561, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 553, mode: os.FileMode(493), modTime: time.Unix(1583991638, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1797,8 +1796,10 @@ write_files:
   owner: root
   content: |
     KUBELET_CONFIG={{GetKubeletConfigKeyVals .KubernetesConfig }}
-    KUBELET_IMAGE={{GetHyperkubeImageReference}}
     KUBELET_REGISTER_SCHEDULABLE=true
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+    KUBELET_IMAGE={{GetHyperkubeImageReference}}
+{{end}}
 {{if IsKubernetesVersionGe "1.16.0"}}
     KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
 {{else}}
@@ -1834,7 +1835,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 6409, mode: os.FileMode(420), modTime: time.Unix(1581486702, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 6463, mode: os.FileMode(420), modTime: time.Unix(1583998762, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
