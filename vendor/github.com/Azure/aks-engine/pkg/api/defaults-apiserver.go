@@ -94,9 +94,7 @@ func (cs *ContainerService) setAPIServerConfig() {
 	}
 
 	// Audit Policy configuration
-	if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.8.0") {
-		defaultAPIServerConfig["--audit-policy-file"] = "/etc/kubernetes/addons/audit-policy.yaml"
-	}
+	defaultAPIServerConfig["--audit-policy-file"] = "/etc/kubernetes/addons/audit-policy.yaml"
 
 	// RBAC configuration
 	if to.Bool(o.KubernetesConfig.EnableRbac) {
@@ -110,6 +108,12 @@ func (cs *ContainerService) setAPIServerConfig() {
 	// Set default admission controllers
 	admissionControlKey, admissionControlValues := getDefaultAdmissionControls(cs)
 	defaultAPIServerConfig[admissionControlKey] = admissionControlValues
+
+	// Enable VolumeSnapshotDataSource feature gate for Azure Disk CSI Driver
+	// which is disabled from 1.13 to 1.16 by default
+	if !common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.17.0") {
+		addDefaultFeatureGates(defaultAPIServerConfig, o.OrchestratorVersion, "1.13.0", "VolumeSnapshotDataSource=true")
+	}
 
 	// If no user-configurable apiserver config values exists, use the defaults
 	if o.KubernetesConfig.APIServerConfig == nil {
@@ -166,7 +170,7 @@ func getDefaultAdmissionControls(cs *ContainerService) (string, string) {
 	admissionControlValues := "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,ValidatingAdmissionWebhook,ResourceQuota,ExtendedResourceToleration"
 
 	// Pod Security Policy configuration
-	if to.Bool(o.KubernetesConfig.EnablePodSecurityPolicy) {
+	if o.KubernetesConfig.IsAddonEnabled(common.PodSecurityPolicyAddonName) {
 		admissionControlValues += ",PodSecurityPolicy"
 	}
 

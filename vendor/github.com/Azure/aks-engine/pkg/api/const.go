@@ -47,7 +47,7 @@ const (
 	// DockerCEDockerComposeVersion is the Docker Compose version
 	DockerCEDockerComposeVersion = "1.14.0"
 	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
-	KubernetesWindowsDockerVersion = "19.03.2"
+	KubernetesWindowsDockerVersion = "19.03.5"
 	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
 	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
 )
@@ -234,6 +234,22 @@ const (
 	AddonModeEnsureExists = "EnsureExists"
 	// AddonModeReconcile
 	AddonModeReconcile = "Reconcile"
+	// VMSSVMType is the string const for the vmss VM Type
+	VMSSVMType = "vmss"
+	// StandardVMType is the string const for the standard VM Type
+	StandardVMType = "standard"
+)
+
+// Azure API Versions
+const (
+	APIVersionAuthorizationUser   = "2018-09-01-preview"
+	APIVersionAuthorizationSystem = "2018-01-01-preview"
+	APIVersionCompute             = "2019-07-01"
+	APIVersionDeployments         = "2018-06-01"
+	APIVersionKeyVault            = "2018-02-14"
+	APIVersionManagedIdentity     = "2015-08-31-preview"
+	APIVersionNetwork             = "2018-08-01"
+	APIVersionStorage             = "2018-07-01"
 )
 
 // AzureStackCloud Specific Defaults
@@ -249,6 +265,8 @@ const (
 
 	// MaxAzureStackManagedDiskSize = size for Kubernetes master etcd disk volumes in GB if > 10 nodes as this is max what Azure Stack supports today.
 	MaxAzureStackManagedDiskSize = "1023"
+	// AzureStackSuffix is appended to kubernetes version on Azure Stack instances
+	AzureStackSuffix = "-azs"
 )
 
 const (
@@ -299,15 +317,16 @@ const (
 const (
 	// AzureCniPluginVerLinux specifies version of Azure CNI plugin, which has been mirrored from
 	// https://github.com/Azure/azure-container-networking/releases/download/${AZURE_PLUGIN_VER}/azure-vnet-cni-linux-amd64-${AZURE_PLUGIN_VER}.tgz
-	// to https://acs-mirror.azureedge.net/cni
-	AzureCniPluginVerLinux = "v1.0.29"
+	// to https://kubernetesartifacts.azureedge.net/azure-cni
+	// AKS needs 1.0.33 for node local dns cache support
+	AzureCniPluginVerLinux = "v1.0.33"
 	// AzureCniPluginVerWindows specifies version of Azure CNI plugin, which has been mirrored from
 	// https://github.com/Azure/azure-container-networking/releases/download/${AZURE_PLUGIN_VER}/azure-vnet-cni-windows-amd64-${AZURE_PLUGIN_VER}.zip
-	// to https://acs-mirror.azureedge.net/cni
-	AzureCniPluginVerWindows = "v1.0.29"
+	// to https://kubernetesartifacts.azureedge.net/azure-cni
+	AzureCniPluginVerWindows = "v1.0.30"
 	// CNIPluginVer specifies the version of CNI implementation
 	// https://github.com/containernetworking/plugins
-	CNIPluginVer = "v0.7.5"
+	CNIPluginVer = "v0.7.6"
 )
 
 const (
@@ -357,6 +376,10 @@ const (
 	NetworkPluginCilium = NetworkPolicyCilium
 	// NetworkPluginFlannel is the string expression for flannel network policy config option
 	NetworkPluginFlannel = "flannel"
+	// NetworkPluginAntrea is the string expression for antrea network plugin config option
+	NetworkPluginAntrea = "antrea"
+	// NetworkPolicyAntrea is the string expression for antrea network policy config option
+	NetworkPolicyAntrea = NetworkPluginAntrea
 	// DefaultNetworkPlugin defines the network plugin to use by default
 	DefaultNetworkPlugin = NetworkPluginKubenet
 	// DefaultNetworkPolicy defines the network policy implementation to use by default
@@ -390,7 +413,7 @@ const (
 	//DefaultKubernetesGCLowThreshold specifies the value for the image-gc-low-threshold kubelet flag
 	DefaultKubernetesGCLowThreshold = 80
 	// DefaultEtcdVersion specifies the default etcd version to install
-	DefaultEtcdVersion = "3.3.15"
+	DefaultEtcdVersion = "3.3.18"
 	// DefaultEtcdDiskSize specifies the default size for Kubernetes master etcd disk volumes in GB
 	DefaultEtcdDiskSize = "256"
 	// DefaultEtcdDiskSizeGT3Nodes = size for Kubernetes master etcd disk volumes in GB if > 3 nodes
@@ -422,7 +445,7 @@ const (
 	// DefaultKubernetesDNSServiceIP specifies the IP address that kube-dns listens on by default. must by in the default Service CIDR range.
 	DefaultKubernetesDNSServiceIP = "10.0.0.10"
 	// DefaultMobyVersion specifies the default Azure build version of Moby to install.
-	DefaultMobyVersion = "3.0.8"
+	DefaultMobyVersion = "3.0.10"
 	// DefaultContainerdVersion specifies the default containerd version to install.
 	DefaultContainerdVersion = "1.1.5"
 	// DefaultDockerBridgeSubnet specifies the default subnet for the docker bridge network for masters and agents.

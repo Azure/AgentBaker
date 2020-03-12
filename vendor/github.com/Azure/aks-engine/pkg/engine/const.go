@@ -32,6 +32,10 @@ const (
 	NetworkPolicyCilium = "cilium"
 	// NetworkPluginCilium is the string expression for cilium network plugin config option
 	NetworkPluginCilium = NetworkPolicyCilium
+	// NetworkPolicyAntrea is the string expression for antrea network policy config option
+	NetworkPolicyAntrea = "antrea"
+	// NetworkPluginAntrea is the string expression for antrea network plugin config option
+	NetworkPluginAntrea = NetworkPolicyAntrea
 	// NetworkPolicyAzure is the string expression for Azure CNI network policy manager
 	NetworkPolicyAzure = "azure"
 	// NetworkPluginAzure is the string expression for Azure CNI plugin
@@ -89,6 +93,7 @@ const (
 	kubernetesWindowsCniFunctionsPS1      = "k8s/windowscnifunc.ps1"
 	kubernetesWindowsAzureCniFunctionsPS1 = "k8s/windowsazurecnifunc.ps1"
 	kubernetesWindowsOpenSSHFunctionPS1   = "k8s/windowsinstallopensshfunc.ps1"
+	kubernetesWindowsLogsCleanupPS1       = "k8s/windowslogscleanup.ps1"
 )
 
 // cloud-init (i.e. ARM customData) source file references
@@ -256,4 +261,20 @@ const (
 	corednsAddonDestinationFilename                string = "coredns.yaml"
 	kubeProxyAddonSourceFilename                   string = "kubernetesmasteraddons-kube-proxy-daemonset.yaml"
 	kubeProxyAddonDestinationFilename              string = "kube-proxy-daemonset.yaml"
+	podSecurityPolicyAddonSourceFilename           string = "kubernetesmasteraddons-pod-security-policy.yaml"
+	podSecurityPolicyAddonDestinationFilename      string = "pod-security-policy.yaml"
+	aadDefaultAdminGroupAddonSourceFilename        string = "kubernetesmasteraddons-aad-default-admin-group-rbac.yaml"
+	aadDefaultAdminGroupDestinationFilename        string = "aad-default-admin-group-rbac.yaml"
+	ciliumAddonSourceFilename                      string = "kubernetesmasteraddons-cilium-daemonset.yaml"
+	ciliumAddonDestinationFilename                 string = "cilium-daemonset.yaml"
+	antreaAddonSourceFilename                      string = "antrea.yaml"
+	antreaAddonDestinationFilename                 string = "antrea.yaml"
+	auditPolicyAddonSourceFilename                 string = "kubernetesmaster-audit-policy.yaml"
+	auditPolicyAddonDestinationFilename            string = "audit-policy.yaml"
+	cloudProviderAddonSourceFilename               string = "kubernetesmasteraddons-azure-cloud-provider-deployment.yaml"
+	cloudProviderAddonDestinationFilename          string = "azure-cloud-provider-deployment.yaml"
+	flannelAddonSourceFilename                     string = "kubernetesmasteraddons-flannel-daemonset.yaml"
+	flannelAddonDestinationFilename                string = "flannel-daemonset.yaml"
+	scheduledMaintenanceAddonSourceFilename        string = "kubernetesmasteraddons-scheduled-maintenance-deployment.yaml"
+	scheduledMaintenanceAddonDestinationFilename   string = "scheduled-maintenance-deployment.yaml"
 )

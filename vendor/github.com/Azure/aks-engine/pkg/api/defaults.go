@@ -118,6 +118,8 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		case NetworkPolicyCilium:
 			o.KubernetesConfig.NetworkPlugin = NetworkPluginCilium
+		case NetworkPolicyAntrea:
+			o.KubernetesConfig.NetworkPlugin = NetworkPluginAntrea
 		}
 
 		if o.KubernetesConfig.KubernetesImageBase == "" {
@@ -147,7 +149,11 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		} else {
 			if o.KubernetesConfig.NetworkPlugin == "" {
-				o.KubernetesConfig.NetworkPlugin = DefaultNetworkPlugin
+				if o.KubernetesConfig.IsAddonEnabled(common.FlannelAddonName) {
+					o.KubernetesConfig.NetworkPlugin = NetworkPluginFlannel
+				} else {
+					o.KubernetesConfig.NetworkPlugin = DefaultNetworkPlugin
+				}
 			}
 		}
 		if o.KubernetesConfig.ContainerRuntime == "" {
@@ -343,10 +349,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 
 		if a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == StandardLoadBalancerSku && a.OrchestratorProfile.KubernetesConfig.ExcludeMasterFromStandardLB == nil {
 			a.OrchestratorProfile.KubernetesConfig.ExcludeMasterFromStandardLB = to.BoolPtr(DefaultExcludeMasterFromStandardLB)
-		}
-
-		if common.IsKubernetesVersionGe(a.OrchestratorProfile.OrchestratorVersion, "1.15.0-beta.1") {
-			a.OrchestratorProfile.KubernetesConfig.EnablePodSecurityPolicy = to.BoolPtr(true)
 		}
 
 		if a.OrchestratorProfile.IsAzureCNI() {
@@ -614,6 +616,9 @@ func (p *Properties) setMasterProfileDefaults(isUpgrade bool) {
 	if p.IsAzureStackCloud() && p.MasterProfile.PlatformFaultDomainCount == nil {
 		p.MasterProfile.PlatformFaultDomainCount = to.IntPtr(DefaultAzureStackFaultDomainCount)
 	}
+	if p.MasterProfile.PlatformUpdateDomainCount == nil {
+		p.MasterProfile.PlatformUpdateDomainCount = to.IntPtr(3)
+	}
 }
 
 func (p *Properties) setAgentProfileDefaults(isUpgrade, isScale bool) {
@@ -649,6 +654,9 @@ func (p *Properties) setAgentProfileDefaults(isUpgrade, isScale bool) {
 		// Update default fault domain value for Azure Stack
 		if p.IsAzureStackCloud() && profile.PlatformFaultDomainCount == nil {
 			profile.PlatformFaultDomainCount = to.IntPtr(DefaultAzureStackFaultDomainCount)
+		}
+		if profile.PlatformUpdateDomainCount == nil {
+			profile.PlatformUpdateDomainCount = to.IntPtr(3)
 		}
 
 		// Accelerated Networking is supported on most general purpose and compute-optimized instance sizes with 2 or more vCPUs.

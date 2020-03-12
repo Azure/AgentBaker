@@ -365,7 +365,11 @@ func setVlabsKubernetesDefaults(vp *vlabs.Properties, api *OrchestratorProfile) 
 		if vp.HasWindows() {
 			api.KubernetesConfig.NetworkPlugin = vlabs.DefaultNetworkPluginWindows
 		} else {
-			api.KubernetesConfig.NetworkPlugin = vlabs.DefaultNetworkPlugin
+			if vp.OrchestratorProfile.KubernetesConfig.IsAddonEnabled(common.FlannelAddonName) {
+				api.KubernetesConfig.NetworkPlugin = NetworkPluginFlannel
+			} else {
+				api.KubernetesConfig.NetworkPlugin = vlabs.DefaultNetworkPlugin
+			}
 		}
 	}
 }
@@ -537,6 +541,7 @@ func convertVLabsMasterProfile(vlabs *vlabs.MasterProfile, api *MasterProfile) {
 	api.AgentSubnet = vlabs.AgentSubnet
 	api.AvailabilityZones = vlabs.AvailabilityZones
 	api.PlatformFaultDomainCount = vlabs.PlatformFaultDomainCount
+	api.PlatformUpdateDomainCount = vlabs.PlatformUpdateDomainCount
 	api.SinglePlacementGroup = vlabs.SinglePlacementGroup
 	api.CosmosEtcd = vlabs.CosmosEtcd
 	api.AuditDEnabled = vlabs.AuditDEnabled
@@ -569,6 +574,7 @@ func convertVLabsAgentPoolProfile(vlabs *vlabs.AgentPoolProfile, api *AgentPoolP
 	api.VMSSOverProvisioningEnabled = vlabs.VMSSOverProvisioningEnabled
 	api.AvailabilityZones = vlabs.AvailabilityZones
 	api.PlatformFaultDomainCount = vlabs.PlatformFaultDomainCount
+	api.PlatformUpdateDomainCount = vlabs.PlatformUpdateDomainCount
 	api.SinglePlacementGroup = vlabs.SinglePlacementGroup
 	api.EnableVMSSNodePublicIP = vlabs.EnableVMSSNodePublicIP
 	api.LoadBalancerBackendAddressPoolIDs = vlabs.LoadBalancerBackendAddressPoolIDs

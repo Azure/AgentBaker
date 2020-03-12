@@ -255,6 +255,14 @@ type KubernetesAddon struct {
 	Data       string                    `json:"data,omitempty"`
 }
 
+// IsEnabled returns true if the addon is enabled
+func (a *KubernetesAddon) IsEnabled() bool {
+	if a.Enabled == nil {
+		return false
+	}
+	return *a.Enabled
+}
+
 // PrivateCluster defines the configuration for a private cluster
 type PrivateCluster struct {
 	Enabled        *bool                  `json:"enabled,omitempty"`
@@ -385,32 +393,33 @@ type DcosConfig struct {
 
 // MasterProfile represents the definition of the master cluster
 type MasterProfile struct {
-	Count                    int               `json:"count" validate:"required,eq=1|eq=3|eq=5"`
-	DNSPrefix                string            `json:"dnsPrefix" validate:"required"`
-	SubjectAltNames          []string          `json:"subjectAltNames"`
-	VMSize                   string            `json:"vmSize" validate:"required"`
-	OSDiskSizeGB             int               `json:"osDiskSizeGB,omitempty" validate:"min=0,max=1023"`
-	VnetSubnetID             string            `json:"vnetSubnetID,omitempty"`
-	VnetCidr                 string            `json:"vnetCidr,omitempty"`
-	AgentVnetSubnetID        string            `json:"agentVnetSubnetID,omitempty"`
-	FirstConsecutiveStaticIP string            `json:"firstConsecutiveStaticIP,omitempty"`
-	IPAddressCount           int               `json:"ipAddressCount,omitempty" validate:"min=0,max=256"`
-	StorageProfile           string            `json:"storageProfile,omitempty" validate:"eq=StorageAccount|eq=ManagedDisks|len=0"`
-	HTTPSourceAddressPrefix  string            `json:"HTTPSourceAddressPrefix,omitempty"`
-	OAuthEnabled             bool              `json:"oauthEnabled"`
-	PreProvisionExtension    *Extension        `json:"preProvisionExtension"`
-	Extensions               []Extension       `json:"extensions"`
-	Distro                   Distro            `json:"distro,omitempty"`
-	KubernetesConfig         *KubernetesConfig `json:"kubernetesConfig,omitempty"`
-	ImageRef                 *ImageReference   `json:"imageReference,omitempty"`
-	CustomFiles              *[]CustomFile     `json:"customFiles,omitempty"`
-	AvailabilityProfile      string            `json:"availabilityProfile"`
-	AgentSubnet              string            `json:"agentSubnet,omitempty"`
-	AvailabilityZones        []string          `json:"availabilityZones,omitempty"`
-	SinglePlacementGroup     *bool             `json:"singlePlacementGroup,omitempty"`
-	PlatformFaultDomainCount *int              `json:"platformFaultDomainCount,omitEmpty"`
-	AuditDEnabled            *bool             `json:"auditDEnabled,omitempty"`
-	CustomVMTags             map[string]string `json:"customVMTags,omitempty"`
+	Count                     int               `json:"count" validate:"required,eq=1|eq=3|eq=5"`
+	DNSPrefix                 string            `json:"dnsPrefix" validate:"required"`
+	SubjectAltNames           []string          `json:"subjectAltNames"`
+	VMSize                    string            `json:"vmSize" validate:"required"`
+	OSDiskSizeGB              int               `json:"osDiskSizeGB,omitempty" validate:"min=0,max=1023"`
+	VnetSubnetID              string            `json:"vnetSubnetID,omitempty"`
+	VnetCidr                  string            `json:"vnetCidr,omitempty"`
+	AgentVnetSubnetID         string            `json:"agentVnetSubnetID,omitempty"`
+	FirstConsecutiveStaticIP  string            `json:"firstConsecutiveStaticIP,omitempty"`
+	IPAddressCount            int               `json:"ipAddressCount,omitempty" validate:"min=0,max=256"`
+	StorageProfile            string            `json:"storageProfile,omitempty" validate:"eq=StorageAccount|eq=ManagedDisks|len=0"`
+	HTTPSourceAddressPrefix   string            `json:"HTTPSourceAddressPrefix,omitempty"`
+	OAuthEnabled              bool              `json:"oauthEnabled"`
+	PreProvisionExtension     *Extension        `json:"preProvisionExtension"`
+	Extensions                []Extension       `json:"extensions"`
+	Distro                    Distro            `json:"distro,omitempty"`
+	KubernetesConfig          *KubernetesConfig `json:"kubernetesConfig,omitempty"`
+	ImageRef                  *ImageReference   `json:"imageReference,omitempty"`
+	CustomFiles               *[]CustomFile     `json:"customFiles,omitempty"`
+	AvailabilityProfile       string            `json:"availabilityProfile"`
+	AgentSubnet               string            `json:"agentSubnet,omitempty"`
+	AvailabilityZones         []string          `json:"availabilityZones,omitempty"`
+	SinglePlacementGroup      *bool             `json:"singlePlacementGroup,omitempty"`
+	PlatformFaultDomainCount  *int              `json:"platformFaultDomainCount,omitEmpty"`
+	PlatformUpdateDomainCount *int              `json:"platformUpdateDomainCount"`
+	AuditDEnabled             *bool             `json:"auditDEnabled,omitempty"`
+	CustomVMTags              map[string]string `json:"customVMTags,omitempty"`
 
 	// subnet is internal
 	subnet string
@@ -491,6 +500,7 @@ type AgentPoolProfile struct {
 	Extensions                        []Extension       `json:"extensions"`
 	SinglePlacementGroup              *bool             `json:"singlePlacementGroup,omitempty"`
 	PlatformFaultDomainCount          *int              `json:"platformFaultDomainCount,omitEmpty"`
+	PlatformUpdateDomainCount         *int              `json:"platformUpdateDomainCount"`
 	AvailabilityZones                 []string          `json:"availabilityZones,omitempty"`
 	EnableVMSSNodePublicIP            *bool             `json:"enableVMSSNodePublicIP,omitempty"`
 	LoadBalancerBackendAddressPoolIDs []string          `json:"loadBalancerBackendAddressPoolIDs,omitempty"`
@@ -600,6 +610,19 @@ func (p *Properties) HasAvailabilityZones() bool {
 // IsAzureStackCloud return true if the cloud is AzureStack
 func (p *Properties) IsAzureStackCloud() bool {
 	return p.CustomCloudProfile != nil
+}
+
+// HasAADAdminGroupID returns true if the cluster has an AADProfile w/ a valid AdminGroupID
+func (p *Properties) HasAADAdminGroupID() bool {
+	return p.AADProfile != nil && p.AADProfile.AdminGroupID != ""
+}
+
+// GetAADAdminGroupID returns AADProfile.AdminGroupID, or "" if no AADProfile
+func (p *Properties) GetAADAdminGroupID() string {
+	if p.AADProfile != nil {
+		return p.AADProfile.AdminGroupID
+	}
+	return ""
 }
 
 // IsCustomVNET returns true if the customer brought their own VNET
@@ -862,6 +885,28 @@ func (k *KubernetesConfig) RequiresDocker() bool {
 func (k *KubernetesConfig) IsRBACEnabled() bool {
 	if k.EnableRbac != nil {
 		return to.Bool(k.EnableRbac)
+	}
+	return false
+}
+
+// GetAddonByName returns the KubernetesAddon instance with name `addonName`
+func (k *KubernetesConfig) GetAddonByName(addonName string) KubernetesAddon {
+	var kubeAddon KubernetesAddon
+	for _, addon := range k.Addons {
+		if addon.Name == addonName {
+			kubeAddon = addon
+			break
+		}
+	}
+	return kubeAddon
+}
+
+// IsAddonEnabled checks whether a k8s addon with name "addonName" is enabled or not based on the Enabled field of KubernetesAddon.
+// If the value of Enabled is nil, the "defaultValue" is returned.
+func (k *KubernetesConfig) IsAddonEnabled(addonName string) bool {
+	if k != nil {
+		kubeAddon := k.GetAddonByName(addonName)
+		return kubeAddon.IsEnabled()
 	}
 	return false
 }
