@@ -25,7 +25,7 @@ func getCustomDataVariables(cs *api.ContainerService) paramsMap {
 		},
 	}
 
-	cloudInitData := cloudInitFiles["cloudInitData"].(map[string]interface{})
+	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if !cs.Properties.IsVHDDistroForAllNodes() {
 		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, cs)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, cs)
