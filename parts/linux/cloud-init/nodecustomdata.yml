@@ -29,12 +29,80 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
+{{if not .IsVHDDistro}}
+- path: /opt/azure/containers/provision_cis.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionCIS"}}
+{{end}}
+
+{{if not .IsVHDDistro}}
+  {{if .IsAuditDEnabled}}
+- path: /etc/audit/rules.d/CIS.rules
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "auditdRules"}}
+  {{end}}
+{{end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{if not .IsVHDDistro}}
+    {{if .IsCoreOS}}
+- path: /opt/bin/health-monitor.sh
+    {{else}}
+- path: /usr/local/bin/health-monitor.sh
+    {{end}}
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
+
+- path: /etc/systemd/system/kubelet-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
+
+- path: /etc/systemd/system/docker-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/docker-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
+
+- path: /etc/systemd/system/kms.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
+
+- path: /etc/apt/preferences
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
+{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -53,6 +121,17 @@ write_files:
 {{end}}
 
 {{if .KubernetesConfig.RequiresDocker}}
+    {{if not .IsCoreOS}}
+        {{if not .IsVHDDistro}}
+- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: "root"
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
+        {{end}}
+    {{end}}
+
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root

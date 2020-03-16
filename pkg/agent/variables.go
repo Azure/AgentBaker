@@ -11,7 +11,7 @@ import (
 )
 
 func getCustomDataVariables(cs *api.ContainerService) paramsMap {
-	return map[string]interface{}{
+	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
 			"provisionScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs),
 			"provisionSource":           getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, cs),
@@ -24,6 +24,22 @@ func getCustomDataVariables(cs *api.ContainerService) paramsMap {
 			"systemdBPFMount":           getBase64EncodedGzippedCustomScript(systemdBPFMount, cs),
 		},
 	}
+
+	if !cs.Properties.IsVHDDistroForAllNodes() {
+		cloudInitFiles["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, cs)
+		cloudInitFiles["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, cs)
+		cloudInitFiles["labelNodesScript"] = getBase64EncodedGzippedCustomScript(labelNodesScript, cs)
+		cloudInitFiles["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, cs)
+		cloudInitFiles["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, cs)
+		cloudInitFiles["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, cs)
+		cloudInitFiles["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, cs)
+		cloudInitFiles["dockerMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, cs)
+		cloudInitFiles["dockerMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, cs)
+		cloudInitFiles["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, cs)
+		cloudInitFiles["auditdRules"] = getBase64EncodedGzippedCustomScript(auditdRules, cs)
+	}
+
+	return cloudInitFiles
 }
 
 func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile,

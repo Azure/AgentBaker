@@ -1,13 +1,24 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/apt-preferences
+// linux/cloud-init/artifacts/auditd-rules
+// linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
 // linux/cloud-init/artifacts/dhcpv6.service
+// linux/cloud-init/artifacts/docker-monitor.service
+// linux/cloud-init/artifacts/docker-monitor.timer
+// linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
+// linux/cloud-init/artifacts/health-monitor.sh
+// linux/cloud-init/artifacts/kms.service
+// linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet.service
+// linux/cloud-init/artifacts/label-nodes.service
+// linux/cloud-init/artifacts/label-nodes.sh
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
 // linux/cloud-init/nodecustomdata.yml
@@ -72,6 +83,243 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
+var _linuxCloudInitArtifactsAptPreferences = []byte(``)
+
+func linuxCloudInitArtifactsAptPreferencesBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAptPreferences, nil
+}
+
+func linuxCloudInitArtifactsAptPreferences() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAptPreferencesBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/apt-preferences", size: 0, mode: os.FileMode(420), modTime: time.Unix(1584371021, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAuditdRules = []byte(`# increase kernel audit buffers since we have a lot of rules
+-b 8192
+
+# 4.1.4 Ensure events that modify date and time information are collected
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
+-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
+-a always,exit -F arch=b64 -S clock_settime -k time-change
+-a always,exit -F arch=b32 -S clock_settime -k time-change
+-w /etc/localtime -p wa -k time-change
+
+# 4.1.5 Ensure events that modify user/group information are collected
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+
+# 4.1.6 Ensure events that modify the system's network environment are collected
+-a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
+-a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
+-w /etc/issue -p wa -k system-locale
+-w /etc/issue.net -p wa -k system-locale
+-w /etc/hosts -p wa -k system-locale
+-w /etc/network -p wa -k system-locale
+-w /etc/networks -p wa -k system-locale
+
+# 4.1.7 Ensure events that modify the system's Mandatory Access Controls are collected
+-w /etc/selinux/ -p wa -k MAC-policy
+
+# 4.1.8 Ensure login and logout events are collected
+-w /var/log/faillog -p wa -k logins
+-w /var/log/lastlog -p wa -k logins
+-w /var/log/tallylog -p wa -k logins
+
+# 4.1.9 Ensure session initiation information is collected
+-w /var/run/utmp -p wa -k session
+-w /var/log/wtmp -p wa -k session
+-w /var/log/btmp -p wa -k session
+
+# 4.1.10 Ensure discretionary access control permission modification events are collected
+-a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+-a always,exit -F arch=b32 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -S lremovexattr -S fremovexattr -F auid>=1000 -F auid!=4294967295 -k perm_mod
+
+# 4.1.11 Ensure unsuccessful unauthorized file access attempts are collected
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+
+# 4.1.12 Ensure use of privileged commands is collected
+-a always,exit -F path=/usr/lib/dbus-1.0/dbus-daemon-launch-helper -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/lib/openssh/ssh-keysign -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/lib/eject/dmcrypt-get-device -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/wall -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/expiry -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/chfn -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/pkexec -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/screen -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/newgidmap -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/chage -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/crontab -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/at -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/mlocate -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/newuidmap -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/passwd -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/usr/bin/bsd-write -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/umount -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/mount -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/ntfs-3g -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/ping6 -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/su -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/ping -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/bin/fusermount -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/sbin/pam_extrausers_chkpwd -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/sbin/mount.nfs -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+-a always,exit -F path=/sbin/unix_chkpwd -F perm=x -F auid>=1000 -F auid!=4294967295  -k privileged
+
+# 4.1.13 Ensure successful file system mounts are collected
+-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+-a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+
+# 4.1.14 Ensure file deletion events by users are collected
+-a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+-a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+
+# 4.1.15 Ensure changes to system administration scope (sudoers) is collected
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d -p wa -k scope
+
+# 4.1.16 Ensure system administrator actions (sudolog) are collected
+-w /var/log/sudo.log -p wa -k actions
+
+# 4.1.17 Ensure kernel module loading and unloading is collected
+-w /sbin/insmod -p x -k modules
+-w /sbin/rmmod -p x -k modules
+-w /sbin/modprobe -p x -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+
+# 4.1.18 Ensure the audit configuration is immutable
+-e 2
+`)
+
+func linuxCloudInitArtifactsAuditdRulesBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAuditdRules, nil
+}
+
+func linuxCloudInitArtifactsAuditdRules() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAuditdRulesBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/auditd-rules", size: 7244, mode: os.FileMode(420), modTime: time.Unix(1584371823, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
+
+assignRootPW() {
+  if grep '^root:[!*]:' /etc/shadow; then
+    SALT=$(openssl rand -base64 5)
+    SECRET=$(openssl rand -base64 37)
+    CMD="import crypt, getpass, pwd; print crypt.crypt('$SECRET', '\$6\$$SALT\$')"
+    HASH=$(python -c "$CMD")
+
+    echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+  fi
+}
+
+assignFilePermissions() {
+    FILES="
+    auth.log
+    alternatives.log
+    cloud-init.log
+    cloud-init-output.log
+    daemon.log
+    dpkg.log
+    kern.log
+    lastlog
+    waagent.log
+    syslog
+    unattended-upgrades/unattended-upgrades.log
+    unattended-upgrades/unattended-upgrades-dpkg.log
+    azure-vnet-ipam.log
+    azure-vnet-telemetry.log
+    azure-cnimonitor.log
+    azure-vnet.log
+    kv-driver.log
+    blobfuse-driver.log
+    blobfuse-flexvol-installer.log
+    landscape/sysinfo.log
+    "
+    for FILE in ${FILES}; do
+        FILEPATH="/var/log/${FILE}"
+        DIR=$(dirname "${FILEPATH}")
+        mkdir -p ${DIR} || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        touch ${FILEPATH} || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        chmod 640 ${FILEPATH} || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    done
+    find /var/log -type f -perm '/o+r' -exec chmod 'g-wx,o-rwx' {} \;
+    chmod 600 /etc/passwd- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 600 /etc/shadow- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 600 /etc/group- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 644 /etc/default/grub || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    for filepath in /etc/crontab /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
+      chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    done
+}
+
+setPWExpiration() {
+  sed -i "s|PASS_MAX_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  grep 'PASS_MAX_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  sed -i "s|PASS_MIN_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  grep 'PASS_MIN_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  sed -i "s|INACTIVE=||g" /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  grep 'INACTIVE=' /etc/default/useradd && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  echo 'PASS_MAX_DAYS 90' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  grep 'PASS_MAX_DAYS 90' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  echo 'PASS_MIN_DAYS 7' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  grep 'PASS_MIN_DAYS 7' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  echo 'INACTIVE=30' >> /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+  grep 'INACTIVE=30' /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+}
+
+applyCIS() {
+  setPWExpiration
+  assignRootPW
+  assignFilePermissions
+}
+
+applyCIS
+
+#EOF
+`)
+
+func linuxCloudInitArtifactsCisShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCisSh, nil
+}
+
+func linuxCloudInitArtifactsCisSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCisShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1584370786, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
@@ -129,7 +377,8 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1";
+tail -50 /var/log/azure/cluster-provision.log`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -141,7 +390,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3719, mode: os.FileMode(420), modTime: time.Unix(1584001556, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3766, mode: os.FileMode(420), modTime: time.Unix(1584136597, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1422,6 +1671,76 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsDockerMonitorService = []byte(`[Unit]
+Description=a script that checks docker health and restarts if needed
+After=docker.service
+[Service]
+Restart=always
+RestartSec=10
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/health-monitor.sh container-runtime
+#EOF
+`)
+
+func linuxCloudInitArtifactsDockerMonitorServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsDockerMonitorService, nil
+}
+
+func linuxCloudInitArtifactsDockerMonitorService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsDockerMonitorServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 223, mode: os.FileMode(420), modTime: time.Unix(1584371130, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsDockerMonitorTimer = []byte(`[Unit]
+Description=a timer that delays docker-monitor from starting too soon after boot
+[Timer]
+OnBootSec=30min
+[Install]
+WantedBy=multi-user.target
+#EOF
+`)
+
+func linuxCloudInitArtifactsDockerMonitorTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsDockerMonitorTimer, nil
+}
+
+func linuxCloudInitArtifactsDockerMonitorTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsDockerMonitorTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 154, mode: os.FileMode(420), modTime: time.Unix(1584371130, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf = []byte(`[Service]
+MountFlags=shared
+#EOF
+`)
+
+func linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, nil
+}
+
+func linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf", size: 33, mode: os.FileMode(420), modTime: time.Unix(1584371798, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsEnableDhcpv6Sh = []byte(`#!/usr/bin/env bash
 
 set -e
@@ -1462,6 +1781,162 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1581105544, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsHealthMonitorSh = []byte(`#!/usr/bin/env bash
+
+# This script originated at https://github.com/kubernetes/kubernetes/blob/master/cluster/gce/gci/health-monitor.sh
+# and has been modified for aks-engine.
+
+set -o nounset
+set -o pipefail
+
+container_runtime_monitoring() {
+  local -r max_attempts=5
+  local attempt=1
+  local -r crictl="${KUBE_HOME}/bin/crictl"
+  local -r container_runtime_name="${CONTAINER_RUNTIME_NAME:-docker}"
+  local healthcheck_command="docker ps"
+  if [[ "${CONTAINER_RUNTIME:-docker}" != "docker" ]]; then
+    healthcheck_command="${crictl} pods"
+  fi
+
+  until timeout 60 ${healthcheck_command} > /dev/null; do
+    if (( attempt == max_attempts )); then
+      echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
+      break
+    fi
+    echo "$attempt initial attempt \"${healthcheck_command}\"! Trying again in $attempt seconds..."
+    sleep "$(( 2 ** attempt++ ))"
+  done
+  while true; do
+    if ! timeout 60 ${healthcheck_command} > /dev/null; then
+      echo "Container runtime ${container_runtime_name} failed!"
+      if [[ "$container_runtime_name" == "docker" ]]; then
+          pkill -SIGUSR1 dockerd
+      fi
+      systemctl kill --kill-who=main "${container_runtime_name}"
+      sleep 120
+    else
+      sleep "${SLEEP_SECONDS}"
+    fi
+  done
+}
+
+kubelet_monitoring() {
+  echo "Wait for 2 minutes for kubelet to be functional"
+  sleep 120
+  local -r max_seconds=10
+  local output=""
+  while true; do
+    if ! output=$(curl -m "${max_seconds}" -f -s -S http://127.0.0.1:10255/healthz 2>&1); then
+      echo $output
+      echo "Kubelet is unhealthy!"
+      systemctl kill kubelet
+      sleep 60
+    else
+      sleep "${SLEEP_SECONDS}"
+    fi
+  done
+}
+
+if [[ "$#" -ne 1 ]]; then
+  echo "Usage: health-monitor.sh <container-runtime/kubelet>"
+  exit 1
+fi
+
+KUBE_HOME="/usr/local/bin"
+KUBE_ENV="/etc/default/kube-env"
+if [[  -e "${KUBE_ENV}" ]]; then
+  source "${KUBE_ENV}"
+fi
+
+SLEEP_SECONDS=10
+component=$1
+echo "Start kubernetes health monitoring for ${component}"
+
+if [[ "${component}" == "container-runtime" ]]; then
+  container_runtime_monitoring
+elif [[ "${component}" == "kubelet" ]]; then
+  kubelet_monitoring
+else
+  echo "Health monitoring for component ${component} is not supported!"
+fi
+`)
+
+func linuxCloudInitArtifactsHealthMonitorShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsHealthMonitorSh, nil
+}
+
+func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsHealthMonitorShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 2237, mode: os.FileMode(493), modTime: time.Unix(1584371047, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsKmsService = []byte(`[Unit]
+Description=azurekms
+Requires=docker.service
+After=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=0
+ExecStart=/usr/bin/docker run \
+  --net=host \
+  --volume=/opt:/opt \
+  --volume=/etc/kubernetes:/etc/kubernetes \
+  --volume=/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt \
+  --volume=/var/lib/waagent:/var/lib/waagent \
+  mcr.microsoft.com/k8s/kms/keyvault:v0.0.9
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsKmsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKmsService, nil
+}
+
+func linuxCloudInitArtifactsKmsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKmsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 463, mode: os.FileMode(420), modTime: time.Unix(1584370828, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsKubeletMonitorService = []byte(`[Unit]
+Description=a script that checks kubelet health and restarts if needed
+After=kubelet.service
+[Service]
+Restart=always
+RestartSec=10
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/health-monitor.sh kubelet`)
+
+func linuxCloudInitArtifactsKubeletMonitorServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKubeletMonitorService, nil
+}
+
+func linuxCloudInitArtifactsKubeletMonitorService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKubeletMonitorServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.service", size: 209, mode: os.FileMode(420), modTime: time.Unix(1584371073, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1519,6 +1994,68 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1918, mode: os.FileMode(420), modTime: time.Unix(1581105544, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsLabelNodesService = []byte(`[Unit]
+Description=Label Kubernetes nodes as masters or agents
+After=kubelet.service
+[Service]
+Restart=always
+RestartSec=60
+ExecStart=/bin/bash /opt/azure/containers/label-nodes.sh
+#EOF
+`)
+
+func linuxCloudInitArtifactsLabelNodesServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsLabelNodesService, nil
+}
+
+func linuxCloudInitArtifactsLabelNodesService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsLabelNodesServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 186, mode: os.FileMode(420), modTime: time.Unix(1584370842, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsLabelNodesSh = []byte(`#!/usr/bin/env bash
+
+# Applies missing master and agent labels to Kubernetes nodes.
+#
+# Kubelet 1.16+ rejects the `+"`"+`kubernetes.io/role`+"`"+` and `+"`"+`node-role.kubernetes.io`+"`"+`
+# labels in its `+"`"+`--node-labels`+"`"+` argument, but they need to be present for
+# backward compatibility.
+
+set -euo pipefail
+
+# TODO(tonyxu): do we need this for AKS?
+
+MASTER_SELECTOR="kubernetes.azure.com/role!=agent,kubernetes.io/role!=agent"
+MASTER_LABELS="kubernetes.azure.com/role=master kubernetes.io/role=master node-role.kubernetes.io/master="
+AGENT_SELECTOR="kubernetes.azure.com/role!=master,kubernetes.io/role!=master"
+AGENT_LABELS="kubernetes.azure.com/role=agent kubernetes.io/role=agent node-role.kubernetes.io/agent="
+
+kubectl label nodes --overwrite -l $MASTER_SELECTOR $MASTER_LABELS
+kubectl label nodes --overwrite -l $AGENT_SELECTOR $AGENT_LABELS
+#EOF
+`)
+
+func linuxCloudInitArtifactsLabelNodesShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsLabelNodesSh, nil
+}
+
+func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsLabelNodesShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 830, mode: os.FileMode(493), modTime: time.Unix(1584370992, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1611,12 +2148,80 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
+{{if not .IsVHDDistro}}
+- path: /opt/azure/containers/provision_cis.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "provisionCIS"}} //TODO
+{{end}}
+
+{{if not .IsVHDDistro}}
+  {{if .IsAuditDEnabled}}
+- path: /etc/audit/rules.d/CIS.rules
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "auditdRules"}} //TODO
+  {{end}}
+{{end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{if not .IsVHDDistro}}
+    {{if .IsCoreOS}}
+- path: /opt/bin/health-monitor.sh
+    {{else}}
+- path: /usr/local/bin/health-monitor.sh
+    {{end}}
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "healthMonitorScript"}}
+
+- path: /etc/systemd/system/kubelet-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "kubeletMonitorSystemdService"}}
+
+- path: /etc/systemd/system/docker-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "dockerMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/docker-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "dockerMonitorSystemdService"}}
+
+- path: /etc/systemd/system/kms.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "kmsSystemdService"}}
+
+- path: /etc/apt/preferences
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{CloudInitData "aptPreferences"}}
+{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -1635,6 +2240,17 @@ write_files:
 {{end}}
 
 {{if .KubernetesConfig.RequiresDocker}}
+    {{if not .IsCoreOS}}
+        {{if not .IsVHDDistro}}
+- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: "root"
+  content: !!binary |
+    {{CloudInitData "dockerClearMountPropagationFlags"}}
+        {{end}}
+    {{end}}
+
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -1835,7 +2451,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 6463, mode: os.FileMode(420), modTime: time.Unix(1583998762, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8297, mode: os.FileMode(420), modTime: time.Unix(1584370023, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3679,26 +4295,37 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"linux/cloud-init/artifacts/cse_cmd.sh":                     linuxCloudInitArtifactsCse_cmdSh,
-	"linux/cloud-init/artifacts/cse_config.sh":                  linuxCloudInitArtifactsCse_configSh,
-	"linux/cloud-init/artifacts/cse_helpers.sh":                 linuxCloudInitArtifactsCse_helpersSh,
-	"linux/cloud-init/artifacts/cse_install.sh":                 linuxCloudInitArtifactsCse_installSh,
-	"linux/cloud-init/artifacts/cse_main.sh":                    linuxCloudInitArtifactsCse_mainSh,
-	"linux/cloud-init/artifacts/dhcpv6.service":                 linuxCloudInitArtifactsDhcpv6Service,
-	"linux/cloud-init/artifacts/enable-dhcpv6.sh":               linuxCloudInitArtifactsEnableDhcpv6Sh,
-	"linux/cloud-init/artifacts/kubelet.service":                linuxCloudInitArtifactsKubeletService,
-	"linux/cloud-init/artifacts/setup-custom-search-domains.sh": linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
-	"linux/cloud-init/artifacts/sys-fs-bpf.mount":               linuxCloudInitArtifactsSysFsBpfMount,
-	"linux/cloud-init/nodecustomdata.yml":                       linuxCloudInitNodecustomdataYml,
-	"windows/csecmd.ps1":                                        windowsCsecmdPs1,
-	"windows/kuberneteswindowsfunctions.ps1":                    windowsKuberneteswindowsfunctionsPs1,
-	"windows/kuberneteswindowssetup.ps1":                        windowsKuberneteswindowssetupPs1,
-	"windows/windowsazurecnifunc.ps1":                           windowsWindowsazurecnifuncPs1,
-	"windows/windowsazurecnifunc.tests.ps1":                     windowsWindowsazurecnifuncTestsPs1,
-	"windows/windowscnifunc.ps1":                                windowsWindowscnifuncPs1,
-	"windows/windowsconfigfunc.ps1":                             windowsWindowsconfigfuncPs1,
-	"windows/windowsinstallopensshfunc.ps1":                     windowsWindowsinstallopensshfuncPs1,
-	"windows/windowskubeletfunc.ps1":                            windowsWindowskubeletfuncPs1,
+	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
+	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
+	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
+	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
+	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
+	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
+	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
+	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
+	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
+	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
+	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
+	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
+	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
+	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
+	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
+	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
+	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
+	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
+	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
+	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
+	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
+	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
+	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
+	"windows/kuberneteswindowsfunctions.ps1":                               windowsKuberneteswindowsfunctionsPs1,
+	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
+	"windows/windowsazurecnifunc.ps1":                                      windowsWindowsazurecnifuncPs1,
+	"windows/windowsazurecnifunc.tests.ps1":                                windowsWindowsazurecnifuncTestsPs1,
+	"windows/windowscnifunc.ps1":                                           windowsWindowscnifuncPs1,
+	"windows/windowsconfigfunc.ps1":                                        windowsWindowsconfigfuncPs1,
+	"windows/windowsinstallopensshfunc.ps1":                                windowsWindowsinstallopensshfuncPs1,
+	"windows/windowskubeletfunc.ps1":                                       windowsWindowskubeletfuncPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -3745,16 +4372,27 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
-				"cse_cmd.sh":                     &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
-				"cse_config.sh":                  &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
-				"cse_helpers.sh":                 &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
-				"cse_install.sh":                 &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
-				"cse_main.sh":                    &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
-				"dhcpv6.service":                 &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
-				"enable-dhcpv6.sh":               &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
-				"kubelet.service":                &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
-				"setup-custom-search-domains.sh": &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
-				"sys-fs-bpf.mount":               &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
+				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
+				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
+				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
+				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
+				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
+				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
+				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
+				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
+				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
+				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
+				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
+				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
+				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
+				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
+				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
+				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
+				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
+				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
+				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
+				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
