@@ -377,8 +377,7 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1";
-tail -50 /var/log/azure/cluster-provision.log`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -390,7 +389,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3766, mode: os.FileMode(420), modTime: time.Unix(1584136597, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3719, mode: os.FileMode(420), modTime: time.Unix(1584372464, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2154,7 +2153,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "provisionCIS"}} //TODO
+    {{GetVariableProperty "cloudInitData" "provisionCIS"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -2164,7 +2163,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "auditdRules"}} //TODO
+    {{GetVariableProperty "cloudInitData" "auditdRules"}}
   {{end}}
 {{end}}
 
@@ -2185,42 +2184,42 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "healthMonitorScript"}}
+    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
 
 - path: /etc/systemd/system/kubelet-monitor.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "kubeletMonitorSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "dockerMonitorSystemdTimer"}}
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "dockerMonitorSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "kmsSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{CloudInitData "aptPreferences"}}
+    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
@@ -2247,7 +2246,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    {{CloudInitData "dockerClearMountPropagationFlags"}}
+    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
         {{end}}
     {{end}}
 
@@ -2451,7 +2450,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8297, mode: os.FileMode(420), modTime: time.Unix(1584370023, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8481, mode: os.FileMode(420), modTime: time.Unix(1584371985, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
