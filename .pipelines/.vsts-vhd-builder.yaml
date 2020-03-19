@@ -30,7 +30,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
-          ${CONTAINER_IMAGE} make -f run-packer
+          ${CONTAINER_IMAGE} make run-packer
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
@@ -47,7 +47,7 @@ phases:
           -e CLASSIC_BLOB=${CLASSIC_BLOB} \
           -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
           -e OS_DISK_SAS=${OS_DISK_SAS} \
-          ${CONTAINER_IMAGE} make -f az-copy
+          ${CONTAINER_IMAGE} make az-copy
         displayName: Copying resource to Classic Storage Account
         condition: eq(variables.DRY_RUN, 'False')
       - script: |
@@ -60,7 +60,7 @@ phases:
           -e TENANT_ID=${TENANT_ID} \
           -e SA_NAME=${SA_NAME} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f delete-sa
+          ${CONTAINER_IMAGE} make delete-sa
         displayName: Clean-up Storage Account
         condition: always()
       - script: |
@@ -78,7 +78,7 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${UBUNTU_SKU} \
           -e OFFER_NAME="Ubuntu" \
-          ${CONTAINER_IMAGE} make -f generate-sas
+          ${CONTAINER_IMAGE} make generate-sas
         displayName: Getting Shared Access Signature URI
         condition: eq(variables.DRY_RUN, 'False')
       - task: PublishPipelineArtifact@1
