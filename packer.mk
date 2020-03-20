@@ -1,8 +1,8 @@
 build-packer:
-	@packer build -var-file=packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 
 build-packer-windows:
-	@packer build -var-file=packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
