@@ -43,7 +43,7 @@ jobs:
       - task: PublishPipelineArtifact@1
         inputs:
           artifact: 'vhd-release-notes'
-          path: 'vhdbuilder/release-notes.txt'
+          path: 'release-notes.txt'
       - script: |
           OS_DISK_SAS="$(cat ${PWD}/vhdbuilder/packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \

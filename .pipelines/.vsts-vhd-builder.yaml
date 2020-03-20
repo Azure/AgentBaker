@@ -35,7 +35,7 @@ phases:
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
-          targetPath: 'vhdbuilder/release-notes.txt'
+          targetPath: 'release-notes.txt'
       - script: |
           OS_DISK_SAS="$(cat ${PWD}/vhdbuilder/packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           docker run --rm \
