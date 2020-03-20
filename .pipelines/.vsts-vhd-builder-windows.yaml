@@ -38,7 +38,7 @@ jobs:
           -e GIT_VERSION=$(Build.SourceVersion) \
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
-          ${DEIS_GO_DEV_IMAGE} make run-packer-windows
+          ${DEIS_GO_DEV_IMAGE} make -f packer.mk run-packer-windows
         displayName: Building windows VHD
       - task: PublishPipelineArtifact@1
         inputs:
@@ -57,7 +57,7 @@ jobs:
           -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
           -e OS_DISK_SAS=${OS_DISK_SAS} \
           -e VHD_NAME=${VHD_NAME} \
-          ${DEIS_GO_DEV_IMAGE} make az-copy
+          ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
         displayName: Copying resource to Classic Storage Account
         condition: eq(variables.COPY_VHD, 'True')
       - script: |
@@ -75,7 +75,7 @@ jobs:
           -e OS_NAME="Windows" \
           -e SKU_NAME="2019-Datacenter-Core-smalldisk" \
           -e OFFER_NAME="Windows" \
-          ${DEIS_GO_DEV_IMAGE} make generate-sas
+          ${DEIS_GO_DEV_IMAGE} make -f packer.mk generate-sas
         displayName: Generating publishing info for Windows VHD
         condition: eq(variables.COPY_VHD, 'True')
       - task: PublishPipelineArtifact@1
@@ -93,7 +93,7 @@ jobs:
           -e TENANT_ID=${TENANT_ID} \
           -e SA_NAME=${SA_NAME} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${DEIS_GO_DEV_IMAGE} make delete-sa
+          ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-sa
         displayName: cleanup - delete temp storage account
         condition: always()
       - script: |
