@@ -81,7 +81,7 @@ jobs:
       - task: PublishPipelineArtifact@1
         inputs:
           artifact: 'publishing-info'
-          path: 'vhdbuilder/vhd-publishing-info.json'
+          path: 'vhd-publishing-info.json'
         condition: eq(variables.COPY_VHD, 'True')
       - script: |
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \

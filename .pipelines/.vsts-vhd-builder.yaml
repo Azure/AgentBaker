@@ -84,5 +84,5 @@ phases:
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
-          targetPath: 'vhdbuilder/vhd-publishing-info.json'
+          targetPath: 'vhd-publishing-info.json'
         condition: eq(variables.DRY_RUN, 'False')
