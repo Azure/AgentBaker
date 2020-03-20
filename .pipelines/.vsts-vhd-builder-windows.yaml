@@ -45,7 +45,7 @@ jobs:
           artifact: 'vhd-release-notes'
           path: 'release-notes.txt'
       - script: |
-          OS_DISK_SAS="$(cat ${PWD}/vhdbuilder/packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
+          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -61,7 +61,7 @@ jobs:
         displayName: Copying resource to Classic Storage Account
         condition: eq(variables.COPY_VHD, 'True')
       - script: |
-          OS_DISK_SAS="$(cat ${PWD}/vhdbuilder/packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
+          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -84,7 +84,7 @@ jobs:
           path: 'vhdbuilder/vhd-publishing-info.json'
         condition: eq(variables.COPY_VHD, 'True')
       - script: |
-          SA_NAME="$(cat ${PWD}/vhdbuilder/packer-output | grep "storage name:" | cut -d " " -f 3)" && \
+          SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
