@@ -1,0 +1,322 @@
+#cloud-config
+
+write_files:
+- path: {{GetCSEHelpersScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSource"}}
+
+- path: /opt/azure/containers/provision.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionScript"}}
+
+- path: {{GetCSEInstallScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
+
+- path: {{GetCSEConfigScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
+
+{{if not .IsVHDDistro}}
+- path: /opt/azure/containers/provision_cis.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionCIS"}}
+{{end}}
+
+{{if not .IsVHDDistro}}
+  {{if .IsAuditDEnabled}}
+- path: /etc/audit/rules.d/CIS.rules
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "auditdRules"}}
+  {{end}}
+{{end}}
+
+- path: /etc/systemd/system/kubelet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{if not .IsVHDDistro}}
+    {{if .IsCoreOS}}
+- path: /opt/bin/health-monitor.sh
+    {{else}}
+- path: /usr/local/bin/health-monitor.sh
+    {{end}}
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
+
+- path: /etc/systemd/system/kubelet-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
+
+- path: /etc/systemd/system/docker-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/docker-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
+
+- path: /etc/systemd/system/kms.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
+
+- path: /etc/apt/preferences
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
+{{end}}
+
+{{if IsIPv6DualStackFeatureEnabled}}
+- path: {{GetDHCPv6ServiceCSEScriptFilepath}}
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
+
+- path: {{GetDHCPv6ConfigCSEScriptFilepath}}
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
+{{end}}
+
+{{if .KubernetesConfig.RequiresDocker}}
+    {{if not .IsCoreOS}}
+        {{if not .IsVHDDistro}}
+- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: "root"
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
+        {{end}}
+    {{end}}
+
+- path: /etc/systemd/system/docker.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip={{GetParameter "dockerBridgeCidr"}}
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
+
+- path: /etc/docker/daemon.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {
+      "live-restore": true,
+      "log-driver": "json-file",
+      "log-opts":  {
+         "max-size": "50m",
+         "max-file": "5"
+      }{{if IsNSeriesSKU .}}
+      ,"default-runtime": "nvidia",
+      "runtimes": {
+         "nvidia": {
+             "path": "/usr/bin/nvidia-container-runtime",
+             "runtimeArgs": []
+        }
+      }{{end}}
+    }
+{{end}}
+
+{{if HasCiliumNetworkPlugin }}
+- path: /etc/systemd/system/sys-fs-bpf.mount
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "systemdBPFMount"}}
+{{end}}
+
+{{if NeedsContainerd}}
+- path: /etc/containerd/config.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    subreaper = false
+    oom_score = 0
+    [plugins.cri]
+    sandbox_image = "{{GetPodInfraContainerSpec}}"
+    [plugins.cri.containerd.untrusted_workload_runtime]
+    runtime_type = "io.containerd.runtime.v1.linux"
+    {{if IsKataContainerRuntime }}
+    runtime_engine = "/usr/bin/kata-runtime"
+    {{else}}
+    runtime_engine = "/usr/local/sbin/runc"
+    {{end}}
+    [plugins.cri.containerd.default_runtime]
+    runtime_type = "io.containerd.runtime.v1.linux"
+    {{if IsKataContainerRuntime }}
+    runtime_engine = "/usr/bin/kata-runtime"
+    {{else}}
+    runtime_engine = "/usr/local/sbin/runc"
+    {{end}}
+    {{if IsKubenet }}
+    [plugins.cri.cni]
+    conf_template = "/etc/containerd/kubenet_template.conf"
+
+- path: /etc/containerd/kubenet_template.conf
+  permissions: "0644"
+  owner: root
+  content: |
+      {
+          "cniVersion": "0.3.1",
+          "name": "kubenet",
+          "plugins": [{
+            "type": "bridge",
+            "bridge": "cbr0",
+            "mtu": 1500,
+            "addIf": "eth0",
+            "isGateway": true,
+            "ipMasq": false,
+            "hairpinMode": false,
+            "ipam": {
+                "type": "host-local",
+                "subnet": "{{`{{.PodCIDR}}`}}",
+                "routes": [{ "dst": "0.0.0.0/0" }]
+            }
+          }]
+      }
+    {{end}}
+{{end}}
+
+{{if IsNSeriesSKU .}}
+- path: /etc/systemd/system/nvidia-modprobe.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Installs and loads Nvidia GPU kernel module
+    [Service]
+    Type=oneshot
+    RemainAfterExit=true
+    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+    ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
+    [Install]
+    WantedBy=multi-user.target
+{{end}}
+
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "caCertificate"}}
+
+- path: /etc/kubernetes/certs/client.crt
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "clientCertificate"}}
+
+{{if HasCustomSearchDomain}}
+- path: {{GetCustomSearchDomainsCSEScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+{{end}}
+
+- path: /var/lib/kubelet/kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetParameter "kubernetesEndpoint"}}:443
+    users:
+    - name: client
+      user:
+        client-certificate: /etc/kubernetes/certs/client.crt
+        client-key: /etc/kubernetes/certs/client.key
+    contexts:
+    - context:
+        cluster: localcluster
+        user: client
+      name: localclustercontext
+    current-context: localclustercontext
+    #EOF
+
+- path: /etc/default/kubelet
+  permissions: "0644"
+  owner: root
+  content: |
+    KUBELET_CONFIG={{GetKubeletConfigKeyVals .KubernetesConfig }}
+    KUBELET_REGISTER_SCHEDULABLE=true
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+    KUBELET_IMAGE={{GetHyperkubeImageReference}}
+{{end}}
+{{if IsKubernetesVersionGe "1.16.0"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
+{{else}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
+{{end}}
+    #EOF
+
+- path: /opt/azure/containers/kubelet.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+{{if not IsIPMasqAgentEnabled}}
+    {{if IsAzureCNI}}
+    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
+    {{end}}
+{{end}}
+    #EOF
+
+runcmd:
+- set -x
+- . {{GetCSEHelpersScriptFilepath}}
+- aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}
