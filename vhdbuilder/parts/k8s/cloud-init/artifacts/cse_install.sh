@@ -170,6 +170,8 @@ installBcc() {
     echo "deb https://repo.iovisor.org/apt/${UBUNTU_CODENAME} ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/iovisor.list
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_install 120 5 25 bcc-tools libbcc-examples linux-headers-$(uname -r) || exit $ERR_BCC_INSTALL_TIMEOUT
+    apt-key del "$(gpg --with-fingerprint "$IOVISOR_KEY_TMP" | grep pub | cut -d' ' -f3 | cut -d'/' -f 2)"
+    rm -f /etc/apt/sources.list.d/iovisor.list
 }
 
 installBpftrace() {
