@@ -347,6 +347,7 @@ done
 CPA_IMAGES="
 1.3.0
 1.3.0_v0.0.5
+1.7.1
 "
 for CPA_IMAGE in ${CPA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:${CPA_IMAGE}"
@@ -409,22 +410,24 @@ K8S_VERSIONS="
 1.13.12_f0.0.2
 1.14.6_v0.0.5
 1.14.7_v0.0.5
-1.14.8_f0.0.4
+1.14.8-hotfix.20200127
 1.15.3_v0.0.5
 1.15.4_v0.0.5
 1.15.5_f0.0.2
 1.15.7_f0.0.2
-1.15.10_f0.0.1
+1.15.10-hotfix.20200326
 1.16.0_v0.0.5
-1.16.7_f0.0.1
-1.17.3_f0.0.1
+1.16.7-hotfix.20200326
+1.17.3-hotfix-20200326
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
   # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
   # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
   # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1)
+  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1)
+  # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
+  # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
   extractHyperkube "docker"
 done
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
@@ -439,14 +442,18 @@ PATCHED_HYPERKUBE_IMAGES="
 1.14.6_v0.0.5
 1.14.7_v0.0.5
 1.14.8_f0.0.4
+1.14.8-hotfix.20200127
 1.15.3_v0.0.5
 1.15.4_v0.0.5
 1.15.5_f0.0.2
 1.15.7_f0.0.2
 1.15.10_f0.0.1
+1.15.10-hotfix.20200326
 1.16.0_v0.0.5
 1.16.7_f0.0.1
+1.16.7-hotfix.20200326
 1.17.3_f0.0.1
+1.17.3-hotfix-20200326
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
@@ -461,7 +468,7 @@ mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
 mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200227.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200325.1
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
