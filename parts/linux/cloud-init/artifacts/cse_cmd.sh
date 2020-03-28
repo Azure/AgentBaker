@@ -51,6 +51,7 @@ CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
+API_SERVER_IP={{GetParameter "kubernetesEndpoint"}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
