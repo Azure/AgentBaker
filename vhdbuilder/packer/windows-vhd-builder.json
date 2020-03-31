@@ -48,7 +48,7 @@
       "elevated_password": "{{.WinRMPassword}}",
       "environment_vars": "ProvisioningPhase=1",
       "type": "powershell",
-      "script": "packer/configure-windows-vhd.ps1"
+      "script": "vhdbuilder/packer/configure-windows-vhd.ps1"
     },
     {
       "restart_timeout": "10m",
@@ -63,7 +63,7 @@
       "elevated_password": "{{.WinRMPassword}}",
       "environment_vars": "ProvisioningPhase=2",
       "type": "powershell",
-      "script": "packer/configure-windows-vhd.ps1"
+      "script": "vhdbuilder/packer/configure-windows-vhd.ps1"
     },
     {
       "restart_timeout": "10m",
@@ -72,7 +72,7 @@
     {
       "type": "file",
       "direction": "upload",
-      "source": "scripts/collect-windows-logs.ps1",
+      "source": "vhdbuilder/scripts/collect-windows-logs.ps1",
       "destination": "c:\\akse-cache\\collect-windows-logs.ps1"
     },
     {
@@ -86,7 +86,7 @@
         "BUILD_REPO={{user `build_repo`}}"
       ],
       "type": "powershell",
-      "script": "packer/write-release-notes-windows.ps1"
+      "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
     },
     {
       "type": "file",
