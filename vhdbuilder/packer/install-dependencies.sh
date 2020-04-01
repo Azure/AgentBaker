@@ -410,15 +410,15 @@ K8S_VERSIONS="
 1.13.12_f0.0.2
 1.14.6_v0.0.5
 1.14.7_v0.0.5
-1.14.8-hotfix.20200127
+1.14.8_f0.0.4
 1.15.3_v0.0.5
 1.15.4_v0.0.5
 1.15.5_f0.0.2
 1.15.7_f0.0.2
-1.15.10-hotfix.20200326
+1.15.10_f0.0.1
 1.16.0_v0.0.5
-1.16.7-hotfix.20200326
-1.17.3-hotfix-20200326
+1.16.7_f0.0.1
+1.17.3_f0.0.1
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
