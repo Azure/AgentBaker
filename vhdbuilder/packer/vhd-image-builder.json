@@ -32,7 +32,7 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-      "managed_image_name": "u1804v2imgesgx",
+      "managed_image_name": "u1804v2imgesgx-aptdist",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}"
     }
   ],
