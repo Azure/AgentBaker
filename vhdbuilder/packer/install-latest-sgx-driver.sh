@@ -12,8 +12,8 @@ fi
 
 readonly LOG_FILE="${SCRIPT_DIR}/${SCRIPT_NAME%.*}.log"
 touch "${LOG_FILE}"
-exec 1>"${LOG_FILE}"
-exec 2>&1
+# exec 1>"${LOG_FILE}"
+# exec 2>&1
 
 set -x
 
@@ -73,6 +73,6 @@ install_dkms
 install_ubuntu && cleanup
 
 set +x
-exec &>/dev/tty
+# exec &>/dev/tty
 echo "${SCRIPT_NAME} succeeded!"
 exit 0
