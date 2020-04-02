@@ -40,16 +40,15 @@
     {
       "type": "shell",
       "inline": [
-        "sudo apt-get dist-upgrade"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo ls -ltr /dev/* | grep sgx",
+        "sudo ls -ltr /dev/* | grep sg",
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
       ]
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-latest-sgx-driver.sh",
+      "destination": "/home/packer/install-latest-sgx-driver.sh"
     },
     {
       "type": "file",
@@ -204,7 +203,8 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} /bin/bash -ux /home/packer/install-dependencies.sh",
+        "sudo /bin/bash -ux /home/packer/install-latest-sgx-driver.sh"
       ]
     },
     {
@@ -216,7 +216,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo ls -ltr /dev/* | grep sgx",
+        "sudo ls -ltr /dev/* | grep sg",
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /home/packer/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
