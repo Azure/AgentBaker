@@ -544,6 +544,8 @@ for NODE_PROBLEM_DETECTOR_VERSION in ${NODE_PROBLEM_DETECTOR_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+ls -ltr /dev/sgx >>  ${VHD_LOGS_FILEPATH}
+
 df -h
 
 # warn at 75% space taken
