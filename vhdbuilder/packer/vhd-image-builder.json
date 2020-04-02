@@ -40,7 +40,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo apt-get dist-upgrade"
+        "sudo apt dist-upgrade"
       ]
     },
     {
