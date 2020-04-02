@@ -40,12 +40,6 @@
     {
       "type": "shell",
       "inline": [
-        "sudo apt dist-upgrade"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
         "sudo ls -ltr /dev/* | grep sgx",
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
