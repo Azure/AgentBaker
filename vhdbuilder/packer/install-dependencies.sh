@@ -348,6 +348,7 @@ CPA_IMAGES="
 1.3.0
 1.3.0_v0.0.5
 1.7.1
+1.7.1-hotfix.20200403
 "
 for CPA_IMAGE in ${CPA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:${CPA_IMAGE}"
