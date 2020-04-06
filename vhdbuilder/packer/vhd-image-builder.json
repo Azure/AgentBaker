@@ -40,7 +40,6 @@
     {
       "type": "shell",
       "inline": [
-        "sudo ls -ltr /dev/* | grep sgx",
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
       ]
@@ -210,7 +209,6 @@
     {
       "type": "shell",
       "inline": [
-        "sudo ls -ltr /dev/* | grep sgx",
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /home/packer/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
