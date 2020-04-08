@@ -83,10 +83,10 @@ phases:
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.HYPERV_GENERATION, 'V1'))
       - script: |
-          subscription_id="$(cat vhdbuilder/packer/settings.json | grep "subscription_id" | awk -F':' '{print $2}')" && \
-          resource_group_name="$(cat vhdbuilder/packer/settings.json | grep "resource_group_name" | awk -F':' '{print $2}')" && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}')" && \
-          location="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}')" && \
+          subscription_id="$(cat vhdbuilder/packer/settings.json | grep "subscription_id" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          resource_group_name="$(cat vhdbuilder/packer/settings.json | grep "resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          location="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
