@@ -105,7 +105,3 @@ phases:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
         condition: eq(variables.DRY_RUN, 'False')
-      - script: |
-          cat vhdbuilder/packer/settings.json
-        displayName: Getting settings.json
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.HYPERV_GENERATION, 'V2'))
