@@ -19,15 +19,11 @@
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
-      "resource_group_name": "{{user `resource_group_name`}}",
-      "capture_container_name": "aks-vhds",
-      "capture_name_prefix": "aks-{{user `create_time`}}",
-      "storage_account": "{{user `storage_account_name`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "Canonical",
       "image_offer": "UbuntuServer",
-      "image_sku": "{{user `ubuntu_sku`}}-LTS",
+      "image_sku": "18_04-LTS-GEN2",
       "image_version": "latest",
       "azure_tags": {
         "os": "Linux",
@@ -35,7 +31,17 @@
         "createdBy": "aks-vhd-pipeline"
       },
       "location": "{{user `location`}}",
-      "vm_size": "{{user `vm_size`}}"
+      "vm_size": "{{user `vm_size`}}",
+
+      "managed_image_resource_group_name": "{{user `resource_group_name`}}",
+      "managed_image_name": "1804Gen2-{{user `create_time`}}",
+      "shared_image_gallery_destination": {
+        "resource_group": "{{user `resource_group_name`}}",
+        "gallery_name": "PackerSigGallery",
+        "image_name": "1804Gen2-{{user `create_time`}}",
+        "image_version": "1.0.0",
+        "replication_regions": ["{{user `location`}}"]
+      }
     }
   ],
   "provisioners": [
