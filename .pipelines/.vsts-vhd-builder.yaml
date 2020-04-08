@@ -93,10 +93,10 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
-          -e subscription_id=$(subscription_id) \
-          -e resource_group_name=${resource_group_name} \
-          -e create_time=${create_time} \
-          -e location=${location} \
+          -e subscription_id="subscription_id" \
+          -e resource_group_name="resource_group_name" \
+          -e create_time="create_time" \
+          -e location="location" \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sig-info
         displayName: Getting Shared Image Gallery Info
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.HYPERV_GENERATION, 'V2'))
