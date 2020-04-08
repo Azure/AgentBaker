@@ -38,8 +38,8 @@
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "PackerSigGallery",
-        "image_name": "1804Gen2-{{user `create_time`}}",
-        "image_version": "1.0.0",
+        "image_name": "1804Gen2",
+        "image_version": "1.0.{{user `create_time`}}",
         "replication_regions": ["{{user `location`}}"]
       }
     }

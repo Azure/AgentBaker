@@ -20,7 +20,7 @@ echo "COPY ME ---> "
 
 cat <<EOF > vhd-publishing-info.json
 {
-    "resource_id": "/subscriptions/${subscription_id}/resourceGroups/${resource_group_name}/providers/Microsoft.Compute/galleries/PackerSigGallery/images/1804Gen2-${create_time}/versions/1.0.0",
+    "resource_id": "/subscriptions/${subscription_id}/resourceGroups/${resource_group_name}/providers/Microsoft.Compute/galleries/PackerSigGallery/images/1804Gen2/versions/1.0.${create_time}",
     "replication_regions":"$location"
 }
 EOF
