@@ -31,5 +31,5 @@ delete-sa: az-login
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
-generate-sig-info: az-login
-	@./vhdbuilder/packer/generate-vhd-publishing-info-gen2.sh
+create-managed-disk-from-sig: az-login
+	@./vhdbuilder/packer/create-managed-disk-from-sig-gen2.sh
