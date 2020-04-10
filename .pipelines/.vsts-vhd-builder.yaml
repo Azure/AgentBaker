@@ -42,26 +42,18 @@ phases:
       - bash: |
           echo my pipeline variable is $(sauce)
       - bash: |
+          echo $(sauce) && \
           echo gen${HYPERV_GENERATION} && \
           echo ${SIG_GALLERY_NAME} && \
           echo ${SIG_IMAGE_NAME} && \
           echo ${SIG_IMAGE_VERSION} && \
           if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
           echo $m && \
-          echo '##vso[task.setvariable variable=MODE;isOutput=true]"$m"' && \
+          echo "##vso[task.setvariable variable=MODE]$m" && \
           echo $(MODE)
         displayName: Get Build Mode Bash
-      - script: |
-          echo gen${HYPERV_GENERATION} && \
-          echo ${SIG_GALLERY_NAME} && \
-          echo ${SIG_IMAGE_NAME} && \
-          echo ${SIG_IMAGE_VERSION} && \
-          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
-          echo $m && \
-          echo '##vso[task.setvariable variable=MODE;isOutput=true]"$m"' && \
-          echo $(MODE)
-        displayName: Get Build Mode
-      - script: |
+      - bash: |
+          echo $(sauce) && \
           echo MODE=$(MODE) && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
