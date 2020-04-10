@@ -26,7 +26,7 @@ trigger: none
 
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.26.0'
-  MODE: 'default'
+  MODE: 'defaultx'
 
 phases:
   - phase: build_vhd
