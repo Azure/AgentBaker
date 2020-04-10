@@ -34,6 +34,14 @@ phases:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
     steps:
+      # Create a variable
+      - bash: |
+          echo "##vso[task.setvariable variable=sauce]crushed tomatoes"
+      # Use the variable
+      # "$(sauce)" is replaced by the contents of the `sauce` variable by Azure Pipelines
+      # before handing the body of the script to the shell.
+      - bash: |
+          echo my pipeline variable is $(sauce)
       - script: |
           echo gen${HYPERV_GENERATION} && \
           echo ${SIG_GALLERY_NAME} && \
