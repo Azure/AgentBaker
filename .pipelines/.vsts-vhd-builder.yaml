@@ -33,14 +33,6 @@ phases:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
     steps:
-      # Create a variable
-      - bash: |
-          echo "##vso[task.setvariable variable=sauce]crushed tomatoes"
-      # Use the variable
-      # "$(sauce)" is replaced by the contents of the `sauce` variable by Azure Pipelines
-      # before handing the body of the script to the shell.
-      - bash: |
-          echo my pipeline variable is $(sauce)
       - script: |
           echo gen${HYPERV_GENERATION} && \
           echo ${SIG_GALLERY_NAME} && \
@@ -52,13 +44,14 @@ phases:
           echo $(MODE)
         displayName: Get Build Mode
       - script: |
-          echo MODE=$(MODE) && \
+          echo MODE=$MODE && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           -e AZURE_LOCATION=${AZURE_LOCATION} \
@@ -86,6 +79,7 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e CLASSIC_BLOB=${CLASSIC_BLOB} \
           -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
           -e OS_DISK_SAS=${OS_DISK_SAS} \
@@ -101,6 +95,7 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e SA_NAME=${SA_NAME} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk delete-sa
@@ -115,6 +110,7 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e IMAGE_NAME=${IMAGE_NAME} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk delete-mi
@@ -130,6 +126,7 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
           -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
           -e VHD_NAME=${VHD_NAME} \
@@ -148,7 +145,7 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
-          -e subscription_id="${SUBSCRIPTION_ID}" \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e resource_group_name="${AZURE_RESOURCE_GROUP_NAME}" \
           -e create_time="${create_time}" \
           -e location="${AZURE_LOCATION}" \

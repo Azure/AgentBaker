@@ -18,6 +18,7 @@ init-packer:
 
 az-login:
 	az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+	az account set -s ${SUBSCRIPTION_ID}
 
 run-packer: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
