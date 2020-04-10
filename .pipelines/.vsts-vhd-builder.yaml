@@ -35,7 +35,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - script: |
-          if [[ ${HYPERV_GENERATION} == "V2" ]]; then MODE="mode1" elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMGAE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then MODE="mode2" else MODE="default" fi && \
+          if [[ ${HYPERV_GENERATION} == "V2" ]]; then MODE="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMGAE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then MODE="mode2"; else MODE="default" fi && \
           echo '##vso[task.setvariable variable=MODE]$MODE'
       - script: |
           echo MODE=$MODE && \
@@ -94,7 +94,7 @@ phases:
       - script: |
           echo MODE=$MODE && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ ${MODE} == "mode1" ]]; then IMAGE_NAME="1.0.${create_time}" else IMAGE_NAME=$SIG_IMGAE_NAME fi && \
+          if [[ ${MODE} == "mode1" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMGAE_NAME fi && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
