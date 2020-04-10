@@ -35,7 +35,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - script: |
-          if [[ ${HYPERV_GENERATION} == "V2" ]]; then MODE="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMGAE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then MODE="mode2"; else MODE="default" fi && \
+          if [[ ${HYPERV_GENERATION} == "V2" ]]; then MODE="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMGAE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then MODE="mode2"; else MODE="default"; fi && \
           echo '##vso[task.setvariable variable=MODE]$MODE'
       - script: |
           echo MODE=$MODE && \
