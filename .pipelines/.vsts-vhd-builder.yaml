@@ -45,7 +45,7 @@ phases:
           echo ${MODE}
         displayName: Get Build Mode
       - script: |
-          echo MODE=${MODE} && \
+          echo MODE=$(MODE) && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
@@ -71,7 +71,7 @@ phases:
           artifactName: 'vhd-release-notes'
           targetPath: 'release-notes.txt'
       - script: |
-          echo MODE=$MODE && \
+          echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -86,7 +86,7 @@ phases:
         displayName: Copying resource to Classic Storage Account
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.MODE, 'default'))
       - script: |
-          echo MODE=$MODE && \
+          echo MODE=$(MODE) && \
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -99,7 +99,7 @@ phases:
           ${CONTAINER_IMAGE} make -f packer.mk delete-sa
         displayName: Clean-up Storage Account
       - script: |
-          echo MODE=$MODE && \
+          echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           if [[ ${MODE} == "mode1" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMGAE_NAME fi && \
           docker run --rm \
@@ -114,7 +114,7 @@ phases:
         displayName: Clean-up Managed Image
         condition: ne(variables.MODE, 'default')
       - script: |
-          echo MODE=$MODE && \
+          echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
           docker run --rm \
@@ -133,7 +133,7 @@ phases:
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.MODE, 'default'))
       - script: |
-          echo MODE=$MODE && \
+          echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
