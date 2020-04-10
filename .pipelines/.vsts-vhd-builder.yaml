@@ -33,6 +33,24 @@ phases:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
     steps:
+      - bash: |
+          echo "##vso[task.setvariable variable=sauce]crushed tomatoes"
+
+      # Use the variable
+      # "$(sauce)" is replaced by the contents of the `sauce` variable by Azure Pipelines
+      # before handing the body of the script to the shell.
+      - bash: |
+          echo my pipeline variable is $(sauce)
+      - bash: |
+          echo gen${HYPERV_GENERATION} && \
+          echo ${SIG_GALLERY_NAME} && \
+          echo ${SIG_IMAGE_NAME} && \
+          echo ${SIG_IMAGE_VERSION} && \
+          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
+          echo $m && \
+          echo '##vso[task.setvariable variable=MODE;isOutput=true]"$m"' && \
+          echo $(MODE)
+        displayName: Get Build Mode Bash
       - script: |
           echo gen${HYPERV_GENERATION} && \
           echo ${SIG_GALLERY_NAME} && \
@@ -41,10 +59,10 @@ phases:
           if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
           echo $m && \
           echo '##vso[task.setvariable variable=MODE;isOutput=true]"$m"' && \
-          echo $MODE
+          echo $(MODE)
         displayName: Get Build Mode
       - script: |
-          echo MODE=$MODE && \
+          echo MODE=$(MODE) && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
@@ -60,7 +78,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
-          -e MODE=${MODE} \
+          -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
           -e SIG_IMGAE_NAME=${SIG_IMGAE_NAME} \
           -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
