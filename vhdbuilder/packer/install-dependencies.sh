@@ -350,6 +350,7 @@ CPA_IMAGES="
 1.3.0
 1.3.0_v0.0.5
 1.7.1
+1.7.1-hotfix.20200403
 "
 for CPA_IMAGE in ${CPA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:${CPA_IMAGE}"
@@ -411,16 +412,16 @@ K8S_VERSIONS="
 1.13.11_v0.0.5
 1.13.12_f0.0.2
 1.14.6_v0.0.5
-1.14.7_v0.0.5
-1.14.8-hotfix.20200127
+1.14.7-hotfix.20200326
+1.14.8-hotfix.20200326
 1.15.3_v0.0.5
 1.15.4_v0.0.5
 1.15.5_f0.0.2
-1.15.7_f0.0.2
+1.15.7-hotfix.20200326
 1.15.10-hotfix.20200326
 1.16.0_v0.0.5
 1.16.7-hotfix.20200326
-1.17.3-hotfix-20200326
+1.17.3-hotfix.20200326
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
@@ -443,19 +444,21 @@ PATCHED_HYPERKUBE_IMAGES="
 1.13.12_f0.0.2
 1.14.6_v0.0.5
 1.14.7_v0.0.5
+1.14.7-hotfix.20200326
 1.14.8_f0.0.4
-1.14.8-hotfix.20200127
+1.14.8-hotfix.20200326
 1.15.3_v0.0.5
 1.15.4_v0.0.5
 1.15.5_f0.0.2
 1.15.7_f0.0.2
+1.15.7-hotfix.20200326
 1.15.10_f0.0.1
 1.15.10-hotfix.20200326
 1.16.0_v0.0.5
 1.16.7_f0.0.1
 1.16.7-hotfix.20200326
 1.17.3_f0.0.1
-1.17.3-hotfix-20200326
+1.17.3-hotfix.20200326
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
@@ -549,6 +552,8 @@ for NODE_PROBLEM_DETECTOR_VERSION in ${NODE_PROBLEM_DETECTOR_VERSIONS}; do
   pullContainerImage "docker" ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
+
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 
 df -h
 
