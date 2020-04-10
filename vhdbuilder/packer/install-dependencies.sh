@@ -60,6 +60,11 @@ echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
 installGPUDrivers
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 
+if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
+    ensureGPUDrivers
+fi
+
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
