@@ -37,6 +37,7 @@ phases:
       - script: |
           if [[ ${HYPERV_GENERATION} == "V2" ]]; then MODE="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMGAE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then MODE="mode2"; else MODE="default"; fi && \
           echo '##vso[task.setvariable variable=MODE]$MODE'
+        displayName: Get Build Mode
       - script: |
           echo MODE=${MODE} && \
           docker run --rm \
