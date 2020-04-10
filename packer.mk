@@ -1,5 +1,11 @@
 build-packer:
+ifeq (${HYPERV_GENERATION},V2)
+	@echo "Building with Hyper-v generation 2 VM"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
+else
+	@echo "Building with Hyper-v generation 1 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+endif
 
 build-packer-windows:
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
@@ -24,3 +30,6 @@ delete-sa: az-login
 
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
+
+create-managed-disk-from-sig: az-login
+	@./vhdbuilder/packer/create-managed-disk-from-sig-gen2.sh

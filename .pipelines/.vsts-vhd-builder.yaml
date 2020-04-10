@@ -7,7 +7,7 @@ trigger: none
 # - POST a new SKU to azure marketplace
 
 variables:
-  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.25.2'
+  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.26.0'
 
 phases:
   - phase: build_vhd
@@ -30,7 +30,8 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
-          ${CONTAINER_IMAGE} make  -f packer.mk run-packer
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          ${CONTAINER_IMAGE} make -f packer.mk run-packer
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
@@ -49,7 +50,7 @@ phases:
           -e OS_DISK_SAS=${OS_DISK_SAS} \
           ${CONTAINER_IMAGE} make -f packer.mk az-copy
         displayName: Copying resource to Classic Storage Account
-        condition: eq(variables.DRY_RUN, 'False')
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.HYPERV_GENERATION, 'V1'))
       - script: |
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
           docker run --rm \
@@ -62,7 +63,7 @@ phases:
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk delete-sa
         displayName: Clean-up Storage Account
-        condition: always()
+        condition: eq(variables.HYPERV_GENERATION, 'V1')
       - script: |
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
@@ -80,7 +81,26 @@ phases:
           -e OFFER_NAME="Ubuntu" \
           ${CONTAINER_IMAGE} make  -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
-        condition: eq(variables.DRY_RUN, 'False')
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.HYPERV_GENERATION, 'V1'))
+      - script: |
+          subscription_id="$(cat vhdbuilder/packer/settings.json | grep "subscription_id" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          resource_group_name="$(cat vhdbuilder/packer/settings.json | grep "resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          location="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e CLIENT_ID=${CLIENT_ID} \
+          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+          -e TENANT_ID=${TENANT_ID} \
+          -e subscription_id="${subscription_id}" \
+          -e resource_group_name="${resource_group_name}" \
+          -e create_time="${create_time}" \
+          -e location="${location}" \
+          -e os_type="Linux" \
+          ${CONTAINER_IMAGE} make -f packer.mk create-managed-disk-from-sig
+        displayName: Creating Managed Disk from Shared Image Gallery
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.HYPERV_GENERATION, 'V2'))
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
