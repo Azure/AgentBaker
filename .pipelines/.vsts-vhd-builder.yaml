@@ -26,7 +26,6 @@ trigger: none
 
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.26.0'
-  MODE: 'default'
 
 phases:
   - phase: build_vhd
@@ -47,7 +46,7 @@ phases:
           echo ${SIG_GALLERY_NAME} && \
           echo ${SIG_IMAGE_NAME} && \
           echo ${SIG_IMAGE_VERSION} && \
-          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMGAE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
+          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
           echo $m && \
           echo '##vso[task.setvariable variable=MODE]$m' && \
           echo $(MODE)
