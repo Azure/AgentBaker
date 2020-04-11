@@ -12,7 +12,7 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
-    "sig_image_name": "{{env `SIG_IMGAE_NAME`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
   },
   "builders": [
