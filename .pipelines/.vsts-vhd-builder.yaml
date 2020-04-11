@@ -79,7 +79,7 @@ phases:
           -e OS_DISK_SAS=${OS_DISK_SAS} \
           ${CONTAINER_IMAGE} make -f packer.mk az-copy
         displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.MODE, 'default'))
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
       - bash: |
           echo MODE=$(MODE) && \
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
@@ -109,7 +109,7 @@ phases:
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk delete-mi
         displayName: Clean-up Managed Image
-        condition: ne(variables.MODE, 'default')
+        condition: ne(variables['MODE'], 'default')
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -129,7 +129,7 @@ phases:
           -e OFFER_NAME="Ubuntu" \
           ${CONTAINER_IMAGE} make  -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.MODE, 'default'))
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
       - bash: |
           echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -146,9 +146,9 @@ phases:
           -e os_type="Linux" \
           ${CONTAINER_IMAGE} make -f packer.mk create-managed-disk-from-sig
         displayName: Creating Managed Disk from Shared Image Gallery
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.MODE, 'mode1'))
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'mode1'))
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables.MODE, 'mode2'))
+        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'mode2'))
