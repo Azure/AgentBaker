@@ -1,0 +1,10 @@
+[Unit]
+Description=Installs and loads Nvidia GPU kernel module
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
+[Install]
+WantedBy=multi-user.target
