@@ -2,22 +2,21 @@ trigger: none
 
 # Three modes in prioritized order
 # mode1: Hyper-Generation V2 mode
-#    This mode is activated by setting env var HYPERV_GENERATION to V2 and generates a 1804 Gen2 Linux image
+#    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
 #    steps:
-#    - Build VHD to a static SIG gallery, image with dynamic version (PackerSigGallery/1804Gen2/1.0.{{user `create_time`}})
-#    - Also creates a managed image with dynamic name 1.0.{{user `create_time`}} under the same resource group
+#    - Build VHD to a predefined SIG gallery/image with dynamic version (PackerSigGallery/1804Gen2/1.0.{{user `create_time`}})
 #    - Create a managed disk with dynamic name 1.0.{{user `create_time`}} from the SIG image.
 #    - (offline) Export the managed disk SAS URL, download the VHD to local disk, rename the file to .vhd, upload it to a classic storage account and publish it to PIR.
 #
 # mode2: Shared Image Gallery mode
 #    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
-#    It is similar to mode 1 except it's not gen2 image and the SIG destination is dynamic
+#    It is similar to mode 1 except it will create a gen1 image and the SIG destination is specified by the provided env var.
+#    This is good for quick testing purpose as you can use the SIG image as soon as the build is completed.
 #    steps:
 #    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION
-#    - Also creates a managed image with name SIG_IMAGE_NAME
 #
 # default mode: Gen1+VHD
-#    This default mode generates VHD and store it in a classic storage account.
+#    This default mode generates VHD and store it in a classic storage account. This is mainly for publishing a new VM image to Platform Image Repository(PIR).
 #    steps:
 #    - create an VHD in Packer to normal storage account
 #    - copy from Packer storage account to classic storage account using AzCopy
