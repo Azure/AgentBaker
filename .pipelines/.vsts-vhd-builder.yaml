@@ -10,11 +10,11 @@ trigger: none
 #    - (offline) Export the managed disk SAS URL, download the VHD to local disk, rename the file to .vhd, upload it to a classic storage account and publish it to PIR.
 #
 # mode2: Shared Image Gallery mode
-#    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMGAE_NAME/SIG_IMAGE_VERSION.
+#    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
 #    It is similar to mode 1 except it's not gen2 image and the SIG destination is dynamic
 #    steps:
-#    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMGAE_NAME/SIG_IMAGE_VERSION
-#    - Also creates a managed image with name SIG_IMGAE_NAME
+#    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION
+#    - Also creates a managed image with name SIG_IMAGE_NAME
 #
 # default mode: Gen1+VHD
 #    This default mode generates VHD and store it in a classic storage account.
@@ -34,11 +34,11 @@ phases:
       timeoutInMinutes: 120
     steps:
       - script: |
-          echo $Shell
+          echo "Current shell: $SHELL"
       - bash: |
           if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
-          echo "##vso[task.setvariable variable=MODE]$m" && \
-          echo $(MODE)
+          echo "Set build mode to $m" && \
+          echo "##vso[task.setvariable variable=MODE]$m"
         displayName: Get Build Mode
       - bash: |
           echo MODE=$(MODE) && \
@@ -59,7 +59,7 @@ phases:
           -e UBUNTU_SKU=${UBUNTU_SKU} \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMGAE_NAME=${SIG_IMGAE_NAME} \
+          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk run-packer
         displayName: Building VHD
@@ -100,7 +100,7 @@ phases:
       - script: |
           echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ ${MODE} == "mode1" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMGAE_NAME fi && \
+          if [[ $(MODE) == "mode1" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME fi && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
