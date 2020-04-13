@@ -23,7 +23,7 @@
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 35,
       "image_publisher": "Canonical",
       "image_offer": "UbuntuServer",
       "image_sku": "{{user `ubuntu_sku`}}-LTS",
