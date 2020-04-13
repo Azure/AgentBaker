@@ -568,7 +568,7 @@ df -h
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
     [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 95 {print}') ] || exit 1
 else
-    [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 90 {print}') ] || exit 1
+    [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 95 {print}') ] || exit 1
 fi
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
