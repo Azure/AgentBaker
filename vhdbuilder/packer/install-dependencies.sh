@@ -306,6 +306,18 @@ for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# GPU device plugin
+kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
+mkdir -p $kubeletDevicePluginPath
+echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
+
+DEST="/usr/local/nvidia/bin"
+mkdir -p $DEST
+docker run --rm --entrypoint "" -v $DEST:$DEST "nvidia/k8s-device-plugin:1.11" /bin/bash -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+chmod a+x $DEST/nvidia-device-plugin
+echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
+ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
+
 TUNNELFRONT_VERSIONS="v1.9.2-v3.0.11 v1.9.2-v4.0.11"
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="docker.io/deis/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
@@ -438,7 +450,7 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
   extractHyperkube "docker"
 done
-ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
+ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
@@ -564,12 +576,8 @@ df -h
 
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
-# error at 90% space taken
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 95 {print}') ] || exit 1
-else
-    [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 90 {print}') ] || exit 1
-fi
+# error at 95% space taken
+[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 95 {print}') ] || exit 1
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
