@@ -473,7 +473,7 @@ done
 
 # GPU device plugin
 kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
-make -p $kubeletDevicePluginPath
+mkdir -p $kubeletDevicePluginPath
 echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
 
 extractNvidiaDevicePlugin "docker" "nvidia/k8s-device-plugin:1.0.0-beta5" "/usr/local/nvidia/bin"
