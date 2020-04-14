@@ -276,6 +276,7 @@ version_gte() {
   test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
 }
 
+#TODO: split this so they won't be included in cse payload
 systemctlEnableAndStart() {
     systemctl_restart 100 5 30 $1
     RESTART_STATUS=$?
