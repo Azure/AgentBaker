@@ -33,7 +33,7 @@ delete-sa: az-login
 	az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
 
 delete-mi: az-login
-	az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
+	az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
 
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
