@@ -439,8 +439,8 @@ K8S_VERSIONS="
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200326
 1.16.0_v0.0.5
-1.16.7-hotfix.20200326
-1.17.3-hotfix.20200326
+1.16.7-hotfix.20200408
+1.17.3-hotfix.20200408
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
@@ -474,10 +474,10 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.10_f0.0.1
 1.15.10-hotfix.20200326
 1.16.0_v0.0.5
-1.16.7_f0.0.1
 1.16.7-hotfix.20200326
-1.17.3_f0.0.1
+1.16.7-hotfix.20200408
 1.17.3-hotfix.20200326
+1.17.3-hotfix.20200408
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
