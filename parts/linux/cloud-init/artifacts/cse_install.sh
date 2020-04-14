@@ -238,6 +238,25 @@ extractHyperkube() {
     fi
 }
 
+extractNvidiaDevicePlugin() {
+    CLI_TOOL=$1
+    NVIDIA_DEVICE_PLUGIN_IMAGE=$2
+    PATH=$3
+    pullContainerImage $CLI_TOOL ${NVIDIA_DEVICE_PLUGIN_IMAGE}
+
+    if [[ "$CLI_TOOL" == "docker" ]]; then
+        mkdir -p "$PATH"
+        if docker run --rm --entrypoint "" -v $PATH:$PATH ${NVIDIA_DEVICE_PLUGIN_IMAGE} /bin/bash -c "cp /usr/bin/nvidia-device-plugin $PATH"; then
+            chmod a+x /usr/local/nvidia/bin
+            return
+        else
+            exit 1
+        fi
+    else
+        img unpack -o "$PATH" ${NVIDIA_DEVICE_PLUGIN_IMAGE}
+    fi
+}
+
 installKubeletAndKubectl() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
         if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then

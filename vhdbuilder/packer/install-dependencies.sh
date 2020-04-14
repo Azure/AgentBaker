@@ -471,6 +471,15 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# GPU device plugin
+kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
+make -p $kubeletDevicePluginPath
+echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
+
+extractNvidiaDevicePlugin "docker" "nvidia/k8s-device-plugin:1.0.0-beta5" "/usr/local/nvidia/bin"
+echo "  - extracting nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
+ls -ltr /usr/local/nvidia/bin/* >> ${VHD_LOGS_FILEPATH}
+
 ADDON_IMAGES="
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.7
