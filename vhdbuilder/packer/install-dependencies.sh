@@ -318,6 +318,8 @@ chmod a+x $DEST/nvidia-device-plugin
 echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
 ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
+systemctlEnableAndStart nvidia-device-plugin || exit 1
+
 TUNNELFRONT_VERSIONS="v1.9.2-v3.0.11 v1.9.2-v4.0.11"
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="docker.io/deis/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
