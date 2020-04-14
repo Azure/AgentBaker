@@ -38,12 +38,12 @@ az account set --subscription ${SUBSCRIPTION_ID}
    --gallery-name ${GALLERY_NAME} \
    --gallery-image-definition ${IMAGEDEFINITION_NAME})
  if [ -z "$id" ]; then
-   echo "Creating image definition ${IMAGEDEFINITION_NAME} in Shared Image Gallery ${RG_NAME} inside the resource group ${RG_NAME}"
+   echo "Creating image definition ${IMAGEDEFINITION_NAME} in Shared Image Gallery ${GALLERY_NAME} inside the resource group ${RG_NAME}"
    az sig image-definition create \
      --resource-group ${RG_NAME} \
      --gallery-name ${GALLERY_NAME} \
      --gallery-image-definition ${IMAGEDEFINITION_NAME} \
-     --publisher aks \
+     --publisher microsoft-aks \
      --offer ${GALLERY_NAME} \
      --sku ${IMAGEDEFINITION_NAME} \
      --os-type ${OS_NAME} \
