@@ -54,6 +54,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
+          -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
