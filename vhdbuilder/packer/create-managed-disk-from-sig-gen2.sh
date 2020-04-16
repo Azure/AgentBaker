@@ -22,7 +22,7 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 
 curl -sL https://github.com/yangl900/armclient-go/releases/download/v0.2.3/armclient-go_linux_64-bit.tar.gz | tar xz
 
-~/armclient put ${disk_resource_id}?api-version=2019-11-01 "{'location': '$LOCATION', \
+./armclient put ${disk_resource_id}?api-version=2019-11-01 "{'location': '$LOCATION', \
   'properties': { \
     'osType': '$OS_TYPE', \
     'creationData': { \
