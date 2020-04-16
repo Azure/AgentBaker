@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
 required_env_vars=(
-    "subscription_id"
-    "resource_group_name"
-    "create_time"
-    "location"
-    "os_type"
+    "SUBSCRIPTION_ID"
+    "RESOURCE_GROUP_NAME"
+    "CREATE_TIME"
+    "LOCATION"
+    "OS_TYPE"
 )
 
 
@@ -17,14 +17,14 @@ do
     fi
 done
 
-sig_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group_name}/providers/Microsoft.Compute/galleries/PackerSigGallery/images/1804Gen2/versions/1.0.${create_time}"
-disk_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group_name}/providers/Microsoft.Compute/disks/1.0.${create_time}"
+sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/PackerSigGallery/images/1804Gen2/versions/1.0.${CREATE_TIME}"
+disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/1.0.${CREATE_TIME}"
 
 curl -sL https://github.com/yangl900/armclient-go/releases/download/v0.2.3/armclient-go_linux_64-bit.tar.gz | tar xz
 
-~/armclient put ${disk_resource_id}?api-version=2019-11-01 "{'location': '$location', \
+~/armclient put ${disk_resource_id}?api-version=2019-11-01 "{'location': '$LOCATION', \
   'properties': { \
-    'osType': '$os_type', \
+    'osType': '$OS_TYPE', \
     'creationData': { \
       'createOption': 'FromImage', \
       'galleryImageReference': { \

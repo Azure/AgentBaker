@@ -141,10 +141,10 @@ phases:
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
           -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e resource_group_name="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e create_time="${create_time}" \
-          -e location="${AZURE_LOCATION}" \
-          -e os_type="Linux" \
+          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+          -e CREATE_TIME="${create_time}" \
+          -e LOCATION="${AZURE_LOCATION}" \
+          -e OS_TYPE="Linux" \
           ${CONTAINER_IMAGE} make -f packer.mk create-managed-disk-from-sig
         displayName: Creating Managed Disk from Shared Image Gallery
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'mode1'))
