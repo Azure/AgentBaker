@@ -15,6 +15,10 @@ copyPackerFiles() {
   MODPROBE_CIS_DEST=/etc/modprobe.d/CIS.conf
   PWQUALITY_CONF_SRC=/home/packer/pwquality-CIS.conf
   PWQUALITY_CONF_DEST=/etc/security/pwquality.conf
+  PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth
+  PAM_D_COMMON_AUTH_DEST=/etc/pam.d/common-auth
+  PAM_D_COMMON_PASSWORD_SRC=/home/packer/pam-d-common-password
+  PAM_D_COMMON_PASSWORD_DEST=/etc/pam.d/common-password
   PAM_D_SU_SRC=/home/packer/pam-d-su
   PAM_D_SU_DEST=/etc/pam.d/su
   PROFILE_D_CIS_SH_SRC=/home/packer/profile-d-cis.sh
@@ -61,6 +65,8 @@ copyPackerFiles() {
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 644
   cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
+  cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
+  cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
   cpAndMode $AUDITD_RULES_SRC $AUDITD_RULES_DEST 640
