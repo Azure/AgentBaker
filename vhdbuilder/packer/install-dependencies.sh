@@ -150,47 +150,11 @@ for ADDON_RESIZER_VERSION in ${ADDON_RESIZER_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-HEAPSTER_VERSIONS="
-1.5.4
-1.5.3
-1.5.1
-"
-for HEAPSTER_VERSION in ${HEAPSTER_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/heapster:v${HEAPSTER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
 METRICS_SERVER_VERSIONS="
 0.3.5
 "
 for METRICS_SERVER_VERSION in ${METRICS_SERVER_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/metrics-server:v${METRICS_SERVER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-KUBE_DNS_VERSIONS="
-1.15.4
-1.15.0
-1.14.13
-1.14.5
-"
-for KUBE_DNS_VERSION in ${KUBE_DNS_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/k8s-dns-kube-dns:${KUBE_DNS_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-KUBE_DNS_MASQ_VERSIONS="
-1.15.4
-1.15.0
-1.14.10
-1.14.8
-1.14.5
-"
-for KUBE_DNS_MASQ_VERSION in ${KUBE_DNS_MASQ_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/k8s-dns-dnsmasq-nanny:${KUBE_DNS_MASQ_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -208,28 +172,6 @@ GCR_PAUSE_VERSIONS="
 "
 for PAUSE_VERSION in ${GCR_PAUSE_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/pause:${PAUSE_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-TILLER_VERSIONS="
-2.13.1
-2.11.0
-2.8.1
-"
-for TILLER_VERSION in ${TILLER_VERSIONS}; do
-    CONTAINER_IMAGE="gcr.io/kubernetes-helm/tiller:v${TILLER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-K8S_DNS_SIDECAR_VERSIONS="
-1.14.10
-1.14.8
-1.14.7
-"
-for K8S_DNS_SIDECAR_VERSION in ${K8S_DNS_SIDECAR_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/k8s-dns-sidecar:${K8S_DNS_SIDECAR_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -410,9 +352,6 @@ for KMS_PLUGIN_VERSION in ${KMS_PLUGIN_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-pullContainerImage "docker" "busybox"
-echo "  - busybox" >> ${VHD_LOGS_FILEPATH}
-
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
@@ -509,60 +448,6 @@ AZUREFILE_CSI_VERSIONS="
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_ATTACHER_VERSIONS="
-1.0.1
-"
-for CSI_ATTACHER_VERSION in ${CSI_ATTACHER_VERSIONS}; do
-  CONTAINER_IMAGE="quay.io/k8scsi/csi-attacher:v${CSI_ATTACHER_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_CLUSTER_DRIVER_REGISTRAR_VERSIONS="
-1.0.1
-"
-for CSI_CLUSTER_DRIVER_REGISTRAR_VERSION in ${CSI_CLUSTER_DRIVER_REGISTRAR_VERSIONS}; do
-  CONTAINER_IMAGE="quay.io/k8scsi/csi-cluster-driver-registrar:v${CSI_CLUSTER_DRIVER_REGISTRAR_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
-1.1.0
-"
-for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
-  CONTAINER_IMAGE="quay.io/k8scsi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_PROVISIONER_VERSIONS="
-1.0.1
-"
-for CSI_PROVISIONER_VERSION in ${CSI_PROVISIONER_VERSIONS}; do
-  CONTAINER_IMAGE="quay.io/k8scsi/csi-provisioner:v${CSI_PROVISIONER_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-LIVENESSPROBE_VERSIONS="
-1.1.0
-"
-for LIVENESSPROBE_VERSION in ${LIVENESSPROBE_VERSIONS}; do
-  CONTAINER_IMAGE="quay.io/k8scsi/livenessprobe:v${LIVENESSPROBE_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-NODE_PROBLEM_DETECTOR_VERSIONS="
-0.8.0
-"
-for NODE_PROBLEM_DETECTOR_VERSION in ${NODE_PROBLEM_DETECTOR_VERSIONS}; do
-  CONTAINER_IMAGE="k8s.gcr.io/node-problem-detector:v${NODE_PROBLEM_DETECTOR_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
