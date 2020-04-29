@@ -133,6 +133,14 @@ var (
 		ImageVersion:   "latest",
 	}
 
+	//Ubuntu1804Gen2OSImageConfig is Gen2 flavor the Ubunutu 18.04-LTS Linux distribution.
+	Ubuntu1804Gen2OSImageConfig = AzureOSImageConfig{
+		ImageOffer:     "aks",
+		ImageSku:       "aks-ubuntu-1804-gen2-202004",
+		ImagePublisher: "microsoft-aks",
+		ImageVersion:   "2020.04.16",
+	}
+
 	//RHELOSImageConfig is the RHEL Linux distribution.
 	RHELOSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "RHEL",
@@ -152,25 +160,25 @@ var (
 	// AKSUbuntu1604OSImageConfig is the AKS image based on Ubuntu 16.04-LTS.
 	AKSUbuntu1604OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1604-202003",
+		ImageSku:       "aks-ubuntu-1604-202004",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.03.05",
+		ImageVersion:   "2020.04.16",
 	}
 
 	// AKSUbuntu1804OSImageConfig is the AKS image based on Ubuntu 18.04-LTS.
 	AKSUbuntu1804OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-202003",
+		ImageSku:       "aks-ubuntu-1804-202004",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.03.05",
+		ImageVersion:   "2020.04.16",
 	}
 
 	// AKSWindowsServer2019OSImageConfig is the AKS image based on Windows Server 2019
 	AKSWindowsServer2019OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks-windows",
-		ImageSku:       "2019-datacenter-core-smalldisk-2002",
+		ImageSku:       "2019-datacenter-core-smalldisk-2004",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "17763.1075.200227",
+		ImageVersion:   "17763.1158.200421",
 	}
 
 	// WindowsServer2019OSImageConfig is the 'vanilla' Windows Server 2019 image
@@ -178,7 +186,7 @@ var (
 		ImageOffer:     "WindowsServer",
 		ImageSku:       "2019-Datacenter-Core-with-Containers-smalldisk",
 		ImagePublisher: "MicrosoftWindowsServer",
-		ImageVersion:   "17763.973.2001110547",
+		ImageVersion:   "17763.1158.2004131759",
 	}
 
 	// ACC1604OSImageConfig is the ACC image based on Ubuntu 16.04.
@@ -205,6 +213,7 @@ var (
 		OSImageConfig: map[Distro]AzureOSImageConfig{
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
+			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
 			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
@@ -227,6 +236,7 @@ var (
 		OSImageConfig: map[Distro]AzureOSImageConfig{
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
+			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
 			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     Ubuntu1604OSImageConfig,
@@ -248,6 +258,7 @@ var (
 		OSImageConfig: map[Distro]AzureOSImageConfig{
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
+			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
 			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
@@ -295,6 +306,7 @@ var (
 		OSImageConfig: map[Distro]AzureOSImageConfig{
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
+			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
 			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,

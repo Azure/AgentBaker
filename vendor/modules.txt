@@ -1,4 +1,4 @@
-# github.com/Azure/aks-engine v0.47.0-aks-14
+# github.com/Azure/aks-engine v0.47.0-aks-gomod-33
 github.com/Azure/aks-engine/pkg/api
 github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20170831
 github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20180331

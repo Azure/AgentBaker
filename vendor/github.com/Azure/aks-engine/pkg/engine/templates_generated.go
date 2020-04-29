@@ -225,6 +225,7 @@
 // ../../parts/k8s/windowsinstallopensshfunc.ps1
 // ../../parts/k8s/windowskubeletfunc.ps1
 // ../../parts/k8s/windowslogscleanup.ps1
+// ../../parts/k8s/windowsnodereset.ps1
 // ../../parts/masteroutputs.t
 // ../../parts/masterparams.t
 // ../../parts/swarm/Install-ContainerHost-And-Join-Swarm.ps1
@@ -36729,6 +36730,31 @@ configAddons() {
 {{end}}
 
 {{if HasNSeriesSKU}}
+
+installGPUDriversRun() {
+    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
+    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
+    if yes please help remove the clean up logic here too */}}
+    set -x
+    MODULE_NAME="nvidia"
+    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
+    KERNEL_NAME=$(uname -r)
+    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
+        if [ -x "$(command -v dkms)" ]; then
+          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
+        else
+          rm -rf "${NVIDIA_DKMS_DIR}"
+        fi
+    fi
+    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
+    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
+        -k=$KERNEL_NAME \
+        --log-file-name=${log_file_name} \
+        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
+    exit $?
+}
+
 configGPUDrivers() {
     {{/* only install the runtime since nvidia-docker2 has a hard dep on docker CE packages. */}}
     {{/* we will manually install nvidia-docker2 */}}
@@ -36736,7 +36762,8 @@ configGPUDrivers() {
     echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
     retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{/* if the unattened upgrade is turned on, and it may takes 10 min to finish the installation, and we use the 1 second just to try to get the lock more aggressively */}}
+    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     tmpDir=$GPU_DEST/tmp
     (
       set -e -o pipefail
@@ -36749,7 +36776,8 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 1 600 sh $GPU_DEST/nvidia-drivers-$GPU_DV --silent --accept-license --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}" || exit $ERR_GPU_DRIVERS_START_FAIL
+    export -f installGPUDriversRun
+    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
     echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     umount -l /usr/lib/x86_64-linux-gnu
@@ -37009,6 +37037,9 @@ ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
 ERR_SYSTEMD_INSTALL_FAIL=48 {{/* Unable to install required systemd version */}}
 ERR_MODPROBE_FAIL=49 {{/* Unable to load a kernel module using modprobe */}}
 ERR_OUTBOUND_CONN_FAIL=50 {{/* Unable to establish outbound connection */}}
+ERR_K8S_API_SERVER_CONN_FAIL=51 {{/* Unable to establish connection to k8s api server*/}}
+ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL=52 {{/* Unable to resolve k8s api server name */}}
+ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 {{/* Unable to resolve k8s api server name due to Azure DNS issue */}}
 ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key */}}
 ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
 ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
@@ -37043,11 +37074,12 @@ RHEL_OS_NAME="RHEL"
 COREOS_OS_NAME="COREOS"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-GPU_DV=418.40.04
-GPU_DEST=/usr/local/nvidia
+export GPU_DV=418.40.04
+export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.0.3
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
+NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
 aptmarkWALinuxAgent() {
     wait_for_apt_locks
@@ -37345,7 +37377,7 @@ installGPUDrivers() {
     if ! (
       set -e -o pipefail
       cd "${tmpDir}"
-      retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${NVIDIA_DOCKER_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+      retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${NVIDIA_DOCKER_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     ); then
       exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
@@ -37450,27 +37482,6 @@ downloadContainerd() {
     retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
 }
 
-ensureAPMZ() {
-    local version=$1
-    local apmz_url="https://upstreamartifacts.blob.core.windows.net/apmz/$version/binaries/apmz_linux_amd64.tar.gz" apmz_filepath="/usr/local/bin/apmz"
-    if [[ -f "$apmz_filepath" ]]; then
-        installed_version=$($apmz_filepath version)
-        if [[ "$version" == "$installed_version" ]]; then
-            # already installed, noop
-            return
-        fi
-        # linked, but not the version we expect
-    fi
-    install_dir="$APMZ_DOWNLOADS_DIR/$version"
-    download_path="$install_dir/apmz.gz"
-    mkdir -p "$install_dir"
-    retrycmd_get_tarball 120 5 "$download_path" "${apmz_url}"
-    tar -xvf "$download_path" -C "$install_dir"
-    bin_path="$install_dir/apmz_linux_amd64"
-    chmod +x "$bin_path"
-    ln -Ffs "$bin_path" "$apmz_filepath" # symlink apmz into /usr/local/bin/apmz
-}
-
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
@@ -37568,9 +37579,9 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'hyperkube') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${KUBERNETES_VERSION}$" | grep 'cloud-controller-manager') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -v "${ETCD_VERSION}$" | grep 'etcd') &
+    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube') &
+    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager') &
+    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${ETCD_VERSION}$|${ETCD_VERSION}-|${ETCD_VERSION}_" | grep 'etcd') &
     if [ "$IS_HOSTED_MASTER" = "false" ]; then
         echo "Cleaning up AKS container images, not an AKS cluster"
         docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'hcp-tunnel-front') &
@@ -37621,6 +37632,11 @@ var _k8sCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
 ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
 
 set -x
+if [ -f /opt/azure/containers/provision.complete ]; then
+      echo "Already ran to success exiting..."
+      exit 0
+fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -37638,13 +37654,6 @@ source {{GetCSEHelpersScriptFilepath}}
 
 wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEInstallScriptFilepath}}
-
-ensureAPMZ "v0.4.0"
-{{- if HasTelemetryEnabled }}
-eval "$(apmz bash -n "cse" -t "{{GetLinuxDefaultTelemetryTags}}" --api-key "{{GetApplicationInsightsTelemetryKey}}")"
-{{else}}
-eval "$(apmz bash -d)"
-{{end}}
 
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
@@ -37671,20 +37680,20 @@ else
     REBOOTREQUIRED=false
 fi
 
-time_metric "ConfigureAdminUser" configureAdminUser
+configureAdminUser
 
 {{- if not NeedsContainerd}}
-time_metric "CleanupContainerd" cleanUpContainerd
+cleanUpContainerd
 {{end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    time_metric "CleanupGPUDrivers" cleanUpGPUDrivers
+    cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    time_metric "CleanUpContainerImages" cleanUpContainerImages
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -37695,17 +37704,17 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    time_metric "InstallDeps" installDeps
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    time_metric "EnsureAuditD" ensureAuditD
+    ensureAuditD
 fi
 
 {{- if not HasCoreOS}}
-time_metric "InstallContainerRuntime" installContainerRuntime
+installContainerRuntime
 {{end}}
 
 if [[ -n "${MASTER_NODE}" ]] && [[ -z "${COSMOS_URI}" ]]; then
@@ -37714,23 +37723,23 @@ if [[ -n "${MASTER_NODE}" ]] && [[ -z "${COSMOS_URI}" ]]; then
     {{else}}
     CLI_TOOL="img"
     {{end}}
-    time_metric "InstallEtcd" installEtcd $CLI_TOOL
+    installEtcd $CLI_TOOL
 fi
 
 # this will capture the amount of time to install of the network plugin during cse
-time_metric "InstallNetworkPlugin" installNetworkPlugin
+installNetworkPlugin
 
 
 {{- if NeedsContainerd}}
-time_metric "InstallContainerd" installContainerd
+installContainerd
 {{end}}
 
 {{- if HasNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
-        time_metric "InstallGPUDrivers" installGPUDrivers
+        installGPUDrivers
     fi
-    time_metric "EnsureGPUDrivers" ensureGPUDrivers
+    ensureGPUDrivers
 fi
 {{end}}
 
@@ -37738,36 +37747,36 @@ fi
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 {{end}}
 
-time_metric "InstallKubeletAndKubectl" installKubeletAndKubectl
+installKubeletAndKubectl
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
-    time_metric "EnsureRPC" ensureRPC
+    ensureRPC
 fi
 
-time_metric "CreateKubeManifestDir" createKubeManifestDir
+createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ "${SGX_NODE}" = true ]]; then
-    time_metric "InstallSGXDrivers" installSGXDrivers
+    installSGXDrivers
 fi
 {{end}}
 
 {{/* create etcd user if we are configured for etcd */}}
 if [[ -n "${MASTER_NODE}" ]] && [[ -z "${COSMOS_URI}" ]]; then
-    time_metric "ConfigureEtcdUser" configureEtcdUser
+    configureEtcdUser
 fi
 
 if [[ -n "${MASTER_NODE}" ]]; then
     {{/* this step configures all certs */}}
     {{/* both configs etcd/cosmos */}}
-    time_metric "ConfigureSecrets" configureSecrets
+    configureSecrets
 fi
 
 {{/* configure etcd if we are configured for etcd */}}
 if [[ -n "${MASTER_NODE}" ]] && [[ -z "${COSMOS_URI}" ]]; then
-    time_metric "ConfigureEtcd" configureEtcd
+    configureEtcd
 else
-    time_metric "RemoveEtcd" removeEtcd
+    removeEtcd
 fi
 
 {{- if HasCustomSearchDomain}}
@@ -37776,57 +37785,57 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{end}}
 
 {{- if IsDockerContainerRuntime}}
-time_metric "EnsureDocker" ensureDocker
+ensureDocker
 {{else if IsKataContainerRuntime}}
 if grep -q vmx /proc/cpuinfo; then
-    time_metric "InstallKataContainers" installKataContainersRuntime
+    installKataContainersRuntime
 fi
 {{end}}
 
-time_metric "ConfigureK8s" configureK8s
+configureK8s
 
 {{- if IsAzureStackCloud}}
-time_metric "ConfigureK8sCustomCloud" configureK8sCustomCloud
+configureK8sCustomCloud
     {{- if IsAzureCNI}}
-    time_metric "ConfigureAzureStackInterfaces" configureAzureStackInterfaces
+    configureAzureStackInterfaces
     {{end}}
 {{end}}
 
-time_metric "ConfigureCNI" configureCNI
+configureCNI
 
 if [[ -n "${MASTER_NODE}" ]]; then
-    time_metric "ConfigAddons" configAddons
+    configAddons
 fi
 
 {{- if NeedsContainerd}}
-time_metric "EnsureContainerd" ensureContainerd
+ensureContainerd
 {{end}}
 
 {{- if EnableEncryptionWithExternalKms}}
 if [[ -n "${MASTER_NODE}" && "${KMS_PROVIDER_VAULT_NAME}" != "" ]]; then
-    time_metric "EnsureKMS" ensureKMS
+    ensureKMS
 fi
 {{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-time_metric "EnsureDHCPv6" ensureDHCPv6
+ensureDHCPv6
 {{end}}
 
-time_metric "EnsureKubelet" ensureKubelet
-time_metric "EnsureJournal" ensureJournal
+ensureKubelet
+ensureJournal
 
 if [[ -n "${MASTER_NODE}" ]]; then
     if version_gte ${KUBERNETES_VERSION} 1.16; then
-        time_metric "EnsureLabelNodes" ensureLabelNodes
+        ensureLabelNodes
     fi
-    time_metric "WriteKubeConfig" writeKubeConfig
+    writeKubeConfig
     if [[ -z "${COSMOS_URI}" ]]; then
-        time_metric "EnsureEtcd" ensureEtcd
+        ensureEtcd
     fi
-    time_metric "EnsureK8sControlPlane" ensureK8sControlPlane
+    ensureK8sControlPlane
     {{if IsAzurePolicyAddonEnabled}}
-    time_metric "EnsureLabelExclusionForAzurePolicyAddon" ensureLabelExclusionForAzurePolicyAddon
+    ensureLabelExclusionForAzurePolicyAddon
     {{end}}
 fi
 
@@ -37838,10 +37847,28 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
+{{- /* re-enable unattended upgrades */}}
+rm -f /etc/apt/apt.conf.d/99periodic
+
 {{- if not IsAzureStackCloud}}
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    time_metric "PurgeApt" apt_get_purge 20 30 120 apache2-utils &
+    apt_get_purge 20 30 120 apache2-utils &
 fi
+{{end}}
+
+VALIDATION_ERR=0
+
+{{- if IsHostedMaster }}
+RES=$(retrycmd_if_failure 20 1 3 nslookup ${API_SERVER_NAME})
+STS=$?
+if [[ $STS != 0 ]]; then
+    if [[ $RES == *"168.63.129.16"*  ]]; then
+        VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+    else
+        VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+    fi
+fi
+retrycmd_if_failure 50 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 {{end}}
 
 if $REBOOTREQUIRED; then
@@ -37857,10 +37884,12 @@ else
     fi
 fi
 
-echo "Custom script finished successfully"
+echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 ps auxfww > /opt/azure/provision-ps.log &
+
+exit $VALIDATION_ERR
 
 #EOF
 `)
@@ -39339,6 +39368,15 @@ write_files:
     {{CloudInitData "aptPreferences"}}
 {{end}}
 
+- path: /etc/apt/apt.conf.d/99periodic
+  permissions: "0644"
+  owner: root
+  content: |
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::AutocleanInterval "0";
+    APT::Periodic::Unattended-Upgrade "0";
+
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
@@ -39911,6 +39949,15 @@ write_files:
   content: !!binary |
     {{CloudInitData "aptPreferences"}}
 {{end}}
+
+- path: /etc/apt/apt.conf.d/99periodic
+  permissions: "0644"
+  owner: root
+  content: |
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::AutocleanInterval "0";
+    APT::Periodic::Unattended-Upgrade "0";
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -40824,9 +40871,9 @@ function DownloadFileOverHttp
     if ($search.Count -ne 0)
     {
         Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"
-        Move-Item -Path $search[0] -Destination $DestinationPath -Force
+        Copy-Item -Path $search[0] -Destination $DestinationPath -Force
     }
-    else 
+    else
     {
         $secureProtocols = @()
         $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
@@ -40998,7 +41045,43 @@ function Register-LogsCleanupScriptTask {
     $trigger = New-JobTrigger -Daily -At "00:00" -DaysInterval 1
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "log-cleanup-task"
     Register-ScheduledTask -TaskName "log-cleanup-task" -InputObject $definition
-}`)
+}
+
+function Register-NodeResetScriptTask {
+    Write-Log "Creating a startup task to run windowsnodereset.ps1"
+
+    (Get-Content 'c:\AzureData\k8s\windowsnodereset.ps1') |
+    Foreach-Object { $_ -replace '{{MasterSubnet}}', $global:MasterSubnet } |
+    Foreach-Object { $_ -replace '{{NetworkMode}}', $global:NetworkMode } |
+    Foreach-Object { $_ -replace '{{NetworkPlugin}}', $global:NetworkPlugin } |
+    Out-File 'c:\k\windowsnodereset.ps1'
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File ` + "`" + `"c:\k\windowsnodereset.ps1` + "`" + `""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -AtStartup -RandomDelay 00:00:05
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "k8s-restart-job"
+    Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
+}
+
+function Assert-FileExists {
+    Param(
+        [Parameter(Mandatory=$true,Position=0)][string]
+        $Filename
+    )
+    
+    if (-Not (Test-Path $Filename)) {
+        throw "$Filename does not exist"
+    }
+}
+
+function Update-DefenderPreferences {
+    Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
+
+    if ($global:EnableCsiProxy) {
+        Add-MpPreference -ExclusionProcess "c:\k\csi-proxy-server.exe"
+    }
+}
+`)
 
 func k8sKuberneteswindowsfunctionsPs1Bytes() ([]byte, error) {
 	return _k8sKuberneteswindowsfunctionsPs1, nil
@@ -41180,6 +41263,9 @@ try
     if ($true) {
         Write-Log "Provisioning $global:DockerServiceName... with IP $MasterIP"
 
+        $global:globalTimer = [System.Diagnostics.Stopwatch]::StartNew()
+
+        $configAppInsightsClientTimer = [System.Diagnostics.Stopwatch]::StartNew()
         # Get app insights binaries and set up app insights client
         mkdir c:\k\appinsights
         DownloadFileOverHttp -Url "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg" -DestinationPath "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip"
@@ -41215,13 +41301,18 @@ try
             $global:AppInsightsClient.Context.Properties[$key] = $imdsProperties[$key]
         }
 
-        $global:globalTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        $configAppInsightsClientTimer.Stop()
+        $global:AppInsightsClient.TrackMetric("Config-AppInsightsClient", $configAppInsightsClientTimer.Elapsed.TotalSeconds)
 
         # Install OpenSSH if SSH enabled
         $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
         if ( $sshEnabled ) {
+            Write-Log "Install OpenSSH"
+            $installOpenSSHTimer = [System.Diagnostics.Stopwatch]::StartNew()
             Install-OpenSSH -SSHKeys $SSHKeys
+            $installOpenSSHTimer.Stop()
+            $global:AppInsightsClient.TrackMetric("Install-OpenSSH", $installOpenSSHTimer.Elapsed.TotalSeconds)
         }
 
         Write-Log "Apply telemetry data setting"
@@ -41389,6 +41480,8 @@ try
 
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
+        Register-NodeResetScriptTask
+        Update-DefenderPreferences
 
         if (Test-Path $CacheDir)
         {
@@ -42674,7 +42767,7 @@ Install-OpenSSH {
     $sshdService = Get-Service | ? Name -like 'sshd'
     if ($sshdService.Count -eq 0)
     {
-        Write-Host "Installing OpenSSH"
+        Write-Log "Installing OpenSSH"
         $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
 
         if (!$isAvailable) {
@@ -42685,29 +42778,29 @@ Install-OpenSSH {
     }
     else
     {
-        Write-Host "OpenSSH Server service detected - skipping online install..."
+        Write-Log "OpenSSH Server service detected - skipping online install..."
     }
 
     Start-Service sshd
 
     if (!(Test-Path "$adminpath")) {
-        Write-Host "Created new file and text content added"
+        Write-Log "Created new file and text content added"
         New-Item -path $adminpath -name $adminfile -type "file" -value ""
     }
 
-    Write-Host "$adminpath found."
-    Write-Host "Adding keys to: $adminpath\$adminfile ..."
+    Write-Log "$adminpath found."
+    Write-Log "Adding keys to: $adminpath\$adminfile ..."
     $SSHKeys | foreach-object {
         Add-Content $adminpath\$adminfile $_
     }
 
-    Write-Host "Setting required permissions..."
+    Write-Log "Setting required permissions..."
     icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
     icacls $adminpath\$adminfile /inheritance:r
     icacls $adminpath\$adminfile /grant SYSTEM:` + "`" + `(F` + "`" + `)
     icacls $adminpath\$adminfile /grant BUILTIN\Administrators:` + "`" + `(F` + "`" + `)
 
-    Write-Host "Restarting sshd service..."
+    Write-Log "Restarting sshd service..."
     Restart-Service sshd
     # OPTIONAL but recommended:
     Set-Service -Name sshd -StartupType 'Automatic'
@@ -42718,7 +42811,7 @@ Install-OpenSSH {
     if (!$firewall) {
         throw "OpenSSH is firewall is not configured properly"
     }
-    Write-Host "OpenSSH installed and configured successfully"
+    Write-Log "OpenSSH installed and configured successfully"
 }
 `)
 
@@ -42893,7 +42986,7 @@ New-InfraContainer {
         $DestinationTag = "kubletwin/pause"
     )
     cd $KubeDir
-    $computerInfo = Get-ComputerInfo
+    $windowsVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId
 
     # Reference for these tags: curl -L https://mcr.microsoft.com/v2/k8s/core/pause/tags/list
     # Then docker run --rm mplatform/manifest-tool inspect mcr.microsoft.com/k8s/core/pause:<tag>
@@ -42902,7 +42995,7 @@ New-InfraContainer {
 
     $pauseImageVersions = @("1803", "1809", "1903", "1909")
 
-    if ($pauseImageVersions -icontains $computerInfo.WindowsVersion) {
+    if ($pauseImageVersions -icontains $windowsVersion) {
         $imageList = docker images $defaultPauseImage --format "{{.Repository}}:{{.Tag}}"
         if (-not $imageList) {
             Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
@@ -42990,6 +43083,9 @@ Get-KubeBinaries {
     del $tempdir -Recurse
 }
 
+# This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
+filter RemoveNulls { $_ -replace '\0', '' }
+
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration
 function
 New-NSSMService {
@@ -43006,43 +43102,43 @@ New-NSSMService {
     )
 
     # setup kubelet
-    & "$KubeDir\nssm.exe" install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
-    & "$KubeDir\nssm.exe" set Kubelet AppDirectory $KubeDir
-    & "$KubeDir\nssm.exe" set Kubelet AppParameters $KubeletStartFile
-    & "$KubeDir\nssm.exe" set Kubelet DisplayName Kubelet
-    & "$KubeDir\nssm.exe" set Kubelet AppRestartDelay 5000
-    & "$KubeDir\nssm.exe" set Kubelet DependOnService docker
-    & "$KubeDir\nssm.exe" set Kubelet Description Kubelet
-    & "$KubeDir\nssm.exe" set Kubelet Start SERVICE_AUTO_START
-    & "$KubeDir\nssm.exe" set Kubelet ObjectName LocalSystem
-    & "$KubeDir\nssm.exe" set Kubelet Type SERVICE_WIN32_OWN_PROCESS
-    & "$KubeDir\nssm.exe" set Kubelet AppThrottle 1500
-    & "$KubeDir\nssm.exe" set Kubelet AppStdout C:\k\kubelet.log
-    & "$KubeDir\nssm.exe" set Kubelet AppStderr C:\k\kubelet.err.log
-    & "$KubeDir\nssm.exe" set Kubelet AppStdoutCreationDisposition 4
-    & "$KubeDir\nssm.exe" set Kubelet AppStderrCreationDisposition 4
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateFiles 1
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateOnline 1
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateSeconds 86400
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateBytes 10485760
+    & "$KubeDir\nssm.exe" install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppDirectory $KubeDir | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppParameters $KubeletStartFile | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet DisplayName Kubelet | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppRestartDelay 5000 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet DependOnService docker | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet Description Kubelet | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet Start SERVICE_DEMAND_START | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet ObjectName LocalSystem | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppThrottle 1500 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppStdout C:\k\kubelet.log | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppStderr C:\k\kubelet.err.log | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppStdoutCreationDisposition 4 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppStderrCreationDisposition 4 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppRotateFiles 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppRotateOnline 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppRotateSeconds 86400 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubelet AppRotateBytes 10485760 | RemoveNulls
 
     # setup kubeproxy
-    & "$KubeDir\nssm.exe" install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
-    & "$KubeDir\nssm.exe" set Kubeproxy AppDirectory $KubeDir
-    & "$KubeDir\nssm.exe" set Kubeproxy AppParameters $KubeProxyStartFile
-    & "$KubeDir\nssm.exe" set Kubeproxy DisplayName Kubeproxy
-    & "$KubeDir\nssm.exe" set Kubeproxy DependOnService Kubelet
-    & "$KubeDir\nssm.exe" set Kubeproxy Description Kubeproxy
-    & "$KubeDir\nssm.exe" set Kubeproxy Start SERVICE_AUTO_START
-    & "$KubeDir\nssm.exe" set Kubeproxy ObjectName LocalSystem
-    & "$KubeDir\nssm.exe" set Kubeproxy Type SERVICE_WIN32_OWN_PROCESS
-    & "$KubeDir\nssm.exe" set Kubeproxy AppThrottle 1500
-    & "$KubeDir\nssm.exe" set Kubeproxy AppStdout C:\k\kubeproxy.log
-    & "$KubeDir\nssm.exe" set Kubeproxy AppStderr C:\k\kubeproxy.err.log
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateFiles 1
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateOnline 1
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateSeconds 86400
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateBytes 10485760
+    & "$KubeDir\nssm.exe" install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppDirectory $KubeDir | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppParameters $KubeProxyStartFile | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy DisplayName Kubeproxy | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy DependOnService Kubelet | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy Description Kubeproxy | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy Start SERVICE_DEMAND_START | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy ObjectName LocalSystem | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppThrottle 1500 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppStdout C:\k\kubeproxy.log | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppStderr C:\k\kubeproxy.err.log | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateFiles 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateOnline 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateSeconds 86400 | RemoveNulls
+    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateBytes 10485760 | RemoveNulls
 }
 
 # Renamed from Write-KubernetesStartFiles
@@ -43432,6 +43528,115 @@ func k8sWindowslogscleanupPs1() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "k8s/windowslogscleanup.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _k8sWindowsnoderesetPs1 = []byte(`<#
+.DESCRIPTION
+    This script is intended to be run each time a windows nodes is restarted and performs
+    cleanup actions to help ensure the node comes up cleanly.
+#>
+
+$global:LogPath = "c:\k\windowsnodereset.log"
+$global:HNSModule = "c:\k\hns.psm1"
+
+# Note: the following templated values are expanded kuberneteswindowsfunctions.ps1/Register-NodeResetScriptTask() not during template generation!
+$global:MasterSubnet = "{{MasterSubnet}}"
+$global:NetworkMode = "{{NetworkMode}}"
+$global:NetworkPlugin = "{{NetworkPlugin}}"
+
+filter Timestamp { "$(Get-Date -Format o): $_" }
+
+function Write-Log ($message) {
+    $message | Timestamp | Tee-Object -FilePath $global:LogPath -Append
+}
+
+Write-Log "Entering windowsnodecleanup.ps1"
+
+Import-Module $global:HNSModule
+
+#
+# Stop services
+#
+Write-Log "Stopping kubeproxy service"
+Stop-Service kubeproxy
+
+Write-Log "Stopping kubelet service"
+Stop-Service kubelet
+
+#
+# Perform cleanup
+#
+
+$hnsNetwork = Get-HnsNetwork | Where-Object Name -EQ azure
+if ($hnsNetwork) {
+    Write-Log "Cleaning up containers"
+    docker ps -q | ForEach-Object { docker rm $_ -f }
+
+    Write-Log "Removing old HNS network 'azure'"
+    Remove-HnsNetwork $hnsNetwork
+
+    taskkill /IM azure-vnet.exe /f
+    taskkill /IM azure-vnet-ipam.exe /f
+
+    $filesToRemove = @(
+        "c:\k\azure-vnet.json",
+        "c:\k\azure-vnet.json.lock",
+        "c:\k\azure-vnet-ipam.json",
+        "c:\k\azure-vnet-ipam.json.lock"
+    )
+
+    foreach ($file in $filesToRemove) {
+        if (Test-Path $file) {
+            Write-Log "Deleting stale file at $file"
+            Remove-Item $file
+        }
+    }
+}
+
+Write-Log "Cleaning up persisted HNS policy lists"
+# Workaround for https://github.com/kubernetes/kubernetes/pull/68923 in < 1.14,
+# and https://github.com/kubernetes/kubernetes/pull/78612 for <= 1.15
+Get-HnsPolicyList | Remove-HnsPolicyList
+
+#
+# Create required networks
+#
+
+# If using kubenet create the HSN network here.
+# (The kubelet creates the HSN network when using azure-cni + azure cloud provider)
+if ($global:NetworkPlugin -eq 'kubenet') {
+    Write-Log "Creating new hns network: $($global:NetworkMode.ToLower())"
+    $podCIDR = Get-PodCIDR
+    $masterSubnetGW = Get-DefaultGateway $global:MasterSubnet
+    New-HNSNetwork -Type $global:NetworkMode -AddressPrefix $podCIDR -Gateway $masterSubnetGW -Name $global:NetworkMode.ToLower() -Verbose
+    Start-sleep 10
+}
+
+#
+# Start Services
+#
+Write-Log "Starting kubelet service"
+Start-Service kubelet
+
+Write-Log "Starting kubeproxy service"
+Start-Service kubeproxy
+
+Write-Log "Exiting windowsnodecleanup.ps1"
+`)
+
+func k8sWindowsnoderesetPs1Bytes() ([]byte, error) {
+	return _k8sWindowsnoderesetPs1, nil
+}
+
+func k8sWindowsnoderesetPs1() (*asset, error) {
+	bytes, err := k8sWindowsnoderesetPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "k8s/windowsnodereset.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -47064,6 +47269,7 @@ var _bindata = map[string]func() (*asset, error){
 	"k8s/windowsinstallopensshfunc.ps1":                                       k8sWindowsinstallopensshfuncPs1,
 	"k8s/windowskubeletfunc.ps1":                                              k8sWindowskubeletfuncPs1,
 	"k8s/windowslogscleanup.ps1":                                              k8sWindowslogscleanupPs1,
+	"k8s/windowsnodereset.ps1":                                                k8sWindowsnoderesetPs1,
 	"masteroutputs.t":                                                         masteroutputsT,
 	"masterparams.t":                                                          masterparamsT,
 	"swarm/Install-ContainerHost-And-Join-Swarm.ps1":                          swarmInstallContainerhostAndJoinSwarmPs1,
@@ -47391,6 +47597,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"windowsinstallopensshfunc.ps1": {k8sWindowsinstallopensshfuncPs1, map[string]*bintree{}},
 		"windowskubeletfunc.ps1":        {k8sWindowskubeletfuncPs1, map[string]*bintree{}},
 		"windowslogscleanup.ps1":        {k8sWindowslogscleanupPs1, map[string]*bintree{}},
+		"windowsnodereset.ps1":          {k8sWindowsnoderesetPs1, map[string]*bintree{}},
 	}},
 	"masteroutputs.t": {masteroutputsT, map[string]*bintree{}},
 	"masterparams.t":  {masterparamsT, map[string]*bintree{}},
