@@ -19,6 +19,12 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/label-nodes.service
 // linux/cloud-init/artifacts/label-nodes.sh
+// linux/cloud-init/artifacts/nvidia-device-plugin.service
+// linux/cloud-init/artifacts/nvidia-docker-daemon.json
+// linux/cloud-init/artifacts/nvidia-modprobe.service
+// linux/cloud-init/artifacts/pam-d-common-auth
+// linux/cloud-init/artifacts/pam-d-common-password
+// linux/cloud-init/artifacts/pam-d-su
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
 // linux/cloud-init/nodecustomdata.yml
@@ -95,7 +101,7 @@ func linuxCloudInitArtifactsAptPreferences() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/apt-preferences", size: 0, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/apt-preferences", size: 0, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -221,7 +227,7 @@ func linuxCloudInitArtifactsAuditdRules() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/auditd-rules", size: 7244, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/auditd-rules", size: 7244, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -315,7 +321,7 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -390,7 +396,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3771, mode: os.FileMode(420), modTime: time.Unix(1585352812, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3771, mode: os.FileMode(420), modTime: time.Unix(1588177763, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -809,6 +815,30 @@ configAzurePolicyAddon() {
 }
 
 {{if HasNSeriesSKU}}
+installGPUDriversRun() {
+    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
+    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
+    if yes please help remove the clean up logic here too */}}
+    set -x
+    MODULE_NAME="nvidia"
+    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
+    KERNEL_NAME=$(uname -r)
+    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
+        if [ -x "$(command -v dkms)" ]; then
+          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
+        else
+          rm -rf "${NVIDIA_DKMS_DIR}"
+        fi
+    fi
+    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
+    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
+        -k=$KERNEL_NAME \
+        --log-file-name=${log_file_name} \
+        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
+    exit $?
+}
+
 configGPUDrivers() {
     {{/* only install the runtime since nvidia-docker2 has a hard dep on docker CE packages. */}}
     {{/* we will manually install nvidia-docker2 */}}
@@ -816,7 +846,8 @@ configGPUDrivers() {
     echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
     retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{/* if the unattened upgrade is turned on, and it may takes 10 min to finish the installation, and we use the 1 second just to try to get the lock more aggressively */}}
+    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     tmpDir=$GPU_DEST/tmp
     (
       set -e -o pipefail
@@ -829,7 +860,8 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 1 600 sh $GPU_DEST/nvidia-drivers-$GPU_DV --silent --accept-license --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}" || exit $ERR_GPU_DRIVERS_START_FAIL
+    export -f installGPUDriversRun
+    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
     echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     umount -l /usr/lib/x86_64-linux-gnu
@@ -855,7 +887,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 19149, mode: os.FileMode(493), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 20312, mode: os.FileMode(493), modTime: time.Unix(1588182646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -896,6 +928,8 @@ ERR_SYSTEMD_INSTALL_FAIL=48 {{/* Unable to install required systemd version */}}
 ERR_MODPROBE_FAIL=49 {{/* Unable to load a kernel module using modprobe */}}
 ERR_OUTBOUND_CONN_FAIL=50 {{/* Unable to establish outbound connection */}}
 ERR_K8S_API_SERVER_CONN_FAIL=51 {{/* Unable to establish connection to k8s api server*/}}
+ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL=52 {{/* Unable to resolve k8s api server name */}}
+ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 {{/* Unable to resolve k8s api server name due to Azure DNS issue */}}
 ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key */}}
 ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
 ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
@@ -930,11 +964,12 @@ RHEL_OS_NAME="RHEL"
 COREOS_OS_NAME="COREOS"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-GPU_DV=418.40.04
-GPU_DEST=/usr/local/nvidia
+export GPU_DV=418.40.04
+export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.0.3
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
+NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
 aptmarkWALinuxAgent() {
     wait_for_apt_locks
@@ -1128,6 +1163,53 @@ sysctl_reload() {
 version_gte() {
   test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
 }
+
+#TODO: split this so they won't be included in cse payload
+systemctlEnableAndStart() {
+    systemctl_restart 100 5 30 $1
+    RESTART_STATUS=$?
+    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
+    if [ $RESTART_STATUS -ne 0 ]; then
+        echo "$1 could not be started"
+        return 1
+    fi
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
+        echo "$1 could not be enabled by systemctl"
+        return 1
+    fi
+}
+
+configGPUDrivers() {
+    rmmod nouveau
+    echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
+    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    tmpDir=$GPU_DEST/tmp
+    (
+      set -e -o pipefail
+      cd "${tmpDir}"
+      wait_for_apt_locks
+      dpkg-deb -R ./nvidia-docker2*.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+      cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    )
+    rm -rf $GPU_DEST/tmp
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
+    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 3 1 600 sh $GPU_DEST/nvidia-drivers-$GPU_DV --silent --accept-license --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}" || exit $ERR_GPU_DRIVERS_START_FAIL
+    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
+    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    umount -l /usr/lib/x86_64-linux-gnu
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 $GPU_DEST/bin/nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+}
+
+ensureGPUDrivers() {
+    configGPUDrivers
+    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+}
 #HELPERSEOF
 `)
 
@@ -1141,7 +1223,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11074, mode: os.FileMode(493), modTime: time.Unix(1585343743, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 13680, mode: os.FileMode(493), modTime: time.Unix(1588182731, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1206,7 +1288,7 @@ installGPUDrivers() {
     if ! (
       set -e -o pipefail
       cd "${tmpDir}"
-      retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${NVIDIA_DOCKER_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+      retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${NVIDIA_DOCKER_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     ); then
       exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
@@ -1443,7 +1525,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12471, mode: os.FileMode(493), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12479, mode: os.FileMode(493), modTime: time.Unix(1588182990, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1451,6 +1533,11 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
 ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
 set -x
+if [ -f /opt/azure/containers/provision.complete ]; then
+      echo "Already ran to success exiting..."
+      exit 0
+fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -1558,7 +1645,7 @@ fi
 createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
-if [[ "${SGX_NODE}" = true ]]; then
+if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
     installSGXDrivers
 fi
 {{end}}
@@ -1602,14 +1689,28 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
+{{- /* re-enable unattended upgrades */}}
+rm -f /etc/apt/apt.conf.d/99periodic
+
 {{- if not IsAzureStackCloud}}
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     apt_get_purge 20 30 120 apache2-utils &
 fi
 {{end}}
 
+VALIDATION_ERR=0
+
 {{- if IsHostedMaster }}
-retrycmd_if_failure 50 1 3 nc -vz ${API_SERVER_IP} 443 || exit $ERR_K8S_API_SERVER_CONN_FAIL
+RES=$(retrycmd_if_failure 20 1 3 nslookup ${API_SERVER_NAME})
+STS=$?
+if [[ $STS != 0 ]]; then
+    if [[ $RES == *"168.63.129.16"*  ]]; then
+        VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+    else
+        VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+    fi
+fi
+retrycmd_if_failure 50 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 {{end}}
 
 if $REBOOTREQUIRED; then
@@ -1625,10 +1726,12 @@ else
     fi
 fi
 
-echo "Custom script finished successfully"
+echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 ps auxfww > /opt/azure/provision-ps.log &
+
+exit $VALIDATION_ERR
 
 #EOF
 `)
@@ -1643,7 +1746,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 4702, mode: os.FileMode(493), modTime: time.Unix(1585343696, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5294, mode: os.FileMode(493), modTime: time.Unix(1588186175, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1671,7 +1774,7 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 174, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 174, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1697,7 +1800,7 @@ func linuxCloudInitArtifactsDockerMonitorService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 223, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 223, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1721,7 +1824,7 @@ func linuxCloudInitArtifactsDockerMonitorTimer() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 154, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 154, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1741,7 +1844,7 @@ func linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf() (*asset, 
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf", size: 33, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf", size: 33, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1785,7 +1888,7 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1881,7 +1984,7 @@ func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 2237, mode: os.FileMode(493), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 2237, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1917,7 +2020,7 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 463, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 463, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1941,7 +2044,7 @@ func linuxCloudInitArtifactsKubeletMonitorService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.service", size: 209, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.service", size: 209, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1998,7 +2101,7 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1918, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1918, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2023,7 +2126,7 @@ func linuxCloudInitArtifactsLabelNodesService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 186, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 186, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2060,7 +2163,265 @@ func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 830, mode: os.FileMode(493), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 830, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsNvidiaDevicePluginService = []byte(`[Unit]
+Description=Run nvidia device plugin
+[Service]
+RemainAfterExit=true
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsNvidiaDevicePluginServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsNvidiaDevicePluginService, nil
+}
+
+func linuxCloudInitArtifactsNvidiaDevicePluginService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsNvidiaDevicePluginServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/nvidia-device-plugin.service", size: 183, mode: os.FileMode(420), modTime: time.Unix(1588177763, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsNvidiaDockerDaemonJson = []byte(`{
+    "live-restore": true,
+    "log-driver": "json-file",
+    "log-opts":  {
+       "max-size": "50m",
+       "max-file": "5"
+    },
+    "default-runtime": "nvidia",
+    "runtimes": {
+       "nvidia": {
+           "path": "/usr/bin/nvidia-container-runtime",
+           "runtimeArgs": []
+      }
+    }
+}`)
+
+func linuxCloudInitArtifactsNvidiaDockerDaemonJsonBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsNvidiaDockerDaemonJson, nil
+}
+
+func linuxCloudInitArtifactsNvidiaDockerDaemonJson() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsNvidiaDockerDaemonJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/nvidia-docker-daemon.json", size: 304, mode: os.FileMode(420), modTime: time.Unix(1588177763, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsNvidiaModprobeService = []byte(`[Unit]
+Description=Installs and loads Nvidia GPU kernel module
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsNvidiaModprobeServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsNvidiaModprobeService, nil
+}
+
+func linuxCloudInitArtifactsNvidiaModprobeService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsNvidiaModprobeServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/nvidia-modprobe.service", size: 242, mode: os.FileMode(420), modTime: time.Unix(1588177763, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsPamDCommonAuth = []byte(`#
+# /etc/pam.d/common-auth - authentication settings common to all services
+#
+# This file is included from other service-specific PAM config files,
+# and should contain a list of the authentication modules that define
+# the central authentication scheme for use on the system
+# (e.g., /etc/shadow, LDAP, Kerberos, etc.).  The default is to use the
+# traditional Unix authentication mechanisms.
+#
+# As of pam 1.0.1-6, this file is managed by pam-auth-update by default.
+# To take advantage of this, it is recommended that you configure any
+# local modules either before or after the default block, and use
+# pam-auth-update to manage selection of other modules.  See
+# pam-auth-update(8) for details.
+
+# here are the per-package modules (the "Primary" block)
+auth	[success=1 default=ignore]	pam_unix.so nullok_secure
+# here's the fallback if no module succeeds
+auth	requisite			pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+auth	required			pam_permit.so
+# and here are more per-package modules (the "Additional" block)
+# end of pam-auth-update config
+
+# 5.3.2 Ensure lockout for failed password attempts is configured
+auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900
+`)
+
+func linuxCloudInitArtifactsPamDCommonAuthBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsPamDCommonAuth, nil
+}
+
+func linuxCloudInitArtifactsPamDCommonAuth() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsPamDCommonAuthBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-auth", size: 1363, mode: os.FileMode(420), modTime: time.Unix(1588178108, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsPamDCommonPassword = []byte(`#
+# /etc/pam.d/common-password - password-related modules common to all services
+#
+# This file is included from other service-specific PAM config files,
+# and should contain a list of modules that define the services to be
+# used to change user passwords.  The default is pam_unix.
+
+# Explanation of pam_unix options:
+#
+# The "sha512" option enables salted SHA512 passwords.  Without this option,
+# the default is Unix crypt.  Prior releases used the option "md5".
+#
+# The "obscure" option replaces the old `+"`"+`OBSCURE_CHECKS_ENAB' option in
+# login.defs.
+#
+# See the pam_unix manpage for other options.
+
+# As of pam 1.0.1-6, this file is managed by pam-auth-update by default.
+# To take advantage of this, it is recommended that you configure any
+# local modules either before or after the default block, and use
+# pam-auth-update to manage selection of other modules.  See
+# pam-auth-update(8) for details.
+
+# here are the per-package modules (the "Primary" block)
+password	requisite			pam_pwquality.so retry=3
+password	[success=1 default=ignore]	pam_unix.so obscure use_authtok try_first_pass sha512
+# here's the fallback if no module succeeds
+password	requisite			pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+password	required			pam_permit.so
+# and here are more per-package modules (the "Additional" block)
+# end of pam-auth-update config
+
+# 5.3.3 Ensure password reuse is limited
+# 5.3.4 Ensure password hashing algorithm is SHA-512
+password	[success=1 default=ignore]	pam_unix.so obscure use_authtok try_first_pass sha512 remember=5
+`)
+
+func linuxCloudInitArtifactsPamDCommonPasswordBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsPamDCommonPassword, nil
+}
+
+func linuxCloudInitArtifactsPamDCommonPassword() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsPamDCommonPasswordBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-password", size: 1709, mode: os.FileMode(420), modTime: time.Unix(1588178108, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsPamDSu = []byte(`#
+# The PAM configuration file for the Shadow `+"`"+`su' service
+#
+
+# This allows root to su without passwords (normal operation)
+auth       sufficient pam_rootok.so
+
+# Uncomment this to force users to be a member of group root
+# before they can use `+"`"+`su'. You can also add "group=foo"
+# to the end of this line if you want to use a group other
+# than the default "root" (but this may have side effect of
+# denying "root" user, unless she's a member of "foo" or explicitly
+# permitted earlier by e.g. "sufficient pam_rootok.so").
+# (Replaces the `+"`"+`SU_WHEEL_ONLY' option from login.defs)
+
+# 5.6 Ensure access to the su command is restricted
+auth required pam_wheel.so use_uid
+
+# Uncomment this if you want wheel members to be able to
+# su without a password.
+# auth       sufficient pam_wheel.so trust
+
+# Uncomment this if you want members of a specific group to not
+# be allowed to use su at all.
+# auth       required   pam_wheel.so deny group=nosu
+
+# Uncomment and edit /etc/security/time.conf if you need to set
+# time restrainst on su usage.
+# (Replaces the `+"`"+`PORTTIME_CHECKS_ENAB' option from login.defs
+# as well as /etc/porttime)
+# account    requisite  pam_time.so
+
+# This module parses environment configuration file(s)
+# and also allows you to use an extended config
+# file /etc/security/pam_env.conf.
+#
+# parsing /etc/environment needs "readenv=1"
+session       required   pam_env.so readenv=1
+# locale variables are also kept into /etc/default/locale in etch
+# reading this file *in addition to /etc/environment* does not hurt
+session       required   pam_env.so readenv=1 envfile=/etc/default/locale
+
+# Defines the MAIL environment variable
+# However, userdel also needs MAIL_DIR and MAIL_FILE variables
+# in /etc/login.defs to make sure that removing a user
+# also removes the user's mail spool file.
+# See comments in /etc/login.defs
+#
+# "nopen" stands to avoid reporting new mail when su'ing to another user
+session    optional   pam_mail.so nopen
+
+# Sets up user limits according to /etc/security/limits.conf
+# (Replaces the use of /etc/limits in old login)
+session    required   pam_limits.so
+
+# The standard Unix authentication modules, used with
+# NIS (man nsswitch) as well as normal /etc/passwd and
+# /etc/shadow entries.
+@include common-auth
+@include common-account
+@include common-session
+`)
+
+func linuxCloudInitArtifactsPamDSuBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsPamDSu, nil
+}
+
+func linuxCloudInitArtifactsPamDSu() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsPamDSuBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-su", size: 2304, mode: os.FileMode(420), modTime: time.Unix(1588178108, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2087,7 +2448,7 @@ func linuxCloudInitArtifactsSetupCustomSearchDomainsSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 553, mode: os.FileMode(493), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 553, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2117,7 +2478,7 @@ func linuxCloudInitArtifactsSysFsBpfMount() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 236, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 236, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2227,6 +2588,15 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
+
+- path: /etc/apt/apt.conf.d/99periodic
+  permissions: "0644"
+  owner: root
+  content: |
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::AutocleanInterval "0";
+    APT::Periodic::Unattended-Upgrade "0";
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -2456,7 +2826,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8481, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8754, mode: os.FileMode(420), modTime: time.Unix(1588185823, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2473,7 +2843,7 @@ func windowsCsecmdPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/csecmd.ps1", size: 879, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/csecmd.ps1", size: 879, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2629,7 +2999,7 @@ func windowsKuberneteswindowsfunctionsPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/kuberneteswindowsfunctions.ps1", size: 4993, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/kuberneteswindowsfunctions.ps1", size: 4993, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2983,7 +3353,7 @@ func windowsKuberneteswindowssetupPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/kuberneteswindowssetup.ps1", size: 14168, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/kuberneteswindowssetup.ps1", size: 14168, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3257,7 +3627,7 @@ func windowsWindowsazurecnifuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsazurecnifunc.ps1", size: 11014, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/windowsazurecnifunc.ps1", size: 11014, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3290,7 +3660,7 @@ func windowsWindowsazurecnifuncTestsPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 710, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 710, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3331,7 +3701,7 @@ func windowsWindowscnifuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowscnifunc.ps1", size: 815, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/windowscnifunc.ps1", size: 815, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3459,7 +3829,7 @@ func windowsWindowsconfigfuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsconfigfunc.ps1", size: 5342, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/windowsconfigfunc.ps1", size: 5342, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3535,7 +3905,7 @@ func windowsWindowsinstallopensshfuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowsinstallopensshfunc.ps1", size: 1883, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/windowsinstallopensshfunc.ps1", size: 1883, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4243,7 +4613,7 @@ func windowsWindowskubeletfuncPs1() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "windows/windowskubeletfunc.ps1", size: 24784, mode: os.FileMode(420), modTime: time.Unix(1585343368, 0)}
+	info := bindataFileInfo{name: "windows/windowskubeletfunc.ps1", size: 24784, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4319,6 +4689,12 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
 	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
+	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
+	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
+	"linux/cloud-init/artifacts/nvidia-modprobe.service":                   linuxCloudInitArtifactsNvidiaModprobeService,
+	"linux/cloud-init/artifacts/pam-d-common-auth":                         linuxCloudInitArtifactsPamDCommonAuth,
+	"linux/cloud-init/artifacts/pam-d-common-password":                     linuxCloudInitArtifactsPamDCommonPassword,
+	"linux/cloud-init/artifacts/pam-d-su":                                  linuxCloudInitArtifactsPamDSu,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
@@ -4396,6 +4772,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
 				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
+				"nvidia-device-plugin.service":              &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
+				"nvidia-docker-daemon.json":                 &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
+				"nvidia-modprobe.service":                   &bintree{linuxCloudInitArtifactsNvidiaModprobeService, map[string]*bintree{}},
+				"pam-d-common-auth":                         &bintree{linuxCloudInitArtifactsPamDCommonAuth, map[string]*bintree{}},
+				"pam-d-common-password":                     &bintree{linuxCloudInitArtifactsPamDCommonPassword, map[string]*bintree{}},
+				"pam-d-su":                                  &bintree{linuxCloudInitArtifactsPamDSu, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
 				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
 			}},
