@@ -1,6 +1,11 @@
 #!/bin/bash
 ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
 set -x
+if [ -f /opt/azure/containers/provision.complete ]; then
+      echo "Already ran to success exiting..."
+      exit 0
+fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -108,7 +113,7 @@ fi
 createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
-if [[ "${SGX_NODE}" = true ]]; then
+if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
     installSGXDrivers
 fi
 {{end}}
@@ -152,14 +157,28 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
+{{- /* re-enable unattended upgrades */}}
+rm -f /etc/apt/apt.conf.d/99periodic
+
 {{- if not IsAzureStackCloud}}
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     apt_get_purge 20 30 120 apache2-utils &
 fi
 {{end}}
 
+VALIDATION_ERR=0
+
 {{- if IsHostedMaster }}
-retrycmd_if_failure 50 1 3 nc -vz ${API_SERVER_IP} 443 || exit $ERR_K8S_API_SERVER_CONN_FAIL
+RES=$(retrycmd_if_failure 20 1 3 nslookup ${API_SERVER_NAME})
+STS=$?
+if [[ $STS != 0 ]]; then
+    if [[ $RES == *"168.63.129.16"*  ]]; then
+        VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+    else
+        VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+    fi
+fi
+retrycmd_if_failure 50 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 {{end}}
 
 if $REBOOTREQUIRED; then
@@ -175,9 +194,11 @@ else
     fi
 fi
 
-echo "Custom script finished successfully"
+echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 ps auxfww > /opt/azure/provision-ps.log &
+
+exit $VALIDATION_ERR
 
 #EOF
