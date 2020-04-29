@@ -189,16 +189,6 @@ for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-RESCHEDULER_VERSIONS="
-0.4.0
-0.3.1
-"
-for RESCHEDULER_VERSION in ${RESCHEDULER_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/rescheduler:v${RESCHEDULER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
 AZURE_CNIIMAGEBASE="mcr.microsoft.com/containernetworking"
 AZURE_CNI_NETWORKMONITOR_VERSIONS="
 0.0.7
