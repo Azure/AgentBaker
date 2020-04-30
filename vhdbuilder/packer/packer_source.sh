@@ -47,6 +47,10 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  KUBESYSTEM_SLICE_SRC=/home/packer/kubesystem.service
+  KUBESYSTEM_SLICE_DEST=/etc/systemd/system/kubesystem.service
+  DOCKER_SLICE_SRC=/home/packer/docker-slice.conf
+  DOCKER_SLICE_DEST=/etc/systemd/system/docker.service.d/slice.conf
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
@@ -81,6 +85,9 @@ copyPackerFiles() {
   cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 644
   cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
+  cpAndMode $KUBESYSTEM_SLICE_SRC $KUBESYSTEM_SLICE_DEST 644
+  cpAndMode $DOCKER_SLICE_SRC $DOCKER_SLICE_DEST 644
+
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
     cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644

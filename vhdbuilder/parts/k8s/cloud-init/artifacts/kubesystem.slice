@@ -1,0 +1,7 @@
+[Unit]
+Description=Kubernetes system service slice
+Documentation=man:systemd.special(7)
+DefaultDependencies=no
+Before=slices.target
+Requires=-.slice
+After=-.slice

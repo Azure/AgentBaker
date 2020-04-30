@@ -36,5 +36,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_CONFIG \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
+Slice=kubesystem.slice
+
 [Install]
 WantedBy=multi-user.target
