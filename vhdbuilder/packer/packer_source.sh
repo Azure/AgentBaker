@@ -47,8 +47,8 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-  KUBESYSTEM_SLICE_SRC=/home/packer/kubesystem.service
-  KUBESYSTEM_SLICE_DEST=/etc/systemd/system/kubesystem.service
+  KUBESYSTEM_SLICE_SRC=/home/packer/kubesystem.slice
+  KUBESYSTEM_SLICE_DEST=/etc/systemd/system/kubesystem.slice
   DOCKER_SLICE_SRC=/home/packer/docker-slice.conf
   DOCKER_SLICE_DEST=/etc/systemd/system/docker.service.d/slice.conf
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
