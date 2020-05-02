@@ -2057,7 +2057,6 @@ Requires=kms.service
 {{end}}
 
 [Service]
-Slice=kubesystem.slice
 Restart=always
 EnvironmentFile=/etc/default/kubelet
 SuccessExitStatus=143
@@ -2088,6 +2087,8 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_CONFIG \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
+Slice=kubesystem.slice
+
 [Install]
 WantedBy=multi-user.target
 `)
@@ -2102,7 +2103,7 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1941, mode: os.FileMode(420), modTime: time.Unix(1588384878, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1942, mode: os.FileMode(420), modTime: time.Unix(1588385384, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
