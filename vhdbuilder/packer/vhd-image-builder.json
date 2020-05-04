@@ -183,7 +183,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/kubelet.service",
+      "source": "parts/linux/cloud-init/artifacts/kubelet.service",
       "destination": "/home/packer/kubelet.service"
     },
     {
