@@ -74,7 +74,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/cis.sh",
+      "source": "parts/linux/cloud-init/artifacts/cis.sh",
       "destination": "/home/packer/cis.sh"
     },
     {
@@ -84,107 +84,107 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/sysctl-d-60-CIS.conf",
+      "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/sshd_config",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/sshd_config_1604",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
       "destination": "/home/packer/sshd_config_1604"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/rsyslog-d-60-CIS.conf",
+      "source": "parts/linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf",
       "destination": "/home/packer/rsyslog-d-60-CIS.conf"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/etc-issue",
+      "source": "parts/linux/cloud-init/artifacts/etc-issue",
       "destination": "/home/packer/etc-issue"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/etc-issue.net",
+      "source": "parts/linux/cloud-init/artifacts/etc-issue.net",
       "destination": "/home/packer/etc-issue.net"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/modprobe-CIS.conf",
+      "source": "parts/linux/cloud-init/artifacts/modprobe-CIS.conf",
       "destination": "/home/packer/modprobe-CIS.conf"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/pwquality-CIS.conf",
+      "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
       "destination": "/home/packer/pwquality-CIS.conf"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/pam-d-su",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-su",
       "destination": "/home/packer/pam-d-su"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/pam-d-common-auth",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/pam-d-common-password",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-password",
       "destination": "/home/packer/pam-d-common-password"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/profile-d-cis.sh",
+      "source": "parts/linux/cloud-init/artifacts/profile-d-cis.sh",
       "destination": "/home/packer/profile-d-cis.sh"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/auditd-rules",
+      "source": "parts/linux/cloud-init/artifacts/auditd-rules",
       "destination": "/home/packer/auditd-rules"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/label-nodes.sh",
+      "source": "parts/linux/cloud-init/artifacts/label-nodes.sh",
       "destination": "/home/packer/label-nodes.sh"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/label-nodes.service",
+      "source": "parts/linux/cloud-init/artifacts/label-nodes.service",
       "destination": "/home/packer/label-nodes.service"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/apt-preferences",
+      "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/kms.service",
+      "source": "parts/linux/cloud-init/artifacts/kms.service",
       "destination": "/home/packer/kms.service"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/health-monitor.sh",
+      "source": "parts/linux/cloud-init/artifacts/health-monitor.sh",
       "destination": "/home/packer/health-monitor.sh"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/kubelet-monitor.service",
+      "source": "parts/linux/cloud-init/artifacts/kubelet-monitor.service",
       "destination": "/home/packer/kubelet-monitor.service"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/docker-monitor.service",
+      "source": "parts/linux/cloud-init/artifacts/docker-monitor.service",
       "destination": "/home/packer/docker-monitor.service"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/docker-monitor.timer",
+      "source": "parts/linux/cloud-init/artifacts/docker-monitor.timer",
       "destination": "/home/packer/docker-monitor.timer"
     },
     {
@@ -194,7 +194,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf",
+      "source": "parts/linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf",
       "destination": "/home/packer/docker_clear_mount_propagation_flags.conf"
     },
     {
