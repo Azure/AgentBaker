@@ -35,7 +35,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}",
       "shared_image_gallery_destination": {
@@ -43,7 +42,9 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `sig_image_version`}}",
-        "replication_regions": ["{{user `location`}}"]
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
       }
     }
   ],
@@ -256,6 +257,12 @@
       "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "cat /etc/systemd/system/kubelet.service"
+      ]
     },
     {
       "type": "shell",
