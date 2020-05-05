@@ -366,6 +366,8 @@ K8S_VERSIONS="
 1.16.0_v0.0.5
 1.16.7-hotfix.20200408
 1.17.3-hotfix.20200408
+1.18.1
+1.18.2
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
