@@ -8,8 +8,6 @@
 
 set -euo pipefail
 
-# TODO(tonyxu): do we need this for AKS?
-
 MASTER_SELECTOR="kubernetes.azure.com/role!=agent,kubernetes.io/role!=agent"
 MASTER_LABELS="kubernetes.azure.com/role=master kubernetes.io/role=master node-role.kubernetes.io/master="
 AGENT_SELECTOR="kubernetes.azure.com/role!=master,kubernetes.io/role!=master"
