@@ -13,20 +13,31 @@
 // linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
+// linux/cloud-init/artifacts/etc-issue
+// linux/cloud-init/artifacts/etc-issue.net
+// linux/cloud-init/artifacts/etcd.service
 // linux/cloud-init/artifacts/health-monitor.sh
 // linux/cloud-init/artifacts/kms.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
+// linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/label-nodes.service
 // linux/cloud-init/artifacts/label-nodes.sh
+// linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
 // linux/cloud-init/artifacts/nvidia-modprobe.service
 // linux/cloud-init/artifacts/pam-d-common-auth
 // linux/cloud-init/artifacts/pam-d-common-password
 // linux/cloud-init/artifacts/pam-d-su
+// linux/cloud-init/artifacts/profile-d-cis.sh
+// linux/cloud-init/artifacts/pwquality-CIS.conf
+// linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
+// linux/cloud-init/artifacts/sshd_config
+// linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
+// linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowsfunctions.ps1
@@ -101,7 +112,7 @@ func linuxCloudInitArtifactsAptPreferences() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/apt-preferences", size: 0, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/apt-preferences", size: 0, mode: os.FileMode(420), modTime: time.Unix(1588695710, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -227,7 +238,7 @@ func linuxCloudInitArtifactsAuditdRules() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/auditd-rules", size: 7244, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/auditd-rules", size: 7244, mode: os.FileMode(420), modTime: time.Unix(1588695750, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -321,7 +332,7 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1588695748, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -379,7 +390,7 @@ CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
-API_SERVER_IP={{GetParameter "kubernetesEndpoint"}}
+API_SERVER_NAME={{GetParameter "kubernetesEndpoint"}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
@@ -396,7 +407,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3771, mode: os.FileMode(420), modTime: time.Unix(1588177763, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3773, mode: os.FileMode(420), modTime: time.Unix(1588190626, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -887,7 +898,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 20312, mode: os.FileMode(493), modTime: time.Unix(1588182646, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 20312, mode: os.FileMode(493), modTime: time.Unix(1588190626, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1223,7 +1234,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 13680, mode: os.FileMode(493), modTime: time.Unix(1588182731, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 13680, mode: os.FileMode(493), modTime: time.Unix(1588190626, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1525,7 +1536,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12479, mode: os.FileMode(493), modTime: time.Unix(1588182990, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12479, mode: os.FileMode(493), modTime: time.Unix(1588190626, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1746,7 +1757,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5294, mode: os.FileMode(493), modTime: time.Unix(1588186175, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5294, mode: os.FileMode(493), modTime: time.Unix(1588190626, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1774,7 +1785,7 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 174, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 174, mode: os.FileMode(420), modTime: time.Unix(1588695799, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1800,7 +1811,7 @@ func linuxCloudInitArtifactsDockerMonitorService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 223, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 223, mode: os.FileMode(420), modTime: time.Unix(1588695802, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1824,7 +1835,7 @@ func linuxCloudInitArtifactsDockerMonitorTimer() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 154, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 154, mode: os.FileMode(420), modTime: time.Unix(1588695803, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1844,7 +1855,7 @@ func linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf() (*asset, 
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf", size: 33, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf", size: 33, mode: os.FileMode(420), modTime: time.Unix(1588695801, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1888,7 +1899,80 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 707, mode: os.FileMode(493), modTime: time.Unix(1588698306, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsEtcIssue = []byte(`
+Authorized uses only. All activity may be monitored and reported.
+`)
+
+func linuxCloudInitArtifactsEtcIssueBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsEtcIssue, nil
+}
+
+func linuxCloudInitArtifactsEtcIssue() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsEtcIssueBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/etc-issue", size: 67, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsEtcIssueNet = []byte(`
+Authorized uses only. All activity may be monitored and reported.
+`)
+
+func linuxCloudInitArtifactsEtcIssueNetBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsEtcIssueNet, nil
+}
+
+func linuxCloudInitArtifactsEtcIssueNet() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsEtcIssueNetBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/etc-issue.net", size: 67, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsEtcdService = []byte(`[Unit]
+Description=etcd - highly-available key value store
+Documentation=https://github.com/coreos/etcd
+Documentation=man:etcd
+After=network.target
+Wants=network-online.target
+RequiresMountsFor=/var/lib/etcddisk
+[Service]
+Environment=DAEMON_ARGS=
+Environment=ETCD_NAME=%H
+Environment=ETCD_DATA_DIR=
+EnvironmentFile=-/etc/default/%p
+Type=notify
+User=etcd
+PermissionsStartOnly=true
+ExecStart=/usr/bin/etcd $DAEMON_ARGS
+Restart=always
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsEtcdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsEtcdService, nil
+}
+
+func linuxCloudInitArtifactsEtcdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsEtcdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/etcd.service", size: 468, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1984,7 +2068,7 @@ func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 2237, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 2237, mode: os.FileMode(493), modTime: time.Unix(1588698356, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2020,7 +2104,7 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 463, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 463, mode: os.FileMode(420), modTime: time.Unix(1588698357, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2044,7 +2128,29 @@ func linuxCloudInitArtifactsKubeletMonitorService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.service", size: 209, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.service", size: 209, mode: os.FileMode(420), modTime: time.Unix(1588698358, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsKubeletMonitorTimer = []byte(`[Unit]
+Description=a timer that delays kubelet-monitor from starting too soon after boot
+[Timer]
+OnBootSec=30min
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsKubeletMonitorTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKubeletMonitorTimer, nil
+}
+
+func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKubeletMonitorTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.timer", size: 149, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2073,9 +2179,9 @@ ExecStartPre=/sbin/sysctl -w net.ipv4.tcp_max_syn_backlog=16384
 ExecStartPre=/sbin/sysctl -w net.core.message_cost=40
 ExecStartPre=/sbin/sysctl -w net.core.message_burst=80
 
-ExecStartPre=/bin/bash -c "if [ $(nproc) -gt 8 ]; then /sbin/sysctl -w net.ipv4.neigh.default.gc_thresh1=4096; fi"
-ExecStartPre=/bin/bash -c "if [ $(nproc) -gt 8 ]; then /sbin/sysctl -w net.ipv4.neigh.default.gc_thresh2=8192; fi"
-ExecStartPre=/bin/bash -c "if [ $(nproc) -gt 8 ]; then /sbin/sysctl -w net.ipv4.neigh.default.gc_thresh3=16384; fi"
+ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh1=4096
+ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh2=8192
+ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh3=16384
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
@@ -2088,8 +2194,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
 [Install]
-WantedBy=multi-user.target
-`)
+WantedBy=multi-user.target`)
 
 func linuxCloudInitArtifactsKubeletServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsKubeletService, nil
@@ -2101,7 +2206,7 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1918, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 1776, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2126,7 +2231,7 @@ func linuxCloudInitArtifactsLabelNodesService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 186, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 186, mode: os.FileMode(420), modTime: time.Unix(1588698398, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2140,8 +2245,6 @@ var _linuxCloudInitArtifactsLabelNodesSh = []byte(`#!/usr/bin/env bash
 # backward compatibility.
 
 set -euo pipefail
-
-# TODO(tonyxu): do we need this for AKS?
 
 MASTER_SELECTOR="kubernetes.azure.com/role!=agent,kubernetes.io/role!=agent"
 MASTER_LABELS="kubernetes.azure.com/role=master kubernetes.io/role=master node-role.kubernetes.io/master="
@@ -2163,7 +2266,41 @@ func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 830, mode: os.FileMode(493), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 788, mode: os.FileMode(493), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsModprobeCisConf = []byte(`# 3.5.1 Ensure DCCP is disabled
+install dccp /bin/true
+# 3.5.2 Ensure SCTP is disabled
+install sctp /bin/true
+# 3.5.3 Ensure RDS is disabled
+install rds /bin/true
+# 3.5.4 Ensure TIPC is disabled
+install tipc /bin/true
+# 1.1.1.1 Ensure mounting of cramfs filesystems is disabled
+install cramfs /bin/true
+# 1.1.1.2 Ensure mounting of freevxfs filesystems is disabled
+install freevxfs /bin/true
+# 1.1.1.3 Ensure mounting of jffs2 filesystems is disabled
+install jffs2 /bin/true
+# 1.1.1.4 Ensure mounting of hfs filesystems is disabled
+install hfs /bin/true
+# 1.1.1.5 Ensure mounting of hfsplus filesystems is disabled
+install hfsplus /bin/true`)
+
+func linuxCloudInitArtifactsModprobeCisConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsModprobeCisConf, nil
+}
+
+func linuxCloudInitArtifactsModprobeCisConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsModprobeCisConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/modprobe-CIS.conf", size: 640, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2288,7 +2425,7 @@ func linuxCloudInitArtifactsPamDCommonAuth() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-auth", size: 1363, mode: os.FileMode(420), modTime: time.Unix(1588178108, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-auth", size: 1363, mode: os.FileMode(420), modTime: time.Unix(1588698443, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2343,7 +2480,7 @@ func linuxCloudInitArtifactsPamDCommonPassword() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-password", size: 1709, mode: os.FileMode(420), modTime: time.Unix(1588178108, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-password", size: 1709, mode: os.FileMode(420), modTime: time.Unix(1588698443, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2421,7 +2558,83 @@ func linuxCloudInitArtifactsPamDSu() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-su", size: 2304, mode: os.FileMode(420), modTime: time.Unix(1588178108, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-su", size: 2304, mode: os.FileMode(420), modTime: time.Unix(1588698445, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsProfileDCisSh = []byte(`#!/bin/bash
+
+# 5.4.4 Ensure default user umask is 027 or more restrictive
+umask 027
+`)
+
+func linuxCloudInitArtifactsProfileDCisShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsProfileDCisSh, nil
+}
+
+func linuxCloudInitArtifactsProfileDCisSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsProfileDCisShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/profile-d-cis.sh", size: 84, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsPwqualityCisConf = []byte(`# 5.3.1 Ensure password creation requirements are configured (Scored)
+
+minlen=14
+dcredit=-1
+ucredit=-1
+ocredit=-1
+lcredit=-1`)
+
+func linuxCloudInitArtifactsPwqualityCisConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsPwqualityCisConf, nil
+}
+
+func linuxCloudInitArtifactsPwqualityCisConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsPwqualityCisConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pwquality-CIS.conf", size: 124, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsRsyslogD60CisConf = []byte(`# 4.2.1.2 Ensure logging is configured (Not Scored)
+*.emerg                            :omusrmsg:*
+mail.*                             -/var/log/mail
+mail.info                          -/var/log/mail.info
+mail.warning                       -/var/log/mail.warn
+mail.err                           /var/log/mail.err
+news.crit                          -/var/log/news/news.crit
+news.err                           -/var/log/news/news.err
+news.notice                        -/var/log/news/news.notice
+*.=warning;*.=err                  -/var/log/warn
+*.crit                             /var/log/warn
+*.*;mail.none;news.none            -/var/log/messages
+local0,local1.*                    -/var/log/localmessages
+local2,local3.*                    -/var/log/localmessages
+local4,local5.*                    -/var/log/localmessages
+local6,local7.*                    -/var/log/localmessages`)
+
+func linuxCloudInitArtifactsRsyslogD60CisConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsRsyslogD60CisConf, nil
+}
+
+func linuxCloudInitArtifactsRsyslogD60CisConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsRsyslogD60CisConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf", size: 881, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2453,6 +2666,220 @@ func linuxCloudInitArtifactsSetupCustomSearchDomainsSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSshd_config = []byte(`# What ports, IPs and protocols we listen for
+Port 22
+# Use these options to restrict which interfaces/protocols sshd will bind to
+#ListenAddress ::
+#ListenAddress 0.0.0.0
+Protocol 2
+
+# 5.2.11 Ensure only approved MAC algorithms are used
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+KexAlgorithms curve25519-sha256@libssh.org
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+# 5.2.12 Ensure SSH Idle Timeout Interval is configured
+ClientAliveInterval 120
+ClientAliveCountMax 3
+
+# HostKeys for protocol version 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_dsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO
+
+# Authentication:
+LoginGraceTime 60
+
+# 5.2.8 Ensure SSH root login is disabled
+PermitRootLogin no
+# 5.2.10 Ensure SSH PermitUserEnvironment is disabled
+PermitUserEnvironment no
+
+StrictModes yes
+PubkeyAuthentication yes
+#AuthorizedKeysFile	%h/.ssh/authorized_keys
+
+# Don't read the user's ~/.rhosts and ~/.shosts files
+IgnoreRhosts yes
+# similar for protocol version 2
+HostbasedAuthentication no
+
+# To enable empty passwords, change to yes (NOT RECOMMENDED)
+PermitEmptyPasswords no
+
+# Change to yes to enable challenge-response passwords (beware issues with
+# some PAM modules and threads)
+ChallengeResponseAuthentication no
+
+# Change to no to disable tunnelled clear text passwords
+PasswordAuthentication no
+
+# 5.2.4 Ensure SSH X11 forwarding is disabled
+X11Forwarding no
+
+# 5.2.5 Ensure SSH MaxAuthTries is set to 4 or less
+MaxAuthTries 4
+
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+#UseLogin no
+
+#MaxStartups 10:30:60
+Banner /etc/issue.net
+
+# Allow client to pass locale environment variables
+AcceptEnv LANG LC_*
+
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
+# be allowed through the ChallengeResponseAuthentication and
+# PasswordAuthentication.  Depending on your PAM configuration,
+# PAM authentication via ChallengeResponseAuthentication may bypass
+# the setting of "PermitRootLogin without-password".
+# If you just want the PAM account and session checks to run without
+# PAM authentication, then enable this but set PasswordAuthentication
+# and ChallengeResponseAuthentication to 'no'.
+UsePAM yes
+UseDNS no
+GSSAPIAuthentication no
+`)
+
+func linuxCloudInitArtifactsSshd_configBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSshd_config, nil
+}
+
+func linuxCloudInitArtifactsSshd_config() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSshd_configBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sshd_config", size: 2565, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsSshd_config_1604 = []byte(`# What ports, IPs and protocols we listen for
+Port 22
+# Use these options to restrict which interfaces/protocols sshd will bind to
+#ListenAddress ::
+#ListenAddress 0.0.0.0
+Protocol 2
+
+# 5.2.11 Ensure only approved MAC algorithms are used
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+KexAlgorithms curve25519-sha256@libssh.org
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+# 5.2.12 Ensure SSH Idle Timeout Interval is configured
+ClientAliveInterval 120
+ClientAliveCountMax 3
+
+# HostKeys for protocol version 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_dsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+#Privilege Separation is turned on for security
+UsePrivilegeSeparation yes
+
+# Lifetime and size of ephemeral version 1 server key
+KeyRegenerationInterval 3600
+ServerKeyBits 1024
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO
+
+# Authentication:
+LoginGraceTime 60
+
+# 5.2.8 Ensure SSH root login is disabled
+PermitRootLogin no
+# 5.2.10 Ensure SSH PermitUserEnvironment is disabled
+PermitUserEnvironment no
+
+StrictModes yes
+RSAAuthentication yes
+PubkeyAuthentication yes
+#AuthorizedKeysFile	%h/.ssh/authorized_keys
+
+# Don't read the user's ~/.rhosts and ~/.shosts files
+IgnoreRhosts yes
+# For this to work you will also need host keys in /etc/ssh_known_hosts
+RhostsRSAAuthentication no
+# similar for protocol version 2
+HostbasedAuthentication no
+
+# To enable empty passwords, change to yes (NOT RECOMMENDED)
+PermitEmptyPasswords no
+
+# Change to yes to enable challenge-response passwords (beware issues with
+# some PAM modules and threads)
+ChallengeResponseAuthentication no
+
+# Change to no to disable tunnelled clear text passwords
+PasswordAuthentication no
+
+# 5.2.4 Ensure SSH X11 forwarding is disabled
+X11Forwarding no
+
+# 5.2.5 Ensure SSH MaxAuthTries is set to 4 or less
+MaxAuthTries 4
+
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+#UseLogin no
+
+#MaxStartups 10:30:60
+Banner /etc/issue.net
+
+# Allow client to pass locale environment variables
+AcceptEnv LANG LC_*
+
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
+# be allowed through the ChallengeResponseAuthentication and
+# PasswordAuthentication.  Depending on your PAM configuration,
+# PAM authentication via ChallengeResponseAuthentication may bypass
+# the setting of "PermitRootLogin without-password".
+# If you just want the PAM account and session checks to run without
+# PAM authentication, then enable this but set PasswordAuthentication
+# and ChallengeResponseAuthentication to 'no'.
+UsePAM yes
+UseDNS no
+GSSAPIAuthentication no
+`)
+
+func linuxCloudInitArtifactsSshd_config_1604Bytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSshd_config_1604, nil
+}
+
+func linuxCloudInitArtifactsSshd_config_1604() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSshd_config_1604Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sshd_config_1604", size: 2865, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSysFsBpfMount = []byte(`[Unit]
 Description=Cilium BPF mounts
 Documentation=http://docs.cilium.io/
@@ -2478,7 +2905,51 @@ func linuxCloudInitArtifactsSysFsBpfMount() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 236, mode: os.FileMode(420), modTime: time.Unix(1585424618, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 236, mode: os.FileMode(420), modTime: time.Unix(1588698459, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+# 3.2.1 Ensure source routed packets are not accepted 
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.default.accept_source_route = 0
+# 3.2.2 Ensure ICMP redirects are not accepted
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+# 3.2.3 Ensure secure ICMP redirects are not accepted
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+# 3.2.4 Ensure suspicious packets are logged
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+# 3.3.1 Ensure IPv6 router advertisements are not accepted
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+# 3.3.2 Ensure IPv6 redirects are not accepted
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+# refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
+vm.overcommit_memory = 1
+kernel.panic = 10
+kernel.panic_on_oops = 1
+# https://github.com/Azure/AKS/issues/772
+fs.inotify.max_user_watches = 1048576
+`)
+
+func linuxCloudInitArtifactsSysctlD60CisConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSysctlD60CisConf, nil
+}
+
+func linuxCloudInitArtifactsSysctlD60CisConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSysctlD60CisConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sysctl-d-60-CIS.conf", size: 1210, mode: os.FileMode(420), modTime: time.Unix(1588748952, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2826,7 +3297,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8754, mode: os.FileMode(420), modTime: time.Unix(1588185823, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8754, mode: os.FileMode(420), modTime: time.Unix(1588190626, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4683,20 +5154,31 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
 	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
+	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
+	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
+	"linux/cloud-init/artifacts/etcd.service":                              linuxCloudInitArtifactsEtcdService,
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
+	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
 	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
+	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
 	"linux/cloud-init/artifacts/nvidia-modprobe.service":                   linuxCloudInitArtifactsNvidiaModprobeService,
 	"linux/cloud-init/artifacts/pam-d-common-auth":                         linuxCloudInitArtifactsPamDCommonAuth,
 	"linux/cloud-init/artifacts/pam-d-common-password":                     linuxCloudInitArtifactsPamDCommonPassword,
 	"linux/cloud-init/artifacts/pam-d-su":                                  linuxCloudInitArtifactsPamDSu,
+	"linux/cloud-init/artifacts/profile-d-cis.sh":                          linuxCloudInitArtifactsProfileDCisSh,
+	"linux/cloud-init/artifacts/pwquality-CIS.conf":                        linuxCloudInitArtifactsPwqualityCisConf,
+	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
+	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
+	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
+	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowsfunctions.ps1":                               windowsKuberneteswindowsfunctionsPs1,
@@ -4766,20 +5248,31 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
 				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
+				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
+				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
+				"etcd.service":                              &bintree{linuxCloudInitArtifactsEtcdService, map[string]*bintree{}},
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
+				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
 				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
+				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":              &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":                 &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
 				"nvidia-modprobe.service":                   &bintree{linuxCloudInitArtifactsNvidiaModprobeService, map[string]*bintree{}},
 				"pam-d-common-auth":                         &bintree{linuxCloudInitArtifactsPamDCommonAuth, map[string]*bintree{}},
 				"pam-d-common-password":                     &bintree{linuxCloudInitArtifactsPamDCommonPassword, map[string]*bintree{}},
 				"pam-d-su":                                  &bintree{linuxCloudInitArtifactsPamDSu, map[string]*bintree{}},
+				"profile-d-cis.sh":                          &bintree{linuxCloudInitArtifactsProfileDCisSh, map[string]*bintree{}},
+				"pwquality-CIS.conf":                        &bintree{linuxCloudInitArtifactsPwqualityCisConf, map[string]*bintree{}},
+				"rsyslog-d-60-CIS.conf":                     &bintree{linuxCloudInitArtifactsRsyslogD60CisConf, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
+				"sshd_config":                               &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
+				"sshd_config_1604":                          &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
+				"sysctl-d-60-CIS.conf":                      &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
