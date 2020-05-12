@@ -111,6 +111,11 @@ func CreateMasterVMSS(cs *api.ContainerService) VirtualMachineScaleSetARM {
 	if masterProfile.PlatformFaultDomainCount != nil {
 		vmProperties.PlatformFaultDomainCount = to.Int32Ptr(int32(*masterProfile.PlatformFaultDomainCount))
 	}
+	if masterProfile.ProximityPlacementGroupID != "" {
+		vmProperties.ProximityPlacementGroup = &compute.SubResource{
+			ID: to.StringPtr(masterProfile.ProximityPlacementGroupID),
+		}
+	}
 	vmProperties.SinglePlacementGroup = masterProfile.SinglePlacementGroup
 	vmProperties.Overprovision = to.BoolPtr(false)
 	vmProperties.UpgradePolicy = &compute.UpgradePolicy{
@@ -439,6 +444,12 @@ func CreateAgentVMSS(cs *api.ContainerService, profile *api.AgentPoolProfile) Vi
 		vmssProperties.PlatformFaultDomainCount = to.Int32Ptr(int32(*profile.PlatformFaultDomainCount))
 	}
 
+	if profile.ProximityPlacementGroupID != "" {
+		vmssProperties.ProximityPlacementGroup = &compute.SubResource{
+			ID: to.StringPtr(profile.ProximityPlacementGroupID),
+		}
+	}
+
 	if to.Bool(profile.VMSSOverProvisioningEnabled) {
 		vmssProperties.DoNotRunExtensionsOnOverprovisionedVMs = to.BoolPtr(true)
 	}
@@ -537,7 +548,7 @@ func CreateAgentVMSS(cs *api.ContainerService, profile *api.AgentPoolProfile) Vi
 		ipconfig.VirtualMachineScaleSetIPConfigurationProperties = &ipConfigProps
 		ipConfigurations = append(ipConfigurations, ipconfig)
 
-		if cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") {
+		if cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") || cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6Only") {
 			ipconfigv6 := compute.VirtualMachineScaleSetIPConfiguration{
 				Name: to.StringPtr(fmt.Sprintf("ipconfig%dv6", i)),
 				VirtualMachineScaleSetIPConfigurationProperties: &compute.VirtualMachineScaleSetIPConfigurationProperties{
