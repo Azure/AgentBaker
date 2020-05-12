@@ -184,6 +184,8 @@ func convertLinuxProfileToVLabs(obj *LinuxProfile, vlabsProfile *vlabs.LinuxProf
 func convertWindowsProfileToVLabs(api *WindowsProfile, vlabsProfile *vlabs.WindowsProfile) {
 	vlabsProfile.AdminUsername = api.AdminUsername
 	vlabsProfile.AdminPassword = api.AdminPassword
+	vlabsProfile.CSIProxyURL = api.CSIProxyURL
+	vlabsProfile.EnableCSIProxy = api.EnableCSIProxy
 	if api.ImageRef != nil {
 		vlabsProfile.ImageRef = &vlabs.ImageReference{}
 		vlabsProfile.ImageRef.Gallery = api.ImageRef.Gallery
@@ -490,6 +492,7 @@ func convertMasterProfileToVLabs(api *MasterProfile, vlabsProfile *vlabs.MasterP
 	vlabsProfile.CosmosEtcd = api.CosmosEtcd
 	vlabsProfile.AuditDEnabled = api.AuditDEnabled
 	vlabsProfile.EncryptionAtHost = api.EncryptionAtHost
+	vlabsProfile.ProximityPlacementGroupID = api.ProximityPlacementGroupID
 	convertCustomFilesToVlabs(api, vlabsProfile)
 }
 
@@ -537,6 +540,7 @@ func convertAgentPoolProfileToVLabs(api *AgentPoolProfile, p *vlabs.AgentPoolPro
 	p.AuditDEnabled = api.AuditDEnabled
 	p.DiskEncryptionSetID = api.DiskEncryptionSetID
 	p.EncryptionAtHost = api.EncryptionAtHost
+	p.ProximityPlacementGroupID = api.ProximityPlacementGroupID
 
 	for k, v := range api.CustomNodeLabels {
 		p.CustomNodeLabels[k] = v
@@ -612,6 +616,7 @@ func convertFeatureFlagsToVLabs(api *FeatureFlags, vlabs *vlabs.FeatureFlags) {
 	vlabs.BlockOutboundInternet = api.BlockOutboundInternet
 	vlabs.EnableIPv6DualStack = api.EnableIPv6DualStack
 	vlabs.EnableTelemetry = api.EnableTelemetry
+	vlabs.EnableIPv6Only = api.EnableIPv6Only
 }
 
 func convertCloudProfileToVLabs(api *CustomCloudProfile, vlabsccp *vlabs.CustomCloudProfile) {
