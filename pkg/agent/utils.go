@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/blang/semver"
 	"io/ioutil"
 	"log"
 	"net"
@@ -19,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/blang/semver"
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"
@@ -331,6 +332,29 @@ func getDataDisks(a *api.AgentPoolProfile) string {
 	}
 	buf.WriteString("\n          ],")
 	return buf.String()
+}
+
+func getNeedConfigureGPUDriver(properties *api.Properties) bool {
+	for _, agentPool := range properties.AgentPoolProfiles {
+		if agentPool.ImageRef != nil {
+			if agentPool.ImageRef.Name == "vhd2" ||
+				agentPool.ImageRef.Name == "vhd3" {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func getNeedConfigureGPUDevicePlugin(properties *api.Properties) bool {
+	for _, agentPool := range properties.AgentPoolProfiles {
+		if agentPool.ImageRef != nil {
+			if agentPool.ImageRef.Name == "vhd3" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func getSecurityRules(ports []int) string {

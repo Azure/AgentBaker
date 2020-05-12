@@ -8,10 +8,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/Azure/go-autorest/autorest/to"
 	"strings"
 	"text/template"
+
+	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/i18n"
@@ -513,6 +514,12 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
+		},
+		"NeedConfigureGPUDriver": func() bool {
+			return getNeedConfigureGPUDriver(cs.Properties)
+		},
+		"NeedConfigureGPUDevicePlugin": func() bool {
+			return getNeedConfigureGPUDevicePlugin(cs.Properties)
 		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()

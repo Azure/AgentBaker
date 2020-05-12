@@ -466,8 +466,32 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 $GPU_DEST/bin/nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
+
+validateGPUDrivers() {
+    {{/* will install GPU drivers if not loaded correctly */}}
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+    SMI_STATUS=$?
+    if [[ $SMI_STATUS != 0 ]]; then
+        if [[ $SMI_RESULT == *"infoROM is corrupted"*  ]]; then
+            exit $ERR_GPU_INFO_ROM_CORRUPTED
+        else
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    else
+        echo "gpu driver working fine"
+    fi
+}
+
 ensureGPUDrivers() {
+    {{if NeedConfigureGPUDriver}}
+    echo "running configGPUDrivers +new"
     configGPUDrivers
+    {{else}}
+    echo "skipping configGPUDrivers +new"
+    echo "start testGPUDrivers +new"
+    validateGPUDrivers
+    {{end}}
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 {{end}}
