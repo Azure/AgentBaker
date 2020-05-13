@@ -358,10 +358,6 @@ K8S_VERSIONS="
 1.16.6
 1.16.4
 1.16.1
-1.12.8_v0.0.5
-1.13.10_v0.0.5
-1.13.11_v0.0.5
-1.13.12_f0.0.2
 1.14.6_v0.0.5
 1.14.7-hotfix.20200326
 1.14.8-hotfix.20200326
@@ -370,9 +366,14 @@ K8S_VERSIONS="
 1.15.5_f0.0.2
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200326
+1.15.11
 1.16.0_v0.0.5
 1.16.7-hotfix.20200408
+1.16.8
+1.16.9
 1.17.3-hotfix.20200408
+1.17.4
+1.17.5
 1.18.1
 1.18.2
 "
@@ -391,10 +392,6 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 PATCHED_HYPERKUBE_IMAGES="
-1.12.8_v0.0.5
-1.13.10_v0.0.5
-1.13.11_v0.0.5
-1.13.12_f0.0.2
 1.14.6_v0.0.5
 1.14.7_v0.0.5
 1.14.7-hotfix.20200326
@@ -407,11 +404,16 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.7-hotfix.20200326
 1.15.10_f0.0.1
 1.15.10-hotfix.20200326
+1.15.11
 1.16.0_v0.0.5
 1.16.7-hotfix.20200326
 1.16.7-hotfix.20200408
+1.16.8
+1.16.9
 1.17.3-hotfix.20200326
 1.17.3-hotfix.20200408
+1.17.4
+1.17.5
 1.18.1
 1.18.2
 "
