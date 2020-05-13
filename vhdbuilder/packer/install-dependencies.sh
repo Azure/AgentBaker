@@ -396,10 +396,6 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 PATCHED_HYPERKUBE_IMAGES="
-1.12.8_v0.0.5
-1.13.10_v0.0.5
-1.13.11_v0.0.5
-1.13.12_f0.0.2
 1.14.6_v0.0.5
 1.14.7_v0.0.5
 1.14.7-hotfix.20200326
