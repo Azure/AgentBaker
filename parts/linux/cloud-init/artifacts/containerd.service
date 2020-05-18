@@ -1,0 +1,7 @@
+[Unit]
+Description=containerd daemon
+[Service]
+ExecStart=/usr/bin/containerd
+[Install]
+WantedBy=multi-user.target
+#EOF

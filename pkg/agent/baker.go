@@ -49,11 +49,11 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(cs *api.ContainerService
 // { "customData": "[base64(concat(<customData string>))]" }
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	//get parameters
-	parameters := getParameters(cs, "baker", "1.0")
+	parameters := getParameters(cs, profile, "baker", "1.0")
 	//get variable cloudInit
-	variables := getCustomDataVariables(cs)
+	variables := getCustomDataVariables(cs, profile)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		profile, t.getBakerFuncMap(cs, parameters, variables))
+		profile, t.getBakerFuncMap(cs, profile, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -66,11 +66,11 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerSe
 // { "customData": "[base64(concat(<customData string>))]" }
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	//get parameters
-	parameters := getParameters(cs, "", "")
+	parameters := getParameters(cs, nil, "", "")
 	//get variable cloudInit
-	variables := getCustomDataVariables(cs)
+	variables := getCustomDataVariables(cs, profile)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		profile, t.getBakerFuncMap(cs, parameters, variables))
+		profile, t.getBakerFuncMap(cs, nil, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -100,11 +100,11 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, pr
 func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, profile *api.AgentPoolProfile,
 	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string) string {
 	//get parameters
-	parameters := getParameters(cs, "", "")
+	parameters := getParameters(cs, profile, "", "")
 	//get variable
 	variables := getCSECommandVariables(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID)
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
-	str, e := t.getSingleLine(kubernetesCSECommandString, profile, t.getBakerFuncMap(cs, parameters, variables))
+	str, e := t.getSingleLine(kubernetesCSECommandString, profile, t.getBakerFuncMap(cs, profile, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -151,8 +151,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, params paramsMap, variables paramsMap) template.FuncMap {
-	funcMap := getContainerServiceFuncMap(cs)
+func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, profile *api.AgentPoolProfile, params paramsMap, variables paramsMap) template.FuncMap {
+	funcMap := getContainerServiceFuncMap(cs, profile)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
@@ -202,7 +202,7 @@ func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, params par
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
-func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
+func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPoolProfile) template.FuncMap {
 	return template.FuncMap{
 		"IsAzureStackCloud": func() bool {
 			return cs.Properties.IsAzureStackCloud()
@@ -503,12 +503,18 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
+			if profile != nil && profile.KubernetesConfig != nil {
+				return profile.KubernetesConfig.NeedsContainerd()
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
 		},
 		"IsKataContainerRuntime": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.KataContainers
 		},
 		"IsDockerContainerRuntime": func() bool {
+			if profile != nil && profile.KubernetesConfig != nil {
+				return profile.KubernetesConfig.ContainerRuntime == api.Docker
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
 		},
 		"HasDataDir": func() bool {
@@ -527,6 +533,9 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 			return cs.Properties.HasCoreOS()
 		},
 		"RequiresDocker": func() bool {
+			if profile != nil && profile.KubernetesConfig != nil {
+				return profile.KubernetesConfig.RequiresDocker()
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"GetComponentImageReference": func(name string) string {

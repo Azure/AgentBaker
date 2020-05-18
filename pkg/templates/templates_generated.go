@@ -3,6 +3,7 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/auditd-rules
 // linux/cloud-init/artifacts/cis.sh
+// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -338,6 +339,29 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsContainerdService = []byte(`[Unit]
+Description=containerd daemon
+[Service]
+ExecStart=/usr/bin/containerd
+[Install]
+WantedBy=multi-user.target
+#EOF`)
+
+func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdService, nil
+}
+
+func linuxCloudInitArtifactsContainerdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
@@ -619,10 +643,25 @@ configureCNIIPTables() {
     fi
 }
 
+ensureContainerRuntime() {
+    {{if IsDockerContainerRuntime}}
+        ensureDocker
+    {{end}}
+    {{if NeedsContainerd}}
+        ensureContainerd
+    {{end}}
+}
+
 {{if NeedsContainerd}}
 ensureContainerd() {
-    echo "Starting cri-containerd service..."
-    systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  {{if IsKubenet }}
+  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+  {{end}}
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{end}}
 
@@ -926,6 +965,7 @@ ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement
 ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
+ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -1126,6 +1166,18 @@ systemctl_stop() {
         fi
     done
 }
+systemctl_disable() {
+    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
+    for i in $(seq 1 $retries); do
+        timeout $timeout systemctl daemon-reload
+        timeout $timeout systemctl disable $svcname && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+}
 sysctl_reload() {
     retries=$1; wait_sleep=$2; timeout=$3
     for i in $(seq 1 $retries); do
@@ -1185,6 +1237,14 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 
 removeMoby() {
     apt-get purge -y moby-engine moby-cli
+}
+
+removeContainerd() {
+    apt-get purge -y moby-containerd
+}
+
+cleanupContainerdDlFiles() {
+    rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
 installDeps() {
@@ -1261,9 +1321,12 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
+    {{if IsDockerContainerRuntime}}
         installMoby
-    fi
+    {{end}}
+    {{if NeedsContainerd}}
+        installContainerd
+    {{end}}
 }
 
 installMoby() {
@@ -1272,11 +1335,7 @@ installMoby() {
         echo "dockerd $MOBY_VERSION is already installed, skipping Moby download"
     else
         removeMoby
-        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
-        retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
-        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-        retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-        apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+        getMobyPkg
         MOBY_CLI=${MOBY_VERSION}
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
@@ -1285,20 +1344,32 @@ installMoby() {
     fi
 }
 
-installKataContainersRuntime() {
-    echo "Adding Kata Containers repository key..."
-    ARCH=$(arch)
-    BRANCH=stable-1.7
-    KATA_RELEASE_KEY_TMP=/tmp/kata-containers-release.key
-    KATA_URL=http://download.opensuse.org/repositories/home:/katacontainers:/releases:/${ARCH}:/${BRANCH}/xUbuntu_${UBUNTU_RELEASE}/Release.key
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL $KATA_URL > $KATA_RELEASE_KEY_TMP || exit $ERR_KATA_KEY_DOWNLOAD_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 30 apt-key add $KATA_RELEASE_KEY_TMP || exit $ERR_KATA_APT_KEY_TIMEOUT
-    echo "Adding Kata Containers repository..."
-    echo "deb http://download.opensuse.org/repositories/home:/katacontainers:/releases:/${ARCH}:/${BRANCH}/xUbuntu_${UBUNTU_RELEASE}/ /" > /etc/apt/sources.list.d/kata-containers.list
-    echo "Installing Kata Containers runtime..."
+{{if NeedsContainerd}}
+# Note: currently hard-coding to install 1.3.4 until 1.4.x is available
+# once we have updated moby-engine and moby-containerd we will update the vhd builder to install both
+installContainerd() {
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||') 
+    # we want at least 1.3.x - need to safeguard against aks-e setting this to < 1.3.x
+    if [[ ! "${CONTAINERD_VERSION}" =~ 1\.[3-9]\.[0-9].* ]]; then
+        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.4"
+        CONTAINERD_VERSION="1.3.4"
+    fi
+    if [[ "${CONTAINERD_VERSION}" == "${CURRENT_VERSION}" ]]; then
+        echo "containerd version ${CURRENT_VERSION} is already installed, skipping installContainerd"
+    else 
+        apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
+        retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
+        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    fi  
+}
+{{end}}
+
+getMobyPkg() {
+    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 120 5 25 kata-runtime || exit $ERR_KATA_INSTALL_TIMEOUT
 }
 
 installNetworkPlugin() {
@@ -1349,25 +1420,6 @@ installAzureCNI() {
     chmod 755 $CNI_CONFIG_DIR
     mkdir -p $CNI_BIN_DIR
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
-}
-
-installContainerd() {
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||')
-    if [[ "$CURRENT_VERSION" == "${CONTAINERD_VERSION}" ]]; then
-        echo "containerd is already installed, skipping install"
-    else
-        CONTAINERD_TGZ_TMP="cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz"
-        rm -Rf /usr/bin/containerd
-        rm -Rf /var/lib/docker/containerd
-        rm -Rf /run/docker/containerd
-        if [[ ! -f "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ]]; then
-            downloadContainerd
-        fi
-        tar -xzf "$CONTAINERD_DOWNLOADS_DIR/$CONTAINERD_TGZ_TMP" -C /
-        sed -i '/\[Service\]/a ExecStartPost=\/sbin\/iptables -P FORWARD ACCEPT -w' /etc/systemd/system/containerd.service
-        echo "Successfully installed cri-containerd..."
-    fi
-    rm -Rf $CONTAINERD_DOWNLOADS_DIR &
 }
 
 installImg() {
@@ -1578,10 +1630,6 @@ installContainerRuntime
 
 installNetworkPlugin
 
-{{- if NeedsContainerd}}
-installContainerd
-{{end}}
-
 {{- if HasNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
@@ -1614,21 +1662,11 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-{{- if IsDockerContainerRuntime}}
-ensureDocker
-{{else if IsKataContainerRuntime}}
-if grep -q vmx /proc/cpuinfo; then
-    installKataContainersRuntime
-fi
-{{end}}
+ensureContainerRuntime
 
 configureK8s
 
 configureCNI
-
-{{- if NeedsContainerd}}
-ensureContainerd
-{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
@@ -3161,21 +3199,17 @@ write_files:
     sandbox_image = "{{GetPodInfraContainerSpec}}"
     [plugins.cri.containerd.untrusted_workload_runtime]
     runtime_type = "io.containerd.runtime.v1.linux"
-    {{if IsKataContainerRuntime }}
-    runtime_engine = "/usr/bin/kata-runtime"
-    {{else}}
-    runtime_engine = "/usr/local/sbin/runc"
-    {{end}}
+    runtime_engine = "/usr/bin/runc"
     [plugins.cri.containerd.default_runtime]
     runtime_type = "io.containerd.runtime.v1.linux"
-    {{if IsKataContainerRuntime }}
-    runtime_engine = "/usr/bin/kata-runtime"
-    {{else}}
-    runtime_engine = "/usr/local/sbin/runc"
-    {{end}}
+    runtime_engine = "/usr/bin/runc"
     {{if IsKubenet }}
     [plugins.cri.cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
+    {{end}}
+    #EOF
 
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
@@ -3190,7 +3224,8 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            "ipMasq": false,
+            "ipMasq": true,
+            "promisMode": true,
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
@@ -3199,7 +3234,46 @@ write_files:
             }
           }]
       }
-    {{end}}
+
+- path: /etc/systemd/system/containerd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=containerd daemon
+    After=network.target
+
+    [Service]
+    ExecStartPre=/sbin/modprobe overlay
+    ExecStart=/usr/bin/containerd
+    Delegate=yes
+    KillMode=process
+    OOMScoreAdjust=-999
+    LimitNOFILE=1048576
+    LimitNPROC=infinity
+    LimitCORE=infinity
+
+    [Install]
+    WantedBy=multi-user.target
+
+    #EOF
+
+- path: /etc/systemd/system/containerd.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
+{{if IsKubenet }}
+- path: /etc/sysctl.d/11-containerd.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    net.ipv4.ip_forward = 1
+    net.bridge.bridge-nf-call-iptables = 1
+    #EOF
+{{end}}
 {{end}}
 
 {{if IsNSeriesSKU .}}
@@ -5157,6 +5231,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
+	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -5252,6 +5327,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
+				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},

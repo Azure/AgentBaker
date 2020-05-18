@@ -5,13 +5,14 @@ package agent
 
 import (
 	"fmt"
-	"github.com/Azure/go-autorest/autorest/to"
 	"strconv"
+
+	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/aks-engine/pkg/api"
 )
 
-func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(cs *api.ContainerService, profile *api.AgentPoolProfile, generatorCode string, bakerVersion string) paramsMap {
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
@@ -67,6 +68,9 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
 		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, generatorCode)
+		if profile != nil {
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode)
+		}
 	}
 
 	// Agent parameters
@@ -145,6 +149,15 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 	}
 
 	return parametersMap
+}
+
+func assignKubernetesParametersFromAgentProfile(profile *api.AgentPoolProfile, parametersMap paramsMap,
+	cloudSpecConfig api.AzureEnvironmentSpecConfig, generatorCode string) {
+	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+		// override containerRuntime parameter value if specified in AgentPoolProfile
+		// this allows for heteregenous clusters
+		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
+	}
 }
 
 func assignKubernetesParameters(properties *api.Properties, parametersMap paramsMap,
