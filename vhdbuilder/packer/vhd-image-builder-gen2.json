@@ -10,8 +10,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
-    "sgx_driver_install": "{{env `GEN2_SGX_DRIVER_INSTALL`}}"
+    "ubuntu_sku": "{{env `UBUNTU_SKU`}}"
   },
   "builders": [
     {
@@ -236,7 +235,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} GEN2_SGX_DRIVER_INSTALL={{user `sgx_driver_install`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} GEN2_SGX_DRIVER_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
