@@ -248,7 +248,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
     systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 
-if grep -q "sgxInstall" <<< "$FEATURE_FLAGS"; then
+if [[ ${GEN2_SGX_DRIVER_INSTALL} == true ]]; then
     SGX_DEVICE_PLUGIN_VERSIONS="1.0"
     for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
