@@ -259,7 +259,7 @@ if [[ ${installSGX} == "True" ]]; then
     done
 fi
 
-TUNNELFRONT_VERSIONS="v1.9.2-v3.0.11 v1.9.2-v4.0.11 v1.9.2-v3.0.12 v1.9.2-v4.0.12"
+TUNNELFRONT_VERSIONS="v1.9.2-v3.0.12 v1.9.2-v4.0.12 v1.9.2-v3.0.13 v1.9.2-v4.0.13"
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
