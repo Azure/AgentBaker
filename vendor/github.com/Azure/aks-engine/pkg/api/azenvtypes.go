@@ -94,8 +94,8 @@ var (
 		KubeBinariesSASURLBase:           "https://acs-mirror.azureedge.net/kubernetes/",
 		WindowsTelemetryGUID:             "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 		CNIPluginsDownloadURL:            "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-" + CNIPluginVer + ".tgz",
-		VnetCNILinuxPluginsDownloadURL:   "https://acs-mirror.azureedge.net/cni/azure-vnet-cni-linux-amd64-" + AzureCniPluginVerLinux + ".tgz",
-		VnetCNIWindowsPluginsDownloadURL: "https://acs-mirror.azureedge.net/cni/azure-vnet-cni-windows-amd64-" + AzureCniPluginVerWindows + ".zip",
+		VnetCNILinuxPluginsDownloadURL:   "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + AzureCniPluginVerLinux + ".tgz",
+		VnetCNIWindowsPluginsDownloadURL: "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + AzureCniPluginVerWindows + ".zip",
 		ContainerdDownloadURLBase:        "https://storage.googleapis.com/cri-containerd-release/",
 	}
 
@@ -138,7 +138,7 @@ var (
 		ImageOffer:     "aks",
 		ImageSku:       "aks-ubuntu-1804-gen2-202005",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.05.06",
+		ImageVersion:   "2020.05.13",
 	}
 
 	//RHELOSImageConfig is the RHEL Linux distribution.
@@ -162,7 +162,7 @@ var (
 		ImageOffer:     "aks",
 		ImageSku:       "aks-ubuntu-1604-202005",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.05.06",
+		ImageVersion:   "2020.05.13",
 	}
 
 	// AKSUbuntu1804OSImageConfig is the AKS image based on Ubuntu 18.04-LTS.
@@ -170,15 +170,15 @@ var (
 		ImageOffer:     "aks",
 		ImageSku:       "aks-ubuntu-1804-202005",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.05.06",
+		ImageVersion:   "2020.05.13",
 	}
 
 	// AKSWindowsServer2019OSImageConfig is the AKS image based on Windows Server 2019
 	AKSWindowsServer2019OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks-windows",
-		ImageSku:       "2019-datacenter-core-smalldisk-2004",
+		ImageSku:       "2019-datacenter-core-smalldisk-2005",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "17763.1158.200421",
+		ImageVersion:   "17763.1217.200513",
 	}
 
 	// WindowsServer2019OSImageConfig is the 'vanilla' Windows Server 2019 image
@@ -186,7 +186,7 @@ var (
 		ImageOffer:     "WindowsServer",
 		ImageSku:       "2019-Datacenter-Core-with-Containers-smalldisk",
 		ImagePublisher: "MicrosoftWindowsServer",
-		ImageVersion:   "17763.1158.2004131759",
+		ImageVersion:   "17763.1217.2005081535",
 	}
 
 	// ACC1604OSImageConfig is the ACC image based on Ubuntu 16.04.
