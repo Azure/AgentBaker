@@ -73,6 +73,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/scripts/linux/tool_installs.sh",
+      "destination": "/home/packer/tool_installs.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },
