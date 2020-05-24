@@ -67,12 +67,12 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/cse_install.sh",
+      "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
       "destination": "/home/packer/provision_installs.sh"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/parts/k8s/cloud-init/artifacts/cse_helpers.sh",
+      "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
       "destination": "/home/packer/provision_source.sh"
     },
     {
