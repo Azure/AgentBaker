@@ -1,7 +1,6 @@
 #!/bin/bash
 source /home/packer/provision_installs.sh
 source /home/packer/provision_source.sh
-source /home/packer/tool_installs.sh
 source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
