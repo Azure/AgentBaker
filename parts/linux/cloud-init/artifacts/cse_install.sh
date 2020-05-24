@@ -7,9 +7,7 @@ CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
-BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
-UBUNTU_CODENAME=$(lsb_release -c -s)
 
 removeMoby() {
     apt-get purge -y moby-engine moby-cli
@@ -137,47 +135,6 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR &
 }
 
-installBcc() {
-    echo "Installing BCC tools..."
-    IOVISOR_KEY_TMP=/tmp/iovisor-release.key
-    IOVISOR_URL=https://repo.iovisor.org/GPG-KEY
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL $IOVISOR_URL > $IOVISOR_KEY_TMP || exit $ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 30 apt-key add $IOVISOR_KEY_TMP || exit $ERR_IOVISOR_APT_KEY_TIMEOUT
-    echo "deb https://repo.iovisor.org/apt/${UBUNTU_CODENAME} ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/iovisor.list
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 120 5 25 bcc-tools libbcc-examples linux-headers-$(uname -r) || exit $ERR_BCC_INSTALL_TIMEOUT
-    apt-key del "$(gpg --with-colons $IOVISOR_KEY_TMP 2>/dev/null | head -n 1 | cut -d':' -f5)"
-    rm -f /etc/apt/sources.list.d/iovisor.list
-}
-
-installBpftrace() {
-    local version="v0.9.4"
-    local bpftrace_bin="bpftrace"
-    local bpftrace_tools="bpftrace-tools.tar"
-    local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
-    local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
-    local tools_filepath="/usr/local/share/$bpftrace_bin"
-    if [[ -f "$bpftrace_filepath" ]]; then
-        installed_version="$($bpftrace_bin -V | cut -d' ' -f2)"
-        if [[ "$version" == "$installed_version" ]]; then
-            return
-        fi
-        rm "$bpftrace_filepath"
-        if [[ -d "$tools_filepath" ]]; then
-            rm -r  "$tools_filepath"
-        fi
-    fi
-    mkdir -p "$tools_filepath"
-    install_dir="$BPFTRACE_DOWNLOADS_DIR/$version"
-    mkdir -p "$install_dir"
-    download_path="$install_dir/$bpftrace_tools"
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$bpftrace_filepath" "$bpftrace_url/$bpftrace_bin" || exit $ERR_BPFTRACE_BIN_DOWNLOAD_FAIL
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$download_path" "$bpftrace_url/$bpftrace_tools" || exit $ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL
-    tar -xvf "$download_path" -C "$tools_filepath"
-    chmod +x "$bpftrace_filepath"
-    chmod -R +x "$tools_filepath/tools"
-}
 downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
