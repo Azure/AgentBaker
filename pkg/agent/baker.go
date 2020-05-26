@@ -103,8 +103,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, pro
 	//get variable
 	variables := getCSECommandVariables(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID)
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
-	str, e := t.getSingleLine(kubernetesCSECommandString,
-		profile, t.getBakerFuncMap(cs, parameters, variables))
+	str, e := t.getSingleLine(kubernetesCSECommandString, profile, t.getBakerFuncMap(cs, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -560,6 +559,12 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		},
 		"GetTargetEnvironment": func() string {
 			return GetCloudTargetEnv(cs.Location)
+		},
+		"IsAKSCustomCloud": func() bool {
+			return cs.IsAKSCustomCloud()
+		},
+		"GetInitAKSCustomCloudFilepath": func() string {
+			return initAKSCustomCloudFilepath
 		},
 		"GetCustomCloudConfigCSEScriptFilepath": func() string {
 			return customCloudConfigCSEScriptFilepath

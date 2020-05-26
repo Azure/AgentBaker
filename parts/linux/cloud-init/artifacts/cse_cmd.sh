@@ -4,6 +4,13 @@ for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+{{if IsAKSCustomCloud}}
+for i in $(seq 1 1200); do
+grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
+if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+done;
+{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
+{{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}

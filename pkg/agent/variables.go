@@ -22,6 +22,7 @@ func getCustomDataVariables(cs *api.ContainerService) paramsMap {
 			"dhcpv6ConfigurationScript": getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, cs),
 			"kubeletSystemdService":     getBase64EncodedGzippedCustomScript(kubeletSystemdService, cs),
 			"systemdBPFMount":           getBase64EncodedGzippedCustomScript(systemdBPFMount, cs),
+			"initAKSCustomCloud":        getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, cs),
 		},
 	}
 

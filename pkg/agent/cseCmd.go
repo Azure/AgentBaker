@@ -14,12 +14,3 @@ func getBootstrappingCSE(cs *api.ContainerService, profile *api.AgentPoolProfile
 		return ""
 	}
 }
-
-func generateUserAssignedIdentityClientIDParameter(cs *api.ContainerService) string {
-	if cs.Properties.OrchestratorProfile != nil &&
-		cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
-		cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled() {
-		return "' USER_ASSIGNED_IDENTITY_ID=',reference(concat('Microsoft.ManagedIdentity/userAssignedIdentities/', variables('userAssignedID')), '2018-11-30').clientId, ' '"
-	}
-	return "' USER_ASSIGNED_IDENTITY_ID=',' '"
-}
