@@ -120,14 +120,23 @@ for DASHBOARD_VERSION in ${DASHBOARD_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-NEW_DASHBOARD_VERSIONS="2.0.0-beta8"
+NEW_DASHBOARD_VERSIONS="
+2.0.0-beta8
+2.0.0-rc3
+2.0.0-rc7
+2.0.1
+"
 for DASHBOARD_VERSION in ${NEW_DASHBOARD_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${DASHBOARD_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS="1.0.2"
+NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS="
+1.0.2
+1.0.3
+1.0.4
+"
 for DASHBOARD_VERSION in ${NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/metrics-scraper:v${DASHBOARD_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
