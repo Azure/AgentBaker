@@ -332,7 +332,7 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1588695748, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 2800, mode: os.FileMode(420), modTime: time.Unix(1590313437, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -423,20 +423,6 @@ fi
 ETCD_PEER_URL="https://${PRIVATE_IP}:2380"
 ETCD_CLIENT_URL="https://${PRIVATE_IP}:2379"
 
-systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
-    RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
-        return 1
-    fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
-        return 1
-    fi
-}
-
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
@@ -498,32 +484,6 @@ configureSecrets(){
     echo "${ETCD_PEER_CERT}" | base64 --decode > "${ETCD_PEER_CERTIFICATE_PATH}"
 }
 
-configureEtcd() {
-    set -x
-
-    ETCD_SETUP_FILE=/opt/azure/containers/setup-etcd.sh
-    wait_for_file 1200 1 $ETCD_SETUP_FILE || exit $ERR_ETCD_CONFIG_FAIL
-    $ETCD_SETUP_FILE > /opt/azure/containers/setup-etcd.log 2>&1
-    RET=$?
-    if [ $RET -ne 0 ]; then
-        exit $RET
-    fi
-
-    MOUNT_ETCD_FILE=/opt/azure/containers/mountetcd.sh
-    wait_for_file 1200 1 $MOUNT_ETCD_FILE || exit $ERR_ETCD_CONFIG_FAIL
-    $MOUNT_ETCD_FILE || exit $ERR_ETCD_VOL_MOUNT_FAIL
-    systemctlEnableAndStart etcd || exit $ERR_ETCD_START_TIMEOUT
-    for i in $(seq 1 600); do
-        MEMBER="$(sudo etcdctl member list | grep -E ${NODE_NAME} | cut -d':' -f 1)"
-        if [ "$MEMBER" != "" ]; then
-            break
-        else
-            sleep 1
-        fi
-    done
-    retrycmd_if_failure 120 5 25 sudo etcdctl member update $MEMBER ${ETCD_PEER_URL} || exit $ERR_ETCD_CONFIG_FAIL
-}
-
 ensureRPC() {
     systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
     systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
@@ -537,12 +497,6 @@ ensureAuditD() {
       apt_get_purge 20 30 120 auditd &
     fi
   fi
-}
-
-generateAggregatedAPICerts() {
-    AGGREGATED_API_CERTS_SETUP_FILE=/etc/kubernetes/generate-proxy-certs.sh
-    wait_for_file 1200 1 $AGGREGATED_API_CERTS_SETUP_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    $AGGREGATED_API_CERTS_SETUP_FILE
 }
 
 configureKubeletServerCert() {
@@ -898,7 +852,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 20312, mode: os.FileMode(493), modTime: time.Unix(1589787086, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18802, mode: os.FileMode(493), modTime: time.Unix(1590456589, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1175,7 +1129,6 @@ version_gte() {
   test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
 }
 
-#TODO: split this so they won't be included in cse payload
 systemctlEnableAndStart() {
     systemctl_restart 100 5 30 $1
     RESTART_STATUS=$?
@@ -1188,38 +1141,6 @@ systemctlEnableAndStart() {
         echo "$1 could not be enabled by systemctl"
         return 1
     fi
-}
-
-configGPUDrivers() {
-    rmmod nouveau
-    echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      wait_for_apt_locks
-      dpkg-deb -R ./nvidia-docker2*.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-      cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    )
-    rm -rf $GPU_DEST/tmp
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
-    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 1 600 sh $GPU_DEST/nvidia-drivers-$GPU_DV --silent --accept-license --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}" || exit $ERR_GPU_DRIVERS_START_FAIL
-    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-    umount -l /usr/lib/x86_64-linux-gnu
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 $GPU_DEST/bin/nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-}
-
-ensureGPUDrivers() {
-    configGPUDrivers
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 #HELPERSEOF
 `)
@@ -1234,7 +1155,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 13680, mode: os.FileMode(493), modTime: time.Unix(1588190626, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11724, mode: os.FileMode(493), modTime: time.Unix(1590456607, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1248,9 +1169,7 @@ CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
-BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
-UBUNTU_CODENAME=$(lsb_release -c -s)
 
 removeMoby() {
     apt-get purge -y moby-engine moby-cli
@@ -1378,47 +1297,6 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR &
 }
 
-installBcc() {
-    echo "Installing BCC tools..."
-    IOVISOR_KEY_TMP=/tmp/iovisor-release.key
-    IOVISOR_URL=https://repo.iovisor.org/GPG-KEY
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL $IOVISOR_URL > $IOVISOR_KEY_TMP || exit $ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 30 apt-key add $IOVISOR_KEY_TMP || exit $ERR_IOVISOR_APT_KEY_TIMEOUT
-    echo "deb https://repo.iovisor.org/apt/${UBUNTU_CODENAME} ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/iovisor.list
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 120 5 25 bcc-tools libbcc-examples linux-headers-$(uname -r) || exit $ERR_BCC_INSTALL_TIMEOUT
-    apt-key del "$(gpg --with-colons $IOVISOR_KEY_TMP 2>/dev/null | head -n 1 | cut -d':' -f5)"
-    rm -f /etc/apt/sources.list.d/iovisor.list
-}
-
-installBpftrace() {
-    local version="v0.9.4"
-    local bpftrace_bin="bpftrace"
-    local bpftrace_tools="bpftrace-tools.tar"
-    local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
-    local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
-    local tools_filepath="/usr/local/share/$bpftrace_bin"
-    if [[ -f "$bpftrace_filepath" ]]; then
-        installed_version="$($bpftrace_bin -V | cut -d' ' -f2)"
-        if [[ "$version" == "$installed_version" ]]; then
-            return
-        fi
-        rm "$bpftrace_filepath"
-        if [[ -d "$tools_filepath" ]]; then
-            rm -r  "$tools_filepath"
-        fi
-    fi
-    mkdir -p "$tools_filepath"
-    install_dir="$BPFTRACE_DOWNLOADS_DIR/$version"
-    mkdir -p "$install_dir"
-    download_path="$install_dir/$bpftrace_tools"
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$bpftrace_filepath" "$bpftrace_url/$bpftrace_bin" || exit $ERR_BPFTRACE_BIN_DOWNLOAD_FAIL
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$download_path" "$bpftrace_url/$bpftrace_tools" || exit $ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL
-    tar -xvf "$download_path" -C "$tools_filepath"
-    chmod +x "$bpftrace_filepath"
-    chmod -R +x "$tools_filepath/tools"
-}
 downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
@@ -1434,7 +1312,7 @@ downloadAzureCNI() {
 downloadContainerd() {
     CONTAINERD_DOWNLOAD_URL="${CONTAINERD_DOWNLOAD_URL_BASE}cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    CONTAINERD_TGZ_TMP="cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz"
+    CONTAINERD_TGZ_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
 }
 
@@ -1570,7 +1448,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 14435, mode: os.FileMode(493), modTime: time.Unix(1590308998, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12277, mode: os.FileMode(493), modTime: time.Unix(1590456625, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1799,7 +1677,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1590309004, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1590310429, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

@@ -9,20 +9,6 @@ fi
 ETCD_PEER_URL="https://${PRIVATE_IP}:2380"
 ETCD_CLIENT_URL="https://${PRIVATE_IP}:2379"
 
-systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
-    RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
-        return 1
-    fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
-        return 1
-    fi
-}
-
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
@@ -84,32 +70,6 @@ configureSecrets(){
     echo "${ETCD_PEER_CERT}" | base64 --decode > "${ETCD_PEER_CERTIFICATE_PATH}"
 }
 
-configureEtcd() {
-    set -x
-
-    ETCD_SETUP_FILE=/opt/azure/containers/setup-etcd.sh
-    wait_for_file 1200 1 $ETCD_SETUP_FILE || exit $ERR_ETCD_CONFIG_FAIL
-    $ETCD_SETUP_FILE > /opt/azure/containers/setup-etcd.log 2>&1
-    RET=$?
-    if [ $RET -ne 0 ]; then
-        exit $RET
-    fi
-
-    MOUNT_ETCD_FILE=/opt/azure/containers/mountetcd.sh
-    wait_for_file 1200 1 $MOUNT_ETCD_FILE || exit $ERR_ETCD_CONFIG_FAIL
-    $MOUNT_ETCD_FILE || exit $ERR_ETCD_VOL_MOUNT_FAIL
-    systemctlEnableAndStart etcd || exit $ERR_ETCD_START_TIMEOUT
-    for i in $(seq 1 600); do
-        MEMBER="$(sudo etcdctl member list | grep -E ${NODE_NAME} | cut -d':' -f 1)"
-        if [ "$MEMBER" != "" ]; then
-            break
-        else
-            sleep 1
-        fi
-    done
-    retrycmd_if_failure 120 5 25 sudo etcdctl member update $MEMBER ${ETCD_PEER_URL} || exit $ERR_ETCD_CONFIG_FAIL
-}
-
 ensureRPC() {
     systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
     systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
@@ -123,12 +83,6 @@ ensureAuditD() {
       apt_get_purge 20 30 120 auditd &
     fi
   fi
-}
-
-generateAggregatedAPICerts() {
-    AGGREGATED_API_CERTS_SETUP_FILE=/etc/kubernetes/generate-proxy-certs.sh
-    wait_for_file 1200 1 $AGGREGATED_API_CERTS_SETUP_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    $AGGREGATED_API_CERTS_SETUP_FILE
 }
 
 configureKubeletServerCert() {
