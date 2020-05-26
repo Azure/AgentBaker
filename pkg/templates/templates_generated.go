@@ -415,7 +415,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4030, mode: os.FileMode(420), modTime: time.Unix(1590468683, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4030, mode: os.FileMode(420), modTime: time.Unix(1590473076, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2042,7 +2042,7 @@ func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud.sh", size: 1052, mode: os.FileMode(420), modTime: time.Unix(1590468062, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud.sh", size: 1052, mode: os.FileMode(420), modTime: time.Unix(1590473076, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3280,7 +3280,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8969, mode: os.FileMode(420), modTime: time.Unix(1590467203, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8969, mode: os.FileMode(420), modTime: time.Unix(1590473076, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
