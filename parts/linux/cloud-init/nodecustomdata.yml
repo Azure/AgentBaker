@@ -49,6 +49,15 @@ write_files:
   {{end}}
 {{end}}
 
+{{if IsAKSCustomCloud}}
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+{{end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip

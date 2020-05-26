@@ -17,6 +17,7 @@
 // linux/cloud-init/artifacts/etc-issue.net
 // linux/cloud-init/artifacts/etcd.service
 // linux/cloud-init/artifacts/health-monitor.sh
+// linux/cloud-init/artifacts/init-aks-custom-cloud.sh
 // linux/cloud-init/artifacts/kms.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
@@ -343,6 +344,13 @@ for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+{{if IsAKSCustomCloud}}
+for i in $(seq 1 1200); do
+grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
+if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+done;
+{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
+{{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
@@ -407,7 +415,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 3773, mode: os.FileMode(420), modTime: time.Unix(1589787086, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4030, mode: os.FileMode(420), modTime: time.Unix(1590468683, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -852,7 +860,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18802, mode: os.FileMode(493), modTime: time.Unix(1590456589, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18802, mode: os.FileMode(493), modTime: time.Unix(1590458414, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1155,7 +1163,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11724, mode: os.FileMode(493), modTime: time.Unix(1590456607, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11724, mode: os.FileMode(493), modTime: time.Unix(1590458414, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1448,7 +1456,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12277, mode: os.FileMode(493), modTime: time.Unix(1590456625, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_install.sh", size: 12277, mode: os.FileMode(493), modTime: time.Unix(1590458414, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1677,7 +1685,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1590310429, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1590457219, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1989,6 +1997,52 @@ func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 2237, mode: os.FileMode(493), modTime: time.Unix(1588698356, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsInitAksCustomCloudSh = []byte(`#!/bin/bash
+mkdir -p /root/AzureCACertificates
+# http://168.63.129.16 is a constant for the host's wireserver endpoint
+certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+IFS_backup=$IFS
+IFS=$'\r\n'
+certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
+certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+for i in ${!certBodies[@]}; do
+    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed 's/.cer/.crt/g')"
+done
+IFS=$IFS_backup
+
+cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
+update-ca-certificates
+
+# This copies the updated bundle to the location used by OpenSSL which is commonly used
+cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+
+# This section creates a cron job to poll for refreshed CA certs daily
+# It can be removed if not needed or desired
+action=${1:-init}
+if [ $action == "ca-refresh" ]
+then
+    exit
+fi
+
+(crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
+
+#EOF`)
+
+func linuxCloudInitArtifactsInitAksCustomCloudShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsInitAksCustomCloudSh, nil
+}
+
+func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsInitAksCustomCloudShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud.sh", size: 1052, mode: os.FileMode(420), modTime: time.Unix(1590468062, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2925,6 +2979,15 @@ write_files:
   {{end}}
 {{end}}
 
+{{if IsAKSCustomCloud}}
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+{{end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -3217,7 +3280,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8754, mode: os.FileMode(420), modTime: time.Unix(1588190626, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 8969, mode: os.FileMode(420), modTime: time.Unix(1590467203, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -5078,6 +5141,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
 	"linux/cloud-init/artifacts/etcd.service":                              linuxCloudInitArtifactsEtcdService,
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
+	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
@@ -5172,6 +5236,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
 				"etcd.service":                              &bintree{linuxCloudInitArtifactsEtcdService, map[string]*bintree{}},
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
+				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
