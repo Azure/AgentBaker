@@ -1,4 +1,4 @@
-Starting build on  Thu May 21 03:45:02 UTC 2020
+Starting build on  Wed May 27 08:09:54 UTC 2020
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -48,7 +48,12 @@ Components downloaded in this VHD build (some of the below components might get 
 Docker images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v1.10.1
   - mcr.microsoft.com/oss/kubernetes/dashboard:v2.0.0-beta8
+  - mcr.microsoft.com/oss/kubernetes/dashboard:v2.0.0-rc3
+  - mcr.microsoft.com/oss/kubernetes/dashboard:v2.0.0-rc7
+  - mcr.microsoft.com/oss/kubernetes/dashboard:v2.0.1
   - mcr.microsoft.com/oss/kubernetes/metrics-scraper:v1.0.2
+  - mcr.microsoft.com/oss/kubernetes/metrics-scraper:v1.0.3
+  - mcr.microsoft.com/oss/kubernetes/metrics-scraper:v1.0.4
   - mcr.microsoft.com/oss/kubernetes/exechealthz:1.2
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.5
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.4
@@ -72,11 +77,12 @@ Docker images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v1.0.30
   - nvidia/k8s-device-plugin:1.11
   - nvidia/k8s-device-plugin:1.10
-  - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.11
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.11
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.12
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.12
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.13
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.13
   - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.6
   - mcr.microsoft.com/aks/hcp/kube-svc-redirect:v1.0.7
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01072020
@@ -93,54 +99,54 @@ Docker images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v2.0.0_v0.0.5
   - nginx:1.13.12-alpine
   - mcr.microsoft.com/k8s/kms/keyvault:v0.0.9
-total 8046684
--r-xr--r-- 1 root root      2237 May 21 03:45 health-monitor.sh
--rwxr-xr-x 1 root root  35384960 May 21 03:49 bpftrace
--rwxr-xr-x 1 root root  25700016 May 21 03:52 img
--rwxr-xr-x 1 root root 150500800 May 21 03:56 kubelet-1.17.0
--rwxr-xr-x 1 root root  59359708 May 21 03:56 kubectl-1.17.0
--rwxr-xr-x 1 root root 203537368 May 21 03:56 kubelet-1.16.6
--rwxr-xr-x 1 root root 203537368 May 21 03:56 kubectl-1.16.6
--rwxr-xr-x 1 root root 264524976 May 21 03:57 kubelet-1.16.4
--rwxr-xr-x 1 root root 264524976 May 21 03:57 kubectl-1.16.4
--rwxr-xr-x 1 root root 212357872 May 21 03:57 kubelet-1.16.1
--rwxr-xr-x 1 root root 212357872 May 21 03:57 kubectl-1.16.1
--rwxr-xr-x 1 root root 211306608 May 21 03:58 kubelet-1.14.6
--rwxr-xr-x 1 root root 211306608 May 21 03:58 kubectl-1.14.6
--rwxr-xr-x 1 root root 211110000 May 21 03:58 kubelet-1.14.7
--rwxr-xr-x 1 root root 211110000 May 21 03:58 kubectl-1.14.7
--rwxr-xr-x 1 root root 211114032 May 21 03:58 kubelet-1.14.8
--rwxr-xr-x 1 root root 211114032 May 21 03:58 kubectl-1.14.8
--rwxr-xr-x 1 root root 200681104 May 21 03:59 kubelet-1.15.3
--rwxr-xr-x 1 root root 200681104 May 21 03:59 kubectl-1.15.3
--rwxr-xr-x 1 root root 200722064 May 21 03:59 kubelet-1.15.4
--rwxr-xr-x 1 root root 200722064 May 21 03:59 kubectl-1.15.4
--rwxr-xr-x 1 root root 250240456 May 21 04:00 kubelet-1.15.5
--rwxr-xr-x 1 root root 250240456 May 21 04:00 kubectl-1.15.5
--rwxr-xr-x 1 root root 250267632 May 21 04:00 kubelet-1.15.7
--rwxr-xr-x 1 root root 250267632 May 21 04:00 kubectl-1.15.7
--rwxr-xr-x 1 root root 250309000 May 21 04:01 kubelet-1.15.10
--rwxr-xr-x 1 root root 250309000 May 21 04:01 kubectl-1.15.10
--rwxr-xr-x 1 root root 250346640 May 21 04:01 kubelet-1.15.11
--rwxr-xr-x 1 root root 250346640 May 21 04:01 kubectl-1.15.11
--rwxr-xr-x 1 root root 212345584 May 21 04:02 kubelet-1.16.0
--rwxr-xr-x 1 root root 212345584 May 21 04:02 kubectl-1.16.0
--rwxr-xr-x 1 root root 203570904 May 21 04:02 kubelet-1.16.7
--rwxr-xr-x 1 root root 203570904 May 21 04:02 kubectl-1.16.7
--rwxr-xr-x 1 root root 203706472 May 21 04:02 kubelet-1.16.8
--rwxr-xr-x 1 root root 203706472 May 21 04:02 kubectl-1.16.8
--rwxr-xr-x 1 root root 203802464 May 21 04:03 kubelet-1.16.9
--rwxr-xr-x 1 root root 203802464 May 21 04:03 kubectl-1.16.9
--rwxr-xr-x 1 root root 150542024 May 21 04:03 kubelet-1.17.3
--rwxr-xr-x 1 root root  59360015 May 21 04:03 kubectl-1.17.3
--rwxr-xr-x 1 root root 150585392 May 21 04:04 kubelet-1.17.4
--rwxr-xr-x 1 root root  59355711 May 21 04:04 kubectl-1.17.4
--rwxr-xr-x 1 root root 111486824 May 21 04:04 kubelet-1.17.5
--rwxr-xr-x 1 root root  43429888 May 21 04:04 kubectl-1.17.5
--rwxr-xr-x 1 root root 113099496 May 21 04:05 kubelet-1.18.1
--rwxr-xr-x 1 root root  43950080 May 21 04:05 kubectl-1.18.1
--rwxr-xr-x 1 root root 113103592 May 21 04:05 kubelet-1.18.2
--rwxr-xr-x 1 root root  43954176 May 21 04:05 kubectl-1.18.2
+total 8046680
+-r-xr--r-- 1 root root      2237 May 27 08:09 health-monitor.sh
+-rwxr-xr-x 1 root root  35384960 May 27 08:14 bpftrace
+-rwxr-xr-x 1 root root  25700016 May 27 08:16 img
+-rwxr-xr-x 1 root root 150500800 May 27 08:22 kubelet-1.17.0
+-rwxr-xr-x 1 root root  59359708 May 27 08:22 kubectl-1.17.0
+-rwxr-xr-x 1 root root 203537368 May 27 08:22 kubelet-1.16.6
+-rwxr-xr-x 1 root root 203537368 May 27 08:22 kubectl-1.16.6
+-rwxr-xr-x 1 root root 264524976 May 27 08:22 kubelet-1.16.4
+-rwxr-xr-x 1 root root 264524976 May 27 08:22 kubectl-1.16.4
+-rwxr-xr-x 1 root root 212357872 May 27 08:23 kubelet-1.16.1
+-rwxr-xr-x 1 root root 212357872 May 27 08:23 kubectl-1.16.1
+-rwxr-xr-x 1 root root 211306608 May 27 08:23 kubelet-1.14.6
+-rwxr-xr-x 1 root root 211306608 May 27 08:23 kubectl-1.14.6
+-rwxr-xr-x 1 root root 211110000 May 27 08:24 kubelet-1.14.7
+-rwxr-xr-x 1 root root 211110000 May 27 08:24 kubectl-1.14.7
+-rwxr-xr-x 1 root root 211114032 May 27 08:24 kubelet-1.14.8
+-rwxr-xr-x 1 root root 211114032 May 27 08:24 kubectl-1.14.8
+-rwxr-xr-x 1 root root 200681104 May 27 08:25 kubelet-1.15.3
+-rwxr-xr-x 1 root root 200681104 May 27 08:25 kubectl-1.15.3
+-rwxr-xr-x 1 root root 200722064 May 27 08:25 kubelet-1.15.4
+-rwxr-xr-x 1 root root 200722064 May 27 08:25 kubectl-1.15.4
+-rwxr-xr-x 1 root root 250240456 May 27 08:26 kubelet-1.15.5
+-rwxr-xr-x 1 root root 250240456 May 27 08:26 kubectl-1.15.5
+-rwxr-xr-x 1 root root 250267632 May 27 08:26 kubelet-1.15.7
+-rwxr-xr-x 1 root root 250267632 May 27 08:26 kubectl-1.15.7
+-rwxr-xr-x 1 root root 250309000 May 27 08:27 kubelet-1.15.10
+-rwxr-xr-x 1 root root 250309000 May 27 08:27 kubectl-1.15.10
+-rwxr-xr-x 1 root root 250346640 May 27 08:27 kubelet-1.15.11
+-rwxr-xr-x 1 root root 250346640 May 27 08:27 kubectl-1.15.11
+-rwxr-xr-x 1 root root 212345584 May 27 08:28 kubelet-1.16.0
+-rwxr-xr-x 1 root root 212345584 May 27 08:28 kubectl-1.16.0
+-rwxr-xr-x 1 root root 203570904 May 27 08:28 kubelet-1.16.7
+-rwxr-xr-x 1 root root 203570904 May 27 08:28 kubectl-1.16.7
+-rwxr-xr-x 1 root root 203706472 May 27 08:29 kubelet-1.16.8
+-rwxr-xr-x 1 root root 203706472 May 27 08:29 kubectl-1.16.8
+-rwxr-xr-x 1 root root 203802464 May 27 08:29 kubelet-1.16.9
+-rwxr-xr-x 1 root root 203802464 May 27 08:29 kubectl-1.16.9
+-rwxr-xr-x 1 root root 150542024 May 27 08:30 kubelet-1.17.3
+-rwxr-xr-x 1 root root  59360015 May 27 08:30 kubectl-1.17.3
+-rwxr-xr-x 1 root root 150585392 May 27 08:30 kubelet-1.17.4
+-rwxr-xr-x 1 root root  59355711 May 27 08:30 kubectl-1.17.4
+-rwxr-xr-x 1 root root 111486824 May 27 08:31 kubelet-1.17.5
+-rwxr-xr-x 1 root root  43429888 May 27 08:31 kubectl-1.17.5
+-rwxr-xr-x 1 root root 113099496 May 27 08:31 kubelet-1.18.1
+-rwxr-xr-x 1 root root  43950080 May 27 08:31 kubectl-1.18.1
+-rwxr-xr-x 1 root root 113103592 May 27 08:32 kubelet-1.18.2
+-rwxr-xr-x 1 root root  43954176 May 27 08:32 kubectl-1.18.2
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.14.6_v0.0.5
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.14.7_v0.0.5
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.14.7-hotfix.20200326
@@ -166,20 +172,20 @@ total 8046684
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.18.1
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.18.2
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
-  - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.7
+  - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.8
   - mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
   - mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
   - mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
   - mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200325.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200519.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
   - mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
   - mcr.microsoft.com/k8s/csi/azuredisk-csi:v0.4.0
   - mcr.microsoft.com/k8s/csi/azurefile-csi:v0.3.0
-WARNING: 75% of /dev/sda1 is used
 Using kernel:
 Linux version 5.3.0-1020-azure (buildd@lgw01-amd64-055) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #21~18.04.1-Ubuntu SMP Wed Apr 15 09:35:56 UTC 2020
-Install completed successfully on  Thu May 21 04:07:32 UTC 2020
-VSTS Build NUMBER: 20200521.5
-VSTS Build ID: 31305835
-Commit: 7f03ddd94d13b843a817218fd3b9bfac5de5dd30
+Install completed successfully on  Wed May 27 08:34:15 UTC 2020
+VSTS Build NUMBER: 20200527.2
+VSTS Build ID: 31447555
+Commit: 30eba547db351343fc904f55d13ec10d76a2aea1
 Feature flags: 
