@@ -31,7 +31,7 @@ echo "publishing managed image to /resourcegroup/${RG_NAME}/galleries/${GALLERY_
    --gallery-image-definition ${IMAGEDEFINITION_NAME} \
    --gallery-image-version ${IMAGE_VERSION} \
    --managed-image "${MANAGED_IMAGE_URI}" \
-   --target-regions ${TARGET_REGIONS}
+   --target-regions ${TARGET_REGIONS} \
    --storage-account-type Premium_LRS
 
 
