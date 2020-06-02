@@ -485,11 +485,8 @@ validateGPUDrivers() {
 
 ensureGPUDrivers() {
     if [[ "${NEED_CONFIG_GPU_DRIVERS}" = true ]]; then
-        echo "running configGPUDrivers +new"
         configGPUDrivers
     else
-        echo "skipping configGPUDrivers +new"
-        echo "start testGPUDrivers +new"
         validateGPUDrivers
     fi
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL

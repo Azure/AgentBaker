@@ -45,7 +45,7 @@ func getCustomDataVariables(cs *api.ContainerService) paramsMap {
 }
 
 func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID string, needConfigGPUDrivers, enableGPUSystemd bool) paramsMap {
+	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID string, needConfigGPUDrivers, enableGPUDevicePlugin bool) paramsMap {
 	return map[string]interface{}{
 		"outBoundCmd":                     getOutBoundCmd(cs),
 		"tenantID":                        tenantID,
@@ -71,7 +71,7 @@ func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 		"sgxNode":                         strconv.FormatBool(common.IsSgxEnabledSKU(profile.VMSize)),
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 		"needConfigGPUDrivers":            needConfigGPUDrivers,
-		"enableGPUSystemd":                enableGPUSystemd,
+		"enableGPUDevicePlugin":           enableGPUDevicePlugin,
 	}
 }
 
