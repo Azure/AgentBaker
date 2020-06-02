@@ -484,7 +484,7 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    if [[ "${NEED_CONFIG_GPU_DRIVERS}" ]]; then
+    if [[ "${NEED_CONFIG_GPU_DRIVERS}" = true ]]; then
         echo "running configGPUDrivers +new"
         configGPUDrivers
     else
