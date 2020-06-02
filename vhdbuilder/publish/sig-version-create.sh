@@ -8,7 +8,7 @@
 [[ -z "${IMAGEDEFINITION_NAME}" ]] && (echo "IMAGEDEFINITION_NAME is not set"; exit 1)
 [[ -z "${IMAGE_VERSION}" ]] && (echo "IMAGE_VERSION is not set"; exit 1)
 #TARGET_REGIONS must be set in the following format region=replicacount "westus2=1 eastus=4 uksouth=3"
-[[ -z "${TARGET_REGIONS}" ]] && (echo "TARGET_REGIONS is not set"; exit 1)
+[[ -z "${TARGET_CREATE_REGIONS}" ]] && (echo "TARGET_CREATE_REGIONS is not set"; exit 1)
 [[ -z "${MANAGED_IMAGE_RG_NAME}" ]] && (echo "MANAGED_IMAGE_RG_NAME is not set"; exit 1)
 [[ -z "${VHD_SOURCE}" ]] && (echo "VHD_SOURCE is not set"; exit 1)
 [[ -z "${OS_NAME}" ]] && (echo "OS_NAME is not set"; exit 1)
@@ -23,7 +23,7 @@ echo "Get managed image URI for the managed image ${MANAGED_IMAGE_NAME}"
 sleep 1m
 MANAGED_IMAGE_URI=$(az image show --resource-group ${MANAGED_IMAGE_RG_NAME} --name ${MANAGED_IMAGE_NAME} -o json | jq -r ".id")
 
-echo "publishing managed image to /resourcegroup/${RG_NAME}/galleries/${GALLERY_NAME}/images/${IMAGEDEFINITION_NAME}/versions/${IMAGE_VERSION} in ${TARGET_REGIONS}"
+echo "publishing managed image to /resourcegroup/${RG_NAME}/galleries/${GALLERY_NAME}/images/${IMAGEDEFINITION_NAME}/versions/${IMAGE_VERSION} with 5 replcia count in ${TARGET_CREATE_REGIONS}"
  
  az sig image-version create \
    --resource-group ${RG_NAME} \
@@ -31,8 +31,9 @@ echo "publishing managed image to /resourcegroup/${RG_NAME}/galleries/${GALLERY_
    --gallery-image-definition ${IMAGEDEFINITION_NAME} \
    --gallery-image-version ${IMAGE_VERSION} \
    --managed-image "${MANAGED_IMAGE_URI}" \
-   --target-regions ${TARGET_REGIONS} \
-   --storage-account-type Premium_LRS
+   --target-regions ${TARGET_CREATE_REGIONS} \
+   --storage-account-type Premium_LRS \
+   --replica-count 5
 
 
 echo "##vso[task.setvariable variable=MANAGED_IMAGE_NAME;]$MANAGED_IMAGE_NAME"
