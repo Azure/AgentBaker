@@ -56,4 +56,6 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
+NEED_CONFIG_GPU_DRIVERS={{GetVariable "needConfigGPUDrivers"}} 
+ENABLE_GPU_SYSTEMD={{GetVariable "enableGPUSystemd"}} 
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"

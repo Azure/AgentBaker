@@ -97,11 +97,9 @@ if [[ "${GPU_NODE}" = true ]]; then
         installGPUDrivers
     fi
     ensureGPUDrivers
-    {{- if NeedConfigureGPUDevicePlugin}}
-    if [[ "${DISABLE_GPU_SYSTEMD}" != "true" ]]; then
+    if [[ "${ENABLE_GPU_SYSTEMD}" = true ]]; then
         systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICEPLUGIN_START_FAIL
     fi
-    {{end}}
 fi
 {{end}}
 

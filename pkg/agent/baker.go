@@ -89,20 +89,20 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string) string {
+	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string, needConfigGPUDrivers, enableGPUSystemd bool) string {
 	if profile.IsWindows() {
 		return t.getWindowsNodeCustomDataJSONObject(cs, profile)
 	}
-	return t.getLinuxNodeCSECommand(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID)
+	return t.getLinuxNodeCSECommand(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID, needConfigGPUDrivers, enableGPUSystemd)
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string) string {
+	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string, needConfigGPUDrivers, enableGPUSystemd bool) string {
 	//get parameters
 	parameters := getParameters(cs, "", "")
 	//get variable
-	variables := getCSECommandVariables(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID)
+	variables := getCSECommandVariables(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID, needConfigGPUDrivers, enableGPUSystemd)
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(kubernetesCSECommandString,
 		profile, t.getBakerFuncMap(cs, parameters, variables))
@@ -514,12 +514,6 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
-		},
-		"NeedConfigureGPUDriver": func() bool {
-			return getNeedConfigureGPUDriver(cs.Properties)
-		},
-		"NeedConfigureGPUDevicePlugin": func() bool {
-			return getNeedConfigureGPUDevicePlugin(cs.Properties)
 		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()

@@ -334,29 +334,6 @@ func getDataDisks(a *api.AgentPoolProfile) string {
 	return buf.String()
 }
 
-func getNeedConfigureGPUDriver(properties *api.Properties) bool {
-	for _, agentPool := range properties.AgentPoolProfiles {
-		if agentPool.ImageRef != nil {
-			if agentPool.ImageRef.Name == "vhd2" ||
-				agentPool.ImageRef.Name == "vhd3" {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func getNeedConfigureGPUDevicePlugin(properties *api.Properties) bool {
-	for _, agentPool := range properties.AgentPoolProfiles {
-		if agentPool.ImageRef != nil {
-			if agentPool.ImageRef.Name == "vhd3" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func getSecurityRules(ports []int) string {
 	var buf bytes.Buffer
 	for index, port := range ports {
