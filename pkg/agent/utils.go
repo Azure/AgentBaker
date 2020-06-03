@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/blang/semver"
 	"io/ioutil"
 	"log"
 	"net"
@@ -19,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/blang/semver"
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"

@@ -4,10 +4,11 @@
 package agent
 
 import (
+	"strconv"
+
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
-	"strconv"
 )
 
 func getCustomDataVariables(cs *api.ContainerService) paramsMap {
@@ -45,7 +46,7 @@ func getCustomDataVariables(cs *api.ContainerService) paramsMap {
 }
 
 func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID string) paramsMap {
+	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID string, needConfigGPUDrivers, enableGPUDevicePlugin bool) paramsMap {
 	return map[string]interface{}{
 		"outBoundCmd":                     getOutBoundCmd(cs),
 		"tenantID":                        tenantID,
@@ -70,6 +71,8 @@ func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 		"gpuNode":                         strconv.FormatBool(common.IsNvidiaEnabledSKU(profile.VMSize)),
 		"sgxNode":                         strconv.FormatBool(common.IsSgxEnabledSKU(profile.VMSize)),
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
+		"needConfigGPUDrivers":            needConfigGPUDrivers,
+		"enableGPUDevicePlugin":           enableGPUDevicePlugin,
 	}
 }
 
