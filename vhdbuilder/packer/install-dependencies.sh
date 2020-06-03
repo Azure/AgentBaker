@@ -490,8 +490,8 @@ df -h
 
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
-# error at 96% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 96 {print}') ] || exit 1
+# error at 99% space taken
+[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 99 {print}') ] || exit 1
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
