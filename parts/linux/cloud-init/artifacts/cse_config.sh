@@ -472,7 +472,7 @@ validateGPUDrivers() {
     SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
-        if [[ $SMI_RESULT == *"infoROM is corrupted"*  ]]; then
+        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
             exit $ERR_GPU_INFO_ROM_CORRUPTED
         else
             exit $ERR_GPU_DRIVERS_START_FAIL
