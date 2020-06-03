@@ -381,23 +381,14 @@ done
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 K8S_VERSIONS="
-1.17.0
-1.16.6
-1.16.4
-1.16.1
-1.14.6_v0.0.5
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
-1.15.3_v0.0.5
-1.15.4_v0.0.5
-1.15.5_f0.0.2
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
-1.16.0_v0.0.5
 1.16.7-hotfix.20200408
 1.16.8.1
-1.16.9.1
+1.16.9-hotfix.20200529.1
 1.17.3-hotfix.20200408
 1.17.4.1
 1.17.5.1
@@ -409,10 +400,12 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
   # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
   # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1)
+  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
   # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
   extractHyperkube "docker"
+  # remove hyperkube here as the one that we really need is pulled later
+  docker image rm $HYPERKUBE_URL
 done
 ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 
@@ -428,7 +421,6 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.10-hotfix.20200408.1
 1.15.11
 1.15.11-hotfix.20200529.1
-1.16.0_v0.0.5
 1.16.7-hotfix.20200408
 1.16.8
 1.16.8.1
