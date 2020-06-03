@@ -329,7 +329,6 @@ done
 
 # Cluster Proportional Autoscaler
 CPA_IMAGES="
-1.3.0
 1.3.0_v0.0.5
 1.7.1
 1.7.1-hotfix.20200403
@@ -420,14 +419,10 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 PATCHED_HYPERKUBE_IMAGES="
-1.14.6_v0.0.5
 1.14.7-hotfix.20200326
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200326
 1.14.8-hotfix.20200529.1
-1.15.3_v0.0.5
-1.15.4_v0.0.5
-1.15.5_f0.0.2
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200326
 1.15.10-hotfix.20200408.1
