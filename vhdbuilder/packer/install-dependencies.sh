@@ -437,9 +437,19 @@ PATCHED_HYPERKUBE_IMAGES="
 1.18.2.1
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    if (( $(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 17 )); then
+        CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
+        pullContainerImage "docker" ${CONTAINER_IMAGE}
+        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    else
+        KUBE_BINARY_URL="https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+        extractKubeBinaries
+        if (( $(echo ${KUBERNETES_VERSION} | cut -d"." -f2) > 17 )); then
+            CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+            pullContainerImage "docker" ${CONTAINER_IMAGE}
+            echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+        fi
+    fi
 done
 
 ADDON_IMAGES="

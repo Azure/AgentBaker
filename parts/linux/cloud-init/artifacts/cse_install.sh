@@ -201,6 +201,16 @@ installImg() {
     retrycmd_get_executable 120 5 $img_filepath "https://acs-mirror.azureedge.net/img/img-linux-amd64-v0.5.6" ls || exit $ERR_IMG_DOWNLOAD_TIMEOUT
 }
 
+extractKubeBinaries() {
+    KUBE_BINARY_URL=${KUBE_BINARY_URL:-"https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/kubernetes-node-linux-amd64.tar.gz"}
+    K8S_TGZ_TMP=$(echo ${KUBE_BINARY_URL} | cut -d "/" -f 5)
+    mkdir -p "${K8S_DOWNLOADS_DIR}"
+    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    tar --transform="s|.*|&-${KUBERNETES_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+    rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+}
+
 extractHyperkube() {
     CLI_TOOL=$1
     path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
@@ -231,11 +241,15 @@ extractHyperkube() {
 
 installKubeletAndKubectl() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-            extractHyperkube "docker"
+        if version_gte ${KUBERNETES_VERSION} 1.17; then  # don't use hyperkube
+            extractKubeBinaries
         else
-            installImg
-            extractHyperkube "img"
+            if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
+                extractHyperkube "docker"
+            else
+                installImg
+                extractHyperkube "img"
+            fi
         fi
     fi
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
