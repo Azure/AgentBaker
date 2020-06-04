@@ -452,6 +452,7 @@ mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200519.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
+mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod05262020
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage "docker" ${ADDON_IMAGE}
