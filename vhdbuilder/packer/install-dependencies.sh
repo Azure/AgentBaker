@@ -298,7 +298,7 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-OMS_AGENT_IMAGES="ciprod01072020 ciprod03022020"
+OMS_AGENT_IMAGES="ciprod03022020 ciprod05262020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
@@ -452,7 +452,6 @@ mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200519.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
-mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod05262020
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage "docker" ${ADDON_IMAGE}
