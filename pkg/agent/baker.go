@@ -511,6 +511,23 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		"IsDockerContainerRuntime": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
 		},
+		"GetDockerConfig": func(hasGPU bool) string {
+			val, err := getDockerConfig(cs, hasGPU)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"GetContainerdConfig": func() string {
+			val, err := getContainerdConfig(cs)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"IndentString": func(original string, spaces int) string {
+			return IndentString(original, spaces)
+		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
 		},
@@ -607,4 +624,36 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 			return "}}"
 		},
 	}
+}
+
+func getDockerConfig(cs *api.ContainerService, hasGPU bool) (string, error) {
+	var overrides []func(*DockerConfig) error
+
+	if hasGPU {
+		overrides = append(overrides, DockerNvidiaOverride)
+	}
+
+	val, err := GetDockerConfig(cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig, overrides)
+	if err != nil {
+		return "", err
+	}
+
+	return val, nil
+}
+
+func getContainerdConfig(cs *api.ContainerService) (string, error) {
+	var overrides = []func(*ContainerdConfig) error{
+		ContainerdSandboxImageOverrider(cs.Properties.OrchestratorProfile.GetPodInfraContainerSpec()),
+	}
+
+	if cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet {
+		overrides = append(overrides, ContainerdKubenetOverride)
+	}
+
+	val, err := GetContainerdConfig(cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig, overrides)
+	if err != nil {
+		return "", err
+	}
+
+	return val, nil
 }
