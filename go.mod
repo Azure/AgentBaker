@@ -6,8 +6,10 @@ require (
 	github.com/Azure/aks-engine v0.47.0-aks-gomod-53
 	github.com/Azure/go-autorest/autorest v0.9.2
 	github.com/Azure/go-autorest/autorest/to v0.3.0
+	github.com/BurntSushi/toml v0.3.1
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/go-playground/universal-translator v0.17.0 // indirect
+	github.com/google/go-cmp v0.4.0
 	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
