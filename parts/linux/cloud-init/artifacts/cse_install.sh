@@ -202,7 +202,7 @@ installImg() {
 }
 
 extractKubeBinaries() {
-    KUBE_BINARY_URL=${KUBE_BINARY_URL:-"https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/kubernetes-node-linux-amd64.tar.gz"}
+    KUBE_BINARY_URL=${KUBE_BINARY_URL:-"https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"}
     K8S_TGZ_TMP=$(echo ${KUBE_BINARY_URL} | cut -d "/" -f 5)
     mkdir -p "${K8S_DOWNLOADS_DIR}"
     retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
