@@ -298,7 +298,7 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-OMS_AGENT_IMAGES="ciprod01072020 ciprod03022020"
+OMS_AGENT_IMAGES="ciprod03022020 ciprod05262020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
