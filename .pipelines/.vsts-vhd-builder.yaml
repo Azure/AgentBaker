@@ -4,7 +4,7 @@ trigger: none
 # mode1: Hyper-Generation V2 mode
 #    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
 #    steps:
-#    - Build VHD to a predefined SIG gallery/image with dynamic version (PackerSigGallery/1804Gen2/1.0.{{user `create_time`}})
+#    - Build VHD to a predefined SIG gallery/image with dynamic version (PackerSigGalleryEastUS/1804Gen2/1.0.{{user `create_time`}})
 #    - Create a managed disk with dynamic name 1.0.{{user `create_time`}} from the SIG image.
 #    - (offline) Export the managed disk SAS URL, download the VHD to local disk, rename the file to .vhd, upload it to a classic storage account and publish it to PIR.
 #
