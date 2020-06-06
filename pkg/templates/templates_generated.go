@@ -403,6 +403,8 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
+NEED_CONFIG_GPU_DRIVERS={{GetVariable "needConfigGPUDrivers"}} 
+ENABLE_GPU_DEVICE_PLUGIN={{GetVariable "enableGPUDevicePlugin"}} 
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"
 systemctl --no-pager -l status kubelet 2>&1 | head -n 100`)
 
@@ -416,7 +418,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4088, mode: os.FileMode(420), modTime: time.Unix(1591384405, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4218, mode: os.FileMode(420), modTime: time.Unix(1591406558, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -843,8 +845,28 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 $GPU_DEST/bin/nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
+
+validateGPUDrivers() {
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+    SMI_STATUS=$?
+    if [[ $SMI_STATUS != 0 ]]; then
+        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
+            exit $ERR_GPU_INFO_ROM_CORRUPTED
+        else
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    else
+        echo "gpu driver working fine"
+    fi
+}
+
 ensureGPUDrivers() {
-    configGPUDrivers
+    if [[ "${NEED_CONFIG_GPU_DRIVERS}" = true ]]; then
+        configGPUDrivers
+    else
+        validateGPUDrivers
+    fi
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 {{end}}
@@ -861,7 +883,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18802, mode: os.FileMode(493), modTime: time.Unix(1591384307, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 19427, mode: os.FileMode(493), modTime: time.Unix(1591405806, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -911,6 +933,8 @@ ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
+ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
+ERR_GPU_INFO_ROM_CORRUPTED=87 {{/* info ROM corrupted error when executing nvidia-smi */}}
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 {{/* Timeout waiting for SGX prereqs to download */}}
 ERR_SGX_DRIVERS_START_FAIL=91 {{/* Failed to execute SGX driver binary */}}
 ERR_APT_DAILY_TIMEOUT=98 {{/* Timeout waiting for apt daily updates */}}
@@ -1164,7 +1188,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11725, mode: os.FileMode(493), modTime: time.Unix(1591384307, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11917, mode: os.FileMode(493), modTime: time.Unix(1591405806, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1561,6 +1585,9 @@ if [[ "${GPU_NODE}" = true ]]; then
         installGPUDrivers
     fi
     ensureGPUDrivers
+    if [[ "${ENABLE_GPU_DEVICE_PLUGIN}" = true ]]; then
+        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    fi
 fi
 {{end}}
 
@@ -1686,7 +1713,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1591384307, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5735, mode: os.FileMode(493), modTime: time.Unix(1591405806, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
