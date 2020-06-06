@@ -283,9 +283,12 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-OPENVPN_VERSIONS="1.0.6"
+OPENVPN_VERSIONS="
+1.0.6
+1.0.7
+"
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSIONS}"
+    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
