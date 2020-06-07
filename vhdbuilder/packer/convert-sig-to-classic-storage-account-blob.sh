@@ -32,14 +32,14 @@ az resource create --id $disk_resource_id  --is-full-object --location $LOCATION
   } \
 }"
 
-echo "COPY ME ---> "
+sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
-cat <<EOF > vhd-publishing-info.json
-{
-    "sig_resource_id": "${sig_resource_id}",
-    "disk_resource_id": "${disk_resource_id}",
-    "location":"$location"
-}
-EOF
+azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/1.0.${CREATE_TIME}.vhd${CLASSIC_SAS_TOKEN}" --recursive=true
 
-cat vhd-publishing-info.json
+echo "Converted $sig_resource_id to ${CLASSIC_BLOB}/1.0.${CREATE_TIME}.vhd"
+
+az disk revoke-access --ids $disk_resource_id 
+
+az resource delete --ids $disk_resource_id
+
+echo "Deleted $disk_resource_id"
