@@ -132,9 +132,12 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
       - bash: |
           echo MODE=$(MODE) && \
-          if [[ $(MODE) == "gen2Mode" ]]; then VHD_NAME="1.0.${create_time}.vhd"; else \
+          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
+          VHD_NAME="1.0.${create_time}.vhd"; \
+          SKU_NAME="1804gen2"; else \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; fi &&
+          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
+          SKU_NAME=$UBUNTU_SKU; fi &&
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
@@ -146,7 +149,7 @@ phases:
           -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
           -e VHD_NAME=${VHD_NAME} \
           -e OS_NAME="Linux" \
-          -e SKU_NAME=${UBUNTU_SKU} \
+          -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
