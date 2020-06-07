@@ -1,8 +1,8 @@
 build-packer:
-ifeq (${MODE},mode1)
+ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
-else ifeq (${MODE},mode2)
+else ifeq (${MODE},sigMode)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
 else
@@ -38,5 +38,5 @@ delete-mi: az-login
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
-create-managed-disk-from-sig: az-login
-	@./vhdbuilder/packer/create-managed-disk-from-sig-gen2.sh
+convert-sig-to-classic-storage-account-blob: az-login
+	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh

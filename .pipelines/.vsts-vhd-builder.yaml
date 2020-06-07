@@ -1,14 +1,14 @@
 trigger: none
 
 # Three modes in prioritized order
-# mode1: Hyper-Generation V2 mode
+# gen2Mode: Hyper-Generation V2 mode
 #    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
 #    steps:
 #    - Build VHD to a predefined SIG gallery/image with dynamic version (PackerSigGalleryEastUS/1804Gen2/1.0.{{user `create_time`}})
 #    - Create a managed disk with dynamic name 1.0.{{user `create_time`}} from the SIG image.
 #    - (offline) Export the managed disk SAS URL, download the VHD to local disk, rename the file to .vhd, upload it to a classic storage account and publish it to PIR.
 #
-# mode2: Shared Image Gallery mode
+# sigMode: Shared Image Gallery mode
 #    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
 #    It is similar to mode 1 except it will create a gen1 image and the SIG destination is specified by the provided env var.
 #    This is good for quick testing purpose as you can use the SIG image as soon as the build is completed.
@@ -24,7 +24,7 @@ trigger: none
 #    - (offline)POST a new SKU to azure marketplace
 
 variables:
-  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.26.0'
+  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
 
 phases:
   - phase: build_vhd
@@ -33,7 +33,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - bash: |
-          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="mode1"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="mode2"; else m="default"; fi && \
+          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
           echo "Set build mode to $m" && \
           echo "##vso[task.setvariable variable=MODE]$m"
         displayName: Get Build Mode
@@ -98,7 +98,7 @@ phases:
       - bash: |
           echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ $(MODE) == "mode1" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
+          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
@@ -113,8 +113,28 @@ phases:
         condition: ne(variables['MODE'], 'default')
       - bash: |
           echo MODE=$(MODE) && \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e CLIENT_ID=${CLIENT_ID} \
+          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+          -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+          -e CREATE_TIME="${create_time}" \
+          -e LOCATION="${AZURE_LOCATION}" \
+          -e OS_TYPE="Linux" \
+          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+      - bash: |
+          echo MODE=$(MODE) && \
+          if [[ $(MODE) == "gen2Mode" ]]; then VHD_NAME="1.0.${create_time}.vhd"; else \
+          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
+          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; fi &&
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
@@ -128,28 +148,11 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${UBUNTU_SKU} \
           -e OFFER_NAME="Ubuntu" \
-          ${CONTAINER_IMAGE} make  -f packer.mk generate-sas
+          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e CREATE_TIME="${create_time}" \
-          -e LOCATION="${AZURE_LOCATION}" \
-          -e OS_TYPE="Linux" \
-          ${CONTAINER_IMAGE} make -f packer.mk create-managed-disk-from-sig
-        displayName: Creating Managed Disk from Shared Image Gallery
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'mode1'))
+        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'mode2'))
+        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
