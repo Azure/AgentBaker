@@ -283,9 +283,12 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-OPENVPN_VERSIONS="1.0.6"
+OPENVPN_VERSIONS="
+1.0.6
+1.0.7
+"
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSIONS}"
+    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -451,7 +454,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
     # If the version has a trailing .1 remove it,
     # kubernetesartifacts.azureedge.net does not have the base image patch .1 nomenclature at the end
-    if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2)); then
+    if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2 && $(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 1) == 1)); then
       KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
     fi
     KUBE_BINARY_URL="https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"

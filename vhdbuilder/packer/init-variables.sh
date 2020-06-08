@@ -51,7 +51,7 @@ fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
-if [ "$MODE" == "mode2" ]; then
+if [ "$MODE" == "sigMode" ]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
 	if [ -z "$id" ]; then
