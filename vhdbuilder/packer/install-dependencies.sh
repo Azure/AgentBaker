@@ -441,20 +441,21 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
-  # If the version has a trailing .1 remove it,
-  # kubernetesartifacts.azureedge.net does not have the base image patch .1 nomenclature at the end
-  if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2)); then
-    KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
-  fi
-  KUBE_BINARY_URL="https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
-  extractKubeBinaries
-  fi
 
   if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) > 18)); then
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
+  fi
+
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
+    # If the version has a trailing .1 remove it,
+    # kubernetesartifacts.azureedge.net does not have the base image patch .1 nomenclature at the end
+    if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2)); then
+      KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
+    fi
+    KUBE_BINARY_URL="https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+    extractKubeBinaries
   fi
 done
 
