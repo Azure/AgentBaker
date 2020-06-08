@@ -165,7 +165,7 @@ write_files:
   owner: root
   content: |
     {
-      {{- if HasDataDir . -}}
+      {{- if HasDataDir -}}
       "root": "{{- GetDataDir -}}",
       {{- end -}}
       "live-restore": true,
@@ -198,7 +198,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    {{if HasDataDir .}}
+    {{if HasDataDir}}
     root = "{{GetDataDir}}"
     {{end}}
     subreaper = false
