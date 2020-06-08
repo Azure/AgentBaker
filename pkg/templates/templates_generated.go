@@ -3122,7 +3122,24 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-{{IndentString (GetDockerConfig (IsNSeriesSKU .VMSize)) 4}}
+    {
+      {{- if HasDataDir . -}}
+      "root": "{{- GetDataDir -}}",
+      {{- end -}}
+      "live-restore": true,
+      "log-driver": "json-file",
+      "log-opts":  {
+         "max-size": "50m",
+         "max-file": "5"
+      }{{if IsNSeriesSKU .}}
+      ,"default-runtime": "nvidia",
+      "runtimes": {
+         "nvidia": {
+             "path": "/usr/bin/nvidia-container-runtime",
+             "runtimeArgs": []
+        }
+      }{{end}}
+    }
 {{end}}
 
 {{if HasCiliumNetworkPlugin }}
@@ -3139,8 +3156,30 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-{{IndentString GetContainerdConfig 4}}
-    #EOF
+    {{if HasDataDir .}}
+    root = "{{GetDataDir}}"
+    {{end}}
+    subreaper = false
+    oom_score = 0
+    [plugins.cri]
+    sandbox_image = "{{GetPodInfraContainerSpec}}"
+    [plugins.cri.containerd.untrusted_workload_runtime]
+    runtime_type = "io.containerd.runtime.v1.linux"
+    {{if IsKataContainerRuntime }}
+    runtime_engine = "/usr/bin/kata-runtime"
+    {{else}}
+    runtime_engine = "/usr/local/sbin/runc"
+    {{end}}
+    [plugins.cri.containerd.default_runtime]
+    runtime_type = "io.containerd.runtime.v1.linux"
+    {{if IsKataContainerRuntime }}
+    runtime_engine = "/usr/bin/kata-runtime"
+    {{else}}
+    runtime_engine = "/usr/local/sbin/runc"
+    {{end}}
+    {{if IsKubenet }}
+    [plugins.cri.cni]
+    conf_template = "/etc/containerd/kubenet_template.conf"
 
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
@@ -3275,7 +3314,7 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 7994, mode: os.FileMode(436), modTime: time.Unix(1591646057, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.yml", size: 9117, mode: os.FileMode(436), modTime: time.Unix(1591646134, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
