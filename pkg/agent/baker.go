@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/i18n"
 )
 
@@ -510,6 +511,12 @@ func getContainerServiceFuncMap(cs *api.ContainerService) template.FuncMap {
 		},
 		"IsDockerContainerRuntime": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
+		},
+		"HasDataDir": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey] != ""
+		},
+		"GetDataDir": func() string {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey]
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
