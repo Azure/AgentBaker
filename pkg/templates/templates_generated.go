@@ -416,7 +416,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4088, mode: os.FileMode(420), modTime: time.Unix(1591736502, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_cmd.sh", size: 4088, mode: os.FileMode(420), modTime: time.Unix(1591737624, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -806,6 +806,9 @@ installGPUDriversRun() {
     fi
     {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
+        installGPUDrivers
+    fi
     sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
         -k=$KERNEL_NAME \
         --log-file-name=${log_file_name} \
@@ -861,7 +864,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18802, mode: os.FileMode(493), modTime: time.Unix(1591736502, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_config.sh", size: 18896, mode: os.FileMode(493), modTime: time.Unix(1591817024, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1164,7 +1167,7 @@ func linuxCloudInitArtifactsCse_helpersSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11725, mode: os.FileMode(493), modTime: time.Unix(1591736502, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_helpers.sh", size: 11725, mode: os.FileMode(493), modTime: time.Unix(1591737624, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1686,7 +1689,7 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1591736502, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 5577, mode: os.FileMode(493), modTime: time.Unix(1591737624, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
