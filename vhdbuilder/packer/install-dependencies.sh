@@ -462,7 +462,7 @@ for ADDON_IMAGE in ${ADDON_IMAGES}; do
 done
 
 AZUREDISK_CSI_VERSIONS="
-0.4.0
+0.7.0
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
@@ -471,10 +471,28 @@ for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
 done
 
 AZUREFILE_CSI_VERSIONS="
-0.3.0
+0.7.0
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
+  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CSI_LIVENESSPROBE_VERSIONS="
+1.1.0
+"
+for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
+  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
+1.2.0
+"
+for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
