@@ -1,4 +1,7 @@
-name: $(Date:yyyyMMdd)$(Rev:.r) [$(UBUNTU_SKU)][$(HYPERV_GENERATION)] $(Build.SourceBranchName)
+${{ if eq(variables['HYPERV_GENERATION'], 'V1') }}:
+  name: $(Date:yyyyMMdd)$(Rev:.r) [$(UBUNTU_SKU)] $(Build.SourceBranchName)
+${{ if eq(variables['HYPERV_GENERATION'], 'V2') }}:
+  name: $(Date:yyyyMMdd)$(Rev:.r) [1804Gen2] $(Build.SourceBranchName)
 trigger: none
 
 # Three modes in prioritized order
