@@ -383,6 +383,9 @@ installGPUDriversRun() {
     fi
     {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
+        installGPUDrivers
+    fi
     sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
         -k=$KERNEL_NAME \
         --log-file-name=${log_file_name} \
@@ -420,28 +423,8 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 $GPU_DEST/bin/nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
-
-validateGPUDrivers() {
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
-    SMI_STATUS=$?
-    if [[ $SMI_STATUS != 0 ]]; then
-        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
-            exit $ERR_GPU_INFO_ROM_CORRUPTED
-        else
-            exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
-    else
-        echo "gpu driver working fine"
-    fi
-}
-
 ensureGPUDrivers() {
-    if [[ "${NEED_CONFIG_GPU_DRIVERS}" = true ]]; then
-        configGPUDrivers
-    else
-        validateGPUDrivers
-    fi
+    configGPUDrivers
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 {{end}}

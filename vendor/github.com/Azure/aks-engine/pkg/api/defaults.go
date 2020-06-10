@@ -24,13 +24,38 @@ import (
 )
 
 // DistroValues is a list of currently supported distros
-var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604}
+var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
 
 // PropertiesDefaultsParams is the parameters when we set the properties defaults for ContainerService.
 type PropertiesDefaultsParams struct {
 	IsUpgrade  bool
 	IsScale    bool
 	PkiKeySize int
+}
+
+func (p *Properties) setLoadBalancerSkuDefaults() {
+	if p.OrchestratorProfile == nil {
+		p.OrchestratorProfile = &OrchestratorProfile{}
+	}
+
+	if p.OrchestratorProfile.KubernetesConfig == nil {
+		p.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{}
+	}
+
+	if p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == "" {
+		if p.HasAvailabilityZones() {
+			p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = StandardLoadBalancerSku
+		} else {
+			p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = DefaultLoadBalancerSku
+		}
+	}
+
+	// normalize sku
+	if strings.EqualFold(p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku, BasicLoadBalancerSku) {
+		p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = BasicLoadBalancerSku
+	} else if strings.EqualFold(p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku, StandardLoadBalancerSku) {
+		p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = StandardLoadBalancerSku
+	}
 }
 
 // SetPropertiesDefaults for the container Properties, returns true if certs are generated
@@ -52,6 +77,9 @@ func (cs *ContainerService) SetPropertiesDefaults(params PropertiesDefaultsParam
 	if cs.Properties.MasterProfile != nil {
 		properties.setMasterProfileDefaults(params.IsUpgrade)
 	}
+
+	// move load balancer sku defaults logic from setOrchestratorDefaults() to here to serve LB checking at setAgentProfileDefaults()
+	properties.setLoadBalancerSkuDefaults()
 
 	properties.setAgentProfileDefaults(params.IsUpgrade, params.IsScale)
 
@@ -343,20 +371,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		}
 
-		if a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == "" {
-			if a.HasAvailabilityZones() {
-				a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = StandardLoadBalancerSku
-			} else {
-				a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = DefaultLoadBalancerSku
-			}
-		}
-
-		if strings.ToLower(a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku) == strings.ToLower(BasicLoadBalancerSku) {
-			a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = BasicLoadBalancerSku
-		} else if strings.ToLower(a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku) == strings.ToLower(StandardLoadBalancerSku) {
-			a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = StandardLoadBalancerSku
-		}
-
 		if a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == StandardLoadBalancerSku && a.OrchestratorProfile.KubernetesConfig.ExcludeMasterFromStandardLB == nil {
 			a.OrchestratorProfile.KubernetesConfig.ExcludeMasterFromStandardLB = to.BoolPtr(DefaultExcludeMasterFromStandardLB)
 		}
@@ -387,6 +401,10 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		} else {
 			// CloudProviderDisableOutboundSNAT is only valid in the context of Standard LB, statically set to false if not Standard LB
 			o.KubernetesConfig.CloudProviderDisableOutboundSNAT = to.BoolPtr(false)
+		}
+
+		if o.KubernetesConfig.ContainerRuntimeConfig == nil {
+			o.KubernetesConfig.ContainerRuntimeConfig = make(map[string]string)
 		}
 
 		// Master-specific defaults that depend upon OrchestratorProfile defaults
@@ -649,11 +667,13 @@ func (p *Properties) setAgentProfileDefaults(isUpgrade, isScale bool) {
 			if profile.VMSSOverProvisioningEnabled == nil {
 				profile.VMSSOverProvisioningEnabled = to.BoolPtr(DefaultVMSSOverProvisioningEnabled && !isUpgrade && !isScale)
 			}
-			if profile.Count > 100 {
-				profile.SinglePlacementGroup = to.BoolPtr(false)
-			}
+
 			if profile.SinglePlacementGroup == nil {
-				profile.SinglePlacementGroup = to.BoolPtr(DefaultSinglePlacementGroup)
+				if strings.EqualFold(p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku, StandardLoadBalancerSku) {
+					profile.SinglePlacementGroup = to.BoolPtr(false)
+				} else {
+					profile.SinglePlacementGroup = to.BoolPtr(DefaultSinglePlacementGroup)
+				}
 			}
 		}
 		// set default OSType to Linux
