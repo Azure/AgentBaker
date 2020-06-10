@@ -82,7 +82,7 @@ generate: bootstrap
 	@echo $(GOFLAGS)
 	@echo "$$(go-bindata --version)"
 	(pushd parts && \
-	../hack/tools/bin/go-bindata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
+	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
 	popd \
 	)
 
