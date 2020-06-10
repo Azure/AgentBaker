@@ -1,3 +1,4 @@
+name: $(Date:yyyyMMdd).$(Rev:.r).$(UBUNTU_SKU).$(MODE)
 trigger: none
 
 # Three modes in prioritized order
