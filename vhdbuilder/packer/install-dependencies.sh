@@ -383,7 +383,12 @@ done
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
+# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 K8S_VERSIONS="
+1.12.8_v0.0.5
+1.13.10_v0.0.5
+1.13.11_v0.0.5
+1.13.12_f0.0.2
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
@@ -414,9 +419,15 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
+# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 PATCHED_HYPERKUBE_IMAGES="
+1.12.8_v0.0.5
+1.13.10_v0.0.5
+1.13.11_v0.0.5
+1.13.12_f0.0.2
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
+1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
 1.16.7-hotfix.20200601.1
