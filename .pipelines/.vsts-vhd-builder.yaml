@@ -1,4 +1,4 @@
-name: $(Date:yyyyMMdd).$(Rev:.r).$(UBUNTU_SKU).$(MODE)
+name: $(Date:yyyyMMdd)$(Rev:.r)-$(UBUNTU_SKU)-$(HYPERV_GENERATION)-$(Build.SourceBranchName)
 trigger: none
 
 # Three modes in prioritized order
