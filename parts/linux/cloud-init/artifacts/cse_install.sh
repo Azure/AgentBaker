@@ -263,6 +263,8 @@ cleanUpContainerImages() {
             docker rmi "${images_to_delete[@]}"
         fi
     }
+    export -f cleanUpHyperkubeImagesRun
+    export -f cleanUpControllerManagerImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpControllerManagerImagesRun
 }
