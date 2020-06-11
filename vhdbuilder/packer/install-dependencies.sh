@@ -200,13 +200,10 @@ for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-AZURE_NPM_VERSIONS="
-1.1.4
-1.1.2
-1.1.0
-1.0.33
-1.0.32
-"
+#Get the last 5 versions from azure-npm
+#This scipt sure isn't pretty so open to sugestestiosn to make it more elegant
+AZURE_NPM_VERSIONS=$(curl -s -L  https://mcr.microsoft.com/v2/containernetworking/azure-npm/tags/list | jq --raw-output '.tags | map(select(contains("-")!=true))[-5:] | .[] ')
+#Safety check. Ensure it has at least 1.0.33 so we don't get too far head?
 for AZURE_NPM_VERSION in ${AZURE_NPM_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-npm:v${AZURE_NPM_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
