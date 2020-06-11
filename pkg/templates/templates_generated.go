@@ -1425,8 +1425,28 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager') &
+    function cleanUpHyperkubeImagesRun() {
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            docker rmi ${images_to_delete[@]}
+        fi
+    }
+    function cleanUpControllerManagerImagesRun() {
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            docker rmi ${images_to_delete[@]}
+        fi
+    }
+    export -f cleanUpHyperkubeImagesRun
+    export -f cleanUpControllerManagerImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpControllerManagerImagesRun
 }
 
 cleanUpGPUDrivers() {
@@ -1528,7 +1548,11 @@ fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    export -f retrycmd_if_failure
+    export -f cleanUpContainerImages
+    export KUBERNETES_VERSION
+    echo "start to clean up container images"
+    bash -c cleanUpContainerImages &
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
