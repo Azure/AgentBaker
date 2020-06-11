@@ -6,8 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-      # make generate then see if there's any diff
     - run: |
+        # make generate and diff
         make -C hack/tools/
         pushd parts
         ../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated_test.go ./...
