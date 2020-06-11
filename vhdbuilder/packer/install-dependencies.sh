@@ -404,21 +404,25 @@ K8S_VERSIONS="
 1.18.2.1
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
-  # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
-  # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
-  # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
-  # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
-  extractHyperkube "docker"
-  # remove hyperkube here as the one that we really need is pulled later
-  docker image rm $HYPERKUBE_URL
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
+    HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
+    # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
+    # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
+    # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
+    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
+    # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
+    extractHyperkube "docker"
+    # remove hyperkube here as the one that we really need is pulled later
+    docker image rm $HYPERKUBE_URL
+  else
+    #extract kubectl and kubelet
+    extractKubeBinaries
+  fi
 done
 ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 
-# pull patched
-# kube image for AKS
+# pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 PATCHED_HYPERKUBE_IMAGES="
@@ -439,26 +443,18 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.5.1
 1.18.1.1
 1.18.2.1
+1.19.0-beta.1
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) > 18)); then
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
+    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+  else
+    ##don't use hyperkube anymore, just pull kube-proxy
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-  fi
-
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
-    # If the version has a trailing .1 remove it,
-    # kubernetesartifacts.azureedge.net does not have the base image patch .1 nomenclature at the end
-    if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2 && $(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 1) == 1)); then
-      KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
-    fi
-    KUBE_BINARY_URL="https://kubernetesartifacts.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
-    extractKubeBinaries
   fi
 done
 
