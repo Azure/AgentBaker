@@ -7,7 +7,6 @@ if [ -f /opt/azure/containers/provision.complete ]; then
 fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
-echo hello world
 
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
