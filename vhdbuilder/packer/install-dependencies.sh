@@ -84,7 +84,6 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# I don't think this is acutally used. If it is it's behind aks-engine
 CNI_PLUGIN_VERSIONS="
 0.7.6
 0.7.5
@@ -92,6 +91,15 @@ CNI_PLUGIN_VERSIONS="
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+    downloadCNI
+    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CNI_PLUGIN_VERSIONS="
+0.8.6
+"
+for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
