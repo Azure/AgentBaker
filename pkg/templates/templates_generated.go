@@ -3101,7 +3101,7 @@ write_files:
     {
       {{if HasDataDir -}}
       "root": "{{- GetDataDir -}}",
-      {{- end }}
+      {{- end}}
       "live-restore": true,
       "log-driver": "json-file",
       "log-opts":  {
