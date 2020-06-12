@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/blang/semver"
 	"io/ioutil"
 	"log"
 	"net"
@@ -19,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/blang/semver"
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"
@@ -732,10 +733,13 @@ func IsNvidiaEnabledSKU(vmSize string) bool {
 		"Standard_NC24":  true,
 		"Standard_NC24r": true,
 		// M60
-		"Standard_NV6":   true,
-		"Standard_NV12":  true,
-		"Standard_NV24":  true,
-		"Standard_NV24r": true,
+		"Standard_NV6":      true,
+		"Standard_NV12":     true,
+		"Standard_NV12s_v3": true,
+		"Standard_NV24":     true,
+		"Standard_NV24s_v3": true,
+		"Standard_NV24r":    true,
+		"Standard_NV48s_v3": true,
 		// P40
 		"Standard_ND6s":   true,
 		"Standard_ND12s":  true,
