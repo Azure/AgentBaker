@@ -1,7 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-github.com/Azure/aks-engine v0.47.0-aks-gomod-64 h1:SklzMBSZ3XtbUeCeY/ftFF6oBLJkP5QDVizn/jeKwV8=
-github.com/Azure/aks-engine v0.47.0-aks-gomod-64/go.mod h1:vYBa1EBBoQRP3uYh+Lr5NOxF4WwaDRbyKjQ/Ljm5ZME=
+github.com/Azure/aks-engine v0.47.0-aks-gomod-68 h1:4yUVqMVUomhfB8yjnMnOS5/b2YWx/1OzB3XRc3Bg900=
+github.com/Azure/aks-engine v0.47.0-aks-gomod-68/go.mod h1:vYBa1EBBoQRP3uYh+Lr5NOxF4WwaDRbyKjQ/Ljm5ZME=
 github.com/Azure/azure-sdk-for-go v36.2.0+incompatible h1:09cv2WoH0g6jl6m2iT+R9qcIPZKhXEL0sbmLhxP895s=
 github.com/Azure/azure-sdk-for-go v36.2.0+incompatible/go.mod h1:9XXNKU+eRnpl9moKnB4QOLf1HestfXbmab5FXxiDBjc=
 github.com/Azure/go-autorest/autorest v0.9.0/go.mod h1:xyHB1BMZT0cuDHU7I0+g046+BFDTQ8rEZB0s4Yfa6bI=
