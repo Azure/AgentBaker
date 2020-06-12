@@ -3123,9 +3123,9 @@ write_files:
   owner: root
   content: |
     {
-      {{- if HasDataDir -}}
+      {{if HasDataDir -}}
       "root": "{{- GetDataDir -}}",
-      {{- end -}}
+      {{- end}}
       "live-restore": true,
       "log-driver": "json-file",
       "log-opts":  {
@@ -3156,9 +3156,9 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    {{if HasDataDir}}
+    {{if HasDataDir -}}
     root = "{{GetDataDir}}"
-    {{end}}
+    {{- end}}
     subreaper = false
     oom_score = 0
     [plugins.cri]
