@@ -3123,9 +3123,6 @@ write_files:
   owner: root
   content: |
     {
-      {{if HasDataDir -}}
-      "root": "{{- GetDataDir -}}",
-      {{- end}}
       "live-restore": true,
       "log-driver": "json-file",
       "log-opts":  {
@@ -3138,7 +3135,8 @@ write_files:
              "path": "/usr/bin/nvidia-container-runtime",
              "runtimeArgs": []
         }
-      }{{end}}
+      }{{end}}{{if HasDataDir}},
+      "root": "{{GetDataDir}}"{{- end}}
     }
 {{end}}
 
@@ -3156,10 +3154,8 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    {{if HasDataDir -}}
-    root = "{{GetDataDir}}"
-    {{- end}}
-    subreaper = false
+    subreaper = false{{if HasDataDir }}
+    root = "{{GetDataDir}}"{{- end}}
     oom_score = 0
     [plugins.cri]
     sandbox_image = "{{GetPodInfraContainerSpec}}"
