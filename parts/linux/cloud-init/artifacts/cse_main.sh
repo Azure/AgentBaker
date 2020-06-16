@@ -91,10 +91,6 @@ installContainerRuntime
 
 installNetworkPlugin
 
-{{- if NeedsContainerd}}
-installContainerd
-{{end}}
-
 {{- if HasNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
@@ -127,21 +123,11 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-{{- if IsDockerContainerRuntime}}
-ensureDocker
-{{else if IsKataContainerRuntime}}
-if grep -q vmx /proc/cpuinfo; then
-    installKataContainersRuntime
-fi
-{{end}}
+ensureContainerRuntime
 
 configureK8s
 
 configureCNI
-
-{{- if NeedsContainerd}}
-ensureContainerd
-{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
