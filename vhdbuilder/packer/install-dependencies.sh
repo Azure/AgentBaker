@@ -414,7 +414,7 @@ K8S_VERSIONS="
 1.18.2.1
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
+  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
     HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
     # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
     # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
@@ -428,6 +428,7 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   else
     # If the version has a trailing .1 remove it,
     # acs-mirror.azureedge.net does not have the base image patch .1 nomenclature at the end
+    KUBERNETES_VERSION=${PATCHED_KUBERNETES_VERSION}
     if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2 && $(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 1) == 1)); then
       KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
     fi
@@ -461,14 +462,19 @@ PATCHED_HYPERKUBE_IMAGES="
 1.19.0-beta.1
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
+  ## use hyperkube until 1.19
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)); then
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-  else
-    ##don't use hyperkube anymore, just pull kube-proxy
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
   fi
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
+
+  # from 1.17 onwards start using kube-proxy as well
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
+  fi
 done
 
 ADDON_IMAGES="
