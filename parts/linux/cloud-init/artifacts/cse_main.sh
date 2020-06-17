@@ -61,7 +61,11 @@ fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    export -f retrycmd_if_failure
+    export -f cleanUpContainerImages
+    export KUBERNETES_VERSION
+    echo "start to clean up container images"
+    bash -c cleanUpContainerImages &
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -86,10 +90,6 @@ installContainerRuntime
 {{end}}
 
 installNetworkPlugin
-
-{{- if NeedsContainerd}}
-installContainerd
-{{end}}
 
 {{- if HasNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
@@ -123,21 +123,11 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-{{- if IsDockerContainerRuntime}}
-ensureDocker
-{{else if IsKataContainerRuntime}}
-if grep -q vmx /proc/cpuinfo; then
-    installKataContainersRuntime
-fi
-{{end}}
+ensureContainerRuntime
 
 configureK8s
 
 configureCNI
-
-{{- if NeedsContainerd}}
-ensureContainerd
-{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}

@@ -84,7 +84,6 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# I don't think this is acutally used. If it is it's behind aks-engine
 CNI_PLUGIN_VERSIONS="
 0.7.6
 0.7.5
@@ -92,6 +91,15 @@ CNI_PLUGIN_VERSIONS="
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+    downloadCNI
+    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CNI_PLUGIN_VERSIONS="
+0.8.6
+"
+for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -162,6 +170,7 @@ for ADDON_RESIZER_VERSION in ${ADDON_RESIZER_VERSIONS}; do
 done
 
 METRICS_SERVER_VERSIONS="
+0.3.6
 0.3.5
 "
 for METRICS_SERVER_VERSION in ${METRICS_SERVER_VERSIONS}; do
@@ -213,6 +222,7 @@ for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
 done
 
 AZURE_NPM_VERSIONS="
+1.1.4
 1.1.2
 1.1.0
 1.0.33
@@ -467,7 +477,7 @@ mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.8
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
-mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet
+mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200519.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
@@ -478,7 +488,7 @@ for ADDON_IMAGE in ${ADDON_IMAGES}; do
 done
 
 AZUREDISK_CSI_VERSIONS="
-0.4.0
+0.7.0
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
@@ -487,10 +497,28 @@ for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
 done
 
 AZUREFILE_CSI_VERSIONS="
-0.3.0
+0.7.0
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
+  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CSI_LIVENESSPROBE_VERSIONS="
+1.1.0
+"
+for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
+  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
+1.2.0
+"
+for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done

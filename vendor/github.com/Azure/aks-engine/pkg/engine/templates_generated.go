@@ -36767,6 +36767,9 @@ installGPUDriversRun() {
     fi
     {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
+        installGPUDrivers
+    fi
     sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
         -k=$KERNEL_NAME \
         --log-file-name=${log_file_name} \
@@ -37598,9 +37601,39 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${ETCD_VERSION}$|${ETCD_VERSION}-|${ETCD_VERSION}_" | grep 'etcd') &
+    function cleanUpHyperkubeImagesRun() {
+      images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
+      local exit_code=$?
+      if [[ $exit_code != 0 ]]; then
+        exit $exit_code
+      elif [[ "${images_to_delete}" != "" ]]; then
+        docker rmi ${images_to_delete[@]}
+      fi
+    }
+    function cleanUpControllerManagerImagesRun() {
+      images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager')
+      local exit_code=$?
+      if [[ $exit_code != 0 ]]; then
+        exit $exit_code
+      elif [[ "${images_to_delete}" != "" ]]; then
+        docker rmi ${images_to_delete[@]}
+      fi
+    }
+    function cleanUpEtcdImagesRun() {
+      images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${ETCD_VERSION}$|${ETCD_VERSION}-|${ETCD_VERSION}_" | grep 'etcd')
+      local exit_code=$?
+      if [[ $exit_code != 0 ]]; then
+        exit $exit_code
+      elif [[ "${images_to_delete}" != "" ]]; then
+        docker rmi ${images_to_delete[@]}
+      fi
+    }
+    export -f cleanUpHyperkubeImagesRun
+    export -f cleanUpControllerManagerImagesRun
+    export -f cleanUpEtcdImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpControllerManagerImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpEtcdImagesRun
     if [ "$IS_HOSTED_MASTER" = "false" ]; then
         echo "Cleaning up AKS container images, not an AKS cluster"
         docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep 'hcp-tunnel-front') &
@@ -37712,7 +37745,11 @@ fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    export -f retrycmd_if_failure
+    export -f cleanUpContainerImages
+    export KUBERNETES_VERSION
+    echo "start to clean up container images"
+    bash -c cleanUpContainerImages &
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -40341,7 +40378,6 @@ $global:NetworkMode = "L2Bridge"
 $global:ExternalNetwork = "ext"
 $global:CNIConfig = "$CNIConfig"
 $global:HNSModule = "c:\k\hns.psm1"
-#$global:VolumePluginDir = "$VolumePluginDir" TODO ksbrmnn remove as this seems to be calculated later 
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
@@ -40362,9 +40398,9 @@ $KubeNetwork = "azure"
 #TODO ksbrmnn refactor to be sensical instead of if if if ...
 
 # Calculate some local paths
-$VolumePluginDir = [Io.path]::Combine($global:KubeDir, "volumeplugins")
+$global:VolumePluginDir = [Io.path]::Combine($global:KubeDir, "volumeplugins")
+mkdir $global:VolumePluginDir
 
-#mkdir $VolumePluginDir TODO ksbrmnn figure out how this is already created
 $KubeletArgList = $Global:ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs # This is the initial list passed in from aks-engine
 $KubeletArgList += "--node-labels=$global:KubeletNodeLabels"
 # $KubeletArgList += "--hostname-override=$global:AzureHostname" TODO: remove - dead code?

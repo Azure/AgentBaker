@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/blang/semver"
 	"io/ioutil"
 	"log"
 	"net"
@@ -19,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/blang/semver"
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"
@@ -354,14 +355,14 @@ func escapeSingleLine(escapedStr string) string {
 }
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
-func getBase64EncodedGzippedCustomScript(csFilename string, cs *api.ContainerService) string {
+func getBase64EncodedGzippedCustomScript(csFilename string, cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters
-	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(cs))
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(cs, profile))
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug
@@ -486,7 +487,7 @@ func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.Contain
 	}
 }
 
-func buildYamlFileWithWriteFiles(files []string, cs *api.ContainerService) string {
+func buildYamlFileWithWriteFiles(files []string, cs *api.ContainerService, profile *api.AgentPoolProfile) string {
 	clusterYamlFile := `#cloud-config
 
 write_files:
@@ -501,7 +502,7 @@ write_files:
 
 	filelines := ""
 	for _, file := range files {
-		b64GzipString := getBase64EncodedGzippedCustomScript(file, cs)
+		b64GzipString := getBase64EncodedGzippedCustomScript(file, cs, profile)
 		fileNoPath := strings.TrimPrefix(file, "swarm/")
 		filelines += fmt.Sprintf(writeFileBlock, b64GzipString, fileNoPath)
 	}
@@ -732,10 +733,13 @@ func IsNvidiaEnabledSKU(vmSize string) bool {
 		"Standard_NC24":  true,
 		"Standard_NC24r": true,
 		// M60
-		"Standard_NV6":   true,
-		"Standard_NV12":  true,
-		"Standard_NV24":  true,
-		"Standard_NV24r": true,
+		"Standard_NV6":      true,
+		"Standard_NV12":     true,
+		"Standard_NV12s_v3": true,
+		"Standard_NV24":     true,
+		"Standard_NV24s_v3": true,
+		"Standard_NV24r":    true,
+		"Standard_NV48s_v3": true,
 		// P40
 		"Standard_ND6s":   true,
 		"Standard_ND12s":  true,

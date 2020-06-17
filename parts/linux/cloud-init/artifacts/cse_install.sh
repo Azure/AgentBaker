@@ -13,6 +13,14 @@ removeMoby() {
     apt-get purge -y moby-engine moby-cli
 }
 
+removeContainerd() {
+    apt-get purge -y moby-containerd
+}
+
+cleanupContainerdDlFiles() {
+    rm -rf $CONTAINERD_DOWNLOADS_DIR
+}
+
 installDeps() {
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
@@ -87,9 +95,12 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
+    {{if IsDockerContainerRuntime}}
         installMoby
-    fi
+    {{end}}
+    {{if NeedsContainerd}}
+        installContainerd
+    {{end}}
 }
 
 installMoby() {
@@ -98,11 +109,7 @@ installMoby() {
         echo "dockerd $MOBY_VERSION is already installed, skipping Moby download"
     else
         removeMoby
-        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
-        retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
-        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-        retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-        apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+        getMobyPkg
         MOBY_CLI=${MOBY_VERSION}
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
@@ -111,20 +118,32 @@ installMoby() {
     fi
 }
 
-installKataContainersRuntime() {
-    echo "Adding Kata Containers repository key..."
-    ARCH=$(arch)
-    BRANCH=stable-1.7
-    KATA_RELEASE_KEY_TMP=/tmp/kata-containers-release.key
-    KATA_URL=http://download.opensuse.org/repositories/home:/katacontainers:/releases:/${ARCH}:/${BRANCH}/xUbuntu_${UBUNTU_RELEASE}/Release.key
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL $KATA_URL > $KATA_RELEASE_KEY_TMP || exit $ERR_KATA_KEY_DOWNLOAD_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 30 apt-key add $KATA_RELEASE_KEY_TMP || exit $ERR_KATA_APT_KEY_TIMEOUT
-    echo "Adding Kata Containers repository..."
-    echo "deb http://download.opensuse.org/repositories/home:/katacontainers:/releases:/${ARCH}:/${BRANCH}/xUbuntu_${UBUNTU_RELEASE}/ /" > /etc/apt/sources.list.d/kata-containers.list
-    echo "Installing Kata Containers runtime..."
+{{if NeedsContainerd}}
+# Note: currently hard-coding to install 1.3.4 until 1.4.x is available
+# once we have updated moby-engine and moby-containerd we will update the vhd builder to install both
+installContainerd() {
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||') 
+    # we want at least 1.3.x - need to safeguard against aks-e setting this to < 1.3.x
+    if [[ ! "${CONTAINERD_VERSION}" =~ 1\.[3-9]\.[0-9].* ]]; then
+        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.4"
+        CONTAINERD_VERSION="1.3.4"
+    fi
+    if [[ "${CONTAINERD_VERSION}" == "${CURRENT_VERSION}" ]]; then
+        echo "containerd version ${CURRENT_VERSION} is already installed, skipping installContainerd"
+    else 
+        apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
+        retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
+        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    fi  
+}
+{{end}}
+
+getMobyPkg() {
+    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 120 5 25 kata-runtime || exit $ERR_KATA_INSTALL_TIMEOUT
 }
 
 installNetworkPlugin() {
@@ -175,25 +194,6 @@ installAzureCNI() {
     chmod 755 $CNI_CONFIG_DIR
     mkdir -p $CNI_BIN_DIR
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
-}
-
-installContainerd() {
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||')
-    if [[ "$CURRENT_VERSION" == "${CONTAINERD_VERSION}" ]]; then
-        echo "containerd is already installed, skipping install"
-    else
-        CONTAINERD_TGZ_TMP="cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz"
-        rm -Rf /usr/bin/containerd
-        rm -Rf /var/lib/docker/containerd
-        rm -Rf /run/docker/containerd
-        if [[ ! -f "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ]]; then
-            downloadContainerd
-        fi
-        tar -xzf "$CONTAINERD_DOWNLOADS_DIR/$CONTAINERD_TGZ_TMP" -C /
-        sed -i '/\[Service\]/a ExecStartPost=\/sbin\/iptables -P FORWARD ACCEPT -w' /etc/systemd/system/containerd.service
-        echo "Successfully installed cri-containerd..."
-    fi
-    rm -Rf $CONTAINERD_DOWNLOADS_DIR &
 }
 
 installImg() {
@@ -267,8 +267,28 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube') &
-    docker rmi $(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager') &
+    function cleanUpHyperkubeImagesRun() {
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            docker rmi ${images_to_delete[@]}
+        fi
+    }
+    function cleanUpControllerManagerImagesRun() {
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            docker rmi ${images_to_delete[@]}
+        fi
+    }
+    export -f cleanUpHyperkubeImagesRun
+    export -f cleanUpControllerManagerImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpControllerManagerImagesRun
 }
 
 cleanUpGPUDrivers() {

@@ -55,6 +55,7 @@ ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement
 ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
+ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -248,6 +249,18 @@ systemctl_stop() {
     for i in $(seq 1 $retries); do
         timeout $timeout systemctl daemon-reload
         timeout $timeout systemctl stop $svcname && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+}
+systemctl_disable() {
+    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
+    for i in $(seq 1 $retries); do
+        timeout $timeout systemctl daemon-reload
+        timeout $timeout systemctl disable $svcname && break || \
         if [ $i -eq $retries ]; then
             return 1
         else

@@ -1,0 +1,17 @@
+name: check-generated
+on: pull_request
+
+jobs:
+  check-generated:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        # make generate and diff
+        make -C hack/tools/
+        pushd parts
+        ../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated_test.go ./...
+        popd
+        pushd pkg/templates/
+        diff templates_generated_test.go templates_generated.go
+        exit $?
