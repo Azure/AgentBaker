@@ -202,11 +202,6 @@ installImg() {
 }
 
 extractKubeBinaries() {
-    # If the version has a trailing .1 remove it,
-    # acs-mirror.azureedge.net does not have the base image patch .1 nomenclature at the end
-    if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2 && $(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 1) == 1)); then
-      KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
-    fi
     KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
 
     mkdir -p ${K8S_DOWNLOADS_DIR}
@@ -249,7 +244,7 @@ extractHyperkube() {
 installKubeletAndKubectl() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
         if version_gte ${KUBERNETES_VERSION} 1.17; then  # don't use hyperkube
-            extractKubeBinaries
+            extractKubeBinaries ${KUBERNETES_VERSION}
         else
             if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
                 extractHyperkube "docker"

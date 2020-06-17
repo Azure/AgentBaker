@@ -416,8 +416,13 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
     # remove hyperkube here as the one that we really need is pulled later
     docker image rm $HYPERKUBE_URL
   else
+    # If the version has a trailing .1 remove it,
+    # acs-mirror.azureedge.net does not have the base image patch .1 nomenclature at the end
+    if (($(echo ${KUBERNETES_VERSION} | tr -d -c "." | wc -m) > 2 && $(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 1) == 1)); then
+      KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | rev | cut -d"." -f 2- | rev)
+    fi
     #extract kubectl and kubelet
-    extractKubeBinaries
+    extractKubeBinaries ${KUBERNETES_VERSION}
   fi
 done
 ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
@@ -448,14 +453,12 @@ PATCHED_HYPERKUBE_IMAGES="
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
   else
     ##don't use hyperkube anymore, just pull kube-proxy
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
   fi
+  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
 ADDON_IMAGES="
