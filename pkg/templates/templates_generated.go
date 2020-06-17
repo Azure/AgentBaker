@@ -1471,9 +1471,9 @@ extractHyperkube() {
 installKubeletAndKubectl() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
       if version_gte ${KUBERNETES_VERSION} 1.17; then  # don't use hyperkube
-            extractKubeBinaries ${KUBERNETES_VERSION}
+          extractKubeBinaries ${KUBERNETES_VERSION}
       else
-        extractHyperkube "docker"
+          extractHyperkube "docker"
       fi
     fi
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
