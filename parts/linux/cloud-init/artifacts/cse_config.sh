@@ -455,7 +455,7 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    if [[ "${NEED_CONFIG_GPU_DRIVERS}" = true ]]; then
+    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else
         validateGPUDrivers

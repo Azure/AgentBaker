@@ -298,4 +298,11 @@ systemctlEnableAndStart() {
         return 1
     fi
 }
+
+systemctlDisableAndStop() {
+    if [ systemctl list-units --full -all | grep -q "$1.service" ]; then
+        systemctl_stop 20 5 25 $1
+        systemctl_disable 20 5 25 $1
+    fi
+}
 #HELPERSEOF
