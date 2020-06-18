@@ -285,6 +285,7 @@ v1.9.2-v4.0.11
 v1.9.2-v3.0.12
 v1.9.2-v4.0.12
 v1.9.2-v3.0.13
+v1.9.2-v3.0.14
 v1.9.2-v4.0.13
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
@@ -296,6 +297,7 @@ done
 OPENVPN_VERSIONS="
 1.0.6
 1.0.7
+1.0.8
 "
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
