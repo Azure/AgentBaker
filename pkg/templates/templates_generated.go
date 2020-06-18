@@ -3174,7 +3174,7 @@ write_files:
              "runtimeArgs": []
         }
       }{{end}}{{if HasDataDir}},
-      "root": "{{GetDataDir}}"{{- end}}
+      "data-root": "{{GetDataDir}}"{{- end}}
     }
 {{end}}
 
