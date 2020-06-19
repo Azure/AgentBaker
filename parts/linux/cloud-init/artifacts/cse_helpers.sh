@@ -43,6 +43,8 @@ ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
+ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
+ERR_GPU_INFO_ROM_CORRUPTED=87 {{/* info ROM corrupted error when executing nvidia-smi */}}
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 {{/* Timeout waiting for SGX prereqs to download */}}
 ERR_SGX_DRIVERS_START_FAIL=91 {{/* Failed to execute SGX driver binary */}}
 ERR_APT_DAILY_TIMEOUT=98 {{/* Timeout waiting for apt daily updates */}}
@@ -294,6 +296,13 @@ systemctlEnableAndStart() {
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
         echo "$1 could not be enabled by systemctl"
         return 1
+    fi
+}
+
+systemctlDisableAndStop() {
+    if [ systemctl list-units --full --all | grep -q "$1.service" ]; then
+        systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
+        systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
 }
 #HELPERSEOF
