@@ -301,8 +301,8 @@ systemctlEnableAndStart() {
 
 systemctlDisableAndStop() {
     if [ systemctl list-units --full -all | grep -q "$1.service" ]; then
-        systemctl_stop 20 5 25 $1
-        systemctl_disable 20 5 25 $1
+        systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
+        systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
 }
 #HELPERSEOF
