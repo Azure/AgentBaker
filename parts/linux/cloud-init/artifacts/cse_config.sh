@@ -442,7 +442,7 @@ configGPUDrivers() {
 
 validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+    SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
