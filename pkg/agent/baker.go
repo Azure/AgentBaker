@@ -504,19 +504,22 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.NeedsContainerd()
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
 		},
-		"IsKataContainerRuntime": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.KataContainers
-		},
 		"IsDockerContainerRuntime": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.ContainerRuntime == api.Docker
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
+		},
+		"RequiresDocker": func() bool {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+				return profile.KubernetesConfig.RequiresDocker()
+			}
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey] != ""
@@ -532,12 +535,6 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		},
 		"HasCoreOS": func() bool {
 			return cs.Properties.HasCoreOS()
-		},
-		"RequiresDocker": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil {
-				return profile.KubernetesConfig.RequiresDocker()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"GetComponentImageReference": func(name string) string {
 			k := cs.Properties.OrchestratorProfile.KubernetesConfig
