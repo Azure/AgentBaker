@@ -3,7 +3,7 @@ module github.com/Azure/agentbaker
 go 1.12
 
 require (
-	github.com/Azure/aks-engine v0.47.0-aks-gomod-69
+	github.com/Azure/aks-engine v0.47.0-aks-gomod-77
 	github.com/Azure/go-autorest/autorest v0.9.2
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/blang/semver v3.5.1+incompatible

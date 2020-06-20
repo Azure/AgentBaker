@@ -644,9 +644,9 @@ configureCNIIPTables() {
 }
 
 ensureContainerRuntime() {
-    {{if IsDockerContainerRuntime}}
+    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
         ensureDocker
-    {{end}}
+    fi
     {{if NeedsContainerd}}
         ensureContainerd
     {{end}}
@@ -1321,9 +1321,9 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    {{if IsDockerContainerRuntime}}
+    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
         installMoby
-    {{end}}
+    fi
     {{if NeedsContainerd}}
         installContainerd
     {{end}}
@@ -3134,7 +3134,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 {{end}}
 
-{{if .KubernetesConfig.RequiresDocker}}
+{{if RequiresDocker}}
     {{if not .IsCoreOS}}
         {{if not .IsVHDDistro}}
 - path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf

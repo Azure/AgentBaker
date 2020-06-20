@@ -483,6 +483,14 @@ func createAgentAvailabilitySetVM(cs *api.ContainerService, profile *api.AgentPo
 		}
 		agentCustomData := getCustomDataFromJSON(t.GetKubernetesWindowsNodeCustomDataJSONObject(cs, profile))
 		osProfile.CustomData = to.StringPtr(agentCustomData)
+
+		if cs.Properties.WindowsProfile.HasEnableAHUB() {
+			licenseType := api.WindowsLicenseTypeNone
+			if cs.Properties.WindowsProfile.GetEnableAHUB() {
+				licenseType = api.WindowsLicenseTypeServer
+			}
+			virtualMachine.LicenseType = &licenseType
+		}
 	}
 
 	virtualMachine.OsProfile = &osProfile
