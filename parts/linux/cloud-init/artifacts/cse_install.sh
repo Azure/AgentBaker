@@ -95,9 +95,9 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    {{if IsDockerContainerRuntime}}
+    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
         installMoby
-    {{end}}
+    fi
     {{if NeedsContainerd}}
         installContainerd
     {{end}}

@@ -138,7 +138,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 {{end}}
 
-{{if .KubernetesConfig.RequiresDocker}}
+{{if RequiresDocker}}
     {{if not .IsCoreOS}}
         {{if not .IsVHDDistro}}
 - path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf

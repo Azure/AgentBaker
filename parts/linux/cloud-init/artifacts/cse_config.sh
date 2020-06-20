@@ -197,9 +197,9 @@ configureCNIIPTables() {
 }
 
 ensureContainerRuntime() {
-    {{if IsDockerContainerRuntime}}
+    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
         ensureDocker
-    {{end}}
+    fi
     {{if NeedsContainerd}}
         ensureContainerd
     {{end}}
