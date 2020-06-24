@@ -23,7 +23,6 @@
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
-// linux/cloud-init/artifacts/kubesystem.slice
 // linux/cloud-init/artifacts/label-nodes.service
 // linux/cloud-init/artifacts/label-nodes.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
@@ -37,7 +36,6 @@
 // linux/cloud-init/artifacts/pwquality-CIS.conf
 // linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
-// linux/cloud-init/artifacts/slice-dropin.conf
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
@@ -658,14 +656,17 @@ ensureContainerRuntime() {
 
 {{if NeedsContainerd}}
 ensureContainerd() {
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  {{if IsKubenet }}
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
-  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  {{end}}
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
-  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+    wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    {{if IsKubenet }}
+    wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+    {{end}}
+    {{- if HasKubeReservedCgroup}}
+    wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/kubereserved-slice.conf|| exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
+    systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+    systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{end}}
 
@@ -677,6 +678,10 @@ ensureDocker() {
     if [[ $OS != $COREOS_OS_NAME ]]; then
         wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     fi
+    {{- if HasKubeReservedCgroup}}
+    DOCKER_SLICE_FILE=/etc/systemd/system/docker.service.d/kubereserved-slice.conf
+    wait_for_file 1200 1 $DOCKER_SLICE_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then
@@ -719,6 +724,12 @@ ensureKubelet() {
     wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- if HasKubeReservedCgroup}}
+    KUBERESERVED_SLICE_FILE=/etc/systemd/system/{{- GetKubeReservedCgroup -}}.slice
+    wait_for_file 1200 1 $KUBERESERVED_SLICE_FILE || exit $ERR_KUBERESERVED_SLICE_SETUP_FAIL
+    KUBELET_SLICE_FILE=/etc/systemd/system/kubelet.service.d/kubereserved-slice.conf
+    wait_for_file 1200 1 $KUBELET_SLICE_FILE || exit $ERR_KUBELET_SLICE_SETUP_FAIL
+    {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasCiliumNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/05-cilium.conf ]; do
@@ -2304,30 +2315,6 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsKubesystemSlice = []byte(`[Unit]
-Description=Kubernetes system service slice
-Documentation=man:systemd.special(7)
-DefaultDependencies=no
-Before=slices.target
-Requires=-.slice
-After=-.slice
-`)
-
-func linuxCloudInitArtifactsKubesystemSliceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsKubesystemSlice, nil
-}
-
-func linuxCloudInitArtifactsKubesystemSlice() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsKubesystemSliceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubesystem.slice", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsLabelNodesService = []byte(`[Unit]
 Description=Label Kubernetes nodes as masters or agents
 After=kubelet.service
@@ -2779,25 +2766,6 @@ func linuxCloudInitArtifactsSetupCustomSearchDomainsSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/setup-custom-search-domains.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsSliceDropinConf = []byte(`[Service]
-Slice=kubesystem.slice
-`)
-
-func linuxCloudInitArtifactsSliceDropinConfBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsSliceDropinConf, nil
-}
-
-func linuxCloudInitArtifactsSliceDropinConf() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsSliceDropinConfBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/slice-dropin.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -5387,7 +5355,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
-	"linux/cloud-init/artifacts/kubesystem.slice":                          linuxCloudInitArtifactsKubesystemSlice,
 	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
 	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
@@ -5401,7 +5368,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/pwquality-CIS.conf":                        linuxCloudInitArtifactsPwqualityCisConf,
 	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
-	"linux/cloud-init/artifacts/slice-dropin.conf":                         linuxCloudInitArtifactsSliceDropinConf,
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
@@ -5485,7 +5451,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
-				"kubesystem.slice":                          &bintree{linuxCloudInitArtifactsKubesystemSlice, map[string]*bintree{}},
 				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
 				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
@@ -5499,7 +5464,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"pwquality-CIS.conf":                        &bintree{linuxCloudInitArtifactsPwqualityCisConf, map[string]*bintree{}},
 				"rsyslog-d-60-CIS.conf":                     &bintree{linuxCloudInitArtifactsRsyslogD60CisConf, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
-				"slice-dropin.conf":                         &bintree{linuxCloudInitArtifactsSliceDropinConf, map[string]*bintree{}},
 				"sshd_config":                               &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                          &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
