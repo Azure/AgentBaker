@@ -23,3 +23,8 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
 	gopkg.in/ini.v1 v1.57.0
 )
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// TODO(ace): CHANGE THIS BEFORE MERGING
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+replace github.com/Azure/aks-engine => github.com/alexeldeib/aks-engine v0.0.0-20200624024745-b2b288b92757

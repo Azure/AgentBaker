@@ -207,14 +207,17 @@ ensureContainerRuntime() {
 
 {{if NeedsContainerd}}
 ensureContainerd() {
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  {{if IsKubenet }}
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
-  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  {{end}}
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
-  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+    wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    {{if IsKubenet }}
+    wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+    {{end}}
+    {{- if HasKubeReservedCgroup}}
+    wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/kubereserved-slice.conf|| exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
+    systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+    systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{end}}
 
@@ -226,6 +229,10 @@ ensureDocker() {
     if [[ $OS != $COREOS_OS_NAME ]]; then
         wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     fi
+    {{- if HasKubeReservedCgroup}}
+    DOCKER_SLICE_FILE=/etc/systemd/system/docker.service.d/kubereserved-slice.conf
+    wait_for_file 1200 1 $DOCKER_SLICE_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then
@@ -268,6 +275,12 @@ ensureKubelet() {
     wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- if HasKubeReservedCgroup}}
+    KUBERESERVED_SLICE_FILE=/etc/systemd/system/{{- GetKubeReservedCgroup -}}.slice
+    wait_for_file 1200 1 $KUBERESERVED_SLICE_FILE || exit $ERR_KUBERESERVED_SLICE_SETUP_FAIL
+    KUBELET_SLICE_FILE=/etc/systemd/system/kubelet.service.d/kubereserved-slice.conf
+    wait_for_file 1200 1 $KUBELET_SLICE_FILE || exit $ERR_KUBELET_SLICE_SETUP_FAIL
+    {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasCiliumNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/05-cilium.conf ]; do

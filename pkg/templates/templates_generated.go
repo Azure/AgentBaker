@@ -23,6 +23,7 @@
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
+// linux/cloud-init/artifacts/kubesystem.slice
 // linux/cloud-init/artifacts/label-nodes.service
 // linux/cloud-init/artifacts/label-nodes.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
@@ -36,6 +37,7 @@
 // linux/cloud-init/artifacts/pwquality-CIS.conf
 // linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
+// linux/cloud-init/artifacts/slice-dropin.conf
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
@@ -2302,6 +2304,30 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsKubesystemSlice = []byte(`[Unit]
+Description=Kubernetes system service slice
+Documentation=man:systemd.special(7)
+DefaultDependencies=no
+Before=slices.target
+Requires=-.slice
+After=-.slice
+`)
+
+func linuxCloudInitArtifactsKubesystemSliceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKubesystemSlice, nil
+}
+
+func linuxCloudInitArtifactsKubesystemSlice() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKubesystemSliceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubesystem.slice", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsLabelNodesService = []byte(`[Unit]
 Description=Label Kubernetes nodes as masters or agents
 After=kubelet.service
@@ -2757,6 +2783,25 @@ func linuxCloudInitArtifactsSetupCustomSearchDomainsSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSliceDropinConf = []byte(`[Service]
+Slice=kubesystem.slice
+`)
+
+func linuxCloudInitArtifactsSliceDropinConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSliceDropinConf, nil
+}
+
+func linuxCloudInitArtifactsSliceDropinConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSliceDropinConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/slice-dropin.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSshd_config = []byte(`# What ports, IPs and protocols we listen for
 Port 22
 # Use these options to restrict which interfaces/protocols sshd will bind to
@@ -3103,6 +3148,46 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+{{end}}
+
+{{- if HasKubeReservedCgroup}}
+- path: /etc/systemd/system/{{- GetKubeReservedCgroup -}}.slice
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Limited resources slice for Kubernetes services
+    Documentation=man:systemd.special(7)
+    DefaultDependencies=no
+    Before=slices.target
+    Requires=-.slice
+    After=-.slice
+    #EOF
+    
+- path: /etc/systemd/system/kubelet.service.d/kubereserved-slice.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Slice={{- GetKubeReservedCgroup -}}.slice
+    #EOF
+  {{if NeedsContainerd}}
+- path: /etc/systemd/system/containerd.service.d/kubereserved-slice.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Slice={{- GetKubeReservedCgroup -}}.slice
+    #EOF
+  {{else}}
+- path: /etc/systemd/system/docker.service.d/kubereserved-slice.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Slice={{- GetKubeReservedCgroup -}}.slice
+    #EOF
+  {{end}}
 {{end}}
 
 - path: /etc/systemd/system/kubelet.service
@@ -5302,6 +5387,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
+	"linux/cloud-init/artifacts/kubesystem.slice":                          linuxCloudInitArtifactsKubesystemSlice,
 	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
 	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
@@ -5315,6 +5401,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/pwquality-CIS.conf":                        linuxCloudInitArtifactsPwqualityCisConf,
 	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
+	"linux/cloud-init/artifacts/slice-dropin.conf":                         linuxCloudInitArtifactsSliceDropinConf,
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
@@ -5398,6 +5485,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
+				"kubesystem.slice":                          &bintree{linuxCloudInitArtifactsKubesystemSlice, map[string]*bintree{}},
 				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
 				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
@@ -5411,6 +5499,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"pwquality-CIS.conf":                        &bintree{linuxCloudInitArtifactsPwqualityCisConf, map[string]*bintree{}},
 				"rsyslog-d-60-CIS.conf":                     &bintree{linuxCloudInitArtifactsRsyslogD60CisConf, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
+				"slice-dropin.conf":                         &bintree{linuxCloudInitArtifactsSliceDropinConf, map[string]*bintree{}},
 				"sshd_config":                               &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                          &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},

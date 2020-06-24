@@ -527,6 +527,18 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		"GetDataDir": func() string {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey]
 		},
+		"HasKubeReservedCgroup": func() bool {
+			kc := cs.Properties.OrchestratorProfile.KubernetesConfig
+			return kc != nil && kc.KubeReservedCgroup != ""
+		},
+
+		"GetKubeReservedCgroup": func() string {
+			kc := cs.Properties.OrchestratorProfile.KubernetesConfig
+			if kc == nil {
+				return ""
+			}
+			return kc.KubeReservedCgroup
+		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
 		},
