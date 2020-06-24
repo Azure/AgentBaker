@@ -139,7 +139,7 @@ phases:
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
           SKU_NAME=$UBUNTU_SKU; fi && \
-          if [[ "${AZURE_VM_SIZE}" == *"Standard_NC"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
+          if [[ "${FEATURE_FLAGS}" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
