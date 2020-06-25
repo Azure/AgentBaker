@@ -48,8 +48,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-  overrideNetworkConfig
-  disableSystemdTimesyncdAndEnableNTP
+  overrideNetworkConfig || exit 1
+  disableSystemdTimesyncdAndEnableNTP || exit 1
 fi
 
 installBpftrace
