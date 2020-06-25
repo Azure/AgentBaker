@@ -387,6 +387,7 @@ done
 # this is the patched images which AKS are using.
 AKS_IP_MASQ_AGENT_VERSIONS="
 2.0.0_v0.0.5
+2.5.0
 "
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
