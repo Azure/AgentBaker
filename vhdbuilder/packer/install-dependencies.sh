@@ -19,7 +19,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
   - auditd
-  - blobfuse
+  - blobfuse=1.1.1
   - ca-certificates
   - ceph-common
   - cgroup-lite
@@ -377,7 +377,7 @@ for KV_FLEXVOLUME_VERSION in ${KV_FLEXVOLUME_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-BLOBFUSE_FLEXVOLUME_VERSIONS="1.0.8"
+BLOBFUSE_FLEXVOLUME_VERSIONS="1.0.13"
 for BLOBFUSE_FLEXVOLUME_VERSION in ${BLOBFUSE_FLEXVOLUME_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:${BLOBFUSE_FLEXVOLUME_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
