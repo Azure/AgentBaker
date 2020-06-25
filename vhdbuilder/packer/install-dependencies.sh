@@ -406,14 +406,17 @@ K8S_VERSIONS="
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
+1.15.12-hotfix.20200623.1
 1.16.7-hotfix.20200601.1
 1.16.8.1
 1.16.9-hotfix.20200529.1
+1.16.10-hotfix.20200623.1
 1.17.3-hotfix.20200601.1
 1.17.4.1
 1.17.5.1
-1.18.1.1
-1.18.2.1
+1.17.7-hotfix.20200624
+1.18.2-hotfix.20200624
+1.18.4-hotfix.20200624
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
@@ -432,8 +435,15 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+# below are the required to support versions
+# 1.15.11-hotfix.20200529.1
+# 1.15.12-hotfix.20200623.1
+# 1.16.8.1
+# 1.16.10-hotfix.20200623.1
+# 1.17.7-hotfix.20200624
+# 1.18.2-hotfix.20200624
+# 1.18.4-hotfix.20200624
 PATCHED_HYPERKUBE_IMAGES="
-1.12.8_v0.0.5
 1.13.10_v0.0.5
 1.13.11_v0.0.5
 1.13.12_f0.0.2
@@ -442,19 +452,25 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
+1.15.12-hotfix.20200623.1
 1.16.7-hotfix.20200601.1
 1.16.8.1
 1.16.9-hotfix.20200529.1
+1.16.10-hotfix.20200623.1
 1.17.3-hotfix.20200601.1
 1.17.4.1
 1.17.5.1
+1.17.7-hotfix.20200624
 1.18.1.1
 1.18.2.1
+1.18.2-hotfix.20200624
+1.18.4-hotfix.20200624
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+  docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/bash -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables" || (echo "Hyperkube contains nf_tables" && exit 99)
 done
 
 ADDON_IMAGES="
