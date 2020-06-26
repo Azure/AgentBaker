@@ -54,6 +54,8 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--feature-gates":                     true,
 	"--protect-kernel-defaults":           true,
 	"--resolv-conf":                       true,
+	"--system-reserved":                   true,
+	"--kube-reserved":                     true,
 }
 
 var keyvaultSecretPathRe *regexp.Regexp
@@ -921,28 +923,17 @@ func getKubeletConfigFileFromFlags(kc map[string]string) string {
 	// EvictionHard
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		evictionHard := make(map[string]string)
-		pairs := strings.Split(eh, ",")
-		for _, pairRaw := range pairs {
-			pair := strings.Split(pairRaw, "<")
-			if len(pair) == 2 {
-				evictionHard[pair[0]] = pair[1]
-			}
-		}
-		kubeletConfig.EvictionHard = evictionHard
+		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
 	}
 
 	// feature gates
-	// look like this: "f1=true,f2=true"
-	featureGates := make(map[string]bool)
-	featureGatePairs := strings.Split(kc["--feature-gates"], ",")
-	for _, pairRaw := range featureGatePairs {
-		pair := strings.Split(pairRaw, "=")
-		if len(pair) == 2 {
-			featureGates[pair[0]] = strToBool(pair[1])
-		}
-	}
-	kubeletConfig.FeatureGates = featureGates
+	// look like "f1=true,f2=true"
+	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+
+	// system reserve and kube reserve
+	// looks like "cpu=100m,memory=1638Mi"
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "    ", "  ")
 	return string(configStringByte)
@@ -961,4 +952,28 @@ func strToInt32(str string) int32 {
 func strToInt64(str string) int64 {
 	i, _ := strconv.ParseInt(str, 10, 64)
 	return i
+}
+
+func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
+	m := make(map[string]string)
+	pairs := strings.Split(str, strDelim)
+	for _, pairRaw := range pairs {
+		pair := strings.Split(pairRaw, pairDelim)
+		if len(pair) == 2 {
+			m[pair[0]] = pair[1]
+		}
+	}
+	return m
+}
+
+func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
+	m := make(map[string]bool)
+	pairs := strings.Split(str, strDelim)
+	for _, pairRaw := range pairs {
+		pair := strings.Split(pairRaw, pairDelim)
+		if len(pair) == 2 {
+			m[pair[0]] = strToBool(pair[1])
+		}
+	}
+	return m
 }

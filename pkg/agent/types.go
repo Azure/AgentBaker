@@ -245,6 +245,17 @@ type AKSKubeletConfiguration struct {
 	// Default: nil
 	// +optional
 	SystemReserved map[string]string `json:"systemReserved,omitempty"`
+	// A set of ResourceName=ResourceQuantity (e.g. cpu=200m,memory=150G) pairs
+	// that describe resources reserved for kubernetes system components.
+	// Currently cpu, memory and local storage for root file system are supported.
+	// See http://kubernetes.io/docs/user-guide/compute-resources for more detail.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// it may not be possible to increase the reserved resources, because this
+	// requires resizing cgroups. Always look for a NodeAllocatableEnforced event
+	// after updating this field to ensure that the update was successful.
+	// Default: nil
+	// +optional
+	KubeReserved map[string]string `json:"kubeReserved,omitempty"`
 	// This flag specifies the various Node Allocatable enforcements that Kubelet needs to perform.
 	// This flag accepts a list of options. Acceptable options are `none`, `pods`, `system-reserved` & `kube-reserved`.
 	// If `none` is specified, no other options may be specified.
