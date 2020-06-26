@@ -2316,7 +2316,8 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        $KUBELET_CONFIG \
+        ${DYNAMIC_KUBELET_SUPPORTED:+(--config /etc/default/kubeletconfig.json)} \
+        $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
 [Install]
@@ -3434,12 +3435,24 @@ write_files:
     current-context: localclustercontext
     #EOF
 
+{{if IsDynamicKubeletSupported}}
+- path: /etc/default/kubeletconfig.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {{GetKubeletConfigFile .KubernetesConfig}}
+    #EOF
+{{end}}
+
 - path: /etc/default/kubelet
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_CONFIG={{GetKubeletConfigKeyVals .KubernetesConfig }}
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig }}
     KUBELET_REGISTER_SCHEDULABLE=true
+{{if IsDynamicKubeletSupported}}
+    DYNAMIC_KUBELET_SUPPORTED=true
+{{end}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
