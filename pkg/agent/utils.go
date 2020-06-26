@@ -942,6 +942,7 @@ func getKubeletConfigFileFromFlags(kc map[string]string) string {
 			featureGates[pair[0]] = strToBool(pair[1])
 		}
 	}
+	kubeletConfig.FeatureGates = featureGates
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "    ", "  ")
 	return string(configStringByte)
