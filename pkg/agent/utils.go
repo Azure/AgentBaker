@@ -907,9 +907,14 @@ func getKubeletConfigFileFromFlags(kc map[string]string) string {
 			Anonymous: KubeletAnonymousAuthentication{
 				Enabled: strToBool(kc["--anonymous-auth"]),
 			},
-			Webhook: KubeletWebhookAuthentication{
-				Enabled: strToBool(kc["--authentication-token-webhook"]),
-			},
+		}
+	}
+	if aw, ok := kc["--authentication-token-webhook"]; ok && aw != "" {
+		if &kubeletConfig.Authentication == nil {
+			kubeletConfig.Authentication = KubeletAuthentication{}
+		}
+		kubeletConfig.Authentication.Webhook = KubeletWebhookAuthentication{
+			Enabled: strToBool(kc["--authentication-token-webhook"]),
 		}
 	}
 
