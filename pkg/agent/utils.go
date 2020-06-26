@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -24,6 +25,36 @@ import (
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"
 )
+
+var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
+	"--address":                           true,
+	"--anonymous-auth":                    true,
+	"--client-ca-file":                    true,
+	"--authentication-token-webhook":      true,
+	"--authorization-mode":                true,
+	"--pod-manifest-path":                 true,
+	"--cluster-dns":                       true,
+	"--cgroups-per-qos":                   true,
+	"--tls-cert-file":                     true,
+	"--tls-private-key-file":              true,
+	"--tls-cipher-suites":                 true,
+	"--cluster-domain":                    true,
+	"--max-pods":                          true,
+	"--eviction-hard":                     true,
+	"--node-status-update-frequency":      true,
+	"--image-gc-high-threshold":           true,
+	"--image-gc-low-threshold":            true,
+	"--cloud-provider":                    true,
+	"--event-qps":                         true,
+	"--pod-max-pids":                      true,
+	"--enforce-node-allocatable":          true,
+	"--streaming-connection-idle-timeout": true,
+	"--rotate-certificates":               true,
+	"--read-only-port":                    true,
+	"--feature-gates":                     true,
+	"--protect-kernel-defaults":           true,
+	"--resolv-conf":                       true,
+}
 
 var keyvaultSecretPathRe *regexp.Regexp
 
@@ -807,4 +838,121 @@ func getCustomDataFromJSON(jsonStr string) string {
 		panic(err)
 	}
 	return customDataObj["customData"]
+}
+
+// GetOrderedKubeletConfigString returns an ordered string of key/val pairs
+// copied from AKS-Engine and filter out flags that already translated to config file
+func GetOrderedKubeletConfigString(k *api.KubernetesConfig, cs *api.ContainerService) string {
+	keys := []string{}
+	dynamicKubeletSupported := IsDynamicKubeletSupported(cs)
+	for key := range k.KubeletConfig {
+		if !dynamicKubeletSupported || !TranslatedKubeletConfigFlags[key] {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, k.KubeletConfig[key]))
+	}
+	return buf.String()
+}
+
+// IsDynamicKubeletSupported get if dynamic kubelet is supported in AKS
+func IsDynamicKubeletSupported(cs *api.ContainerService) bool {
+	return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+}
+
+// convert kubelet flags we set to a file
+func getKubeletConfigFileFromFlags(kc map[string]string) string {
+	if kc == nil {
+		return ""
+	}
+	// translate simple values
+	kubeletConfig := &AKSKubeletConfiguration{
+		APIVersion:    "kubelet.config.k8s.io/v1beta1",
+		Kind:          "KubeletConfiguration",
+		Address:       kc["--address"],
+		StaticPodPath: kc["--pod-manifest-path"],
+		Authorization: KubeletAuthorization{
+			Mode: KubeletAuthorizationMode(kc["--authorization-mode"]),
+		},
+		ClusterDNS:                     strings.Split(kc["--cluster-dns"], ","),
+		CgroupsPerQOS:                  strToBool(kc["--cgroups-per-qos"]),
+		TLSCertFile:                    kc["--tls-cert-file"],
+		TLSPrivateKeyFile:              kc["--tls-private-key-file"],
+		TLSCipherSuites:                strings.Split(kc["--tls-cipher-suites"], ","),
+		ClusterDomain:                  kc["--cluster-domain"],
+		MaxPods:                        strToInt32(kc["--max-pods"]),
+		NodeStatusUpdateFrequency:      Duration(kc["--node-status-update-frequency"]),
+		ImageGCHighThresholdPercent:    strToInt32(kc["--image-gc-high-threshold"]),
+		ImageGCLowThresholdPercent:     strToInt32(kc["--image-gc-low-threshold"]),
+		ProviderID:                     kc["--cloud-provider"],
+		EventRecordQPS:                 strToInt32(kc["--event-qps"]),
+		PodPidsLimit:                   strToInt64(kc["--pod-max-pids"]),
+		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
+		StreamingConnectionIdleTimeout: Duration(kc["--streaming-connection-idle-timeout"]),
+		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
+		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
+		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
+		ResolverConfig:                 kc["--resolv-conf"],
+	}
+
+	// Authentication
+	if aa, ok := kc["--anonymous-auth"]; ok && aa != "" {
+		kubeletConfig.Authentication = KubeletAuthentication{
+			X509: KubeletX509Authentication{
+				ClientCAFile: kc["--client-ca-file"],
+			},
+			Anonymous: KubeletAnonymousAuthentication{
+				Enabled: strToBool(kc["--anonymous-auth"]),
+			},
+			Webhook: KubeletWebhookAuthentication{
+				Enabled: strToBool(kc["--authentication-token-webhook"]),
+			},
+		}
+	}
+
+	// EvictionHard
+	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
+	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
+		evictionHard := make(map[string]string)
+		pairs := strings.Split(eh, ",")
+		for _, pairRaw := range pairs {
+			pair := strings.Split(pairRaw, "<")
+			if len(pair) == 2 {
+				evictionHard[pair[0]] = pair[1]
+			}
+		}
+		kubeletConfig.EvictionHard = evictionHard
+	}
+
+	// feature gates
+	// look like this: "f1=true,f2=true"
+	featureGates := make(map[string]bool)
+	featureGatePairs := strings.Split(kc["--feature-gates"], ",")
+	for _, pairRaw := range featureGatePairs {
+		pair := strings.Split(pairRaw, "=")
+		if len(pair) == 2 {
+			featureGates[pair[0]] = strToBool(pair[1])
+		}
+	}
+
+	configStringByte, _ := json.MarshalIndent(kubeletConfig, "    ", "  ")
+	return string(configStringByte)
+}
+
+func strToBool(str string) bool {
+	b, _ := strconv.ParseBool(str)
+	return b
+}
+
+func strToInt32(str string) int32 {
+	i, _ := strconv.ParseInt(str, 10, 32)
+	return int32(i)
+}
+
+func strToInt64(str string) int64 {
+	i, _ := strconv.ParseInt(str, 10, 64)
+	return i
 }

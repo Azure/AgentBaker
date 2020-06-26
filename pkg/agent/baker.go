@@ -232,11 +232,20 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		"GetAgentKubernetesLabelsDeprecated": func(profile *api.AgentPoolProfile, rg string) string {
 			return profile.GetKubernetesLabels(rg, true)
 		},
+		"GetKubeletConfigFile": func(kc *api.KubernetesConfig) string {
+			if kc == nil {
+				return ""
+			}
+			return getKubeletConfigFileFromFlags(kc.KubeletConfig)
+		},
+		"IsDynamicKubeletSupported": func() bool {
+			return IsDynamicKubeletSupported(cs)
+		},
 		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
-			return kc.GetOrderedKubeletConfigString()
+			return GetOrderedKubeletConfigString(kc, cs)
 		},
 		"GetKubeletConfigKeyValsPsh": func(kc *api.KubernetesConfig) string {
 			if kc == nil {
