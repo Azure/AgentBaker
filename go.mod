@@ -27,4 +27,4 @@ require (
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // TODO(ace): CHANGE THIS BEFORE MERGING
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-replace github.com/Azure/aks-engine => github.com/alexeldeib/aks-engine v0.0.0-20200624024745-b2b288b92757
+replace github.com/Azure/aks-engine => github.com/alexeldeib/aks-engine v0.47.1-0.20200629193946-f5a3cf9de56f

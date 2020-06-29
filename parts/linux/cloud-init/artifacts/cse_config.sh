@@ -230,8 +230,8 @@ ensureDocker() {
         wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     fi
     {{- if HasKubeReservedCgroup}}
-    DOCKER_SLICE_FILE=/etc/systemd/system/docker.service.d/kubereserved-slice.conf
-    wait_for_file 1200 1 $DOCKER_SLICE_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    DOCKER_SLICE_CONF_FILE=/etc/systemd/system/docker.service.d/kubereserved-slice.conf
+    wait_for_file 1200 1 $DOCKER_SLICE_CONF_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     {{- end}}
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
@@ -278,8 +278,8 @@ ensureKubelet() {
     {{- if HasKubeReservedCgroup}}
     KUBERESERVED_SLICE_FILE=/etc/systemd/system/{{- GetKubeReservedCgroup -}}.slice
     wait_for_file 1200 1 $KUBERESERVED_SLICE_FILE || exit $ERR_KUBERESERVED_SLICE_SETUP_FAIL
-    KUBELET_SLICE_FILE=/etc/systemd/system/kubelet.service.d/kubereserved-slice.conf
-    wait_for_file 1200 1 $KUBELET_SLICE_FILE || exit $ERR_KUBELET_SLICE_SETUP_FAIL
+    KUBELET_SLICE_CONFIG_FILE=/etc/systemd/system/kubelet.service.d/kubereserved-slice.conf
+    wait_for_file 1200 1 $KUBELET_SLICE_CONFIG_FILE || exit $ERR_KUBELET_SLICE_SETUP_FAIL
     {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasCiliumNetworkPolicy}}

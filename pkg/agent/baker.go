@@ -528,16 +528,16 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey]
 		},
 		"HasKubeReservedCgroup": func() bool {
-			kc := cs.Properties.OrchestratorProfile.KubernetesConfig
-			return kc != nil && kc.KubeReservedCgroup != ""
-		},
-
-		"GetKubeReservedCgroup": func() string {
-			kc := cs.Properties.OrchestratorProfile.KubernetesConfig
-			if kc == nil {
-				return ""
+			if profile.KubernetesConfig != nil && profile.KubernetesConfig.KubeReservedCgroup != "" {
+				return true
 			}
-			return kc.KubeReservedCgroup
+			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.KubeReservedCgroup != ""
+		},
+		"GetKubeReservedCgroup": func() string {
+			if profile.KubernetesConfig != nil && profile.KubernetesConfig.KubeReservedCgroup != "" {
+				return profile.KubernetesConfig.KubeReservedCgroup
+			}
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.KubeReservedCgroup
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
