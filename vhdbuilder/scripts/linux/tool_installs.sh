@@ -85,3 +85,16 @@ ensureGPUDrivers() {
     configGPUDrivers
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
+
+disableSystemdTimesyncdAndEnableNTP() {
+    # disable systemd-timesyncd
+    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_SYSTEMD_TIMESYNCD_TIMEOUT
+    systemctl disable systemd-timesyncd
+
+    # install ntp
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_install 20 30 120 ntp || exit $ERR_NTP_INSTALL_TIMEOUT
+
+    # enable ntp
+    systemctlEnableAndStart ntp || exit $ERR_NTP_START_TIMEOUT
+}
