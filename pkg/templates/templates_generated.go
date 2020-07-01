@@ -946,6 +946,7 @@ ERR_RELEASE_HOLD_WALINUXAGENT=8 {{/* Unable to release hold on walinuxagent apt 
 ERR_APT_INSTALL_TIMEOUT=9 {{/* Timeout installing required apt packages */}}
 ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
 ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
+ERR_STOP_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for systemd-timesyncd stop */}
 ERR_DOCKER_INSTALL_TIMEOUT=20 {{/* Timeout waiting for docker install */}}
 ERR_DOCKER_DOWNLOAD_TIMEOUT=21 {{/* Timout waiting for docker downloads */}}
 ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 {{/* Timeout waiting to download docker repo key */}}
@@ -1551,19 +1552,6 @@ datasource:
     Azure:
         apply_network_config: false
 EOF
-}
-
-disableSystemdTimesyncdAndEnableNTP() {
-    # disable systemd-timesyncd
-    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_SYSTEMD_TIMESYNCD_TIMEOUT
-    systemctl disable systemd-timesyncd
-
-    # install ntp
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 20 30 120 ntp || exit $ERR_NTP_INSTALL_TIMEOUT
-
-    # enable ntp
-    systemctlEnableAndStart ntp || exit $ERR_NTP_START_TIMEOUT
 }
 #EOF
 `)
