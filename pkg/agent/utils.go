@@ -44,7 +44,6 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--node-status-update-frequency":      true,
 	"--image-gc-high-threshold":           true,
 	"--image-gc-low-threshold":            true,
-	"--cloud-provider":                    true,
 	"--event-qps":                         true,
 	"--pod-max-pids":                      true,
 	"--enforce-node-allocatable":          true,
@@ -889,7 +888,6 @@ func getKubeletConfigFileFromFlags(kc map[string]string) string {
 		NodeStatusUpdateFrequency:      Duration(kc["--node-status-update-frequency"]),
 		ImageGCHighThresholdPercent:    strToInt32(kc["--image-gc-high-threshold"]),
 		ImageGCLowThresholdPercent:     strToInt32(kc["--image-gc-low-threshold"]),
-		ProviderID:                     kc["--cloud-provider"],
 		EventRecordQPS:                 strToInt32(kc["--event-qps"]),
 		PodPidsLimit:                   strToInt64(kc["--pod-max-pids"]),
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
@@ -901,22 +899,20 @@ func getKubeletConfigFileFromFlags(kc map[string]string) string {
 	}
 
 	// Authentication
-	if aa, ok := kc["--anonymous-auth"]; ok && aa != "" {
-		kubeletConfig.Authentication = KubeletAuthentication{
-			X509: KubeletX509Authentication{
-				ClientCAFile: kc["--client-ca-file"],
-			},
-			Anonymous: KubeletAnonymousAuthentication{
-				Enabled: strToBool(kc["--anonymous-auth"]),
-			},
+	kubeletConfig.Authentication = KubeletAuthentication{}
+	if ca := kc["--client-ca-file"]; ca != "" {
+		kubeletConfig.Authentication.X509 = KubeletX509Authentication{
+			ClientCAFile: ca,
 		}
 	}
-	if aw, ok := kc["--authentication-token-webhook"]; ok && aw != "" {
-		if &kubeletConfig.Authentication == nil {
-			kubeletConfig.Authentication = KubeletAuthentication{}
-		}
+	if aw := kc["--authentication-token-webhook"]; aw != "" {
 		kubeletConfig.Authentication.Webhook = KubeletWebhookAuthentication{
-			Enabled: strToBool(kc["--authentication-token-webhook"]),
+			Enabled: strToBool(aw),
+		}
+	}
+	if aa := kc["--anonymous-auth"]; aa != "" {
+		kubeletConfig.Authentication.Anonymous = KubeletAnonymousAuthentication{
+			Enabled: strToBool(aa),
 		}
 	}
 

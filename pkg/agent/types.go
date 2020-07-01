@@ -269,13 +269,6 @@ type AKSKubeletConfiguration struct {
 	// Default: ["pods"]
 	// +optional
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
-	// providerID, if set, sets the unique id of the instance that an external provider (i.e. cloudprovider)
-	// can use to identify a specific node.
-	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	// it may impact the ability of the Kubelet to interact with cloud providers.
-	// Default: ""
-	// +optional
-	ProviderID string `json:"providerID,omitempty"`
 }
 
 type Duration string
