@@ -27,4 +27,6 @@ fi
 
 (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
 
+repoDepotEndpoint="{{AKSCustomCloudRepoDepotEndpoint}}"
+sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 #EOF

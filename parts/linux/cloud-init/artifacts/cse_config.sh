@@ -117,7 +117,7 @@ configureK8s() {
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud":"{{GetTargetEnvironment}}",
+    "cloud": "{{GetTargetEnvironment}}",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -162,6 +162,48 @@ EOF
     fi
 
     configureKubeletServerCert
+{{- if IsAKSCustomCloud}}
+    set +x
+    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/{{GetTargetEnvironment}}.json"
+    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+{
+    "name": "{{GetTargetEnvironment}}",
+    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
+    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
+    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
+    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
+    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
+    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
+    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
+    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
+    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
+    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
+    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
+    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
+    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
+    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
+    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
+    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
+    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
+    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
+    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
+    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
+    "resourceIdentifiers": {
+        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
+        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
+        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
+        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
+        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
+        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
+    }
+}
+EOF
+    set -x
+{{end}}
 }
 
 configureCNI() {
