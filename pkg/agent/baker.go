@@ -572,6 +572,9 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 			return hyperkubeImage
 		},
 		"GetTargetEnvironment": func() string {
+			if cs.IsAKSCustomCloud() {
+				return cs.Properties.CustomCloudEnv.Name
+			}
 			return GetCloudTargetEnv(cs.Location)
 		},
 		"IsAKSCustomCloud": func() bool {
@@ -579,6 +582,87 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		},
 		"GetInitAKSCustomCloudFilepath": func() string {
 			return initAKSCustomCloudFilepath
+		},
+		"AKSCustomCloudRepoDepotEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+		},
+		"AKSCustomCloudManagementPortalURL": func() string {
+			return cs.Properties.CustomCloudEnv.ManagementPortalURL
+		},
+		"AKSCustomCloudPublishSettingsURL": func() string {
+			return cs.Properties.CustomCloudEnv.PublishSettingsURL
+		},
+		"AKSCustomCloudServiceManagementEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.ServiceManagementEndpoint
+		},
+		"AKSCustomCloudResourceManagerEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
+		},
+		"AKSCustomCloudActiveDirectoryEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.ActiveDirectoryEndpoint
+		},
+		"AKSCustomCloudGalleryEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.GalleryEndpoint
+		},
+		"AKSCustomCloudKeyVaultEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.KeyVaultEndpoint
+		},
+		"AKSCustomCloudGraphEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.GraphEndpoint
+		},
+		"AKSCustomCloudServiceBusEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.ServiceBusEndpoint
+		},
+		"AKSCustomCloudBatchManagementEndpoint": func() string {
+			return cs.Properties.CustomCloudEnv.BatchManagementEndpoint
+		},
+		"AKSCustomCloudStorageEndpointSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.StorageEndpointSuffix
+		},
+		"AKSCustomCloudSqlDatabaseDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.SQLDatabaseDNSSuffix
+		},
+		"AKSCustomCloudTrafficManagerDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.TrafficManagerDNSSuffix
+		},
+		"AKSCustomCloudKeyVaultDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.KeyVaultDNSSuffix
+		},
+		"AKSCustomCloudServiceBusEndpointSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.ServiceBusEndpointSuffix
+		},
+		"AKSCustomCloudServiceManagementVMDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.ServiceManagementVMDNSSuffix
+		},
+		"AKSCustomCloudResourceManagerVMDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceManagerVMDNSSuffix
+		},
+		"AKSCustomCloudContainerRegistryDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.ContainerRegistryDNSSuffix
+		},
+		"AKSCustomCloudCosmosDBDNSSuffix": func() string {
+			return cs.Properties.CustomCloudEnv.CosmosDBDNSSuffix
+		},
+		"AKSCustomCloudTokenAudience": func() string {
+			return cs.Properties.CustomCloudEnv.TokenAudience
+		},
+		"AKSCustomCloudResourceIdentifiersGraph": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Graph
+		},
+		"AKSCustomCloudResourceIdentifiersKeyVault": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.KeyVault
+		},
+		"AKSCustomCloudResourceIdentifiersDatalake": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Datalake
+		},
+		"AKSCustomCloudResourceIdentifiersBatch": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Batch
+		},
+		"AKSCustomCloudResourceIdentifiersOperationalInsights": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.OperationalInsights
+		},
+		"AKSCustomCloudResourceIdentifiersStorage": func() string {
+			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Storage
 		},
 		"GetCustomCloudConfigCSEScriptFilepath": func() string {
 			return customCloudConfigCSEScriptFilepath
