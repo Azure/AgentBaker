@@ -117,7 +117,11 @@ configureK8s() {
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     cat << EOF > "${AZURE_JSON_PATH}"
 {
+    {{- if IsAKSCustomCloud}}
+    "cloud": "AzureStackCloud",
+    {{- else}}
     "cloud": "{{GetTargetEnvironment}}",
+    {{- end}}
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
