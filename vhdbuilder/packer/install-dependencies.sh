@@ -415,10 +415,6 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 K8S_VERSIONS="
-1.12.8_v0.0.5
-1.13.10_v0.0.5
-1.13.11_v0.0.5
-1.13.12_f0.0.2
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
@@ -463,9 +459,6 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 # 1.18.2-hotfix.20200624
 # 1.18.4-hotfix.20200624
 PATCHED_HYPERKUBE_IMAGES="
-1.13.10_v0.0.5
-1.13.11_v0.0.5
-1.13.12_f0.0.2
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
