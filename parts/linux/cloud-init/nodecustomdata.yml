@@ -358,6 +358,9 @@ write_files:
 {{else}}
     KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
 {{end}}
+{{if IsAKSCustomCloud}}
+    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json"
+{{end}}
     #EOF
 
 - path: /opt/azure/containers/kubelet.sh
