@@ -3437,7 +3437,7 @@ write_files:
 {{else}}
     KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
 {{end}}
-{{if IsAKSCustomCloud}}
+{{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json"
 {{end}}
     #EOF
