@@ -367,9 +367,6 @@ write_files:
   content: |
     KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig }}
     KUBELET_REGISTER_SCHEDULABLE=true
-{{if IsDynamicKubeletSupported}}
-    DYNAMIC_KUBELET_SUPPORTED=true
-{{end}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
