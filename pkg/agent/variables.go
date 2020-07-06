@@ -111,7 +111,7 @@ func getOutBoundCmd(cs *api.ContainerService) string {
 	if cs.GetCloudSpecConfig().CloudName == api.AzureChinaCloud {
 		registry = `gcr.azk8s.cn 443`
 	} else if cs.IsAKSCustomCloud() {
-		registry = cs.Properties.CustomCloudEnv.McrURL
+		registry = cs.Properties.CustomCloudEnv.McrURL + " 443"
 	} else {
 		registry = `mcr.microsoft.com 443`
 	}
