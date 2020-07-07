@@ -48,14 +48,14 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 }
 
 var expectedJSON string = `{
-      "kind": "KubeletConfiguration",
-      "apiVersion": "kubelet.config.k8s.io/v1beta1",
-      "staticPodPath": "/etc/kubernetes/manifests",
-      "address": "0.0.0.0",
-      "readOnlyPort": 10255,
-      "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
-      "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
-      "tlsCipherSuites": [
+    "kind": "KubeletConfiguration",
+    "apiVersion": "kubelet.config.k8s.io/v1beta1",
+    "staticPodPath": "/etc/kubernetes/manifests",
+    "address": "0.0.0.0",
+    "readOnlyPort": 10255,
+    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
+    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
+    "tlsCipherSuites": [
         "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
         "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
         "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
@@ -64,52 +64,52 @@ var expectedJSON string = `{
         "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
         "TLS_RSA_WITH_AES_256_GCM_SHA384",
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
-      ],
-      "rotateCertificates": true,
-      "authentication": {
+    ],
+    "rotateCertificates": true,
+    "authentication": {
         "x509": {
-          "clientCAFile": "/etc/kubernetes/certs/ca.crt"
+            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
         },
         "webhook": {
-          "enabled": true
+            "enabled": true
         },
         "anonymous": {}
-      },
-      "authorization": {
+    },
+    "authorization": {
         "mode": "Webhook",
         "webhook": {}
-      },
-      "clusterDomain": "cluster.local",
-      "clusterDNS": [
+    },
+    "clusterDomain": "cluster.local",
+    "clusterDNS": [
         "10.0.0.10"
-      ],
-      "streamingConnectionIdleTimeout": "4h0m0s",
-      "nodeStatusUpdateFrequency": "10s",
-      "imageGCHighThresholdPercent": 85,
-      "imageGCLowThresholdPercent": 80,
-      "cgroupsPerQOS": true,
-      "maxPods": 110,
-      "podPidsLimit": -1,
-      "resolvConf": "/etc/resolv.conf",
-      "evictionHard": {
+    ],
+    "streamingConnectionIdleTimeout": "4h0m0s",
+    "nodeStatusUpdateFrequency": "10s",
+    "imageGCHighThresholdPercent": 85,
+    "imageGCLowThresholdPercent": 80,
+    "cgroupsPerQOS": true,
+    "maxPods": 110,
+    "podPidsLimit": -1,
+    "resolvConf": "/etc/resolv.conf",
+    "evictionHard": {
         "memory.available": "750Mi",
         "nodefs.available": "10%",
         "nodefs.inodesFree": "5%"
-      },
-      "protectKernelDefaults": true,
-      "featureGates": {
+    },
+    "protectKernelDefaults": true,
+    "featureGates": {
         "DynamicKubeletConfig": false,
         "RotateKubeletServerCertificate": true
-      },
-      "systemReserved": {
+    },
+    "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"
-      },
-      "kubeReserved": {
+    },
+    "kubeReserved": {
         "cpu": "100m",
         "memory": "1638Mi"
-      },
-      "enforceNodeAllocatable": [
+    },
+    "enforceNodeAllocatable": [
         "pods"
-      ]
-    }`
+    ]
+}`

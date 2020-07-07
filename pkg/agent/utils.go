@@ -931,7 +931,7 @@ func getKubeletConfigFileFromFlags(kc map[string]string) string {
 	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
 	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
 
-	configStringByte, _ := json.MarshalIndent(kubeletConfig, "    ", "  ")
+	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)
 }
 
@@ -956,7 +956,9 @@ func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]st
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == 2 {
-			m[pair[0]] = pair[1]
+			key := strings.TrimSpace(pair[0])
+			val := strings.TrimSpace(pair[1])
+			m[key] = val
 		}
 	}
 	return m
@@ -968,7 +970,9 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == 2 {
-			m[pair[0]] = strToBool(pair[1])
+			key := strings.TrimSpace(pair[0])
+			val := strings.TrimSpace(pair[1])
+			m[key] = strToBool(val)
 		}
 	}
 	return m

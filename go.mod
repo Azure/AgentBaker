@@ -14,7 +14,7 @@ require (
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/leonelquinteros/gotext v1.4.0
 	github.com/mattn/go-colorable v0.0.9
-	github.com/onsi/ginkgo v1.12.2 // indirect
+	github.com/onsi/ginkgo v1.12.2
 	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0

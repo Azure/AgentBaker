@@ -352,15 +352,6 @@ write_files:
     current-context: localclustercontext
     #EOF
 
-{{if IsDynamicKubeletSupported}}
-- path: /etc/default/kubeletconfig.json
-  permissions: "0644"
-  owner: root
-  content: |
-    {{GetKubeletConfigFile .KubernetesConfig}}
-    #EOF
-{{end}}
-
 - path: /etc/default/kubelet
   permissions: "0644"
   owner: root
