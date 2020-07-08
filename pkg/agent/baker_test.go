@@ -82,6 +82,31 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					ClientID: "ClientID",
 					Secret:   "Secret",
 				},
+				CustomCloudEnv: &api.CustomCloudEnv{
+					Name:                         "akscustom",
+					McrURL:                       "testing.mcr.microsoft.com 443",
+					RepoDepotEndpoint:            "testRepoDepotEndpoint",
+					ManagementPortalURL:          "testManagementPortalURL",
+					PublishSettingsURL:           "testPublishSettingsURL",
+					ServiceManagementEndpoint:    "ServiceManagementEndpoint",
+					ResourceManagerEndpoint:      "testResourceManagerEndpoint",
+					ActiveDirectoryEndpoint:      "testActiveDirectoryEndpoint",
+					GalleryEndpoint:              "testGalleryEndpoint",
+					KeyVaultEndpoint:             "testKeyVaultEndpoint",
+					GraphEndpoint:                "testGraphEndpoint",
+					ServiceBusEndpoint:           "testServiceBusEndpoint",
+					BatchManagementEndpoint:      "testBatchManagementEndpoint",
+					StorageEndpointSuffix:        "testStorageEndpointSuffix",
+					SQLDatabaseDNSSuffix:         "testSQLDatabaseDNSSuffix",
+					TrafficManagerDNSSuffix:      "testTrafficManagerDNSSuffix",
+					KeyVaultDNSSuffix:            "testKeyVaultDNSSuffix",
+					ServiceBusEndpointSuffix:     "testServiceBusEndpointSuffix",
+					ServiceManagementVMDNSSuffix: "testServiceManagementVMDNSSuffix",
+					ResourceManagerVMDNSSuffix:   "testResourceManagerVMDNSSuffix",
+					ContainerRegistryDNSSuffix:   "testContainerRegistryDNSSuffix",
+					CosmosDBDNSSuffix:            "testCosmosDBDNSSuffix",
+					TokenAudience:                "testTokenAudience",
+				},
 			},
 		}
 		cs.Properties.LinuxProfile.SSH.PublicKeys = []api.PublicKey{{
@@ -92,6 +117,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// the default component version for "hyperkube", which is not set since 1.17
 		if IsKubernetesVersionGe(k8sVersion, "1.17.0") {
 			cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage = fmt.Sprintf("k8s.gcr.io/hyperkube-amd64:v%v", k8sVersion)
+		}
+
+		if containerServiceUpdator != nil {
+			containerServiceUpdator(cs)
 		}
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
@@ -122,33 +151,21 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
 		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(cs *api.ContainerService) {
-			cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
-				ContainerRuntimeConfig: map[string]string{
-					common.ContainerDataDirKey: "/mnt/containers",
-				},
+			cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig = map[string]string{
+				common.ContainerDataDirKey: "/mnt/containers",
 			}
 		}),
 		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(cs *api.ContainerService) {
-			cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
-				ContainerRuntimeConfig: map[string]string{
-					common.ContainerDataDirKey: "/mnt/containers",
-				},
+			cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig = map[string]string{
+				common.ContainerDataDirKey: "/mnt/containers",
 			}
-			cs.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
-				KubeletConfig:    map[string]string{},
-				ContainerRuntime: api.Containerd,
-			}
+			cs.Properties.AgentPoolProfiles[0].KubernetesConfig.ContainerRuntime = api.Containerd
 		}),
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(cs *api.ContainerService) {
-			cs.Properties.OrchestratorProfile.KubernetesConfig = nil
 			cs.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
 		}),
 		Entry("AKSUbuntu1604 with AKSCustomCloud", "AKSUbuntu1604+AKSCustomCloud", "1.15.7", func(cs *api.ContainerService) {
-			cs.Properties.OrchestratorProfile.KubernetesConfig = nil
-			cs.Properties.CustomCloudEnv = &api.CustomCloudEnv{
-				Name:   "akscustom",
-				McrURL: "testing.mcr.microsoft.com 443",
-			}
+			// customCloudEnv seems to be required
 		}))
 })
 

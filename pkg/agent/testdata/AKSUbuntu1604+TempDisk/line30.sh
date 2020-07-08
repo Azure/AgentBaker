@@ -117,7 +117,7 @@ configureK8s() {
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud":"AzurePublicCloud",
+    "cloud": "AzureStackCloud",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -162,6 +162,47 @@ EOF
     fi
 
     configureKubeletServerCert
+    set +x
+    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/akscustom.json"
+    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+{
+    "name": "akscustom",
+    "managementPortalURL": "testManagementPortalURL",
+    "publishSettingsURL": "testPublishSettingsURL",
+    "serviceManagementEndpoint": "ServiceManagementEndpoint",
+    "resourceManagerEndpoint": "testResourceManagerEndpoint",
+    "activeDirectoryEndpoint": "testActiveDirectoryEndpoint",
+    "galleryEndpoint": "testGalleryEndpoint",
+    "keyVaultEndpoint": "testKeyVaultEndpoint",
+    "graphEndpoint": "testGraphEndpoint",
+    "serviceBusEndpoint": "testServiceBusEndpoint",
+    "batchManagementEndpoint": "testBatchManagementEndpoint",
+    "storageEndpointSuffix": "testStorageEndpointSuffix",
+    "sqlDatabaseDNSSuffix": "testSQLDatabaseDNSSuffix",
+    "trafficManagerDNSSuffix": "testTrafficManagerDNSSuffix",
+    "keyVaultDNSSuffix": "testKeyVaultDNSSuffix",
+    "serviceBusEndpointSuffix": "testServiceBusEndpointSuffix",
+    "serviceManagementVMDNSSuffix": "testServiceManagementVMDNSSuffix",
+    "resourceManagerVMDNSSuffix": "testResourceManagerVMDNSSuffix",
+    "containerRegistryDNSSuffix": "testContainerRegistryDNSSuffix",
+    "cosmosDBDNSSuffix": "testCosmosDBDNSSuffix",
+    "tokenAudience": "testTokenAudience",
+    "resourceIdentifiers": {
+        "graph": "",
+        "keyVault": "",
+        "datalake": "",
+        "batch": "",
+        "operationalInsights": "",
+        "storage": ""
+    }
+}
+EOF
+    set -x
+
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"

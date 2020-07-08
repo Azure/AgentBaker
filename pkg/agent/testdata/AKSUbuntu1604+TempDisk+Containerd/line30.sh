@@ -117,7 +117,7 @@ configureK8s() {
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud":"AzurePublicCloud",
+    "cloud": "AzureStackCloud",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -162,6 +162,47 @@ EOF
     fi
 
     configureKubeletServerCert
+    set +x
+    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/akscustom.json"
+    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+{
+    "name": "akscustom",
+    "managementPortalURL": "testManagementPortalURL",
+    "publishSettingsURL": "testPublishSettingsURL",
+    "serviceManagementEndpoint": "ServiceManagementEndpoint",
+    "resourceManagerEndpoint": "testResourceManagerEndpoint",
+    "activeDirectoryEndpoint": "testActiveDirectoryEndpoint",
+    "galleryEndpoint": "testGalleryEndpoint",
+    "keyVaultEndpoint": "testKeyVaultEndpoint",
+    "graphEndpoint": "testGraphEndpoint",
+    "serviceBusEndpoint": "testServiceBusEndpoint",
+    "batchManagementEndpoint": "testBatchManagementEndpoint",
+    "storageEndpointSuffix": "testStorageEndpointSuffix",
+    "sqlDatabaseDNSSuffix": "testSQLDatabaseDNSSuffix",
+    "trafficManagerDNSSuffix": "testTrafficManagerDNSSuffix",
+    "keyVaultDNSSuffix": "testKeyVaultDNSSuffix",
+    "serviceBusEndpointSuffix": "testServiceBusEndpointSuffix",
+    "serviceManagementVMDNSSuffix": "testServiceManagementVMDNSSuffix",
+    "resourceManagerVMDNSSuffix": "testResourceManagerVMDNSSuffix",
+    "containerRegistryDNSSuffix": "testContainerRegistryDNSSuffix",
+    "cosmosDBDNSSuffix": "testCosmosDBDNSSuffix",
+    "tokenAudience": "testTokenAudience",
+    "resourceIdentifiers": {
+        "graph": "",
+        "keyVault": "",
+        "datalake": "",
+        "batch": "",
+        "operationalInsights": "",
+        "storage": ""
+    }
+}
+EOF
+    set -x
+
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
@@ -266,8 +307,18 @@ ensureContainerRuntime() {
         ensureDocker
     fi
     
+        ensureContainerd
+    
 }
 
+
+ensureContainerd() {
+  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+}
 
 
 ensureDocker() {

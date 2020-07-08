@@ -27,7 +27,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in apache2-utils apt-transport-https blobfuse ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysstat traceroute util-linux xz-utils zip; do
+    for apt_package in apache2-utils apt-transport-https blobfuse=1.1.1 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysstat traceroute util-linux xz-utils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -99,6 +99,8 @@ installContainerRuntime() {
         installMoby
     fi
     
+        installContainerd
+    
 }
 
 installMoby() {
@@ -116,6 +118,24 @@ installMoby() {
     fi
 }
 
+
+# Note: currently hard-coding to install 1.3.4 until 1.4.x is available
+# once we have updated moby-engine and moby-containerd we will update the vhd builder to install both
+installContainerd() {
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||') 
+    # we want at least 1.3.x - need to safeguard against aks-e setting this to < 1.3.x
+    if [[ ! "${CONTAINERD_VERSION}" =~ 1\.[3-9]\.[0-9].* ]]; then
+        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.4"
+        CONTAINERD_VERSION="1.3.4"
+    fi
+    if [[ "${CONTAINERD_VERSION}" == "${CURRENT_VERSION}" ]]; then
+        echo "containerd version ${CURRENT_VERSION} is already installed, skipping installContainerd"
+    else 
+        apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
+        retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
+        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    fi  
+}
 
 
 getMobyPkg() {
