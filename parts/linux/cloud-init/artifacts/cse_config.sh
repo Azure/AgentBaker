@@ -209,7 +209,7 @@ EOF
     set -x
 {{end}}
 
-{{if IsDynamicKubeletSupported}}
+{{- if IsDynamicKubeletSupported}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
@@ -219,7 +219,7 @@ EOF
 {{GetKubeletConfigFile}}
 EOF
     set -x
-{{end}}
+{{- end}}
 }
 
 configureCNI() {

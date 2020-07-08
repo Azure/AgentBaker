@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-  <testsuite name="Agent Suite" tests="7" failures="0" errors="0" time="0.089">
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with k8s version less than 1.18" classname="Agent Suite" time="0.014230153"></testcase>
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with k8s version 1.18" classname="Agent Suite" time="0.012605024"></testcase>
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with k8s version 1.17" classname="Agent Suite" time="0.013335389"></testcase>
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with Temp Disk" classname="Agent Suite" time="0.012543944"></testcase>
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with Temp Disk and containerd" classname="Agent Suite" time="0.01337149"></testcase>
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with RawUbuntu" classname="Agent Suite" time="0.012141737"></testcase>
-      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with AKSCustomCloud" classname="Agent Suite" time="0.011378515"></testcase>
+  <testsuite name="Agent Suite" tests="7" failures="0" errors="0" time="0.097">
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with k8s version less than 1.18" classname="Agent Suite" time="0.017485809"></testcase>
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with k8s version 1.18" classname="Agent Suite" time="0.012885827"></testcase>
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with k8s version 1.17" classname="Agent Suite" time="0.01420473"></testcase>
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with Temp Disk" classname="Agent Suite" time="0.01388529"></testcase>
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with Temp Disk and containerd" classname="Agent Suite" time="0.013347071"></testcase>
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with RawUbuntu" classname="Agent Suite" time="0.013334893"></testcase>
+      <testcase name="Assert generated customData and cseCmd Generated customData and CSE AKSUbuntu1604 with AKSCustomCloud" classname="Agent Suite" time="0.012259067"></testcase>
   </testsuite>

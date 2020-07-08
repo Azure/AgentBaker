@@ -655,7 +655,7 @@ EOF
     }
 }
 
-{{if IsDynamicKubeletSupported}}
+{{- if IsDynamicKubeletSupported}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
@@ -665,7 +665,7 @@ EOF
 {{GetKubeletConfigFile}}
 EOF
     set -x
-{{end}}
+{{- end}}
 }
 
 configureCNI() {
@@ -2325,8 +2325,10 @@ ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
-        --volume-plugin-dir=/etc/kubernetes/volumeplugins \{{if IsDynamicKubeletSupported}}
-        --config /etc/default/kubeletconfig.json \{{end}}
+        --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        {{- if IsDynamicKubeletSupported}}
+        --config /etc/default/kubeletconfig.json --dynamic-config-dir /etc/default/dynamickubelet \
+        {{- end}}
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
