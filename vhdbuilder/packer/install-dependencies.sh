@@ -190,6 +190,7 @@ done
 MCR_PAUSE_VERSIONS="
 1.2.0
 1.3.1
+1.4.0
 "
 for PAUSE_VERSION in ${MCR_PAUSE_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/pause:${PAUSE_VERSION}"
