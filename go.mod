@@ -3,10 +3,11 @@ module github.com/Azure/agentbaker
 go 1.12
 
 require (
-	github.com/Azure/aks-engine v0.47.0-aks-gomod-82
+	github.com/Azure/aks-engine v0.47.0-aks-gomod-87
 	github.com/Azure/go-autorest/autorest v0.9.2
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/uuid v1.1.1

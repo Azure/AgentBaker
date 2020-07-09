@@ -34,6 +34,7 @@
 // linux/cloud-init/artifacts/pam-d-su
 // linux/cloud-init/artifacts/profile-d-cis.sh
 // linux/cloud-init/artifacts/pwquality-CIS.conf
+// linux/cloud-init/artifacts/reconcile-private-hosts.sh
 // linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sshd_config
@@ -516,6 +517,10 @@ configureSecrets(){
     echo "${ETCD_SERVER_CERTIFICATE}" | base64 --decode > "${ETCD_SERVER_CERTIFICATE_PATH}"
     echo "${ETCD_CLIENT_CERTIFICATE}" | base64 --decode > "${ETCD_CLIENT_CERTIFICATE_PATH}"
     echo "${ETCD_PEER_CERT}" | base64 --decode > "${ETCD_PEER_CERTIFICATE_PATH}"
+}
+
+configPrivateClusterHosts() {
+  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureRPC() {
@@ -1769,6 +1774,10 @@ configureCNI
 ensureDHCPv6
 {{end}}
 
+{{- if and IsHostedMaster EnableHostsConfigAgent}}
+configPrivateClusterHosts
+{{end}}
+
 ensureKubelet
 ensureJournal
 
@@ -2748,6 +2757,67 @@ func linuxCloudInitArtifactsPwqualityCisConf() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsReconcilePrivateHostsSh = []byte(`#!/usr/bin/env bash
+
+set -o nounset
+set -o pipefail
+SLEEP_SECONDS=15
+clusterFQDN={{GetParameter "kubernetesEndpoint"}}
+if [[ $clusterFQDN != *.privatelink.* ]]; then
+  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
+  exit 0
+fi
+echo "clusterFQDN: $clusterFQDN"
+function get-apiserver-ip-from-tags() {
+  tags=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text")
+  if [ "$?" == "0" ]; then
+    IFS=";" read -ra tagList <<< "$tags"
+    for i in "${tagList[@]}"; do
+      tagKey=$(cut -d":" -f1 <<<$i)
+      tagValue=$(cut -d":" -f2 <<<$i)
+      if [ "$tagKey" == "aksAPIServerIPAddress" ]; then
+        echo -n "$tagValue"
+        return
+      fi
+    done
+  fi
+  echo -n ""
+}
+
+while true; do
+  clusterIP=$(get-apiserver-ip-from-tags)
+  if [ -z $clusterIP ]; then
+    sleep "${SLEEP_SECONDS}"
+    continue
+  fi
+  if grep "$clusterIP $clusterFQDN" /etc/hosts; then
+    echo "$clusterFQDN has already been set to $clusterIP"
+  else
+    sudo sed -i "/$clusterFQDN/d" /etc/hosts
+    sudo sed -i "\$a$clusterIP $clusterFQDN" /etc/hosts
+    echo "Updated $clusterFQDN to $clusterIP"
+  fi
+  sleep "${SLEEP_SECONDS}"
+done
+
+#EOF
+`)
+
+func linuxCloudInitArtifactsReconcilePrivateHostsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsReconcilePrivateHostsSh, nil
+}
+
+func linuxCloudInitArtifactsReconcilePrivateHostsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsReconcilePrivateHostsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/reconcile-private-hosts.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsRsyslogD60CisConf = []byte(`# 4.2.1.2 Ensure logging is configured (Not Scored)
 *.emerg                            :omusrmsg:*
 mail.*                             -/var/log/mail
@@ -3153,6 +3223,28 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+{{end}}
+
+{{if and IsHostedMaster EnableHostsConfigAgent}}
+- path: /opt/azure/containers/reconcilePrivateHosts.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHosts"}}
+
+- path: /etc/systemd/system/reconcile-private-hosts.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Reconcile /etc/hosts file for private cluster
+    [Service]
+    Type=simple
+    Restart=on-failure
+    ExecStart=/bin/bash /opt/azure/containers/reconcilePrivateHosts.sh
+    [Install]
+    WantedBy=multi-user.target
 {{end}}
 
 - path: /etc/systemd/system/kubelet.service
@@ -5374,6 +5466,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/pam-d-su":                                  linuxCloudInitArtifactsPamDSu,
 	"linux/cloud-init/artifacts/profile-d-cis.sh":                          linuxCloudInitArtifactsProfileDCisSh,
 	"linux/cloud-init/artifacts/pwquality-CIS.conf":                        linuxCloudInitArtifactsPwqualityCisConf,
+	"linux/cloud-init/artifacts/reconcile-private-hosts.sh":                linuxCloudInitArtifactsReconcilePrivateHostsSh,
 	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
@@ -5470,6 +5563,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"pam-d-su":                                  &bintree{linuxCloudInitArtifactsPamDSu, map[string]*bintree{}},
 				"profile-d-cis.sh":                          &bintree{linuxCloudInitArtifactsProfileDCisSh, map[string]*bintree{}},
 				"pwquality-CIS.conf":                        &bintree{linuxCloudInitArtifactsPwqualityCisConf, map[string]*bintree{}},
+				"reconcile-private-hosts.sh":                &bintree{linuxCloudInitArtifactsReconcilePrivateHostsSh, map[string]*bintree{}},
 				"rsyslog-d-60-CIS.conf":                     &bintree{linuxCloudInitArtifactsRsyslogD60CisConf, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
 				"sshd_config":                               &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},

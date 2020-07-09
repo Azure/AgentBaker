@@ -139,6 +139,10 @@ configureCNI
 ensureDHCPv6
 {{end}}
 
+{{- if and IsHostedMaster EnableHostsConfigAgent}}
+configPrivateClusterHosts
+{{end}}
+
 ensureKubelet
 ensureJournal
 

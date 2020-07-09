@@ -23,6 +23,7 @@ func getCustomDataVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 			"dhcpv6ConfigurationScript": getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, cs, profile),
 			"kubeletSystemdService":     getBase64EncodedGzippedCustomScript(kubeletSystemdService, cs, profile),
 			"systemdBPFMount":           getBase64EncodedGzippedCustomScript(systemdBPFMount, cs, profile),
+			"reconcilePrivateHosts":     getBase64EncodedGzippedCustomScript(reconcilePrivateHosts, cs, profile),
 		},
 	}
 

@@ -58,6 +58,28 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
+{{if and IsHostedMaster EnableHostsConfigAgent}}
+- path: /opt/azure/containers/reconcilePrivateHosts.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHosts"}}
+
+- path: /etc/systemd/system/reconcile-private-hosts.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Reconcile /etc/hosts file for private cluster
+    [Service]
+    Type=simple
+    Restart=on-failure
+    ExecStart=/bin/bash /opt/azure/containers/reconcilePrivateHosts.sh
+    [Install]
+    WantedBy=multi-user.target
+{{end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
