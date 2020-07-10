@@ -23,11 +23,14 @@ func getCustomDataVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 			"dhcpv6ConfigurationScript": getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, cs, profile),
 			"kubeletSystemdService":     getBase64EncodedGzippedCustomScript(kubeletSystemdService, cs, profile),
 			"systemdBPFMount":           getBase64EncodedGzippedCustomScript(systemdBPFMount, cs, profile),
-			"initAKSCustomCloud":        getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, cs, profile),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
+	if cs.IsAKSCustomCloud() {
+		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, cs, profile)
+	}
+
 	if !cs.Properties.IsVHDDistroForAllNodes() {
 		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, cs, profile)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, cs, profile)
