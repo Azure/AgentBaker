@@ -269,6 +269,14 @@ write_files:
     [Service]
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
+
+- path: /etc/crictl.yaml
+  permissions: "0644"
+  owner: root
+  content: |
+    runtime-endpoint: unix:///run/containerd/containerd.sock
+    #EOF
+    
 {{if IsKubenet }}
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
