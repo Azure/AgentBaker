@@ -3,7 +3,7 @@
 set -o nounset
 set -o pipefail
 SLEEP_SECONDS=15
-clusterFQDN={{GetParameter "kubernetesEndpoint"}}
+clusterFQDN=${API_SERVER_NAME}
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0
@@ -16,9 +16,9 @@ function get-apiserver-ip-from-tags() {
     for i in "${tagList[@]}"; do
       tagKey=$(cut -d":" -f1 <<<$i)
       tagValue=$(cut -d":" -f2 <<<$i)
-      if [ "$tagKey" == "aksAPIServerIPAddress" ]; then
+      if echo $tagKey | grep -iq "^aksAPIServerIPAddress$"; then
         echo -n "$tagValue"
-        return
+        returb
       fi
     done
   fi

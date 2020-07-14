@@ -103,7 +103,9 @@ const (
 	systemdBPFMount                        = "linux/cloud-init/artifacts/sys-fs-bpf.mount"
 	etcdSystemdService                     = "linux/cloud-init/artifacts/etcd.service"
 	auditdRules                            = "linux/cloud-init/artifacts/auditd-rules"
-	reconcilePrivateHosts                  = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
+	reconcilePrivateHostsScript            = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
+	reconcilePrivateHostsService           = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
+
 	// scripts and service for enabling ipv6 dual stack
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"

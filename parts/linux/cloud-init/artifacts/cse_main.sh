@@ -139,7 +139,7 @@ configureCNI
 ensureDHCPv6
 {{end}}
 
-{{- if and IsHostedMaster EnableHostsConfigAgent}}
+{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
 {{end}}
 
