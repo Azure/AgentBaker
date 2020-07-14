@@ -216,7 +216,7 @@ EOF
     chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetKubeletConfigFile}}
+{{GetDynamicKubeletConfigFileContent}}
 EOF
     set -x
 {{- end}}
