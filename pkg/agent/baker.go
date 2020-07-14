@@ -260,6 +260,12 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
+		"FQDN": func() string {
+			if cs.Properties.HostedMasterProfile == nil {
+				return ""
+			}
+			return cs.Properties.HostedMasterProfile.FQDN
+		},
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
 		},
