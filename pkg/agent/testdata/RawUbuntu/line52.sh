@@ -29,9 +29,8 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 --container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock \
+        --v=2  \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        --config /etc/default/kubeletconfig.json --dynamic-config-dir /etc/default/dynamickubelet \
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
