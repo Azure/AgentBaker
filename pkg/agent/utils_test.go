@@ -40,7 +40,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
-	configFileStr := getKubeletConfigFileFromFlags(kc)
+	configFileStr := getDynamicKubeletConfigFileContent(kc)
 	diff := cmp.Diff(expectedJSON, configFileStr)
 	if diff != "" {
 		t.Errorf("Generated config file is different than expected: %s", diff)
