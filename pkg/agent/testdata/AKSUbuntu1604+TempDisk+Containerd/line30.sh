@@ -112,16 +112,12 @@ configureK8s() {
     set +x
     echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    {{/* Perform the required JSON escaping */}}
+    
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    {{- if IsAKSCustomCloud}}
-    "cloud": "AzureStackCloud",
-    {{- else}}
-    "cloud": "{{GetTargetEnvironment}}",
-    {{- end}}
+    "cloud": "AzurePublicCloud",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -166,79 +162,14 @@ EOF
     fi
 
     configureKubeletServerCert
-{{- if IsAKSCustomCloud}}
-    set +x
-    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/{{GetTargetEnvironment}}.json"
-    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-
-    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-{
-    "name": "{{GetTargetEnvironment}}",
-    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
-    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
-    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
-    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
-    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
-    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
-    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
-    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
-    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
-    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
-    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
-    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
-    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
-    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
-    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
-    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
-    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
-    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
-    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
-    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
-    "resourceIdentifiers": {
-        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
-        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
-        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
-        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
-        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
-        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
-    }
-}
-EOF
-    set -x
-{{end}}
-
-{{- if IsDynamicKubeletSupported}}
-    set +x
-    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
-    touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
-    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetDynamicKubeletConfigFileContent}}
-EOF
-    set -x
-{{- end}}
 }
 
 configureCNI() {
-    {{/* needed for the iptables rules to work on bridges */}}
+    
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
-    {{if HasCiliumNetworkPlugin}}
-    systemctl enable sys-fs-bpf.mount
-    systemctl restart sys-fs-bpf.mount
-    REBOOTREQUIRED=true
-    {{end}}
-{{- if IsAzureStackCloud}}
-    if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
-        {{/* set environment to mas when using Azure CNI on Azure Stack */}}
-        {{/* shellcheck disable=SC2002,SC2005 */}}
-        echo $(cat "$CNI_CONFIG_DIR/10-azure.conflist" | jq '.plugins[0].ipam.environment = "mas"') > "$CNI_CONFIG_DIR/10-azure.conflist"
-    fi
-{{end}}
+    
 }
 
 configureCNIIPTables() {
@@ -258,23 +189,20 @@ ensureContainerRuntime() {
     if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
         ensureDocker
     fi
-    {{if NeedsContainerd}}
+    
         ensureContainerd
-    {{end}}
+    
 }
 
-{{if NeedsContainerd}}
+
 ensureContainerd() {
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  {{if IsKubenet }}
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
-  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  {{end}}
+  
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
+
 
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
@@ -296,7 +224,7 @@ ensureDocker() {
         fi
     done
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
-    {{/* Delay start of docker-monitor for 30 mins after booting */}}
+    
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
@@ -304,20 +232,9 @@ ensureDocker() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
-{{if IsIPv6DualStackFeatureEnabled}}
-ensureDHCPv6() {
-    wait_for_file 3600 1 {{GetDHCPv6ServiceCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 3600 1 {{GetDHCPv6ConfigCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
-    retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
-}
-{{end}}
+
+
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
@@ -327,21 +244,9 @@ ensureKubelet() {
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-    {{if HasCiliumNetworkPolicy}}
-    while [ ! -f /etc/cni/net.d/05-cilium.conf ]; do
-        sleep 3
-    done
-    {{end}}
-    {{if HasAntreaNetworkPolicy}}
-    while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
-        sleep 3
-    done
-    {{end}}
-    {{if HasFlannelNetworkPlugin}}
-    while [ ! -f /etc/cni/net.d/10-flannel.conf ]; do
-        sleep 3
-    done
-    {{end}}
+    
+    
+    
 }
 
 ensureLabelNodes() {
@@ -438,93 +343,5 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
-installGPUDriversRun() {
-    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
-    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
-    if yes please help remove the clean up logic here too */}}
-    set -x
-    MODULE_NAME="nvidia"
-    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
-    KERNEL_NAME=$(uname -r)
-    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
-        if [ -x "$(command -v dkms)" ]; then
-          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
-        else
-          rm -rf "${NVIDIA_DKMS_DIR}"
-        fi
-    fi
-    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
-    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
-    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
-        installGPUDrivers
-    fi
-    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
-        -k=$KERNEL_NAME \
-        --log-file-name=${log_file_name} \
-        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
-    exit $?
-}
 
-configGPUDrivers() {
-    {{/* only install the runtime since nvidia-docker2 has a hard dep on docker CE packages. */}}
-    {{/* we will manually install nvidia-docker2 */}}
-    rmmod nouveau
-    echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    {{/* if the unattened upgrade is turned on, and it may takes 10 min to finish the installation, and we use the 1 second just to try to get the lock more aggressively */}}
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      wait_for_apt_locks
-      dpkg-deb -R ./nvidia-docker2*.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-      cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    )
-    rm -rf $GPU_DEST/tmp
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
-    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    export -f installGPUDriversRun
-    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
-    mv ${GPU_DEST}/bin/* /usr/bin
-    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-    umount -l /usr/lib/x86_64-linux-gnu
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-}
-
-validateGPUDrivers() {
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    which nvidia-smi
-    if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
-    else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
-    fi
-    SMI_STATUS=$?
-    if [[ $SMI_STATUS != 0 ]]; then
-        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
-            exit $ERR_GPU_INFO_ROM_CORRUPTED
-        else
-            exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
-    else
-        echo "gpu driver working fine"
-    fi
-}
-
-ensureGPUDrivers() {
-    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
-    else
-        validateGPUDrivers
-    fi
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
-}
-{{end}}
 #EOF
