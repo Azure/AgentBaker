@@ -62,11 +62,7 @@ func NewRootCmd() *cobra.Command {
 	f := rootCmd.Flags()
 	f.BoolVar(&dumpDefaultModel, "show-default-model", false, "Dump the default API model to stdout")
 
-	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newGenerateCmd())
-	rootCmd.AddCommand(newGetVersionsCmd())
-	rootCmd.AddCommand(newOrchestratorsCmd())
-	rootCmd.AddCommand(getCompletionCmd(rootCmd))
 
 	return rootCmd
 }
