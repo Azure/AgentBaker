@@ -19,6 +19,11 @@ import (
 	"github.com/Azure/aks-engine/pkg/i18n"
 )
 
+// Context represents the object that is passed to the package
+type Context struct {
+	Translator *i18n.Translator
+}
+
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct {
 	Translator *i18n.Translator
@@ -227,20 +232,11 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		"GetAgentKubernetesLabelsDeprecated": func(profile *api.AgentPoolProfile, rg string) string {
 			return profile.GetKubernetesLabels(rg, true)
 		},
-		"GetDynamicKubeletConfigFileContent": func() string {
-			if profile.KubernetesConfig == nil {
-				return ""
-			}
-			return getDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig)
-		},
-		"IsDynamicKubeletSupported": func() bool {
-			return IsDynamicKubeletSupported(cs)
-		},
 		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
-			return GetOrderedKubeletConfigFlagString(kc, cs)
+			return kc.GetOrderedKubeletConfigString()
 		},
 		"GetKubeletConfigKeyValsPsh": func(kc *api.KubernetesConfig) string {
 			if kc == nil {

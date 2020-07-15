@@ -8,13 +8,12 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/go-playground/universal-translator v0.17.0 // indirect
-	github.com/google/go-cmp v0.4.0
 	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/leonelquinteros/gotext v1.4.0
 	github.com/mattn/go-colorable v0.0.9
-	github.com/onsi/ginkgo v1.12.2
+	github.com/onsi/ginkgo v1.12.2 // indirect
 	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0

@@ -656,18 +656,6 @@ EOF
 EOF
     set -x
 {{end}}
-
-{{- if IsDynamicKubeletSupported}}
-    set +x
-    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
-    touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
-    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetDynamicKubeletConfigFileContent}}
-EOF
-    set -x
-{{- end}}
 }
 
 configureCNI() {
@@ -2328,10 +2316,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsDynamicKubeletSupported}}
-        --config /etc/default/kubeletconfig.json --dynamic-config-dir /etc/default/dynamickubelet \
-        {{- end}}
-        $KUBELET_FLAGS \
+        $KUBELET_CONFIG \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
 [Install]
@@ -3453,7 +3438,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig }}
+    KUBELET_CONFIG={{GetKubeletConfigKeyVals .KubernetesConfig }}
     KUBELET_REGISTER_SCHEDULABLE=true
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
