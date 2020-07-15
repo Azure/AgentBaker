@@ -115,14 +115,6 @@ build-cross: LDFLAGS += -extldflags "-static"
 build-cross:
 	CGO_ENABLED=0 gox -output="_dist/baker-$(GITTAG)-{{.OS}}-{{.Arch}}/{{.Dir}}" -osarch='$(TARGETS)' $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)'
 
-.PHONY: build-windows-k8s
-build-windows-k8s:
-	./scripts/build-windows-k8s.sh -v $(K8S_VERSION) -p $(PATCH_VERSION)
-
-.PHONY: build-azs-windows-k8s
-build-azs-windows-k8s:
-	./scripts/build-windows-k8s.sh -v $(K8S_VERSION) -p $(PATCH_VERSION) -a $(BUILD_AZURE_STACK)
-
 .PHONY: dist
 dist: build-cross compress-binaries
 	( \
@@ -163,8 +155,8 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: generate ginkgoBuild
-	ginkgo -mod=vendor -skipPackage test/e2e -failFast -r -v -tags=fast .
+test: generate
+	go test ./...
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
