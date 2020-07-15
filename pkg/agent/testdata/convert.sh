@@ -13,5 +13,6 @@ for i in $lineNumber; do
 c=$((i+1));
 #echo "Working on line $c";
 z=`sed -n ${c}p $file`
-echo $z | base64 -d | gunzip > $1/line${c}.sh
+
+echo $z | base64 --decode | gunzip > $1/line${c}.sh
 done
