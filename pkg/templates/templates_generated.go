@@ -2790,10 +2790,6 @@ set -o nounset
 set -o pipefail
 SLEEP_SECONDS=15
 clusterFQDN="{{FQDN}}"
-echo "clusterFQDN: $clusterFQDN"
-clusterFQDN1="{{kubernetesEndpoint}}"
-echo "clusterFQDN1: $clusterFQDN1"
-
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0
@@ -2808,7 +2804,7 @@ function get-apiserver-ip-from-tags() {
       tagValue=$(cut -d":" -f2 <<<$i)
       if echo $tagKey | grep -iq "^aksAPIServerIPAddress$"; then
         echo -n "$tagValue"
-        returb
+        return
       fi
     done
   fi
@@ -2821,8 +2817,8 @@ while true; do
     sleep "${SLEEP_SECONDS}"
     continue
   fi
-  if grep "$clusterIP $clusterFQDN" /etc/hosts; then
-    echo "$clusterFQDN has already been set to $clusterIP"
+  if grep -q "$clusterIP $clusterFQDN" /etc/hosts; then
+    echo -n ""
   else
     sudo sed -i "/$clusterFQDN/d" /etc/hosts
     sudo sed -i "\$a$clusterIP $clusterFQDN" /etc/hosts
