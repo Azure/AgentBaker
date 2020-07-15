@@ -234,7 +234,7 @@ func (gc *generateCmd) run() error {
 
 	customDataStr := templateGenerator.GetNodeBootstrappingPayload(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
 
-	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0], "<tenantid>", "<subid>", "rgname", "msiid")
+	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0], "<tenantid>", "<subid>", "rgname", "msiid", true, false)
 
 	writer := &engine.ArtifactWriter{
 		Translator: &i18n.Translator{
