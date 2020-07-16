@@ -415,24 +415,36 @@ done
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+# below are the required to support versions
+# v1.15.11-hotfix.20200714.1
+# v1.15.12-hotfix.20200714.1
+# v1.16.10-hotfix.20200714.1
+# v1.16.13-hotfix.20200714.1
+# v1.17.7-hotfix.20200714.1
+# v1.17.9-hotfix.20200714.1
+# v1.18.4-hotfix.20200624.1
+# v1.18.6
 K8S_VERSIONS="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
-1.15.11-hotfix.20200529.1
-1.15.12-hotfix.20200623.1
+1.15.11-hotfix.20200714.1
+1.15.12-hotfix.20200714.1
 1.16.7-hotfix.20200601.1
 1.16.8.1
 1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200623.1
+1.16.10-hotfix.20200714.1
+1.16.13-hotfix.20200714.1
 1.17.3-hotfix.20200601.1
 1.17.4.1
 1.17.5.1
-1.17.7-hotfix.20200624
+1.17.7-hotfix.20200714.1
+1.17.9-hotfix.20200714.1
 1.18.1.1
 1.18.2-hotfix.20200624
-1.18.4-hotfix.20200624
+1.18.4-hotfix.20200624.1
+1.18.6
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
@@ -452,37 +464,40 @@ ls -ltr /usr/local/bin >> ${VHD_LOGS_FILEPATH}
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# 1.15.11-hotfix.20200529.1
-# 1.15.12-hotfix.20200623.1
-# 1.16.8.1
-# 1.16.10-hotfix.20200623.1
-# 1.17.7-hotfix.20200624
-# 1.18.2-hotfix.20200624
-# 1.18.4-hotfix.20200624
+# v1.15.11-hotfix.20200714.1
+# v1.15.12-hotfix.20200714.1
+# v1.16.10-hotfix.20200714.1
+# v1.16.13-hotfix.20200714.1
+# v1.17.7-hotfix.20200714.1
+# v1.17.9-hotfix.20200714.1
+# v1.18.4-hotfix.20200624.1
+# v1.18.6
 PATCHED_HYPERKUBE_IMAGES="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
-1.15.11-hotfix.20200529.2
+1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200623.1
-1.15.12-hotfix.20200623.2
+1.15.12-hotfix.20200714.1
 1.16.7-hotfix.20200601.1
 1.16.8.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200623.1
-1.16.10-hotfix.20200623.2
+1.16.10-hotfix.20200714.1
+1.16.13-hotfix.20200714.1
 1.17.3-hotfix.20200601.1
 1.17.4.1
 1.17.5.1
 1.17.7-hotfix.20200624
-1.17.7-hotfix.20200624.1
+1.17.7-hotfix.20200714.1
+1.17.9-hotfix.20200714.1
 1.18.1.1
 1.18.2-hotfix.20200624
-1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200624
 1.18.4-hotfix.20200624.1
+1.18.6
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
