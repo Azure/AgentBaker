@@ -15,7 +15,7 @@ import (
 )
 
 var _ = Describe("Assert generated customData and cseCmd", func() {
-	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, containerServiceUpdator func(*api.ContainerService)) {
+	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*NodeBootstrappingConfiguration)) {
 		cs := &api.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -43,34 +43,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						AvailabilityProfile: api.VirtualMachineScaleSets,
 						KubernetesConfig: &api.KubernetesConfig{
 							KubeletConfig: map[string]string{
-								"--address":                           "0.0.0.0",
-								"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-								"--cluster-domain":                    "cluster.local",
-								"--cluster-dns":                       "10.0.0.10",
-								"--cgroups-per-qos":                   "true",
-								"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-								"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-								"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
-								"--max-pods":                          "110",
-								"--node-status-update-frequency":      "10s",
-								"--image-gc-high-threshold":           "85",
-								"--image-gc-low-threshold":            "80",
-								"--event-qps":                         "0",
-								"--pod-max-pids":                      "-1",
-								"--enforce-node-allocatable":          "pods",
-								"--streaming-connection-idle-timeout": "4h0m0s",
-								"--rotate-certificates":               "true",
-								"--read-only-port":                    "10255",
-								"--protect-kernel-defaults":           "true",
-								"--resolv-conf":                       "/etc/resolv.conf",
-								"--anonymous-auth":                    "false",
-								"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-								"--authentication-token-webhook":      "true",
-								"--authorization-mode":                "Webhook",
-								"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-								"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
-								"--system-reserved":                   "cpu=2,memory=1Gi",
-								"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+								"--feature-gates": "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
 							},
 						},
 						Distro: api.AKSUbuntu1604,
@@ -95,17 +68,29 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage = fmt.Sprintf("k8s.gcr.io/hyperkube-amd64:v%v", k8sVersion)
 		}
 
-		if containerServiceUpdator != nil {
-			containerServiceUpdator(cs)
-		}
-
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 		baker := InitializeTemplateGenerator()
+
+		config := &NodeBootstrappingConfiguration{
+			ContainerService:              cs,
+			AgentPoolProfile:              agentPool,
+			TenantID:                      "tenantID",
+			SubscriptionID:                "subID",
+			ResourceGroupName:             "resourceGroupName",
+			UserAssignedIdentityClientID:  "userAssignedID",
+			ConfigGPUDriverIfNeeded:       true,
+			EnableGPUDevicePluginIfNeeded: false,
+			EnableDynamicKubelet:          false,
+		}
+
+		if configUpdator != nil {
+			configUpdator(config)
+		}
 
 		// customData
 		customData := baker.GetNodeBootstrappingPayload(cs, agentPool)
 		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
-		// backfillCustomData(folder, customData)
+		backfillCustomData(folder, customData)
 		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		if err != nil {
 			panic(err)
@@ -113,10 +98,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
-		cseCommand := baker.GetNodeBootstrappingCmd(cs, agentPool,
-			"tenantID", "subID", "resourceGroupName", "userAssignedID", true, true)
+		cseCommand := baker.GetNodeBootstrappingCmd(config)
 		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
-		// ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+		ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		if err != nil {
 			panic(err)
@@ -126,29 +110,29 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
-		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(cs *api.ContainerService) {
-			cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					common.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
 		}),
-		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(cs *api.ContainerService) {
-			cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					common.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
-			cs.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: api.Containerd,
 			}
 		}),
-		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(cs *api.ContainerService) {
-			// cs.Properties.OrchestratorProfile.KubernetesConfig = nil
-			cs.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
+		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			// config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = nil
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
 		}),
-		Entry("AKSUbuntu1604 with AKSCustomCloud", "AKSUbuntu1604+AKSCustomCloud", "1.15.7", func(cs *api.ContainerService) {
+		Entry("AKSUbuntu1604 with AKSCustomCloud", "AKSUbuntu1604+AKSCustomCloud", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			// cs.Properties.OrchestratorProfile.KubernetesConfig = nil
 			cs.Location = "usnat"
 		}),
@@ -158,6 +142,45 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			} else {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
+			config.ContainerService.Location = "usnat"
+		}),
+		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntuGPU1804
+			config.ConfigGPUDriverIfNeeded = false
+			config.EnableGPUDevicePluginIfNeeded = true
+		}),
+		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig = map[string]string{
+				"--address":                           "0.0.0.0",
+				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+				"--cluster-domain":                    "cluster.local",
+				"--cluster-dns":                       "10.0.0.10",
+				"--cgroups-per-qos":                   "true",
+				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+				"--max-pods":                          "110",
+				"--node-status-update-frequency":      "10s",
+				"--image-gc-high-threshold":           "85",
+				"--image-gc-low-threshold":            "80",
+				"--event-qps":                         "0",
+				"--pod-max-pids":                      "-1",
+				"--enforce-node-allocatable":          "pods",
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--rotate-certificates":               "true",
+				"--read-only-port":                    "10255",
+				"--protect-kernel-defaults":           "true",
+				"--resolv-conf":                       "/etc/resolv.conf",
+				"--anonymous-auth":                    "false",
+				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+				"--authentication-token-webhook":      "true",
+				"--authorization-mode":                "Webhook",
+				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+				"--system-reserved":                   "cpu=2,memory=1Gi",
+				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+			}
+			config.EnableDynamicKubelet = true
 		}))
 })
 

@@ -843,14 +843,14 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.ContainerService) string {
+func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.ContainerService, toggle interface{}) string {
 	if k.KubeletConfig == nil {
 		return ""
 	}
 	keys := []string{}
-	dynamicKubeletSupported := IsDynamicKubeletSupported(cs)
+	dynamicKubeletEnabled := IsDynamicKubeletEnabled(cs, toggle)
 	for key := range k.KubeletConfig {
-		if !dynamicKubeletSupported || !TranslatedKubeletConfigFlags[key] {
+		if !dynamicKubeletEnabled || !TranslatedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -862,11 +862,11 @@ func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.Containe
 	return buf.String()
 }
 
-// IsDynamicKubeletSupported get if dynamic kubelet is supported in AKS
-func IsDynamicKubeletSupported(cs *api.ContainerService) bool {
-	// TODO(bowa) fix this after we figure out how to pass toggle value from RP
-	return false
-	// return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+// IsDynamicKubeletEnabled get if dynamic kubelet is supported in AKS
+func IsDynamicKubeletEnabled(cs *api.ContainerService, toggle interface{}) bool {
+	// TODO(bowa) remove this when backfill toggle value
+	enabled, _ := toggle.(bool)
+	return enabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
 }
 
 // convert kubelet flags we set to a file

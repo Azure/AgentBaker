@@ -84,23 +84,25 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
-func (t *TemplateGenerator) GetNodeBootstrappingCmd(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string, configGPUDriverIfNeeded, enableGPUDevicePluginIfNeeded bool) string {
-	if profile.IsWindows() {
-		return t.getWindowsNodeCustomDataJSONObject(cs, profile)
+func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return t.getWindowsNodeCustomDataJSONObject(config.ContainerService, config.AgentPoolProfile)
 	}
-	return t.getLinuxNodeCSECommand(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID, configGPUDriverIfNeeded, enableGPUDevicePluginIfNeeded)
+	return t.getLinuxNodeCSECommand(config)
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
-func (t *TemplateGenerator) getLinuxNodeCSECommand(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID string, configGPUDriverIfNeeded, enableGPUDevicePluginIfNeeded bool) string {
+func (t *TemplateGenerator) getLinuxNodeCSECommand(config *NodeBootstrappingConfiguration) string {
 	//get parameters
-	parameters := getParameters(cs, profile, "", "")
+	parameters := getParameters(config.ContainerService, config.AgentPoolProfile, "", "")
 	//get variable
-	variables := getCSECommandVariables(cs, profile, tenantID, subscriptionID, resourceGroupName, userAssignedIdentityClientID, configGPUDriverIfNeeded, enableGPUDevicePluginIfNeeded)
+	variables := getCSECommandVariables(config)
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
-	str, e := t.getSingleLine(kubernetesCSECommandString, profile, t.getBakerFuncMap(cs, profile, parameters, variables))
+	str, e := t.getSingleLine(
+		kubernetesCSECommandString,
+		config.AgentPoolProfile,
+		t.getBakerFuncMap(config.ContainerService, config.AgentPoolProfile, parameters, variables),
+	)
 
 	if e != nil {
 		panic(e)
@@ -233,14 +235,14 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 			}
 			return getDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig)
 		},
-		"IsDynamicKubeletSupported": func() bool {
-			return IsDynamicKubeletSupported(cs)
+		"IsDynamicKubeletEnabled": func(toggle interface{}) bool {
+			return IsDynamicKubeletEnabled(cs, toggle)
 		},
-		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig) string {
+		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig, toggle interface{}) string {
 			if kc == nil {
 				return ""
 			}
-			return GetOrderedKubeletConfigFlagString(kc, cs)
+			return GetOrderedKubeletConfigFlagString(kc, cs, toggle)
 		},
 		"GetKubeletConfigKeyValsPsh": func(kc *api.KubernetesConfig) string {
 			if kc == nil {

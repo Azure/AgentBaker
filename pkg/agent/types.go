@@ -1,5 +1,7 @@
 package agent
 
+import "github.com/Azure/aks-engine/pkg/api"
+
 // KeyVaultID represents a KeyVault instance on Azure
 type KeyVaultID struct {
 	ID string `json:"id"`
@@ -10,6 +12,19 @@ type KeyVaultRef struct {
 	KeyVault      KeyVaultID `json:"keyVault"`
 	SecretName    string     `json:"secretName"`
 	SecretVersion string     `json:"secretVersion,omitempty"`
+}
+
+// NodeBootstrappingConfiguration represents configurations used to generate CSE for node
+type NodeBootstrappingConfiguration struct {
+	ContainerService              *api.ContainerService
+	AgentPoolProfile              *api.AgentPoolProfile
+	TenantID                      string
+	SubscriptionID                string
+	ResourceGroupName             string
+	UserAssignedIdentityClientID  string
+	ConfigGPUDriverIfNeeded       bool
+	EnableGPUDevicePluginIfNeeded bool
+	EnableDynamicKubelet          bool
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set

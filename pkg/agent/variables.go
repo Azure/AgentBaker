@@ -51,13 +51,14 @@ func getCustomDataVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 	return cloudInitFiles
 }
 
-func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProfile,
-	tenantID, subscriptionID, resourceGroupName, userAssignedIdentityID string, configGPUDriverIfNeeded, enableGPUDevicePluginIfNeeded bool) paramsMap {
+func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
 	return map[string]interface{}{
 		"outBoundCmd":                     getOutBoundCmd(cs),
-		"tenantID":                        tenantID,
-		"subscriptionId":                  subscriptionID,
-		"resourceGroup":                   resourceGroupName,
+		"tenantID":                        config.TenantID,
+		"subscriptionId":                  config.SubscriptionID,
+		"resourceGroup":                   config.ResourceGroupName,
 		"location":                        cs.Location,
 		"vmType":                          cs.Properties.GetVMType(),
 		"subnetName":                      cs.Properties.GetSubnetName(),
@@ -72,13 +73,14 @@ func getCSECommandVariables(cs *api.ContainerService, profile *api.AgentPoolProf
 		"loadBalancerSku":                 cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
 		"excludeMasterFromStandardLB":     true,
 		"maximumLoadBalancerRuleCount":    getMaximumLoadBalancerRuleCount(cs),
-		"userAssignedIdentityID":          userAssignedIdentityID,
+		"userAssignedIdentityID":          config.UserAssignedIdentityClientID,
 		"isVHD":                           isVHD(profile),
 		"gpuNode":                         strconv.FormatBool(common.IsNvidiaEnabledSKU(profile.VMSize)),
 		"sgxNode":                         strconv.FormatBool(common.IsSgxEnabledSKU(profile.VMSize)),
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
-		"configGPUDriverIfNeeded":         configGPUDriverIfNeeded,
-		"enableGPUDevicePluginIfNeeded":   enableGPUDevicePluginIfNeeded,
+		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
+		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
+		"enableDynamicKubelet":            config.EnableDynamicKubelet,
 	}
 }
 

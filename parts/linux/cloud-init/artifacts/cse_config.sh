@@ -215,7 +215,7 @@ EOF
     set -x
 {{end}}
 
-{{- if IsDynamicKubeletSupported}}
+{{- if IsDynamicKubeletEnabled}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
