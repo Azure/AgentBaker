@@ -524,7 +524,7 @@ configureSecrets(){
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
+{{- end}}
 
 ensureRPC() {
     systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
@@ -1779,7 +1779,7 @@ ensureDHCPv6
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
-{{end}}
+{{- end}}
 
 ensureKubelet
 ensureJournal
@@ -2784,18 +2784,12 @@ func linuxCloudInitArtifactsReconcilePrivateHostsService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsReconcilePrivateHostsSh = []byte(`#!/usr/bin/env bash
+var _linuxCloudInitArtifactsReconcilePrivateHostsSh = []byte(`#!/bin/bash
 
 set -o nounset
 set -o pipefail
-SLEEP_SECONDS=15
-clusterFQDN="{{FQDN}}"
-if [[ $clusterFQDN != *.privatelink.* ]]; then
-  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
-  exit 0
-fi
-echo "clusterFQDN: $clusterFQDN"
-function get-apiserver-ip-from-tags() {
+
+get-apiserver-ip-from-tags() {
   tags=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text")
   if [ "$?" == "0" ]; then
     IFS=";" read -ra tagList <<< "$tags"
@@ -2811,6 +2805,14 @@ function get-apiserver-ip-from-tags() {
   echo -n ""
 }
 
+SLEEP_SECONDS=15
+clusterFQDN="{{FQDN}}"
+if [[ $clusterFQDN != *.privatelink.* ]]; then
+  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
+  exit 0
+fi
+echo "clusterFQDN: $clusterFQDN"
+
 while true; do
   clusterIP=$(get-apiserver-ip-from-tags)
   if [ -z $clusterIP ]; then
@@ -2821,7 +2823,7 @@ while true; do
     echo -n ""
   else
     sudo sed -i "/$clusterFQDN/d" /etc/hosts
-    sudo sed -i "\$a$clusterIP $clusterFQDN" /etc/hosts
+    echo "$clusterIP $clusterFQDN" | sudo tee -a /etc/hosts > /dev/null
     echo "Updated $clusterFQDN to $clusterIP"
   fi
   sleep "${SLEEP_SECONDS}"
@@ -3252,7 +3254,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
-{{if EnableHostsConfigAgent}}
+{{- if EnableHostsConfigAgent}}
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -3266,7 +3268,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-{{end}}
+{{- end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"

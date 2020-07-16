@@ -141,7 +141,7 @@ ensureDHCPv6
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
-{{end}}
+{{- end}}
 
 ensureKubelet
 ensureJournal
