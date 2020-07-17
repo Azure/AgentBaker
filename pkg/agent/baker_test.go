@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
+	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -42,7 +43,34 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						AvailabilityProfile: api.VirtualMachineScaleSets,
 						KubernetesConfig: &api.KubernetesConfig{
 							KubeletConfig: map[string]string{
-								"--feature-gates": "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+								"--address":                           "0.0.0.0",
+								"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+								"--cluster-domain":                    "cluster.local",
+								"--cluster-dns":                       "10.0.0.10",
+								"--cgroups-per-qos":                   "true",
+								"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+								"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+								"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+								"--max-pods":                          "110",
+								"--node-status-update-frequency":      "10s",
+								"--image-gc-high-threshold":           "85",
+								"--image-gc-low-threshold":            "80",
+								"--event-qps":                         "0",
+								"--pod-max-pids":                      "-1",
+								"--enforce-node-allocatable":          "pods",
+								"--streaming-connection-idle-timeout": "4h0m0s",
+								"--rotate-certificates":               "true",
+								"--read-only-port":                    "10255",
+								"--protect-kernel-defaults":           "true",
+								"--resolv-conf":                       "/etc/resolv.conf",
+								"--anonymous-auth":                    "false",
+								"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+								"--authentication-token-webhook":      "true",
+								"--authorization-mode":                "Webhook",
+								"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+								"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+								"--system-reserved":                   "cpu=2,memory=1Gi",
+								"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 							},
 						},
 						Distro: api.AKSUbuntu1604,
@@ -128,8 +156,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			// config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = nil
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
+		}),
+		Entry("AKSUbuntu1604 EnableHostsConfigAgent", "AKSUbuntu1604+EnableHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
+			cs := config.ContainerService
+			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+			} else {
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
+			}
 		}),
 		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntuGPU1804
@@ -138,36 +173,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableGPUDevicePluginIfNeeded = true
 		}),
 		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig = map[string]string{
-				"--address":                           "0.0.0.0",
-				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-				"--cluster-domain":                    "cluster.local",
-				"--cluster-dns":                       "10.0.0.10",
-				"--cgroups-per-qos":                   "true",
-				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
-				"--max-pods":                          "110",
-				"--node-status-update-frequency":      "10s",
-				"--image-gc-high-threshold":           "85",
-				"--image-gc-low-threshold":            "80",
-				"--event-qps":                         "0",
-				"--pod-max-pids":                      "-1",
-				"--enforce-node-allocatable":          "pods",
-				"--streaming-connection-idle-timeout": "4h0m0s",
-				"--rotate-certificates":               "true",
-				"--read-only-port":                    "10255",
-				"--protect-kernel-defaults":           "true",
-				"--resolv-conf":                       "/etc/resolv.conf",
-				"--anonymous-auth":                    "false",
-				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-				"--authentication-token-webhook":      "true",
-				"--authorization-mode":                "Webhook",
-				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
-				"--system-reserved":                   "cpu=2,memory=1Gi",
-				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-			}
 			config.EnableDynamicKubelet = true
 		}))
 })
