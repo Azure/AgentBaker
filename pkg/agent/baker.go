@@ -260,6 +260,12 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
+		"GetKubernetesEndpoint": func() string {
+			if cs.Properties.HostedMasterProfile == nil {
+				return ""
+			}
+			return cs.Properties.HostedMasterProfile.FQDN
+		},
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
 		},
@@ -274,6 +280,11 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		},
 		"IsPrivateCluster": func() bool {
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
+		},
+		"EnableHostsConfigAgent": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
+				to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
 		},
 		"ProvisionJumpbox": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision()
