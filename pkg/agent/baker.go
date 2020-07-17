@@ -34,22 +34,22 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 }
 
 // GetNodeBootstrappingPayload get node bootstrapping data
-func (t *TemplateGenerator) GetNodeBootstrappingPayload(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
-	if profile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(cs, profile))
+func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
 	}
-	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(cs, profile))
+	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
 	//get parameters
-	parameters := getParameters(cs, profile, "baker", "1.0")
+	parameters := getParameters(config, "baker", "1.0")
 	//get variable cloudInit
-	variables := getCustomDataVariables(cs, profile)
+	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		profile, t.getBakerFuncMap(cs, profile, parameters, variables))
+		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -60,13 +60,15 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(cs *api.ContainerSe
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
 	//get parameters
-	parameters := getParameters(cs, nil, "", "")
+	parameters := getParameters(config, "", "")
 	//get variable cloudInit
-	variables := getCustomDataVariables(cs, profile)
+	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		profile, t.getBakerFuncMap(cs, nil, parameters, variables))
+		profile, t.getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -86,7 +88,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(cs *api.Container
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return t.getWindowsNodeCustomDataJSONObject(config.ContainerService, config.AgentPoolProfile)
+		return t.getWindowsNodeCustomDataJSONObject(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -94,14 +96,14 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingCon
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *NodeBootstrappingConfiguration) string {
 	//get parameters
-	parameters := getParameters(config.ContainerService, config.AgentPoolProfile, "", "")
+	parameters := getParameters(config, "", "")
 	//get variable
 	variables := getCSECommandVariables(config)
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config.ContainerService, config.AgentPoolProfile, parameters, variables),
+		t.getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -149,8 +151,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, profile *api.AgentPoolProfile, params paramsMap, variables paramsMap) template.FuncMap {
-	funcMap := getContainerServiceFuncMap(cs, profile)
+func (t *TemplateGenerator) getBakerFuncMap(config *NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
@@ -200,7 +202,12 @@ func (t *TemplateGenerator) getBakerFuncMap(cs *api.ContainerService, profile *a
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
-func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPoolProfile) template.FuncMap {
+func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template.FuncMap {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	if profile.IsWindows() {
+		profile = nil
+	}
 	return template.FuncMap{
 		"IsAzureStackCloud": func() bool {
 			return cs.Properties.IsAzureStackCloud()
@@ -235,14 +242,14 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 			}
 			return getDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig)
 		},
-		"IsDynamicKubeletEnabled": func(toggle interface{}) bool {
-			return IsDynamicKubeletEnabled(cs, toggle)
+		"IsDynamicKubeletEnabled": func() bool {
+			return IsDynamicKubeletEnabled(cs, config.EnableDynamicKubelet)
 		},
-		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig, toggle interface{}) string {
+		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
-			return GetOrderedKubeletConfigFlagString(kc, cs, toggle)
+			return GetOrderedKubeletConfigFlagString(kc, cs, config.EnableDynamicKubelet)
 		},
 		"GetKubeletConfigKeyValsPsh": func(kc *api.KubernetesConfig) string {
 			if kc == nil {

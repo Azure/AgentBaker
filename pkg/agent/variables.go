@@ -11,41 +11,42 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getCustomDataVariables(cs *api.ContainerService, profile *api.AgentPoolProfile) paramsMap {
+func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
+	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs, profile),
-			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, cs, profile),
-			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, cs, profile),
-			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, cs, profile),
-			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, cs, profile),
-			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, cs, profile),
-			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, cs, profile),
-			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, cs, profile),
-			"systemdBPFMount":              getBase64EncodedGzippedCustomScript(systemdBPFMount, cs, profile),
-			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, cs, profile),
-			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, cs, profile),
+			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
+			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"systemdBPFMount":              getBase64EncodedGzippedCustomScript(systemdBPFMount, config),
+			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, cs, profile)
+		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
-		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, cs, profile)
-		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, cs, profile)
-		cloudInitData["labelNodesScript"] = getBase64EncodedGzippedCustomScript(labelNodesScript, cs, profile)
-		cloudInitData["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, cs, profile)
-		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, cs, profile)
-		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, cs, profile)
-		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, cs, profile)
-		cloudInitData["dockerMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, cs, profile)
-		cloudInitData["dockerMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, cs, profile)
-		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, cs, profile)
-		cloudInitData["auditdRules"] = getBase64EncodedGzippedCustomScript(auditdRules, cs, profile)
-		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, cs, profile)
+		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
+		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
+		cloudInitData["labelNodesScript"] = getBase64EncodedGzippedCustomScript(labelNodesScript, config)
+		cloudInitData["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, config)
+		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
+		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
+		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
+		cloudInitData["dockerMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, config)
+		cloudInitData["dockerMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, config)
+		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
+		cloudInitData["auditdRules"] = getBase64EncodedGzippedCustomScript(auditdRules, config)
+		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
 	return cloudInitFiles

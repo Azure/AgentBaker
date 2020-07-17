@@ -88,7 +88,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		// customData
-		customData := baker.GetNodeBootstrappingPayload(cs, agentPool)
+		customData := baker.GetNodeBootstrappingPayload(config)
 		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
 		backfillCustomData(folder, customData)
 		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
@@ -146,6 +146,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}),
 		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntuGPU1804
+			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true
 		}),
