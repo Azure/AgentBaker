@@ -8,7 +8,6 @@ import (
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
-	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -131,18 +130,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			// config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = nil
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
-		}),
-		Entry("AKSUbuntu1604 with AKSCustomCloud", "AKSUbuntu1604+AKSCustomCloud", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			// cs.Properties.OrchestratorProfile.KubernetesConfig = nil
-			cs.Location = "usnat"
-		}),
-		Entry("AKSUbuntu1604 EnableHostsConfigAgent", "AKSUbuntu1604+EnableHostsConfigAgent", "1.18.2", func(cs *api.ContainerService) {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
-			} else {
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
-			}
-			config.ContainerService.Location = "usnat"
 		}),
 		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntuGPU1804
