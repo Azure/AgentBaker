@@ -357,10 +357,6 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 			}
 		}
 
-		if properties.HostedMasterProfile != nil && properties.HostedMasterProfile.FQDN != "" {
-			addValue(parametersMap, "kubernetesEndpoint", properties.HostedMasterProfile.FQDN)
-		}
-
 		if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != "" {
 			addValue(parametersMap, "mobyVersion", properties.OrchestratorProfile.KubernetesConfig.MobyVersion)
 		}
