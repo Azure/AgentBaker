@@ -260,7 +260,7 @@ func getContainerServiceFuncMap(cs *api.ContainerService, profile *api.AgentPool
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
-		"FQDN": func() string {
+		"GetKubernetesEndpoint": func() string {
 			if cs.Properties.HostedMasterProfile == nil {
 				return ""
 			}

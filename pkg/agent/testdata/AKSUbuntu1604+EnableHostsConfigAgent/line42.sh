@@ -1,15 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -o nounset
 set -o pipefail
-SLEEP_SECONDS=15
-clusterFQDN=""
-if [[ $clusterFQDN != *.privatelink.* ]]; then
-  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
-  exit 0
-fi
-echo "clusterFQDN: $clusterFQDN"
-function get-apiserver-ip-from-tags() {
+
+get-apiserver-ip-from-tags() {
   tags=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text")
   if [ "$?" == "0" ]; then
     IFS=";" read -ra tagList <<< "$tags"
@@ -25,6 +19,14 @@ function get-apiserver-ip-from-tags() {
   echo -n ""
 }
 
+SLEEP_SECONDS=15
+clusterFQDN=""
+if [[ $clusterFQDN != *.privatelink.* ]]; then
+  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
+  exit 0
+fi
+echo "clusterFQDN: $clusterFQDN"
+
 while true; do
   clusterIP=$(get-apiserver-ip-from-tags)
   if [ -z $clusterIP ]; then
@@ -35,7 +37,7 @@ while true; do
     echo -n ""
   else
     sudo sed -i "/$clusterFQDN/d" /etc/hosts
-    sudo sed -i "\$a$clusterIP $clusterFQDN" /etc/hosts
+    echo "$clusterIP $clusterFQDN" | sudo tee -a /etc/hosts > /dev/null
     echo "Updated $clusterFQDN to $clusterIP"
   fi
   sleep "${SLEEP_SECONDS}"

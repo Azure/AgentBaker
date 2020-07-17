@@ -20,7 +20,7 @@ get-apiserver-ip-from-tags() {
 }
 
 SLEEP_SECONDS=15
-clusterFQDN="{{FQDN}}"
+clusterFQDN="{{GetKubernetesEndpoint}}"
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0

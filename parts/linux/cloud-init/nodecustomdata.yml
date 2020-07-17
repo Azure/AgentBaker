@@ -354,7 +354,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetParameter "kubernetesEndpoint"}}:443
+        server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: client
       user:

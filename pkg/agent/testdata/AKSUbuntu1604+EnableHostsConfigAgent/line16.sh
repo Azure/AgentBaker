@@ -99,7 +99,6 @@ configureCNI
 
 configPrivateClusterHosts
 
-
 ensureKubelet
 ensureJournal
 

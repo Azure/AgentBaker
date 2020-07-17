@@ -424,7 +424,7 @@ CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
-API_SERVER_NAME={{GetParameter "kubernetesEndpoint"}}
+API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
@@ -2806,7 +2806,7 @@ get-apiserver-ip-from-tags() {
 }
 
 SLEEP_SECONDS=15
-clusterFQDN="{{FQDN}}"
+clusterFQDN="{{GetKubernetesEndpoint}}"
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0
@@ -3550,7 +3550,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetParameter "kubernetesEndpoint"}}:443
+        server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: client
       user:
