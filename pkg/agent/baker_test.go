@@ -90,7 +90,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// customData
 		customData := baker.GetNodeBootstrappingPayload(config)
 		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
-		backfillCustomData(folder, customData)
+		// backfillCustomData(folder, customData)
 		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		if err != nil {
 			panic(err)
@@ -100,7 +100,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// CSE
 		cseCommand := baker.GetNodeBootstrappingCmd(config)
 		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
-		ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+		// ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		if err != nil {
 			panic(err)
