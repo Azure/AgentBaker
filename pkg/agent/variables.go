@@ -14,15 +14,17 @@ import (
 func getCustomDataVariables(cs *api.ContainerService, profile *api.AgentPoolProfile) paramsMap {
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs, profile),
-			"provisionSource":           getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, cs, profile),
-			"provisionInstalls":         getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, cs, profile),
-			"provisionConfigs":          getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, cs, profile),
-			"customSearchDomainsScript": getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, cs, profile),
-			"dhcpv6SystemdService":      getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, cs, profile),
-			"dhcpv6ConfigurationScript": getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, cs, profile),
-			"kubeletSystemdService":     getBase64EncodedGzippedCustomScript(kubeletSystemdService, cs, profile),
-			"systemdBPFMount":           getBase64EncodedGzippedCustomScript(systemdBPFMount, cs, profile),
+			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, cs, profile),
+			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, cs, profile),
+			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, cs, profile),
+			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, cs, profile),
+			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, cs, profile),
+			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, cs, profile),
+			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, cs, profile),
+			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, cs, profile),
+			"systemdBPFMount":              getBase64EncodedGzippedCustomScript(systemdBPFMount, cs, profile),
+			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, cs, profile),
+			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, cs, profile),
 		},
 	}
 
