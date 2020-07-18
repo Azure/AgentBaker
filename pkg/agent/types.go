@@ -14,7 +14,7 @@ type KeyVaultRef struct {
 	SecretVersion string     `json:"secretVersion,omitempty"`
 }
 
-// NodeBootstrappingConfiguration represents configurations used to generate CSE for node
+// NodeBootstrappingConfiguration represents configurations for node bootstrapping
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *api.ContainerService
 	AgentPoolProfile              *api.AgentPoolProfile
