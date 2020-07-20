@@ -387,21 +387,21 @@ func escapeSingleLine(escapedStr string) string {
 }
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
-func getBase64EncodedGzippedCustomScript(csFilename string, cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func getBase64EncodedGzippedCustomScript(csFilename string, config *NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters
-	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(cs, profile))
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
-	templ.Execute(&buffer, cs)
+	templ.Execute(&buffer, config.ContainerService)
 	csStr := buffer.String()
 	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
@@ -517,28 +517,6 @@ func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.Contain
 			return "false"
 		},
 	}
-}
-
-func buildYamlFileWithWriteFiles(files []string, cs *api.ContainerService, profile *api.AgentPoolProfile) string {
-	clusterYamlFile := `#cloud-config
-
-write_files:
-%s
-`
-	writeFileBlock := ` -  encoding: gzip
-    content: !!binary |
-        %s
-    path: /opt/azure/containers/%s
-    permissions: "0744"
-`
-
-	filelines := ""
-	for _, file := range files {
-		b64GzipString := getBase64EncodedGzippedCustomScript(file, cs, profile)
-		fileNoPath := strings.TrimPrefix(file, "swarm/")
-		filelines += fmt.Sprintf(writeFileBlock, b64GzipString, fileNoPath)
-	}
-	return fmt.Sprintf(clusterYamlFile, filelines)
 }
 
 func getKubernetesSubnets(properties *api.Properties) string {
@@ -843,14 +821,14 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.ContainerService) string {
+func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.ContainerService, dynamicKubeletToggleEnabled bool) string {
 	if k.KubeletConfig == nil {
 		return ""
 	}
 	keys := []string{}
-	dynamicKubeletSupported := IsDynamicKubeletSupported(cs)
+	dynamicKubeletEnabled := IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled)
 	for key := range k.KubeletConfig {
-		if !dynamicKubeletSupported || !TranslatedKubeletConfigFlags[key] {
+		if !dynamicKubeletEnabled || !TranslatedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -862,11 +840,10 @@ func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.Containe
 	return buf.String()
 }
 
-// IsDynamicKubeletSupported get if dynamic kubelet is supported in AKS
-func IsDynamicKubeletSupported(cs *api.ContainerService) bool {
-	// TODO(bowa) fix this after we figure out how to pass toggle value from RP
-	return false
-	// return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+// IsDynamicKubeletEnabled get if dynamic kubelet is supported in AKS
+func IsDynamicKubeletEnabled(cs *api.ContainerService, dynamicKubeletToggleEnabled bool) bool {
+	// TODO(bowa) remove toggle when backfill
+	return dynamicKubeletToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
 }
 
 // convert kubelet flags we set to a file

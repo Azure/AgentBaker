@@ -232,9 +232,21 @@ func (gc *generateCmd) run() error {
 	fmt.Printf("Cs%++v", gc.containerService.Properties.MasterProfile)
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
-	customDataStr := templateGenerator.GetNodeBootstrappingPayload(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
+	config := &agent.NodeBootstrappingConfiguration{
+		ContainerService:              gc.containerService,
+		AgentPoolProfile:              gc.containerService.Properties.AgentPoolProfiles[0],
+		TenantID:                      "<tenantid>",
+		SubscriptionID:                "<subid>",
+		ResourceGroupName:             "rgname",
+		UserAssignedIdentityClientID:  "msiid",
+		ConfigGPUDriverIfNeeded:       true,
+		EnableGPUDevicePluginIfNeeded: false,
+		EnableDynamicKubelet:          false,
+	}
 
-	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0], "<tenantid>", "<subid>", "rgname", "msiid", true, false)
+	customDataStr := templateGenerator.GetNodeBootstrappingPayload(config)
+
+	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(config)
 
 	writer := &engine.ArtifactWriter{
 		Translator: &i18n.Translator{
