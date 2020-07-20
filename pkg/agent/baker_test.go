@@ -45,6 +45,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 							KubeletConfig: map[string]string{
 								"--address":                           "0.0.0.0",
 								"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+								"--cloud-provider":                    "azure",
+								"--cloud-config":                      "/etc/kubernetes/azure.json",
+								"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
 								"--cluster-domain":                    "cluster.local",
 								"--cluster-dns":                       "10.0.0.10",
 								"--cgroups-per-qos":                   "true",
@@ -158,7 +161,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
 		}),
-		Entry("AKSUbuntu1604 EnableHostsConfigAgent", "AKSUbuntu1604+EnableHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
