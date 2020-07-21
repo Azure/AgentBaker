@@ -38,11 +38,11 @@ az account set --subscription ${SUBSCRIPTION_ID}
    --gallery-name ${GALLERY_NAME} \
    --gallery-image-definition ${IMAGEDEFINITION_NAME})
  if [ -z "$id" ]; then
-   echo "Creating image definition ${IMAGEDEFINITION_NAME} in Shared Image Gallery ${GALLERY_NAME} inside the resource group ${RG_NAME}"
    HYPERV_GENERATION=V1
    if [[ ${IMAGEDEFINITION_NAME} == *"gen2"* ]]; then
      HYPERV_GENERATION=V2
    fi
+   echo "Creating image definition ${IMAGEDEFINITION_NAME} generation ${HYPERV_GENERATION} in Shared Image Gallery ${GALLERY_NAME} inside the resource group ${RG_NAME}"
    az sig image-definition create \
      --resource-group ${RG_NAME} \
      --gallery-name ${GALLERY_NAME} \
