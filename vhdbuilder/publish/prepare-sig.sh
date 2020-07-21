@@ -39,6 +39,10 @@ az account set --subscription ${SUBSCRIPTION_ID}
    --gallery-image-definition ${IMAGEDEFINITION_NAME})
  if [ -z "$id" ]; then
    echo "Creating image definition ${IMAGEDEFINITION_NAME} in Shared Image Gallery ${GALLERY_NAME} inside the resource group ${RG_NAME}"
+   HYPERV_GENERATION=V1
+   if [[ ${IMAGEDEFINITION_NAME} == *"gen2"* ]]; then
+     HYPERV_GENERATION=V2
+   fi
    az sig image-definition create \
      --resource-group ${RG_NAME} \
      --gallery-name ${GALLERY_NAME} \
@@ -47,7 +51,8 @@ az account set --subscription ${SUBSCRIPTION_ID}
      --offer ${GALLERY_NAME} \
      --sku ${IMAGEDEFINITION_NAME} \
      --os-type ${OS_NAME} \
-     --location ${REGION}
+     --location ${REGION} \
+     --hyper-v-generation ${HYPERV_GENERATION}
  fi
 
 echo "##vso[task.setvariable variable=RG_NAME;]$RG_NAME"
