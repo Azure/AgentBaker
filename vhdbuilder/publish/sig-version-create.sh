@@ -17,7 +17,8 @@
 MANAGED_IMAGE_NAME="MI_${REGION}_${GALLERY_NAME}_${IMAGEDEFINITION_NAME}_${IMAGE_VERSION}"
 
 echo "Creating managed image ${MANAGED_IMAGE_NAME} from VHD, inside resource group ${MANAGED_IMAGE_RG_NAME}"
-az image create --resource-group ${MANAGED_IMAGE_RG_NAME} --name ${MANAGED_IMAGE_NAME} --os-type ${OS_NAME} --hyper-v-generation ${HYPERV_GENERATION} --source ${VHD_SOURCE}
+create_managed_image_command="az image create --resource-group ${MANAGED_IMAGE_RG_NAME} --name ${MANAGED_IMAGE_NAME} --os-type ${OS_NAME} --hyper-v-generation ${HYPERV_GENERATION} --source ${VHD_SOURCE}"
+eval $create_managed_image_command
 
 echo "Get managed image URI for the managed image ${MANAGED_IMAGE_NAME}"
 sleep 1m
