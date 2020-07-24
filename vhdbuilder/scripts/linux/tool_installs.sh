@@ -1,12 +1,11 @@
 
 #!/bin/bash
 
-{{/* BCC/BPF-related error codes */}}
-ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT=168 {{/* Timeout waiting to download IOVisor repo key */}}
-ERR_IOVISOR_APT_KEY_TIMEOUT=169 {{/* Timeout waiting for IOVisor apt-key */}}
-ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
-ERR_BPFTRACE_BIN_DOWNLOAD_FAIL=171 {{/* Failed to download bpftrace binary */}}
-ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default programs */}}
+ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT=168
+ERR_IOVISOR_APT_KEY_TIMEOUT=169
+ERR_BCC_INSTALL_TIMEOUT=170
+ERR_BPFTRACE_BIN_DOWNLOAD_FAIL=171
+ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
@@ -54,9 +53,6 @@ installBpftrace() {
 }
 
 installGPUDriversRun() {
-    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
-    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
-    if yes please help remove the clean up logic here too */}}
     set -x
     MODULE_NAME="nvidia"
     NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
@@ -68,7 +64,6 @@ installGPUDriversRun() {
           rm -rf "${NVIDIA_DKMS_DIR}"
         fi
     fi
-    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
     if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
         installGPUDrivers
@@ -81,13 +76,10 @@ installGPUDriversRun() {
 }
 
 configGPUDrivers() {
-    {{/* only install the runtime since nvidia-docker2 has a hard dep on docker CE packages. */}}
-    {{/* we will manually install nvidia-docker2 */}}
     rmmod nouveau
     echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
     retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    {{/* if the unattened upgrade is turned on, and it may takes 10 min to finish the installation, and we use the 1 second just to try to get the lock more aggressively */}}
     retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     tmpDir=$GPU_DEST/tmp
     (
