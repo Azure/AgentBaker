@@ -12,7 +12,12 @@ import (
 	"github.com/Azure/aks-engine/pkg/api"
 )
 
-func getParameters(cs *api.ContainerService, profile *api.AgentPoolProfile, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	if profile.IsWindows() {
+		profile = nil
+	}
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}

@@ -11,6 +11,7 @@
 [[ -z "${OS_NAME}" ]] && (echo "OS_NAME is not set"; exit 1)
 [[ -z "${GALLERY_NAME}" ]] && (echo "GALLERY_NAME is not set"; exit 1)
 [[ -z "${IMAGEDEFINITION_NAME}" ]] && (echo "IMAGEDEFINITION_NAME is not set"; exit 1)
+[[ -z "${HYPERV_GENERATION}" ]] && (echo "HYPERV_GENERATION is not set"; exit 1)
 
 echo "az login --service-principal -u ${CLIENT_ID} -p *** --tenant ${TENANT_ID}"
 az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
@@ -38,7 +39,7 @@ az account set --subscription ${SUBSCRIPTION_ID}
    --gallery-name ${GALLERY_NAME} \
    --gallery-image-definition ${IMAGEDEFINITION_NAME})
  if [ -z "$id" ]; then
-   echo "Creating image definition ${IMAGEDEFINITION_NAME} in Shared Image Gallery ${GALLERY_NAME} inside the resource group ${RG_NAME}"
+   echo "Creating image definition ${IMAGEDEFINITION_NAME} generation ${HYPERV_GENERATION} in Shared Image Gallery ${GALLERY_NAME} inside the resource group ${RG_NAME}"
    az sig image-definition create \
      --resource-group ${RG_NAME} \
      --gallery-name ${GALLERY_NAME} \
@@ -47,7 +48,8 @@ az account set --subscription ${SUBSCRIPTION_ID}
      --offer ${GALLERY_NAME} \
      --sku ${IMAGEDEFINITION_NAME} \
      --os-type ${OS_NAME} \
-     --location ${REGION}
+     --location ${REGION} \
+     --hyper-v-generation ${HYPERV_GENERATION}
  fi
 
 echo "##vso[task.setvariable variable=RG_NAME;]$RG_NAME"
