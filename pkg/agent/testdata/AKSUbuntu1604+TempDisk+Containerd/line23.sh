@@ -201,6 +201,18 @@ installImg() {
     retrycmd_get_executable 120 5 $img_filepath "https://acs-mirror.azureedge.net/img/img-linux-amd64-v0.5.6" ls || exit $ERR_IMG_DOWNLOAD_TIMEOUT
 }
 
+extractKubeBinaries() {
+    K8S_VERSION=$1
+    KUBE_BINARY_URL=$2
+
+    mkdir -p ${K8S_DOWNLOADS_DIR}
+    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
+    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+    rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+}
+
 extractHyperkube() {
     CLI_TOOL=$1
     path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
@@ -229,19 +241,29 @@ extractHyperkube() {
     fi
 }
 
-installKubeletAndKubectl() {
+installKubeletKubectlAndKubeProxy() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-            extractHyperkube "docker"
+        #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+        if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+            extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
         else
-            installImg
-            extractHyperkube "img"
+            if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
+                extractHyperkube "docker"
+            else
+                installImg
+                extractHyperkube "img"
+            fi
         fi
     fi
+
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
     mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
+
+    if [ -n "${KUBEPROXY_URL}" ]; then
+        pullContainerImage "docker" ${KUBEPROXY_URL}
+    fi
 }
 
 pullContainerImage() {
@@ -260,8 +282,8 @@ cleanUpContainerImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
-    function cleanUpControllerManagerImagesRun() {
-        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'cloud-controller-manager')
+    function cleanUpKubeProxyImagesRun() {
+        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
@@ -270,9 +292,9 @@ cleanUpContainerImages() {
         fi
     }
     export -f cleanUpHyperkubeImagesRun
-    export -f cleanUpControllerManagerImagesRun
+    export -f cleanUpKubeProxyImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpControllerManagerImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
 }
 
 cleanUpGPUDrivers() {

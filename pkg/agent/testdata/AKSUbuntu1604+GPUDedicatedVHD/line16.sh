@@ -94,7 +94,7 @@ if [[ "${GPU_NODE}" = true ]]; then
 fi
 
 
-installKubeletAndKubectl
+installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
