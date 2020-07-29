@@ -60,7 +60,7 @@ if [ -f $VHD_LOGS_FILEPATH ]; then
     export -f cleanUpContainerImages
     export KUBERNETES_VERSION
     echo "start to clean up container images"
-    bash -c cleanUpContainerImages &
+    bash -c cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
