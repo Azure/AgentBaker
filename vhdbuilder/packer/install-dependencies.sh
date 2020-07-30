@@ -105,17 +105,6 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-CONTAINERD_VERSIONS="
-1.2.4
-1.1.6
-1.1.5
-"
-CONTAINERD_DOWNLOAD_URL_BASE="https://storage.googleapis.com/cri-containerd-release/"
-for CONTAINERD_VERSION in ${CONTAINERD_VERSIONS}; do
-    downloadContainerd
-    echo "  - containerd version ${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 installImg
 echo "  - img" >> ${VHD_LOGS_FILEPATH}
 
@@ -427,24 +416,12 @@ done
 # v1.18.4-hotfix.20200624.1
 # v1.18.6
 K8S_VERSIONS="
-1.14.7-hotfix.20200408.1
-1.14.8-hotfix.20200529.1
-1.15.7-hotfix.20200326
-1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200714.1
-1.16.7-hotfix.20200601.1
-1.16.8.1
-1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200714.1
 1.16.13-hotfix.20200714.1
-1.17.3-hotfix.20200601.1
-1.17.4.1
-1.17.5.1
 1.17.7-hotfix.20200714.1
 1.17.9-hotfix.20200714.1
-1.18.1.1
-1.18.2-hotfix.20200624
 1.18.4-hotfix.20200624.1
 1.18.6
 "
@@ -486,29 +463,14 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.18.4-hotfix.20200624.1
 # v1.18.6
 PATCHED_HYPERKUBE_IMAGES="
-1.14.7-hotfix.20200408.1
-1.14.8-hotfix.20200529.1
-1.15.7-hotfix.20200326
-1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
 1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200623.1
 1.15.12-hotfix.20200714.1
-1.16.7-hotfix.20200601.1
-1.16.8.1
-1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200623.1
 1.16.10-hotfix.20200714.1
 1.16.13-hotfix.20200714.1
-1.17.3-hotfix.20200601.1
-1.17.4
-1.17.5.1
-1.17.7-hotfix.20200624
 1.17.7-hotfix.20200714.1
 1.17.9-hotfix.20200714.1
-1.18.1.1
-1.18.2-hotfix.20200624
-1.18.4-hotfix.20200624
 1.18.4-hotfix.20200624.1
 1.18.6
 "
