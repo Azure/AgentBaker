@@ -418,6 +418,8 @@ done
 K8S_VERSIONS="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
+1.15.7-hotfix.20200326
+1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
 1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200623.1
@@ -478,6 +480,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 K8S_VERSIONS="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
+1.15.7-hotfix.20200326
+1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
 1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200623.1
