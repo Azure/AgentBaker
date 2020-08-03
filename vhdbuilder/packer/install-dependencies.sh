@@ -430,7 +430,6 @@ K8S_VERSIONS="
 1.17.9-hotfix.20200714.1
 1.18.2-hotfix.20200624
 1.18.4-hotfix.20200624.1
-1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.6
 "
@@ -471,7 +470,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.17.9-hotfix.20200714.1
 # v1.18.4-hotfix.20200626.1
 # v1.18.6-hotfix.20200723.1	
-K8S_VERSIONS="
+PATCHED_HYPERKUBE_IMAGES="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
