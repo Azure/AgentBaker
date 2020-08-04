@@ -409,8 +409,8 @@ done
 # v1.16.13-hotfix.20200714.1
 # v1.17.7-hotfix.20200714.1
 # v1.17.9-hotfix.20200714.1
-# v1.18.4-hotfix.20200624.1
-# v1.18.6
+# v1.18.4-hotfix.20200626.1
+# v1.18.6-hotfix.20200723.1	
 K8S_VERSIONS="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
@@ -418,20 +418,15 @@ K8S_VERSIONS="
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200714.1
-1.16.7-hotfix.20200601.1
-1.16.8.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200714.1
 1.16.13-hotfix.20200714.1
 1.17.3-hotfix.20200601.1
-1.17.4.1
-1.17.5.1
 1.17.7-hotfix.20200714.1
 1.17.9-hotfix.20200714.1
-1.18.1.1
-1.18.2-hotfix.20200624
-1.18.4-hotfix.20200624.1
-1.18.6
+1.18.2-hotfix.20200624.1
+1.18.4-hotfix.20200626.1
+1.18.6-hotfix.20200723.1
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
@@ -468,8 +463,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.16.13-hotfix.20200714.1
 # v1.17.7-hotfix.20200714.1
 # v1.17.9-hotfix.20200714.1
-# v1.18.4-hotfix.20200624.1
-# v1.18.6
+# v1.18.4-hotfix.20200626.1
+# v1.18.6-hotfix.20200723.1	
 PATCHED_HYPERKUBE_IMAGES="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
@@ -479,22 +474,20 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.11-hotfix.20200714.1
 1.15.12-hotfix.20200623.1
 1.15.12-hotfix.20200714.1
-1.16.7-hotfix.20200601.1
-1.16.8.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200623.1
 1.16.10-hotfix.20200714.1
 1.16.13-hotfix.20200714.1
 1.17.3-hotfix.20200601.1
-1.17.4
-1.17.5.1
 1.17.7-hotfix.20200624
 1.17.7-hotfix.20200714.1
 1.17.9-hotfix.20200714.1
-1.18.1.1
 1.18.2-hotfix.20200624
+1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200624
 1.18.4-hotfix.20200624.1
+1.18.4-hotfix.20200626.1
+1.18.6-hotfix.20200723.1
 1.18.6
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
