@@ -431,7 +431,6 @@ K8S_VERSIONS="
 1.18.2-hotfix.20200624
 1.18.4-hotfix.20200624.1
 1.18.6-hotfix.20200723.1
-1.18.6
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
