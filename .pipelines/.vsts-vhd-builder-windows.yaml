@@ -30,6 +30,7 @@ jobs:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           -e AZURE_LOCATION=${AZURE_LOCATION} \
           -e AZURE_VM_SIZE=${PACKER_VM_SIZE} \
@@ -53,6 +54,7 @@ jobs:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
           -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
           -e OS_DISK_SAS=${OS_DISK_SAS} \
@@ -69,6 +71,7 @@ jobs:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
           -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
           -e VHD_NAME=${VHD_NAME} \
@@ -91,6 +94,7 @@ jobs:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e SA_NAME=${SA_NAME} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-sa
