@@ -19,6 +19,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/blang/semver"
 
@@ -66,7 +67,7 @@ func init() {
 type paramsMap map[string]interface{}
 
 // validateDistro checks if the requested orchestrator type is supported on the requested Linux distro.
-func validateDistro(cs *api.ContainerService) bool {
+func validateDistro(cs *datamodel.ContainerService) bool {
 	// Check Master distro
 	if cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.Distro == api.RHEL &&
 		(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
@@ -141,7 +142,7 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
 }
 
-func makeAgentExtensionScriptCommands(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
+func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *api.AgentPoolProfile) string {
 	if profile.OSType == api.Windows {
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
@@ -453,7 +454,7 @@ func getAddonFuncMap(addon api.KubernetesAddon) template.FuncMap {
 	}
 }
 
-func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.ContainerService) template.FuncMap {
+func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *datamodel.ContainerService) template.FuncMap {
 	return template.FuncMap{
 		"ContainerImage": func(name string) string {
 			i := addon.GetAddonContainersIndexByName(name)
@@ -486,7 +487,7 @@ func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.Contain
 			return addon.Mode
 		},
 		"GetClusterAutoscalerNodesConfig": func() string {
-			return api.GetClusterAutoscalerNodesConfig(addon, cs)
+			return datamodel.GetClusterAutoscalerNodesConfig(addon, cs)
 		},
 		"GetVolumeMounts": func() string {
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity {
@@ -821,7 +822,7 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.ContainerService, dynamicKubeletToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) string {
 	if k.KubeletConfig == nil {
 		return ""
 	}
@@ -841,7 +842,7 @@ func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.Containe
 }
 
 // IsDynamicKubeletEnabled get if dynamic kubelet is supported in AKS
-func IsDynamicKubeletEnabled(cs *api.ContainerService, dynamicKubeletToggleEnabled bool) bool {
+func IsDynamicKubeletEnabled(cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) bool {
 	// TODO(bowa) remove toggle when backfill
 	return dynamicKubeletToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
 }
