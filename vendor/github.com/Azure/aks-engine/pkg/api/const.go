@@ -252,7 +252,7 @@ const (
 	APIVersionCompute             = "2019-07-01"
 	APIVersionDeployments         = "2018-06-01"
 	APIVersionKeyVault            = "2018-02-14"
-	APIVersionManagedIdentity     = "2015-08-31-preview"
+	APIVersionManagedIdentity     = "2018-11-30"
 	APIVersionNetwork             = "2018-08-01"
 	APIVersionStorage             = "2018-07-01"
 )
@@ -331,6 +331,10 @@ const (
 	// CNIPluginVer specifies the version of CNI implementation
 	// https://github.com/containernetworking/plugins
 	CNIPluginVer = "v0.7.6"
+	// WindowsPauseImageVersion specifies version of Windows pause image
+	WindowsPauseImageVersion = "1.4.0"
+	// DefaultAlwaysPullWindowsPauseImage is the default windowsProfile.AlwaysPullWindowsPauseImage value
+	DefaultAlwaysPullWindowsPauseImage = false
 )
 
 const (
@@ -474,6 +478,12 @@ const (
 	DefaultKubeProxyMode KubeProxyMode = KubeProxyModeIPTables
 	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
 	DefaultWindowsSSHEnabled = true
+)
+
+// WindowsProfile defaults
+// TODO: Move other values defined in WindowsProfiles (like DefaultWindowsSSHEnabled) here.
+const (
+	DefaultWindowsProvisioningScriptsPackageVersion = "v0.0.2"
 )
 
 const (
