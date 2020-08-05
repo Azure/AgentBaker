@@ -825,6 +825,7 @@ func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.Containe
 	if k.KubeletConfig == nil {
 		return ""
 	}
+	ensureKubeletConfigFlagsValue(k.KubeletConfig, cs)
 	keys := []string{}
 	dynamicKubeletEnabled := IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled)
 	for key := range k.KubeletConfig {
@@ -844,6 +845,14 @@ func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *api.Containe
 func IsDynamicKubeletEnabled(cs *api.ContainerService, dynamicKubeletToggleEnabled bool) bool {
 	// TODO(bowa) remove toggle when backfill
 	return dynamicKubeletToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+}
+
+func ensureKubeletConfigFlagsValue(kc map[string]string, cs *api.ContainerService) {
+	// for now it's only dynamic kubelet, we could add more in future
+	dynamicKubeletSupported := cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0")
+	if dynamicKubeletSupported && kc["--dynamic-config-dir"] == "" {
+		kc["--dynamic-config-dir"] = DynamicKubeletConfigDir
+	}
 }
 
 // convert kubelet flags we set to a file
