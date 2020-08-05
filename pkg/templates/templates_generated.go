@@ -2366,7 +2366,7 @@ ExecStart=/usr/local/bin/kubelet \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
         {{- if IsDynamicKubeletEnabled}}
-        --config /etc/default/kubeletconfig.json --dynamic-config-dir /etc/default/dynamickubelet \
+        --config /etc/default/kubeletconfig.json \
         {{- end}}
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
