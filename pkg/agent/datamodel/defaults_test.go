@@ -175,21 +175,6 @@ func TestSetMissingKubeletValues(t *testing.T) {
 	}
 }
 
-func TestAddonsIndexByName(t *testing.T) {
-	addonName := "testaddon"
-	addons := []api.KubernetesAddon{
-		getMockAddon(addonName),
-	}
-	i := getAddonsIndexByName(addons, addonName)
-	if i != 0 {
-		t.Fatalf("addonsIndexByName() did not return the expected index value 0, instead returned: %d", i)
-	}
-	i = getAddonsIndexByName(addons, "nonExistentAddonName")
-	if i != -1 {
-		t.Fatalf("addonsIndexByName() did not return -1 for a non-existent addon, instead returned: %d", i)
-	}
-}
-
 func TestAssignDefaultAddonImages(t *testing.T) {
 	kubernetesVersion := "1.13.11"
 	k8sComponents := api.K8sComponentsByVersionMap[kubernetesVersion]
@@ -314,174 +299,6 @@ func getFakeAddons(defaultAddonMap map[string]string, customImage string) []api.
 		fakeCustomAddons = append(fakeCustomAddons, customAddon)
 	}
 	return fakeCustomAddons
-}
-
-func TestAssignDefaultAddonVals(t *testing.T) {
-	addonName := "testaddon"
-	customImage := "myimage"
-	customCPURequests := "60m"
-	customMemoryRequests := "160Mi"
-	customCPULimits := "40m"
-	customMemoryLimits := "140Mi"
-	// Verify that an addon with all custom values provided remains unmodified during default value assignment
-	customAddon := api.KubernetesAddon{
-		Name:    addonName,
-		Enabled: to.BoolPtr(true),
-		Containers: []api.KubernetesContainerSpec{
-			{
-				Name:           addonName,
-				Image:          customImage,
-				CPURequests:    customCPURequests,
-				MemoryRequests: customMemoryRequests,
-				CPULimits:      customCPULimits,
-				MemoryLimits:   customMemoryLimits,
-			},
-		},
-	}
-	addonWithDefaults := getMockAddon(addonName)
-	isUpdate := false
-	modifiedAddon := assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-	if modifiedAddon.Containers[0].Name != customAddon.Containers[0].Name {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'Name' value %s to %s,", customAddon.Containers[0].Name, modifiedAddon.Containers[0].Name)
-	}
-	if modifiedAddon.Containers[0].Image != customAddon.Containers[0].Image {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'Image' value %s to %s,", customAddon.Containers[0].Image, modifiedAddon.Containers[0].Image)
-	}
-	if modifiedAddon.Containers[0].CPURequests != customAddon.Containers[0].CPURequests {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'CPURequests' value %s to %s,", customAddon.Containers[0].CPURequests, modifiedAddon.Containers[0].CPURequests)
-	}
-	if modifiedAddon.Containers[0].MemoryRequests != customAddon.Containers[0].MemoryRequests {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'MemoryRequests' value %s to %s,", customAddon.Containers[0].MemoryRequests, modifiedAddon.Containers[0].MemoryRequests)
-	}
-	if modifiedAddon.Containers[0].CPULimits != customAddon.Containers[0].CPULimits {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'CPULimits' value %s to %s,", customAddon.Containers[0].CPULimits, modifiedAddon.Containers[0].CPULimits)
-	}
-	if modifiedAddon.Containers[0].MemoryLimits != customAddon.Containers[0].MemoryLimits {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'MemoryLimits' value %s to %s,", customAddon.Containers[0].MemoryLimits, modifiedAddon.Containers[0].MemoryLimits)
-	}
-
-	// Verify that an addon with no custom values provided gets all the appropriate defaults
-	customAddon = api.KubernetesAddon{
-		Name:    addonName,
-		Enabled: to.BoolPtr(true),
-		Containers: []api.KubernetesContainerSpec{
-			{
-				Name: addonName,
-			},
-		},
-	}
-	isUpdate = false
-	modifiedAddon = assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-	if modifiedAddon.Containers[0].Image != addonWithDefaults.Containers[0].Image {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'Image' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].Image, modifiedAddon.Containers[0].Image)
-	}
-	if modifiedAddon.Containers[0].CPURequests != addonWithDefaults.Containers[0].CPURequests {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'CPURequests' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].CPURequests, modifiedAddon.Containers[0].CPURequests)
-	}
-	if modifiedAddon.Containers[0].MemoryRequests != addonWithDefaults.Containers[0].MemoryRequests {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'MemoryRequests' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].MemoryRequests, modifiedAddon.Containers[0].MemoryRequests)
-	}
-	if modifiedAddon.Containers[0].CPULimits != addonWithDefaults.Containers[0].CPULimits {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'CPULimits' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].CPULimits, modifiedAddon.Containers[0].CPULimits)
-	}
-	if modifiedAddon.Containers[0].MemoryLimits != addonWithDefaults.Containers[0].MemoryLimits {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'MemoryLimits' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].MemoryLimits, modifiedAddon.Containers[0].MemoryLimits)
-	}
-
-	// More checking to verify default interpolation
-	customAddon = api.KubernetesAddon{
-		Name:    addonName,
-		Enabled: to.BoolPtr(true),
-		Containers: []api.KubernetesContainerSpec{
-			{
-				Name:         addonName,
-				CPURequests:  customCPURequests,
-				MemoryLimits: customMemoryLimits,
-			},
-		},
-	}
-	isUpdate = false
-	modifiedAddon = assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-	if modifiedAddon.Containers[0].Image != addonWithDefaults.Containers[0].Image {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'Image' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].Image, modifiedAddon.Containers[0].Image)
-	}
-	if modifiedAddon.Containers[0].Name != customAddon.Containers[0].Name {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'Name' value %s to %s,", customAddon.Containers[0].Name, modifiedAddon.Containers[0].Name)
-	}
-	if modifiedAddon.Containers[0].MemoryRequests != addonWithDefaults.Containers[0].MemoryRequests {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'MemoryRequests' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].MemoryRequests, modifiedAddon.Containers[0].MemoryRequests)
-	}
-	if modifiedAddon.Containers[0].CPULimits != addonWithDefaults.Containers[0].CPULimits {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'CPULimits' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].CPULimits, modifiedAddon.Containers[0].CPULimits)
-	}
-	if modifiedAddon.Containers[0].MemoryLimits != customAddon.Containers[0].MemoryLimits {
-		t.Fatalf("assignDefaultAddonVals() should not have modified Containers 'MemoryLimits' value %s to %s,", customAddon.Containers[0].MemoryLimits, modifiedAddon.Containers[0].MemoryLimits)
-	}
-
-	// Verify that an addon with a custom image value will be overridden during upgrade/scale
-	customAddon = api.KubernetesAddon{
-		Name:    addonName,
-		Enabled: to.BoolPtr(true),
-		Containers: []api.KubernetesContainerSpec{
-			{
-				Name:  addonName,
-				Image: customImage,
-			},
-		},
-	}
-	isUpdate = true
-	modifiedAddon = assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-	if modifiedAddon.Containers[0].Image != addonWithDefaults.Containers[0].Image {
-		t.Fatalf("assignDefaultAddonVals() should have assigned a default 'Image' value of %s, instead assigned %s,", addonWithDefaults.Containers[0].Image, modifiedAddon.Containers[0].Image)
-	}
-
-	addonWithDefaults.Config = map[string]string{
-		"os":    "Linux",
-		"taint": "node.kubernetes.io/memory-pressure",
-	}
-	isUpdate = false
-	modifiedAddon = assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-
-	if modifiedAddon.Config["os"] != "Linux" {
-		t.Error("assignDefaultAddonVals() should have added the default config property")
-	}
-
-	if modifiedAddon.Config["taint"] != "node.kubernetes.io/memory-pressure" {
-		t.Error("assignDefaultAddonVals() should have added the default config property")
-	}
-
-	// Verify that an addon with a nil enabled inherits the default enabled value
-	customAddon = api.KubernetesAddon{
-		Name: addonName,
-		Containers: []api.KubernetesContainerSpec{
-			{
-				Name:  addonName,
-				Image: customImage,
-			},
-		},
-	}
-	isUpdate = false
-	addonWithDefaults.Enabled = to.BoolPtr(true)
-	modifiedAddon = assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-	if to.Bool(modifiedAddon.Enabled) != to.Bool(addonWithDefaults.Enabled) {
-		t.Errorf("assignDefaultAddonVals() should have assigned a default 'Enabled' value of %t, instead assigned %t,", to.Bool(addonWithDefaults.Enabled), to.Bool(modifiedAddon.Enabled))
-	}
-
-	customAddon = api.KubernetesAddon{
-		Name: addonName,
-		Containers: []api.KubernetesContainerSpec{
-			{
-				Name:  addonName,
-				Image: customImage,
-			},
-		},
-	}
-	isUpdate = false
-	addonWithDefaults.Enabled = to.BoolPtr(false)
-	modifiedAddon = assignDefaultAddonVals(customAddon, addonWithDefaults, isUpdate)
-	if to.Bool(modifiedAddon.Enabled) != to.Bool(addonWithDefaults.Enabled) {
-		t.Errorf("assignDefaultAddonVals() should have assigned a default 'Enabled' value of %t, instead assigned %t,", to.Bool(addonWithDefaults.Enabled), to.Bool(modifiedAddon.Enabled))
-	}
 }
 
 func TestAcceleratedNetworking(t *testing.T) {
@@ -2183,46 +2000,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 	}
 }
 
-func TestIsAzureCNINetworkmonitorAddon(t *testing.T) {
-	mockCS := getMockBaseContainerService("1.10.3")
-	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.MasterProfile.Count = 1
-	properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
-		{
-			Name: common.AzureCNINetworkMonitorAddonName,
-			Containers: []api.KubernetesContainerSpec{
-				{
-					Name:           common.AzureCNINetworkMonitorAddonName,
-					CPURequests:    "50m",
-					MemoryRequests: "150Mi",
-					CPULimits:      "50m",
-					MemoryLimits:   "150Mi",
-				},
-			},
-			Enabled: to.BoolPtr(true),
-		},
-	}
-	mockCS.setOrchestratorDefaults(true, true)
-
-	i := getAddonsIndexByName(properties.OrchestratorProfile.KubernetesConfig.Addons, common.AzureCNINetworkMonitorAddonName)
-	if !to.Bool(properties.OrchestratorProfile.KubernetesConfig.Addons[i].Enabled) {
-		t.Fatalf("Azure CNI networkmonitor addon should be present")
-	}
-
-	mockCS = getMockBaseContainerService("1.10.3")
-	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.MasterProfile.Count = 1
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
-	mockCS.setOrchestratorDefaults(true, true)
-
-	i = getAddonsIndexByName(properties.OrchestratorProfile.KubernetesConfig.Addons, common.AzureCNINetworkMonitorAddonName)
-	if !to.Bool(properties.OrchestratorProfile.KubernetesConfig.Addons[i].Enabled) {
-		t.Fatalf("Azure CNI networkmonitor addon should be present by default if Azure CNI is set")
-	}
-}
-
 // TestSetVMSSDefaultsAndZones covers tests for setVMSSDefaultsForAgents and masters
 func TestSetVMSSDefaultsAndZones(t *testing.T) {
 	// masters with VMSS and no zones
@@ -2783,7 +2560,7 @@ func TestSetCustomCloudProfileDefaults(t *testing.T) {
 	expectedEnv.KubernetesSpecConfig.AzureTelemetryPID = api.DefaultAzureStackDeployTelemetryPID
 
 	if equal := reflect.DeepEqual(actualEnv, expectedEnv); !equal {
-		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureStackCloudSpec as default when azureEnvironmentSpecConfig is empty in api model JSON file. expected: %s, actual: %s", expectedEnv, actualEnv)
+		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureStackCloudSpec as default when azureEnvironmentSpecConfig is empty in api model JSON file. expected: %v, actual: %v", expectedEnv, actualEnv)
 	}
 
 	modeToSpec := map[string]string{
@@ -2812,7 +2589,7 @@ func TestSetCustomCloudProfileDefaults(t *testing.T) {
 		expectedEnvAzureChinaSpec.KubernetesSpecConfig.AzureTelemetryPID = api.DefaultAzureStackDeployTelemetryPID
 		t.Logf("verifying dependenciesLocation: %s", key)
 		if equal := reflect.DeepEqual(actualEnvAzureChinaSpec, expectedEnvAzureChinaSpec); !equal {
-			t.Errorf("setCustomCloudProfileDefaults(): did not set AzureStackCloudSpec as default when connection Mode is %s in api model JSON file. expected: %s, actual: %s", key, expectedEnvAzureChinaSpec, actualEnvAzureChinaSpec)
+			t.Errorf("setCustomCloudProfileDefaults(): did not set AzureStackCloudSpec as default when connection Mode is %s in api model JSON file. expected: %v, actual: %v", key, expectedEnvAzureChinaSpec, actualEnvAzureChinaSpec)
 		}
 	}
 
@@ -3929,7 +3706,7 @@ func TestDefaultAzureTelemetryPid(t *testing.T) {
 	expectedEnv.CloudName = api.AzureStackCloud
 	expectedEnv.KubernetesSpecConfig.AzureTelemetryPID = api.DefaultAzureStackDeployTelemetryPID
 	if equal := reflect.DeepEqual(actualEnv, expectedEnv); !equal {
-		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureTelemetryPID as DefaultAzureStackDeployTelemetryPID. expected: %s, actual: %s", expectedEnv, actualEnv)
+		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureTelemetryPID as DefaultAzureStackDeployTelemetryPID. expected: %v, actual: %v", expectedEnv, actualEnv)
 	}
 
 	// Test that the AzureTelemetryPID is set to DefaultAzureStackScaleTelemetryPID by in Scale scenario
@@ -3948,7 +3725,7 @@ func TestDefaultAzureTelemetryPid(t *testing.T) {
 	expectedScaleEnv.CloudName = api.AzureStackCloud
 	expectedScaleEnv.KubernetesSpecConfig.AzureTelemetryPID = api.DefaultAzureStackScaleTelemetryPID
 	if equal := reflect.DeepEqual(actualScaleEnv, expectedScaleEnv); !equal {
-		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureTelemetryPID as DefaultAzureStackDeployTelemetryPID. expected: %s, actual: %s", expectedScaleEnv, actualScaleEnv)
+		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureTelemetryPID as DefaultAzureStackDeployTelemetryPID. expected: %v, actual: %v", expectedScaleEnv, actualScaleEnv)
 	}
 
 	// Test that the AzureTelemetryPID is set to DefaultAzureStackUpgradeTelemetryPID in Upgrade scenario
@@ -3967,7 +3744,7 @@ func TestDefaultAzureTelemetryPid(t *testing.T) {
 	expectedSUpgradeEnv.CloudName = api.AzureStackCloud
 	expectedSUpgradeEnv.KubernetesSpecConfig.AzureTelemetryPID = api.DefaultAzureStackUpgradeTelemetryPID
 	if equal := reflect.DeepEqual(actualSUpgradeEnv, expectedSUpgradeEnv); !equal {
-		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureTelemetryPID as DefaultAzureStackUpgradeTelemetryPID. expected: %s, actual: %s", expectedSUpgradeEnv, actualSUpgradeEnv)
+		t.Errorf("setCustomCloudProfileDefaults(): did not set AzureTelemetryPID as DefaultAzureStackUpgradeTelemetryPID. expected: %v, actual: %v", expectedSUpgradeEnv, actualSUpgradeEnv)
 	}
 }
 
