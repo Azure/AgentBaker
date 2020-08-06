@@ -826,7 +826,7 @@ func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *datamodel.Co
 	if k.KubeletConfig == nil {
 		return ""
 	}
-	ensureKubeletConfigFlagsValue(k.KubeletConfig, cs, dynamicKubeletToggleEnabled)
+	ensureKubeletConfigFlagsValue(k.KubeletConfig, datamodel.ToAksEngineContainerService(cs), dynamicKubeletToggleEnabled)
 	keys := []string{}
 	dynamicKubeletEnabled := IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled)
 	for key := range k.KubeletConfig {
@@ -850,7 +850,7 @@ func IsDynamicKubeletEnabled(cs *datamodel.ContainerService, dynamicKubeletToggl
 
 func ensureKubeletConfigFlagsValue(kc map[string]string, cs *api.ContainerService, dynamicKubeletToggleEnabled bool) {
 	// for now it's only dynamic kubelet, we could add more in future
-	if IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled) && kc["--dynamic-config-dir"] == "" {
+	if IsDynamicKubeletEnabled(datamodel.FromAksEngineContainerService(cs), dynamicKubeletToggleEnabled) && kc["--dynamic-config-dir"] == "" {
 		kc["--dynamic-config-dir"] = DynamicKubeletConfigDir
 	}
 }
