@@ -515,8 +515,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		}
 
-		// Configure controller-manager
-		cs.setControllerManagerConfig()
 		// Configure cloud-controller-manager
 		cs.setCloudControllerManagerConfig()
 		// Configure apiserver
