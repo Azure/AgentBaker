@@ -485,9 +485,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		// Configure kubelet
 		cs.setKubeletConfig(isUpgrade)
 
-		// Configure addons
-		cs.setAddonsConfig(isUpgrade)
-
 		// Master-specific defaults that depend upon kubelet defaults
 		// Set the default number of IP addresses allocated for masters.
 		if cs.Properties.MasterProfile != nil {
