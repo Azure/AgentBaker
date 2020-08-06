@@ -519,8 +519,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		cs.setCloudControllerManagerConfig()
 		// Configure apiserver
 		cs.setAPIServerConfig()
-		// Configure scheduler
-		cs.setSchedulerConfig()
 
 	case api.DCOS:
 		if o.DcosConfig == nil {
