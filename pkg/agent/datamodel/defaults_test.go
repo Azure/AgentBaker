@@ -2157,7 +2157,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
@@ -2181,7 +2181,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 		{
 			name: "Kubernetes 1.14.0",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -2249,7 +2249,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 
 func TestSetCertDefaults(t *testing.T) {
 	cs := &ContainerService{
-		Properties: &api.Properties{
+		Properties: &Properties{
 			ServicePrincipalProfile: &api.ServicePrincipalProfile{
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
@@ -2316,7 +2316,7 @@ func TestSetCertDefaults(t *testing.T) {
 
 func TestSetCertDefaultsVMSS(t *testing.T) {
 	cs := &ContainerService{
-		Properties: &api.Properties{
+		Properties: &Properties{
 			ServicePrincipalProfile: &api.ServicePrincipalProfile{
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
@@ -2384,7 +2384,7 @@ func TestSetCertDefaultsVMSS(t *testing.T) {
 
 func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 	cs := &ContainerService{
-		Properties: &api.Properties{
+		Properties: &Properties{
 			ServicePrincipalProfile: &api.ServicePrincipalProfile{
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
@@ -3015,8 +3015,8 @@ func getMockBaseContainerService(orchestratorVersion string) ContainerService {
 	}
 }
 
-func getMockAPIProperties(orchestratorVersion string) api.Properties {
-	return api.Properties{
+func getMockAPIProperties(orchestratorVersion string) Properties {
+	return Properties{
 		ProvisioningState: "",
 		OrchestratorProfile: &api.OrchestratorProfile{
 			OrchestratorVersion: orchestratorVersion,
@@ -3046,7 +3046,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3059,7 +3059,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0-alpha.1",
@@ -3072,7 +3072,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0-beta.1",
@@ -3085,7 +3085,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0",
@@ -3118,7 +3118,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3131,7 +3131,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 		{
 			name: "basic",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3147,7 +3147,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3163,7 +3163,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3179,7 +3179,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3217,7 +3217,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
@@ -3229,7 +3229,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.14 disabled",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3245,7 +3245,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.14 disabled upgrade",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3262,7 +3262,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.15",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3275,7 +3275,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.15 upgrade",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3289,7 +3289,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.15 upgrade false--> true override",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3306,7 +3306,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.16 upgrade false--> true override",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.16", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3323,7 +3323,7 @@ func TestEnableRBAC(t *testing.T) {
 		{
 			name: "1.15 upgrade no false--> true override in AKS scenario",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
@@ -3362,7 +3362,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3375,7 +3375,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 		{
 			name: "basic LB",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3391,7 +3391,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 		{
 			name: "basic LB w/ true",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3408,7 +3408,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 		{
 			name: "basic LB w/ false",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3425,7 +3425,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 		{
 			name: "standard LB w/ true",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3442,7 +3442,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 		{
 			name: "standard LB w/ false",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3506,7 +3506,7 @@ func TestSetTelemetryProfileDefaults(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			props := api.Properties{
+			props := Properties{
 				TelemetryProfile: c.telemetryProfile,
 			}
 
@@ -3591,7 +3591,7 @@ func TestImageReference(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
@@ -3615,7 +3615,7 @@ func TestImageReference(t *testing.T) {
 		{
 			name: "image references",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
@@ -3667,7 +3667,7 @@ func TestImageReference(t *testing.T) {
 		{
 			name: "mixed",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
@@ -3797,7 +3797,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 		{
 			name: "default",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3824,7 +3824,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 		{
 			name: "custom hyperkube",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3850,7 +3850,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 		{
 			name: "custom hyperkube w/ distro",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3880,7 +3880,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 		{
 			name: "custom hyperkube w/ mixed distro config",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3949,7 +3949,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 		{
 			name: "kubenet",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -3976,7 +3976,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 		{
 			name: "Azure CNI",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -4003,7 +4003,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 		{
 			name: "Azure CNI + custom IPAddressCount",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -4034,7 +4034,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 		{
 			name: "kubenet + custom IPAddressCount",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -4065,7 +4065,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 		{
 			name: "Azure CNI + mixed config",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -4103,7 +4103,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 		{
 			name: "kubenet + mixed config",
 			cs: ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",

@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/Azure/go-autorest/autorest/to"
-
 	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 func getParameters(config *NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
@@ -165,7 +165,7 @@ func assignKubernetesParametersFromAgentProfile(profile *api.AgentPoolProfile, p
 	}
 }
 
-func assignKubernetesParameters(properties *api.Properties, parametersMap paramsMap,
+func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig api.AzureEnvironmentSpecConfig, generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 

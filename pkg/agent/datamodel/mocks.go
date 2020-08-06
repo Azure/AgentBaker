@@ -33,7 +33,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Location = "eastus"
 	cs.Name = containerServiceName
 
-	cs.Properties = &api.Properties{}
+	cs.Properties = &Properties{}
 
 	cs.Properties.MasterProfile = &api.MasterProfile{}
 	cs.Properties.MasterProfile.Count = masterCount
@@ -113,9 +113,9 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	return &cs
 }
 
-// GetK8sDefaultProperties returns a struct of type api.Properties for testing purposes.
-func GetK8sDefaultProperties(hasWindows bool) *api.Properties {
-	p := &api.Properties{
+// GetK8sDefaultProperties returns a struct of type Properties for testing purposes.
+func GetK8sDefaultProperties(hasWindows bool) *Properties {
+	p := &Properties{
 		OrchestratorProfile: &api.OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
 			KubernetesConfig: &api.KubernetesConfig{},
@@ -159,7 +159,7 @@ func GetK8sDefaultProperties(hasWindows bool) *api.Properties {
 }
 
 // GetMockPropertiesWithCustomCloudProfile returns a Properties object w/ mock CustomCloudProfile data
-func GetMockPropertiesWithCustomCloudProfile(name string, hasCustomCloudProfile, hasEnvironment, hasAzureEnvironmentSpecConfig bool) api.Properties {
+func GetMockPropertiesWithCustomCloudProfile(name string, hasCustomCloudProfile, hasEnvironment, hasAzureEnvironmentSpecConfig bool) Properties {
 	var (
 		managementPortalURL          = "https://management.local.azurestack.external/"
 		publishSettingsURL           = "https://management.local.azurestack.external/publishsettings/index"
@@ -182,7 +182,7 @@ func GetMockPropertiesWithCustomCloudProfile(name string, hasCustomCloudProfile,
 		tokenAudience                = "https://management.azurestack.external/"
 	)
 
-	p := api.Properties{}
+	p := Properties{}
 	if hasCustomCloudProfile {
 		p.CustomCloudProfile = &api.CustomCloudProfile{}
 		if hasEnvironment {

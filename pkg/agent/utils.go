@@ -192,7 +192,7 @@ func makeWindowsExtensionScriptCommands(extension *api.Extension, extensionProfi
 	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; Invoke-WebRequest -Uri \"%s\" -OutFile \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
-func getVNETAddressPrefixes(properties *api.Properties) string {
+func getVNETAddressPrefixes(properties *datamodel.Properties) string {
 	visitedSubnets := make(map[string]bool)
 	var buf bytes.Buffer
 	buf.WriteString(`"[variables('masterSubnet')]"`)
@@ -205,7 +205,7 @@ func getVNETAddressPrefixes(properties *api.Properties) string {
 	return buf.String()
 }
 
-func getVNETSubnetDependencies(properties *api.Properties) string {
+func getVNETSubnetDependencies(properties *datamodel.Properties) string {
 	agentString := `        "[concat('Microsoft.Network/networkSecurityGroups/', variables('%sNSGName'))]"`
 	var buf bytes.Buffer
 	for index, agentProfile := range properties.AgentPoolProfiles {
@@ -217,7 +217,7 @@ func getVNETSubnetDependencies(properties *api.Properties) string {
 	return buf.String()
 }
 
-func getVNETSubnets(properties *api.Properties, addNSG bool) string {
+func getVNETSubnets(properties *datamodel.Properties, addNSG bool) string {
 	masterString := `{
             "name": "[variables('masterSubnetName')]",
             "properties": {
