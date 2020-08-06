@@ -10,6 +10,7 @@ import (
 	"path"
 
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/engine"
 	"github.com/Azure/aks-engine/pkg/engine/transform"
@@ -38,7 +39,7 @@ type generateCmd struct {
 	set               []string
 
 	// derived
-	containerService *api.ContainerService
+	containerService *datamodel.ContainerService
 	apiVersion       string
 	locale           *gotext.Locale
 
@@ -149,10 +150,12 @@ func (gc *generateCmd) loadAPIModel() error {
 			Locale: gc.locale,
 		},
 	}
-	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath, false, false, nil)
+	var aksEngineContainerService *api.ContainerService
+	aksEngineContainerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath, false, false, nil)
 	if err != nil {
 		return errors.Wrap(err, "error parsing the api model")
 	}
+	gc.containerService = datamodel.FromAksEngineContainerService(aksEngineContainerService)
 
 	if gc.outputDirectory == "" {
 		if gc.containerService.Properties.MasterProfile != nil {
@@ -206,7 +209,7 @@ func (gc *generateCmd) autofillApimodel() error {
 
 // validateAPIModelAsVLabs converts the ContainerService object to a vlabs ContainerService object and validates it
 func (gc *generateCmd) validateAPIModelAsVLabs() error {
-	return api.ConvertContainerServiceToVLabs(gc.containerService).Validate(false)
+	return api.ConvertContainerServiceToVLabs(datamodel.ToAksEngineContainerService(gc.containerService)).Validate(false)
 }
 
 func (gc *generateCmd) run() error {
@@ -253,7 +256,7 @@ func (gc *generateCmd) run() error {
 			Locale: gc.locale,
 		},
 	}
-	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
+	if err = writer.WriteTLSArtifacts(datamodel.ToAksEngineContainerService(gc.containerService), gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 

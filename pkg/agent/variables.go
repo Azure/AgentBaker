@@ -6,6 +6,7 @@ package agent
 import (
 	"strconv"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -85,20 +86,20 @@ func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
 	}
 }
 
-func useManagedIdentity(cs *api.ContainerService) string {
+func useManagedIdentity(cs *datamodel.ContainerService) string {
 	useManagedIdentity := cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
 		cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
 	return strconv.FormatBool(useManagedIdentity)
 }
 
-func useInstanceMetadata(cs *api.ContainerService) string {
+func useInstanceMetadata(cs *datamodel.ContainerService) string {
 	useInstanceMetadata := cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
 		cs.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata != nil &&
 		*cs.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata
 	return strconv.FormatBool(useInstanceMetadata)
 }
 
-func getMaximumLoadBalancerRuleCount(cs *api.ContainerService) int {
+func getMaximumLoadBalancerRuleCount(cs *datamodel.ContainerService) int {
 	if cs.Properties.OrchestratorProfile.KubernetesConfig != nil {
 		return cs.Properties.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount
 	}
@@ -110,7 +111,7 @@ func isVHD(profile *api.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(cs *api.ContainerService) string {
+func getOutBoundCmd(cs *datamodel.ContainerService) string {
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}

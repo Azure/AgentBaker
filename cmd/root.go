@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/aks-engine/pkg/armhelpers"
@@ -292,7 +293,7 @@ func getCompletionCmd(root *cobra.Command) *cobra.Command {
 	return completionCmd
 }
 
-func writeCustomCloudProfile(cs *api.ContainerService) error {
+func writeCustomCloudProfile(cs *datamodel.ContainerService) error {
 
 	tmpFile, err := ioutil.TempFile("", "azurestackcloud.json")
 	tmpFileName := tmpFile.Name()
