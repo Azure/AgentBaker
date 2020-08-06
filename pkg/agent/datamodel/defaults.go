@@ -26,17 +26,6 @@ import (
 
 // SetPropertiesDefaults for the container Properties, returns true if certs are generated
 func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (bool, error) {
-	// Set custom cloud profile defaults if this cluster configuration has custom cloud profile
-	if cs.Properties.CustomCloudProfile != nil {
-		err := cs.setCustomCloudProfileDefaults(api.CustomCloudProfileDefaultsParams{
-			IsUpgrade: params.IsUpgrade,
-			IsScale:   params.IsScale,
-		})
-		if err != nil {
-			return false, err
-		}
-	}
-
 	// Set master profile defaults if this cluster configuration includes master node(s)
 	if cs.Properties.MasterProfile != nil {
 		cs.setMasterProfileDefaults(params.IsUpgrade)
@@ -512,14 +501,10 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		}
 
-		// Configure controller-manager
-		cs.setControllerManagerConfig()
 		// Configure cloud-controller-manager
 		cs.setCloudControllerManagerConfig()
 		// Configure apiserver
 		cs.setAPIServerConfig()
-		// Configure scheduler
-		cs.setSchedulerConfig()
 
 	case api.DCOS:
 		if o.DcosConfig == nil {
