@@ -613,11 +613,6 @@ func TestProtectKernelDefaults(t *testing.T) {
 				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s",
 					km["--protect-kernel-defaults"])
 			}
-			ka = cs.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig
-			if _, ok := ka["--protect-kernel-defaults"]; ok {
-				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s",
-					ka["--protect-kernel-defaults"])
-			}
 		}
 	}
 
