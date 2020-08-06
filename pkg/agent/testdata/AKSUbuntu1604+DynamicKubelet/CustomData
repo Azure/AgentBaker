@@ -40,7 +40,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/6SUT0/rOhDF9/kUVsXivYWTtlSoCHkBj8CrqHiIFLEoVeQ408Svjh15JqW9l/vdr/oHpNKiCyLLmfM7ZyayZvxgNU2CS0DldU3aWXHTZGCAgn+czfWqciepjBcaCUXUoI+MU9JEmbbRbCsNgnECfq4VTIJ7QJKehDTPcolBbOfaO1uBpSttQERAKsphKhtDb3zSKAWI8UJTQpIaFJ3ecRAvQCUrrzsPYp2XSSxZ5GqK5I/GQ6ScJakteHy1CrE8wFWzXHvGaxbNpY+Mzt6SP6NVVn80C1espadszI7+qlxjib2wwkPNnlrvk55a7IU9K8bN34wbYG02YWeMSrBsE7vGOc+0zffG3C+csaluHZp+a1PJGXAspYd9tyB4B+KKxCUqMow/MwsU6nreC0nVqQfyGrAr+n+GlPMQoqvkQjlrRefkuN/7QlQlFykubZpJNTOu+Cy/Tq0AURaQKockeu0vUlnjkUS//dkfY0EXZbh9xWGhUio9YNkRvfbpyfc8uqLfOe1+z+N4++t2XfjGBjKSmQFknJiVq7diNNJBqa7fS21TgddqD/rgMLCngG0/zsGuzDiCn4Pf6ViXAzcyA4OidfTz5uEiHsaj9Pa/yzgdnl/Ew+RXaweYiy7bLTjTVMBr0xTa8lz7zZ1ZjeEtEGC0UWwEuMMqZ6e6YIcO06YV/o/OMs7zpZWVVltglbILbfv7ux+9bnQ1PL9ODjXu4+tBMorv1zsfKD8ORv+mo/PB7SgJgvHAIkljJsGjtAT5xVJUjSHNGwQfkvQF0O8AAAD//8sa8F7YBQAA
+    H4sIAAAAAAAA/6SUX0/bMBTF3/MprIqH7cFJWypUhPwAI7CKiiFSxEOpIse9Tbw6duR7U9qNffepf0ArLRqIPF6f3zknlnWHd1bTKDgHVF5XpJ0VV3UGBij45uxYLyc3kop4rpFQRDX6yDglTZRpG0030iAYJuBnWsEouAUk6UlI8ygXGMR2pr2zJVi60AZEBKSiMUxkbeiFT2qlADGea0pIUo2i1TkM4jmoZOl140Gs8jKJBYtcRZH8VXuIlLMktQWPz1YhFnu4cjrWnvGKRTPpI6Ozl+T3aJXVb3XhijX0hA3ZwZfS1ZbYE8s9VOyh8TrpocGe2KNi3Hxl3ABrshE7YVSAZevYFc55pu14p+bu4IRNdGNf+41NKafAsZAedt2C4BWISxIXqMgw/sgsUKirWSckVaUeyGvAtuj+H1LOQ4iulHPlrBWto8Nu5wNRpZynuLBpJtXUuPy9/Cq1BESZQ6ockug0P0hltUcS3eZ7L8aCzotw84rDXKVUeMCiJTrN46PPebRFt3Xc/pzH4ebqtl342gYykpkBZJyYlcu3YjTSXqmuXkttXYLXagd6YzGwh4BtPs7BLs04gp+B3zqxbgzcyAwMisbB76u7s7gfD9LrH+dx2j89i/vJn8YWMBNttj1wpi6BV6bOteVj7dd7ZlnDWyDAaK1YC3CLVc5OdM72Lab1UfgTnf0HOXgueNE/vUz2HdzGl71kEN+ufmHP+L43+J4OTnvXgyQIhj2LJI0ZBffSEozPFqKsDWleI/iQpM+B/gYAAP//lA9GUacFAAA=
 
 
 
@@ -134,7 +134,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS=--azure-container-registry-config=/etc/kubernetes/azure.json --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure 
+    KUBELET_FLAGS=--azure-container-registry-config=/etc/kubernetes/azure.json --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --dynamic-config-dir=/var/lib/kubelet 
     KUBELET_REGISTER_SCHEDULABLE=true
     KUBELET_IMAGE=hyperkube-amd64:v1.15.7
 
