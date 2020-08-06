@@ -848,7 +848,7 @@ func IsDynamicKubeletEnabled(cs *datamodel.ContainerService, dynamicKubeletToggl
 	return dynamicKubeletToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
 }
 
-func ensureKubeletConfigFlagsValue(kc map[string]string, cs *api.ContainerService, dynamicKubeletToggleEnabled bool) {
+func ensureKubeletConfigFlagsValue(kc map[string]string, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) {
 	// for now it's only dynamic kubelet, we could add more in future
 	if IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled) && kc["--dynamic-config-dir"] == "" {
 		kc["--dynamic-config-dir"] = DynamicKubeletConfigDir
