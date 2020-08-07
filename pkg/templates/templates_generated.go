@@ -690,13 +690,6 @@ configureCNI() {
     systemctl restart sys-fs-bpf.mount
     REBOOTREQUIRED=true
     {{end}}
-{{- if IsAzureStackCloud}}
-    if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
-        {{/* set environment to mas when using Azure CNI on Azure Stack */}}
-        {{/* shellcheck disable=SC2002,SC2005 */}}
-        echo $(cat "$CNI_CONFIG_DIR/10-azure.conflist" | jq '.plugins[0].ipam.environment = "mas"') > "$CNI_CONFIG_DIR/10-azure.conflist"
-    fi
-{{end}}
 }
 
 configureCNIIPTables() {
@@ -1689,11 +1682,6 @@ source {{GetCSEInstallScriptFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if IsAzureStackCloud}}
-wait_for_file 3600 1 {{GetCustomCloudConfigCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCustomCloudConfigCSEScriptFilepath }}
-{{end}}
-
 set +x
 ETCD_PEER_CERT=$(echo ${ETCD_PEER_CERTIFICATES} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
 ETCD_PEER_KEY=$(echo ${ETCD_PEER_PRIVATE_KEYS} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
@@ -1819,11 +1807,9 @@ fi
 {{- /* re-enable unattended upgrades */}}
 rm -f /etc/apt/apt.conf.d/99periodic
 
-{{- if not IsAzureStackCloud}}
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     apt_get_purge 20 30 120 apache2-utils &
 fi
-{{end}}
 
 VALIDATION_ERR=0
 
@@ -4033,12 +4019,6 @@ try
             -LoadBalancerSku $global:LoadBalancerSku `+"`"+`
             -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `+"`"+`
             -TargetEnvironment $TargetEnvironment
-
-        {{if IsAzureStackCloud}}
-        $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
-        $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
-        [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
-        {{end}}
 
         Write-Log "Write ca root"
         Write-CACert -CACertificate $global:CACertificate `+"`"+`

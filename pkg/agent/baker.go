@@ -209,9 +209,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		profile = nil
 	}
 	return template.FuncMap{
-		"IsAzureStackCloud": func() bool {
-			return cs.Properties.IsAzureStackCloud()
-		},
 		"IsMultiMasterCluster": func() bool {
 			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasMultipleNodes()
 		},

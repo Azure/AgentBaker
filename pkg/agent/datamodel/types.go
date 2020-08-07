@@ -250,11 +250,6 @@ func (p *Properties) TotalNodes() int {
 	return totalNodes
 }
 
-// IsAzureStackCloud return true if the cloud is AzureStack
-func (p *Properties) IsAzureStackCloud() bool {
-	return p.CustomCloudProfile != nil
-}
-
 // HasAvailabilityZones returns true if the cluster contains a profile with zones
 func (p *Properties) HasAvailabilityZones() bool {
 	hasZones := p.MasterProfile != nil && p.MasterProfile.HasAvailabilityZones()
