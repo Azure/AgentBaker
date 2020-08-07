@@ -2947,7 +2947,7 @@ func TestPreserveNodesProperties(t *testing.T) {
 
 func TestUbuntu1804Flags(t *testing.T) {
 	// Validate --resolv-conf is missing with 16.04 distro and present with 18.04
-	cs := CreateMockContainerService("testcluster", "1.10.13", 3, 2, false)
+	cs := CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
 	cs.Properties.MasterProfile.Distro = api.AKSUbuntu1604
 	cs.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntu1804
 	cs.Properties.AgentPoolProfiles[0].OSType = api.Linux
@@ -2967,7 +2967,7 @@ func TestUbuntu1804Flags(t *testing.T) {
 			ka["--resolv-conf"], "/run/systemd/resolve/resolv.conf")
 	}
 
-	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, false)
+	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
 	cs.Properties.MasterProfile.Distro = api.Ubuntu1804
 	cs.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
 	cs.Properties.AgentPoolProfiles[0].OSType = api.Linux
@@ -2987,7 +2987,7 @@ func TestUbuntu1804Flags(t *testing.T) {
 			ka["--resolv-conf"])
 	}
 
-	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, false)
+	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
 	cs.Properties.MasterProfile.Distro = api.Ubuntu
 	cs.Properties.AgentPoolProfiles[0].Distro = ""
 	cs.Properties.AgentPoolProfiles[0].OSType = api.Windows
@@ -3015,6 +3015,28 @@ func getMockBaseContainerService(orchestratorVersion string) ContainerService {
 	}
 }
 
+// getMockCertificateProfile generates fake certificates.
+//
+// Adds some fake certficates would bypass the "SetDefaultCerts" part of setting default
+// values, which accelerates test case run dramatically. This is useful for test
+// cases that are not testing the certificate generation part of the code.
+func getMockCertificateProfile() *api.CertificateProfile {
+	return &api.CertificateProfile{
+		CaCertificate:         "FakeCert",
+		CaPrivateKey:          "FakePrivateKey",
+		ClientCertificate:     "FakeClientCertificate",
+		ClientPrivateKey:      "FakeClientPrivateKey",
+		APIServerCertificate:  "FakeAPIServerCert",
+		APIServerPrivateKey:   "FakeAPIServerPrivateKey",
+		EtcdClientCertificate: "FakeEtcdClientCertificate",
+		EtcdClientPrivateKey:  "FakeEtcdClientPrivateKey",
+		EtcdServerCertificate: "FakeEtcdServerCertificate",
+		EtcdServerPrivateKey:  "FakeEtcdServerPrivateKey",
+		KubeConfigCertificate: "FakeKubeConfigCertificate",
+		KubeConfigPrivateKey:  "FakeKubeConfigPrivateKey",
+	}
+}
+
 func getMockAPIProperties(orchestratorVersion string) api.Properties {
 	return api.Properties{
 		ProvisioningState: "",
@@ -3022,7 +3044,8 @@ func getMockAPIProperties(orchestratorVersion string) api.Properties {
 			OrchestratorVersion: orchestratorVersion,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		MasterProfile: &api.MasterProfile{},
+		MasterProfile:      &api.MasterProfile{},
+		CertificateProfile: getMockCertificateProfile(),
 		AgentPoolProfiles: []*api.AgentPoolProfile{
 			{},
 			{},
@@ -3595,7 +3618,8 @@ func TestImageReference(t *testing.T) {
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile:      &api.MasterProfile{},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{},
 					},
@@ -3628,6 +3652,7 @@ func TestImageReference(t *testing.T) {
 							Version:        "version",
 						},
 					},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							ImageRef: &api.ImageReference{
@@ -3671,7 +3696,8 @@ func TestImageReference(t *testing.T) {
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile:      &api.MasterProfile{},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							ImageRef: &api.ImageReference{
@@ -3958,7 +3984,8 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile:      &api.MasterProfile{},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							Name: "pool1",
@@ -3985,7 +4012,8 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile:      &api.MasterProfile{},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							Name: "pool1",
@@ -4015,6 +4043,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					MasterProfile: &api.MasterProfile{
 						IPAddressCount: 24,
 					},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							Name:           "pool1",
@@ -4046,6 +4075,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					MasterProfile: &api.MasterProfile{
 						IPAddressCount: 24,
 					},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							Name:           "pool1",
@@ -4081,6 +4111,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							},
 						},
 					},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							Name: "pool1",
@@ -4119,6 +4150,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							},
 						},
 					},
+					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*api.AgentPoolProfile{
 						{
 							Name: "pool1",
