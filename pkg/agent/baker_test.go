@@ -20,7 +20,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		cs := &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
-			Properties: &api.Properties{
+			Properties: &datamodel.Properties{
 				OrchestratorProfile: &api.OrchestratorProfile{
 					OrchestratorType:    api.Kubernetes,
 					OrchestratorVersion: k8sVersion,

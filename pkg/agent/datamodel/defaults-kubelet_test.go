@@ -837,7 +837,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -851,7 +851,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, no SupportPodPidsLimit defined",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -869,7 +869,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=false",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -887,7 +887,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=true",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -905,7 +905,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=false",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -924,7 +924,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=true",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -943,7 +943,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -958,7 +958,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -977,7 +977,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=false, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -996,7 +996,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1015,7 +1015,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, no SupportPodPidsLimit defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1034,7 +1034,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=false, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1054,7 +1054,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1074,7 +1074,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100a, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1123,7 +1123,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1142,7 +1142,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, no SupportPodPidsLimit defined",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1165,7 +1165,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=false",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1188,7 +1188,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=true",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1211,7 +1211,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=false",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1235,7 +1235,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=true",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1259,7 +1259,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1279,7 +1279,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=false, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1303,7 +1303,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1327,7 +1327,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100, no SupportPodPidsLimit defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1351,7 +1351,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as -100, no SupportPodPidsLimit defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1375,7 +1375,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=false, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1400,7 +1400,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1425,7 +1425,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 0, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1450,7 +1450,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as -1, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1475,7 +1475,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100a, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1529,7 +1529,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1552,7 +1552,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, no SupportPodPidsLimit defined",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1577,7 +1577,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=false",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1602,7 +1602,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=true",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1627,7 +1627,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=false",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1653,7 +1653,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=true",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1679,7 +1679,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1703,7 +1703,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=false, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1729,7 +1729,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "no --pod-max-pids defined, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1755,7 +1755,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100, no SupportPodPidsLimit defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1781,7 +1781,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as -100, no SupportPodPidsLimit defined, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1807,7 +1807,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined, SupportPodPidsLimit=false, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1834,7 +1834,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1861,7 +1861,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 0, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1887,7 +1887,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as -1, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1914,7 +1914,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 		{
 			name: "--pod-max-pids defined as 100a, SupportPodPidsLimit=true, upgrade scenario",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
@@ -1967,7 +1967,7 @@ func TestReadOnlyPort(t *testing.T) {
 		{
 			name: "default pre-1.16",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0",
@@ -1980,7 +1980,7 @@ func TestReadOnlyPort(t *testing.T) {
 		{
 			name: "default 1.16",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					OrchestratorProfile: &api.OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.16.0",
@@ -1993,7 +1993,7 @@ func TestReadOnlyPort(t *testing.T) {
 		{
 			name: "AKS 1.16",
 			cs: &ContainerService{
-				Properties: &api.Properties{
+				Properties: &Properties{
 					HostedMasterProfile: &api.HostedMasterProfile{
 						FQDN: "foo",
 					},
