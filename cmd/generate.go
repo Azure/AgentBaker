@@ -68,13 +68,7 @@ func newGenerateCmd() *cobra.Command {
 			if err := gc.loadAPIModel(); err != nil {
 				return errors.Wrap(err, "loading API model in generateCmd")
 			}
-			if gc.apiVersion == "vlabs" {
-				if err := gc.validateAPIModelAsVLabs(); err != nil {
-					return errors.Wrap(err, "validating API model after populating values")
-				}
-			} else {
-				log.Warnf("API model validation is only available for \"apiVersion\": \"vlabs\", skipping validation...")
-			}
+
 			return gc.run()
 		},
 	}
@@ -205,11 +199,6 @@ func (gc *generateCmd) autofillApimodel() error {
 		}
 	}
 	return nil
-}
-
-// validateAPIModelAsVLabs converts the ContainerService object to a vlabs ContainerService object and validates it
-func (gc *generateCmd) validateAPIModelAsVLabs() error {
-	return api.ConvertContainerServiceToVLabs(datamodel.ToAksEngineContainerService(gc.containerService)).Validate(false)
 }
 
 func (gc *generateCmd) run() error {
