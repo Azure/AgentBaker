@@ -1,17 +1,17 @@
 #!/bin/bash
 
 # Create the necessary infrastructure if it doesn't exist, so that we can publish the SIG image version
-[[ -z "${CLIENT_ID}" ]] && (echo "CLIENT_ID is not set"; exit 1)
-[[ -z "${CLIENT_SECRET}" ]] && (echo "CLIENT_SECRET is not set"; exit 1)
-[[ -z "${TENANT_ID}" ]] && (echo "TENANT_ID is not set"; exit 1)
-[[ -z "${SUBSCRIPTION_ID}" ]] && (echo "SUBSCRIPTION_ID is not set"; exit 1)
-[[ -z "${REGION}" ]] && (echo "REGION is not set"; exit 1)
+[[ -z "${CLIENT_ID}" ]] && echo "CLIENT_ID is not set" && exit 1
+[[ -z "${CLIENT_SECRET}" ]] && echo "CLIENT_SECRET is not set" && exit 1
+[[ -z "${TENANT_ID}" ]] && echo "TENANT_ID is not set" && exit 1
+[[ -z "${SUBSCRIPTION_ID}" ]] && echo "SUBSCRIPTION_ID is not set" && exit 1
+[[ -z "${REGION}" ]] && echo "REGION is not set" && exit 1
 
-[[ -z "${RG_NAME}" ]] && (echo "RG_NAME is not set"; exit 1)
-[[ -z "${OS_NAME}" ]] && (echo "OS_NAME is not set"; exit 1)
-[[ -z "${GALLERY_NAME}" ]] && (echo "GALLERY_NAME is not set"; exit 1)
-[[ -z "${IMAGEDEFINITION_NAME}" ]] && (echo "IMAGEDEFINITION_NAME is not set"; exit 1)
-[[ -z "${HYPERV_GENERATION}" ]] && (echo "HYPERV_GENERATION is not set"; exit 1)
+[[ -z "${RG_NAME}" ]] && echo "RG_NAME is not set" && exit 1
+[[ -z "${OS_NAME}" ]] && echo "OS_NAME is not set" && exit 1
+[[ -z "${GALLERY_NAME}" ]] && echo "GALLERY_NAME is not set" && exit 1
+[[ -z "${IMAGEDEFINITION_NAME}" ]] && echo "IMAGEDEFINITION_NAME is not set" && exit 1
+[[ -z "${HYPERV_GENERATION}" ]] && echo "HYPERV_GENERATION is not set" && exit 1
 
 echo "az login --service-principal -u ${CLIENT_ID} -p *** --tenant ${TENANT_ID}"
 az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
