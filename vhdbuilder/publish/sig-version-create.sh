@@ -2,17 +2,17 @@
 
 # Create managed Image from VHD sas url and then publish the managed image into the already created shared image gallery
 
-[[ -z "${REGION}" ]] && (echo "REGION is not set"; exit 1)
-[[ -z "${RG_NAME}" ]] && (echo "RG_NAME is not set"; exit 1)
-[[ -z "${GALLERY_NAME}" ]] && (echo "GALLERY_NAME is not set"; exit 1)
-[[ -z "${IMAGEDEFINITION_NAME}" ]] && (echo "IMAGEDEFINITION_NAME is not set"; exit 1)
-[[ -z "${IMAGE_VERSION}" ]] && (echo "IMAGE_VERSION is not set"; exit 1)
+[[ -z "${REGION}" ]] && echo "REGION is not set" && exit 1
+[[ -z "${RG_NAME}" ]] && echo "RG_NAME is not set" && exit 1
+[[ -z "${GALLERY_NAME}" ]] && echo "GALLERY_NAME is not set" && exit 1
+[[ -z "${IMAGEDEFINITION_NAME}" ]] && echo "IMAGEDEFINITION_NAME is not set" && exit 1
+[[ -z "${IMAGE_VERSION}" ]] && echo "IMAGE_VERSION is not set" && exit 1
 #TARGET_REGIONS must be set in the following format region=replicacount "westus2=1 eastus=4 uksouth=3"
-[[ -z "${TARGET_CREATE_REGIONS}" ]] && (echo "TARGET_CREATE_REGIONS is not set"; exit 1)
-[[ -z "${MANAGED_IMAGE_RG_NAME}" ]] && (echo "MANAGED_IMAGE_RG_NAME is not set"; exit 1)
-[[ -z "${VHD_SOURCE}" ]] && (echo "VHD_SOURCE is not set"; exit 1)
-[[ -z "${OS_NAME}" ]] && (echo "OS_NAME is not set"; exit 1)
-[[ -z "${HYPERV_GENERATION}" ]] && (echo "HYPERV_GENERATION is not set"; exit 1)
+[[ -z "${TARGET_CREATE_REGIONS}" ]] && echo "TARGET_CREATE_REGIONS is not set" && exit 1
+[[ -z "${MANAGED_IMAGE_RG_NAME}" ]] && echo "MANAGED_IMAGE_RG_NAME is not set" && exit 1
+[[ -z "${VHD_SOURCE}" ]] && echo "VHD_SOURCE is not set" && exit 1
+[[ -z "${OS_NAME}" ]] && echo "OS_NAME is not set" && exit 1
+[[ -z "${HYPERV_GENERATION}" ]] && echo "HYPERV_GENERATION is not set" && exit 1
 
 MANAGED_IMAGE_NAME="MI_${REGION}_${GALLERY_NAME}_${IMAGEDEFINITION_NAME}_${IMAGE_VERSION}"
 
