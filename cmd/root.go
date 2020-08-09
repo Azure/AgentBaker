@@ -5,14 +5,11 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/aks-engine/pkg/armhelpers"
@@ -291,27 +288,4 @@ func getCompletionCmd(root *cobra.Command) *cobra.Command {
 		},
 	}
 	return completionCmd
-}
-
-func writeCustomCloudProfile(cs *datamodel.ContainerService) error {
-
-	tmpFile, err := ioutil.TempFile("", "azurestackcloud.json")
-	tmpFileName := tmpFile.Name()
-	if err != nil {
-		return err
-	}
-	log.Infoln(fmt.Sprintf("Writing cloud profile to: %s", tmpFileName))
-
-	// Build content for the file
-	content, err := cs.Properties.GetCustomEnvironmentJSON(false)
-	if err != nil {
-		return err
-	}
-	if err = ioutil.WriteFile(tmpFileName, []byte(content), os.ModeAppend); err != nil {
-		return err
-	}
-
-	os.Setenv("AZURE_ENVIRONMENT_FILEPATH", tmpFileName)
-
-	return nil
 }
