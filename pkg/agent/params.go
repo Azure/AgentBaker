@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func getParameters(config *NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
@@ -190,9 +190,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			}
 
 			kubernetesHyperkubeSpec := hyperkubeImageBase + k8sComponents["hyperkube"]
-			if properties.IsAzureStackCloud() {
-				kubernetesHyperkubeSpec = kubernetesHyperkubeSpec + AzureStackSuffix
-			}
 			if kubernetesConfig.CustomHyperkubeImage != "" {
 				kubernetesHyperkubeSpec = kubernetesConfig.CustomHyperkubeImage
 			}
@@ -250,11 +247,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				// will be removed in future release as if gets phased out (https://github.com/Azure/aks-engine/issues/3851)
 				kubeBinariesSASURL := kubernetesConfig.CustomWindowsPackageURL
 				if kubeBinariesSASURL == "" {
-					if properties.IsAzureStackCloud() {
-						kubeBinariesSASURL = cloudSpecConfig.KubernetesSpecConfig.KubeBinariesSASURLBase + AzureStackPrefix + k8sComponents["windowszip"]
-					} else {
-						kubeBinariesSASURL = cloudSpecConfig.KubernetesSpecConfig.KubeBinariesSASURLBase + k8sComponents["windowszip"]
-					}
+					kubeBinariesSASURL = cloudSpecConfig.KubernetesSpecConfig.KubeBinariesSASURLBase + k8sComponents["windowszip"]
 				}
 				addValue(parametersMap, "kubeBinariesSASURL", kubeBinariesSASURL)
 

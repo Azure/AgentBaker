@@ -5,7 +5,6 @@ package datamodel
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/Azure/aks-engine/pkg/api"
@@ -58,18 +57,6 @@ func TestGetAzureCNIURLFuncs(t *testing.T) {
 }
 
 func TestGetLocations(t *testing.T) {
-
-	// Test location for Azure Stack Cloud
-	mockCSDefaultSpec := getMockBaseContainerService("1.11.6")
-	mockCSPDefaultSpec := GetMockPropertiesWithCustomCloudProfile("azurestackcloud", true, true, false)
-	mockCSDefaultSpec.Properties.CustomCloudProfile = mockCSPDefaultSpec.CustomCloudProfile
-	mockCSDefaultSpec.Location = "randomlocation"
-
-	expectedResult := []string{"randomlocation"}
-	actualResult := mockCSDefaultSpec.GetLocations()
-	if !reflect.DeepEqual(expectedResult, actualResult) {
-		t.Errorf("Test TestGetLocations() : expected to return %s, but got %s . ", expectedResult, actualResult)
-	}
 
 	// Test locations for Azure
 	mockCSDefault := getMockBaseContainerService("1.11.6")
@@ -158,31 +145,6 @@ func TestHasAadProfile(t *testing.T) {
 		t.Fatalf("Expected HasAadProfile() to return true")
 	}
 
-}
-
-func TestGetCustomCloudName(t *testing.T) {
-	testcases := []struct {
-		name       string
-		properties Properties
-		expected   string
-	}{
-		{
-			"lower case cloud name",
-			GetMockPropertiesWithCustomCloudProfile("azurestackcloud", true, true, true),
-			"azurestackcloud",
-		},
-		{
-			"cammel case cloud name",
-			GetMockPropertiesWithCustomCloudProfile("AzureStackCloud", true, true, true),
-			"AzureStackCloud",
-		},
-	}
-	for _, testcase := range testcases {
-		actual := testcase.properties.GetCustomCloudName()
-		if testcase.expected != actual {
-			t.Errorf("Test \"%s\": expected GetCustomCloudName() to return %s, but got %s . ", testcase.name, testcase.expected, actual)
-		}
-	}
 }
 
 func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
@@ -1110,56 +1072,6 @@ func TestTotalNodes(t *testing.T) {
 	}
 }
 
-func TestIsAzureStackCloud(t *testing.T) {
-	testcases := []struct {
-		name       string
-		properties Properties
-		expected   bool
-	}{
-		{
-			"Empty environment name",
-			GetMockPropertiesWithCustomCloudProfile("", true, true, false),
-			true,
-		},
-		{
-			"Empty environment name with AzureEnvironmentSpecConfig",
-			GetMockPropertiesWithCustomCloudProfile("", true, true, true),
-			true,
-		},
-		{
-			"lower case cloud name",
-			GetMockPropertiesWithCustomCloudProfile("azurestackcloud", true, true, true),
-			true,
-		},
-		{
-			"cammel case cloud name",
-			GetMockPropertiesWithCustomCloudProfile("AzureStackCloud", true, true, true),
-			true,
-		},
-		{
-			"incorrect cloud name",
-			GetMockPropertiesWithCustomCloudProfile("NotAzureStackCloud", true, true, true),
-			true,
-		},
-		{
-			"empty cloud profile",
-			GetMockPropertiesWithCustomCloudProfile("AzureStackCloud", false, false, false),
-			false,
-		},
-		{
-			"empty environment ",
-			GetMockPropertiesWithCustomCloudProfile("AzureStackCloud", true, false, true),
-			true,
-		},
-	}
-	for _, testcase := range testcases {
-		actual := testcase.properties.IsAzureStackCloud()
-		if testcase.expected != actual {
-			t.Errorf("Test \"%s\": expected IsAzureStackCloud() to return %t, but got %t . ", testcase.name, testcase.expected, actual)
-		}
-	}
-}
-
 func TestHasAvailabilityZones(t *testing.T) {
 	cases := []struct {
 		p                Properties
@@ -1583,38 +1495,6 @@ func TestAreAgentProfilesCustomVNET(t *testing.T) {
 
 	if p.AreAgentProfilesCustomVNET() {
 		t.Fatalf("Expected isCustomVNET to be false when agent pool profiles is nil")
-	}
-}
-
-func TestGetCustomEnvironmentJSON(t *testing.T) {
-	expectedResult := `{"name":"azurestackcloud","managementPortalURL":"https://management.local.azurestack.external/","publishSettingsURL":"https://management.local.azurestack.external/publishsettings/index","serviceManagementEndpoint":"https://management.azurestackci15.onmicrosoft.com/36f71706-54df-4305-9847-5b038a4cf189","resourceManagerEndpoint":"https://management.local.azurestack.external/","activeDirectoryEndpoint":"https://login.windows.net/","galleryEndpoint":"https://portal.local.azurestack.external=30015/","keyVaultEndpoint":"https://vault.azurestack.external/","graphEndpoint":"https://graph.windows.net/","serviceBusEndpoint":"https://servicebus.azurestack.external/","batchManagementEndpoint":"https://batch.azurestack.external/","storageEndpointSuffix":"core.azurestack.external","sqlDatabaseDNSSuffix":"database.azurestack.external","trafficManagerDNSSuffix":"trafficmanager.cn","keyVaultDNSSuffix":"vault.azurestack.external","serviceBusEndpointSuffix":"servicebus.azurestack.external","serviceManagementVMDNSSuffix":"chinacloudapp.cn","resourceManagerVMDNSSuffix":"cloudapp.azurestack.external","containerRegistryDNSSuffix":"azurecr.io","cosmosDBDNSSuffix":"","tokenAudience":"https://management.azurestack.external/","resourceIdentifiers":{"graph":"","keyVault":"","datalake":"","batch":"","operationalInsights":"","storage":""}}`
-	testcases := []struct {
-		name       string
-		properties Properties
-		escape     bool
-		expected   string
-	}{
-		{
-			"no escape",
-			GetMockPropertiesWithCustomCloudProfile("azurestackcloud", true, true, true),
-			true,
-			strings.Replace(expectedResult, "\"", "\\\"", -1),
-		},
-		{
-			"escape",
-			GetMockPropertiesWithCustomCloudProfile("azurestackcloud", true, true, true),
-			false,
-			expectedResult,
-		},
-	}
-	for _, testcase := range testcases {
-		actual, err := testcase.properties.GetCustomEnvironmentJSON(testcase.escape)
-		if err != nil {
-			t.Error(err)
-		}
-		if testcase.expected != actual {
-			t.Errorf("Test \"%s\": expected GetCustomEnvironmentJSON() to return %s, but got %s . ", testcase.name, testcase.expected, actual)
-		}
 	}
 }
 

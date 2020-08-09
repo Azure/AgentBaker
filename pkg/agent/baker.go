@@ -209,9 +209,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		profile = nil
 	}
 	return template.FuncMap{
-		"IsAzureStackCloud": func() bool {
-			return cs.Properties.IsAzureStackCloud()
-		},
 		"IsMultiMasterCluster": func() bool {
 			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasMultipleNodes()
 		},
@@ -515,10 +512,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
 		},
 		"GetIdentitySystem": func() string {
-			if cs.Properties.IsAzureStackCloud() {
-				return cs.Properties.CustomCloudProfile.IdentitySystem
-			}
-
 			return api.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
@@ -577,9 +570,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 				}
 			}
 			kubernetesImageBase := k.KubernetesImageBase
-			if cs.Properties.IsAzureStackCloud() {
-				kubernetesImageBase = cs.GetCloudSpecConfig().KubernetesSpecConfig.KubernetesImageBase
-			}
 			k8sComponents := api.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 			return kubernetesImageBase + k8sComponents[name]
 		},
@@ -587,9 +577,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
 			k8sComponents := api.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 			hyperkubeImage := hyperkubeImageBase + k8sComponents["hyperkube"]
-			if cs.Properties.IsAzureStackCloud() {
-				hyperkubeImage = hyperkubeImage + AzureStackSuffix
-			}
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
 				hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
 			}

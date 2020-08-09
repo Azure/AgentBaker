@@ -4,7 +4,6 @@
 package datamodel
 
 import (
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -160,13 +159,7 @@ func toAksEngineProperties(p *Properties) *api.Properties {
 // If AzureStackCloud, GetLocations provides the location of container service
 // If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
 func (cs *ContainerService) GetLocations() []string {
-	var allLocations []string
-	if cs.Properties.IsAzureStackCloud() {
-		allLocations = []string{cs.Location}
-	} else {
-		allLocations = helpers.GetAzureLocations()
-	}
-	return allLocations
+	return helpers.GetAzureLocations()
 }
 
 // HasAadProfile returns true if the has aad profile
@@ -179,9 +172,7 @@ func (p *Properties) HasAadProfile() bool {
 // the return value will be empty string for those clouds
 func (p *Properties) GetCustomCloudName() string {
 	var cloudProfileName string
-	if p.IsAzureStackCloud() {
-		cloudProfileName = p.CustomCloudProfile.Environment.Name
-	} else if p.IsAKSCustomCloud() {
+	if p.IsAKSCustomCloud() {
 		cloudProfileName = p.CustomCloudEnv.Name
 	}
 	return cloudProfileName
@@ -257,11 +248,6 @@ func (p *Properties) TotalNodes() int {
 		totalNodes += pool.Count
 	}
 	return totalNodes
-}
-
-// IsAzureStackCloud return true if the cloud is AzureStack
-func (p *Properties) IsAzureStackCloud() bool {
-	return p.CustomCloudProfile != nil
 }
 
 // HasAvailabilityZones returns true if the cluster contains a profile with zones
@@ -341,16 +327,6 @@ func (p *Properties) AreAgentProfilesCustomVNET() bool {
 // GetCustomEnvironmentJSON return the JSON format string for custom environment
 func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 	var environmentJSON string
-	if p.IsAzureStackCloud() {
-		bytes, err := json.Marshal(p.CustomCloudProfile.Environment)
-		if err != nil {
-			return "", fmt.Errorf("Could not serialize Environment object - %s", err.Error())
-		}
-		environmentJSON = string(bytes)
-		if escape {
-			environmentJSON = strings.Replace(environmentJSON, "\"", "\\\"", -1)
-		}
-	}
 	return environmentJSON, nil
 }
 

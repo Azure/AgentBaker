@@ -145,12 +145,8 @@ func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *a
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
 	}
-	curlCaCertOpt := ""
-	if cs.Properties.IsAzureStackCloud() {
-		curlCaCertOpt = fmt.Sprintf("--cacert %s", AzureStackCaCertLocation)
-	}
 	return makeExtensionScriptCommands(profile.PreprovisionExtension,
-		curlCaCertOpt, cs.Properties.ExtensionProfiles)
+		"", cs.Properties.ExtensionProfiles)
 }
 
 func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string, extensionProfiles []*api.ExtensionProfile) string {
