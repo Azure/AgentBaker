@@ -177,17 +177,14 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 
 		k8sComponents := api.K8sComponentsByVersionMap[k8sVersion]
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
-		kubernetesImageBase := kubernetesConfig.KubernetesImageBase
 		mcrKubernetesImageBase := kubernetesConfig.MCRKubernetesImageBase
 		hyperkubeImageBase := kubernetesConfig.KubernetesImageBase
 
 		if kubernetesConfig != nil {
-
-			kubeProxySpec := kubernetesImageBase + k8sComponents["kube-proxy"]
 			if kubernetesConfig.CustomKubeProxyImage != "" {
-				kubeProxySpec = kubernetesConfig.CustomKubeProxyImage
+				addValue(parametersMap, "kubeProxySpec", kubernetesConfig.CustomKubeProxyImage)
 			}
-			addValue(parametersMap, "kubeProxySpec", kubeProxySpec)
+
 			if kubernetesConfig.CustomKubeBinaryURL != "" {
 				addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
 			}
