@@ -262,7 +262,8 @@ installKubeletKubectlAndKubeProxy() {
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
 
     if [ -n "${KUBEPROXY_URL}" ]; then
-        pullContainerImage "docker" ${KUBEPROXY_URL}
+        #kubeproxy is a system addon that is dictated by control plane so it shouldn't block node provisioning
+        pullContainerImage "docker" ${KUBEPROXY_URL} &
     fi
 }
 
