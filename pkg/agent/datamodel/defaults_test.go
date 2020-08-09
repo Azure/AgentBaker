@@ -6,7 +6,6 @@ package datamodel
 import (
 	"encoding/base64"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"reflect"
 	"strings"
@@ -2439,27 +2438,6 @@ func TestProxyModeDefaults(t *testing.T) {
 
 	if properties.OrchestratorProfile.KubernetesConfig.ProxyMode != api.KubeProxyModeIPVS {
 		t.Fatalf("ProxyMode string not the expected default value, got %s, expected %s", properties.OrchestratorProfile.KubernetesConfig.ProxyMode, api.KubeProxyModeIPVS)
-	}
-}
-
-func TestCustomCloudLocation(t *testing.T) {
-
-	// Test that the ResourceManagerVMDNSSuffix is set in EndpointConfig
-	mockCS := getMockBaseContainerService("1.11.6")
-	mockCSP := GetMockPropertiesWithCustomCloudProfile("AzureStackCloud", true, true, true)
-	mockCS.Properties = &mockCSP
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
-	dnsPrefix := "santest"
-	actual := []string{api.FormatProdFQDNByLocation(dnsPrefix, mockCS.Location, "AzureStackCloud")}
-
-	expected := []string{fmt.Sprintf("%s.%s.%s", dnsPrefix, mockCS.Location, api.AzureCloudSpecEnvMap[api.AzureStackCloud].EndpointConfig.ResourceManagerVMDNSSuffix)}
-
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("expected formatted fqdns %s, but got %s", expected, actual)
 	}
 }
 

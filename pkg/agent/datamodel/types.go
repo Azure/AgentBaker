@@ -156,7 +156,6 @@ func toAksEngineProperties(p *Properties) *api.Properties {
 }
 
 // GetLocations returns all supported regions.
-// If AzureStackCloud, GetLocations provides the location of container service
 // If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
 func (cs *ContainerService) GetLocations() []string {
 	return helpers.GetAzureLocations()
