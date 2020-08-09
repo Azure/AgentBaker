@@ -11,6 +11,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/engine"
 	"github.com/Azure/aks-engine/pkg/engine/transform"
@@ -139,7 +140,7 @@ func (gc *generateCmd) loadAPIModel() error {
 	var caKeyBytes []byte
 	var err error
 
-	apiloader := &api.Apiloader{
+	apiloader := &aksenginefork.Apiloader{
 		Translator: &i18n.Translator{
 			Locale: gc.locale,
 		},
