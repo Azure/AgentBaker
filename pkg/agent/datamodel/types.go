@@ -34,7 +34,6 @@ type Properties struct {
 	HostedMasterProfile     *api.HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
 	AddonProfiles           map[string]api.AddonProfile  `json:"addonProfiles,omitempty"`
 	FeatureFlags            *api.FeatureFlags            `json:"featureFlags,omitempty"`
-	CustomCloudProfile      *api.CustomCloudProfile      `json:"customCloudProfile,omitempty"`
 	TelemetryProfile        *api.TelemetryProfile        `json:"telemetryProfile,omitempty"`
 	CustomCloudEnv          *api.CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 }
@@ -105,7 +104,6 @@ func fromAksEngineProperties(aksEngineProperties *api.Properties) *Properties {
 		HostedMasterProfile:     aksEngineProperties.HostedMasterProfile,
 		AddonProfiles:           aksEngineProperties.AddonProfiles,
 		FeatureFlags:            aksEngineProperties.FeatureFlags,
-		CustomCloudProfile:      aksEngineProperties.CustomCloudProfile,
 		TelemetryProfile:        aksEngineProperties.TelemetryProfile,
 		CustomCloudEnv:          aksEngineProperties.CustomCloudEnv,
 	}
@@ -148,7 +146,6 @@ func toAksEngineProperties(p *Properties) *api.Properties {
 		HostedMasterProfile:     p.HostedMasterProfile,
 		AddonProfiles:           p.AddonProfiles,
 		FeatureFlags:            p.FeatureFlags,
-		CustomCloudProfile:      p.CustomCloudProfile,
 		TelemetryProfile:        p.TelemetryProfile,
 		CustomCloudEnv:          p.CustomCloudEnv,
 	}

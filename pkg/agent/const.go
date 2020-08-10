@@ -60,15 +60,6 @@ const (
 )
 
 const (
-	// AzureStackSuffix is appended to kubernetes version on Azure Stack instances
-	AzureStackSuffix = "-azs"
-	// AzureStackPrefix is appended to windows binary version for Azure Stack instances
-	AzureStackPrefix = "azs-"
-	// AzureStackCaCertLocation is where Azure Stack's CRP drops the stamp CA certificate
-	AzureStackCaCertLocation = "/var/lib/waagent/Certificates.pem"
-)
-
-const (
 	// Windows custom scripts
 	kubernetesWindowsAgentCustomDataPS1   = "windows/kuberneteswindowssetup.ps1"
 	kubernetesWindowsAgentFunctionsPS1    = "windows/kuberneteswindowsfunctions.ps1"
