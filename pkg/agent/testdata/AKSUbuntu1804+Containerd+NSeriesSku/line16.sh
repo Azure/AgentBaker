@@ -1,5 +1,5 @@
 #!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -9,8 +9,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
-        grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
+    if [ -s /opt/azure/containers/provision_source.sh ]; then
+        grep -Fq '#HELPERSEOF' /opt/azure/containers/provision_source.sh && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -18,14 +18,14 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptFilepath}}
+sed -i "/#HELPERSEOF/d" /opt/azure/containers/provision_source.sh
+source /opt/azure/containers/provision_source.sh
 
-wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptFilepath}}
+wait_for_file 3600 1 /opt/azure/containers/provision_installs.sh || exit $ERR_FILE_WATCH_TIMEOUT
+source /opt/azure/containers/provision_installs.sh
 
-wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEConfigScriptFilepath}}
+wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
+source /opt/azure/containers/provision_configs.sh
 
 set +x
 ETCD_PEER_CERT=$(echo ${ETCD_PEER_CERTIFICATES} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
@@ -44,10 +44,6 @@ else
 fi
 
 configureAdminUser
-
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
@@ -79,14 +75,10 @@ fi
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     ensureAuditD
 fi
-
-{{- if not HasCoreOS}}
 installContainerRuntime
-{{end}}
+
 
 installNetworkPlugin
-
-{{- if HasNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
         installGPUDrivers
@@ -98,11 +90,7 @@ if [[ "${GPU_NODE}" = true ]]; then
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
-{{end}}
 
-{{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
-docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
-{{end}}
 
 installKubeletKubectlAndKubeProxy
 
@@ -112,53 +100,31 @@ fi
 
 createKubeManifestDir
 
-{{- if HasDCSeriesSKU}}
-if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    installSGXDrivers
-fi
-{{end}}
-
-{{- if HasCustomSearchDomain}}
-wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-{{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
-{{end}}
-
 ensureContainerRuntime
 
 configureK8s
 
 configureCNI
 
-{{/* configure and enable dhcpv6 for dual stack feature */}}
-{{- if IsIPv6DualStackFeatureEnabled}}
-ensureDHCPv6
-{{end}}
 
-{{- if EnableHostsConfigAgent}}
-configPrivateClusterHosts
-{{- end}}
 
 ensureKubelet
 ensureJournal
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
+        
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
 fi
-
-{{- /* re-enable unattended upgrades */}}
 rm -f /etc/apt/apt.conf.d/99periodic
-
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     apt_get_purge 20 30 120 apache2-utils &
 fi
 
-VALIDATION_ERR=0
 
-{{- if IsHostedMaster }}
+VALIDATION_ERR=0
 API_SERVER_DNS_RETRIES=20
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
@@ -179,7 +145,7 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-{{end}}
+
 
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
