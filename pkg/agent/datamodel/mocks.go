@@ -9,22 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateMockAgentPoolProfile creates a mock AgentPoolResource for testing
-func CreateMockAgentPoolProfile(agentPoolName, orchestratorVersion string, provisioningState api.ProvisioningState, agentCount int) *api.AgentPoolResource {
-	agentPoolResource := api.AgentPoolResource{}
-	agentPoolResource.ID = uuid.Must(uuid.NewRandom()).String()
-	agentPoolResource.Location = "westus2"
-	agentPoolResource.Name = agentPoolName
-
-	agentPoolResource.Properties = &api.AgentPoolProfile{}
-	// AgentPoolProfile needs to be remain same, so the name is repeated inside.
-	agentPoolResource.Properties.Name = agentPoolName
-	agentPoolResource.Properties.Count = agentCount
-	agentPoolResource.Properties.OrchestratorVersion = orchestratorVersion
-	agentPoolResource.Properties.ProvisioningState = provisioningState
-	return &agentPoolResource
-}
-
 // CreateMockContainerService returns a mock container service for testing purposes
 func CreateMockContainerService(containerServiceName, orchestratorVersion string, masterCount, agentCount int, certs bool) *ContainerService {
 	cs := ContainerService{}

@@ -19,17 +19,6 @@ import (
 	"github.com/Azure/aks-engine/pkg/i18n"
 )
 
-const (
-	defaultOrchestrator  = api.Kubernetes
-	defaultAPIVersion    = vlabs.APIVersion
-	defaultMasterCount   = 3
-	defaultVMSize        = "Standard_DS2_v2"
-	defaultOSDiskSizeGB  = 200
-	defaultAgentPoolName = "agent"
-	defaultAgentCount    = 3
-	defaultAdminUser     = "azureuser"
-)
-
 // Apiloader represents the object that loads api model
 type Apiloader struct {
 	Translator *i18n.Translator
@@ -42,29 +31,6 @@ func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*api.Containe
 		return nil, "", a.Translator.Errorf("error reading file %s: %s", jsonFile, e.Error())
 	}
 	return a.DeserializeContainerService(contents)
-}
-
-// LoadDefaultContainerServiceProperties loads the default API model
-func LoadDefaultContainerServiceProperties() (api.TypeMeta, *vlabs.Properties) {
-	return api.TypeMeta{APIVersion: defaultAPIVersion}, &vlabs.Properties{
-		OrchestratorProfile: &vlabs.OrchestratorProfile{
-			OrchestratorType: defaultOrchestrator,
-		},
-		MasterProfile: &vlabs.MasterProfile{
-			Count:        defaultMasterCount,
-			VMSize:       defaultVMSize,
-			OSDiskSizeGB: defaultOSDiskSizeGB,
-		},
-		AgentPoolProfiles: []*vlabs.AgentPoolProfile{
-			{
-				Name:         defaultAgentPoolName,
-				Count:        defaultAgentCount,
-				VMSize:       defaultVMSize,
-				OSDiskSizeGB: defaultOSDiskSizeGB,
-			},
-		},
-		LinuxProfile: &vlabs.LinuxProfile{AdminUsername: defaultAdminUser},
-	}
 }
 
 // DeserializeContainerService loads an AKS Engine Cluster API Model, validates it, and returns the unversioned representation
