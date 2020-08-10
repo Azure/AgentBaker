@@ -65,50 +65,6 @@ func (cs *ContainerService) IsAKSCustomCloud() bool {
 		strings.EqualFold(cs.Properties.CustomCloudEnv.Name, "akscustom")
 }
 
-// FromAksEngineContainerService converts aks-engine's ContainerService to our
-// own ContainerService. This is temporarily needed while we are still using
-// aks-engine's ApiLoader to load ContainerService from file. Once that code
-// is ported into our code base, we'll be using our own datamodel consistently
-// through out the code base and this conversion function won't be needed.
-func FromAksEngineContainerService(aksEngineCS *api.ContainerService) *ContainerService {
-	ret := &ContainerService{
-		ID:       aksEngineCS.ID,
-		Location: aksEngineCS.Location,
-		Name:     aksEngineCS.Name,
-		Plan:     aksEngineCS.Plan,
-		Tags:     aksEngineCS.Tags,
-		Type:     aksEngineCS.Type,
-	}
-	if aksEngineCS.Properties != nil {
-		ret.Properties = fromAksEngineProperties(aksEngineCS.Properties)
-	}
-	return ret
-}
-
-func fromAksEngineProperties(aksEngineProperties *api.Properties) *Properties {
-	return &Properties{
-		ClusterID:               aksEngineProperties.ClusterID,
-		ProvisioningState:       aksEngineProperties.ProvisioningState,
-		OrchestratorProfile:     aksEngineProperties.OrchestratorProfile,
-		MasterProfile:           aksEngineProperties.MasterProfile,
-		AgentPoolProfiles:       aksEngineProperties.AgentPoolProfiles,
-		LinuxProfile:            aksEngineProperties.LinuxProfile,
-		WindowsProfile:          aksEngineProperties.WindowsProfile,
-		ExtensionProfiles:       aksEngineProperties.ExtensionProfiles,
-		DiagnosticsProfile:      aksEngineProperties.DiagnosticsProfile,
-		JumpboxProfile:          aksEngineProperties.JumpboxProfile,
-		ServicePrincipalProfile: aksEngineProperties.ServicePrincipalProfile,
-		CertificateProfile:      aksEngineProperties.CertificateProfile,
-		AADProfile:              aksEngineProperties.AADProfile,
-		CustomProfile:           aksEngineProperties.CustomProfile,
-		HostedMasterProfile:     aksEngineProperties.HostedMasterProfile,
-		AddonProfiles:           aksEngineProperties.AddonProfiles,
-		FeatureFlags:            aksEngineProperties.FeatureFlags,
-		TelemetryProfile:        aksEngineProperties.TelemetryProfile,
-		CustomCloudEnv:          aksEngineProperties.CustomCloudEnv,
-	}
-}
-
 // ToAksEngineContainerService converts our ContainerService to aks-engine's
 // ContainerService to our. This is temporarily needed until we have finished
 // porting all aks-engine code that's used by us into our own code base.

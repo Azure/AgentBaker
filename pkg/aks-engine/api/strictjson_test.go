@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/Azure/aks-engine/pkg/api/vlabs"
 )
 
 type SubTestProfile struct {
@@ -226,16 +224,13 @@ const jsonWithTypo = `
 }`
 
 func TestStrictJSONValidationIsAppliedToVersionsAbove20170701(t *testing.T) {
-	strictVersions := []string{vlabs.APIVersion}
 	a := &Apiloader{
 		Translator: nil,
 	}
-	for _, version := range strictVersions {
-		_, e := a.LoadContainerService([]byte(jsonWithTypo), version)
-		if e == nil {
-			t.Error("Expected mistyped 'ventSubnetID' key to be detected but it wasn't")
-		} else if !strings.Contains(e.Error(), "ventSubnetID") {
-			t.Errorf("Expected error on 'ventSubnetID' but error was %v", e)
-		}
+	_, e := a.LoadContainerService([]byte(jsonWithTypo))
+	if e == nil {
+		t.Error("Expected mistyped 'ventSubnetID' key to be detected but it wasn't")
+	} else if !strings.Contains(e.Error(), "ventSubnetID") {
+		t.Errorf("Expected error on 'ventSubnetID' but error was %v", e)
 	}
 }

@@ -145,12 +145,11 @@ func (gc *generateCmd) loadAPIModel() error {
 			Locale: gc.locale,
 		},
 	}
-	var aksEngineContainerService *api.ContainerService
-	aksEngineContainerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
+
+	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
 	if err != nil {
 		return errors.Wrap(err, "error parsing the api model")
 	}
-	gc.containerService = datamodel.FromAksEngineContainerService(aksEngineContainerService)
 
 	if gc.outputDirectory == "" {
 		if gc.containerService.Properties.MasterProfile != nil {
