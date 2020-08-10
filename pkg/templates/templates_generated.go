@@ -935,7 +935,11 @@ configGPUDrivers() {
       cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     )
     rm -rf $GPU_DEST/tmp
+    {{if NeedsContainerd}}
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{else}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{end}}
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     export -f installGPUDriversRun
@@ -3426,11 +3430,17 @@ write_files:
     [plugins.cri]
     sandbox_image = "{{GetPodInfraContainerSpec}}"
     [plugins.cri.containerd.untrusted_workload_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux"
+    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
+    runtime_engine = "/usr/bin/nvidia-container-runtime"
+    {{- else}}
     runtime_engine = "/usr/bin/runc"
+    {{- end}}
     [plugins.cri.containerd.default_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux"
+    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
+    runtime_engine = "/usr/bin/nvidia-container-runtime"
+    {{- else}}
     runtime_engine = "/usr/bin/runc"
+    {{- end}}
     {{if IsKubenet }}
     [plugins.cri.cni]
     bin_dir = "/opt/cni/bin"

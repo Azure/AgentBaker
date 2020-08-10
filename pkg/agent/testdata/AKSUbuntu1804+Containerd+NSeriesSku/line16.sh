@@ -44,8 +44,6 @@ else
 fi
 
 configureAdminUser
-cleanUpContainerd
-
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
@@ -81,6 +79,18 @@ installContainerRuntime
 
 
 installNetworkPlugin
+if [[ "${GPU_NODE}" = true ]]; then
+    if $FULL_INSTALL_REQUIRED; then
+        installGPUDrivers
+    fi
+    ensureGPUDrivers
+    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    else
+        systemctlDisableAndStop nvidia-device-plugin
+    fi
+fi
+
 
 installKubeletKubectlAndKubeProxy
 
@@ -97,7 +107,6 @@ configureK8s
 configureCNI
 
 
-configPrivateClusterHosts
 
 ensureKubelet
 ensureJournal
