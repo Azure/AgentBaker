@@ -46,9 +46,6 @@ const exampleAPIModel = `{
 `
 
 func TestLoadContainerServiceFromFile(t *testing.T) {
-	existingContainerService := &api.ContainerService{Name: "test",
-		Properties: &api.Properties{OrchestratorProfile: &api.OrchestratorProfile{OrchestratorType: api.Kubernetes, OrchestratorVersion: "1.7.16"}}}
-
 	locale := gotext.NewLocale(path.Join("..", "..", "translations"), "en_US")
 	i18n.Initialize(locale)
 	apiloader := &Apiloader{
@@ -57,13 +54,13 @@ func TestLoadContainerServiceFromFile(t *testing.T) {
 		},
 	}
 
-	_, _, err := apiloader.LoadContainerServiceFromFile("./testdata/simple/kubernetes.json", false, false, existingContainerService)
+	_, _, err := apiloader.LoadContainerServiceFromFile("./testdata/simple/kubernetes.json")
 	if err != nil {
 		t.Error(err.Error())
 	}
 
 	// Test error scenario
-	_, _, err = apiloader.LoadContainerServiceFromFile("../this-file-doesnt-exist.json", true, false, nil)
+	_, _, err = apiloader.LoadContainerServiceFromFile("../this-file-doesnt-exist.json")
 	if err == nil {
 		t.Errorf("expected error passing a non-existent filepath string to apiloader.LoadContainerServiceFromFile(), instead got nil")
 	}
@@ -188,118 +185,7 @@ func TestLoadContainerServiceForAgentPoolOnlyCluster(t *testing.T) {
 	})
 }
 
-func TestLoadContainerServiceWithNilProperties(t *testing.T) {
-	jsonWithoutProperties := `{
-        "type": "Microsoft.ContainerService/managedClusters",
-        "name": "[parameters('clusterName')]",
-        "apiVersion": "vlabs",
-        "location": "[resourceGroup().location]"
-        }`
-
-	tmpFile, err := ioutil.TempFile("", "containerService-invalid")
-	fileName := tmpFile.Name()
-	defer os.Remove(fileName)
-
-	err = ioutil.WriteFile(fileName, []byte(jsonWithoutProperties), os.ModeAppend)
-
-	apiloader := &Apiloader{}
-	existingContainerService := &api.ContainerService{Name: "test",
-		Properties: &api.Properties{OrchestratorProfile: &api.OrchestratorProfile{OrchestratorType: api.Kubernetes, OrchestratorVersion: "1.7.16"}}}
-	_, _, err = apiloader.LoadContainerServiceFromFile(fileName, true, false, existingContainerService)
-	if err == nil {
-		t.Errorf("Expected error to be thrown")
-	}
-	expectedMsg := "missing ContainerService Properties"
-	if err.Error() != expectedMsg {
-		t.Errorf("Expected error with message %s but got %s", expectedMsg, err.Error())
-	}
-}
-
-func TestLoadContainerServiceWithEmptyLocationCustomCloud(t *testing.T) {
-	jsonWithoutlocationcustomcloud := `{
-		"apiVersion": "vlabs",
-		"properties": {
-			"orchestratorProfile": {
-				"orchestratorType": "Kubernetes",
-				"orchestratorRelease": "1.13",
-				"kubernetesConfig": {
-					"kubernetesImageBase": "msazurestackqa/",
-					"useInstanceMetadata": false,
-					"networkPolicy": "none"
-				}
-			},
-			"customCloudProfile": {
-				"environment": {
-					"name": "AzureStackCloud",
-					"managementPortalURL": "",
-					"publishSettingsURL": "",
-					"serviceManagementEndpoint": "https://management.azurestackci15.onmicrosoft.com/36f71706-54df-4305-9847-5b038a4cf189",
-					"resourceManagerEndpoint": "https://management.local.azurestack.external/",
-					"activeDirectoryEndpoint": "https://login.windows.net/",
-					"galleryEndpoint": "https://portal.local.azurestack.external:30015/",
-					"keyVaultEndpoint": "",
-					"graphEndpoint": "https://graph.windows.net/",
-					"storageEndpointSuffix": "local.azurestack.external",
-					"sqlDatabaseDNSSuffix": "",
-					"trafficManagerDNSSuffix": "",
-					"keyVaultDNSSuffix": "vault.local.azurestack.external",
-					"serviceBusEndpointSuffix": "",
-					"serviceManagementVMDNSSuffix": "cloudapp.net",
-					"resourceManagerVMDNSSuffix": "cloudapp.azurestack.external",
-					"containerRegistryDNSSuffix": ""
-				}
-			},
-			"masterProfile": {
-				"dnsPrefix": "k111006",
-				"distro": "ubuntu",
-				"osDiskSizeGB": 200,
-				"count": 3,
-				"vmSize": "Standard_D2_v2"
-			},
-			"agentPoolProfiles": [
-				{
-					"name": "linuxpool",
-					"osDiskSizeGB": 200,
-					"count": 3,
-					"vmSize": "Standard_D2_v2",
-					"distro": "ubuntu",
-					"availabilityProfile": "AvailabilitySet",
-					"AcceleratedNetworkingEnabled": false
-				}
-			],
-			"linuxProfile": {
-				"adminUsername": "azureuser",
-				"ssh": {
-					"publicKeys": [
-						{
-							"keyData": "ssh-rsa PblicKey"
-						}
-					]
-				}
-			},
-			"servicePrincipalProfile": {
-				"clientId": "clientId",
-				"secret": "secret"
-			}
-		}
-	}`
-
-	tmpFile, err := ioutil.TempFile("", "containerService-nolocation")
-	fileName := tmpFile.Name()
-	defer os.Remove(fileName)
-
-	err = ioutil.WriteFile(fileName, []byte(jsonWithoutlocationcustomcloud), os.ModeAppend)
-
-	apiloader := &Apiloader{}
-	_, _, err = apiloader.LoadContainerServiceFromFile(fileName, true, false, nil)
-	if err == nil {
-		t.Errorf("Expected error for missing loation to be thrown")
-	}
-	expectedMsg := "missing ContainerService Location"
-	if err.Error() != expectedMsg {
-		t.Errorf("Expected error with message %s but got %s", expectedMsg, err.Error())
-	}
-
+func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 	jsonWithoutlocationpubliccloud := `{
 		"apiVersion": "vlabs",
 		"properties": {
@@ -354,7 +240,7 @@ func TestLoadContainerServiceWithEmptyLocationCustomCloud(t *testing.T) {
 	err = ioutil.WriteFile(fileNamewithoutlocationpubliccloud, []byte(jsonWithoutlocationpubliccloud), os.ModeAppend)
 
 	apiloaderwithoutlocationpubliccloud := &Apiloader{}
-	_, _, err = apiloaderwithoutlocationpubliccloud.LoadContainerServiceFromFile(fileNamewithoutlocationpubliccloud, true, false, nil)
+	_, _, err = apiloaderwithoutlocationpubliccloud.LoadContainerServiceFromFile(fileNamewithoutlocationpubliccloud)
 	if err != nil {
 		t.Errorf("Expected no error for missing loation for public cloud to be thrown")
 	}
@@ -366,7 +252,7 @@ func TestDeserializeContainerService(t *testing.T) {
 	}
 
 	// Test AKS Engine api model
-	cs, version, err := apiloader.DeserializeContainerService([]byte(exampleAPIModel), false, false, nil)
+	cs, version, err := apiloader.DeserializeContainerService([]byte(exampleAPIModel))
 	if err != nil {
 		t.Errorf("unexpected error deserializing the example apimodel: %s", err)
 	}
@@ -378,7 +264,7 @@ func TestDeserializeContainerService(t *testing.T) {
 	}
 
 	// Test error case
-	_, _, err = apiloader.DeserializeContainerService([]byte(`{thisisnotson}`), false, false, nil)
+	_, _, err = apiloader.DeserializeContainerService([]byte(`{thisisnotson}`))
 	if err == nil {
 		t.Errorf("expected error from malformed api model input")
 	}

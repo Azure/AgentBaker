@@ -231,7 +231,7 @@ func TestStrictJSONValidationIsAppliedToVersionsAbove20170701(t *testing.T) {
 		Translator: nil,
 	}
 	for _, version := range strictVersions {
-		_, e := a.LoadContainerService([]byte(jsonWithTypo), version, true, false, nil)
+		_, e := a.LoadContainerService([]byte(jsonWithTypo), version)
 		if e == nil {
 			t.Error("Expected mistyped 'ventSubnetID' key to be detected but it wasn't")
 		} else if !strings.Contains(e.Error(), "ventSubnetID") {

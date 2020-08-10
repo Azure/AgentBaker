@@ -146,7 +146,7 @@ func (gc *generateCmd) loadAPIModel() error {
 		},
 	}
 	var aksEngineContainerService *api.ContainerService
-	aksEngineContainerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath, false, false, nil)
+	aksEngineContainerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
 	if err != nil {
 		return errors.Wrap(err, "error parsing the api model")
 	}
