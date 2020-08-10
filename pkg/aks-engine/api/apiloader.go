@@ -36,12 +36,12 @@ type Apiloader struct {
 }
 
 // LoadContainerServiceFromFile loads an AKS Cluster API Model from a JSON file
-func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string, validate, isUpdate bool, existingContainerService *api.ContainerService) (*api.ContainerService, string, error) {
+func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*api.ContainerService, string, error) {
 	contents, e := ioutil.ReadFile(jsonFile)
 	if e != nil {
 		return nil, "", a.Translator.Errorf("error reading file %s: %s", jsonFile, e.Error())
 	}
-	return a.DeserializeContainerService(contents, validate, isUpdate, existingContainerService)
+	return a.DeserializeContainerService(contents)
 }
 
 // LoadDefaultContainerServiceProperties loads the default API model
@@ -68,28 +68,22 @@ func LoadDefaultContainerServiceProperties() (api.TypeMeta, *vlabs.Properties) {
 }
 
 // DeserializeContainerService loads an AKS Engine Cluster API Model, validates it, and returns the unversioned representation
-func (a *Apiloader) DeserializeContainerService(contents []byte, validate, isUpdate bool, existingContainerService *api.ContainerService) (*api.ContainerService, string, error) {
+func (a *Apiloader) DeserializeContainerService(contents []byte) (*api.ContainerService, string, error) {
 	m := &api.TypeMeta{}
 	if err := json.Unmarshal(contents, &m); err != nil {
 		return nil, "", err
 	}
 
 	version := m.APIVersion
-	cs, err := a.LoadContainerService(contents, version, validate, isUpdate, existingContainerService)
+	cs, err := a.LoadContainerService(contents, version)
 	return cs, version, err
 }
 
 // LoadContainerService loads an AKS Cluster API Model, validates it, and returns the unversioned representation
 func (a *Apiloader) LoadContainerService(
 	contents []byte,
-	version string,
-	validate, isUpdate bool,
-	existingContainerService *api.ContainerService) (*api.ContainerService, error) {
-	var curOrchVersion string
-	hasExistingCS := existingContainerService != nil
-	if hasExistingCS {
-		curOrchVersion = existingContainerService.Properties.OrchestratorProfile.OrchestratorVersion
-	}
+	version string) (*api.ContainerService, error) {
+
 	switch version {
 	case vlabs.APIVersion:
 		containerService := &vlabs.ContainerService{}
@@ -99,28 +93,11 @@ func (a *Apiloader) LoadContainerService(
 		if e := checkJSONKeys(contents, reflect.TypeOf(*containerService), reflect.TypeOf(api.TypeMeta{})); e != nil {
 			return nil, e
 		}
-		if hasExistingCS {
-			vecs := api.ConvertContainerServiceToVLabs(existingContainerService)
-			if e := containerService.Merge(vecs); e != nil {
-				return nil, e
-			}
-		}
-		if validate {
-			if e := containerService.Validate(isUpdate); e != nil {
-				return nil, e
-			}
-		}
 
 		var unversioned *api.ContainerService
 		var err error
-		if unversioned, err = api.ConvertVLabsContainerService(containerService, isUpdate); err != nil {
+		if unversioned, err = api.ConvertVLabsContainerService(containerService, false); err != nil {
 			return nil, err
-		}
-		if curOrchVersion != "" &&
-			(containerService.Properties.OrchestratorProfile == nil ||
-				(containerService.Properties.OrchestratorProfile.OrchestratorVersion == "" &&
-					containerService.Properties.OrchestratorProfile.OrchestratorRelease == "")) {
-			unversioned.Properties.OrchestratorProfile.OrchestratorVersion = curOrchVersion
 		}
 		return unversioned, nil
 
