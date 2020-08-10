@@ -190,8 +190,18 @@ ensureContainerRuntime() {
         ensureDocker
     fi
     
+        ensureContainerd
+    
 }
 
+
+ensureContainerd() {
+  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+}
 
 
 ensureDocker() {
@@ -376,7 +386,7 @@ configGPUDrivers() {
     )
     rm -rf $GPU_DEST/tmp
     
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
