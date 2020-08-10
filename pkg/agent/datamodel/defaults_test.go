@@ -1480,7 +1480,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		name                   string // test case name
 		windowsProfile         api.WindowsProfile
 		expectedWindowsProfile api.WindowsProfile
-		isAzureStack           bool
 		isUpgrade              bool
 		isScale                bool
 	}{
@@ -1498,7 +1497,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            &trueVar,
 			},
-			false,
 			false,
 			false,
 		},
@@ -1522,7 +1520,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 			},
 			false,
 			false,
-			false,
 		},
 		{
 			"aks vhd override sku in creating",
@@ -1542,7 +1539,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            &trueVar,
 			},
-			false,
 			false,
 			false,
 		},
@@ -1567,7 +1563,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 			},
 			false,
 			false,
-			false,
 		},
 		{
 			"vanilla vhd current version in creating",
@@ -1587,7 +1582,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            &trueVar,
 			},
-			false,
 			false,
 			false,
 		},
@@ -1611,7 +1605,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 			},
 			false,
 			false,
-			false,
 		},
 		{
 			"vanilla vhd override version in creating",
@@ -1631,7 +1624,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            &trueVar,
 			},
-			false,
 			false,
 			false,
 		},
@@ -1656,7 +1648,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 			},
 			false,
 			false,
-			false,
 		},
 		{
 			"user overrides latest version in creating",
@@ -1676,7 +1667,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            &trueVar,
 			},
-			false,
 			false,
 			false,
 		},
@@ -1701,7 +1691,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 			},
 			false,
 			false,
-			false,
 		},
 		{
 			"aks-engine does not set default ProvisioningScriptsPackageURL when it is not empty in upgrading",
@@ -1722,7 +1711,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1745,7 +1733,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1768,7 +1755,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1791,7 +1777,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1814,7 +1799,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1837,7 +1821,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1860,7 +1843,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				WindowsDockerVersion:  "",
 				SSHEnabled:            nil,
 			},
-			false,
 			true,
 			false,
 		},
@@ -1884,7 +1866,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 				SSHEnabled:            nil,
 			},
 			false,
-			false,
 			true,
 		},
 	}
@@ -1896,9 +1877,6 @@ func TestWindowsProfileDefaults(t *testing.T) {
 
 			mockAPI := getMockAPIProperties("1.16.0")
 			mockAPI.WindowsProfile = &test.windowsProfile
-			if test.isAzureStack {
-				mockAPI.CustomCloudProfile = &api.CustomCloudProfile{}
-			}
 			cs := ContainerService{
 				Properties: &mockAPI,
 			}
@@ -2440,476 +2418,6 @@ func TestProxyModeDefaults(t *testing.T) {
 		t.Fatalf("ProxyMode string not the expected default value, got %s, expected %s", properties.OrchestratorProfile.KubernetesConfig.ProxyMode, api.KubeProxyModeIPVS)
 	}
 }
-
-// Comment this test case out since it requires import "github.com/jarcoal/httpmock", which
-// hasn't been vendored in yet.
-/*
-func TestSetCustomCloudProfileEnvironmentDefaults(t *testing.T) {
-	location := "testlocation"
-	cs := ContainerService{
-		Location: location,
-		Properties: &Properties{
-			CustomCloudProfile: &api.CustomCloudProfile{
-				IdentitySystem: "adfs",
-				PortalURL:      "https://portal.testlocation.contoso.com/",
-			},
-		},
-	}
-
-	csPortal := ContainerService{
-		Location: location,
-		Properties: &Properties{
-			CustomCloudProfile: &api.CustomCloudProfile{
-				IdentitySystem: "adfs",
-				PortalURL:      "https://portal.testlocation.contoso.com",
-			},
-		},
-	}
-
-	expectedEnv := &azure.Environment{
-		Name:                       "AzureStackCloud",
-		ManagementPortalURL:        "https://portal.testlocation.contoso.com/",
-		ServiceManagementEndpoint:  "https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7",
-		ResourceManagerEndpoint:    fmt.Sprintf("https://management.%s.contoso.com/", location),
-		ActiveDirectoryEndpoint:    "https://adfs.testlocation.contoso.com/",
-		GalleryEndpoint:            "https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/",
-		GraphEndpoint:              "https://graph.testlocation.contoso.com/",
-		StorageEndpointSuffix:      "testlocation.contoso.com",
-		KeyVaultDNSSuffix:          "vault.testlocation.contoso.com",
-		ResourceManagerVMDNSSuffix: "cloudapp.contoso.com",
-	}
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/adfs","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	err := cs.SetCustomCloudProfileEnvironment()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diff := cmp.Diff(cs.Properties.CustomCloudProfile.Environment, expectedEnv); diff != "" {
-		t.Errorf("Fail to compare, Environment adfs %q", diff)
-	}
-
-	err = csPortal.SetCustomCloudProfileEnvironment()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diff := cmp.Diff(csPortal.Properties.CustomCloudProfile.Environment, expectedEnv); diff != "" {
-		t.Errorf("Fail to compare, Environment portal url adfs %q", diff)
-	}
-
-	csAzureAD := ContainerService{
-		Location: location,
-		Properties: &Properties{
-			CustomCloudProfile: &CustomCloudProfile{
-				IdentitySystem: "azure_ad",
-				PortalURL:      "https://portal.testlocation.contoso.com/",
-			},
-		},
-	}
-
-	//test setCustomCloudProfileDefaults with portal url
-	mockCS := getMockBaseContainerService("1.11.6")
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-	mockCS.Location = location
-	_, err = mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if err != nil {
-		t.Errorf("Failed to test setCustomCloudProfileDefaults with portal url - %s", err)
-	}
-	if diff := cmp.Diff(mockCS.Properties.CustomCloudProfile.Environment, expectedEnv); diff != "" {
-		t.Errorf("Fail to compare, Environment setCustomCloudProfileDefaults %q", diff)
-	}
-
-	cloudSpec := AzureCloudSpecEnvMap[AzurePublicCloud]
-	cloudSpec.CloudName = AzureStackCloud
-	cloudSpec.KubernetesSpecConfig.AzureTelemetryPID = DefaultAzureStackDeployTelemetryPID
-	cloudSpec.EndpointConfig.ResourceManagerVMDNSSuffix = mockCS.Properties.CustomCloudProfile.Environment.ResourceManagerVMDNSSuffix
-	if diff := cmp.Diff(AzureCloudSpecEnvMap[AzureStackCloud], cloudSpec); diff != "" {
-		t.Errorf("Fail to compare, AzureCloudSpec AzureStackCloud %q", diff)
-	}
-
-	// Test for azure_ad
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	err = csAzureAD.SetCustomCloudProfileEnvironment()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diff := cmp.Diff(csAzureAD.Properties.CustomCloudProfile.Environment, expectedEnv); diff != "" {
-		t.Errorf("Fail to compare, Environment azure_ad %q", diff)
-	}
-
-	csError := ContainerService{
-		Location: location,
-		Properties: &Properties{
-			CustomCloudProfile: &CustomCloudProfile{
-				IdentitySystem: "azure_ad",
-				PortalURL:      "https://portal.abc.contoso.com/",
-			},
-		},
-	}
-
-	err = csError.SetCustomCloudProfileEnvironment()
-	expectedError := fmt.Errorf("portalURL needs to start with https://portal.%s. ", location)
-	if !helpers.EqualError(err, expectedError) {
-		t.Errorf("expected error %s, got %s", expectedError, err)
-	}
-}
-*/
-
-// Comment this test case out since it requires import "github.com/jarcoal/httpmock", which
-// hasn't been vendored in yet.
-/*
-func TestSetOrchestratorProfileDefaultsOnAzureStack(t *testing.T) {
-	location := "testlocation"
-	//Test setMasterProfileDefaults with portal url
-	mockCS := getMockBaseContainerService("1.11.6")
-	mockCS.Properties.CustomCloudProfile = &api.CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-	mockCS.Location = location
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = "Kubernetes"
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/adfs","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if (*mockCS.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata) != DefaultAzureStackUseInstanceMetadata {
-		t.Fatalf("DefaultAzureStackUseInstanceMetadata did not have the expected value, got %t, expected %t",
-			(*mockCS.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata), DefaultAzureStackUseInstanceMetadata)
-	}
-}
-*/
-
-// Comment this test case out since it requires import "github.com/jarcoal/httpmock", which
-// hasn't been vendored in yet.
-/*
-func TestSetMasterProfileDefaultsOnAzureStack(t *testing.T) {
-	location := "testlocation"
-	oldFaultDomainCount := 2
-	//Test setMasterProfileDefaults with portal url
-	mockCS := getMockBaseContainerService("1.11.6")
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-	mockCS.Location = location
-	mockCS.Properties.MasterProfile.AvailabilityProfile = ""
-	mockCS.Properties.MasterProfile.Count = 1
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/adfs","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if (*mockCS.Properties.MasterProfile.PlatformFaultDomainCount) != DefaultAzureStackFaultDomainCount {
-		t.Fatalf("PlatformFaultDomainCount did not have the expected value, got %d, expected %d",
-			(*mockCS.Properties.MasterProfile.PlatformFaultDomainCount), DefaultAzureStackFaultDomainCount)
-	}
-
-	// Check scenario where value is already set.
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-	mockCS.Properties.MasterProfile.AvailabilityProfile = ""
-	mockCS.Properties.MasterProfile.Count = 1
-	mockCS.Properties.MasterProfile.PlatformFaultDomainCount = &oldFaultDomainCount
-	mockCS.Location = location
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if (*mockCS.Properties.MasterProfile.PlatformFaultDomainCount) != oldFaultDomainCount {
-		t.Fatalf("PlatformFaultDomainCount did not have the expected value, got %d, expected %d",
-			(*mockCS.Properties.MasterProfile.PlatformFaultDomainCount), oldFaultDomainCount)
-	}
-}
-*/
-
-// Comment this test case out since it requires import "github.com/jarcoal/httpmock", which
-// hasn't been vendored in yet.
-/*
-func TestSetAgentProfileDefaultsOnAzureStack(t *testing.T) {
-	location := "testlocation"
-	oldFaultDomainCount := 2
-	//Test setMasterProfileDefaults with portal url
-	mockCS := getMockBaseContainerService("1.11.6")
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-	mockCS.Location = location
-	mockCS.Properties.MasterProfile.AvailabilityProfile = ""
-	mockCS.Properties.MasterProfile.Count = 1
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/adfs","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	for _, pool := range mockCS.Properties.AgentPoolProfiles {
-		if (*pool.PlatformFaultDomainCount) != DefaultAzureStackFaultDomainCount {
-			t.Fatalf("PlatformFaultDomainCount did not have the expected value, got %d, expected %d",
-				(*pool.PlatformFaultDomainCount), DefaultAzureStackFaultDomainCount)
-		}
-
-		if (*pool.AcceleratedNetworkingEnabled) != DefaultAzureStackAcceleratedNetworking {
-			t.Fatalf("AcceleratedNetworkingEnabled did not have the expected value, got %t, expected %t",
-				(*pool.AcceleratedNetworkingEnabled), DefaultAzureStackAcceleratedNetworking)
-		}
-
-		if (*pool.AcceleratedNetworkingEnabledWindows) != DefaultAzureStackAcceleratedNetworking {
-			t.Fatalf("AcceleratedNetworkingEnabledWindows did not have the expected value, got %t, expected %t",
-				(*pool.AcceleratedNetworkingEnabledWindows), DefaultAzureStackAcceleratedNetworking)
-		}
-	}
-	// Check scenario where value is already set.
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-	mockCS.Properties.MasterProfile.AvailabilityProfile = ""
-	mockCS.Properties.MasterProfile.Count = 1
-	for _, pool := range mockCS.Properties.AgentPoolProfiles {
-		pool.PlatformFaultDomainCount = &oldFaultDomainCount
-	}
-	mockCS.Location = location
-
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	for _, pool := range mockCS.Properties.AgentPoolProfiles {
-		if (*pool.PlatformFaultDomainCount) != oldFaultDomainCount {
-			t.Fatalf("PlatformFaultDomainCount did not have the expected value, got %d, expected %d",
-				(*pool.PlatformFaultDomainCount), oldFaultDomainCount)
-		}
-	}
-}
-*/
-
-// Comment this test case out since it requires import "github.com/jarcoal/httpmock", which
-// hasn't been vendored in yet.
-/*
-func TestEtcdDiskSizeOnAzureStack(t *testing.T) {
-	location := "testlocation"
-	mockCS := getMockBaseContainerService("1.11.6")
-	mockCS.Location = location
-	mockCS.Properties.MasterProfile.Count = 1
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/adfs","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != DefaultEtcdDiskSize {
-		t.Fatalf("EtcdDiskSizeGB did not have the expected size, got %s, expected %s",
-			mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB, DefaultEtcdDiskSize)
-	}
-
-	// Case where total node count is 5.
-	mockCS = getMockBaseContainerService("1.11.6")
-	mockCS.Location = location
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
-	mockCS.Properties.MasterProfile.Count = 5
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != DefaultEtcdDiskSizeGT3Nodes {
-		t.Fatalf("EtcdDiskSizeGB did not have the expected size, got %s, expected %s",
-			mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB, DefaultEtcdDiskSizeGT3Nodes)
-	}
-
-	// Case where total node count is 11.
-	mockCS = getMockBaseContainerService("1.11.6")
-	mockCS.Location = location
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
-	mockCS.Properties.MasterProfile.Count = 5
-	mockCS.Properties.AgentPoolProfiles[0].Count = 6
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != MaxAzureStackManagedDiskSize {
-		t.Fatalf("EtcdDiskSizeGB did not have the expected size, got %s, expected %s",
-			mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB, MaxAzureStackManagedDiskSize)
-	}
-
-	// Case where total node count is 21.
-	mockCS = getMockBaseContainerService("1.11.6")
-	mockCS.Location = location
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
-	mockCS.Properties.MasterProfile.Count = 5
-	mockCS.Properties.AgentPoolProfiles[0].Count = 16
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != MaxAzureStackManagedDiskSize {
-		t.Fatalf("EtcdDiskSizeGB did not have the expected size, got %s, expected %s",
-			mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB, MaxAzureStackManagedDiskSize)
-	}
-
-	// Case where total node count is 55 but EtcdDiskSizeGB size is passed
-	mockCS = getMockBaseContainerService("1.11.6")
-	mockCS.Location = location
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
-	mockCS.Properties.MasterProfile.Count = 5
-	mockCS.Properties.AgentPoolProfiles[0].Count = 50
-	customEtcdDiskSize := "512"
-	mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB = customEtcdDiskSize
-	mockCS.Properties.CustomCloudProfile = &CustomCloudProfile{
-		PortalURL: "https://portal.testlocation.contoso.com",
-	}
-
-	httpmock.DeactivateAndReset()
-	httpmock.Activate()
-	httpmock.RegisterResponder("GET", fmt.Sprintf("%smetadata/endpoints?api-version=1.0", fmt.Sprintf("https://management.%s.contoso.com/", location)),
-		func(req *http.Request) (*http.Response, error) {
-			resp := httpmock.NewStringResponse(200, `{"galleryEndpoint":"https://galleryartifacts.hosting.testlocation.contoso.com/galleryartifacts/","graphEndpoint":"https://graph.testlocation.contoso.com/","portalEndpoint":"https://portal.testlocation.contoso.com/","authentication":{"loginEndpoint":"https://adfs.testlocation.contoso.com/","audiences":["https://management.adfs.azurestack.testlocation/ce080287-be51-42e5-b99e-9de760fecae7"]}}`)
-			return resp, nil
-		},
-	)
-
-	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: DefaultPkiKeySize,
-	})
-	if mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != customEtcdDiskSize {
-		t.Fatalf("EtcdDiskSizeGB did not have the expected size, got %s, expected %s",
-			mockCS.Properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB, customEtcdDiskSize)
-	}
-}
-*/
 
 func TestPreserveNodesProperties(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10.8")
