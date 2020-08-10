@@ -27,7 +27,7 @@ const exampleCustomHyperkubeImage = `example.azurecr.io/example/hyperkube-amd64:
 const examplePrivateAzureRegistryServer = `example.azurecr.io`
 
 const exampleAPIModel = `{
-		"apiVersion": "vlabs",
+	"apiVersion": "vlabs",
 	"properties": {
 		"orchestratorProfile": {
 			"orchestratorType": "Kubernetes",
@@ -42,20 +42,6 @@ const exampleAPIModel = `{
 		},
 		"servicePrincipalProfile": { "clientId": "", "secret": "" }
 	}
-}
-`
-
-const exampleAKSAPIModel = `{
-	"apiVersion": "2018-03-31",
-"properties": {
-	"dnsPrefix": "agents006",
-	"fqdn": "agents006.azmk8s.io",
-	"kubernetesVersion": "1.15.11",
-	"agentPoolProfiles": [ { "name": "agentpool1", "count": 2, "vmSize": "Standard_D2_v2" } ],
-	"linuxProfile": { "adminUsername": "azureuser", "ssh": { "publicKeys": [ { "keyData": "" } ] }
-},
-"servicePrincipalProfile": { "clientId": "", "secret": "" }
-}
 }
 `
 
@@ -389,21 +375,6 @@ func TestDeserializeContainerService(t *testing.T) {
 	}
 	if cs.Properties.OrchestratorProfile.OrchestratorType != api.Kubernetes {
 		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", api.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
-	}
-
-	// Test AKS api model
-	cs, version, err = apiloader.DeserializeContainerService([]byte(exampleAKSAPIModel), false, false, nil)
-	if err != nil {
-		t.Errorf("unexpected error deserializing the example apimodel: %s", err)
-	}
-	if version != v20180331.APIVersion {
-		t.Errorf("expected apiVersion %s, instead got: %s", v20180331.APIVersion, version)
-	}
-	if cs.Properties.OrchestratorProfile.OrchestratorType != api.Kubernetes {
-		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", api.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
-	}
-	if cs.Properties.MasterProfile != nil {
-		t.Errorf("expected nil MasterProfile for AKS container service object")
 	}
 
 	// Test error case

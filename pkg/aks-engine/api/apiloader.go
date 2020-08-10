@@ -75,14 +75,7 @@ func (a *Apiloader) DeserializeContainerService(contents []byte, validate, isUpd
 	}
 
 	version := m.APIVersion
-	var cs *api.ContainerService
-	var err error
-	switch version {
-	case "2017-08-31", "2018-03-31":
-		cs, _, err = a.LoadContainerServiceForAgentPoolOnlyCluster(contents, version, validate, isUpdate, "", existingContainerService)
-	default:
-		cs, err = a.LoadContainerService(contents, version, validate, isUpdate, existingContainerService)
-	}
+	cs, err := a.LoadContainerService(contents, version, validate, isUpdate, existingContainerService)
 	return cs, version, err
 }
 
