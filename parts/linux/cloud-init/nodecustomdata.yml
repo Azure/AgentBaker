@@ -218,19 +218,17 @@ write_files:
     [plugins.cri]
     sandbox_image = "{{GetPodInfraContainerSpec}}"
     [plugins.cri.containerd.untrusted_workload_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux"
-    {{if IsNSeriesSKU .}}
+    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
     runtime_engine = "/usr/bin/nvidia-container-runtime"
-    {{else}}
+    {{- else}}
     runtime_engine = "/usr/bin/runc"
-    {{end}}
+    {{- end}}
     [plugins.cri.containerd.default_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux"
-    {{if IsNSeriesSKU .}}
+    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
     runtime_engine = "/usr/bin/nvidia-container-runtime"
-    {{else}}
+    {{- else}}
     runtime_engine = "/usr/bin/runc"
-    {{end}}
+    {{- end}}
     {{if IsKubenet }}
     [plugins.cri.cni]
     bin_dir = "/opt/cni/bin"
