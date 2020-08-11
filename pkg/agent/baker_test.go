@@ -178,6 +178,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}),
 		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.EnableDynamicKubelet = true
+		}),
+		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: api.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 		}))
 })
 
