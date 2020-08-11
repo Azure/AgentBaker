@@ -7,19 +7,19 @@ import (
 	"path"
 	"testing"
 
-	"github.com/Azure/go-autorest/autorest/to"
-
-	"github.com/leonelquinteros/gotext"
-
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/i18n"
+	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/leonelquinteros/gotext"
 )
 
 func TestGenerateKubeConfig(t *testing.T) {
 	locale := gotext.NewLocale(path.Join("..", "..", "translations"), "en_US")
 	i18n.Initialize(locale)
 
-	apiloader := &api.Apiloader{
+	apiloader := &aksenginefork.Apiloader{
 		Translator: &i18n.Translator{
 			Locale: locale,
 		},
@@ -27,7 +27,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 
 	testData := "./testdata/simple/kubernetes.json"
 
-	containerService, _, err := apiloader.LoadContainerServiceFromFile(testData, true, false, nil)
+	containerService, _, err := apiloader.LoadContainerServiceFromFile(testData)
 	if err != nil {
 		t.Errorf("Failed to load container service from file: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 		t.Errorf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
 	}
 
-	p := api.Properties{}
+	p := datamodel.Properties{}
 	_, err = GenerateKubeConfig(&p, "westus2")
 	if err == nil {
 		t.Errorf("Expected an error result from nil Properties child properties")
@@ -51,6 +51,9 @@ func TestGenerateKubeConfig(t *testing.T) {
 		t.Errorf("Expected an error result from nil Properties child properties")
 	}
 
+	containerService.Properties.OrchestratorProfile = &api.OrchestratorProfile{
+		KubernetesConfig: &api.KubernetesConfig{},
+	}
 	containerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{
 		Enabled: to.BoolPtr(true),
 	}

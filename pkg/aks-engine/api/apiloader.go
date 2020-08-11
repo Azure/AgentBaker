@@ -181,53 +181,29 @@ func (a *Apiloader) LoadContainerServiceForAgentPoolOnlyCluster(
 	}
 }
 
-// SerializeContainerService takes an unversioned container service and returns the bytes
-func (a *Apiloader) SerializeContainerService(containerService *api.ContainerService, version string) ([]byte, error) {
-	if containerService.Properties != nil && containerService.Properties.HostedMasterProfile != nil {
-		b, err := a.serializeHostedContainerService(containerService, version)
-		if err == nil && b != nil {
-			return b, nil
-		}
-	}
-	switch version {
-	case vlabs.APIVersion:
-		vlabsContainerService := api.ConvertContainerServiceToVLabs(containerService)
-		armContainerService := &api.VlabsARMContainerService{}
-		armContainerService.ContainerService = vlabsContainerService
-		armContainerService.APIVersion = version
-		b, err := helpers.JSONMarshalIndent(armContainerService, "", "  ", false)
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-
-	default:
-		return nil, a.Translator.Errorf("invalid version %s for conversion back from unversioned object", version)
-	}
+// VlabsARMContainerService is the type we read and write from file
+// needed because the json that is sent to ARM and aks-engine
+// is different from the json that the ACS RP Api gets from ARM
+//
+// This was copied from aks-engine's github.com/Azure/aks-engine/pkg/api/types.go
+type vlabsARMContainerService struct {
+	api.TypeMeta
+	*datamodel.ContainerService
 }
 
-func (a *Apiloader) serializeHostedContainerService(containerService *api.ContainerService, version string) ([]byte, error) {
+// SerializeContainerService takes an unversioned container service and returns the bytes
+func (a *Apiloader) SerializeContainerService(containerService *datamodel.ContainerService, version string) ([]byte, error) {
 	switch version {
-	case v20170831.APIVersion:
-		v20170831ContainerService := api.ConvertContainerServiceToV20170831AgentPoolOnly(containerService)
-		armContainerService := &api.V20170831ARMManagedContainerService{}
-		armContainerService.ManagedCluster = v20170831ContainerService
+	case vlabs.APIVersion:
+		armContainerService := &vlabsARMContainerService{}
+		armContainerService.ContainerService = containerService
 		armContainerService.APIVersion = version
 		b, err := helpers.JSONMarshalIndent(armContainerService, "", "  ", false)
 		if err != nil {
 			return nil, err
 		}
 		return b, nil
-	case v20180331.APIVersion:
-		v20180331ContainerService := api.ConvertContainerServiceToV20180331AgentPoolOnly(containerService)
-		armContainerService := &api.V20180331ARMManagedContainerService{}
-		armContainerService.ManagedCluster = v20180331ContainerService
-		armContainerService.APIVersion = version
-		b, err := helpers.JSONMarshalIndent(armContainerService, "", "  ", false)
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
+
 	default:
 		return nil, a.Translator.Errorf("invalid version %s for conversion back from unversioned object", version)
 	}

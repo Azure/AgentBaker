@@ -245,7 +245,7 @@ func (gc *generateCmd) run() error {
 			Locale: gc.locale,
 		},
 	}
-	if err = writer.WriteTLSArtifacts(datamodel.ToAksEngineContainerService(gc.containerService), gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
+	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 

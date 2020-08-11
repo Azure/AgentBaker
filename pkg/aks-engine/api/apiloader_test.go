@@ -11,6 +11,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	v20170831 "github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20170831"
 	v20180331 "github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20180331"
@@ -328,90 +329,16 @@ func TestSerializeContainerService(t *testing.T) {
 		Translator: &i18n.Translator{},
 	}
 
-	b, err := apiloader.SerializeContainerService(cs, v20170831.APIVersion)
-
-	if err != nil {
-		t.Errorf("unexpected error while trying to Serialize Container Service: %s", err.Error())
-	}
-
-	expected := `{
-  "apiVersion": "2017-08-31",
-  "id": "sampleID",
-  "location": "westus2",
-  "name": "sampleCS",
-  "plan": {
-    "name": "sampleRPP",
-    "product": "sampleProduct",
-    "promotionCode": "sampleCode",
-    "publisher": "samplePublisher"
-  },
-  "tags": {
-    "foo": "bar"
-  },
-  "type": "sampleType",
-  "properties": {
-    "kubernetesVersion": "1.11.6",
-    "dnsPrefix": "blueorange",
-    "fqdn": "blueorange.westus2.azure.com",
-    "agentPoolProfiles": [
-      {
-        "name": "sampleAgent",
-        "count": 2,
-        "vmSize": "sampleVM",
-        "storageProfile": "",
-        "osType": "Linux"
-      },
-      {
-        "name": "sampleAgent-public",
-        "count": 2,
-        "vmSize": "sampleVM",
-        "storageProfile": "",
-        "osType": "Linux"
-      }
-    ],
-    "linuxProfile": {
-      "adminUsername": "azureuser",
-      "ssh": {
-        "publicKeys": [
-          {
-            "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEApD8+lRvLtUcyfO8N2Cwq0zY9DG1Un9d+tcmU3HgnAzBr6UR/dDT5M07NV7DN1lmu/0dt6Ay/ItjF9xK//nwVJL3ezEX32yhLKkCKFMB1LcANNzlhT++SB5tlRBx65CTL8z9FORe4UCWVJNafxu3as/BshQSrSaYt3hjSeYuzTpwd4+4xQutzbTXEUBDUr01zEfjjzfUu0HDrg1IFae62hnLm3ajG6b432IIdUhFUmgjZDljUt5bI3OEz5IWPsNOOlVTuo6fqU8lJHClAtAlZEZkyv0VotidC7ZSCfV153rRsEk9IWscwL2PQIQnCw7YyEYEffDeLjBwkH6MIdJ6OgQ== rsa-key-20170510"
-          }
-        ]
-      }
-    },
-    "windowsProfile": {
-      "adminUsername": "sampleAdminUsername",
-      "adminPassword": "sampleAdminPassword"
-    },
-    "servicePrincipalProfile": {
-      "clientId": "fooClientID",
-      "secret": "fooSecret"
-    }
-  }
-}
-`
-	if string(b) != expected {
-		t.Errorf("expected SerializedCS JSON %s, but got %s", expected, string(b))
-	}
-
-	b, err = apiloader.SerializeContainerService(cs, v20180331.APIVersion)
-
-	if b == nil || err != nil {
-		t.Errorf("unexpected error while trying to Serialize Container Service with version v20180331: %s", err.Error())
-	}
-
-	cs.Properties.HostedMasterProfile = nil
-
 	// Test with version vlabs
-	b, err = apiloader.SerializeContainerService(cs, vlabs.APIVersion)
+	b, err := apiloader.SerializeContainerService(cs, vlabs.APIVersion)
 	if b == nil || err != nil {
-		t.Errorf("unexpected error while trying to Serialize Container Service with version v20180331: %s", err.Error())
+		t.Errorf("unexpected error while trying to Serialize Container Service with version vlabs: %s", err.Error())
 	}
 }
 
-func getDefaultContainerService() *api.ContainerService {
+func getDefaultContainerService() *datamodel.ContainerService {
 	u, _ := url.Parse("http://foobar.com/search")
-	return &api.ContainerService{
+	return &datamodel.ContainerService{
 		ID:       "sampleID",
 		Location: "westus2",
 		Name:     "sampleCS",
@@ -425,7 +352,7 @@ func getDefaultContainerService() *api.ContainerService {
 			"foo": "bar",
 		},
 		Type: "sampleType",
-		Properties: &api.Properties{
+		Properties: &datamodel.Properties{
 			WindowsProfile: &api.WindowsProfile{
 				AdminUsername: "sampleAdminUsername",
 				AdminPassword: "sampleAdminPassword",
