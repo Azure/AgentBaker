@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"reflect"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	v20170831 "github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20170831"
 	v20180331 "github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20180331"
@@ -25,7 +26,7 @@ type Apiloader struct {
 }
 
 // LoadContainerServiceFromFile loads an AKS Cluster API Model from a JSON file
-func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*api.ContainerService, string, error) {
+func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*datamodel.ContainerService, string, error) {
 	contents, e := ioutil.ReadFile(jsonFile)
 	if e != nil {
 		return nil, "", a.Translator.Errorf("error reading file %s: %s", jsonFile, e.Error())
@@ -34,42 +35,27 @@ func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*api.Containe
 }
 
 // DeserializeContainerService loads an AKS Engine Cluster API Model, validates it, and returns the unversioned representation
-func (a *Apiloader) DeserializeContainerService(contents []byte) (*api.ContainerService, string, error) {
+func (a *Apiloader) DeserializeContainerService(contents []byte) (*datamodel.ContainerService, string, error) {
 	m := &api.TypeMeta{}
 	if err := json.Unmarshal(contents, &m); err != nil {
 		return nil, "", err
 	}
 
-	version := m.APIVersion
-	cs, err := a.LoadContainerService(contents, version)
-	return cs, version, err
+	cs, err := a.LoadContainerService(contents)
+	return cs, m.APIVersion, err
 }
 
-// LoadContainerService loads an AKS Cluster API Model, validates it, and returns the unversioned representation
 func (a *Apiloader) LoadContainerService(
-	contents []byte,
-	version string) (*api.ContainerService, error) {
+	contents []byte) (*datamodel.ContainerService, error) {
 
-	switch version {
-	case vlabs.APIVersion:
-		containerService := &vlabs.ContainerService{}
-		if e := json.Unmarshal(contents, &containerService); e != nil {
-			return nil, e
-		}
-		if e := checkJSONKeys(contents, reflect.TypeOf(*containerService), reflect.TypeOf(api.TypeMeta{})); e != nil {
-			return nil, e
-		}
-
-		var unversioned *api.ContainerService
-		var err error
-		if unversioned, err = api.ConvertVLabsContainerService(containerService, false); err != nil {
-			return nil, err
-		}
-		return unversioned, nil
-
-	default:
-		return nil, a.Translator.Errorf("unrecognized APIVersion '%s'", version)
+	containerService := &datamodel.ContainerService{}
+	if e := json.Unmarshal(contents, &containerService); e != nil {
+		return nil, e
 	}
+	if e := checkJSONKeys(contents, reflect.TypeOf(*containerService), reflect.TypeOf(api.TypeMeta{})); e != nil {
+		return nil, e
+	}
+	return containerService, nil
 }
 
 // LoadContainerServiceForAgentPoolOnlyCluster loads an AKS Cluster API Model, validates it, and returns the unversioned representation

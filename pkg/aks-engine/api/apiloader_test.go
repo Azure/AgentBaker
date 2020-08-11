@@ -191,7 +191,6 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 		"properties": {
 			"orchestratorProfile": {
 				"orchestratorType": "Kubernetes",
-				"orchestratorRelease": "1.13",
 				"kubernetesConfig": {
 					"kubernetesImageBase": "msazurestackqa/",
 					"useInstanceMetadata": false,
@@ -242,7 +241,7 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 	apiloaderwithoutlocationpubliccloud := &Apiloader{}
 	_, _, err = apiloaderwithoutlocationpubliccloud.LoadContainerServiceFromFile(fileNamewithoutlocationpubliccloud)
 	if err != nil {
-		t.Errorf("Expected no error for missing loation for public cloud to be thrown")
+		t.Errorf("Expected no error for missing loation for public cloud to be thrown. %v", err)
 	}
 }
 
