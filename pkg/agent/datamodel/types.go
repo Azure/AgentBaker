@@ -4,16 +4,70 @@
 package datamodel
 
 import (
+	"bytes"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/helpers"
+	"github.com/Azure/go-autorest/autorest/to"
 )
+
+// AgentPoolProfile represents an agent pool definition
+type AgentPoolProfile struct {
+	Name                                string                   `json:"name"`
+	Count                               int                      `json:"count"`
+	VMSize                              string                   `json:"vmSize"`
+	OSDiskSizeGB                        int                      `json:"osDiskSizeGB,omitempty"`
+	DNSPrefix                           string                   `json:"dnsPrefix,omitempty"`
+	OSType                              api.OSType               `json:"osType,omitempty"`
+	Ports                               []int                    `json:"ports,omitempty"`
+	ProvisioningState                   api.ProvisioningState    `json:"provisioningState,omitempty"`
+	AvailabilityProfile                 string                   `json:"availabilityProfile"`
+	ScaleSetPriority                    string                   `json:"scaleSetPriority,omitempty"`
+	ScaleSetEvictionPolicy              string                   `json:"scaleSetEvictionPolicy,omitempty"`
+	SpotMaxPrice                        *float64                 `json:"spotMaxPrice,omitempty"`
+	StorageProfile                      string                   `json:"storageProfile,omitempty"`
+	DiskSizesGB                         []int                    `json:"diskSizesGB,omitempty"`
+	VnetSubnetID                        string                   `json:"vnetSubnetID,omitempty"`
+	Subnet                              string                   `json:"subnet"`
+	IPAddressCount                      int                      `json:"ipAddressCount,omitempty"`
+	Distro                              api.Distro               `json:"distro,omitempty"`
+	Role                                api.AgentPoolProfileRole `json:"role,omitempty"`
+	AcceleratedNetworkingEnabled        *bool                    `json:"acceleratedNetworkingEnabled,omitempty"`
+	AcceleratedNetworkingEnabledWindows *bool                    `json:"acceleratedNetworkingEnabledWindows,omitempty"`
+	VMSSOverProvisioningEnabled         *bool                    `json:"vmssOverProvisioningEnabled,omitempty"`
+	FQDN                                string                   `json:"fqdn,omitempty"`
+	CustomNodeLabels                    map[string]string        `json:"customNodeLabels,omitempty"`
+	PreprovisionExtension               *api.Extension           `json:"preProvisionExtension"`
+	Extensions                          []api.Extension          `json:"extensions"`
+	KubernetesConfig                    *api.KubernetesConfig    `json:"kubernetesConfig,omitempty"`
+	OrchestratorVersion                 string                   `json:"orchestratorVersion"`
+	ImageRef                            *api.ImageReference      `json:"imageReference,omitempty"`
+	MaxCount                            *int                     `json:"maxCount,omitempty"`
+	MinCount                            *int                     `json:"minCount,omitempty"`
+	EnableAutoScaling                   *bool                    `json:"enableAutoScaling,omitempty"`
+	AvailabilityZones                   []string                 `json:"availabilityZones,omitempty"`
+	PlatformFaultDomainCount            *int                     `json:"platformFaultDomainCount"`
+	PlatformUpdateDomainCount           *int                     `json:"platformUpdateDomainCount"`
+	SinglePlacementGroup                *bool                    `json:"singlePlacementGroup,omitempty"`
+	VnetCidrs                           []string                 `json:"vnetCidrs,omitempty"`
+	PreserveNodesProperties             *bool                    `json:"preserveNodesProperties,omitempty"`
+	WindowsNameVersion                  string                   `json:"windowsNameVersion,omitempty"`
+	EnableVMSSNodePublicIP              *bool                    `json:"enableVMSSNodePublicIP,omitempty"`
+	LoadBalancerBackendAddressPoolIDs   []string                 `json:"loadBalancerBackendAddressPoolIDs,omitempty"`
+	AuditDEnabled                       *bool                    `json:"auditDEnabled,omitempty"`
+	CustomVMTags                        map[string]string        `json:"customVMTags,omitempty"`
+	DiskEncryptionSetID                 string                   `json:"diskEncryptionSetID,omitempty"`
+	UltraSSDEnabled                     *bool                    `json:"ultraSSDEnabled,omitempty"`
+	EncryptionAtHost                    *bool                    `json:"encryptionAtHost,omitempty"`
+	ProximityPlacementGroupID           string                   `json:"proximityPlacementGroupID,omitempty"`
+}
 
 // Properties represents the AKS cluster definition
 type Properties struct {
@@ -21,7 +75,7 @@ type Properties struct {
 	ProvisioningState       api.ProvisioningState        `json:"provisioningState,omitempty"`
 	OrchestratorProfile     *api.OrchestratorProfile     `json:"orchestratorProfile,omitempty"`
 	MasterProfile           *api.MasterProfile           `json:"masterProfile,omitempty"`
-	AgentPoolProfiles       []*api.AgentPoolProfile      `json:"agentPoolProfiles,omitempty"`
+	AgentPoolProfiles       []*AgentPoolProfile          `json:"agentPoolProfiles,omitempty"`
 	LinuxProfile            *api.LinuxProfile            `json:"linuxProfile,omitempty"`
 	WindowsProfile          *api.WindowsProfile          `json:"windowsProfile,omitempty"`
 	ExtensionProfiles       []*api.ExtensionProfile      `json:"extensionProfiles"`
@@ -398,7 +452,7 @@ func (p *Properties) GetPrimaryScaleSetName() string {
 }
 
 // GetAgentVMPrefix returns the VM prefix for an agentpool.
-func (p *Properties) GetAgentVMPrefix(a *api.AgentPoolProfile, index int) string {
+func (p *Properties) GetAgentVMPrefix(a *AgentPoolProfile, index int) string {
 	nameSuffix := p.GetClusterID()
 	vmPrefix := ""
 	if index != -1 {
@@ -416,4 +470,101 @@ func (p *Properties) GetAgentVMPrefix(a *api.AgentPoolProfile, index int) string
 		}
 	}
 	return vmPrefix
+}
+
+// IsVHDDistro returns true if the distro uses VHD SKUs
+func (a *AgentPoolProfile) IsVHDDistro() bool {
+	return strings.EqualFold(string(a.Distro), string(api.AKSUbuntu1604)) || strings.EqualFold(string(a.Distro), string(api.AKSUbuntu1804)) || strings.EqualFold(string(a.Distro), string(api.Ubuntu1804Gen2)) || strings.EqualFold(string(a.Distro), string(api.AKSUbuntuGPU1804)) || strings.EqualFold(string(a.Distro), string(api.AKSUbuntuGPU1804Gen2))
+}
+
+// IsUbuntu1804 returns true if the agent pool profile distro is based on Ubuntu 16.04
+func (a *AgentPoolProfile) IsUbuntu1804() bool {
+	if !strings.EqualFold(string(a.OSType), string(api.Windows)) {
+		switch a.Distro {
+		case api.AKSUbuntu1804, api.Ubuntu1804, api.Ubuntu1804Gen2, api.AKSUbuntuGPU1804, api.AKSUbuntuGPU1804Gen2:
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// HasAvailabilityZones returns true if the agent pool has availability zones
+func (a *AgentPoolProfile) HasAvailabilityZones() bool {
+	return a.AvailabilityZones != nil && len(a.AvailabilityZones) > 0
+}
+
+// IsLinux returns true if the agent pool is linux
+func (a *AgentPoolProfile) IsLinux() bool {
+	return strings.EqualFold(string(a.OSType), string(api.Linux))
+}
+
+// IsCustomVNET returns true if the customer brought their own VNET
+func (a *AgentPoolProfile) IsCustomVNET() bool {
+	return len(a.VnetSubnetID) > 0
+}
+
+// IsWindows returns true if the agent pool is windows
+func (a *AgentPoolProfile) IsWindows() bool {
+	return strings.EqualFold(string(a.OSType), string(api.Windows))
+}
+
+// IsVirtualMachineScaleSets returns true if the agent pool availability profile is VMSS
+func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
+	return strings.EqualFold(a.AvailabilityProfile, api.VirtualMachineScaleSets)
+}
+
+// IsAvailabilitySets returns true if the customer specified disks
+func (a *AgentPoolProfile) IsAvailabilitySets() bool {
+	return strings.EqualFold(a.AvailabilityProfile, api.AvailabilitySet)
+}
+
+// IsSpotScaleSet returns true if the VMSS is Spot Scale Set
+func (a *AgentPoolProfile) IsSpotScaleSet() bool {
+	return strings.EqualFold(a.AvailabilityProfile, api.VirtualMachineScaleSets) && strings.EqualFold(a.ScaleSetPriority, api.ScaleSetPrioritySpot)
+}
+
+// GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
+func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) string {
+	var buf bytes.Buffer
+	buf.WriteString("kubernetes.azure.com/role=agent")
+	if deprecated {
+		buf.WriteString(",node-role.kubernetes.io/agent=")
+		buf.WriteString(",kubernetes.io/role=agent")
+	}
+	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
+	if strings.EqualFold(a.StorageProfile, api.ManagedDisks) {
+		storagetier, _ := common.GetStorageAccountType(a.VMSize)
+		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
+	}
+	if common.IsNvidiaEnabledSKU(a.VMSize) {
+		accelerator := "nvidia"
+		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
+	}
+	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
+	keys := []string{}
+	for key := range a.CustomNodeLabels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+	}
+	return buf.String()
+}
+
+// HasDisks returns true if the customer specified disks
+func (a *AgentPoolProfile) HasDisks() bool {
+	return len(a.DiskSizesGB) > 0
+}
+
+// IsCoreOS returns true if the agent specified a CoreOS distro
+func (a *AgentPoolProfile) IsCoreOS() bool {
+	return strings.EqualFold(string(a.OSType), string(api.Linux)) && strings.EqualFold(string(a.Distro), string(api.CoreOS))
+}
+
+// IsAuditDEnabled returns true if the master profile is configured for auditd
+func (a *AgentPoolProfile) IsAuditDEnabled() bool {
+	return to.Bool(a.AuditDEnabled)
 }

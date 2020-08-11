@@ -106,7 +106,7 @@ func getMaximumLoadBalancerRuleCount(cs *datamodel.ContainerService) int {
 	return 0
 }
 
-func isVHD(profile *api.AgentPoolProfile) string {
+func isVHD(profile *datamodel.AgentPoolProfile) string {
 	//NOTE: update as new distro is introduced
 	return strconv.FormatBool(profile.IsVHDDistro())
 }

@@ -33,7 +33,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				HostedMasterProfile: &api.HostedMasterProfile{
 					DNSPrefix: "uttestdom",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "agent2",
 						Count:               3,

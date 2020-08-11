@@ -11,12 +11,12 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/i18n"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -227,10 +227,10 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"IsKubernetesVersionLt": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
-		"GetAgentKubernetesLabels": func(profile *api.AgentPoolProfile, rg string) string {
+		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
 			return profile.GetKubernetesLabels(rg, false)
 		},
-		"GetAgentKubernetesLabelsDeprecated": func(profile *api.AgentPoolProfile, rg string) string {
+		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile, rg string) string {
 			return profile.GetKubernetesLabels(rg, true)
 		},
 		"GetDynamicKubeletConfigFileContent": func() string {
@@ -319,7 +319,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"GetVNETSubnets": func(addNSG bool) string {
 			return getVNETSubnets(cs.Properties, addNSG)
 		},
-		"GetDataDisks": func(profile *api.AgentPoolProfile) string {
+		"GetDataDisks": func(profile *datamodel.AgentPoolProfile) string {
 			return getDataDisks(profile)
 		},
 		"HasBootstrap": func() bool {
@@ -337,7 +337,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"GetWindowsMasterSubnetARMParam": func() string {
 			return getWindowsMasterSubnetARMParam(cs.Properties.MasterProfile)
 		},
-		"GetKubernetesAgentPreprovisionYaml": func(profile *api.AgentPoolProfile) string {
+		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""
 			if profile.PreprovisionExtension != nil {
 				str += "\n"
@@ -385,10 +385,10 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"AnyAgentIsLinux": func() bool {
 			return cs.Properties.AnyAgentIsLinux()
 		},
-		"IsNSeriesSKU": func(profile *api.AgentPoolProfile) bool {
+		"IsNSeriesSKU": func(profile *datamodel.AgentPoolProfile) bool {
 			return IsNvidiaEnabledSKU(profile.VMSize)
 		},
-		"HasAvailabilityZones": func(profile *api.AgentPoolProfile) bool {
+		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
 			return profile.HasAvailabilityZones()
 		},
 		"HasLinuxSecrets": func() bool {
@@ -462,19 +462,19 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			cloudSpecConfig := cs.GetCloudSpecConfig()
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageVersion)
 		},
-		"GetAgentOSImageOffer": func(profile *api.AgentPoolProfile) string {
+		"GetAgentOSImageOffer": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageOffer)
 		},
-		"GetAgentOSImagePublisher": func(profile *api.AgentPoolProfile) string {
+		"GetAgentOSImagePublisher": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImagePublisher)
 		},
-		"GetAgentOSImageSKU": func(profile *api.AgentPoolProfile) string {
+		"GetAgentOSImageSKU": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageSku)
 		},
-		"GetAgentOSImageVersion": func(profile *api.AgentPoolProfile) string {
+		"GetAgentOSImageVersion": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageVersion)
 		},

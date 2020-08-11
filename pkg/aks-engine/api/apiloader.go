@@ -210,7 +210,7 @@ func (a *Apiloader) SerializeContainerService(containerService *datamodel.Contai
 }
 
 // LoadAgentpoolProfileFromFile loads an an AgentPoolProfile object from a JSON file
-func (a *Apiloader) LoadAgentpoolProfileFromFile(jsonFile string) (*api.AgentPoolProfile, error) {
+func (a *Apiloader) LoadAgentpoolProfileFromFile(jsonFile string) (*datamodel.AgentPoolProfile, error) {
 	contents, e := ioutil.ReadFile(jsonFile)
 	if e != nil {
 		return nil, a.Translator.Errorf("error reading file %s: %s", jsonFile, e.Error())
@@ -219,8 +219,8 @@ func (a *Apiloader) LoadAgentpoolProfileFromFile(jsonFile string) (*api.AgentPoo
 }
 
 // LoadAgentPoolProfile marshalls raw data into a strongly typed AgentPoolProfile return object
-func (a *Apiloader) LoadAgentPoolProfile(contents []byte) (*api.AgentPoolProfile, error) {
-	agentPoolProfile := &api.AgentPoolProfile{}
+func (a *Apiloader) LoadAgentPoolProfile(contents []byte) (*datamodel.AgentPoolProfile, error) {
+	agentPoolProfile := &datamodel.AgentPoolProfile{}
 	if e := json.Unmarshal(contents, &agentPoolProfile); e != nil {
 		return nil, e
 	}

@@ -2532,7 +2532,7 @@ func getMockAPIProperties(orchestratorVersion string) Properties {
 		},
 		MasterProfile:      &api.MasterProfile{},
 		CertificateProfile: getMockCertificateProfile(),
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{},
 			{},
 			{},
@@ -3095,7 +3095,7 @@ func TestImageReference(t *testing.T) {
 		isUpgrade                 bool
 		isScale                   bool
 		expectedMasterProfile     api.MasterProfile
-		expectedAgentPoolProfiles []api.AgentPoolProfile
+		expectedAgentPoolProfiles []AgentPoolProfile
 	}{
 		{
 			name: "default",
@@ -3106,7 +3106,7 @@ func TestImageReference(t *testing.T) {
 					},
 					MasterProfile:      &api.MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{},
 					},
 				},
@@ -3115,7 +3115,7 @@ func TestImageReference(t *testing.T) {
 				Distro:   api.AKSUbuntu1604,
 				ImageRef: nil,
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro:   api.AKSUbuntu1604,
 					ImageRef: nil,
@@ -3139,7 +3139,7 @@ func TestImageReference(t *testing.T) {
 						},
 					},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							ImageRef: &api.ImageReference{
 								Name:           "name",
@@ -3162,7 +3162,7 @@ func TestImageReference(t *testing.T) {
 					Version:        "version",
 				},
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: "",
 					ImageRef: &api.ImageReference{
@@ -3184,7 +3184,7 @@ func TestImageReference(t *testing.T) {
 					},
 					MasterProfile:      &api.MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							ImageRef: &api.ImageReference{
 								Name:           "name",
@@ -3202,7 +3202,7 @@ func TestImageReference(t *testing.T) {
 				Distro:   api.AKSUbuntu1604,
 				ImageRef: nil,
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: "",
 					ImageRef: &api.ImageReference{
@@ -3304,7 +3304,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 		isUpgrade                 bool
 		isScale                   bool
 		expectedMasterProfile     api.MasterProfile
-		expectedAgentPoolProfiles []api.AgentPoolProfile
+		expectedAgentPoolProfiles []AgentPoolProfile
 	}{
 		{
 			name: "default",
@@ -3317,7 +3317,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 						},
 					},
 					MasterProfile: &api.MasterProfile{},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{},
 					},
 				},
@@ -3326,7 +3326,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				Distro:   api.AKSUbuntu1604,
 				ImageRef: nil,
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro:   api.AKSUbuntu1604,
 					ImageRef: nil,
@@ -3345,7 +3345,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 						},
 					},
 					MasterProfile: &api.MasterProfile{},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{},
 					},
 				},
@@ -3353,7 +3353,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			expectedMasterProfile: api.MasterProfile{
 				Distro: api.Ubuntu,
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: api.Ubuntu,
 				},
@@ -3373,7 +3373,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 					MasterProfile: &api.MasterProfile{
 						Distro: api.Ubuntu1804,
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Distro: api.Ubuntu1804,
 						},
@@ -3383,7 +3383,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			expectedMasterProfile: api.MasterProfile{
 				Distro: api.Ubuntu1804,
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: api.Ubuntu1804,
 				},
@@ -3401,7 +3401,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 						},
 					},
 					MasterProfile: &api.MasterProfile{},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name:   "pool1",
 							Distro: api.Ubuntu1804,
@@ -3415,7 +3415,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			expectedMasterProfile: api.MasterProfile{
 				Distro: api.Ubuntu,
 			},
-			expectedAgentPoolProfiles: []api.AgentPoolProfile{
+			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: api.Ubuntu1804,
 				},
@@ -3472,7 +3472,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					},
 					MasterProfile:      &api.MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name: "pool1",
 						},
@@ -3500,7 +3500,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					},
 					MasterProfile:      &api.MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name: "pool1",
 						},
@@ -3530,7 +3530,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 						IPAddressCount: 24,
 					},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name:           "pool1",
 							IPAddressCount: 24,
@@ -3562,7 +3562,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 						IPAddressCount: 24,
 					},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name:           "pool1",
 							IPAddressCount: 24,
@@ -3598,7 +3598,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 						},
 					},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name: "pool1",
 							KubernetesConfig: &api.KubernetesConfig{
@@ -3637,7 +3637,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 						},
 					},
 					CertificateProfile: getMockCertificateProfile(),
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name: "pool1",
 							KubernetesConfig: &api.KubernetesConfig{

@@ -156,7 +156,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 	return parametersMap
 }
 
-func assignKubernetesParametersFromAgentProfile(profile *api.AgentPoolProfile, parametersMap paramsMap,
+func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
 	cloudSpecConfig api.AzureEnvironmentSpecConfig, generatorCode string) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
