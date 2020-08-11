@@ -65,49 +65,6 @@ func (cs *ContainerService) IsAKSCustomCloud() bool {
 		strings.EqualFold(cs.Properties.CustomCloudEnv.Name, "akscustom")
 }
 
-// ToAksEngineContainerService converts our ContainerService to aks-engine's
-// ContainerService to our. This is temporarily needed until we have finished
-// porting all aks-engine code that's used by us into our own code base.
-func ToAksEngineContainerService(cs *ContainerService) *api.ContainerService {
-	ret := &api.ContainerService{
-		ID:       cs.ID,
-		Location: cs.Location,
-		Name:     cs.Name,
-		Plan:     cs.Plan,
-		Tags:     cs.Tags,
-		Type:     cs.Type,
-	}
-	if cs.Properties != nil {
-		ret.Properties = toAksEngineProperties(cs.Properties)
-	}
-	return ret
-}
-
-func toAksEngineProperties(p *Properties) *api.Properties {
-	ret := &api.Properties{
-		ClusterID:               p.ClusterID,
-		ProvisioningState:       p.ProvisioningState,
-		OrchestratorProfile:     p.OrchestratorProfile,
-		MasterProfile:           p.MasterProfile,
-		AgentPoolProfiles:       p.AgentPoolProfiles,
-		LinuxProfile:            p.LinuxProfile,
-		WindowsProfile:          p.WindowsProfile,
-		ExtensionProfiles:       p.ExtensionProfiles,
-		DiagnosticsProfile:      p.DiagnosticsProfile,
-		JumpboxProfile:          p.JumpboxProfile,
-		ServicePrincipalProfile: p.ServicePrincipalProfile,
-		CertificateProfile:      p.CertificateProfile,
-		AADProfile:              p.AADProfile,
-		CustomProfile:           p.CustomProfile,
-		HostedMasterProfile:     p.HostedMasterProfile,
-		AddonProfiles:           p.AddonProfiles,
-		FeatureFlags:            p.FeatureFlags,
-		TelemetryProfile:        p.TelemetryProfile,
-		CustomCloudEnv:          p.CustomCloudEnv,
-	}
-	return ret
-}
-
 // GetLocations returns all supported regions.
 // If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
 func (cs *ContainerService) GetLocations() []string {

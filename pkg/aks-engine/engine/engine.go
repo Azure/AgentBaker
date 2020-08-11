@@ -9,10 +9,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest/to"
-
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/helpers"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/pkg/errors"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure" // register azure (AD) authentication plugin
@@ -56,7 +56,7 @@ const (
 )
 
 // GenerateKubeConfig returns a JSON string representing the KubeConfig
-func GenerateKubeConfig(properties *api.Properties, location string) (string, error) {
+func GenerateKubeConfig(properties *datamodel.Properties, location string) (string, error) {
 	if properties == nil {
 		return "", errors.New("Properties nil in GenerateKubeConfig")
 	}

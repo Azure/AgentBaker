@@ -9,8 +9,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/Azure/go-autorest/autorest/azure"
-
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/helpers"
 	"github.com/Azure/aks-engine/pkg/i18n"
@@ -18,7 +17,7 @@ import (
 
 func TestWriteTLSArtifacts(t *testing.T) {
 
-	cs := api.CreateMockContainerService("testcluster", "1.7.12", 1, 2, true)
+	cs := datamodel.CreateMockContainerService("testcluster", "1.7.12", 1, 2, true)
 	writer := &ArtifactWriter{
 		Translator: &i18n.Translator{
 			Locale: nil,
@@ -76,32 +75,8 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	os.RemoveAll(defaultDir)
 
 	// Generate files with custom cloud profile in configuration
-	csCustom := api.CreateMockContainerService("testcluster", "1.11.6", 1, 2, false)
+	csCustom := datamodel.CreateMockContainerService("testcluster", "1.11.6", 1, 2, false)
 	csCustom.Location = "customlocation"
-	csCustom.Properties.CustomCloudProfile = &api.CustomCloudProfile{
-		Environment: &azure.Environment{
-			Name:                         "azurestackcloud",
-			ManagementPortalURL:          "managementPortalURL",
-			PublishSettingsURL:           "publishSettingsURL",
-			ServiceManagementEndpoint:    "serviceManagementEndpoint",
-			ResourceManagerEndpoint:      "resourceManagerEndpoint",
-			ActiveDirectoryEndpoint:      "activeDirectoryEndpoint",
-			GalleryEndpoint:              "galleryEndpoint",
-			KeyVaultEndpoint:             "keyVaultEndpoint",
-			GraphEndpoint:                "graphEndpoint",
-			ServiceBusEndpoint:           "serviceBusEndpoint",
-			BatchManagementEndpoint:      "batchManagementEndpoint",
-			StorageEndpointSuffix:        "storageEndpointSuffix",
-			SQLDatabaseDNSSuffix:         "sqlDatabaseDNSSuffix",
-			TrafficManagerDNSSuffix:      "trafficManagerDNSSuffix",
-			KeyVaultDNSSuffix:            "keyVaultDNSSuffix",
-			ServiceBusEndpointSuffix:     "serviceBusEndpointSuffix",
-			ServiceManagementVMDNSSuffix: "serviceManagementVMDNSSuffix",
-			ResourceManagerVMDNSSuffix:   "resourceManagerVMDNSSuffix",
-			ContainerRegistryDNSSuffix:   "containerRegistryDNSSuffix",
-			TokenAudience:                "tokenAudience",
-		},
-	}
 	csCustom.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,

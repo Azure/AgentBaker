@@ -8,7 +8,8 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/aks-engine/pkg/helpers"
 	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/pkg/errors"
@@ -20,7 +21,7 @@ type ArtifactWriter struct {
 }
 
 // WriteTLSArtifacts saves TLS certificates and keys to the server filesystem
-func (w *ArtifactWriter) WriteTLSArtifacts(containerService *api.ContainerService, apiVersion, template, parameters, artifactsDir string, certsGenerated bool, parametersOnly bool) error {
+func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.ContainerService, apiVersion, template, parameters, artifactsDir string, certsGenerated bool, parametersOnly bool) error {
 	if len(artifactsDir) == 0 {
 		artifactsDir = fmt.Sprintf("%s-%s", containerService.Properties.OrchestratorProfile.OrchestratorType, containerService.Properties.GetClusterID())
 		artifactsDir = path.Join("_output", artifactsDir)
