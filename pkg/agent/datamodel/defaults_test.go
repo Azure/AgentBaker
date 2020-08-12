@@ -1478,15 +1478,15 @@ func TestWindowsProfileDefaults(t *testing.T) {
 
 	var tests = []struct {
 		name                   string // test case name
-		windowsProfile         api.WindowsProfile
-		expectedWindowsProfile api.WindowsProfile
+		windowsProfile         WindowsProfile
+		expectedWindowsProfile WindowsProfile
 		isUpgrade              bool
 		isScale                bool
 	}{
 		{
 			"defaults in creating",
-			api.WindowsProfile{},
-			api.WindowsProfile{
+			WindowsProfile{},
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.AKSWindowsServer2019OSImageConfig.ImageSku,
@@ -1502,12 +1502,12 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks vhd current version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       api.AKSWindowsServer2019OSImageConfig.ImageSku,
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.AKSWindowsServer2019OSImageConfig.ImageSku,
@@ -1523,12 +1523,12 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks vhd override sku in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "override",
@@ -1544,13 +1544,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks vhd override version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       api.AKSWindowsServer2019OSImageConfig.ImageSku,
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.AKSWindowsServer2019OSImageConfig.ImageSku,
@@ -1566,12 +1566,12 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"vanilla vhd current version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       api.WindowsServer2019OSImageConfig.ImageSku,
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.WindowsServer2019OSImageConfig.ImageSku,
@@ -1587,12 +1587,12 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"vanilla vhd override sku in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "override",
@@ -1608,12 +1608,12 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"vanilla vhd override version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.WindowsServer2019OSImageConfig.ImageSku,
@@ -1629,13 +1629,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"vanilla vhd spepcific version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       api.WindowsServer2019OSImageConfig.ImageSku,
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.WindowsServer2019OSImageConfig.ImageSku,
@@ -1651,12 +1651,12 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"user overrides latest version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: "override",
 				WindowsOffer:     "override",
 				WindowsSku:       "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      "override",
 				WindowsOffer:          "override",
 				WindowsSku:            "override",
@@ -1672,13 +1672,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"user overrides specific version in creating",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: "override",
 				WindowsOffer:     "override",
 				WindowsSku:       "override",
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      "override",
 				WindowsOffer:          "override",
 				WindowsSku:            "override",
@@ -1694,13 +1694,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine does not set default ProvisioningScriptsPackageURL when it is not empty in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       api.WindowsServer2019OSImageConfig.ImageSku,
 				ImageVersion:     api.WindowsServer2019OSImageConfig.ImageVersion,
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.WindowsServer2019OSImageConfig.ImageSku,
@@ -1716,13 +1716,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine sets default WindowsSku and ImageVersion when they are empty in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "",
 				ImageVersion:     "",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.AKSWindowsServer2019OSImageConfig.ImageSku,
@@ -1738,13 +1738,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine does not set default WindowsSku and ImageVersion when they are not empty in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "override",
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "override",
@@ -1760,13 +1760,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine sets default vanilla WindowsSku and ImageVersion when they are empty in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "",
 				ImageVersion:     "",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            api.WindowsServer2019OSImageConfig.ImageSku,
@@ -1782,13 +1782,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine does not set vanilla default WindowsSku and ImageVersion when they are not empty in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "override",
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "override",
@@ -1804,13 +1804,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine does not override version when WindowsPublisher does not match in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "override",
 				ImageVersion:     "",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.WindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "override",
@@ -1826,13 +1826,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine does not override version when WindowsOffer does not match in upgrading",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "",
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.WindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "",
@@ -1848,13 +1848,13 @@ func TestWindowsProfileDefaults(t *testing.T) {
 		},
 		{
 			"aks-engine does not change any value in scaling",
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher: api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:     api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:       "",
 				ImageVersion:     "override",
 			},
-			api.WindowsProfile{
+			WindowsProfile{
 				WindowsPublisher:      api.AKSWindowsServer2019OSImageConfig.ImagePublisher,
 				WindowsOffer:          api.AKSWindowsServer2019OSImageConfig.ImageOffer,
 				WindowsSku:            "",

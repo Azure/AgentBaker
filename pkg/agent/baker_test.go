@@ -80,7 +80,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						Distro: api.AKSUbuntu1604,
 					},
 				},
-				LinuxProfile: &api.LinuxProfile{
+				LinuxProfile: &datamodel.LinuxProfile{
 					AdminUsername: "azureuser",
 				},
 				ServicePrincipalProfile: &api.ServicePrincipalProfile{

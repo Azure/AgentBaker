@@ -353,7 +353,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 		},
 		Type: "sampleType",
 		Properties: &datamodel.Properties{
-			WindowsProfile: &api.WindowsProfile{
+			WindowsProfile: &datamodel.WindowsProfile{
 				AdminUsername: "sampleAdminUsername",
 				AdminPassword: "sampleAdminPassword",
 			},
@@ -363,7 +363,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					StorageURL: u,
 				},
 			},
-			LinuxProfile: &api.LinuxProfile{
+			LinuxProfile: &datamodel.LinuxProfile{
 				AdminUsername: "azureuser",
 				SSH: struct {
 					PublicKeys []api.PublicKey `json:"publicKeys"`

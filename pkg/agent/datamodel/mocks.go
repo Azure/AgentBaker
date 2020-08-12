@@ -34,7 +34,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 
 	cs.Properties.AgentPoolProfiles = append(cs.Properties.AgentPoolProfiles, agentPool)
 
-	cs.Properties.LinuxProfile = &api.LinuxProfile{
+	cs.Properties.LinuxProfile = &LinuxProfile{
 		AdminUsername: "azureuser",
 		SSH: struct {
 			PublicKeys []api.PublicKey `json:"publicKeys"`
@@ -132,7 +132,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 				OSType:              api.Windows,
 			},
 		}
-		p.WindowsProfile = &api.WindowsProfile{
+		p.WindowsProfile = &WindowsProfile{
 			AdminUsername: "azureuser",
 			AdminPassword: "replacepassword1234$",
 		}
