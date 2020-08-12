@@ -456,7 +456,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			CustomProfile: &api.CustomProfile{
 				Orchestrator: "Kubernetes",
 			},
-			OrchestratorProfile: &api.OrchestratorProfile{
+			OrchestratorProfile: &datamodel.OrchestratorProfile{
 				OrchestratorType:    "Kubernetes",
 				OrchestratorVersion: "1.11.6",
 				DcosConfig: &api.DcosConfig{
@@ -477,7 +477,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				},
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			MasterProfile: &api.MasterProfile{
+			MasterProfile: &datamodel.MasterProfile{
 				Count:     1,
 				DNSPrefix: "blueorange",
 				SubjectAltNames: []string{

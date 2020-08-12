@@ -51,7 +51,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 		t.Errorf("Expected an error result from nil Properties child properties")
 	}
 
-	containerService.Properties.OrchestratorProfile = &api.OrchestratorProfile{
+	containerService.Properties.OrchestratorProfile = &datamodel.OrchestratorProfile{
 		KubernetesConfig: &api.KubernetesConfig{},
 	}
 	containerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{

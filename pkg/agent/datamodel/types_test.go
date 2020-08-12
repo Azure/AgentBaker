@@ -4,6 +4,7 @@
 package datamodel
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestGetAzureCNIURLFuncs(t *testing.T) {
 	cs.Location = "eastus"
 	cloudSpecConfig := cs.GetCloudSpecConfig()
 
-	o := api.OrchestratorProfile{
+	o := OrchestratorProfile{
 		OrchestratorType: "Kubernetes",
 		KubernetesConfig: &api.KubernetesConfig{},
 	}
@@ -38,7 +39,7 @@ func TestGetAzureCNIURLFuncs(t *testing.T) {
 
 	customLinuxURL := "https://custom-url/azure-cni-linux.0.0.1.tgz"
 	customWindowsURL := "https://custom-url/azure-cni-windows.0.0.1.tgz"
-	o = api.OrchestratorProfile{
+	o = OrchestratorProfile{
 		OrchestratorType: "Kubernetes",
 		KubernetesConfig: &api.KubernetesConfig{
 			AzureCNIURLLinux:   customLinuxURL,
@@ -179,14 +180,14 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "nil KubernetesConfig",
 			p: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{},
+				OrchestratorProfile: &OrchestratorProfile{},
 			},
 			expectedDisabled: false,
 		},
 		{
 			name: "default KubernetesConfig",
 			p: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &api.KubernetesConfig{},
 				},
 			},
@@ -195,7 +196,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "addons configured but no ip-masq-agent configuration",
 			p: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
 							{
@@ -211,7 +212,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "ip-masq-agent explicitly disabled",
 			p: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
 							{
@@ -227,7 +228,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "ip-masq-agent present but no configuration",
 			p: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
 							{
@@ -242,7 +243,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "ip-masq-agent explicitly enabled",
 			p: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
 							{
@@ -277,7 +278,7 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 		{
 			name: "valid master 1 node",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 1,
 				},
 			},
@@ -286,7 +287,7 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 		{
 			name: "valid master 3 nodes",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 3,
 				},
 			},
@@ -295,7 +296,7 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 		{
 			name: "valid master 5 nodes",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 5,
 				},
 			},
@@ -323,7 +324,7 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 
 func TestOSType(t *testing.T) {
 	p := Properties{
-		MasterProfile: &api.MasterProfile{
+		MasterProfile: &MasterProfile{
 			Distro: api.RHEL,
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
@@ -359,14 +360,6 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
 	}
 
-	if !p.MasterProfile.IsRHEL() {
-		t.Fatalf("expected IsRHEL() to return true but instead returned false")
-	}
-
-	if p.MasterProfile.IsCoreOS() {
-		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
-	}
-
 	p.MasterProfile.Distro = api.CoreOS
 	p.AgentPoolProfiles[0].OSType = api.Windows
 	p.AgentPoolProfiles[1].Distro = api.CoreOS
@@ -394,21 +387,13 @@ func TestOSType(t *testing.T) {
 	if !p.AgentPoolProfiles[1].IsCoreOS() {
 		t.Fatalf("expected IsCoreOS() to return true but instead returned false")
 	}
-
-	if p.MasterProfile.IsRHEL() {
-		t.Fatalf("expected IsRHEL() to return false but instead returned true")
-	}
-
-	if !p.MasterProfile.IsCoreOS() {
-		t.Fatalf("expected IsCoreOS() to return true but instead returned false")
-	}
 }
 
 func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults when no user-provided values
 	v := "1.8.0"
 	p := Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
@@ -486,7 +471,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults when user provides configuration
 	v = "1.8.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig: &api.KubernetesConfig{
@@ -564,7 +549,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults when user provides *some* config values
 	v = "1.8.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig: &api.KubernetesConfig{
@@ -621,7 +606,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults for VMSS scenario
 	v = "1.14.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
@@ -687,7 +672,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults for VMSS scenario with 3 pools
 	v = "1.14.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
@@ -759,7 +744,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults for VMSS scenario + AKS
 	v = "1.14.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
@@ -828,7 +813,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults for VMAS scenario
 	v = "1.14.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
@@ -894,7 +879,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults for VMAS + VMSS scenario
 	v = "1.14.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
@@ -963,7 +948,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 	// Test cloudprovider defaults for backoff mode v2
 	v = "1.14.0"
 	p = Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig: &api.KubernetesConfig{
@@ -1004,7 +989,7 @@ func TestTotalNodes(t *testing.T) {
 		{
 			name: "2 total nodes between master and pool",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 1,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1032,7 +1017,7 @@ func TestTotalNodes(t *testing.T) {
 		{
 			name: "11 total nodes between master and pool",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 5,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1065,7 +1050,7 @@ func TestHasAvailabilityZones(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:             1,
 					AvailabilityZones: []string{"1", "2"},
 				},
@@ -1086,7 +1071,7 @@ func TestHasAvailabilityZones(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 1,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1105,7 +1090,7 @@ func TestHasAvailabilityZones(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 1,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1143,7 +1128,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
@@ -1157,7 +1142,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		},
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{},
@@ -1169,7 +1154,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		},
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
@@ -1190,7 +1175,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		},
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
@@ -1212,7 +1197,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		},
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
@@ -1237,7 +1222,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		},
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
@@ -1262,7 +1247,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		},
 		{
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						Addons: []api.KubernetesAddon{
@@ -1306,7 +1291,7 @@ func TestGenerateClusterID(t *testing.T) {
 		{
 			name: "From Master Profile",
 			properties: &Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					DNSPrefix: "foo_master",
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1494,7 +1479,7 @@ func TestPropertiesHasDCSeriesSKU(t *testing.T) {
 					Count:  1,
 				},
 			},
-			OrchestratorProfile: &api.OrchestratorProfile{
+			OrchestratorProfile: &OrchestratorProfile{
 				OrchestratorType:    api.Kubernetes,
 				OrchestratorVersion: "1.16.0",
 			},
@@ -1513,7 +1498,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1604,
 				},
@@ -1532,7 +1517,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1804,
 				},
@@ -1541,7 +1526,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.Ubuntu1804,
 				},
@@ -1550,7 +1535,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1804,
 				},
@@ -1569,7 +1554,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.Ubuntu1804,
 				},
@@ -1588,7 +1573,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.Ubuntu1804,
 				},
@@ -1603,7 +1588,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1604,
 				},
@@ -1618,7 +1603,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1804,
 				},
@@ -1768,7 +1753,7 @@ func TestGetSubnetName(t *testing.T) {
 		{
 			name: "Cluster with HosterMasterProfile",
 			properties: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
 				HostedMasterProfile: &api.HostedMasterProfile{
@@ -1790,7 +1775,7 @@ func TestGetSubnetName(t *testing.T) {
 		{
 			name: "Cluster with HosterMasterProfile and custom VNET",
 			properties: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
 				HostedMasterProfile: &api.HostedMasterProfile{
@@ -1813,10 +1798,10 @@ func TestGetSubnetName(t *testing.T) {
 		{
 			name: "Cluster with MasterProfile",
 			properties: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:     1,
 					DNSPrefix: "foo",
 					VMSize:    "Standard_DS2_v2",
@@ -1835,10 +1820,10 @@ func TestGetSubnetName(t *testing.T) {
 		{
 			name: "Cluster with MasterProfile and custom VNET",
 			properties: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:        1,
 					DNSPrefix:    "foo",
 					VMSize:       "Standard_DS2_v2",
@@ -1858,10 +1843,10 @@ func TestGetSubnetName(t *testing.T) {
 		{
 			name: "Cluster with VMSS MasterProfile",
 			properties: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:               1,
 					DNSPrefix:           "foo",
 					VMSize:              "Standard_DS2_v2",
@@ -1895,7 +1880,7 @@ func TestGetSubnetName(t *testing.T) {
 
 func TestGetRouteTableName(t *testing.T) {
 	p := &Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
 		},
 		HostedMasterProfile: &api.HostedMasterProfile{
@@ -1928,10 +1913,10 @@ func TestGetRouteTableName(t *testing.T) {
 	}
 
 	p = &Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
 		},
-		MasterProfile: &api.MasterProfile{
+		MasterProfile: &MasterProfile{
 			Count:     1,
 			DNSPrefix: "foo",
 			VMSize:    "Standard_DS2_v2",
@@ -1990,7 +1975,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 		{
 			name: "Cluster with HostedMasterProfile and AgentProfiles",
 			properties: &Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
 				HostedMasterProfile: &api.HostedMasterProfile{
@@ -2052,10 +2037,10 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 
 func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 	p := &Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
 		},
-		MasterProfile: &api.MasterProfile{
+		MasterProfile: &MasterProfile{
 			Count:     1,
 			DNSPrefix: "foo",
 			VMSize:    "Standard_DS2_v2",
@@ -2169,7 +2154,7 @@ func TestUbuntuVersion(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1604,
 				},
@@ -2188,7 +2173,7 @@ func TestUbuntuVersion(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.AKSUbuntu1804,
 				},
@@ -2206,7 +2191,7 @@ func TestUbuntuVersion(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count:  1,
 					Distro: api.Ubuntu,
 				},
@@ -2226,9 +2211,6 @@ func TestUbuntuVersion(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if c.p.MasterProfile.IsUbuntu1604() != c.expectedMaster1604 {
-			t.Fatalf("expected IsUbuntu1604() for master to return %t but instead returned %t", c.expectedMaster1604, c.p.MasterProfile.IsUbuntu1604())
-		}
 		if c.p.MasterProfile.IsUbuntu1804() != c.expectedMaster1804 {
 			t.Fatalf("expected IsUbuntu1804() for master to return %t but instead returned %t", c.expectedMaster1804, c.p.MasterProfile.IsUbuntu1804())
 		}
@@ -2246,7 +2228,7 @@ func TestIsCustomVNET(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					VnetSubnetID: "testSubnet",
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2260,7 +2242,7 @@ func TestIsCustomVNET(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					Count: 1,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2397,7 +2379,7 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Storage Account",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.StorageAccount,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2420,7 +2402,7 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Managed Disk",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2441,7 +2423,7 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "both",
 			p: Properties{
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.StorageAccount,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2462,10 +2444,10 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Managed Disk everywhere",
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2487,10 +2469,10 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Managed disk master with ephemeral agent",
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2509,7 +2491,7 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Mixed with jumpbox",
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						PrivateCluster: &api.PrivateCluster{
@@ -2520,7 +2502,7 @@ func TestHasStorageProfile(t *testing.T) {
 						},
 					},
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.StorageAccount,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2539,7 +2521,7 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Mixed with jumpbox alternate",
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &api.KubernetesConfig{
 						PrivateCluster: &api.PrivateCluster{
@@ -2550,7 +2532,7 @@ func TestHasStorageProfile(t *testing.T) {
 						},
 					},
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2569,10 +2551,10 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Managed Disk with DiskEncryptionSetID setting",
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile: api.ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -2597,10 +2579,10 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "EncryptionAtHost setting",
 			p: Properties{
-				OrchestratorProfile: &api.OrchestratorProfile{
+				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				MasterProfile: &api.MasterProfile{
+				MasterProfile: &MasterProfile{
 					StorageProfile:   api.ManagedDisks,
 					EncryptionAtHost: to.BoolPtr(true),
 				},
@@ -2629,12 +2611,6 @@ func TestHasStorageProfile(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.p.MasterProfile.IsManagedDisks() != c.expectedMasterMD {
-				t.Fatalf("expected IsManagedDisks() to return %t but instead returned %t", c.expectedMasterMD, c.p.MasterProfile.IsManagedDisks())
-			}
-			if c.p.MasterProfile.IsStorageAccount() == c.expectedMasterMD {
-				t.Fatalf("expected IsStorageAccount() to return %t but instead returned %t", !c.expectedMasterMD, c.p.MasterProfile.IsStorageAccount())
-			}
 			if to.Bool(c.p.MasterProfile.EncryptionAtHost) != c.expectedEncryptionAtHost {
 				t.Fatalf("expected EncryptionAtHost to return %v but instead returned %v", c.expectedEncryptionAtHost, to.Bool(c.p.MasterProfile.EncryptionAtHost))
 			}
@@ -2687,6 +2663,361 @@ func TestAgentPoolProfileIsAuditDEnabled(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.IsAuditDEnabled() {
 				t.Fatalf("Got unexpected AgentPoolProfile.IsAuditDEnabled() result. Expected: %t. Got: %t.", c.expected, c.ap.IsAuditDEnabled())
+			}
+		})
+	}
+}
+
+func TestGetAPIServerEtcdAPIVersion(t *testing.T) {
+	o := OrchestratorProfile{}
+
+	if o.GetAPIServerEtcdAPIVersion() != "" {
+		t.Fatalf("Expected GetAPIServerEtcdAPIVersion() to return \"\" but instead got %s", o.GetAPIServerEtcdAPIVersion())
+	}
+
+	o.KubernetesConfig = &api.KubernetesConfig{
+		EtcdVersion: "3.2.1",
+	}
+
+	if o.GetAPIServerEtcdAPIVersion() != "etcd3" {
+		t.Fatalf("Expected GetAPIServerEtcdAPIVersion() to return \"etcd3\" but instead got %s", o.GetAPIServerEtcdAPIVersion())
+	}
+
+	// invalid version string
+	o.KubernetesConfig.EtcdVersion = "2.3.8"
+	if o.GetAPIServerEtcdAPIVersion() != "etcd2" {
+		t.Fatalf("Expected GetAPIServerEtcdAPIVersion() to return \"etcd2\" but instead got %s", o.GetAPIServerEtcdAPIVersion())
+	}
+}
+
+func TestIsAzureCNI(t *testing.T) {
+	k := &api.KubernetesConfig{
+		NetworkPlugin: api.NetworkPluginAzure,
+	}
+
+	o := &api.OrchestratorProfile{
+		KubernetesConfig: k,
+	}
+	if !o.IsAzureCNI() {
+		t.Fatalf("unable to detect orchestrator profile is using Azure CNI from NetworkPlugin=%s", o.KubernetesConfig.NetworkPlugin)
+	}
+
+	k = &api.KubernetesConfig{
+		NetworkPlugin: "none",
+	}
+
+	o = &api.OrchestratorProfile{
+		KubernetesConfig: k,
+	}
+	if o.IsAzureCNI() {
+		t.Fatalf("unable to detect orchestrator profile is not using Azure CNI from NetworkPlugin=%s", o.KubernetesConfig.NetworkPlugin)
+	}
+
+	o = &api.OrchestratorProfile{}
+	if o.IsAzureCNI() {
+		t.Fatalf("unable to detect orchestrator profile is not using Azure CNI from nil KubernetesConfig")
+	}
+}
+
+func TestOrchestrator(t *testing.T) {
+	cases := []struct {
+		p                    Properties
+		expectedIsDCOS       bool
+		expectedIsKubernetes bool
+		expectedIsSwarmMode  bool
+	}{
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.DCOS,
+				},
+			},
+			expectedIsDCOS:       true,
+			expectedIsKubernetes: false,
+			expectedIsSwarmMode:  false,
+		},
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+				},
+			},
+			expectedIsDCOS:       false,
+			expectedIsKubernetes: true,
+			expectedIsSwarmMode:  false,
+		},
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.SwarmMode,
+				},
+			},
+			expectedIsDCOS:       false,
+			expectedIsKubernetes: false,
+			expectedIsSwarmMode:  true,
+		},
+	}
+
+	for _, c := range cases {
+		if c.expectedIsKubernetes != c.p.OrchestratorProfile.IsKubernetes() {
+			t.Fatalf("Expected IsKubernetes() to be %t with OrchestratorType=%s", c.expectedIsKubernetes, c.p.OrchestratorProfile.OrchestratorType)
+		}
+		if c.expectedIsSwarmMode != c.p.OrchestratorProfile.IsSwarmMode() {
+			t.Fatalf("Expected IsSwarmMode() to be %t with OrchestratorType=%s", c.expectedIsSwarmMode, c.p.OrchestratorProfile.OrchestratorType)
+		}
+	}
+}
+
+func TestIsPrivateCluster(t *testing.T) {
+	cases := []struct {
+		p        Properties
+		expected bool
+	}{
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.DCOS,
+				},
+			},
+			expected: false,
+		},
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+				},
+			},
+			expected: false,
+		},
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+					KubernetesConfig: &api.KubernetesConfig{
+						PrivateCluster: &api.PrivateCluster{
+							Enabled: to.BoolPtr(true),
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+					KubernetesConfig: &api.KubernetesConfig{
+						PrivateCluster: &api.PrivateCluster{
+							Enabled: to.BoolPtr(false),
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			p: Properties{
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+					KubernetesConfig: &api.KubernetesConfig{
+						PrivateCluster: &api.PrivateCluster{},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		if c.p.OrchestratorProfile.IsPrivateCluster() != c.expected {
+			t.Fatalf("expected IsPrivateCluster() to return %t but instead got %t", c.expected, c.p.OrchestratorProfile.IsPrivateCluster())
+		}
+	}
+}
+
+func TestMasterProfileHasCosmosEtcd(t *testing.T) {
+	cases := []struct {
+		name     string
+		m        MasterProfile
+		expected bool
+	}{
+		{
+			name: "enabled",
+			m: MasterProfile{
+				CosmosEtcd: to.BoolPtr(true),
+			},
+			expected: true,
+		},
+		{
+			name: "disabled",
+			m: MasterProfile{
+				CosmosEtcd: to.BoolPtr(false),
+			},
+			expected: false,
+		},
+		{
+			name:     "zero value master profile",
+			m:        MasterProfile{},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.m.HasCosmosEtcd() {
+				t.Fatalf("Got unexpected MasterProfile.HasCosmosEtcd() result. Expected: %t. Got: %t.", c.expected, c.m.HasCosmosEtcd())
+			}
+		})
+	}
+}
+
+func TestMasterProfileGetCosmosEndPointURI(t *testing.T) {
+	dnsPrefix := "my-prefix"
+	etcdEndpointURIFmt := "%sk8s.etcd.cosmosdb.azure.com"
+	cases := []struct {
+		name     string
+		m        MasterProfile
+		expected string
+	}{
+		{
+			name: "valid DNS prefix",
+			m: MasterProfile{
+				CosmosEtcd: to.BoolPtr(true),
+				DNSPrefix:  dnsPrefix,
+			},
+			expected: fmt.Sprintf(etcdEndpointURIFmt, dnsPrefix),
+		},
+		{
+			name: "no DNS prefix",
+			m: MasterProfile{
+				CosmosEtcd: to.BoolPtr(true),
+			},
+			expected: fmt.Sprintf(etcdEndpointURIFmt, ""),
+		},
+		{
+			name: "cosmos etcd disabled",
+			m: MasterProfile{
+				CosmosEtcd: to.BoolPtr(false),
+			},
+			expected: "",
+		},
+		{
+			name:     "zero value master profile",
+			m:        MasterProfile{},
+			expected: "",
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.m.GetCosmosEndPointURI() {
+				t.Fatalf("Got unexpected MasterProfile.GetCosmosEndPointURI() result. Expected: %s. Got: %s.", c.expected, c.m.GetCosmosEndPointURI())
+			}
+		})
+	}
+}
+
+func TestMasterAvailabilityProfile(t *testing.T) {
+	cases := []struct {
+		name           string
+		p              Properties
+		expectedISVMSS bool
+		expectedIsVMAS bool
+	}{
+		{
+			name: "zero value master profile",
+			p: Properties{
+				MasterProfile: &MasterProfile{},
+			},
+			expectedISVMSS: false,
+			expectedIsVMAS: false,
+		},
+		{
+			name: "master profile w/ AS",
+			p: Properties{
+				MasterProfile: &MasterProfile{
+					AvailabilityProfile: api.AvailabilitySet,
+				},
+			},
+			expectedISVMSS: false,
+			expectedIsVMAS: true,
+		},
+		{
+			name: "master profile w/ VMSS",
+			p: Properties{
+				MasterProfile: &MasterProfile{
+					AvailabilityProfile: api.VirtualMachineScaleSets,
+				},
+			},
+			expectedISVMSS: true,
+			expectedIsVMAS: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.p.MasterProfile.IsVirtualMachineScaleSets() != c.expectedISVMSS {
+				t.Fatalf("expected MasterProfile.IsVirtualMachineScaleSets() to return %t but instead returned %t", c.expectedISVMSS, c.p.MasterProfile.IsVirtualMachineScaleSets())
+			}
+		})
+	}
+}
+
+func TestMasterProfileHasMultipleNodes(t *testing.T) {
+	cases := []struct {
+		name     string
+		m        MasterProfile
+		expected bool
+	}{
+		{
+			name: "1",
+			m: MasterProfile{
+				Count: 1,
+			},
+			expected: false,
+		},
+		{
+			name: "2",
+			m: MasterProfile{
+				Count: 2,
+			},
+			expected: true,
+		},
+		{
+			name: "3",
+			m: MasterProfile{
+				Count: 3,
+			},
+			expected: true,
+		},
+		{
+			name: "0",
+			m: MasterProfile{
+				Count: 0,
+			},
+			expected: false,
+		},
+		{
+			name: "-1",
+			m: MasterProfile{
+				Count: -1,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.m.HasMultipleNodes() {
+				t.Fatalf("Got unexpected MasterProfile.HasMultipleNodes() result. Expected: %t. Got: %t.", c.expected, c.m.HasMultipleNodes())
 			}
 		})
 	}
