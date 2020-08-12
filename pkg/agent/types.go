@@ -2,7 +2,6 @@ package agent
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api"
 )
 
 // KeyVaultID represents a KeyVault instance on Azure
@@ -20,7 +19,7 @@ type KeyVaultRef struct {
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *datamodel.ContainerService
-	AgentPoolProfile              *api.AgentPoolProfile
+	AgentPoolProfile              *datamodel.AgentPoolProfile
 	TenantID                      string
 	SubscriptionID                string
 	ResourceGroupName             string

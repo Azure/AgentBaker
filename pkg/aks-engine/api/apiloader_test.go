@@ -608,7 +608,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					},
 				},
 			},
-			AgentPoolProfiles: []*api.AgentPoolProfile{
+			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
 					Name:      "sampleAgent",
 					Count:     2,

@@ -140,7 +140,7 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
 }
 
-func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *api.AgentPoolProfile) string {
+func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) string {
 	if profile.OSType == api.Windows {
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
@@ -325,7 +325,7 @@ func getSecurityRule(port int, portIndex int) string {
           }`, port, port, port, BaseLBPriority+portIndex)
 }
 
-func getDataDisks(a *api.AgentPoolProfile) string {
+func getDataDisks(a *datamodel.AgentPoolProfile) string {
 	if !a.HasDisks() {
 		return ""
 	}

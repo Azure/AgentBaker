@@ -17,7 +17,7 @@ import (
 
 func TestKubeletConfigDefaults(t *testing.T) {
 	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
-	winProfile := &api.AgentPoolProfile{}
+	winProfile := &AgentPoolProfile{}
 	winProfile.Count = 1
 	winProfile.Name = "agentpool2"
 	winProfile.VMSize = "Standard_D2_v2"
@@ -155,7 +155,7 @@ func TestKubeletConfigDefaults(t *testing.T) {
 
 func TestKubeletConfigDefaultsRemovals(t *testing.T) {
 	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.13", "", false, false), 3, 2, true)
-	poolProfile := &api.AgentPoolProfile{}
+	poolProfile := &AgentPoolProfile{}
 	poolProfile.Count = 1
 	poolProfile.Name = "agentpool2"
 	poolProfile.VMSize = "Standard_D2_v2"
@@ -1537,7 +1537,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{},
@@ -1560,7 +1560,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1585,7 +1585,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1610,7 +1610,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1635,7 +1635,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1661,7 +1661,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1687,7 +1687,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{},
@@ -1711,7 +1711,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1737,7 +1737,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1763,7 +1763,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1789,7 +1789,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1815,7 +1815,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1842,7 +1842,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1869,7 +1869,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1895,7 +1895,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{
@@ -1922,7 +1922,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 							KubeletConfig: map[string]string{},
 						},
 					},
-					AgentPoolProfiles: []*api.AgentPoolProfile{
+					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							KubernetesConfig: &api.KubernetesConfig{
 								KubeletConfig: map[string]string{

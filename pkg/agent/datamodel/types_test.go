@@ -326,7 +326,7 @@ func TestOSType(t *testing.T) {
 		MasterProfile: &api.MasterProfile{
 			Distro: api.RHEL,
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				OSType: api.Linux,
 			},
@@ -351,16 +351,8 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsLinux() to return true but instead returned false")
 	}
 
-	if p.AgentPoolProfiles[0].IsRHEL() {
-		t.Fatalf("expected IsRHEL() to return false but instead returned true")
-	}
-
 	if p.AgentPoolProfiles[0].IsCoreOS() {
 		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
-	}
-
-	if !p.AgentPoolProfiles[1].IsRHEL() {
-		t.Fatalf("expected IsRHEL() to return true but instead returned false")
 	}
 
 	if p.AgentPoolProfiles[1].IsCoreOS() {
@@ -395,16 +387,8 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsLinux() to return false but instead returned true")
 	}
 
-	if p.AgentPoolProfiles[0].IsRHEL() {
-		t.Fatalf("expected IsRHEL() to return false but instead returned true")
-	}
-
 	if p.AgentPoolProfiles[0].IsCoreOS() {
 		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
-	}
-
-	if p.AgentPoolProfiles[1].IsRHEL() {
-		t.Fatalf("expected IsRHEL() to return false but instead returned true")
 	}
 
 	if !p.AgentPoolProfiles[1].IsCoreOS() {
@@ -642,7 +626,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				AvailabilityProfile: api.VirtualMachineScaleSets,
 			},
@@ -708,7 +692,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				AvailabilityProfile: api.VirtualMachineScaleSets,
 			},
@@ -780,7 +764,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				AvailabilityProfile: api.VirtualMachineScaleSets,
 			},
@@ -849,7 +833,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				AvailabilityProfile: api.AvailabilitySet,
 			},
@@ -915,7 +899,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			OrchestratorVersion: v,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				AvailabilityProfile: api.AvailabilitySet,
 			},
@@ -1023,7 +1007,7 @@ func TestTotalNodes(t *testing.T) {
 				MasterProfile: &api.MasterProfile{
 					Count: 1,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count: 1,
 					},
@@ -1034,7 +1018,7 @@ func TestTotalNodes(t *testing.T) {
 		{
 			name: "7 total nodes between 2 pools",
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count: 3,
 					},
@@ -1051,7 +1035,7 @@ func TestTotalNodes(t *testing.T) {
 				MasterProfile: &api.MasterProfile{
 					Count: 5,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count: 6,
 					},
@@ -1085,7 +1069,7 @@ func TestHasAvailabilityZones(t *testing.T) {
 					Count:             1,
 					AvailabilityZones: []string{"1", "2"},
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:             1,
 						AvailabilityZones: []string{"1", "2"},
@@ -1105,7 +1089,7 @@ func TestHasAvailabilityZones(t *testing.T) {
 				MasterProfile: &api.MasterProfile{
 					Count: 1,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count: 1,
 					},
@@ -1124,7 +1108,7 @@ func TestHasAvailabilityZones(t *testing.T) {
 				MasterProfile: &api.MasterProfile{
 					Count: 1,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:             1,
 						AvailabilityZones: []string{},
@@ -1325,7 +1309,7 @@ func TestGenerateClusterID(t *testing.T) {
 				MasterProfile: &api.MasterProfile{
 					DNSPrefix: "foo_master",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name: "foo_agent0",
 					},
@@ -1339,7 +1323,7 @@ func TestGenerateClusterID(t *testing.T) {
 				HostedMasterProfile: &api.HostedMasterProfile{
 					DNSPrefix: "foo_hosted_master",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name: "foo_agent1",
 					},
@@ -1350,7 +1334,7 @@ func TestGenerateClusterID(t *testing.T) {
 		{
 			name: "No Master Profile",
 			properties: &Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name: "foo_agent2",
 					},
@@ -1382,7 +1366,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 		{
 			name: "one agent pool w/ Linux",
 			p: &Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
@@ -1396,7 +1380,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 		{
 			name: "two agent pools, one w/ Linux",
 			p: &Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
@@ -1415,7 +1399,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 		{
 			name: "two agent pools",
 			p: &Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
@@ -1433,7 +1417,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 		{
 			name: "two agent pools, one w/ Windows",
 			p: &Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
@@ -1465,7 +1449,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 
 func TestAreAgentProfilesCustomVNET(t *testing.T) {
 	p := Properties{}
-	p.AgentPoolProfiles = []*api.AgentPoolProfile{
+	p.AgentPoolProfiles = []*AgentPoolProfile{
 		{
 			VnetSubnetID: "subnetlink1",
 		},
@@ -1478,7 +1462,7 @@ func TestAreAgentProfilesCustomVNET(t *testing.T) {
 		t.Fatalf("Expected isCustomVNET to be true when subnet exists for all agent pool profile")
 	}
 
-	p.AgentPoolProfiles = []*api.AgentPoolProfile{
+	p.AgentPoolProfiles = []*AgentPoolProfile{
 		{
 			VnetSubnetID: "subnetlink1",
 		},
@@ -1503,7 +1487,7 @@ func TestPropertiesHasDCSeriesSKU(t *testing.T) {
 
 	for _, c := range cases {
 		p := Properties{
-			AgentPoolProfiles: []*api.AgentPoolProfile{
+			AgentPoolProfiles: []*AgentPoolProfile{
 				{
 					Name:   "agentpool",
 					VMSize: c.VMSKU,
@@ -1533,7 +1517,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 					Count:  1,
 					Distro: api.AKSUbuntu1604,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						Distro: api.Ubuntu,
@@ -1570,7 +1554,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 					Count:  1,
 					Distro: api.AKSUbuntu1804,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						Distro: api.AKSUbuntu1804,
@@ -1589,7 +1573,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 					Count:  1,
 					Distro: api.Ubuntu1804,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						Distro: api.Ubuntu,
@@ -1608,7 +1592,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 					Count:  1,
 					Distro: api.Ubuntu1804,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						Distro: api.Ubuntu1804,
@@ -1623,7 +1607,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 					Count:  1,
 					Distro: api.AKSUbuntu1604,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						OSType: api.Windows,
@@ -1638,7 +1622,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 					Count:  1,
 					Distro: api.AKSUbuntu1804,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						OSType: api.Windows,
@@ -1649,7 +1633,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						Distro: api.AKSUbuntu1604,
@@ -1660,7 +1644,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		},
 		{
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						OSType: api.Windows,
@@ -1690,7 +1674,7 @@ func TestAvailabilityProfile(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: api.VirtualMachineScaleSets,
 						ScaleSetPriority:    api.ScaleSetPrioritySpot,
@@ -1706,7 +1690,7 @@ func TestAvailabilityProfile(t *testing.T) {
 		},
 		{
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: api.VirtualMachineScaleSets,
 						ScaleSetPriority:    api.ScaleSetPriorityLow,
@@ -1722,7 +1706,7 @@ func TestAvailabilityProfile(t *testing.T) {
 		},
 		{
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: api.VirtualMachineScaleSets,
 						ScaleSetPriority:    api.ScaleSetPriorityRegular,
@@ -1741,7 +1725,7 @@ func TestAvailabilityProfile(t *testing.T) {
 		},
 		{
 			p: Properties{
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: api.AvailabilitySet,
 					},
@@ -1765,9 +1749,6 @@ func TestAvailabilityProfile(t *testing.T) {
 		}
 		if c.p.AgentPoolProfiles[0].IsAvailabilitySets() != c.expectedIsAS {
 			t.Fatalf("expected IsAvailabilitySets() to return %t but instead returned %t", c.expectedIsAS, c.p.AgentPoolProfiles[0].IsAvailabilitySets())
-		}
-		if c.p.AgentPoolProfiles[0].IsLowPriorityScaleSet() != c.expectedLowPri {
-			t.Fatalf("expected IsLowPriorityScaleSet() to return %t but instead returned %t", c.expectedLowPri, c.p.AgentPoolProfiles[0].IsLowPriorityScaleSet())
 		}
 		if c.p.AgentPoolProfiles[0].IsSpotScaleSet() != c.expectedSpot {
 			t.Fatalf("expected IsSpotScaleSet() to return %t but instead returned %t", c.expectedSpot, c.p.AgentPoolProfiles[0].IsSpotScaleSet())
@@ -1795,7 +1776,7 @@ func TestGetSubnetName(t *testing.T) {
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -1817,7 +1798,7 @@ func TestGetSubnetName(t *testing.T) {
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -1840,7 +1821,7 @@ func TestGetSubnetName(t *testing.T) {
 					DNSPrefix: "foo",
 					VMSize:    "Standard_DS2_v2",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -1863,7 +1844,7 @@ func TestGetSubnetName(t *testing.T) {
 					VMSize:       "Standard_DS2_v2",
 					VnetSubnetID: "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -1886,7 +1867,7 @@ func TestGetSubnetName(t *testing.T) {
 					VMSize:              "Standard_DS2_v2",
 					AvailabilityProfile: api.VirtualMachineScaleSets,
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -1922,7 +1903,7 @@ func TestGetRouteTableName(t *testing.T) {
 			DNSPrefix: "foo",
 			Subnet:    "mastersubnet",
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
@@ -1955,7 +1936,7 @@ func TestGetRouteTableName(t *testing.T) {
 			DNSPrefix: "foo",
 			VMSize:    "Standard_DS2_v2",
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
@@ -1994,7 +1975,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -2017,7 +1998,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
 				},
-				AgentPoolProfiles: []*api.AgentPoolProfile{
+				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
@@ -2050,7 +2031,7 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 			DNSPrefix: "foo",
 			Subnet:    "mastersubnet",
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
@@ -2079,7 +2060,7 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 			DNSPrefix: "foo",
 			VMSize:    "Standard_DS2_v2",
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
@@ -2095,7 +2076,7 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 		t.Errorf("expected primary availability set name %s, but got %s", expected, got)
 	}
 
-	p.AgentPoolProfiles = []*api.AgentPoolProfile{
+	p.AgentPoolProfiles = []*AgentPoolProfile{
 		{
 			Name:                "agentpool",
 			VMSize:              "Standard_D2_v2",
@@ -2114,5 +2095,599 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 	got = p.GetPrimaryAvailabilitySetName()
 	if got != expected {
 		t.Errorf("expected primary availability set name %s, but got %s", expected, got)
+	}
+}
+
+func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "16.04 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: api.AKSUbuntu1604,
+			},
+			expected: true,
+		},
+		{
+			name: "18.04 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: api.AKSUbuntu1804,
+			},
+			expected: true,
+		},
+		{
+			name: "coreos distro",
+			ap: AgentPoolProfile{
+				Distro: api.CoreOS,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu distro",
+			ap: AgentPoolProfile{
+				Distro: api.Ubuntu,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu 18.04 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: api.Ubuntu1804,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu 18.04 gen2 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: api.Ubuntu1804Gen2,
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.IsVHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsVHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.IsVHDDistro())
+			}
+		})
+	}
+}
+
+func TestUbuntuVersion(t *testing.T) {
+	cases := []struct {
+		p                  Properties
+		expectedMaster1604 bool
+		expectedAgent1604  bool
+		expectedMaster1804 bool
+		expectedAgent1804  bool
+	}{
+		{
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					Count:  1,
+					Distro: api.AKSUbuntu1604,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						Count:  1,
+						Distro: api.AKSUbuntu1604,
+						OSType: api.Linux,
+					},
+				},
+			},
+			expectedMaster1604: true,
+			expectedAgent1604:  true,
+			expectedMaster1804: false,
+			expectedAgent1804:  false,
+		},
+		{
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					Count:  1,
+					Distro: api.AKSUbuntu1804,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						Count:  1,
+						Distro: api.ACC1604,
+					},
+				},
+			},
+			expectedMaster1604: false,
+			expectedAgent1604:  true,
+			expectedMaster1804: true,
+			expectedAgent1804:  false,
+		},
+		{
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					Count:  1,
+					Distro: api.Ubuntu,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						Count:  1,
+						Distro: "",
+						OSType: api.Windows,
+					},
+				},
+			},
+			expectedMaster1604: true,
+			expectedAgent1604:  false,
+			expectedMaster1804: false,
+			expectedAgent1804:  false,
+		},
+	}
+
+	for _, c := range cases {
+		if c.p.MasterProfile.IsUbuntu1604() != c.expectedMaster1604 {
+			t.Fatalf("expected IsUbuntu1604() for master to return %t but instead returned %t", c.expectedMaster1604, c.p.MasterProfile.IsUbuntu1604())
+		}
+		if c.p.MasterProfile.IsUbuntu1804() != c.expectedMaster1804 {
+			t.Fatalf("expected IsUbuntu1804() for master to return %t but instead returned %t", c.expectedMaster1804, c.p.MasterProfile.IsUbuntu1804())
+		}
+		if c.p.AgentPoolProfiles[0].IsUbuntu1804() != c.expectedAgent1804 {
+			t.Fatalf("expected IsUbuntu1804() for agent to return %t but instead returned %t", c.expectedAgent1804, c.p.AgentPoolProfiles[0].IsUbuntu1804())
+		}
+	}
+}
+
+func TestIsCustomVNET(t *testing.T) {
+	cases := []struct {
+		p              Properties
+		expectedMaster bool
+		expectedAgent  bool
+	}{
+		{
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					VnetSubnetID: "testSubnet",
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						VnetSubnetID: "testSubnet",
+					},
+				},
+			},
+			expectedMaster: true,
+			expectedAgent:  true,
+		},
+		{
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					Count: 1,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						Count: 1,
+					},
+					{
+						Count: 1,
+					},
+				},
+			},
+			expectedMaster: false,
+			expectedAgent:  false,
+		},
+	}
+
+	for _, c := range cases {
+		if c.p.MasterProfile.IsCustomVNET() != c.expectedMaster {
+			t.Fatalf("expected IsCustomVnet() to return %t but instead returned %t", c.expectedMaster, c.p.MasterProfile.IsCustomVNET())
+		}
+		if c.p.AgentPoolProfiles[0].IsCustomVNET() != c.expectedAgent {
+			t.Fatalf("expected IsCustomVnet() to return %t but instead returned %t", c.expectedAgent, c.p.AgentPoolProfiles[0].IsCustomVNET())
+		}
+	}
+
+}
+
+func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
+	cases := []struct {
+		name       string
+		ap         AgentPoolProfile
+		rg         string
+		deprecated bool
+		expected   string
+	}{
+		{
+			name:       "vanilla pool profile",
+			ap:         AgentPoolProfile{},
+			rg:         "my-resource-group",
+			deprecated: true,
+			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
+		},
+		{
+			name:       "vanilla pool profile, no deprecated labels",
+			ap:         AgentPoolProfile{},
+			rg:         "my-resource-group",
+			deprecated: false,
+			expected:   "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
+		},
+		{
+			name: "with managed disk",
+			ap: AgentPoolProfile{
+				StorageProfile: api.ManagedDisks,
+			},
+			rg:         "my-resource-group",
+			deprecated: true,
+			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/cluster=my-resource-group",
+		},
+		{
+			name: "N series",
+			ap: AgentPoolProfile{
+				VMSize: "Standard_NC6",
+			},
+			rg:         "my-resource-group",
+			deprecated: true,
+			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group",
+		},
+		{
+			name: "with custom labels",
+			ap: AgentPoolProfile{
+				CustomNodeLabels: map[string]string{
+					"mycustomlabel1": "foo",
+					"mycustomlabel2": "bar",
+				},
+			},
+			rg:         "my-resource-group",
+			deprecated: true,
+			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+		},
+		{
+			name: "with custom labels, no deprecated labels",
+			ap: AgentPoolProfile{
+				CustomNodeLabels: map[string]string{
+					"mycustomlabel1": "foo",
+					"mycustomlabel2": "bar",
+				},
+			},
+			rg:         "my-resource-group",
+			deprecated: false,
+			expected:   "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+		},
+		{
+			name: "N series and managed disk with custom labels",
+			ap: AgentPoolProfile{
+				StorageProfile: api.ManagedDisks,
+				VMSize:         "Standard_NC6",
+				CustomNodeLabels: map[string]string{
+					"mycustomlabel1": "foo",
+					"mycustomlabel2": "bar",
+				},
+			},
+			rg:         "my-resource-group",
+			deprecated: true,
+			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated) {
+				t.Fatalf("Got unexpected AgentPoolProfile.GetKubernetesLabels(%s, %t) result. Expected: %s. Got: %s.",
+					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated))
+			}
+		})
+	}
+}
+
+func TestHasStorageProfile(t *testing.T) {
+	cases := []struct {
+		name                     string
+		p                        Properties
+		expectedHasMD            bool
+		expectedHasSA            bool
+		expectedMasterMD         bool
+		expectedAgent0E          bool
+		expectedAgent0MD         bool
+		expectedPrivateJB        bool
+		expectedHasDisks         bool
+		expectedDesID            string
+		expectedEncryptionAtHost bool
+	}{
+		{
+			name: "Storage Account",
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.StorageAccount,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.StorageAccount,
+						DiskSizesGB:    []int{5},
+					},
+					{
+						StorageProfile: api.StorageAccount,
+					},
+				},
+			},
+			expectedHasMD:    false,
+			expectedHasSA:    true,
+			expectedMasterMD: false,
+			expectedAgent0MD: false,
+			expectedAgent0E:  false,
+			expectedHasDisks: true,
+		},
+		{
+			name: "Managed Disk",
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.ManagedDisks,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.StorageAccount,
+					},
+					{
+						StorageProfile: api.StorageAccount,
+					},
+				},
+			},
+			expectedHasMD:    true,
+			expectedHasSA:    true,
+			expectedMasterMD: true,
+			expectedAgent0MD: false,
+			expectedAgent0E:  false,
+		},
+		{
+			name: "both",
+			p: Properties{
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.StorageAccount,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.ManagedDisks,
+					},
+					{
+						StorageProfile: api.StorageAccount,
+					},
+				},
+			},
+			expectedHasMD:    true,
+			expectedHasSA:    true,
+			expectedMasterMD: false,
+			expectedAgent0MD: true,
+			expectedAgent0E:  false,
+		},
+		{
+			name: "Managed Disk everywhere",
+			p: Properties{
+				OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+				},
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.ManagedDisks,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.ManagedDisks,
+					},
+					{
+						StorageProfile: api.ManagedDisks,
+					},
+				},
+			},
+			expectedHasMD:     true,
+			expectedHasSA:     false,
+			expectedMasterMD:  true,
+			expectedAgent0MD:  true,
+			expectedAgent0E:   false,
+			expectedPrivateJB: false,
+		},
+		{
+			name: "Managed disk master with ephemeral agent",
+			p: Properties{
+				OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+				},
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.ManagedDisks,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.Ephemeral,
+					},
+				},
+			},
+			expectedHasMD:     true,
+			expectedHasSA:     false,
+			expectedMasterMD:  true,
+			expectedAgent0MD:  false,
+			expectedAgent0E:   true,
+			expectedPrivateJB: false,
+		},
+		{
+			name: "Mixed with jumpbox",
+			p: Properties{
+				OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+					KubernetesConfig: &api.KubernetesConfig{
+						PrivateCluster: &api.PrivateCluster{
+							Enabled: to.BoolPtr(true),
+							JumpboxProfile: &api.PrivateJumpboxProfile{
+								StorageProfile: api.ManagedDisks,
+							},
+						},
+					},
+				},
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.StorageAccount,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.StorageAccount,
+					},
+				},
+			},
+			expectedHasMD:     true,
+			expectedHasSA:     true,
+			expectedMasterMD:  false,
+			expectedAgent0MD:  false,
+			expectedAgent0E:   false,
+			expectedPrivateJB: true,
+		},
+		{
+			name: "Mixed with jumpbox alternate",
+			p: Properties{
+				OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+					KubernetesConfig: &api.KubernetesConfig{
+						PrivateCluster: &api.PrivateCluster{
+							Enabled: to.BoolPtr(true),
+							JumpboxProfile: &api.PrivateJumpboxProfile{
+								StorageProfile: api.StorageAccount,
+							},
+						},
+					},
+				},
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.ManagedDisks,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile: api.ManagedDisks,
+					},
+				},
+			},
+			expectedHasMD:     true,
+			expectedHasSA:     true,
+			expectedMasterMD:  true,
+			expectedAgent0MD:  true,
+			expectedAgent0E:   false,
+			expectedPrivateJB: true,
+		},
+		{
+			name: "Managed Disk with DiskEncryptionSetID setting",
+			p: Properties{
+				OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+				},
+				MasterProfile: &api.MasterProfile{
+					StorageProfile: api.ManagedDisks,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile:      api.ManagedDisks,
+						DiskEncryptionSetID: "DiskEncryptionSetID",
+					},
+					{
+						StorageProfile:      api.ManagedDisks,
+						DiskEncryptionSetID: "DiskEncryptionSetID",
+					},
+				},
+			},
+			expectedHasMD:     true,
+			expectedHasSA:     false,
+			expectedMasterMD:  true,
+			expectedAgent0MD:  true,
+			expectedAgent0E:   false,
+			expectedPrivateJB: false,
+			expectedDesID:     "DiskEncryptionSetID",
+		},
+		{
+			name: "EncryptionAtHost setting",
+			p: Properties{
+				OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorType: api.Kubernetes,
+				},
+				MasterProfile: &api.MasterProfile{
+					StorageProfile:   api.ManagedDisks,
+					EncryptionAtHost: to.BoolPtr(true),
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						StorageProfile:   api.ManagedDisks,
+						EncryptionAtHost: to.BoolPtr(true),
+					},
+					{
+						StorageProfile:   api.ManagedDisks,
+						EncryptionAtHost: to.BoolPtr(true),
+					},
+				},
+			},
+			expectedHasMD:            true,
+			expectedHasSA:            false,
+			expectedMasterMD:         true,
+			expectedAgent0MD:         true,
+			expectedAgent0E:          false,
+			expectedPrivateJB:        false,
+			expectedEncryptionAtHost: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.p.MasterProfile.IsManagedDisks() != c.expectedMasterMD {
+				t.Fatalf("expected IsManagedDisks() to return %t but instead returned %t", c.expectedMasterMD, c.p.MasterProfile.IsManagedDisks())
+			}
+			if c.p.MasterProfile.IsStorageAccount() == c.expectedMasterMD {
+				t.Fatalf("expected IsStorageAccount() to return %t but instead returned %t", !c.expectedMasterMD, c.p.MasterProfile.IsStorageAccount())
+			}
+			if to.Bool(c.p.MasterProfile.EncryptionAtHost) != c.expectedEncryptionAtHost {
+				t.Fatalf("expected EncryptionAtHost to return %v but instead returned %v", c.expectedEncryptionAtHost, to.Bool(c.p.MasterProfile.EncryptionAtHost))
+			}
+			if c.p.OrchestratorProfile != nil && c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() != c.expectedPrivateJB {
+				t.Fatalf("expected PrivateJumpboxProvision() to return %t but instead returned %t", c.expectedPrivateJB, c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision())
+			}
+			if c.p.AgentPoolProfiles[0].HasDisks() != c.expectedHasDisks {
+				t.Fatalf("expected HasDisks() to return %t but instead returned %t", c.expectedHasDisks, c.p.AgentPoolProfiles[0].HasDisks())
+			}
+			if c.p.AgentPoolProfiles[0].DiskEncryptionSetID != c.expectedDesID {
+				t.Fatalf("expected DiskEncryptionSetID to return %s but instead returned %s", c.expectedDesID, c.p.AgentPoolProfiles[0].DiskEncryptionSetID)
+			}
+			if to.Bool(c.p.AgentPoolProfiles[0].EncryptionAtHost) != c.expectedEncryptionAtHost {
+				t.Fatalf("expected EncryptionAtHost to return %v but instead returned %v", c.expectedEncryptionAtHost, to.Bool(c.p.AgentPoolProfiles[0].EncryptionAtHost))
+			}
+		})
+	}
+}
+
+func TestAgentPoolProfileIsAuditDEnabled(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name:     "default",
+			ap:       AgentPoolProfile{},
+			expected: false,
+		},
+		{
+			name: "true",
+			ap: AgentPoolProfile{
+				AuditDEnabled: to.BoolPtr(true),
+			},
+			expected: true,
+		},
+		{
+			name: "false",
+			ap: AgentPoolProfile{
+				AuditDEnabled: to.BoolPtr(false),
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.IsAuditDEnabled() {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsAuditDEnabled() result. Expected: %t. Got: %t.", c.expected, c.ap.IsAuditDEnabled())
+			}
+		})
 	}
 }

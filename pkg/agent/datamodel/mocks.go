@@ -23,8 +23,8 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.MasterProfile.DNSPrefix = "testmaster"
 	cs.Properties.MasterProfile.VMSize = "Standard_D2_v2"
 
-	cs.Properties.AgentPoolProfiles = []*api.AgentPoolProfile{}
-	agentPool := &api.AgentPoolProfile{}
+	cs.Properties.AgentPoolProfiles = []*AgentPoolProfile{}
+	agentPool := &AgentPoolProfile{}
 	agentPool.Count = agentCount
 	agentPool.Name = "agentpool1"
 	agentPool.VMSize = "Standard_D2_v2"
@@ -108,7 +108,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 			DNSPrefix: "foo",
 			VMSize:    "Standard_DS2_v2",
 		},
-		AgentPoolProfiles: []*api.AgentPoolProfile{
+		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
@@ -123,7 +123,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 	}
 
 	if hasWindows {
-		p.AgentPoolProfiles = []*api.AgentPoolProfile{
+		p.AgentPoolProfiles = []*AgentPoolProfile{
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
