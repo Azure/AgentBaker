@@ -40,3 +40,6 @@ generate-sas: az-login
 
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+
+windows-vhd-publishing-info: az-login
+	@./vhdbuilder/packer/generate-windows-vhd-publishing-info.sh
