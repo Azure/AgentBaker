@@ -45,7 +45,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.LinuxProfile.SSH.PublicKeys = append(
 		cs.Properties.LinuxProfile.SSH.PublicKeys, api.PublicKey{KeyData: "test"})
 
-	cs.Properties.ServicePrincipalProfile = &api.ServicePrincipalProfile{}
+	cs.Properties.ServicePrincipalProfile = &ServicePrincipalProfile{}
 	cs.Properties.ServicePrincipalProfile.ClientID = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
 	cs.Properties.ServicePrincipalProfile.Secret = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
 
@@ -74,7 +74,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 		ControllerManagerConfig: make(map[string]string),
 	}
 
-	cs.Properties.CertificateProfile = &api.CertificateProfile{}
+	cs.Properties.CertificateProfile = &CertificateProfile{}
 	if certs {
 		cs.Properties.CertificateProfile.CaCertificate = "cacert"
 		cs.Properties.CertificateProfile.CaPrivateKey = "cakey"
@@ -116,7 +116,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 				AvailabilityProfile: api.AvailabilitySet,
 			},
 		},
-		ServicePrincipalProfile: &api.ServicePrincipalProfile{
+		ServicePrincipalProfile: &ServicePrincipalProfile{
 			ClientID: "clientID",
 			Secret:   "clientSecret",
 		},

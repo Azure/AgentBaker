@@ -137,7 +137,7 @@ func TestHasAadProfile(t *testing.T) {
 		t.Fatalf("Expected HasAadProfile() to return false")
 	}
 
-	p.AADProfile = &api.AADProfile{
+	p.AADProfile = &AADProfile{
 		ClientAppID: "test",
 		ServerAppID: "test",
 	}
@@ -162,7 +162,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "hostedMasterProfile disabled",
 			p: &Properties{
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					IPMasqAgent: false,
 				},
 			},
@@ -171,7 +171,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "hostedMasterProfile enabled",
 			p: &Properties{
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					IPMasqAgent: true,
 				},
 			},
@@ -305,7 +305,7 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 		{
 			name: "zero value hosted master",
 			p: Properties{
-				HostedMasterProfile: &api.HostedMasterProfile{},
+				HostedMasterProfile: &HostedMasterProfile{},
 			},
 			expected: true,
 		},
@@ -754,7 +754,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 				AvailabilityProfile: api.VirtualMachineScaleSets,
 			},
 		},
-		HostedMasterProfile: &api.HostedMasterProfile{
+		HostedMasterProfile: &HostedMasterProfile{
 			FQDN: "my-cluster",
 		},
 	}
@@ -1213,7 +1213,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						},
 					},
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					IPMasqAgent: true,
 				},
 			},
@@ -1238,7 +1238,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						},
 					},
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					IPMasqAgent: true,
 				},
 			},
@@ -1263,7 +1263,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						},
 					},
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					IPMasqAgent: false,
 				},
 			},
@@ -1305,7 +1305,7 @@ func TestGenerateClusterID(t *testing.T) {
 		{
 			name: "From Hosted Master Profile",
 			properties: &Properties{
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					DNSPrefix: "foo_hosted_master",
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1756,7 +1756,7 @@ func TestGetSubnetName(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
@@ -1778,7 +1778,7 @@ func TestGetSubnetName(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
@@ -1883,7 +1883,7 @@ func TestGetRouteTableName(t *testing.T) {
 		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
 		},
-		HostedMasterProfile: &api.HostedMasterProfile{
+		HostedMasterProfile: &HostedMasterProfile{
 			FQDN:      "fqdn",
 			DNSPrefix: "foo",
 			Subnet:    "mastersubnet",
@@ -1955,7 +1955,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 		{
 			name: "Cluster with HostedMasterProfile and Custom VNET AgentProfiles",
 			properties: &Properties{
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
@@ -1978,7 +1978,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
 					DNSPrefix: "foo",
 					Subnet:    "mastersubnet",
@@ -2011,7 +2011,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 
 func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 	p := &Properties{
-		HostedMasterProfile: &api.HostedMasterProfile{
+		HostedMasterProfile: &HostedMasterProfile{
 			FQDN:      "fqdn",
 			DNSPrefix: "foo",
 			Subnet:    "mastersubnet",
@@ -3182,6 +3182,72 @@ func TestMasterProfileHasMultipleNodes(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.m.HasMultipleNodes() {
 				t.Fatalf("Got unexpected MasterProfile.HasMultipleNodes() result. Expected: %t. Got: %t.", c.expected, c.m.HasMultipleNodes())
+			}
+		})
+	}
+}
+
+func TestIsFeatureEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		feature  string
+		flags    *FeatureFlags
+		expected bool
+	}{
+		{
+			name:     "nil flags",
+			feature:  "BlockOutboundInternet",
+			flags:    nil,
+			expected: false,
+		},
+		{
+			name:     "empty flags",
+			feature:  "BlockOutboundInternet",
+			flags:    &FeatureFlags{},
+			expected: false,
+		},
+		{
+			name:     "telemetry",
+			feature:  "EnableTelemetry",
+			flags:    &FeatureFlags{},
+			expected: false,
+		},
+		{
+			name:    "Enabled feature",
+			feature: "CSERunInBackground",
+			flags: &FeatureFlags{
+				EnableCSERunInBackground: true,
+				BlockOutboundInternet:    false,
+			},
+			expected: true,
+		},
+		{
+			name:    "Disabled feature",
+			feature: "CSERunInBackground",
+			flags: &FeatureFlags{
+				EnableCSERunInBackground: false,
+				BlockOutboundInternet:    true,
+			},
+			expected: false,
+		},
+		{
+			name:    "Non-existent feature",
+			feature: "Foo",
+			flags: &FeatureFlags{
+				EnableCSERunInBackground: true,
+				BlockOutboundInternet:    true,
+			},
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.flags.IsFeatureEnabled(test.feature)
+			if actual != test.expected {
+				t.Errorf("expected feature %s to be enabled:%v, but got %v", test.feature, test.expected, actual)
 			}
 		})
 	}

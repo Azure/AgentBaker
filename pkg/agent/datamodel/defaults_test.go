@@ -18,7 +18,7 @@ import (
 )
 
 func TestCertsAlreadyPresent(t *testing.T) {
-	var cert *api.CertificateProfile
+	var cert *CertificateProfile
 
 	result := certsAlreadyPresent(nil, 1)
 	expected := map[string]bool{
@@ -32,7 +32,7 @@ func TestCertsAlreadyPresent(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Fatalf("certsAlreadyPresent() did not return false for all certs for a non-existent CertificateProfile")
 	}
-	cert = &api.CertificateProfile{}
+	cert = &CertificateProfile{}
 	result = certsAlreadyPresent(cert, 1)
 	expected = map[string]bool{
 		"ca":         false,
@@ -45,7 +45,7 @@ func TestCertsAlreadyPresent(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Fatalf("certsAlreadyPresent() did not return false for all certs for empty CertificateProfile")
 	}
-	cert = &api.CertificateProfile{
+	cert = &CertificateProfile{
 		APIServerCertificate: "a",
 	}
 	result = certsAlreadyPresent(cert, 1)
@@ -61,7 +61,7 @@ func TestCertsAlreadyPresent(t *testing.T) {
 		t.Fatalf("certsAlreadyPresent() did not return false for all certs for 1 cert in CertificateProfile")
 	}
 
-	cert = &api.CertificateProfile{
+	cert = &CertificateProfile{
 		APIServerCertificate:  "a",
 		CaCertificate:         "c",
 		CaPrivateKey:          "d",
@@ -86,7 +86,7 @@ func TestCertsAlreadyPresent(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Fatalf("certsAlreadyPresent() did not return expected result for some certs in CertificateProfile")
 	}
-	cert = &api.CertificateProfile{
+	cert = &CertificateProfile{
 		APIServerCertificate:  "a",
 		APIServerPrivateKey:   "b",
 		CaCertificate:         "c",
@@ -1114,7 +1114,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	mockCS = getMockBaseContainerService("1.16.0")
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.FeatureFlags = &api.FeatureFlags{EnableIPv6DualStack: true}
+	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1130,7 +1130,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	mockCS = getMockBaseContainerService("1.16.0")
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.FeatureFlags = &api.FeatureFlags{EnableIPv6DualStack: true}
+	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1146,7 +1146,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	mockCS = getMockBaseContainerService("1.17.0")
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.FeatureFlags = &api.FeatureFlags{EnableIPv6DualStack: true}
+	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1163,7 +1163,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "10.244.0.0/16"
-	properties.FeatureFlags = &api.FeatureFlags{EnableIPv6DualStack: true}
+	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1180,7 +1180,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "ace:cab:deca::/8"
-	properties.FeatureFlags = &api.FeatureFlags{EnableIPv6DualStack: true}
+	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1211,7 +1211,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	mockCS = getMockBaseContainerService("1.18.0")
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.FeatureFlags = &api.FeatureFlags{EnableIPv6Only: true}
+	properties.FeatureFlags = &FeatureFlags{EnableIPv6Only: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -2223,7 +2223,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 func TestSetCertDefaults(t *testing.T) {
 	cs := &ContainerService{
 		Properties: &Properties{
-			ServicePrincipalProfile: &api.ServicePrincipalProfile{
+			ServicePrincipalProfile: &ServicePrincipalProfile{
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
 			},
@@ -2290,7 +2290,7 @@ func TestSetCertDefaults(t *testing.T) {
 func TestSetCertDefaultsVMSS(t *testing.T) {
 	cs := &ContainerService{
 		Properties: &Properties{
-			ServicePrincipalProfile: &api.ServicePrincipalProfile{
+			ServicePrincipalProfile: &ServicePrincipalProfile{
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
 			},
@@ -2358,7 +2358,7 @@ func TestSetCertDefaultsVMSS(t *testing.T) {
 func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 	cs := &ContainerService{
 		Properties: &Properties{
-			ServicePrincipalProfile: &api.ServicePrincipalProfile{
+			ServicePrincipalProfile: &ServicePrincipalProfile{
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
 			},
@@ -2502,8 +2502,8 @@ func getMockBaseContainerService(orchestratorVersion string) ContainerService {
 // Adds some fake certficates would bypass the "SetDefaultCerts" part of setting default
 // values, which accelerates test case run dramatically. This is useful for test
 // cases that are not testing the certificate generation part of the code.
-func getMockCertificateProfile() *api.CertificateProfile {
-	return &api.CertificateProfile{
+func getMockCertificateProfile() *CertificateProfile {
+	return &CertificateProfile{
 		CaCertificate:         "FakeCert",
 		CaPrivateKey:          "FakePrivateKey",
 		ClientCertificate:     "FakeClientCertificate",
@@ -2836,7 +2836,7 @@ func TestEnableRBAC(t *testing.T) {
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
-					HostedMasterProfile: &api.HostedMasterProfile{
+					HostedMasterProfile: &HostedMasterProfile{
 						FQDN: "foo",
 					},
 				},
@@ -2978,29 +2978,29 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 func TestSetTelemetryProfileDefaults(t *testing.T) {
 	cases := []struct {
 		name             string
-		telemetryProfile *api.TelemetryProfile
-		expected         *api.TelemetryProfile
+		telemetryProfile *TelemetryProfile
+		expected         *TelemetryProfile
 	}{
 		{
 			name:             "default",
 			telemetryProfile: nil,
-			expected: &api.TelemetryProfile{
+			expected: &TelemetryProfile{
 				ApplicationInsightsKey: api.DefaultApplicationInsightsKey,
 			},
 		},
 		{
 			name:             "key not set",
-			telemetryProfile: &api.TelemetryProfile{},
-			expected: &api.TelemetryProfile{
+			telemetryProfile: &TelemetryProfile{},
+			expected: &TelemetryProfile{
 				ApplicationInsightsKey: api.DefaultApplicationInsightsKey,
 			},
 		},
 		{
 			name: "key set",
-			telemetryProfile: &api.TelemetryProfile{
+			telemetryProfile: &TelemetryProfile{
 				ApplicationInsightsKey: "app-insights-key",
 			},
-			expected: &api.TelemetryProfile{
+			expected: &TelemetryProfile{
 				ApplicationInsightsKey: "app-insights-key",
 			},
 		},

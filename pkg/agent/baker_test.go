@@ -30,7 +30,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						},
 					},
 				},
-				HostedMasterProfile: &api.HostedMasterProfile{
+				HostedMasterProfile: &datamodel.HostedMasterProfile{
 					DNSPrefix: "uttestdom",
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
@@ -83,7 +83,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				LinuxProfile: &datamodel.LinuxProfile{
 					AdminUsername: "azureuser",
 				},
-				ServicePrincipalProfile: &api.ServicePrincipalProfile{
+				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID: "ClientID",
 					Secret:   "Secret",
 				},

@@ -20,6 +20,179 @@ import (
 	"sync"
 )
 
+// CustomCloudEnv represents the custom cloud env info of the AKS cluster.
+type CustomCloudEnv struct {
+	Name                         string                  `json:"Name,omitempty"`
+	McrURL                       string                  `json:"mcrURL,omitempty"`
+	RepoDepotEndpoint            string                  `json:"repoDepotEndpoint,omitempty"`
+	ManagementPortalURL          string                  `json:"managementPortalURL,omitempty"`
+	PublishSettingsURL           string                  `json:"publishSettingsURL,omitempty"`
+	ServiceManagementEndpoint    string                  `json:"serviceManagementEndpoint,omitempty"`
+	ResourceManagerEndpoint      string                  `json:"resourceManagerEndpoint,omitempty"`
+	ActiveDirectoryEndpoint      string                  `json:"activeDirectoryEndpoint,omitempty"`
+	GalleryEndpoint              string                  `json:"galleryEndpoint,omitempty"`
+	KeyVaultEndpoint             string                  `json:"keyVaultEndpoint,omitempty"`
+	GraphEndpoint                string                  `json:"graphEndpoint,omitempty"`
+	ServiceBusEndpoint           string                  `json:"serviceBusEndpoint,omitempty"`
+	BatchManagementEndpoint      string                  `json:"batchManagementEndpoint,omitempty"`
+	StorageEndpointSuffix        string                  `json:"storageEndpointSuffix,omitempty"`
+	SQLDatabaseDNSSuffix         string                  `json:"sqlDatabaseDNSSuffix,omitempty"`
+	TrafficManagerDNSSuffix      string                  `json:"trafficManagerDNSSuffix,omitempty"`
+	KeyVaultDNSSuffix            string                  `json:"keyVaultDNSSuffix,omitempty"`
+	ServiceBusEndpointSuffix     string                  `json:"serviceBusEndpointSuffix,omitempty"`
+	ServiceManagementVMDNSSuffix string                  `json:"serviceManagementVMDNSSuffix,omitempty"`
+	ResourceManagerVMDNSSuffix   string                  `json:"resourceManagerVMDNSSuffix,omitempty"`
+	ContainerRegistryDNSSuffix   string                  `json:"containerRegistryDNSSuffix,omitempty"`
+	CosmosDBDNSSuffix            string                  `json:"cosmosDBDNSSuffix,omitempty"`
+	TokenAudience                string                  `json:"tokenAudience,omitempty"`
+	ResourceIdentifiers          api.ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
+}
+
+// TelemetryProfile contains settings for collecting telemtry.
+// Note telemtry is currently enabled/disabled with the 'EnableTelemetry' feature flag.
+type TelemetryProfile struct {
+	ApplicationInsightsKey string `json:"applicationInsightsKey,omitempty"`
+}
+
+// FeatureFlags defines feature-flag restricted functionality
+type FeatureFlags struct {
+	EnableCSERunInBackground bool `json:"enableCSERunInBackground,omitempty"`
+	BlockOutboundInternet    bool `json:"blockOutboundInternet,omitempty"`
+	EnableIPv6DualStack      bool `json:"enableIPv6DualStack,omitempty"`
+	EnableTelemetry          bool `json:"enableTelemetry,omitempty"`
+	EnableIPv6Only           bool `json:"enableIPv6Only,omitempty"`
+}
+
+// AddonProfile represents an addon for managed cluster
+type AddonProfile struct {
+	Enabled bool              `json:"enabled"`
+	Config  map[string]string `json:"config"`
+	// Identity contains information of the identity associated with this addon.
+	// This property will only appear in an MSI-enabled cluster.
+	Identity *api.UserAssignedIdentity `json:"identity,omitempty"`
+}
+
+// HostedMasterProfile defines properties for a hosted master
+type HostedMasterProfile struct {
+	// Master public endpoint/FQDN with port
+	// The format will be FQDN:2376
+	// Not used during PUT, returned as part of GETFQDN
+	FQDN      string `json:"fqdn,omitempty"`
+	DNSPrefix string `json:"dnsPrefix"`
+	// Subnet holds the CIDR which defines the Azure Subnet in which
+	// Agents will be provisioned. This is stored on the HostedMasterProfile
+	// and will become `masterSubnet` in the compiled template.
+	Subnet string `json:"subnet"`
+	// ApiServerWhiteListRange is a comma delimited CIDR which is whitelisted to AKS
+	APIServerWhiteListRange *string `json:"apiServerWhiteListRange"`
+	IPMasqAgent             bool    `json:"ipMasqAgent"`
+}
+
+// CustomProfile specifies custom properties that are used for
+// cluster instantiation.  Should not be used by most users.
+type CustomProfile struct {
+	Orchestrator string `json:"orchestrator,omitempty"`
+}
+
+// AADProfile specifies attributes for AAD integration
+type AADProfile struct {
+	// The client AAD application ID.
+	ClientAppID string `json:"clientAppID,omitempty"`
+	// The server AAD application ID.
+	ServerAppID string `json:"serverAppID,omitempty"`
+	// The server AAD application secret
+	ServerAppSecret string `json:"serverAppSecret,omitempty" conform:"redact"`
+	// The AAD tenant ID to use for authentication.
+	// If not specified, will use the tenant of the deployment subscription.
+	// Optional
+	TenantID string `json:"tenantID,omitempty"`
+	// The Azure Active Directory Group Object ID that will be assigned the
+	// cluster-admin RBAC role.
+	// Optional
+	AdminGroupID string `json:"adminGroupID,omitempty"`
+	// The authenticator to use, either "oidc" or "webhook".
+	Authenticator api.AuthenticatorType `json:"authenticator"`
+}
+
+// CertificateProfile represents the definition of the master cluster
+type CertificateProfile struct {
+	// CaCertificate is the certificate authority certificate.
+	CaCertificate string `json:"caCertificate,omitempty" conform:"redact"`
+	// CaPrivateKey is the certificate authority key.
+	CaPrivateKey string `json:"caPrivateKey,omitempty" conform:"redact"`
+	// ApiServerCertificate is the rest api server certificate, and signed by the CA
+	APIServerCertificate string `json:"apiServerCertificate,omitempty" conform:"redact"`
+	// ApiServerPrivateKey is the rest api server private key, and signed by the CA
+	APIServerPrivateKey string `json:"apiServerPrivateKey,omitempty" conform:"redact"`
+	// ClientCertificate is the certificate used by the client kubelet services and signed by the CA
+	ClientCertificate string `json:"clientCertificate,omitempty" conform:"redact"`
+	// ClientPrivateKey is the private key used by the client kubelet services and signed by the CA
+	ClientPrivateKey string `json:"clientPrivateKey,omitempty" conform:"redact"`
+	// KubeConfigCertificate is the client certificate used for kubectl cli and signed by the CA
+	KubeConfigCertificate string `json:"kubeConfigCertificate,omitempty" conform:"redact"`
+	// KubeConfigPrivateKey is the client private key used for kubectl cli and signed by the CA
+	KubeConfigPrivateKey string `json:"kubeConfigPrivateKey,omitempty" conform:"redact"`
+	// EtcdServerCertificate is the server certificate for etcd, and signed by the CA
+	EtcdServerCertificate string `json:"etcdServerCertificate,omitempty" conform:"redact"`
+	// EtcdServerPrivateKey is the server private key for etcd, and signed by the CA
+	EtcdServerPrivateKey string `json:"etcdServerPrivateKey,omitempty" conform:"redact"`
+	// EtcdClientCertificate is etcd client certificate, and signed by the CA
+	EtcdClientCertificate string `json:"etcdClientCertificate,omitempty" conform:"redact"`
+	// EtcdClientPrivateKey is the etcd client private key, and signed by the CA
+	EtcdClientPrivateKey string `json:"etcdClientPrivateKey,omitempty" conform:"redact"`
+	// EtcdPeerCertificates is list of etcd peer certificates, and signed by the CA
+	EtcdPeerCertificates []string `json:"etcdPeerCertificates,omitempty" conform:"redact"`
+	// EtcdPeerPrivateKeys is list of etcd peer private keys, and signed by the CA
+	EtcdPeerPrivateKeys []string `json:"etcdPeerPrivateKeys,omitempty" conform:"redact"`
+}
+
+// ServicePrincipalProfile contains the client and secret used by the cluster for Azure Resource CRUD
+type ServicePrincipalProfile struct {
+	ClientID          string                 `json:"clientId"`
+	Secret            string                 `json:"secret,omitempty" conform:"redact"`
+	ObjectID          string                 `json:"objectId,omitempty"`
+	KeyvaultSecretRef *api.KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
+}
+
+// JumpboxProfile describes properties of the jumpbox setup
+// in the AKS container cluster.
+type JumpboxProfile struct {
+	OSType    api.OSType `json:"osType"`
+	DNSPrefix string     `json:"dnsPrefix"`
+
+	// Jumpbox public endpoint/FQDN with port
+	// The format will be FQDN:2376
+	// Not used during PUT, returned as part of GET
+	FQDN string `json:"fqdn,omitempty"`
+}
+
+// DiagnosticsProfile setting to enable/disable capturing
+// diagnostics for VMs hosting container cluster.
+type DiagnosticsProfile struct {
+	VMDiagnostics *api.VMDiagnostics `json:"vmDiagnostics"`
+}
+
+// ExtensionProfile represents an extension definition
+type ExtensionProfile struct {
+	Name                           string                 `json:"name"`
+	Version                        string                 `json:"version"`
+	ExtensionParameters            string                 `json:"extensionParameters,omitempty"`
+	ExtensionParametersKeyVaultRef *api.KeyvaultSecretRef `json:"parametersKeyvaultSecretRef,omitempty"`
+	RootURL                        string                 `json:"rootURL,omitempty"`
+	// This is only needed for preprovision extensions and it needs to be a bash script
+	Script   string `json:"script,omitempty"`
+	URLQuery string `json:"urlQuery,omitempty"`
+}
+
+// ResourcePurchasePlan defines resource plan as required by ARM
+// for billing purposes.
+type ResourcePurchasePlan struct {
+	Name          string `json:"name"`
+	Product       string `json:"product"`
+	PromotionCode string `json:"promotionCode"`
+	Publisher     string `json:"publisher"`
+}
+
 // WindowsProfile represents the windows parameters passed to the cluster
 type WindowsProfile struct {
 	AdminUsername                 string                `json:"adminUsername"`
@@ -164,35 +337,35 @@ type AgentPoolProfile struct {
 // Properties represents the AKS cluster definition
 type Properties struct {
 	ClusterID               string
-	ProvisioningState       ProvisioningState            `json:"provisioningState,omitempty"`
-	OrchestratorProfile     *OrchestratorProfile         `json:"orchestratorProfile,omitempty"`
-	MasterProfile           *MasterProfile               `json:"masterProfile,omitempty"`
-	AgentPoolProfiles       []*AgentPoolProfile          `json:"agentPoolProfiles,omitempty"`
-	LinuxProfile            *LinuxProfile                `json:"linuxProfile,omitempty"`
-	WindowsProfile          *WindowsProfile              `json:"windowsProfile,omitempty"`
-	ExtensionProfiles       []*api.ExtensionProfile      `json:"extensionProfiles"`
-	DiagnosticsProfile      *api.DiagnosticsProfile      `json:"diagnosticsProfile,omitempty"`
-	JumpboxProfile          *api.JumpboxProfile          `json:"jumpboxProfile,omitempty"`
-	ServicePrincipalProfile *api.ServicePrincipalProfile `json:"servicePrincipalProfile,omitempty"`
-	CertificateProfile      *api.CertificateProfile      `json:"certificateProfile,omitempty"`
-	AADProfile              *api.AADProfile              `json:"aadProfile,omitempty"`
-	CustomProfile           *api.CustomProfile           `json:"customProfile,omitempty"`
-	HostedMasterProfile     *api.HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
-	AddonProfiles           map[string]api.AddonProfile  `json:"addonProfiles,omitempty"`
-	FeatureFlags            *api.FeatureFlags            `json:"featureFlags,omitempty"`
-	TelemetryProfile        *api.TelemetryProfile        `json:"telemetryProfile,omitempty"`
-	CustomCloudEnv          *api.CustomCloudEnv          `json:"customCloudEnv,omitempty"`
+	ProvisioningState       ProvisioningState        `json:"provisioningState,omitempty"`
+	OrchestratorProfile     *OrchestratorProfile     `json:"orchestratorProfile,omitempty"`
+	MasterProfile           *MasterProfile           `json:"masterProfile,omitempty"`
+	AgentPoolProfiles       []*AgentPoolProfile      `json:"agentPoolProfiles,omitempty"`
+	LinuxProfile            *LinuxProfile            `json:"linuxProfile,omitempty"`
+	WindowsProfile          *WindowsProfile          `json:"windowsProfile,omitempty"`
+	ExtensionProfiles       []*ExtensionProfile      `json:"extensionProfiles"`
+	DiagnosticsProfile      *DiagnosticsProfile      `json:"diagnosticsProfile,omitempty"`
+	JumpboxProfile          *JumpboxProfile          `json:"jumpboxProfile,omitempty"`
+	ServicePrincipalProfile *ServicePrincipalProfile `json:"servicePrincipalProfile,omitempty"`
+	CertificateProfile      *CertificateProfile      `json:"certificateProfile,omitempty"`
+	AADProfile              *AADProfile              `json:"aadProfile,omitempty"`
+	CustomProfile           *CustomProfile           `json:"customProfile,omitempty"`
+	HostedMasterProfile     *HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
+	AddonProfiles           map[string]AddonProfile  `json:"addonProfiles,omitempty"`
+	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
+	TelemetryProfile        *TelemetryProfile        `json:"telemetryProfile,omitempty"`
+	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 }
 
 // ContainerService complies with the ARM model of
 // resource definition in a JSON template.
 type ContainerService struct {
-	ID       string                    `json:"id"`
-	Location string                    `json:"location"`
-	Name     string                    `json:"name"`
-	Plan     *api.ResourcePurchasePlan `json:"plan,omitempty"`
-	Tags     map[string]string         `json:"tags"`
-	Type     string                    `json:"type"`
+	ID       string                `json:"id"`
+	Location string                `json:"location"`
+	Name     string                `json:"name"`
+	Plan     *ResourcePurchasePlan `json:"plan,omitempty"`
+	Tags     map[string]string     `json:"tags"`
+	Type     string                `json:"type"`
 
 	Properties *Properties `json:"properties,omitempty"`
 }
@@ -841,4 +1014,25 @@ func (m *MasterProfile) HasAvailabilityZones() bool {
 // HasMultipleNodes returns true if there are more than one master nodes
 func (m *MasterProfile) HasMultipleNodes() bool {
 	return m.Count > 1
+}
+
+// IsFeatureEnabled returns true if a feature flag is on for the provided feature
+func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
+	if f != nil {
+		switch feature {
+		case "CSERunInBackground":
+			return f.EnableCSERunInBackground
+		case "BlockOutboundInternet":
+			return f.BlockOutboundInternet
+		case "EnableIPv6DualStack":
+			return f.EnableIPv6DualStack
+		case "EnableTelemetry":
+			return f.EnableTelemetry
+		case "EnableIPv6Only":
+			return f.EnableIPv6Only
+		default:
+			return false
+		}
+	}
+	return false
 }

@@ -565,7 +565,7 @@ func (cs *ContainerService) SetDefaultCerts(params api.DefaultCertParams) (bool,
 		ips = append(ips, ip)
 	}
 	if p.CertificateProfile == nil {
-		p.CertificateProfile = &api.CertificateProfile{}
+		p.CertificateProfile = &CertificateProfile{}
 	}
 
 	// use the specified Certificate Authority pair, or generate p new pair
@@ -663,7 +663,7 @@ func getNewAddr(addr uint32, count int, offsetMultiplier int) uint32 {
 }
 
 // certsAlreadyPresent already present returns a map where each key is a type of cert and each value is true if that cert/key pair is user-provided
-func certsAlreadyPresent(c *api.CertificateProfile, m int) map[string]bool {
+func certsAlreadyPresent(c *CertificateProfile, m int) map[string]bool {
 	g := map[string]bool{
 		"ca":         false,
 		"apiserver":  false,
@@ -1026,7 +1026,7 @@ func (cs *ContainerService) setWindowsProfileDefaults(isUpgrade, isScale bool) {
 func (cs *ContainerService) setTelemetryProfileDefaults() {
 	p := cs.Properties
 	if p.TelemetryProfile == nil {
-		p.TelemetryProfile = &api.TelemetryProfile{}
+		p.TelemetryProfile = &TelemetryProfile{}
 	}
 
 	if len(p.TelemetryProfile.ApplicationInsightsKey) == 0 {
