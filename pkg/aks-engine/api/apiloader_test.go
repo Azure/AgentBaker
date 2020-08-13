@@ -319,7 +319,7 @@ func TestSerializeContainerService(t *testing.T) {
 	// Test with HostedMasterProfile and v20170831
 	cs := getDefaultContainerService()
 
-	cs.Properties.HostedMasterProfile = &api.HostedMasterProfile{
+	cs.Properties.HostedMasterProfile = &datamodel.HostedMasterProfile{
 		FQDN:        "blueorange.westus2.azure.com",
 		DNSPrefix:   "blueorange",
 		Subnet:      "sampleSubnet",
@@ -342,7 +342,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 		ID:       "sampleID",
 		Location: "westus2",
 		Name:     "sampleCS",
-		Plan: &api.ResourcePurchasePlan{
+		Plan: &datamodel.ResourcePurchasePlan{
 			Name:          "sampleRPP",
 			Product:       "sampleProduct",
 			PromotionCode: "sampleCode",
@@ -357,7 +357,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				AdminUsername: "sampleAdminUsername",
 				AdminPassword: "sampleAdminPassword",
 			},
-			DiagnosticsProfile: &api.DiagnosticsProfile{
+			DiagnosticsProfile: &datamodel.DiagnosticsProfile{
 				VMDiagnostics: &api.VMDiagnostics{
 					Enabled:    true,
 					StorageURL: u,
@@ -396,7 +396,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					RealmPassword: "sampleRealmPassword",
 				},
 			},
-			ServicePrincipalProfile: &api.ServicePrincipalProfile{
+			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 				ClientID: "fooClientID",
 				Secret:   "fooSecret",
 				ObjectID: "fooObjectID",
@@ -406,7 +406,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					SecretVersion: "fooSecretVersion",
 				},
 			},
-			ExtensionProfiles: []*api.ExtensionProfile{
+			ExtensionProfiles: []*datamodel.ExtensionProfile{
 				{
 					Name:                "fooExtension",
 					Version:             "fooVersion",
@@ -421,12 +421,12 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					URLQuery: "fooURL",
 				},
 			},
-			JumpboxProfile: &api.JumpboxProfile{
+			JumpboxProfile: &datamodel.JumpboxProfile{
 				OSType:    "Linux",
 				DNSPrefix: "blueorange",
 				FQDN:      "blueorange.westus2.com",
 			},
-			CertificateProfile: &api.CertificateProfile{
+			CertificateProfile: &datamodel.CertificateProfile{
 				CaCertificate:         "SampleCACert",
 				CaPrivateKey:          "SampleCAPrivateKey",
 				APIServerCertificate:  "SampleAPIServerCert",
@@ -440,12 +440,12 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				EtcdServerCertificate: "SampleEtcdServerCert",
 				EtcdServerPrivateKey:  "SampleEtcdServerPrivateKey",
 			},
-			FeatureFlags: &api.FeatureFlags{
+			FeatureFlags: &datamodel.FeatureFlags{
 				EnableCSERunInBackground: true,
 				BlockOutboundInternet:    false,
 				EnableTelemetry:          false,
 			},
-			AADProfile: &api.AADProfile{
+			AADProfile: &datamodel.AADProfile{
 				ClientAppID:     "SampleClientAppID",
 				ServerAppID:     "ServerAppID",
 				ServerAppSecret: "ServerAppSecret",
@@ -453,7 +453,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				AdminGroupID:    "SampleAdminGroupID",
 				Authenticator:   api.Webhook,
 			},
-			CustomProfile: &api.CustomProfile{
+			CustomProfile: &datamodel.CustomProfile{
 				Orchestrator: "Kubernetes",
 			},
 			OrchestratorProfile: &datamodel.OrchestratorProfile{

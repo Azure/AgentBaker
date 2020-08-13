@@ -149,8 +149,8 @@ func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *d
 		"", cs.Properties.ExtensionProfiles)
 }
 
-func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string, extensionProfiles []*api.ExtensionProfile) string {
-	var extensionProfile *api.ExtensionProfile
+func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string, extensionProfiles []*datamodel.ExtensionProfile) string {
+	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
 			extensionProfile = eP
@@ -169,8 +169,8 @@ func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string,
 		scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath, extensionsParameterReference, extensionProfile.Name)
 }
 
-func makeWindowsExtensionScriptCommands(extension *api.Extension, extensionProfiles []*api.ExtensionProfile) string {
-	var extensionProfile *api.ExtensionProfile
+func makeWindowsExtensionScriptCommands(extension *api.Extension, extensionProfiles []*datamodel.ExtensionProfile) string {
+	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
 			extensionProfile = eP

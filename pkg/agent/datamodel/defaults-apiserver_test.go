@@ -143,7 +143,7 @@ func TestAPIServerConfigUseCloudControllerManager(t *testing.T) {
 func TestAPIServerConfigHasAadProfile(t *testing.T) {
 	// Test HasAadProfile = true
 	cs := CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, false)
-	cs.Properties.AADProfile = &api.AADProfile{
+	cs.Properties.AADProfile = &AADProfile{
 		ServerAppID: "test-id",
 		TenantID:    "test-tenant",
 	}
@@ -168,7 +168,7 @@ func TestAPIServerConfigHasAadProfile(t *testing.T) {
 
 	// Test OIDC user overrides
 	cs = CreateMockContainerService("testcluster", "1.7.12", 3, 2, false)
-	cs.Properties.AADProfile = &api.AADProfile{
+	cs.Properties.AADProfile = &AADProfile{
 		ServerAppID: "test-id",
 		TenantID:    "test-tenant",
 	}
@@ -203,7 +203,7 @@ func TestAPIServerConfigHasAadProfile(t *testing.T) {
 
 	// Test China Cloud settings
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, false)
-	cs.Properties.AADProfile = &api.AADProfile{
+	cs.Properties.AADProfile = &AADProfile{
 		ServerAppID: "test-id",
 		TenantID:    "test-tenant",
 	}
@@ -510,7 +510,7 @@ func TestAPIServerFeatureGates(t *testing.T) {
 
 func TestAPIServerIPv6Only(t *testing.T) {
 	cs := CreateMockContainerService("testcluster", "1.18.0", 3, 2, false)
-	cs.Properties.FeatureFlags = &api.FeatureFlags{EnableIPv6Only: true}
+	cs.Properties.FeatureFlags = &FeatureFlags{EnableIPv6Only: true}
 	cs.setAPIServerConfig()
 
 	a := cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig

@@ -174,7 +174,7 @@ func (gc *generateCmd) loadAPIModel() error {
 
 		prop := gc.containerService.Properties
 		if prop.CertificateProfile == nil {
-			prop.CertificateProfile = &api.CertificateProfile{}
+			prop.CertificateProfile = &datamodel.CertificateProfile{}
 		}
 		prop.CertificateProfile.CaCertificate = string(caCertificateBytes)
 		prop.CertificateProfile.CaPrivateKey = string(caKeyBytes)
@@ -192,7 +192,7 @@ func (gc *generateCmd) autofillApimodel() error {
 	useManagedIdentity := k8sConfig != nil && k8sConfig.UseManagedIdentity
 	if !useManagedIdentity {
 		if (gc.containerService.Properties.ServicePrincipalProfile == nil || ((gc.containerService.Properties.ServicePrincipalProfile.ClientID == "" || gc.containerService.Properties.ServicePrincipalProfile.ClientID == "00000000-0000-0000-0000-000000000000") && gc.containerService.Properties.ServicePrincipalProfile.Secret == "")) && gc.ClientID.String() != "" && gc.ClientSecret != "" {
-			gc.containerService.Properties.ServicePrincipalProfile = &api.ServicePrincipalProfile{
+			gc.containerService.Properties.ServicePrincipalProfile = &datamodel.ServicePrincipalProfile{
 				ClientID: gc.ClientID.String(),
 				Secret:   gc.ClientSecret,
 			}
@@ -216,7 +216,7 @@ func (gc *generateCmd) run() error {
 	templateGenerator := agent.InitializeTemplateGenerator()
 
 	//extra parameters
-	gc.containerService.Properties.HostedMasterProfile = &api.HostedMasterProfile{
+	gc.containerService.Properties.HostedMasterProfile = &datamodel.HostedMasterProfile{
 		FQDN: "abc.aks.com",
 	}
 	gc.containerService.Properties.MasterProfile.VnetCidr = "vnetcidr"

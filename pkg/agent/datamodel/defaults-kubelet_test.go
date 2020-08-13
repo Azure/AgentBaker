@@ -427,7 +427,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 	subnet := "172.16.0.0/16"
 	// MasterIPMasqAgent disabled, --non-masquerade-cidr should be subnet
 	cs := CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
-	cs.Properties.HostedMasterProfile = &api.HostedMasterProfile{
+	cs.Properties.HostedMasterProfile = &HostedMasterProfile{
 		IPMasqAgent: false,
 	}
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
@@ -447,7 +447,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 
 	// MasterIPMasqAgent enabled, --non-masquerade-cidr should be 0.0.0.0/0
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
-	cs.Properties.HostedMasterProfile = &api.HostedMasterProfile{
+	cs.Properties.HostedMasterProfile = &HostedMasterProfile{
 		IPMasqAgent: true,
 	}
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
@@ -1994,7 +1994,7 @@ func TestReadOnlyPort(t *testing.T) {
 			name: "AKS 1.16",
 			cs: &ContainerService{
 				Properties: &Properties{
-					HostedMasterProfile: &api.HostedMasterProfile{
+					HostedMasterProfile: &HostedMasterProfile{
 						FQDN: "foo",
 					},
 					OrchestratorProfile: &OrchestratorProfile{

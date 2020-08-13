@@ -75,7 +75,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 		t.Errorf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
 	}
 
-	containerService.Properties.AADProfile = &api.AADProfile{
+	containerService.Properties.AADProfile = &datamodel.AADProfile{
 		ClientAppID: "fooClientAppID",
 		TenantID:    "fooTenantID",
 		ServerAppID: "fooServerAppID",
