@@ -820,7 +820,7 @@ func (cs *ContainerService) setLoadBalancerSkuDefaults() {
 	p := cs.Properties
 
 	if p.OrchestratorProfile == nil {
-		p.OrchestratorProfile = &api.OrchestratorProfile{}
+		p.OrchestratorProfile = &OrchestratorProfile{}
 	}
 
 	if p.OrchestratorProfile.KubernetesConfig == nil {
