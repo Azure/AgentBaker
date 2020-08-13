@@ -434,7 +434,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func getSSHPublicKeysPowerShell(linuxProfile *api.LinuxProfile) string {
+func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	str := ""
 	if linuxProfile != nil {
 		lastItem := len(linuxProfile.SSH.PublicKeys) - 1
