@@ -463,7 +463,7 @@ func TestKubeletFeatureGatesEnsureMasterAndAgentConfigUsedFor1_6_0(t *testing.T)
 	// Set MasterProfile and AgentProfiles KubernetesConfig.KubeletConfig values
 	// Verify that they are used instead of the top-level config
 	properties.OrchestratorProfile.KubernetesConfig = getKubernetesConfigWithFeatureGates("TopLevel=true")
-	properties.MasterProfile = &api.MasterProfile{KubernetesConfig: getKubernetesConfigWithFeatureGates("MasterLevel=true")}
+	properties.MasterProfile = &MasterProfile{KubernetesConfig: getKubernetesConfigWithFeatureGates("MasterLevel=true")}
 	properties.AgentPoolProfiles[0].KubernetesConfig = getKubernetesConfigWithFeatureGates("AgentLevel=true")
 
 	mockCS.setKubeletConfig(false)
@@ -903,10 +903,6 @@ func TestStorageProfile(t *testing.T) {
 		t.Fatalf("MasterProfile.StorageProfile did not have the expected configuration, got %s, expected %s",
 			properties.MasterProfile.StorageProfile, api.ManagedDisks)
 	}
-	if !properties.MasterProfile.IsManagedDisks() {
-		t.Fatalf("MasterProfile.StorageProfile did not have the expected configuration, got %t, expected %t",
-			false, true)
-	}
 	if properties.AgentPoolProfiles[0].StorageProfile != api.ManagedDisks {
 		t.Fatalf("AgentPoolProfile.StorageProfile did not have the expected configuration, got %s, expected %s",
 			properties.AgentPoolProfiles[0].StorageProfile, api.ManagedDisks)
@@ -1294,8 +1290,8 @@ func TestAgentPoolProfile(t *testing.T) {
 func TestDistroDefaults(t *testing.T) {
 
 	var tests = []struct {
-		name                   string                  // test case name
-		orchestratorProfile    api.OrchestratorProfile // orchestrator to be tested
+		name                   string              // test case name
+		orchestratorProfile    OrchestratorProfile // orchestrator to be tested
 		masterProfileDistro    api.Distro
 		agentPoolProfileDistro api.Distro
 		expectedAgentDistro    api.Distro // expected agent result default disto to be used
@@ -1306,7 +1302,7 @@ func TestDistroDefaults(t *testing.T) {
 	}{
 		{
 			"default_kubernetes",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
@@ -1320,7 +1316,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"default_kubernetes_usgov",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
@@ -1334,7 +1330,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"1804_upgrade_kubernetes",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
@@ -1348,7 +1344,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"default_kubernetes_germancloud",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
@@ -1362,7 +1358,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"deprecated_distro_kubernetes",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
@@ -1376,7 +1372,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"docker_engine_kubernetes",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
@@ -1390,7 +1386,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"default_swarm",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.Swarm,
 			},
 			"",
@@ -1403,7 +1399,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"default_swarmmode",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.SwarmMode,
 			},
 			"",
@@ -1416,7 +1412,7 @@ func TestDistroDefaults(t *testing.T) {
 		},
 		{
 			"default_dcos",
-			api.OrchestratorProfile{
+			OrchestratorProfile{
 				OrchestratorType: api.DCOS,
 			},
 			"",
@@ -2135,10 +2131,10 @@ func TestCloudProviderBackoff(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.KubernetesConfig{
@@ -2159,11 +2155,11 @@ func TestCloudProviderBackoff(t *testing.T) {
 			name: "Kubernetes 1.14.0",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.KubernetesConfig{
@@ -2231,12 +2227,12 @@ func TestSetCertDefaults(t *testing.T) {
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
 			},
-			MasterProfile: &api.MasterProfile{
+			MasterProfile: &MasterProfile{
 				Count:     3,
 				DNSPrefix: "myprefix1",
 				VMSize:    "Standard_DS2_v2",
 			},
-			OrchestratorProfile: &api.OrchestratorProfile{
+			OrchestratorProfile: &OrchestratorProfile{
 				OrchestratorType:    api.Kubernetes,
 				OrchestratorVersion: "1.10.2",
 				KubernetesConfig: &api.KubernetesConfig{
@@ -2298,13 +2294,13 @@ func TestSetCertDefaultsVMSS(t *testing.T) {
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
 			},
-			MasterProfile: &api.MasterProfile{
+			MasterProfile: &MasterProfile{
 				Count:               3,
 				DNSPrefix:           "myprefix1",
 				VMSize:              "Standard_DS2_v2",
 				AvailabilityProfile: api.VirtualMachineScaleSets,
 			},
-			OrchestratorProfile: &api.OrchestratorProfile{
+			OrchestratorProfile: &OrchestratorProfile{
 				OrchestratorType:    api.Kubernetes,
 				OrchestratorVersion: "1.10.2",
 				KubernetesConfig: &api.KubernetesConfig{
@@ -2366,13 +2362,13 @@ func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 				ClientID: "barClientID",
 				Secret:   "bazSecret",
 			},
-			MasterProfile: &api.MasterProfile{
+			MasterProfile: &MasterProfile{
 				Count:               3,
 				DNSPrefix:           "myprefix1",
 				VMSize:              "Standard_DS2_v2",
 				AvailabilityProfile: api.AvailabilitySet,
 			},
-			OrchestratorProfile: &api.OrchestratorProfile{
+			OrchestratorProfile: &OrchestratorProfile{
 				OrchestratorType:    api.Kubernetes,
 				OrchestratorVersion: "1.12.8",
 				KubernetesConfig: &api.KubernetesConfig{
@@ -2526,11 +2522,11 @@ func getMockCertificateProfile() *api.CertificateProfile {
 func getMockAPIProperties(orchestratorVersion string) Properties {
 	return Properties{
 		ProvisioningState: "",
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorVersion: orchestratorVersion,
 			KubernetesConfig:    &api.KubernetesConfig{},
 		},
-		MasterProfile:      &api.MasterProfile{},
+		MasterProfile:      &MasterProfile{},
 		CertificateProfile: getMockCertificateProfile(),
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{},
@@ -2556,11 +2552,11 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2569,11 +2565,11 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0-alpha.1",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2582,11 +2578,11 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0-beta.1",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2595,11 +2591,11 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2628,11 +2624,11 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.BasicLoadBalancerSku,
@@ -2641,14 +2637,14 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			name: "basic",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
 							LoadBalancerSku: "basic",
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.BasicLoadBalancerSku,
@@ -2657,14 +2653,14 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.BasicLoadBalancerSku,
@@ -2673,14 +2669,14 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
 							LoadBalancerSku: "standard",
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.StandardLoadBalancerSku,
@@ -2689,14 +2685,14 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: api.StandardLoadBalancerSku,
@@ -2727,10 +2723,10 @@ func TestEnableRBAC(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: true,
@@ -2739,14 +2735,14 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.14 disabled",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &api.KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2755,14 +2751,14 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.14 disabled upgrade",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &api.KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			isUpgrade: true,
@@ -2772,11 +2768,11 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.15",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: true,
@@ -2785,11 +2781,11 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.15 upgrade",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			isUpgrade: true,
@@ -2799,14 +2795,14 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.15 upgrade false--> true override",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &api.KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			isUpgrade: true,
@@ -2816,14 +2812,14 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.16 upgrade false--> true override",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.16", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &api.KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			isUpgrade: true,
@@ -2833,7 +2829,7 @@ func TestEnableRBAC(t *testing.T) {
 			name: "1.15 upgrade no false--> true override in AKS scenario",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &api.KubernetesConfig{
@@ -2872,11 +2868,11 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2885,14 +2881,14 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			name: "basic LB",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2901,7 +2897,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			name: "basic LB w/ true",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -2909,7 +2905,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(true),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2918,7 +2914,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			name: "basic LB w/ false",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -2926,7 +2922,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(false),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -2935,7 +2931,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			name: "standard LB w/ true",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -2943,7 +2939,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(true),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: true,
@@ -2952,7 +2948,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			name: "standard LB w/ false",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -2960,7 +2956,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(false),
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 				},
 			},
 			expected: false,
@@ -3094,24 +3090,24 @@ func TestImageReference(t *testing.T) {
 		cs                        ContainerService
 		isUpgrade                 bool
 		isScale                   bool
-		expectedMasterProfile     api.MasterProfile
+		expectedMasterProfile     MasterProfile
 		expectedAgentPoolProfiles []AgentPoolProfile
 	}{
 		{
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile:      &api.MasterProfile{},
+					MasterProfile:      &MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{},
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro:   api.AKSUbuntu1604,
 				ImageRef: nil,
 			},
@@ -3126,10 +3122,10 @@ func TestImageReference(t *testing.T) {
 			name: "image references",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile: &api.MasterProfile{
+					MasterProfile: &MasterProfile{
 						ImageRef: &api.ImageReference{
 							Name:           "name",
 							ResourceGroup:  "resource-group",
@@ -3152,7 +3148,7 @@ func TestImageReference(t *testing.T) {
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro: "",
 				ImageRef: &api.ImageReference{
 					Name:           "name",
@@ -3179,10 +3175,10 @@ func TestImageReference(t *testing.T) {
 			name: "mixed",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 					},
-					MasterProfile:      &api.MasterProfile{},
+					MasterProfile:      &MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
@@ -3198,7 +3194,7 @@ func TestImageReference(t *testing.T) {
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro:   api.AKSUbuntu1604,
 				ImageRef: nil,
 			},
@@ -3303,26 +3299,26 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 		cs                        ContainerService
 		isUpgrade                 bool
 		isScale                   bool
-		expectedMasterProfile     api.MasterProfile
+		expectedMasterProfile     MasterProfile
 		expectedAgentPoolProfiles []AgentPoolProfile
 	}{
 		{
 			name: "default",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{},
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro:   api.AKSUbuntu1604,
 				ImageRef: nil,
 			},
@@ -3337,20 +3333,20 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			name: "custom hyperkube",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{},
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro: api.Ubuntu,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
@@ -3363,14 +3359,14 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			name: "custom hyperkube w/ distro",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{
+					MasterProfile: &MasterProfile{
 						Distro: api.Ubuntu1804,
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
@@ -3380,7 +3376,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro: api.Ubuntu1804,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
@@ -3393,14 +3389,14 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			name: "custom hyperkube w/ mixed distro config",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
 						KubernetesConfig: &api.KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{},
+					MasterProfile: &MasterProfile{},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name:   "pool1",
@@ -3412,7 +3408,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 					},
 				},
 			},
-			expectedMasterProfile: api.MasterProfile{
+			expectedMasterProfile: MasterProfile{
 				Distro: api.Ubuntu,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
@@ -3462,7 +3458,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			name: "kubenet",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3470,7 +3466,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile:      &api.MasterProfile{},
+					MasterProfile:      &MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
@@ -3490,7 +3486,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			name: "Azure CNI",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3498,7 +3494,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile:      &api.MasterProfile{},
+					MasterProfile:      &MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
@@ -3518,7 +3514,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			name: "Azure CNI + custom IPAddressCount",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3526,7 +3522,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{
+					MasterProfile: &MasterProfile{
 						IPAddressCount: 24,
 					},
 					CertificateProfile: getMockCertificateProfile(),
@@ -3550,7 +3546,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			name: "kubenet + custom IPAddressCount",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3558,7 +3554,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{
+					MasterProfile: &MasterProfile{
 						IPAddressCount: 24,
 					},
 					CertificateProfile: getMockCertificateProfile(),
@@ -3582,7 +3578,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			name: "Azure CNI + mixed config",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3590,7 +3586,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{
+					MasterProfile: &MasterProfile{
 						KubernetesConfig: &api.KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--max-pods": "24",
@@ -3621,7 +3617,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			name: "kubenet + mixed config",
 			cs: ContainerService{
 				Properties: &Properties{
-					OrchestratorProfile: &api.OrchestratorProfile{
+					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &api.KubernetesConfig{
@@ -3629,7 +3625,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
-					MasterProfile: &api.MasterProfile{
+					MasterProfile: &MasterProfile{
 						KubernetesConfig: &api.KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--max-pods": "24",

@@ -18,7 +18,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 
 	cs.Properties = &Properties{}
 
-	cs.Properties.MasterProfile = &api.MasterProfile{}
+	cs.Properties.MasterProfile = &MasterProfile{}
 	cs.Properties.MasterProfile.Count = masterCount
 	cs.Properties.MasterProfile.DNSPrefix = "testmaster"
 	cs.Properties.MasterProfile.VMSize = "Standard_D2_v2"
@@ -49,7 +49,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.ServicePrincipalProfile.ClientID = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
 	cs.Properties.ServicePrincipalProfile.Secret = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
 
-	cs.Properties.OrchestratorProfile = &api.OrchestratorProfile{}
+	cs.Properties.OrchestratorProfile = &OrchestratorProfile{}
 	cs.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
@@ -99,11 +99,11 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 // GetK8sDefaultProperties returns a struct of type Properties for testing purposes.
 func GetK8sDefaultProperties(hasWindows bool) *Properties {
 	p := &Properties{
-		OrchestratorProfile: &api.OrchestratorProfile{
+		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
 			KubernetesConfig: &api.KubernetesConfig{},
 		},
-		MasterProfile: &api.MasterProfile{
+		MasterProfile: &MasterProfile{
 			Count:     1,
 			DNSPrefix: "foo",
 			VMSize:    "Standard_DS2_v2",
