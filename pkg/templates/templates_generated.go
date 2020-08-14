@@ -1046,6 +1046,7 @@ ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key 
 ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
 ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
+ERR_TELEPORT_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for teleport-containerd downloads */}}
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
@@ -1337,6 +1338,7 @@ CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
+TELEPORT_DOWNLOADS_DIR="/opt/teleport/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 
@@ -1465,9 +1467,21 @@ installContainerd() {
         apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
         retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-    fi  
+    fi
+    {{if TeleportPreview}}
+    installTeleport()
+    {{end}}
 }
 {{end}}
+
+{{if TeleportPreview}}
+installTeleport() {
+  systemctl is-active --quiet containerd && systemctl_stop 30 5 360 containerd || true
+  CONTAINERDPATH=$(which containerd)
+  tar -xzvf ${TELEPORT_TARBALL} ./usr/local/bin/containerd -C ${CONTAINERDPATH}
+}
+{{end}}
+
 
 getMobyPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -1502,6 +1516,13 @@ downloadContainerd() {
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_TGZ_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+}
+
+downloadTeleport() {
+  TELPORT_URL="https://teleportcontainerd.blob.core.windows.net/binaries/teleport-containerd.tar.gz"
+  export $TELEPORT_TARBALL=$TELEPORT_DOWNLOADS_DIR/teleport.tar.gz
+  mkdir -p $TELEPORT_DOWNLOADS_DIR
+  retrycmd_get_tarball 120 5 $TELEPORT_TARBALL ${TELEPORT_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
 }
 
 installCNI() {

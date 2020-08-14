@@ -529,9 +529,18 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"NeedsContainerd": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.NeedsContainerd()
+				return profile.KubernetesConfig.NeedsContainerd() ||
+					strings.Contains(profile.KubernetesConfig.ContainerRuntime, "containerd")
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd() ||
+				strings.Contains(cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, "containerd")
+		},
+		"TeleportPreview": func() bool {
+			// TODO once aks-rp switches to agentbaker data model rehash this
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+				return strings.Contains(profile.KubernetesConfig.ContainerRuntime, "teleport")
+			}
+			return strings.Contains(cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, "teleport")
 		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
