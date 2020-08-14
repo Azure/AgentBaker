@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/aks-engine/pkg/armhelpers"
 	"github.com/Azure/aks-engine/pkg/armhelpers/azurestack"
-	"github.com/Azure/aks-engine/pkg/helpers"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
