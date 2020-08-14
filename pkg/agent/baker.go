@@ -526,6 +526,12 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
 		},
+		"TeleportPreview": func() bool {
+			if profile.EnableTeleport == nil {
+				return false
+			}
+			return *profile.EnableTeleport
+		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.ContainerRuntime == api.Docker
