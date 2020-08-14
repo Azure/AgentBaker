@@ -1292,10 +1292,10 @@ func TestDistroDefaults(t *testing.T) {
 	var tests = []struct {
 		name                   string              // test case name
 		orchestratorProfile    OrchestratorProfile // orchestrator to be tested
-		masterProfileDistro    api.Distro
-		agentPoolProfileDistro api.Distro
-		expectedAgentDistro    api.Distro // expected agent result default disto to be used
-		expectedMasterDistro   api.Distro // expected master result default disto to be used
+		masterProfileDistro    Distro
+		agentPoolProfileDistro Distro
+		expectedAgentDistro    Distro // expected agent result default disto to be used
+		expectedMasterDistro   Distro // expected master result default disto to be used
 		isUpgrade              bool
 		isScale                bool
 		cloudName              string
@@ -1308,8 +1308,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -1322,8 +1322,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			false,
 			false,
 			api.AzureUSGovernmentCloud,
@@ -1334,10 +1334,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKSUbuntu1804,
-			api.AKSUbuntu1804,
-			api.AKSUbuntu1804,
-			api.AKSUbuntu1804,
+			AKSUbuntu1804,
+			AKSUbuntu1804,
+			AKSUbuntu1804,
+			AKSUbuntu1804,
 			true,
 			false,
 			api.AzurePublicCloud,
@@ -1348,10 +1348,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKS1604Deprecated,
-			api.AKS1604Deprecated,
-			api.Ubuntu,
-			api.Ubuntu,
+			AKS1604Deprecated,
+			AKS1604Deprecated,
+			Ubuntu,
+			Ubuntu,
 			true,
 			false,
 			api.AzureGermanCloud,
@@ -1362,10 +1362,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKS1604Deprecated,
-			api.AKS1604Deprecated,
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKS1604Deprecated,
+			AKS1604Deprecated,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			true,
 			false,
 			api.AzureChinaCloud,
@@ -1376,10 +1376,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKS1604Deprecated,
-			api.AKSDockerEngine,
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKS1604Deprecated,
+			AKSDockerEngine,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			false,
 			true,
 			api.AzurePublicCloud,
@@ -1391,8 +1391,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.Ubuntu,
-			api.Ubuntu,
+			Ubuntu,
+			Ubuntu,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -1404,8 +1404,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.Ubuntu,
-			api.Ubuntu,
+			Ubuntu,
+			Ubuntu,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -1417,8 +1417,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.Ubuntu,
-			api.Ubuntu,
+			Ubuntu,
+			Ubuntu,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -2025,7 +2025,7 @@ func TestAzureCNIVersionString(t *testing.T) {
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	properties.MasterProfile.Count = 1
-	properties.AgentPoolProfiles[0].OSType = api.Windows
+	properties.AgentPoolProfiles[0].OSType = Windows
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
 	mockCS.setOrchestratorDefaults(true, true)
 
@@ -2430,9 +2430,9 @@ func TestPreserveNodesProperties(t *testing.T) {
 func TestUbuntu1804Flags(t *testing.T) {
 	// Validate --resolv-conf is missing with 16.04 distro and present with 18.04
 	cs := CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.AKSUbuntu1604
-	cs.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntu1804
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Linux
+	cs.Properties.MasterProfile.Distro = AKSUbuntu1604
+	cs.Properties.AgentPoolProfiles[0].Distro = AKSUbuntu1804
+	cs.Properties.AgentPoolProfiles[0].OSType = Linux
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -2450,9 +2450,9 @@ func TestUbuntu1804Flags(t *testing.T) {
 	}
 
 	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.Ubuntu1804
-	cs.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Linux
+	cs.Properties.MasterProfile.Distro = Ubuntu1804
+	cs.Properties.AgentPoolProfiles[0].Distro = Ubuntu
+	cs.Properties.AgentPoolProfiles[0].OSType = Linux
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -2470,9 +2470,9 @@ func TestUbuntu1804Flags(t *testing.T) {
 	}
 
 	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.Ubuntu
+	cs.Properties.MasterProfile.Distro = Ubuntu
 	cs.Properties.AgentPoolProfiles[0].Distro = ""
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Windows
+	cs.Properties.AgentPoolProfiles[0].OSType = Windows
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -3108,12 +3108,12 @@ func TestImageReference(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro:   api.AKSUbuntu1604,
+				Distro:   AKSUbuntu1604,
 				ImageRef: nil,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro:   api.AKSUbuntu1604,
+					Distro:   AKSUbuntu1604,
 					ImageRef: nil,
 				},
 			},
@@ -3126,7 +3126,7 @@ func TestImageReference(t *testing.T) {
 						OrchestratorType: api.Kubernetes,
 					},
 					MasterProfile: &MasterProfile{
-						ImageRef: &api.ImageReference{
+						ImageRef: &ImageReference{
 							Name:           "name",
 							ResourceGroup:  "resource-group",
 							SubscriptionID: "sub-id",
@@ -3137,7 +3137,7 @@ func TestImageReference(t *testing.T) {
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							ImageRef: &api.ImageReference{
+							ImageRef: &ImageReference{
 								Name:           "name",
 								ResourceGroup:  "resource-group",
 								SubscriptionID: "sub-id",
@@ -3150,7 +3150,7 @@ func TestImageReference(t *testing.T) {
 			},
 			expectedMasterProfile: MasterProfile{
 				Distro: "",
-				ImageRef: &api.ImageReference{
+				ImageRef: &ImageReference{
 					Name:           "name",
 					ResourceGroup:  "resource-group",
 					SubscriptionID: "sub-id",
@@ -3161,7 +3161,7 @@ func TestImageReference(t *testing.T) {
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: "",
-					ImageRef: &api.ImageReference{
+					ImageRef: &ImageReference{
 						Name:           "name",
 						ResourceGroup:  "resource-group",
 						SubscriptionID: "sub-id",
@@ -3182,7 +3182,7 @@ func TestImageReference(t *testing.T) {
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							ImageRef: &api.ImageReference{
+							ImageRef: &ImageReference{
 								Name:           "name",
 								ResourceGroup:  "resource-group",
 								SubscriptionID: "sub-id",
@@ -3195,13 +3195,13 @@ func TestImageReference(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro:   api.AKSUbuntu1604,
+				Distro:   AKSUbuntu1604,
 				ImageRef: nil,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: "",
-					ImageRef: &api.ImageReference{
+					ImageRef: &ImageReference{
 						Name:           "name",
 						ResourceGroup:  "resource-group",
 						SubscriptionID: "sub-id",
@@ -3210,7 +3210,7 @@ func TestImageReference(t *testing.T) {
 					},
 				},
 				{
-					Distro:   api.AKSUbuntu1604,
+					Distro:   AKSUbuntu1604,
 					ImageRef: nil,
 				},
 			},
@@ -3319,12 +3319,12 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro:   api.AKSUbuntu1604,
+				Distro:   AKSUbuntu1604,
 				ImageRef: nil,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro:   api.AKSUbuntu1604,
+					Distro:   AKSUbuntu1604,
 					ImageRef: nil,
 				},
 			},
@@ -3347,11 +3347,11 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro: api.Ubuntu,
+				Distro: Ubuntu,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro: api.Ubuntu,
+					Distro: Ubuntu,
 				},
 			},
 		},
@@ -3367,21 +3367,21 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 						},
 					},
 					MasterProfile: &MasterProfile{
-						Distro: api.Ubuntu1804,
+						Distro: Ubuntu1804,
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							Distro: api.Ubuntu1804,
+							Distro: Ubuntu1804,
 						},
 					},
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro: api.Ubuntu1804,
+				Distro: Ubuntu1804,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro: api.Ubuntu1804,
+					Distro: Ubuntu1804,
 				},
 			},
 		},
@@ -3400,7 +3400,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name:   "pool1",
-							Distro: api.Ubuntu1804,
+							Distro: Ubuntu1804,
 						},
 						{
 							Name: "pool2",
@@ -3409,14 +3409,14 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro: api.Ubuntu,
+				Distro: Ubuntu,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro: api.Ubuntu1804,
+					Distro: Ubuntu1804,
 				},
 				{
-					Distro: api.Ubuntu,
+					Distro: Ubuntu,
 				},
 			},
 		},

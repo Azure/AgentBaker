@@ -28,10 +28,10 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 
 	// Identify Master distro
 	if properties.MasterProfile != nil {
-		addValue(parametersMap, "osImageOffer", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImageOffer)
-		addValue(parametersMap, "osImageSKU", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImageSku)
-		addValue(parametersMap, "osImagePublisher", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImagePublisher)
-		addValue(parametersMap, "osImageVersion", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImageVersion)
+		addValue(parametersMap, "osImageOffer", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImageOffer)
+		addValue(parametersMap, "osImageSKU", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImageSku)
+		addValue(parametersMap, "osImagePublisher", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImagePublisher)
+		addValue(parametersMap, "osImageVersion", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImageVersion)
 		if properties.MasterProfile.ImageRef != nil {
 			addValue(parametersMap, "osImageName", properties.MasterProfile.ImageRef.Name)
 			addValue(parametersMap, "osImageResourceGroup", properties.MasterProfile.ImageRef.ResourceGroup)
@@ -101,15 +101,15 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 
 		// Unless distro is defined, default distro is configured by defaults#setAgentProfileDefaults
 		//   Ignores Windows OS
-		if !(agentProfile.OSType == api.Windows) {
+		if !(agentProfile.OSType == datamodel.Windows) {
 			if agentProfile.ImageRef != nil {
 				addValue(parametersMap, fmt.Sprintf("%sosImageName", agentProfile.Name), agentProfile.ImageRef.Name)
 				addValue(parametersMap, fmt.Sprintf("%sosImageResourceGroup", agentProfile.Name), agentProfile.ImageRef.ResourceGroup)
 			}
-			addValue(parametersMap, fmt.Sprintf("%sosImageOffer", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImageOffer)
-			addValue(parametersMap, fmt.Sprintf("%sosImageSKU", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImageSku)
-			addValue(parametersMap, fmt.Sprintf("%sosImagePublisher", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImagePublisher)
-			addValue(parametersMap, fmt.Sprintf("%sosImageVersion", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImageVersion)
+			addValue(parametersMap, fmt.Sprintf("%sosImageOffer", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImageOffer)
+			addValue(parametersMap, fmt.Sprintf("%sosImageSKU", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImageSku)
+			addValue(parametersMap, fmt.Sprintf("%sosImagePublisher", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImagePublisher)
+			addValue(parametersMap, fmt.Sprintf("%sosImageVersion", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImageVersion)
 		}
 	}
 
