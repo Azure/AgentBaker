@@ -6,6 +6,7 @@ CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
+TELEPORT_DOWNLOADS_DIR="/opt/teleport/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 
@@ -118,6 +119,9 @@ installMoby() {
 
 
 
+
+
+
 getMobyPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -151,6 +155,13 @@ downloadContainerd() {
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_TGZ_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+}
+
+downloadTeleport() {
+  TELPORT_URL="https://teleportcontainerd.blob.core.windows.net/binaries/teleport-containerd.tar.gz"
+  export $TELEPORT_TARBALL=$TELEPORT_DOWNLOADS_DIR/teleport.tar.gz
+  mkdir -p $TELEPORT_DOWNLOADS_DIR
+  retrycmd_get_tarball 120 5 $TELEPORT_TARBALL ${TELEPORT_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
 }
 
 installCNI() {

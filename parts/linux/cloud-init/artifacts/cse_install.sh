@@ -137,7 +137,7 @@ installContainerd() {
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
     fi
     {{if TeleportPreview}}
-    installTeleport()
+    installTeleport
     {{end}}
 }
 {{end}}

@@ -185,6 +185,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: api.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+		Entry("AKSUbuntu1804 with teleport-containerd", "AKSUbuntu1804+Containerd+Teleport", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: "teleport-containerd",
+			}
 		}))
 })
 
