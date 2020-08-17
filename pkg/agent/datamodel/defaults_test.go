@@ -5,8 +5,6 @@ package datamodel
 
 import (
 	"encoding/base64"
-	"encoding/binary"
-	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -2220,141 +2218,6 @@ func TestCloudProviderBackoff(t *testing.T) {
 	}
 }
 
-func TestSetCertDefaults(t *testing.T) {
-	cs := &ContainerService{
-		Properties: &Properties{
-			ServicePrincipalProfile: &ServicePrincipalProfile{
-				ClientID: "barClientID",
-				Secret:   "bazSecret",
-			},
-			MasterProfile: &MasterProfile{
-				Count:     3,
-				DNSPrefix: "myprefix1",
-				VMSize:    "Standard_DS2_v2",
-			},
-			OrchestratorProfile: &OrchestratorProfile{
-				OrchestratorType:    api.Kubernetes,
-				OrchestratorVersion: "1.10.2",
-				KubernetesConfig: &api.KubernetesConfig{
-					NetworkPlugin: api.NetworkPluginAzure,
-				},
-			},
-		},
-	}
-
-	cs.setOrchestratorDefaults(false, false)
-	cs.setMasterProfileDefaults(false)
-	result, ips, err := cs.SetDefaultCerts(api.DefaultCertParams{
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
-
-	if !result {
-		t.Error("expected SetDefaultCerts to return true")
-	}
-
-	if err != nil {
-		t.Errorf("unexpected error thrown while executing SetDefaultCerts %s", err.Error())
-	}
-
-	if ips == nil {
-		t.Error("expected SetDefaultCerts to create a list of IPs")
-	} else {
-
-		if len(ips) != cs.Properties.MasterProfile.Count+3 {
-			t.Errorf("expected length of IPs from SetDefaultCerts %d, actual length %d", cs.Properties.MasterProfile.Count+3, len(ips))
-		}
-
-		firstMasterIP := net.ParseIP(cs.Properties.MasterProfile.FirstConsecutiveStaticIP).To4()
-		offsetMultiplier := 1
-		addr := binary.BigEndian.Uint32(firstMasterIP)
-		expectedNewAddr := getNewAddr(addr, cs.Properties.MasterProfile.Count-1, offsetMultiplier)
-		actualLastIPAddr := binary.BigEndian.Uint32(ips[len(ips)-2])
-		if actualLastIPAddr != expectedNewAddr {
-			expectedLastIP := make(net.IP, 4)
-			binary.BigEndian.PutUint32(expectedLastIP, expectedNewAddr)
-			t.Errorf("expected last IP of master vm from SetDefaultCerts %d, actual %d", expectedLastIP, ips[len(ips)-2])
-		}
-
-		if cs.Properties.MasterProfile.HasMultipleNodes() {
-			expectedILBIP := net.IP{firstMasterIP[0], firstMasterIP[1], firstMasterIP[2], firstMasterIP[3] + byte(api.DefaultInternalLbStaticIPOffset)}
-			actualILBIPAddr := binary.BigEndian.Uint32(ips[2])
-			expectedILBIPAddr := binary.BigEndian.Uint32(expectedILBIP)
-
-			if actualILBIPAddr != expectedILBIPAddr {
-				t.Errorf("expected IP of master ILB from SetDefaultCerts %d, actual %d", expectedILBIP, ips[2])
-			}
-		}
-	}
-}
-
-func TestSetCertDefaultsVMSS(t *testing.T) {
-	cs := &ContainerService{
-		Properties: &Properties{
-			ServicePrincipalProfile: &ServicePrincipalProfile{
-				ClientID: "barClientID",
-				Secret:   "bazSecret",
-			},
-			MasterProfile: &MasterProfile{
-				Count:               3,
-				DNSPrefix:           "myprefix1",
-				VMSize:              "Standard_DS2_v2",
-				AvailabilityProfile: api.VirtualMachineScaleSets,
-			},
-			OrchestratorProfile: &OrchestratorProfile{
-				OrchestratorType:    api.Kubernetes,
-				OrchestratorVersion: "1.10.2",
-				KubernetesConfig: &api.KubernetesConfig{
-					NetworkPlugin: api.NetworkPluginAzure,
-				},
-			},
-		},
-	}
-
-	cs.setOrchestratorDefaults(false, false)
-	cs.setMasterProfileDefaults(false)
-	result, ips, err := cs.SetDefaultCerts(api.DefaultCertParams{
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
-
-	if !result {
-		t.Error("expected SetDefaultCerts to return true")
-	}
-
-	if err != nil {
-		t.Errorf("unexpected error thrown while executing SetDefaultCerts %s", err.Error())
-	}
-
-	if ips == nil {
-		t.Error("expected SetDefaultCerts to create a list of IPs")
-	} else {
-
-		if len(ips) != cs.Properties.MasterProfile.Count+3 {
-			t.Errorf("expected length of IPs from SetDefaultCerts %d, actual length %d", cs.Properties.MasterProfile.Count+3, len(ips))
-		}
-
-		firstMasterIP := net.ParseIP(cs.Properties.MasterProfile.FirstConsecutiveStaticIP).To4()
-		offsetMultiplier := cs.Properties.MasterProfile.IPAddressCount
-		addr := binary.BigEndian.Uint32(firstMasterIP)
-		expectedNewAddr := getNewAddr(addr, cs.Properties.MasterProfile.Count-1, offsetMultiplier)
-		actualLastIPAddr := binary.BigEndian.Uint32(ips[len(ips)-2])
-		if actualLastIPAddr != expectedNewAddr {
-			expectedLastIP := make(net.IP, 4)
-			binary.BigEndian.PutUint32(expectedLastIP, expectedNewAddr)
-			t.Errorf("expected last IP of master vm from SetDefaultCerts %d, actual %d", expectedLastIP, ips[len(ips)-2])
-		}
-
-		if cs.Properties.MasterProfile.HasMultipleNodes() {
-			expectedILBIP := net.IP{firstMasterIP[0], firstMasterIP[1], byte(255), byte(api.DefaultInternalLbStaticIPOffset)}
-			actualILBIPAddr := binary.BigEndian.Uint32(ips[2])
-			expectedILBIPAddr := binary.BigEndian.Uint32(expectedILBIP)
-
-			if actualILBIPAddr != expectedILBIPAddr {
-				t.Errorf("expected IP of master ILB from SetDefaultCerts %d, actual %d", expectedILBIP, ips[2])
-			}
-		}
-	}
-}
-
 func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 	cs := &ContainerService{
 		Properties: &Properties{
@@ -3070,7 +2933,7 @@ func TestSetPropertiesDefaults(t *testing.T) {
 
 			cs := getMockBaseContainerService("1.16")
 
-			_, err := cs.SetPropertiesDefaults(c.params)
+			err := cs.SetPropertiesDefaults(c.params)
 
 			if err != nil {
 				t.Errorf("ContainerService.SetPropertiesDefaults returned error: %s", err)
