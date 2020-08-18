@@ -39,7 +39,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						Count:               3,
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
-						OSType:              api.Linux,
+						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: api.VirtualMachineScaleSets,
 						KubernetesConfig: &api.KubernetesConfig{
@@ -77,7 +77,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 								"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 							},
 						},
-						Distro: api.AKSUbuntu1604,
+						Distro: datamodel.AKSUbuntu1604,
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -89,7 +89,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				},
 			},
 		}
-		cs.Properties.LinuxProfile.SSH.PublicKeys = []api.PublicKey{{
+		cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
 			KeyData: string("testsshkey"),
 		}}
 
@@ -160,7 +160,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
 		}),
 		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
@@ -171,7 +171,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntuGPU1804
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuGPU1804
 			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true

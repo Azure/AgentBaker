@@ -358,7 +358,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				AdminPassword: "sampleAdminPassword",
 			},
 			DiagnosticsProfile: &datamodel.DiagnosticsProfile{
-				VMDiagnostics: &api.VMDiagnostics{
+				VMDiagnostics: &datamodel.VMDiagnostics{
 					Enabled:    true,
 					StorageURL: u,
 				},
@@ -366,20 +366,20 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			LinuxProfile: &datamodel.LinuxProfile{
 				AdminUsername: "azureuser",
 				SSH: struct {
-					PublicKeys []api.PublicKey `json:"publicKeys"`
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
 				}{
-					PublicKeys: []api.PublicKey{
+					PublicKeys: []datamodel.PublicKey{
 						{
 							KeyData: ValidSSHPublicKey,
 						},
 					},
 				},
-				Secrets: []api.KeyVaultSecrets{
+				Secrets: []datamodel.KeyVaultSecrets{
 					{
-						SourceVault: &api.KeyVaultID{
+						SourceVault: &datamodel.KeyVaultID{
 							ID: "sampleKeyVaultID",
 						},
-						VaultCertificates: []api.KeyVaultCertificate{
+						VaultCertificates: []datamodel.KeyVaultCertificate{
 							{
 								CertificateURL:   "FooCertURL",
 								CertificateStore: "BarCertStore",
@@ -387,10 +387,10 @@ func getDefaultContainerService() *datamodel.ContainerService {
 						},
 					},
 				},
-				CustomNodesDNS: &api.CustomNodesDNS{
+				CustomNodesDNS: &datamodel.CustomNodesDNS{
 					DNSServer: "SampleDNSServer",
 				},
-				CustomSearchDomain: &api.CustomSearchDomain{
+				CustomSearchDomain: &datamodel.CustomSearchDomain{
 					Name:          "FooCustomSearchDomain",
 					RealmUser:     "sampleRealmUser",
 					RealmPassword: "sampleRealmPassword",
@@ -400,7 +400,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				ClientID: "fooClientID",
 				Secret:   "fooSecret",
 				ObjectID: "fooObjectID",
-				KeyvaultSecretRef: &api.KeyvaultSecretRef{
+				KeyvaultSecretRef: &datamodel.KeyvaultSecretRef{
 					VaultID:       "fooVaultID",
 					SecretName:    "fooSecretName",
 					SecretVersion: "fooSecretVersion",
@@ -411,7 +411,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					Name:                "fooExtension",
 					Version:             "fooVersion",
 					ExtensionParameters: "fooExtensionParameters",
-					ExtensionParametersKeyVaultRef: &api.KeyvaultSecretRef{
+					ExtensionParametersKeyVaultRef: &datamodel.KeyvaultSecretRef{
 						VaultID:       "fooVaultID",
 						SecretName:    "fooSecretName",
 						SecretVersion: "fooSecretVersion",
@@ -451,7 +451,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				ServerAppSecret: "ServerAppSecret",
 				TenantID:        "SampleTenantID",
 				AdminGroupID:    "SampleAdminGroupID",
-				Authenticator:   api.Webhook,
+				Authenticator:   datamodel.Webhook,
 			},
 			CustomProfile: &datamodel.CustomProfile{
 				Orchestrator: "Kubernetes",
@@ -512,8 +512,8 @@ func getDefaultContainerService() *datamodel.ContainerService {
 						Template:    "{{foobar}}",
 					},
 				},
-				Distro: api.Ubuntu,
-				ImageRef: &api.ImageReference{
+				Distro: datamodel.Ubuntu,
+				ImageRef: &datamodel.ImageReference{
 					Name:          "FooImageRef",
 					ResourceGroup: "FooImageRefResourceGroup",
 				},
@@ -626,7 +626,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					FQDN:      "blueorange.westus2.com",
 					OSType:    "Linux",
 					Subnet:    "sampleSubnet",
-					ImageRef: &api.ImageReference{
+					ImageRef: &datamodel.ImageReference{
 						Name:           "testImage",
 						ResourceGroup:  "testRg",
 						SubscriptionID: "testSub",

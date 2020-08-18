@@ -14,38 +14,167 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net"
+	neturl "net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 )
 
+// CustomNodesDNS represents the Search Domain when the custom vnet for a custom DNS as a nameserver.
+type CustomNodesDNS struct {
+	DNSServer string `json:"dnsServer,omitempty"`
+}
+
+// CustomSearchDomain represents the Search Domain when the custom vnet has a windows server DNS as a nameserver.
+type CustomSearchDomain struct {
+	Name          string `json:"name,omitempty"`
+	RealmUser     string `json:"realmUser,omitempty"`
+	RealmPassword string `json:"realmPassword,omitempty"`
+}
+
+// PublicKey represents an SSH key for LinuxProfile
+type PublicKey struct {
+	KeyData string `json:"keyData"`
+}
+
+// KeyVaultCertificate specifies a certificate to install
+// On Linux, the certificate file is placed under the /var/lib/waagent directory
+// with the file name <UppercaseThumbprint>.crt for the X509 certificate file
+// and <UppercaseThumbprint>.prv for the private key. Both of these files are .pem formatted.
+// On windows the certificate will be saved in the specified store.
+type KeyVaultCertificate struct {
+	CertificateURL   string `json:"certificateUrl,omitempty"`
+	CertificateStore string `json:"certificateStore,omitempty"`
+}
+
+// KeyVaultID specifies a key vault
+type KeyVaultID struct {
+	ID string `json:"id,omitempty"`
+}
+
+// KeyVaultSecrets specifies certificates to install on the pool
+// of machines from a given key vault
+// the key vault specified must have been granted read permissions to CRP
+type KeyVaultSecrets struct {
+	SourceVault       *KeyVaultID           `json:"sourceVault,omitempty"`
+	VaultCertificates []KeyVaultCertificate `json:"vaultCertificates,omitempty"`
+}
+
+// ImageReference represents a reference to an Image resource in Azure.
+type ImageReference struct {
+	Name           string `json:"name,omitempty"`
+	ResourceGroup  string `json:"resourceGroup,omitempty"`
+	SubscriptionID string `json:"subscriptionId,omitempty"`
+	Gallery        string `json:"gallery,omitempty"`
+	Version        string `json:"version,omitempty"`
+}
+
+// VMDiagnostics contains settings to on/off boot diagnostics collection
+// in RD Host
+type VMDiagnostics struct {
+	Enabled bool `json:"enabled"`
+
+	// Specifies storage account Uri where Boot Diagnostics (CRP &
+	// VMSS BootDiagostics) and VM Diagnostics logs (using Linux
+	// Diagnostics Extension) will be stored. Uri will be of standard
+	// blob domain. i.e. https://storageaccount.blob.core.windows.net/
+	// This field is readonly as ACS RP will create a storage account
+	// for the customer.
+	StorageURL *neturl.URL `json:"storageUrl"`
+}
+
+// OSType represents OS types of agents
+type OSType string
+
+// the OSTypes supported by vlabs
+const (
+	Windows OSType = "Windows"
+	Linux   OSType = "Linux"
+)
+
+// Distro represents Linux distro to use for Linux VMs
+type Distro string
+
+// Distro string consts
+const (
+	Ubuntu               Distro = "ubuntu"
+	Ubuntu1804           Distro = "ubuntu-18.04"
+	Ubuntu1804Gen2       Distro = "ubuntu-18.04-gen2"
+	RHEL                 Distro = "rhel"
+	CoreOS               Distro = "coreos"
+	AKS1604Deprecated    Distro = "aks"               // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
+	AKS1804Deprecated    Distro = "aks-1804"          // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
+	AKSDockerEngine      Distro = "aks-docker-engine" // deprecated docker-engine distro.
+	AKSUbuntu1604        Distro = "aks-ubuntu-16.04"
+	AKSUbuntu1804        Distro = "aks-ubuntu-18.04"
+	ACC1604              Distro = "acc-16.04"
+	AKSUbuntuGPU1804     Distro = "aks-ubuntu-gpu-18.04"
+	AKSUbuntuGPU1804Gen2 Distro = "aks-ubuntu-gpu-18.04-gen2"
+)
+
+// KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
+// for Service Principal's secret
+type KeyvaultSecretRef struct {
+	VaultID       string `json:"vaultID"`
+	SecretName    string `json:"secretName"`
+	SecretVersion string `json:"version,omitempty"`
+}
+
+// AuthenticatorType represents the authenticator type the cluster was
+// set up with.
+type AuthenticatorType string
+
+const (
+	// OIDC represent cluster setup in OIDC auth mode
+	OIDC AuthenticatorType = "oidc"
+	// Webhook represent cluster setup in wehhook auth mode
+	Webhook AuthenticatorType = "webhook"
+)
+
+// UserAssignedIdentity contains information that uniquely identifies an identity
+type UserAssignedIdentity struct {
+	ResourceID string `json:"resourceId,omitempty"`
+	ClientID   string `json:"clientId,omitempty"`
+	ObjectID   string `json:"objectId,omitempty"`
+}
+
+// ResourceIdentifiers represents resource ids
+type ResourceIdentifiers struct {
+	Graph               string `json:"graph,omitempty"`
+	KeyVault            string `json:"keyVault,omitempty"`
+	Datalake            string `json:"datalake,omitempty"`
+	Batch               string `json:"batch,omitempty"`
+	OperationalInsights string `json:"operationalInsights,omitempty"`
+	Storage             string `json:"storage,omitempty"`
+}
+
 // CustomCloudEnv represents the custom cloud env info of the AKS cluster.
 type CustomCloudEnv struct {
-	Name                         string                  `json:"Name,omitempty"`
-	McrURL                       string                  `json:"mcrURL,omitempty"`
-	RepoDepotEndpoint            string                  `json:"repoDepotEndpoint,omitempty"`
-	ManagementPortalURL          string                  `json:"managementPortalURL,omitempty"`
-	PublishSettingsURL           string                  `json:"publishSettingsURL,omitempty"`
-	ServiceManagementEndpoint    string                  `json:"serviceManagementEndpoint,omitempty"`
-	ResourceManagerEndpoint      string                  `json:"resourceManagerEndpoint,omitempty"`
-	ActiveDirectoryEndpoint      string                  `json:"activeDirectoryEndpoint,omitempty"`
-	GalleryEndpoint              string                  `json:"galleryEndpoint,omitempty"`
-	KeyVaultEndpoint             string                  `json:"keyVaultEndpoint,omitempty"`
-	GraphEndpoint                string                  `json:"graphEndpoint,omitempty"`
-	ServiceBusEndpoint           string                  `json:"serviceBusEndpoint,omitempty"`
-	BatchManagementEndpoint      string                  `json:"batchManagementEndpoint,omitempty"`
-	StorageEndpointSuffix        string                  `json:"storageEndpointSuffix,omitempty"`
-	SQLDatabaseDNSSuffix         string                  `json:"sqlDatabaseDNSSuffix,omitempty"`
-	TrafficManagerDNSSuffix      string                  `json:"trafficManagerDNSSuffix,omitempty"`
-	KeyVaultDNSSuffix            string                  `json:"keyVaultDNSSuffix,omitempty"`
-	ServiceBusEndpointSuffix     string                  `json:"serviceBusEndpointSuffix,omitempty"`
-	ServiceManagementVMDNSSuffix string                  `json:"serviceManagementVMDNSSuffix,omitempty"`
-	ResourceManagerVMDNSSuffix   string                  `json:"resourceManagerVMDNSSuffix,omitempty"`
-	ContainerRegistryDNSSuffix   string                  `json:"containerRegistryDNSSuffix,omitempty"`
-	CosmosDBDNSSuffix            string                  `json:"cosmosDBDNSSuffix,omitempty"`
-	TokenAudience                string                  `json:"tokenAudience,omitempty"`
-	ResourceIdentifiers          api.ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
+	Name                         string              `json:"Name,omitempty"`
+	McrURL                       string              `json:"mcrURL,omitempty"`
+	RepoDepotEndpoint            string              `json:"repoDepotEndpoint,omitempty"`
+	ManagementPortalURL          string              `json:"managementPortalURL,omitempty"`
+	PublishSettingsURL           string              `json:"publishSettingsURL,omitempty"`
+	ServiceManagementEndpoint    string              `json:"serviceManagementEndpoint,omitempty"`
+	ResourceManagerEndpoint      string              `json:"resourceManagerEndpoint,omitempty"`
+	ActiveDirectoryEndpoint      string              `json:"activeDirectoryEndpoint,omitempty"`
+	GalleryEndpoint              string              `json:"galleryEndpoint,omitempty"`
+	KeyVaultEndpoint             string              `json:"keyVaultEndpoint,omitempty"`
+	GraphEndpoint                string              `json:"graphEndpoint,omitempty"`
+	ServiceBusEndpoint           string              `json:"serviceBusEndpoint,omitempty"`
+	BatchManagementEndpoint      string              `json:"batchManagementEndpoint,omitempty"`
+	StorageEndpointSuffix        string              `json:"storageEndpointSuffix,omitempty"`
+	SQLDatabaseDNSSuffix         string              `json:"sqlDatabaseDNSSuffix,omitempty"`
+	TrafficManagerDNSSuffix      string              `json:"trafficManagerDNSSuffix,omitempty"`
+	KeyVaultDNSSuffix            string              `json:"keyVaultDNSSuffix,omitempty"`
+	ServiceBusEndpointSuffix     string              `json:"serviceBusEndpointSuffix,omitempty"`
+	ServiceManagementVMDNSSuffix string              `json:"serviceManagementVMDNSSuffix,omitempty"`
+	ResourceManagerVMDNSSuffix   string              `json:"resourceManagerVMDNSSuffix,omitempty"`
+	ContainerRegistryDNSSuffix   string              `json:"containerRegistryDNSSuffix,omitempty"`
+	CosmosDBDNSSuffix            string              `json:"cosmosDBDNSSuffix,omitempty"`
+	TokenAudience                string              `json:"tokenAudience,omitempty"`
+	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
 }
 
 // TelemetryProfile contains settings for collecting telemtry.
@@ -69,7 +198,7 @@ type AddonProfile struct {
 	Config  map[string]string `json:"config"`
 	// Identity contains information of the identity associated with this addon.
 	// This property will only appear in an MSI-enabled cluster.
-	Identity *api.UserAssignedIdentity `json:"identity,omitempty"`
+	Identity *UserAssignedIdentity `json:"identity,omitempty"`
 }
 
 // HostedMasterProfile defines properties for a hosted master
@@ -111,7 +240,7 @@ type AADProfile struct {
 	// Optional
 	AdminGroupID string `json:"adminGroupID,omitempty"`
 	// The authenticator to use, either "oidc" or "webhook".
-	Authenticator api.AuthenticatorType `json:"authenticator"`
+	Authenticator AuthenticatorType `json:"authenticator"`
 }
 
 // CertificateProfile represents the definition of the master cluster
@@ -148,17 +277,17 @@ type CertificateProfile struct {
 
 // ServicePrincipalProfile contains the client and secret used by the cluster for Azure Resource CRUD
 type ServicePrincipalProfile struct {
-	ClientID          string                 `json:"clientId"`
-	Secret            string                 `json:"secret,omitempty" conform:"redact"`
-	ObjectID          string                 `json:"objectId,omitempty"`
-	KeyvaultSecretRef *api.KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
+	ClientID          string             `json:"clientId"`
+	Secret            string             `json:"secret,omitempty" conform:"redact"`
+	ObjectID          string             `json:"objectId,omitempty"`
+	KeyvaultSecretRef *KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
 }
 
 // JumpboxProfile describes properties of the jumpbox setup
 // in the AKS container cluster.
 type JumpboxProfile struct {
-	OSType    api.OSType `json:"osType"`
-	DNSPrefix string     `json:"dnsPrefix"`
+	OSType    OSType `json:"osType"`
+	DNSPrefix string `json:"dnsPrefix"`
 
 	// Jumpbox public endpoint/FQDN with port
 	// The format will be FQDN:2376
@@ -169,16 +298,16 @@ type JumpboxProfile struct {
 // DiagnosticsProfile setting to enable/disable capturing
 // diagnostics for VMs hosting container cluster.
 type DiagnosticsProfile struct {
-	VMDiagnostics *api.VMDiagnostics `json:"vmDiagnostics"`
+	VMDiagnostics *VMDiagnostics `json:"vmDiagnostics"`
 }
 
 // ExtensionProfile represents an extension definition
 type ExtensionProfile struct {
-	Name                           string                 `json:"name"`
-	Version                        string                 `json:"version"`
-	ExtensionParameters            string                 `json:"extensionParameters,omitempty"`
-	ExtensionParametersKeyVaultRef *api.KeyvaultSecretRef `json:"parametersKeyvaultSecretRef,omitempty"`
-	RootURL                        string                 `json:"rootURL,omitempty"`
+	Name                           string             `json:"name"`
+	Version                        string             `json:"version"`
+	ExtensionParameters            string             `json:"extensionParameters,omitempty"`
+	ExtensionParametersKeyVaultRef *KeyvaultSecretRef `json:"parametersKeyvaultSecretRef,omitempty"`
+	RootURL                        string             `json:"rootURL,omitempty"`
 	// This is only needed for preprovision extensions and it needs to be a bash script
 	Script   string `json:"script,omitempty"`
 	URLQuery string `json:"urlQuery,omitempty"`
@@ -195,39 +324,39 @@ type ResourcePurchasePlan struct {
 
 // WindowsProfile represents the windows parameters passed to the cluster
 type WindowsProfile struct {
-	AdminUsername                 string                `json:"adminUsername"`
-	AdminPassword                 string                `json:"adminPassword" conform:"redact"`
-	CSIProxyURL                   string                `json:"csiProxyURL,omitempty"`
-	EnableCSIProxy                *bool                 `json:"enableCSIProxy,omitempty"`
-	ImageRef                      *api.ImageReference   `json:"imageReference,omitempty"`
-	ImageVersion                  string                `json:"imageVersion"`
-	ProvisioningScriptsPackageURL string                `json:"provisioningScriptsPackageURL,omitempty"`
-	WindowsImageSourceURL         string                `json:"windowsImageSourceURL"`
-	WindowsPublisher              string                `json:"windowsPublisher"`
-	WindowsOffer                  string                `json:"windowsOffer"`
-	WindowsSku                    string                `json:"windowsSku"`
-	WindowsDockerVersion          string                `json:"windowsDockerVersion"`
-	Secrets                       []api.KeyVaultSecrets `json:"secrets,omitempty"`
-	SSHEnabled                    *bool                 `json:"sshEnabled,omitempty"`
-	EnableAutomaticUpdates        *bool                 `json:"enableAutomaticUpdates,omitempty"`
-	IsCredentialAutoGenerated     *bool                 `json:"isCredentialAutoGenerated,omitempty"`
-	EnableAHUB                    *bool                 `json:"enableAHUB,omitempty"`
-	WindowsPauseImageURL          string                `json:"windowsPauseImageURL"`
-	AlwaysPullWindowsPauseImage   *bool                 `json:"alwaysPullWindowsPauseImage,omitempty"`
+	AdminUsername                 string            `json:"adminUsername"`
+	AdminPassword                 string            `json:"adminPassword" conform:"redact"`
+	CSIProxyURL                   string            `json:"csiProxyURL,omitempty"`
+	EnableCSIProxy                *bool             `json:"enableCSIProxy,omitempty"`
+	ImageRef                      *ImageReference   `json:"imageReference,omitempty"`
+	ImageVersion                  string            `json:"imageVersion"`
+	ProvisioningScriptsPackageURL string            `json:"provisioningScriptsPackageURL,omitempty"`
+	WindowsImageSourceURL         string            `json:"windowsImageSourceURL"`
+	WindowsPublisher              string            `json:"windowsPublisher"`
+	WindowsOffer                  string            `json:"windowsOffer"`
+	WindowsSku                    string            `json:"windowsSku"`
+	WindowsDockerVersion          string            `json:"windowsDockerVersion"`
+	Secrets                       []KeyVaultSecrets `json:"secrets,omitempty"`
+	SSHEnabled                    *bool             `json:"sshEnabled,omitempty"`
+	EnableAutomaticUpdates        *bool             `json:"enableAutomaticUpdates,omitempty"`
+	IsCredentialAutoGenerated     *bool             `json:"isCredentialAutoGenerated,omitempty"`
+	EnableAHUB                    *bool             `json:"enableAHUB,omitempty"`
+	WindowsPauseImageURL          string            `json:"windowsPauseImageURL"`
+	AlwaysPullWindowsPauseImage   *bool             `json:"alwaysPullWindowsPauseImage,omitempty"`
 }
 
 // LinuxProfile represents the linux parameters passed to the cluster
 type LinuxProfile struct {
 	AdminUsername string `json:"adminUsername"`
 	SSH           struct {
-		PublicKeys []api.PublicKey `json:"publicKeys"`
+		PublicKeys []PublicKey `json:"publicKeys"`
 	} `json:"ssh"`
-	Secrets               []api.KeyVaultSecrets   `json:"secrets,omitempty"`
-	Distro                api.Distro              `json:"distro,omitempty"`
-	ScriptRootURL         string                  `json:"scriptroot,omitempty"`
-	CustomSearchDomain    *api.CustomSearchDomain `json:"customSearchDomain,omitempty"`
-	CustomNodesDNS        *api.CustomNodesDNS     `json:"CustomNodesDNS,omitempty"`
-	IsSSHKeyAutoGenerated *bool                   `json:"isSSHKeyAutoGenerated,omitempty"`
+	Secrets               []KeyVaultSecrets   `json:"secrets,omitempty"`
+	Distro                Distro              `json:"distro,omitempty"`
+	ScriptRootURL         string              `json:"scriptroot,omitempty"`
+	CustomSearchDomain    *CustomSearchDomain `json:"customSearchDomain,omitempty"`
+	CustomNodesDNS        *CustomNodesDNS     `json:"CustomNodesDNS,omitempty"`
+	IsSSHKeyAutoGenerated *bool               `json:"isSSHKeyAutoGenerated,omitempty"`
 }
 
 // MasterProfile represents the definition of the master cluster
@@ -249,9 +378,9 @@ type MasterProfile struct {
 	OAuthEnabled              bool                  `json:"oauthEnabled"`
 	PreprovisionExtension     *api.Extension        `json:"preProvisionExtension"`
 	Extensions                []api.Extension       `json:"extensions"`
-	Distro                    api.Distro            `json:"distro,omitempty"`
+	Distro                    Distro                `json:"distro,omitempty"`
 	KubernetesConfig          *api.KubernetesConfig `json:"kubernetesConfig,omitempty"`
-	ImageRef                  *api.ImageReference   `json:"imageReference,omitempty"`
+	ImageRef                  *ImageReference       `json:"imageReference,omitempty"`
 	CustomFiles               *[]api.CustomFile     `json:"customFiles,omitempty"`
 	AvailabilityProfile       string                `json:"availabilityProfile"`
 	PlatformFaultDomainCount  *int                  `json:"platformFaultDomainCount"`
@@ -290,7 +419,7 @@ type AgentPoolProfile struct {
 	VMSize                              string                   `json:"vmSize"`
 	OSDiskSizeGB                        int                      `json:"osDiskSizeGB,omitempty"`
 	DNSPrefix                           string                   `json:"dnsPrefix,omitempty"`
-	OSType                              api.OSType               `json:"osType,omitempty"`
+	OSType                              OSType                   `json:"osType,omitempty"`
 	Ports                               []int                    `json:"ports,omitempty"`
 	ProvisioningState                   ProvisioningState        `json:"provisioningState,omitempty"`
 	AvailabilityProfile                 string                   `json:"availabilityProfile"`
@@ -302,7 +431,7 @@ type AgentPoolProfile struct {
 	VnetSubnetID                        string                   `json:"vnetSubnetID,omitempty"`
 	Subnet                              string                   `json:"subnet"`
 	IPAddressCount                      int                      `json:"ipAddressCount,omitempty"`
-	Distro                              api.Distro               `json:"distro,omitempty"`
+	Distro                              Distro                   `json:"distro,omitempty"`
 	Role                                api.AgentPoolProfileRole `json:"role,omitempty"`
 	AcceleratedNetworkingEnabled        *bool                    `json:"acceleratedNetworkingEnabled,omitempty"`
 	AcceleratedNetworkingEnabledWindows *bool                    `json:"acceleratedNetworkingEnabledWindows,omitempty"`
@@ -313,7 +442,7 @@ type AgentPoolProfile struct {
 	Extensions                          []api.Extension          `json:"extensions"`
 	KubernetesConfig                    *api.KubernetesConfig    `json:"kubernetesConfig,omitempty"`
 	OrchestratorVersion                 string                   `json:"orchestratorVersion"`
-	ImageRef                            *api.ImageReference      `json:"imageReference,omitempty"`
+	ImageRef                            *ImageReference          `json:"imageReference,omitempty"`
 	MaxCount                            *int                     `json:"maxCount,omitempty"`
 	MinCount                            *int                     `json:"minCount,omitempty"`
 	EnableAutoScaling                   *bool                    `json:"enableAutoScaling,omitempty"`
@@ -746,7 +875,7 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 func (a *AgentPoolProfile) IsUbuntu1804() bool {
 	if !strings.EqualFold(string(a.OSType), string(api.Windows)) {
 		switch a.Distro {
-		case api.AKSUbuntu1804, api.Ubuntu1804, api.Ubuntu1804Gen2, api.AKSUbuntuGPU1804, api.AKSUbuntuGPU1804Gen2:
+		case AKSUbuntu1804, Ubuntu1804, Ubuntu1804Gen2, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2:
 			return true
 		default:
 			return false
@@ -960,7 +1089,7 @@ func (m *MasterProfile) IsVHDDistro() bool {
 // IsUbuntu1804 returns true if the master profile distro is based on Ubuntu 18.04
 func (m *MasterProfile) IsUbuntu1804() bool {
 	switch m.Distro {
-	case api.AKSUbuntu1804, api.Ubuntu1804, api.Ubuntu1804Gen2:
+	case AKSUbuntu1804, Ubuntu1804, Ubuntu1804Gen2:
 		return true
 	default:
 		return false
@@ -1035,4 +1164,9 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 		}
 	}
 	return false
+}
+
+// IsValid returns true if ImageRefernce contains at least Name and ResourceGroup
+func (i *ImageReference) IsValid() bool {
+	return len(i.Name) > 0 && len(i.ResourceGroup) > 0
 }
