@@ -475,7 +475,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 						Subnet:       "255.255.255.0",
 					},
 				},
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &datamodel.KubernetesConfig{},
 			},
 			MasterProfile: &datamodel.MasterProfile{
 				Count:     1,
@@ -500,12 +500,12 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				StorageProfile:           api.StorageAccount,
 				HTTPSourceAddressPrefix:  "fooHTTPSourceAddressPrefix",
 				OAuthEnabled:             true,
-				PreprovisionExtension: &api.Extension{
+				PreprovisionExtension: &datamodel.Extension{
 					Name:        "sampleExtension",
 					SingleOrAll: "single",
 					Template:    "{{foobar}}",
 				},
-				Extensions: []api.Extension{
+				Extensions: []datamodel.Extension{
 					{
 						Name:        "sampleExtension",
 						SingleOrAll: "single",
@@ -517,7 +517,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					Name:          "FooImageRef",
 					ResourceGroup: "FooImageRefResourceGroup",
 				},
-				KubernetesConfig: &api.KubernetesConfig{
+				KubernetesConfig: &datamodel.KubernetesConfig{
 					KubernetesImageBase: "quay.io",
 					ClusterSubnet:       "fooClusterSubnet",
 					NetworkPolicy:       "calico",

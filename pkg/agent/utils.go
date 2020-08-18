@@ -149,7 +149,7 @@ func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *d
 		"", cs.Properties.ExtensionProfiles)
 }
 
-func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string, extensionProfiles []*datamodel.ExtensionProfile) string {
+func makeExtensionScriptCommands(extension *datamodel.Extension, curlCaCertOpt string, extensionProfiles []*datamodel.ExtensionProfile) string {
 	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
@@ -169,7 +169,7 @@ func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string,
 		scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath, extensionsParameterReference, extensionProfile.Name)
 }
 
-func makeWindowsExtensionScriptCommands(extension *api.Extension, extensionProfiles []*datamodel.ExtensionProfile) string {
+func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensionProfiles []*datamodel.ExtensionProfile) string {
 	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
@@ -545,7 +545,7 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *api.KubernetesConfig, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) string {
 	if k.KubeletConfig == nil {
 		return ""
 	}
