@@ -26,7 +26,7 @@ import (
 var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
 
 // SetPropertiesDefaults for the container Properties
-func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (bool, error) {
+func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (error) {
 	// Set master profile defaults if this cluster configuration includes master node(s)
 	if cs.Properties.MasterProfile != nil {
 		cs.setMasterProfileDefaults(params.IsUpgrade)
