@@ -115,7 +115,7 @@ func TestCertsAlreadyPresent(t *testing.T) {
 }
 
 func TestSetMissingKubeletValues(t *testing.T) {
-	config := &api.KubernetesConfig{}
+	config := &KubernetesConfig{}
 	defaultKubeletConfig := map[string]string{
 		"--network-plugin":               "1",
 		"--pod-infra-container-image":    "2",
@@ -135,7 +135,7 @@ func TestSetMissingKubeletValues(t *testing.T) {
 		}
 	}
 
-	config = &api.KubernetesConfig{
+	config = &KubernetesConfig{
 		KubeletConfig: map[string]string{
 			"--network-plugin":            "a",
 			"--pod-infra-container-image": "b",
@@ -160,7 +160,7 @@ func TestSetMissingKubeletValues(t *testing.T) {
 			t.Fatalf("setMissingKubeletValue() did not return the expected value %s for key %s, instead returned: %s", val, key, config.KubeletConfig[key])
 		}
 	}
-	config = &api.KubernetesConfig{
+	config = &KubernetesConfig{
 		KubeletConfig: map[string]string{},
 	}
 	setMissingKubeletValues(config, defaultKubeletConfig)
@@ -1302,7 +1302,7 @@ func TestDistroDefaults(t *testing.T) {
 			"default_kubernetes",
 			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &KubernetesConfig{},
 			},
 			"",
 			"",
@@ -1316,7 +1316,7 @@ func TestDistroDefaults(t *testing.T) {
 			"default_kubernetes_usgov",
 			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &KubernetesConfig{},
 			},
 			"",
 			"",
@@ -1330,7 +1330,7 @@ func TestDistroDefaults(t *testing.T) {
 			"1804_upgrade_kubernetes",
 			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &KubernetesConfig{},
 			},
 			AKSUbuntu1804,
 			AKSUbuntu1804,
@@ -1344,7 +1344,7 @@ func TestDistroDefaults(t *testing.T) {
 			"default_kubernetes_germancloud",
 			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &KubernetesConfig{},
 			},
 			AKS1604Deprecated,
 			AKS1604Deprecated,
@@ -1358,7 +1358,7 @@ func TestDistroDefaults(t *testing.T) {
 			"deprecated_distro_kubernetes",
 			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &KubernetesConfig{},
 			},
 			AKS1604Deprecated,
 			AKS1604Deprecated,
@@ -1372,7 +1372,7 @@ func TestDistroDefaults(t *testing.T) {
 			"docker_engine_kubernetes",
 			OrchestratorProfile{
 				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
+				KubernetesConfig: &KubernetesConfig{},
 			},
 			AKS1604Deprecated,
 			AKSDockerEngine,
@@ -1445,7 +1445,7 @@ func TestDistroDefaults(t *testing.T) {
 		default:
 			cs.Location = "westus2"
 		}
-		cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+		cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 			LoadBalancerSku: api.StandardLoadBalancerSku,
 		}
 		cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
@@ -2123,7 +2123,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 		cs        ContainerService
 		isUpgrade bool
 		isScale   bool
-		expected  api.KubernetesConfig
+		expected  KubernetesConfig
 	}{
 		{
 			name: "default",
@@ -2135,7 +2135,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 					MasterProfile: &MasterProfile{},
 				},
 			},
-			expected: api.KubernetesConfig{
+			expected: KubernetesConfig{
 				CloudProviderBackoffMode:          "v1",
 				CloudProviderBackoff:              to.BoolPtr(false),
 				CloudProviderBackoffRetries:       api.DefaultKubernetesCloudProviderBackoffRetries,
@@ -2160,7 +2160,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 					MasterProfile: &MasterProfile{},
 				},
 			},
-			expected: api.KubernetesConfig{
+			expected: KubernetesConfig{
 				CloudProviderBackoffMode:          "v2",
 				CloudProviderBackoff:              to.BoolPtr(true),
 				CloudProviderBackoffRetries:       api.DefaultKubernetesCloudProviderBackoffRetries,
@@ -2234,7 +2234,7 @@ func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 			OrchestratorProfile: &OrchestratorProfile{
 				OrchestratorType:    api.Kubernetes,
 				OrchestratorVersion: "1.12.8",
-				KubernetesConfig: &api.KubernetesConfig{
+				KubernetesConfig: &KubernetesConfig{
 					NetworkPlugin: api.NetworkPluginAzure,
 				},
 			},
@@ -2387,7 +2387,7 @@ func getMockAPIProperties(orchestratorVersion string) Properties {
 		ProvisioningState: "",
 		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorVersion: orchestratorVersion,
-			KubernetesConfig:    &api.KubernetesConfig{},
+			KubernetesConfig:    &KubernetesConfig{},
 		},
 		MasterProfile:      &MasterProfile{},
 		CertificateProfile: getMockCertificateProfile(),
@@ -2399,8 +2399,8 @@ func getMockAPIProperties(orchestratorVersion string) Properties {
 		}}
 }
 
-func getKubernetesConfigWithFeatureGates(featureGates string) *api.KubernetesConfig {
-	return &api.KubernetesConfig{
+func getKubernetesConfigWithFeatureGates(featureGates string) *KubernetesConfig {
+	return &KubernetesConfig{
 		KubeletConfig: map[string]string{"--feature-gates": featureGates},
 	}
 }
@@ -2503,7 +2503,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: "basic",
 						},
 					},
@@ -2519,7 +2519,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
 					},
@@ -2535,7 +2535,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: "standard",
 						},
 					},
@@ -2551,7 +2551,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
@@ -2601,7 +2601,7 @@ func TestEnableRBAC(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
@@ -2617,7 +2617,7 @@ func TestEnableRBAC(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
@@ -2661,7 +2661,7 @@ func TestEnableRBAC(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
@@ -2678,7 +2678,7 @@ func TestEnableRBAC(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.16", common.GetAllSupportedKubernetesVersions(false, false)),
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
@@ -2695,7 +2695,7 @@ func TestEnableRBAC(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
 					},
@@ -2747,7 +2747,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
 					},
@@ -2763,7 +2763,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.BasicLoadBalancerSku,
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(true),
 						},
@@ -2780,7 +2780,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.BasicLoadBalancerSku,
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(false),
 						},
@@ -2797,7 +2797,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.StandardLoadBalancerSku,
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(true),
 						},
@@ -2814,7 +2814,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.StandardLoadBalancerSku,
 							CloudProviderDisableOutboundSNAT: to.BoolPtr(false),
 						},
@@ -3084,7 +3084,7 @@ func TestImageReference(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			c.cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+			c.cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 				LoadBalancerSku: api.BasicLoadBalancerSku,
 			}
 
@@ -3171,7 +3171,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
 					},
@@ -3198,7 +3198,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
 						},
@@ -3224,7 +3224,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
 						},
@@ -3254,7 +3254,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType: api.Kubernetes,
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
 						},
@@ -3324,7 +3324,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginKubenet,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
@@ -3352,7 +3352,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginAzure,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
@@ -3380,7 +3380,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginAzure,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
@@ -3412,7 +3412,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginKubenet,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
@@ -3444,13 +3444,13 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginAzure,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--max-pods": "24",
 							},
@@ -3460,7 +3460,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name: "pool1",
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--max-pods": "128",
 								},
@@ -3483,13 +3483,13 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginKubenet,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--max-pods": "24",
 							},
@@ -3499,7 +3499,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name: "pool1",
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--max-pods": "128",
 								},

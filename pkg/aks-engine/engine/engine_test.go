@@ -52,7 +52,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 	}
 
 	containerService.Properties.OrchestratorProfile = &datamodel.OrchestratorProfile{
-		KubernetesConfig: &api.KubernetesConfig{},
+		KubernetesConfig: &datamodel.KubernetesConfig{},
 	}
 	containerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{
 		Enabled: to.BoolPtr(true),

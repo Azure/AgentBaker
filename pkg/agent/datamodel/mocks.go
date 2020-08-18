@@ -52,7 +52,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile = &OrchestratorProfile{}
 	cs.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
-	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		EnableSecureKubelet:     to.BoolPtr(api.DefaultSecureKubeletEnabled),
 		EnableRbac:              to.BoolPtr(api.DefaultRBACEnabled),
 		EtcdDiskSizeGB:          api.DefaultEtcdDiskSize,
@@ -101,7 +101,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: api.Kubernetes,
-			KubernetesConfig: &api.KubernetesConfig{},
+			KubernetesConfig: &KubernetesConfig{},
 		},
 		MasterProfile: &MasterProfile{
 			Count:     1,

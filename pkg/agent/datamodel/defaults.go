@@ -26,7 +26,7 @@ import (
 var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
 
 // SetPropertiesDefaults for the container Properties
-func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (error) {
+func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) error {
 	// Set master profile defaults if this cluster configuration includes master node(s)
 	if cs.Properties.MasterProfile != nil {
 		cs.setMasterProfileDefaults(params.IsUpgrade)
@@ -74,7 +74,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 	switch o.OrchestratorType {
 	case api.Kubernetes:
 		if o.KubernetesConfig == nil {
-			o.KubernetesConfig = &api.KubernetesConfig{}
+			o.KubernetesConfig = &KubernetesConfig{}
 		}
 		// For backwards compatibility with original, overloaded "NetworkPolicy" config vector
 		// we translate deprecated NetworkPolicy usage to the NetworkConfig equivalent
@@ -678,7 +678,7 @@ func (cs *ContainerService) setLoadBalancerSkuDefaults() {
 	}
 
 	if p.OrchestratorProfile.KubernetesConfig == nil {
-		p.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{}
+		p.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{}
 	}
 
 	if p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == "" {

@@ -24,7 +24,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    api.Kubernetes,
 					OrchestratorVersion: k8sVersion,
-					KubernetesConfig: &api.KubernetesConfig{
+					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubeletConfig: map[string]string{
 							"--feature-gates": "RotateKubeletServerCertificate=true,a=b, PodPriority=true, x=y",
 						},
@@ -42,7 +42,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: api.VirtualMachineScaleSets,
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &datamodel.KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--address":                           "0.0.0.0",
 								"--pod-manifest-path":                 "/etc/kubernetes/manifests",
@@ -142,19 +142,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
 		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					common.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
 		}),
 		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					common.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: api.Containerd,
 			}
@@ -180,7 +180,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableDynamicKubelet = true
 		}),
 		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &api.KubernetesConfig{
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: api.Containerd,
 			}

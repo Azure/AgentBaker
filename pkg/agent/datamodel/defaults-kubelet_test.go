@@ -486,7 +486,7 @@ func TestKubeletIPMasqAgentEnabledOrDisabled(t *testing.T) {
 	// MasterIPMasqAgent disabled, --non-masquerade-cidr should be subnet
 	cs := CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
 	b := false
-	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		Addons: []api.KubernetesAddon{
 			{
 				Name:    common.IPMASQAgentAddonName,
@@ -505,7 +505,7 @@ func TestKubeletIPMasqAgentEnabledOrDisabled(t *testing.T) {
 	// MasterIPMasqAgent enabled, --non-masquerade-cidr should be 0.0.0.0/0
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
 	b = true
-	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		Addons: []api.KubernetesAddon{
 			{
 				Name:    common.IPMASQAgentAddonName,
@@ -543,7 +543,7 @@ func TestEnforceNodeAllocatable(t *testing.T) {
 
 	// Validate that --enforce-node-allocatable is overridable
 	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		KubeletConfig: map[string]string{
 			"--enforce-node-allocatable": "kube-reserved/system-reserved",
 		},
@@ -643,7 +643,7 @@ func TestProtectKernelDefaults(t *testing.T) {
 			cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
 			cs.Properties.MasterProfile.Distro = "ubuntu"
 			cs.Properties.AgentPoolProfiles[0].Distro = "ubuntu"
-			cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+			cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 				KubeletConfig: map[string]string{
 					"--protect-kernel-defaults": "false",
 				},
@@ -841,7 +841,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig:    &api.KubernetesConfig{},
+						KubernetesConfig:    &KubernetesConfig{},
 					},
 				},
 			},
@@ -855,7 +855,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids": "100",
 							},
@@ -873,7 +873,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=false",
 							},
@@ -891,7 +891,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=true",
 							},
@@ -909,7 +909,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=false",
@@ -928,7 +928,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -947,7 +947,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig:    &api.KubernetesConfig{},
+						KubernetesConfig:    &KubernetesConfig{},
 					},
 				},
 			},
@@ -962,7 +962,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids": "100",
 							},
@@ -981,7 +981,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=false",
 							},
@@ -1000,7 +1000,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=true",
 							},
@@ -1019,7 +1019,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids": "-100",
 							},
@@ -1038,7 +1038,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=false",
@@ -1058,7 +1058,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1078,7 +1078,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100a",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1127,12 +1127,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{},
+						KubernetesConfig: &KubernetesConfig{},
 					},
 				},
 			},
@@ -1146,12 +1146,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids": "100",
 							},
@@ -1169,12 +1169,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=false",
 							},
@@ -1192,12 +1192,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=true",
 							},
@@ -1215,12 +1215,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=false",
@@ -1239,12 +1239,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1263,12 +1263,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{},
+						KubernetesConfig: &KubernetesConfig{},
 					},
 				},
 			},
@@ -1283,12 +1283,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=false",
 							},
@@ -1307,12 +1307,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--feature-gates": "SupportPodPidsLimit=true",
 							},
@@ -1331,12 +1331,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids": "100",
 							},
@@ -1355,12 +1355,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids": "-100",
 							},
@@ -1379,12 +1379,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=false",
@@ -1404,12 +1404,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1429,12 +1429,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "0",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1454,12 +1454,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "-1",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1479,12 +1479,12 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					MasterProfile: &MasterProfile{
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--pod-max-pids":  "100a",
 								"--feature-gates": "SupportPodPidsLimit=true",
@@ -1533,13 +1533,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{},
 							},
 						},
@@ -1556,13 +1556,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids": "100",
 								},
@@ -1581,13 +1581,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--feature-gates": "SupportPodPidsLimit=false",
 								},
@@ -1606,13 +1606,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--feature-gates": "SupportPodPidsLimit=true",
 								},
@@ -1631,13 +1631,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids":  "100",
 									"--feature-gates": "SupportPodPidsLimit=false",
@@ -1657,13 +1657,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids":  "100",
 									"--feature-gates": "SupportPodPidsLimit=true",
@@ -1683,13 +1683,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{},
 							},
 						},
@@ -1707,13 +1707,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--feature-gates": "SupportPodPidsLimit=false",
 								},
@@ -1733,13 +1733,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--feature-gates": "SupportPodPidsLimit=true",
 								},
@@ -1759,13 +1759,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids": "100",
 								},
@@ -1785,13 +1785,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids": "-100",
 								},
@@ -1811,13 +1811,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids":  "100",
 									"--feature-gates": "SupportPodPidsLimit=false",
@@ -1838,13 +1838,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids":  "100",
 									"--feature-gates": "SupportPodPidsLimit=true",
@@ -1865,13 +1865,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--feature-gates": "SupportPodPidsLimit=true",
 								},
@@ -1891,13 +1891,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids":  "-1",
 									"--feature-gates": "SupportPodPidsLimit=true",
@@ -1918,13 +1918,13 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.14.0",
-						KubernetesConfig: &api.KubernetesConfig{
+						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
 						},
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							KubernetesConfig: &api.KubernetesConfig{
+							KubernetesConfig: &KubernetesConfig{
 								KubeletConfig: map[string]string{
 									"--pod-max-pids":  "100a",
 									"--feature-gates": "SupportPodPidsLimit=true",
@@ -1971,7 +1971,7 @@ func TestReadOnlyPort(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.15.0",
-						KubernetesConfig:    &api.KubernetesConfig{},
+						KubernetesConfig:    &KubernetesConfig{},
 					},
 				},
 			},
@@ -1984,7 +1984,7 @@ func TestReadOnlyPort(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.16.0",
-						KubernetesConfig:    &api.KubernetesConfig{},
+						KubernetesConfig:    &KubernetesConfig{},
 					},
 				},
 			},
@@ -2000,7 +2000,7 @@ func TestReadOnlyPort(t *testing.T) {
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    api.Kubernetes,
 						OrchestratorVersion: "1.16.0",
-						KubernetesConfig:    &api.KubernetesConfig{},
+						KubernetesConfig:    &KubernetesConfig{},
 					},
 				},
 			},
