@@ -2163,7 +2163,7 @@ func TestUbuntuVersion(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: ACC1604,
+						Distro: AKSUbuntu1604,
 					},
 				},
 			},

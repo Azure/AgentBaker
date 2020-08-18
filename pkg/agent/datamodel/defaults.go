@@ -23,7 +23,7 @@ import (
 )
 
 // DistroValues is a list of currently supported distros
-var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
+var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
 
 // SetPropertiesDefaults for the container Properties
 func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) error {
