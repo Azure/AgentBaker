@@ -164,7 +164,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	// Master-specific kubelet config changes go here
 	if cs.Properties.MasterProfile != nil {
 		if cs.Properties.MasterProfile.KubernetesConfig == nil {
-			cs.Properties.MasterProfile.KubernetesConfig = &api.KubernetesConfig{}
+			cs.Properties.MasterProfile.KubernetesConfig = &KubernetesConfig{}
 			cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig = make(map[string]string)
 		}
 		setMissingKubeletValues(cs.Properties.MasterProfile.KubernetesConfig, o.KubernetesConfig.KubeletConfig)
@@ -200,7 +200,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	// Agent-specific kubelet config changes go here
 	for _, profile := range cs.Properties.AgentPoolProfiles {
 		if profile.KubernetesConfig == nil {
-			profile.KubernetesConfig = &api.KubernetesConfig{}
+			profile.KubernetesConfig = &KubernetesConfig{}
 			profile.KubernetesConfig.KubeletConfig = make(map[string]string)
 		}
 
@@ -275,7 +275,7 @@ func removeKubeletFlags(k map[string]string, v string) {
 	}
 }
 
-func setMissingKubeletValues(p *api.KubernetesConfig, d map[string]string) {
+func setMissingKubeletValues(p *KubernetesConfig, d map[string]string) {
 	if p.KubeletConfig == nil {
 		p.KubeletConfig = d
 	} else {

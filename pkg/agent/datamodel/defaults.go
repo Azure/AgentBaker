@@ -74,7 +74,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 	switch o.OrchestratorType {
 	case api.Kubernetes:
 		if o.KubernetesConfig == nil {
-			o.KubernetesConfig = &api.KubernetesConfig{}
+			o.KubernetesConfig = &KubernetesConfig{}
 		}
 		// For backwards compatibility with original, overloaded "NetworkPolicy" config vector
 		// we translate deprecated NetworkPolicy usage to the NetworkConfig equivalent
@@ -666,7 +666,7 @@ func (cs *ContainerService) setLoadBalancerSkuDefaults() {
 	}
 
 	if p.OrchestratorProfile.KubernetesConfig == nil {
-		p.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{}
+		p.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{}
 	}
 
 	if p.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == "" {

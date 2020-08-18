@@ -242,13 +242,13 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"IsDynamicKubeletEnabled": func() bool {
 			return IsDynamicKubeletEnabled(cs, config.EnableDynamicKubelet)
 		},
-		"GetKubeletConfigKeyVals": func(kc *api.KubernetesConfig) string {
+		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
 			return GetOrderedKubeletConfigFlagString(kc, cs, config.EnableDynamicKubelet)
 		},
-		"GetKubeletConfigKeyValsPsh": func(kc *api.KubernetesConfig) string {
+		"GetKubeletConfigKeyValsPsh": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
