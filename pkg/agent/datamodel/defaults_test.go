@@ -1346,41 +1346,13 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			AKS1604Deprecated,
-			AKS1604Deprecated,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			Ubuntu,
 			Ubuntu,
 			true,
 			false,
 			api.AzureGermanCloud,
-		},
-		{
-			"deprecated_distro_kubernetes",
-			OrchestratorProfile{
-				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
-			},
-			AKS1604Deprecated,
-			AKS1604Deprecated,
-			AKSUbuntu1604,
-			AKSUbuntu1604,
-			true,
-			false,
-			api.AzureChinaCloud,
-		},
-		{
-			"docker_engine_kubernetes",
-			OrchestratorProfile{
-				OrchestratorType: api.Kubernetes,
-				KubernetesConfig: &api.KubernetesConfig{},
-			},
-			AKS1604Deprecated,
-			AKSDockerEngine,
-			AKSUbuntu1604,
-			AKSUbuntu1604,
-			false,
-			true,
-			api.AzurePublicCloud,
 		},
 		{
 			"default_swarm",
@@ -1453,9 +1425,6 @@ func TestDistroDefaults(t *testing.T) {
 			IsUpgrade:  test.isUpgrade,
 			PkiKeySize: helpers.DefaultPkiKeySize,
 		})
-		if cs.Properties.MasterProfile.Distro != test.expectedMasterDistro {
-			t.Fatalf("SetPropertiesDefaults() test case %v did not return right masterProfile Distro configurations %v != %v", test.name, cs.Properties.MasterProfile.Distro, test.expectedMasterDistro)
-		}
 		for _, agent := range cs.Properties.AgentPoolProfiles {
 			if agent.Distro != test.expectedAgentDistro {
 				t.Fatalf("SetPropertiesDefaults() test case %v did not return right pool Distro configurations %v != %v", test.name, agent.Distro, test.expectedAgentDistro)

@@ -26,18 +26,6 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 	addValue(parametersMap, "bakerVersion", bakerVersion)
 	addValue(parametersMap, "location", location)
 
-	// Identify Master distro
-	if properties.MasterProfile != nil {
-		addValue(parametersMap, "osImageOffer", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImageOffer)
-		addValue(parametersMap, "osImageSKU", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImageSku)
-		addValue(parametersMap, "osImagePublisher", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImagePublisher)
-		addValue(parametersMap, "osImageVersion", cloudSpecConfig.OSImageConfig[api.Distro(properties.MasterProfile.Distro)].ImageVersion)
-		if properties.MasterProfile.ImageRef != nil {
-			addValue(parametersMap, "osImageName", properties.MasterProfile.ImageRef.Name)
-			addValue(parametersMap, "osImageResourceGroup", properties.MasterProfile.ImageRef.ResourceGroup)
-		}
-	}
-
 	addValue(parametersMap, "nameSuffix", cs.Properties.GetClusterID())
 	addValue(parametersMap, "targetEnvironment", GetCloudTargetEnv(cs.Location))
 	linuxProfile := properties.LinuxProfile

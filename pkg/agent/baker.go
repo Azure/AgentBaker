@@ -446,22 +446,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			}
 			return linuxProfile.ScriptRootURL
 		},
-		"GetMasterOSImageOffer": func() string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImageOffer)
-		},
-		"GetMasterOSImagePublisher": func() string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImagePublisher)
-		},
-		"GetMasterOSImageSKU": func() string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImageSku)
-		},
-		"GetMasterOSImageVersion": func() string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImageVersion)
-		},
 		"GetAgentOSImageOffer": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageOffer)

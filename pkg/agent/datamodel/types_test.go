@@ -325,7 +325,7 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 func TestOSType(t *testing.T) {
 	p := Properties{
 		MasterProfile: &MasterProfile{
-			Distro: RHEL,
+			Distro: AKSUbuntu1604,
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
@@ -333,7 +333,7 @@ func TestOSType(t *testing.T) {
 			},
 			{
 				OSType: Linux,
-				Distro: RHEL,
+				Distro: AKSUbuntu1604,
 			},
 		},
 	}
@@ -360,16 +360,10 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
 	}
 
-	p.MasterProfile.Distro = CoreOS
 	p.AgentPoolProfiles[0].OSType = Windows
-	p.AgentPoolProfiles[1].Distro = CoreOS
 
 	if !p.HasWindows() {
 		t.Fatalf("expected HasWindows() to return true but instead returned false")
-	}
-
-	if !p.HasCoreOS() {
-		t.Fatalf("expected HasCoreOS() to return true but instead returned false")
 	}
 
 	if !p.AgentPoolProfiles[0].IsWindows() {
@@ -382,10 +376,6 @@ func TestOSType(t *testing.T) {
 
 	if p.AgentPoolProfiles[0].IsCoreOS() {
 		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
-	}
-
-	if !p.AgentPoolProfiles[1].IsCoreOS() {
-		t.Fatalf("expected IsCoreOS() to return true but instead returned false")
 	}
 }
 
@@ -2102,13 +2092,6 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 				Distro: AKSUbuntu1804,
 			},
 			expected: true,
-		},
-		{
-			name: "coreos distro",
-			ap: AgentPoolProfile{
-				Distro: CoreOS,
-			},
-			expected: false,
 		},
 		{
 			name: "ubuntu distro",

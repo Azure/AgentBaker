@@ -101,11 +101,6 @@ const (
 	Ubuntu               Distro = "ubuntu"
 	Ubuntu1804           Distro = "ubuntu-18.04"
 	Ubuntu1804Gen2       Distro = "ubuntu-18.04-gen2"
-	RHEL                 Distro = "rhel"
-	CoreOS               Distro = "coreos"
-	AKS1604Deprecated    Distro = "aks"               // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
-	AKS1804Deprecated    Distro = "aks-1804"          // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
-	AKSDockerEngine      Distro = "aks-docker-engine" // deprecated docker-engine distro.
 	AKSUbuntu1604        Distro = "aks-ubuntu-16.04"
 	AKSUbuntu1804        Distro = "aks-ubuntu-18.04"
 	ACC1604              Distro = "acc-16.04"
@@ -281,18 +276,6 @@ type ServicePrincipalProfile struct {
 	Secret            string             `json:"secret,omitempty" conform:"redact"`
 	ObjectID          string             `json:"objectId,omitempty"`
 	KeyvaultSecretRef *KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
-}
-
-// JumpboxProfile describes properties of the jumpbox setup
-// in the AKS container cluster.
-type JumpboxProfile struct {
-	OSType    OSType `json:"osType"`
-	DNSPrefix string `json:"dnsPrefix"`
-
-	// Jumpbox public endpoint/FQDN with port
-	// The format will be FQDN:2376
-	// Not used during PUT, returned as part of GET
-	FQDN string `json:"fqdn,omitempty"`
 }
 
 // DiagnosticsProfile setting to enable/disable capturing
@@ -474,7 +457,6 @@ type Properties struct {
 	WindowsProfile          *WindowsProfile          `json:"windowsProfile,omitempty"`
 	ExtensionProfiles       []*ExtensionProfile      `json:"extensionProfiles"`
 	DiagnosticsProfile      *DiagnosticsProfile      `json:"diagnosticsProfile,omitempty"`
-	JumpboxProfile          *JumpboxProfile          `json:"jumpboxProfile,omitempty"`
 	ServicePrincipalProfile *ServicePrincipalProfile `json:"servicePrincipalProfile,omitempty"`
 	CertificateProfile      *CertificateProfile      `json:"certificateProfile,omitempty"`
 	AADProfile              *AADProfile              `json:"aadProfile,omitempty"`
