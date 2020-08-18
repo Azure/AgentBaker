@@ -204,7 +204,7 @@ func (gc *generateCmd) autofillApimodel() error {
 func (gc *generateCmd) run() error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
 
-	certsGenerated, err := gc.containerService.SetPropertiesDefaults(api.PropertiesDefaultsParams{
+	err := gc.containerService.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
@@ -245,7 +245,7 @@ func (gc *generateCmd) run() error {
 			Locale: gc.locale,
 		},
 	}
-	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
+	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 

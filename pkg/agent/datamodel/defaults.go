@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"sort"
@@ -20,15 +19,14 @@ import (
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/helpers"
 	"github.com/blang/semver"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
 // DistroValues is a list of currently supported distros
 var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
 
-// SetPropertiesDefaults for the container Properties, returns true if certs are generated
-func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (bool, error) {
+// SetPropertiesDefaults for the container Properties
+func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (error) {
 	// Set master profile defaults if this cluster configuration includes master node(s)
 	if cs.Properties.MasterProfile != nil {
 		cs.setMasterProfileDefaults(params.IsUpgrade)
@@ -54,13 +52,7 @@ func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsP
 
 	cs.setTelemetryProfileDefaults()
 
-	certsGenerated, _, e := cs.SetDefaultCerts(api.DefaultCertParams{
-		PkiKeySize: params.PkiKeySize,
-	})
-	if e != nil {
-		return false, e
-	}
-	return certsGenerated, nil
+	return nil
 }
 
 // setOrchestratorDefaults for orchestrators
@@ -515,147 +507,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		}
 	}
-}
-
-// SetDefaultCerts generates and sets defaults for the container certificateProfile, returns true if certs are generated
-func (cs *ContainerService) SetDefaultCerts(params api.DefaultCertParams) (bool, []net.IP, error) {
-	p := cs.Properties
-	if p.MasterProfile == nil || p.OrchestratorProfile.OrchestratorType != api.Kubernetes {
-		return false, nil, nil
-	}
-
-	provided := certsAlreadyPresent(p.CertificateProfile, p.MasterProfile.Count)
-
-	if areAllTrue(provided) {
-		return false, nil, nil
-	}
-
-	var azureProdFQDNs []string
-	for _, location := range cs.GetLocations() {
-		azureProdFQDNs = append(azureProdFQDNs, api.FormatProdFQDNByLocation(p.MasterProfile.DNSPrefix, location, p.GetCustomCloudName()))
-	}
-
-	masterExtraFQDNs := append(azureProdFQDNs, p.MasterProfile.SubjectAltNames...)
-	masterExtraFQDNs = append(masterExtraFQDNs, "localhost")
-	firstMasterIP := net.ParseIP(p.MasterProfile.FirstConsecutiveStaticIP).To4()
-	localhostIP := net.ParseIP("127.0.0.1").To4()
-
-	if firstMasterIP == nil {
-		return false, nil, errors.Errorf("MasterProfile.FirstConsecutiveStaticIP '%s' is an invalid IP address", p.MasterProfile.FirstConsecutiveStaticIP)
-	}
-
-	ips := []net.IP{firstMasterIP, localhostIP}
-
-	// Include the Internal load balancer as well
-	if p.MasterProfile.IsVirtualMachineScaleSets() {
-		ips = append(ips, net.IP{firstMasterIP[0], firstMasterIP[1], byte(255), byte(api.DefaultInternalLbStaticIPOffset)})
-	} else {
-		// Add the Internal Loadbalancer IP which is always at p known offset from the firstMasterIP
-		ips = append(ips, net.IP{firstMasterIP[0], firstMasterIP[1], firstMasterIP[2], firstMasterIP[3] + byte(api.DefaultInternalLbStaticIPOffset)})
-	}
-
-	var offsetMultiplier int
-	if p.MasterProfile.IsVirtualMachineScaleSets() {
-		offsetMultiplier = p.MasterProfile.IPAddressCount
-	} else {
-		offsetMultiplier = 1
-	}
-	addr := binary.BigEndian.Uint32(firstMasterIP)
-	for i := 1; i < p.MasterProfile.Count; i++ {
-		newAddr := getNewAddr(addr, i, offsetMultiplier)
-		ip := make(net.IP, 4)
-		binary.BigEndian.PutUint32(ip, newAddr)
-		ips = append(ips, ip)
-	}
-	if p.CertificateProfile == nil {
-		p.CertificateProfile = &CertificateProfile{}
-	}
-
-	// use the specified Certificate Authority pair, or generate p new pair
-	var caPair *helpers.PkiKeyCertPair
-	if provided["ca"] {
-		caPair = &helpers.PkiKeyCertPair{CertificatePem: p.CertificateProfile.CaCertificate, PrivateKeyPem: p.CertificateProfile.CaPrivateKey}
-	} else {
-		var err error
-		pkiKeyCertPairParams := helpers.PkiKeyCertPairParams{
-			CommonName: "ca",
-			PkiKeySize: params.PkiKeySize,
-		}
-
-		caPair, err = helpers.CreatePkiKeyCertPair(pkiKeyCertPairParams)
-		if err != nil {
-			return false, ips, err
-		}
-
-		p.CertificateProfile.CaCertificate = caPair.CertificatePem
-		p.CertificateProfile.CaPrivateKey = caPair.PrivateKeyPem
-	}
-
-	serviceCIDR := p.OrchestratorProfile.KubernetesConfig.ServiceCIDR
-
-	// all validation for dual stack done with primary service cidr as that is considered
-	// the default ip family for cluster.
-	if cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") {
-		// split service cidrs
-		serviceCIDRs := strings.Split(serviceCIDR, ",")
-		serviceCIDR = serviceCIDRs[0]
-	}
-
-	cidrFirstIP, err := common.CidrStringFirstIP(serviceCIDR)
-	if err != nil {
-		return false, ips, err
-	}
-	ips = append(ips, cidrFirstIP)
-
-	pkiParams := helpers.PkiParams{}
-	pkiParams.CaPair = caPair
-	pkiParams.ClusterDomain = api.DefaultKubernetesClusterDomain
-	pkiParams.ExtraFQDNs = masterExtraFQDNs
-	pkiParams.ExtraIPs = ips
-	pkiParams.MasterCount = p.MasterProfile.Count
-	pkiParams.PkiKeySize = params.PkiKeySize
-	apiServerPair, clientPair, kubeConfigPair, etcdServerPair, etcdClientPair, etcdPeerPairs, err :=
-		helpers.CreatePki(pkiParams)
-	if err != nil {
-		return false, ips, err
-	}
-
-	// If no Certificate Authority pair or no cert/key pair was provided, use generated cert/key pairs signed by provided Certificate Authority pair
-	if !provided["apiserver"] || !provided["ca"] {
-		p.CertificateProfile.APIServerCertificate = apiServerPair.CertificatePem
-		p.CertificateProfile.APIServerPrivateKey = apiServerPair.PrivateKeyPem
-	}
-	if !provided["client"] || !provided["ca"] {
-		p.CertificateProfile.ClientCertificate = clientPair.CertificatePem
-		p.CertificateProfile.ClientPrivateKey = clientPair.PrivateKeyPem
-	}
-	if !provided["kubeconfig"] || !provided["ca"] {
-		p.CertificateProfile.KubeConfigCertificate = kubeConfigPair.CertificatePem
-		p.CertificateProfile.KubeConfigPrivateKey = kubeConfigPair.PrivateKeyPem
-	}
-	if !provided["etcd"] || !provided["ca"] {
-		p.CertificateProfile.EtcdServerCertificate = etcdServerPair.CertificatePem
-		p.CertificateProfile.EtcdServerPrivateKey = etcdServerPair.PrivateKeyPem
-		p.CertificateProfile.EtcdClientCertificate = etcdClientPair.CertificatePem
-		p.CertificateProfile.EtcdClientPrivateKey = etcdClientPair.PrivateKeyPem
-		p.CertificateProfile.EtcdPeerCertificates = make([]string, p.MasterProfile.Count)
-		p.CertificateProfile.EtcdPeerPrivateKeys = make([]string, p.MasterProfile.Count)
-		for i, v := range etcdPeerPairs {
-			p.CertificateProfile.EtcdPeerCertificates[i] = v.CertificatePem
-			p.CertificateProfile.EtcdPeerPrivateKeys[i] = v.PrivateKeyPem
-		}
-	}
-
-	return true, ips, nil
-}
-
-func areAllTrue(m map[string]bool) bool {
-	for _, v := range m {
-		if !v {
-			return false
-		}
-	}
-	return true
 }
 
 // getNewIP returns a new IP derived from an address plus a multiple of an offset
