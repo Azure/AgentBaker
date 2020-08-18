@@ -242,7 +242,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		a.SetCloudProviderRateLimitDefaults()
 
 		if o.KubernetesConfig.PrivateCluster == nil {
-			o.KubernetesConfig.PrivateCluster = &api.PrivateCluster{}
+			o.KubernetesConfig.PrivateCluster = &PrivateCluster{}
 		}
 
 		if o.KubernetesConfig.PrivateCluster.Enabled == nil {
@@ -327,7 +327,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			a.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount = api.DefaultMaximumLoadBalancerRuleCount
 		}
 		if a.OrchestratorProfile.KubernetesConfig.ProxyMode == "" {
-			a.OrchestratorProfile.KubernetesConfig.ProxyMode = api.DefaultKubeProxyMode
+			a.OrchestratorProfile.KubernetesConfig.ProxyMode = DefaultKubeProxyMode
 		}
 		if a.OrchestratorProfile.KubernetesConfig.LoadBalancerSku == api.StandardLoadBalancerSku &&
 			a.OrchestratorProfile.KubernetesConfig.OutboundRuleIdleTimeoutInMinutes == 0 {

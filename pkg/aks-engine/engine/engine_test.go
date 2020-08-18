@@ -9,7 +9,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/leonelquinteros/gotext"
@@ -54,7 +53,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 	containerService.Properties.OrchestratorProfile = &datamodel.OrchestratorProfile{
 		KubernetesConfig: &datamodel.KubernetesConfig{},
 	}
-	containerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{
+	containerService.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{
 		Enabled: to.BoolPtr(true),
 	}
 

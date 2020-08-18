@@ -340,7 +340,7 @@ func TestAPIServerConfigDefaultAdmissionControls(t *testing.T) {
 	cs := CreateMockContainerService("testcluster", version, 3, 2, false)
 	cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig = map[string]string{}
 	cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig[admissonControlKey] = "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,AlwaysPullImages,ExtendedResourceToleration"
-	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
+	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.PodSecurityPolicyAddonName,
 			Enabled: to.BoolPtr(true),

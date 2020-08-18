@@ -141,10 +141,10 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 	return p
 }
 
-func getMockAddon(name string) api.KubernetesAddon {
-	return api.KubernetesAddon{
+func getMockAddon(name string) KubernetesAddon {
+	return KubernetesAddon{
 		Name: name,
-		Containers: []api.KubernetesContainerSpec{
+		Containers: []KubernetesContainerSpec{
 			{
 				Name:           name,
 				CPURequests:    "50m",
@@ -153,7 +153,7 @@ func getMockAddon(name string) api.KubernetesAddon {
 				MemoryLimits:   "150Mi",
 			},
 		},
-		Pools: []api.AddonNodePoolsConfig{
+		Pools: []AddonNodePoolsConfig{
 			{
 				Name: "pool1",
 				Config: map[string]string{

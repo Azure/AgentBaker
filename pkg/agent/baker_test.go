@@ -165,7 +165,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
 			} else {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
