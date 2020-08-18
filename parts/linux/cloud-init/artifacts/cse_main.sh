@@ -80,9 +80,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     ensureAuditD
 fi
 
-{{- if not HasCoreOS}}
 installContainerRuntime
-{{end}}
 
 installNetworkPlugin
 

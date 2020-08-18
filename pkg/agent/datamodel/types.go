@@ -778,16 +778,6 @@ func (p *Properties) HasDCSeriesSKU() bool {
 	return false
 }
 
-// HasCoreOS returns true if the cluster contains coreos nodes
-func (p *Properties) HasCoreOS() bool {
-	for _, agentPoolProfile := range p.AgentPoolProfiles {
-		if strings.EqualFold(string(agentPoolProfile.Distro), string(api.CoreOS)) {
-			return true
-		}
-	}
-	return false
-}
-
 // K8sOrchestratorName returns the 3 character orchestrator code for kubernetes-based clusters.
 func (p *Properties) K8sOrchestratorName() string {
 	if p.OrchestratorProfile.IsKubernetes() {
