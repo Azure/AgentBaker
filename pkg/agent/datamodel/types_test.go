@@ -325,15 +325,15 @@ func TestPropertiesIsHostedMasterProfile(t *testing.T) {
 func TestOSType(t *testing.T) {
 	p := Properties{
 		MasterProfile: &MasterProfile{
-			Distro: api.RHEL,
+			Distro: RHEL,
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				OSType: api.Linux,
+				OSType: Linux,
 			},
 			{
-				OSType: api.Linux,
-				Distro: api.RHEL,
+				OSType: Linux,
+				Distro: RHEL,
 			},
 		},
 	}
@@ -360,9 +360,9 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
 	}
 
-	p.MasterProfile.Distro = api.CoreOS
-	p.AgentPoolProfiles[0].OSType = api.Windows
-	p.AgentPoolProfiles[1].Distro = api.CoreOS
+	p.MasterProfile.Distro = CoreOS
+	p.AgentPoolProfiles[0].OSType = Windows
+	p.AgentPoolProfiles[1].Distro = CoreOS
 
 	if !p.HasWindows() {
 		t.Fatalf("expected HasWindows() to return true but instead returned false")
@@ -1356,7 +1356,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
 						Count:  2,
-						OSType: api.Linux,
+						OSType: Linux,
 					},
 				},
 			},
@@ -1370,12 +1370,12 @@ func TestAnyAgentIsLinux(t *testing.T) {
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
 						Count:  2,
-						OSType: api.Windows,
+						OSType: Windows,
 					},
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						OSType: api.Linux,
+						OSType: Linux,
 					},
 				},
 			},
@@ -1412,7 +1412,7 @@ func TestAnyAgentIsLinux(t *testing.T) {
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
 						Count:  100,
-						OSType: api.Windows,
+						OSType: Windows,
 					},
 				},
 			},
@@ -1500,16 +1500,16 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1604,
+					Distro: AKSUbuntu1604,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: api.Ubuntu,
+						Distro: Ubuntu,
 					},
 					{
 						Count:  1,
-						Distro: api.AKSUbuntu1604,
+						Distro: AKSUbuntu1604,
 					},
 				},
 			},
@@ -1519,7 +1519,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1804,
+					Distro: AKSUbuntu1804,
 				},
 			},
 			expected: true,
@@ -1528,7 +1528,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.Ubuntu1804,
+					Distro: Ubuntu1804,
 				},
 			},
 			expected: false,
@@ -1537,16 +1537,16 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1804,
+					Distro: AKSUbuntu1804,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: api.AKSUbuntu1804,
+						Distro: AKSUbuntu1804,
 					},
 					{
 						Count:  1,
-						Distro: api.AKSUbuntu1804,
+						Distro: AKSUbuntu1804,
 					},
 				},
 			},
@@ -1556,31 +1556,16 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.Ubuntu1804,
+					Distro: Ubuntu1804,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: api.Ubuntu,
+						Distro: Ubuntu,
 					},
 					{
 						Count:  1,
-						Distro: api.Ubuntu1804Gen2,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: api.Ubuntu1804,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: api.Ubuntu1804,
+						Distro: Ubuntu1804Gen2,
 					},
 				},
 			},
@@ -1590,12 +1575,12 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1604,
+					Distro: Ubuntu1804,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						OSType: api.Windows,
+						Distro: Ubuntu1804,
 					},
 				},
 			},
@@ -1605,12 +1590,27 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1804,
+					Distro: AKSUbuntu1604,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						OSType: api.Windows,
+						OSType: Windows,
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			p: Properties{
+				MasterProfile: &MasterProfile{
+					Count:  1,
+					Distro: AKSUbuntu1804,
+				},
+				AgentPoolProfiles: []*AgentPoolProfile{
+					{
+						Count:  1,
+						OSType: Windows,
 					},
 				},
 			},
@@ -1621,7 +1621,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: api.AKSUbuntu1604,
+						Distro: AKSUbuntu1604,
 					},
 				},
 			},
@@ -1632,7 +1632,7 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						OSType: api.Windows,
+						OSType: Windows,
 					},
 				},
 			},
@@ -2092,42 +2092,42 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 		{
 			name: "16.04 VHD distro",
 			ap: AgentPoolProfile{
-				Distro: api.AKSUbuntu1604,
+				Distro: AKSUbuntu1604,
 			},
 			expected: true,
 		},
 		{
 			name: "18.04 VHD distro",
 			ap: AgentPoolProfile{
-				Distro: api.AKSUbuntu1804,
+				Distro: AKSUbuntu1804,
 			},
 			expected: true,
 		},
 		{
 			name: "coreos distro",
 			ap: AgentPoolProfile{
-				Distro: api.CoreOS,
+				Distro: CoreOS,
 			},
 			expected: false,
 		},
 		{
 			name: "ubuntu distro",
 			ap: AgentPoolProfile{
-				Distro: api.Ubuntu,
+				Distro: Ubuntu,
 			},
 			expected: false,
 		},
 		{
 			name: "ubuntu 18.04 non-VHD distro",
 			ap: AgentPoolProfile{
-				Distro: api.Ubuntu1804,
+				Distro: Ubuntu1804,
 			},
 			expected: false,
 		},
 		{
 			name: "ubuntu 18.04 gen2 non-VHD distro",
 			ap: AgentPoolProfile{
-				Distro: api.Ubuntu1804Gen2,
+				Distro: Ubuntu1804Gen2,
 			},
 			expected: true,
 		},
@@ -2156,13 +2156,13 @@ func TestUbuntuVersion(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1604,
+					Distro: AKSUbuntu1604,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: api.AKSUbuntu1604,
-						OSType: api.Linux,
+						Distro: AKSUbuntu1604,
+						OSType: Linux,
 					},
 				},
 			},
@@ -2175,12 +2175,12 @@ func TestUbuntuVersion(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.AKSUbuntu1804,
+					Distro: AKSUbuntu1804,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
-						Distro: api.ACC1604,
+						Distro: ACC1604,
 					},
 				},
 			},
@@ -2193,13 +2193,13 @@ func TestUbuntuVersion(t *testing.T) {
 			p: Properties{
 				MasterProfile: &MasterProfile{
 					Count:  1,
-					Distro: api.Ubuntu,
+					Distro: Ubuntu,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
 						Distro: "",
-						OSType: api.Windows,
+						OSType: Windows,
 					},
 				},
 			},
@@ -2676,10 +2676,10 @@ func TestLinuxProfile(t *testing.T) {
 	}
 
 	l = LinuxProfile{
-		Secrets: []api.KeyVaultSecrets{
+		Secrets: []KeyVaultSecrets{
 			{
-				SourceVault: &api.KeyVaultID{"testVault"},
-				VaultCertificates: []api.KeyVaultCertificate{
+				SourceVault: &KeyVaultID{"testVault"},
+				VaultCertificates: []KeyVaultCertificate{
 					{
 						CertificateURL:   "testURL",
 						CertificateStore: "testStore",
@@ -2687,10 +2687,10 @@ func TestLinuxProfile(t *testing.T) {
 				},
 			},
 		},
-		CustomNodesDNS: &api.CustomNodesDNS{
+		CustomNodesDNS: &CustomNodesDNS{
 			DNSServer: "testDNSServer",
 		},
-		CustomSearchDomain: &api.CustomSearchDomain{
+		CustomSearchDomain: &CustomSearchDomain{
 			Name:          "testName",
 			RealmPassword: "testRealmPassword",
 			RealmUser:     "testRealmUser",
@@ -2721,10 +2721,10 @@ func TestWindowsProfile(t *testing.T) {
 	}
 
 	w = WindowsProfile{
-		Secrets: []api.KeyVaultSecrets{
+		Secrets: []KeyVaultSecrets{
 			{
-				SourceVault: &api.KeyVaultID{"testVault"},
-				VaultCertificates: []api.KeyVaultCertificate{
+				SourceVault: &KeyVaultID{"testVault"},
+				VaultCertificates: []KeyVaultCertificate{
 					{
 						CertificateURL:   "testURL",
 						CertificateStore: "testStore",
@@ -2776,7 +2776,7 @@ func TestWindowsProfileCustomOS(t *testing.T) {
 		{
 			name: "valid shared gallery image",
 			w: WindowsProfile{
-				ImageRef: &api.ImageReference{
+				ImageRef: &ImageReference{
 					Name:           "test",
 					ResourceGroup:  "testRG",
 					SubscriptionID: "testSub",
@@ -2791,7 +2791,7 @@ func TestWindowsProfileCustomOS(t *testing.T) {
 		{
 			name: "valid non-shared image",
 			w: WindowsProfile{
-				ImageRef: &api.ImageReference{
+				ImageRef: &ImageReference{
 					Name:          "test",
 					ResourceGroup: "testRG",
 				},

@@ -448,35 +448,35 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"GetMasterOSImageOffer": func() string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageOffer)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImageOffer)
 		},
 		"GetMasterOSImagePublisher": func() string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImagePublisher)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImagePublisher)
 		},
 		"GetMasterOSImageSKU": func() string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageSku)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImageSku)
 		},
 		"GetMasterOSImageVersion": func() string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[cs.Properties.MasterProfile.Distro].ImageVersion)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(cs.Properties.MasterProfile.Distro)].ImageVersion)
 		},
 		"GetAgentOSImageOffer": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageOffer)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageOffer)
 		},
 		"GetAgentOSImagePublisher": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImagePublisher)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImagePublisher)
 		},
 		"GetAgentOSImageSKU": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageSku)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageSku)
 		},
 		"GetAgentOSImageVersion": func(profile *datamodel.AgentPoolProfile) string {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[profile.Distro].ImageVersion)
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageVersion)
 		},
 		"UseCloudControllerManager": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager

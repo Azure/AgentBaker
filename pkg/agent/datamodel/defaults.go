@@ -22,8 +22,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// SetPropertiesDefaults for the container Properties.
-func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) error {
+// DistroValues is a list of currently supported distros
+var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
+
+// SetPropertiesDefaults for the container Properties
+func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) (bool, error) {
 	// Set master profile defaults if this cluster configuration includes master node(s)
 	if cs.Properties.MasterProfile != nil {
 		cs.setMasterProfileDefaults(params.IsUpgrade)
@@ -381,20 +384,20 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			// Distro assignment for masterProfile
 			if cs.Properties.MasterProfile.Distro == "" && cs.Properties.MasterProfile.ImageRef == nil {
 				if cs.Properties.OrchestratorProfile.IsKubernetes() && cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage == "" {
-					cs.Properties.MasterProfile.Distro = api.AKSUbuntu1604
+					cs.Properties.MasterProfile.Distro = AKSUbuntu1604
 				} else {
-					cs.Properties.MasterProfile.Distro = api.Ubuntu
+					cs.Properties.MasterProfile.Distro = Ubuntu
 				}
 			} else if cs.Properties.OrchestratorProfile.IsKubernetes() && (isUpgrade || isScale) {
-				if cs.Properties.MasterProfile.Distro == api.AKSDockerEngine || cs.Properties.MasterProfile.Distro == api.AKS1604Deprecated {
-					cs.Properties.MasterProfile.Distro = api.AKSUbuntu1604
-				} else if cs.Properties.MasterProfile.Distro == api.AKS1804Deprecated {
-					cs.Properties.MasterProfile.Distro = api.AKSUbuntu1804
+				if cs.Properties.MasterProfile.Distro == AKSDockerEngine || cs.Properties.MasterProfile.Distro == AKS1604Deprecated {
+					cs.Properties.MasterProfile.Distro = AKSUbuntu1604
+				} else if cs.Properties.MasterProfile.Distro == AKS1804Deprecated {
+					cs.Properties.MasterProfile.Distro = AKSUbuntu1804
 				}
 			}
 			// The AKS Distro is not available in Azure German Cloud.
 			if cloudSpecConfig.CloudName == api.AzureGermanCloud {
-				cs.Properties.MasterProfile.Distro = api.Ubuntu
+				cs.Properties.MasterProfile.Distro = Ubuntu
 			}
 		}
 
@@ -421,30 +424,30 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 				}
 			}
 			// Distro assignment for pools
-			if profile.OSType != api.Windows {
+			if profile.OSType != Windows {
 				if profile.Distro == "" && profile.ImageRef == nil {
 					if cs.Properties.OrchestratorProfile.IsKubernetes() && cs.Properties.OrchestratorProfile.KubernetesConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage == "" {
 						if profile.OSDiskSizeGB != 0 && profile.OSDiskSizeGB < api.VHDDiskSizeAKS {
-							profile.Distro = api.Ubuntu
+							profile.Distro = Ubuntu
 						} else {
-							profile.Distro = api.AKSUbuntu1604
+							profile.Distro = AKSUbuntu1604
 						}
 					} else {
-						profile.Distro = api.Ubuntu
+						profile.Distro = Ubuntu
 					}
 					// Ensure deprecated distros are overridden
 					// Previous versions of aks-engine required the docker-engine distro for N series vms,
 					// so we need to hard override it in order to produce a working cluster in upgrade/scale contexts.
 				} else if cs.Properties.OrchestratorProfile.IsKubernetes() && (isUpgrade || isScale) {
-					if profile.Distro == api.AKSDockerEngine || profile.Distro == api.AKS1604Deprecated {
-						profile.Distro = api.AKSUbuntu1604
-					} else if profile.Distro == api.AKS1804Deprecated {
-						profile.Distro = api.AKSUbuntu1804
+					if profile.Distro == AKSDockerEngine || profile.Distro == AKS1604Deprecated {
+						profile.Distro = AKSUbuntu1604
+					} else if profile.Distro == AKS1804Deprecated {
+						profile.Distro = AKSUbuntu1804
 					}
 				}
 				// The AKS Distro is not available in Azure German Cloud.
 				if cloudSpecConfig.CloudName == api.AzureGermanCloud {
-					profile.Distro = api.Ubuntu
+					profile.Distro = Ubuntu
 				}
 			}
 		}
@@ -630,7 +633,7 @@ func (cs *ContainerService) setMasterProfileDefaults(isUpgrade bool) {
 	}
 
 	if !p.OrchestratorProfile.IsKubernetes() {
-		p.MasterProfile.Distro = api.Ubuntu
+		p.MasterProfile.Distro = Ubuntu
 		if !p.MasterProfile.IsCustomVNET() {
 			if p.OrchestratorProfile.OrchestratorType == api.DCOS {
 				p.MasterProfile.Subnet = api.DefaultDCOSMasterSubnet
@@ -725,7 +728,7 @@ func (cs *ContainerService) setAgentProfileDefaults(isUpgrade, isScale bool) {
 		}
 		// set default OSType to Linux
 		if profile.OSType == "" {
-			profile.OSType = api.Linux
+			profile.OSType = Linux
 		}
 
 		if profile.PlatformUpdateDomainCount == nil {
@@ -757,7 +760,7 @@ func (cs *ContainerService) setAgentProfileDefaults(isUpgrade, isScale bool) {
 		}
 
 		if !p.OrchestratorProfile.IsKubernetes() {
-			profile.Distro = api.Ubuntu
+			profile.Distro = Ubuntu
 		}
 	}
 }

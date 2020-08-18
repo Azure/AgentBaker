@@ -21,7 +21,7 @@ func TestKubeletConfigDefaults(t *testing.T) {
 	winProfile.Count = 1
 	winProfile.Name = "agentpool2"
 	winProfile.VMSize = "Standard_D2_v2"
-	winProfile.OSType = api.Windows
+	winProfile.OSType = Windows
 	cs.Properties.AgentPoolProfiles = append(cs.Properties.AgentPoolProfiles, winProfile)
 	cs.setKubeletConfig(false)
 	kubeletConfig := cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
@@ -159,7 +159,7 @@ func TestKubeletConfigDefaultsRemovals(t *testing.T) {
 	poolProfile.Count = 1
 	poolProfile.Name = "agentpool2"
 	poolProfile.VMSize = "Standard_D2_v2"
-	poolProfile.OSType = api.Linux
+	poolProfile.OSType = Linux
 	cs.Properties.AgentPoolProfiles = append(cs.Properties.AgentPoolProfiles, poolProfile)
 	cs.setKubeletConfig(false)
 	kubeletConfig := cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
@@ -576,9 +576,9 @@ func TestProtectKernelDefaults(t *testing.T) {
 	}
 
 	// Validate that --protect-kernel-defaults is "true" by default for relevant distros
-	for _, distro := range api.DistroValues {
+	for _, distro := range DistroValues {
 		switch distro {
-		case api.AKSUbuntu1604, api.AKSUbuntu1804:
+		case AKSUbuntu1604, AKSUbuntu1804:
 			cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
 			cs.Properties.MasterProfile.Distro = distro
 			cs.Properties.AgentPoolProfiles[0].Distro = distro
@@ -599,7 +599,7 @@ func TestProtectKernelDefaults(t *testing.T) {
 			}
 
 		// Validate that --protect-kernel-defaults is not enabled for relevant distros
-		case api.Ubuntu, api.Ubuntu1804, api.Ubuntu1804Gen2, api.ACC1604, api.CoreOS:
+		case Ubuntu, Ubuntu1804, Ubuntu1804Gen2, ACC1604, CoreOS:
 			cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
 			cs.Properties.MasterProfile.Distro = distro
 			cs.Properties.AgentPoolProfiles[0].Distro = distro
@@ -618,8 +618,8 @@ func TestProtectKernelDefaults(t *testing.T) {
 
 	// Validate that --protect-kernel-defaults is not enabled for Windows
 	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.AKSUbuntu1604
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Windows
+	cs.Properties.MasterProfile.Distro = AKSUbuntu1604
+	cs.Properties.AgentPoolProfiles[0].OSType = Windows
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -710,7 +710,7 @@ func TestStaticWindowsConfig(t *testing.T) {
 
 	cs.setKubeletConfig(false)
 	for _, profile := range cs.Properties.AgentPoolProfiles {
-		if profile.OSType == api.Windows {
+		if profile.OSType == Windows {
 			for key, val := range expected {
 				if val != profile.KubernetesConfig.KubeletConfig[key] {
 					t.Fatalf("got unexpected '%s' kubelet config value, expected %s, got %s",
