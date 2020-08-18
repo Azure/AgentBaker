@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"regexp"
 	"sort"
@@ -63,25 +62,6 @@ func init() {
 }
 
 type paramsMap map[string]interface{}
-
-// validateDistro checks if the requested orchestrator type is supported on the requested Linux distro.
-func validateDistro(cs *datamodel.ContainerService) bool {
-	// Check Master distro
-	if cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.Distro == datamodel.RHEL &&
-		(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
-		log.Printf("Orchestrator type %s not suported on RHEL Master", cs.Properties.OrchestratorProfile.OrchestratorType)
-		return false
-	}
-	// Check Agent distros
-	for _, agentProfile := range cs.Properties.AgentPoolProfiles {
-		if agentProfile.Distro == datamodel.RHEL &&
-			(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
-			log.Printf("Orchestrator type %s not suported on RHEL Agent", cs.Properties.OrchestratorProfile.OrchestratorType)
-			return false
-		}
-	}
-	return true
-}
 
 // generateConsecutiveIPsList takes a starting IP address and returns a string slice of length "count" of subsequent, consecutive IP addresses
 func generateConsecutiveIPsList(count int, firstAddr string) ([]string, error) {

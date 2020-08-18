@@ -23,7 +23,7 @@ import (
 )
 
 // DistroValues is a list of currently supported distros
-var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, RHEL, CoreOS, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, ACC1604, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
+var DistroValues = []Distro{"", Ubuntu, Ubuntu1804, AKSUbuntu1604, AKSUbuntu1804, Ubuntu1804Gen2, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2}
 
 // SetPropertiesDefaults for the container Properties
 func (cs *ContainerService) SetPropertiesDefaults(params api.PropertiesDefaultsParams) error {
@@ -388,12 +388,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 				} else {
 					cs.Properties.MasterProfile.Distro = Ubuntu
 				}
-			} else if cs.Properties.OrchestratorProfile.IsKubernetes() && (isUpgrade || isScale) {
-				if cs.Properties.MasterProfile.Distro == AKSDockerEngine || cs.Properties.MasterProfile.Distro == AKS1604Deprecated {
-					cs.Properties.MasterProfile.Distro = AKSUbuntu1604
-				} else if cs.Properties.MasterProfile.Distro == AKS1804Deprecated {
-					cs.Properties.MasterProfile.Distro = AKSUbuntu1804
-				}
 			}
 			// The AKS Distro is not available in Azure German Cloud.
 			if cloudSpecConfig.CloudName == api.AzureGermanCloud {
@@ -438,12 +432,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 					// Ensure deprecated distros are overridden
 					// Previous versions of aks-engine required the docker-engine distro for N series vms,
 					// so we need to hard override it in order to produce a working cluster in upgrade/scale contexts.
-				} else if cs.Properties.OrchestratorProfile.IsKubernetes() && (isUpgrade || isScale) {
-					if profile.Distro == AKSDockerEngine || profile.Distro == AKS1604Deprecated {
-						profile.Distro = AKSUbuntu1604
-					} else if profile.Distro == AKS1804Deprecated {
-						profile.Distro = AKSUbuntu1804
-					}
 				}
 				// The AKS Distro is not available in Azure German Cloud.
 				if cloudSpecConfig.CloudName == api.AzureGermanCloud {

@@ -253,11 +253,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					URLQuery: "fooURL",
 				},
 			},
-			JumpboxProfile: &datamodel.JumpboxProfile{
-				OSType:    "Linux",
-				DNSPrefix: "blueorange",
-				FQDN:      "blueorange.westus2.com",
-			},
 			CertificateProfile: &datamodel.CertificateProfile{
 				CaCertificate:         "SampleCACert",
 				CaPrivateKey:          "SampleCAPrivateKey",
