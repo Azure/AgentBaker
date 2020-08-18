@@ -67,14 +67,14 @@ type paramsMap map[string]interface{}
 // validateDistro checks if the requested orchestrator type is supported on the requested Linux distro.
 func validateDistro(cs *datamodel.ContainerService) bool {
 	// Check Master distro
-	if cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.Distro == api.RHEL &&
+	if cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.Distro == datamodel.RHEL &&
 		(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
 		log.Printf("Orchestrator type %s not suported on RHEL Master", cs.Properties.OrchestratorProfile.OrchestratorType)
 		return false
 	}
 	// Check Agent distros
 	for _, agentProfile := range cs.Properties.AgentPoolProfiles {
-		if agentProfile.Distro == api.RHEL &&
+		if agentProfile.Distro == datamodel.RHEL &&
 			(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
 			log.Printf("Orchestrator type %s not suported on RHEL Agent", cs.Properties.OrchestratorProfile.OrchestratorType)
 			return false
@@ -141,7 +141,7 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 }
 
 func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) string {
-	if profile.OSType == api.Windows {
+	if profile.OSType == datamodel.Windows {
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
 	}

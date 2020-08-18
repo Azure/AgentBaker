@@ -5,8 +5,6 @@ package datamodel
 
 import (
 	"encoding/base64"
-	"encoding/binary"
-	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -1292,10 +1290,10 @@ func TestDistroDefaults(t *testing.T) {
 	var tests = []struct {
 		name                   string              // test case name
 		orchestratorProfile    OrchestratorProfile // orchestrator to be tested
-		masterProfileDistro    api.Distro
-		agentPoolProfileDistro api.Distro
-		expectedAgentDistro    api.Distro // expected agent result default disto to be used
-		expectedMasterDistro   api.Distro // expected master result default disto to be used
+		masterProfileDistro    Distro
+		agentPoolProfileDistro Distro
+		expectedAgentDistro    Distro // expected agent result default disto to be used
+		expectedMasterDistro   Distro // expected master result default disto to be used
 		isUpgrade              bool
 		isScale                bool
 		cloudName              string
@@ -1308,8 +1306,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -1322,8 +1320,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			false,
 			false,
 			api.AzureUSGovernmentCloud,
@@ -1334,10 +1332,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKSUbuntu1804,
-			api.AKSUbuntu1804,
-			api.AKSUbuntu1804,
-			api.AKSUbuntu1804,
+			AKSUbuntu1804,
+			AKSUbuntu1804,
+			AKSUbuntu1804,
+			AKSUbuntu1804,
 			true,
 			false,
 			api.AzurePublicCloud,
@@ -1348,10 +1346,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKS1604Deprecated,
-			api.AKS1604Deprecated,
-			api.Ubuntu,
-			api.Ubuntu,
+			AKS1604Deprecated,
+			AKS1604Deprecated,
+			Ubuntu,
+			Ubuntu,
 			true,
 			false,
 			api.AzureGermanCloud,
@@ -1362,10 +1360,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKS1604Deprecated,
-			api.AKS1604Deprecated,
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKS1604Deprecated,
+			AKS1604Deprecated,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			true,
 			false,
 			api.AzureChinaCloud,
@@ -1376,10 +1374,10 @@ func TestDistroDefaults(t *testing.T) {
 				OrchestratorType: api.Kubernetes,
 				KubernetesConfig: &api.KubernetesConfig{},
 			},
-			api.AKS1604Deprecated,
-			api.AKSDockerEngine,
-			api.AKSUbuntu1604,
-			api.AKSUbuntu1604,
+			AKS1604Deprecated,
+			AKSDockerEngine,
+			AKSUbuntu1604,
+			AKSUbuntu1604,
 			false,
 			true,
 			api.AzurePublicCloud,
@@ -1391,8 +1389,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.Ubuntu,
-			api.Ubuntu,
+			Ubuntu,
+			Ubuntu,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -1404,8 +1402,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.Ubuntu,
-			api.Ubuntu,
+			Ubuntu,
+			Ubuntu,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -1417,8 +1415,8 @@ func TestDistroDefaults(t *testing.T) {
 			},
 			"",
 			"",
-			api.Ubuntu,
-			api.Ubuntu,
+			Ubuntu,
+			Ubuntu,
 			false,
 			false,
 			api.AzurePublicCloud,
@@ -2025,7 +2023,7 @@ func TestAzureCNIVersionString(t *testing.T) {
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	properties.MasterProfile.Count = 1
-	properties.AgentPoolProfiles[0].OSType = api.Windows
+	properties.AgentPoolProfiles[0].OSType = Windows
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
 	mockCS.setOrchestratorDefaults(true, true)
 
@@ -2220,141 +2218,6 @@ func TestCloudProviderBackoff(t *testing.T) {
 	}
 }
 
-func TestSetCertDefaults(t *testing.T) {
-	cs := &ContainerService{
-		Properties: &Properties{
-			ServicePrincipalProfile: &ServicePrincipalProfile{
-				ClientID: "barClientID",
-				Secret:   "bazSecret",
-			},
-			MasterProfile: &MasterProfile{
-				Count:     3,
-				DNSPrefix: "myprefix1",
-				VMSize:    "Standard_DS2_v2",
-			},
-			OrchestratorProfile: &OrchestratorProfile{
-				OrchestratorType:    api.Kubernetes,
-				OrchestratorVersion: "1.10.2",
-				KubernetesConfig: &api.KubernetesConfig{
-					NetworkPlugin: api.NetworkPluginAzure,
-				},
-			},
-		},
-	}
-
-	cs.setOrchestratorDefaults(false, false)
-	cs.setMasterProfileDefaults(false)
-	result, ips, err := cs.SetDefaultCerts(api.DefaultCertParams{
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
-
-	if !result {
-		t.Error("expected SetDefaultCerts to return true")
-	}
-
-	if err != nil {
-		t.Errorf("unexpected error thrown while executing SetDefaultCerts %s", err.Error())
-	}
-
-	if ips == nil {
-		t.Error("expected SetDefaultCerts to create a list of IPs")
-	} else {
-
-		if len(ips) != cs.Properties.MasterProfile.Count+3 {
-			t.Errorf("expected length of IPs from SetDefaultCerts %d, actual length %d", cs.Properties.MasterProfile.Count+3, len(ips))
-		}
-
-		firstMasterIP := net.ParseIP(cs.Properties.MasterProfile.FirstConsecutiveStaticIP).To4()
-		offsetMultiplier := 1
-		addr := binary.BigEndian.Uint32(firstMasterIP)
-		expectedNewAddr := getNewAddr(addr, cs.Properties.MasterProfile.Count-1, offsetMultiplier)
-		actualLastIPAddr := binary.BigEndian.Uint32(ips[len(ips)-2])
-		if actualLastIPAddr != expectedNewAddr {
-			expectedLastIP := make(net.IP, 4)
-			binary.BigEndian.PutUint32(expectedLastIP, expectedNewAddr)
-			t.Errorf("expected last IP of master vm from SetDefaultCerts %d, actual %d", expectedLastIP, ips[len(ips)-2])
-		}
-
-		if cs.Properties.MasterProfile.HasMultipleNodes() {
-			expectedILBIP := net.IP{firstMasterIP[0], firstMasterIP[1], firstMasterIP[2], firstMasterIP[3] + byte(api.DefaultInternalLbStaticIPOffset)}
-			actualILBIPAddr := binary.BigEndian.Uint32(ips[2])
-			expectedILBIPAddr := binary.BigEndian.Uint32(expectedILBIP)
-
-			if actualILBIPAddr != expectedILBIPAddr {
-				t.Errorf("expected IP of master ILB from SetDefaultCerts %d, actual %d", expectedILBIP, ips[2])
-			}
-		}
-	}
-}
-
-func TestSetCertDefaultsVMSS(t *testing.T) {
-	cs := &ContainerService{
-		Properties: &Properties{
-			ServicePrincipalProfile: &ServicePrincipalProfile{
-				ClientID: "barClientID",
-				Secret:   "bazSecret",
-			},
-			MasterProfile: &MasterProfile{
-				Count:               3,
-				DNSPrefix:           "myprefix1",
-				VMSize:              "Standard_DS2_v2",
-				AvailabilityProfile: api.VirtualMachineScaleSets,
-			},
-			OrchestratorProfile: &OrchestratorProfile{
-				OrchestratorType:    api.Kubernetes,
-				OrchestratorVersion: "1.10.2",
-				KubernetesConfig: &api.KubernetesConfig{
-					NetworkPlugin: api.NetworkPluginAzure,
-				},
-			},
-		},
-	}
-
-	cs.setOrchestratorDefaults(false, false)
-	cs.setMasterProfileDefaults(false)
-	result, ips, err := cs.SetDefaultCerts(api.DefaultCertParams{
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
-
-	if !result {
-		t.Error("expected SetDefaultCerts to return true")
-	}
-
-	if err != nil {
-		t.Errorf("unexpected error thrown while executing SetDefaultCerts %s", err.Error())
-	}
-
-	if ips == nil {
-		t.Error("expected SetDefaultCerts to create a list of IPs")
-	} else {
-
-		if len(ips) != cs.Properties.MasterProfile.Count+3 {
-			t.Errorf("expected length of IPs from SetDefaultCerts %d, actual length %d", cs.Properties.MasterProfile.Count+3, len(ips))
-		}
-
-		firstMasterIP := net.ParseIP(cs.Properties.MasterProfile.FirstConsecutiveStaticIP).To4()
-		offsetMultiplier := cs.Properties.MasterProfile.IPAddressCount
-		addr := binary.BigEndian.Uint32(firstMasterIP)
-		expectedNewAddr := getNewAddr(addr, cs.Properties.MasterProfile.Count-1, offsetMultiplier)
-		actualLastIPAddr := binary.BigEndian.Uint32(ips[len(ips)-2])
-		if actualLastIPAddr != expectedNewAddr {
-			expectedLastIP := make(net.IP, 4)
-			binary.BigEndian.PutUint32(expectedLastIP, expectedNewAddr)
-			t.Errorf("expected last IP of master vm from SetDefaultCerts %d, actual %d", expectedLastIP, ips[len(ips)-2])
-		}
-
-		if cs.Properties.MasterProfile.HasMultipleNodes() {
-			expectedILBIP := net.IP{firstMasterIP[0], firstMasterIP[1], byte(255), byte(api.DefaultInternalLbStaticIPOffset)}
-			actualILBIPAddr := binary.BigEndian.Uint32(ips[2])
-			expectedILBIPAddr := binary.BigEndian.Uint32(expectedILBIP)
-
-			if actualILBIPAddr != expectedILBIPAddr {
-				t.Errorf("expected IP of master ILB from SetDefaultCerts %d, actual %d", expectedILBIP, ips[2])
-			}
-		}
-	}
-}
-
 func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 	cs := &ContainerService{
 		Properties: &Properties{
@@ -2430,9 +2293,9 @@ func TestPreserveNodesProperties(t *testing.T) {
 func TestUbuntu1804Flags(t *testing.T) {
 	// Validate --resolv-conf is missing with 16.04 distro and present with 18.04
 	cs := CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.AKSUbuntu1604
-	cs.Properties.AgentPoolProfiles[0].Distro = api.AKSUbuntu1804
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Linux
+	cs.Properties.MasterProfile.Distro = AKSUbuntu1604
+	cs.Properties.AgentPoolProfiles[0].Distro = AKSUbuntu1804
+	cs.Properties.AgentPoolProfiles[0].OSType = Linux
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -2450,9 +2313,9 @@ func TestUbuntu1804Flags(t *testing.T) {
 	}
 
 	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.Ubuntu1804
-	cs.Properties.AgentPoolProfiles[0].Distro = api.Ubuntu
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Linux
+	cs.Properties.MasterProfile.Distro = Ubuntu1804
+	cs.Properties.AgentPoolProfiles[0].Distro = Ubuntu
+	cs.Properties.AgentPoolProfiles[0].OSType = Linux
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -2470,9 +2333,9 @@ func TestUbuntu1804Flags(t *testing.T) {
 	}
 
 	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = api.Ubuntu
+	cs.Properties.MasterProfile.Distro = Ubuntu
 	cs.Properties.AgentPoolProfiles[0].Distro = ""
-	cs.Properties.AgentPoolProfiles[0].OSType = api.Windows
+	cs.Properties.AgentPoolProfiles[0].OSType = Windows
 	cs.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -3070,7 +2933,7 @@ func TestSetPropertiesDefaults(t *testing.T) {
 
 			cs := getMockBaseContainerService("1.16")
 
-			_, err := cs.SetPropertiesDefaults(c.params)
+			err := cs.SetPropertiesDefaults(c.params)
 
 			if err != nil {
 				t.Errorf("ContainerService.SetPropertiesDefaults returned error: %s", err)
@@ -3108,12 +2971,12 @@ func TestImageReference(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro:   api.AKSUbuntu1604,
+				Distro:   AKSUbuntu1604,
 				ImageRef: nil,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro:   api.AKSUbuntu1604,
+					Distro:   AKSUbuntu1604,
 					ImageRef: nil,
 				},
 			},
@@ -3126,7 +2989,7 @@ func TestImageReference(t *testing.T) {
 						OrchestratorType: api.Kubernetes,
 					},
 					MasterProfile: &MasterProfile{
-						ImageRef: &api.ImageReference{
+						ImageRef: &ImageReference{
 							Name:           "name",
 							ResourceGroup:  "resource-group",
 							SubscriptionID: "sub-id",
@@ -3137,7 +3000,7 @@ func TestImageReference(t *testing.T) {
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							ImageRef: &api.ImageReference{
+							ImageRef: &ImageReference{
 								Name:           "name",
 								ResourceGroup:  "resource-group",
 								SubscriptionID: "sub-id",
@@ -3150,7 +3013,7 @@ func TestImageReference(t *testing.T) {
 			},
 			expectedMasterProfile: MasterProfile{
 				Distro: "",
-				ImageRef: &api.ImageReference{
+				ImageRef: &ImageReference{
 					Name:           "name",
 					ResourceGroup:  "resource-group",
 					SubscriptionID: "sub-id",
@@ -3161,7 +3024,7 @@ func TestImageReference(t *testing.T) {
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: "",
-					ImageRef: &api.ImageReference{
+					ImageRef: &ImageReference{
 						Name:           "name",
 						ResourceGroup:  "resource-group",
 						SubscriptionID: "sub-id",
@@ -3182,7 +3045,7 @@ func TestImageReference(t *testing.T) {
 					CertificateProfile: getMockCertificateProfile(),
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							ImageRef: &api.ImageReference{
+							ImageRef: &ImageReference{
 								Name:           "name",
 								ResourceGroup:  "resource-group",
 								SubscriptionID: "sub-id",
@@ -3195,13 +3058,13 @@ func TestImageReference(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro:   api.AKSUbuntu1604,
+				Distro:   AKSUbuntu1604,
 				ImageRef: nil,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
 					Distro: "",
-					ImageRef: &api.ImageReference{
+					ImageRef: &ImageReference{
 						Name:           "name",
 						ResourceGroup:  "resource-group",
 						SubscriptionID: "sub-id",
@@ -3210,7 +3073,7 @@ func TestImageReference(t *testing.T) {
 					},
 				},
 				{
-					Distro:   api.AKSUbuntu1604,
+					Distro:   AKSUbuntu1604,
 					ImageRef: nil,
 				},
 			},
@@ -3319,12 +3182,12 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro:   api.AKSUbuntu1604,
+				Distro:   AKSUbuntu1604,
 				ImageRef: nil,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro:   api.AKSUbuntu1604,
+					Distro:   AKSUbuntu1604,
 					ImageRef: nil,
 				},
 			},
@@ -3347,11 +3210,11 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro: api.Ubuntu,
+				Distro: Ubuntu,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro: api.Ubuntu,
+					Distro: Ubuntu,
 				},
 			},
 		},
@@ -3367,21 +3230,21 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 						},
 					},
 					MasterProfile: &MasterProfile{
-						Distro: api.Ubuntu1804,
+						Distro: Ubuntu1804,
 					},
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
-							Distro: api.Ubuntu1804,
+							Distro: Ubuntu1804,
 						},
 					},
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro: api.Ubuntu1804,
+				Distro: Ubuntu1804,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro: api.Ubuntu1804,
+					Distro: Ubuntu1804,
 				},
 			},
 		},
@@ -3400,7 +3263,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 					AgentPoolProfiles: []*AgentPoolProfile{
 						{
 							Name:   "pool1",
-							Distro: api.Ubuntu1804,
+							Distro: Ubuntu1804,
 						},
 						{
 							Name: "pool2",
@@ -3409,14 +3272,14 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 				},
 			},
 			expectedMasterProfile: MasterProfile{
-				Distro: api.Ubuntu,
+				Distro: Ubuntu,
 			},
 			expectedAgentPoolProfiles: []AgentPoolProfile{
 				{
-					Distro: api.Ubuntu1804,
+					Distro: Ubuntu1804,
 				},
 				{
-					Distro: api.Ubuntu,
+					Distro: Ubuntu,
 				},
 			},
 		},

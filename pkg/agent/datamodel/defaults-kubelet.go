@@ -204,7 +204,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 			profile.KubernetesConfig.KubeletConfig = make(map[string]string)
 		}
 
-		if profile.OSType == api.Windows {
+		if profile.OSType == Windows {
 			for key, val := range staticWindowsKubeletConfig {
 				profile.KubernetesConfig.KubeletConfig[key] = val
 			}

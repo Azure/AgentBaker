@@ -75,7 +75,7 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	os.RemoveAll(defaultDir)
 
 	// Generate files with custom cloud profile in configuration
-	csCustom := datamodel.CreateMockContainerService("testcluster", "1.11.6", 1, 2, false)
+	csCustom := datamodel.CreateMockContainerService("testcluster", "1.11.6", 1, 2, true)
 	csCustom.Location = "customlocation"
 	csCustom.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
