@@ -15,21 +15,15 @@ import (
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
-	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
-type TemplateGenerator struct {
-	Translator *i18n.Translator
-}
+type TemplateGenerator struct{}
 
 // InitializeTemplateGenerator creates a new template generator object
 func InitializeTemplateGenerator() *TemplateGenerator {
-	t := &TemplateGenerator{
-		Translator: &i18n.Translator{},
-	}
-
+	t := &TemplateGenerator{}
 	return t
 }
 
@@ -132,18 +126,18 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	funcMap template.FuncMap) (string, error) {
 	b, err := templates.Asset(textFilename)
 	if err != nil {
-		return "", t.Translator.Errorf("yaml file %s does not exist", textFilename)
+		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
 	}
 
 	// use go templates to process the text filename
 	templ := template.New("customdata template").Option("missingkey=zero").Funcs(funcMap)
 	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
-		return "", t.Translator.Errorf("error parsing file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error parsing file %s: %v", textFilename, err)
 	}
 
 	var buffer bytes.Buffer
 	if err = templ.ExecuteTemplate(&buffer, textFilename, profile); err != nil {
-		return "", t.Translator.Errorf("error executing template for file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error executing template for file %s: %v", textFilename, err)
 	}
 	expandedTemplate := buffer.String()
 

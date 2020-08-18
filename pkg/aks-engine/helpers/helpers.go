@@ -5,15 +5,10 @@ package helpers
 
 import (
 	"bytes"
-	"crypto/rsa"
 	"encoding/json"
-	"io"
 	"os"
 	"runtime"
 	"strings"
-
-	"github.com/Azure/aks-engine/pkg/i18n"
-	"golang.org/x/crypto/ssh"
 )
 
 // GetHomeDir attempts to get the home dir from env
@@ -26,24 +21,6 @@ func GetHomeDir() string {
 		return home
 	}
 	return os.Getenv("HOME")
-}
-
-// CreateSSH creates an SSH key pair.
-func CreateSSH(rg io.Reader, s *i18n.Translator) (privateKey *rsa.PrivateKey, publicKeyString string, err error) {
-	privateKey, err = rsa.GenerateKey(rg, SSHKeySize)
-	if err != nil {
-		return nil, "", s.Errorf("failed to generate private key for ssh: %q", err)
-	}
-
-	publicKey := privateKey.PublicKey
-	sshPublicKey, err := ssh.NewPublicKey(&publicKey)
-	if err != nil {
-		return nil, "", s.Errorf("failed to create openssh public key string: %q", err)
-	}
-	authorizedKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
-	authorizedKey := string(authorizedKeyBytes)
-
-	return privateKey, authorizedKey, nil
 }
 
 // JSONMarshalIndent marshals formatted JSON w/ optional SetEscapeHTML

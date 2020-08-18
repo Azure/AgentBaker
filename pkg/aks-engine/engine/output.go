@@ -11,14 +11,11 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/aks-engine/pkg/helpers"
-	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/pkg/errors"
 )
 
 // ArtifactWriter represents the object that writes artifacts
-type ArtifactWriter struct {
-	Translator *i18n.Translator
-}
+type ArtifactWriter struct{}
 
 // WriteTLSArtifacts saves TLS certificates and keys to the server filesystem
 func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.ContainerService, apiVersion, template, parameters, artifactsDir string, certsGenerated bool, parametersOnly bool) error {
@@ -27,17 +24,13 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.Container
 		artifactsDir = path.Join("_output", artifactsDir)
 	}
 
-	f := &helpers.FileSaver{
-		Translator: w.Translator,
-	}
+	f := &helpers.FileSaver{}
 
 	// convert back the API object, and write it
 	var b []byte
 	var err error
 	if !parametersOnly {
-		apiloader := &api.Apiloader{
-			Translator: w.Translator,
-		}
+		apiloader := &api.Apiloader{}
 		b, err = apiloader.SerializeContainerService(containerService, apiVersion)
 
 		if err != nil {

@@ -224,9 +224,7 @@ const jsonWithTypo = `
 }`
 
 func TestStrictJSONValidationIsAppliedToVersionsAbove20170701(t *testing.T) {
-	a := &Apiloader{
-		Translator: nil,
-	}
+	a := &Apiloader{}
 	_, e := a.LoadContainerService([]byte(jsonWithTypo))
 	if e == nil {
 		t.Error("Expected mistyped 'ventSubnetID' key to be detected but it wasn't")
