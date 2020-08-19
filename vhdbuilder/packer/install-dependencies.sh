@@ -274,7 +274,9 @@ v1.9.2-v3.0.12
 v1.9.2-v4.0.12
 v1.9.2-v3.0.13
 v1.9.2-v3.0.14
+v1.9.2-v3.0.16
 v1.9.2-v4.0.13
+v1.9.2-v4.0.14
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
@@ -282,10 +284,12 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# 1.0.9 is for the cve fix
+# 1.0.10 is for the ipv6 fix
 OPENVPN_VERSIONS="
-1.0.6
-1.0.7
 1.0.8
+1.0.9
+1.0.10
 "
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
@@ -375,8 +379,8 @@ done
 
 # this is the patched images which AKS are using.
 AKS_IP_MASQ_AGENT_VERSIONS="
-2.0.0_v0.0.5
 2.5.0
+2.5.1
 "
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
@@ -407,7 +411,7 @@ done
 # v1.15.12-hotfix.20200714.1
 # v1.16.10-hotfix.20200714.1
 # v1.16.13-hotfix.20200714.1
-# v1.17.7-hotfix.20200714.1
+# v1.17.7-hotfix.20200714.2
 # v1.17.9-hotfix.20200714.1
 # v1.18.4-hotfix.20200626.1
 # v1.18.6-hotfix.20200723.1	
@@ -422,7 +426,7 @@ K8S_VERSIONS="
 1.16.10-hotfix.20200714.1
 1.16.13-hotfix.20200714.1
 1.17.3-hotfix.20200601.1
-1.17.7-hotfix.20200714.1
+1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200714.1
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
@@ -481,6 +485,7 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200624
 1.17.7-hotfix.20200714.1
+1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200714.1
 1.18.2-hotfix.20200624
 1.18.2-hotfix.20200624.1
