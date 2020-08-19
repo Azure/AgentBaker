@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 
@@ -12,19 +13,16 @@ import (
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
-	"github.com/Azure/aks-engine/pkg/i18n"
 )
 
 // Apiloader represents the object that loads api model
-type Apiloader struct {
-	Translator *i18n.Translator
-}
+type Apiloader struct{}
 
 // LoadContainerServiceFromFile loads an AKS Cluster API Model from a JSON file
 func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*datamodel.ContainerService, string, error) {
 	contents, e := ioutil.ReadFile(jsonFile)
 	if e != nil {
-		return nil, "", a.Translator.Errorf("error reading file %s: %s", jsonFile, e.Error())
+		return nil, "", fmt.Errorf("error reading file %s: %s", jsonFile, e.Error())
 	}
 	return a.DeserializeContainerService(contents)
 }
@@ -77,7 +75,7 @@ func (a *Apiloader) SerializeContainerService(containerService *datamodel.Contai
 		return b, nil
 
 	default:
-		return nil, a.Translator.Errorf("invalid version %s for conversion back from unversioned object", version)
+		return nil, fmt.Errorf("invalid version %s for conversion back from unversioned object", version)
 	}
 }
 
@@ -85,7 +83,7 @@ func (a *Apiloader) SerializeContainerService(containerService *datamodel.Contai
 func (a *Apiloader) LoadAgentpoolProfileFromFile(jsonFile string) (*datamodel.AgentPoolProfile, error) {
 	contents, e := ioutil.ReadFile(jsonFile)
 	if e != nil {
-		return nil, a.Translator.Errorf("error reading file %s: %s", jsonFile, e.Error())
+		return nil, fmt.Errorf("error reading file %s: %s", jsonFile, e.Error())
 	}
 	return a.LoadAgentPoolProfile(contents)
 }

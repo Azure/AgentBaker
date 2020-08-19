@@ -18,7 +18,6 @@ import (
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/helpers"
-	"github.com/blang/semver"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -472,28 +471,6 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 
 		// Configure apiserver
 		cs.setAPIServerConfig()
-
-	case api.DCOS:
-		if o.DcosConfig == nil {
-			o.DcosConfig = &api.DcosConfig{}
-		}
-		dcosSemVer, _ := semver.Make(o.OrchestratorVersion)
-		dcosBootstrapSemVer, _ := semver.Make(common.DCOSVersion1Dot11Dot0)
-		if !dcosSemVer.LT(dcosBootstrapSemVer) {
-			if o.DcosConfig.BootstrapProfile == nil {
-				o.DcosConfig.BootstrapProfile = &api.BootstrapProfile{}
-			}
-			if len(o.DcosConfig.BootstrapProfile.VMSize) == 0 {
-				o.DcosConfig.BootstrapProfile.VMSize = "Standard_D2s_v3"
-			}
-		}
-		if !cs.Properties.MasterProfile.IsCustomVNET() {
-			if cs.Properties.OrchestratorProfile.DcosConfig != nil && cs.Properties.OrchestratorProfile.DcosConfig.BootstrapProfile != nil {
-				if !isUpgrade || len(cs.Properties.OrchestratorProfile.DcosConfig.BootstrapProfile.StaticIP) == 0 {
-					cs.Properties.OrchestratorProfile.DcosConfig.BootstrapProfile.StaticIP = api.DefaultDCOSBootstrapStaticIP
-				}
-			}
-		}
 	}
 }
 

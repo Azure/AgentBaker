@@ -4,26 +4,15 @@
 package engine
 
 import (
-	"path"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
-	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/leonelquinteros/gotext"
 )
 
 func TestGenerateKubeConfig(t *testing.T) {
-	locale := gotext.NewLocale(path.Join("..", "..", "translations"), "en_US")
-	i18n.Initialize(locale)
-
-	apiloader := &aksenginefork.Apiloader{
-		Translator: &i18n.Translator{
-			Locale: locale,
-		},
-	}
-
+	apiloader := &aksenginefork.Apiloader{}
 	testData := "./testdata/simple/kubernetes.json"
 
 	containerService, _, err := apiloader.LoadContainerServiceFromFile(testData)

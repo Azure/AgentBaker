@@ -4,50 +4,8 @@
 package helpers
 
 import (
-	"bytes"
-	"crypto/x509"
-	"encoding/pem"
-	"math/rand"
-	"strings"
 	"testing"
-
-	"github.com/Azure/aks-engine/pkg/i18n"
 )
-
-func TestCreateSSH(t *testing.T) {
-	rg := rand.New(rand.NewSource(42))
-
-	translator := &i18n.Translator{
-		Locale: nil,
-	}
-
-	privateKey, publicKey, err := CreateSSH(rg, translator)
-	if err != nil {
-		t.Fatalf("failed to generate SSH: %s", err)
-	}
-	pemBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-	}
-	pemBuffer := bytes.Buffer{}
-	pem.Encode(&pemBuffer, pemBlock)
-
-	if !strings.HasPrefix(pemBuffer.String(), "-----BEGIN RSA PRIVATE KEY-----") {
-		t.Fatalf("Private Key did not start with expected header")
-	}
-
-	if privateKey.N.BitLen() != SSHKeySize {
-		t.Fatalf("Private Key was of length %d but %d was expected", privateKey.N.BitLen(), SSHKeySize)
-	}
-
-	if err := privateKey.Validate(); err != nil {
-		t.Fatalf("Private Key failed validation: %v", err)
-	}
-
-	if !strings.HasPrefix(publicKey, "ssh-rsa ") {
-		t.Fatalf("Public Key did not start with expected header")
-	}
-}
 
 type ContainerService struct {
 	ID       string `json:"id"`

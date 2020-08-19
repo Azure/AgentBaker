@@ -12,17 +12,12 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
-	"github.com/Azure/aks-engine/pkg/i18n"
 )
 
 func TestWriteTLSArtifacts(t *testing.T) {
 
 	cs := datamodel.CreateMockContainerService("testcluster", "1.7.12", 1, 2, true)
-	writer := &ArtifactWriter{
-		Translator: &i18n.Translator{
-			Locale: nil,
-		},
-	}
+	writer := &ArtifactWriter{}
 	dir := "_testoutputdir"
 	defaultDir := fmt.Sprintf("%s-%s", cs.Properties.OrchestratorProfile.OrchestratorType, cs.Properties.GetClusterID())
 	defaultDir = path.Join("_output", defaultDir)

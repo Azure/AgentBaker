@@ -542,7 +542,6 @@ type OrchestratorProfile struct {
 	OrchestratorType    string            `json:"orchestratorType"`
 	OrchestratorVersion string            `json:"orchestratorVersion"`
 	KubernetesConfig    *KubernetesConfig `json:"kubernetesConfig,omitempty"`
-	DcosConfig          *api.DcosConfig   `json:"dcosConfig,omitempty"`
 }
 
 // ProvisioningState represents the current state of container service resource.
@@ -839,16 +838,6 @@ func (p *Properties) HasNSeriesSKU() bool {
 func (p *Properties) HasDCSeriesSKU() bool {
 	for _, profile := range p.AgentPoolProfiles {
 		if strings.Contains(profile.VMSize, "Standard_DC") {
-			return true
-		}
-	}
-	return false
-}
-
-// HasCoreOS returns true if the cluster contains coreos nodes
-func (p *Properties) HasCoreOS() bool {
-	for _, agentPoolProfile := range p.AgentPoolProfiles {
-		if strings.EqualFold(string(agentPoolProfile.Distro), string(api.CoreOS)) {
 			return true
 		}
 	}

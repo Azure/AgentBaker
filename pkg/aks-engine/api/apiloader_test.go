@@ -7,16 +7,13 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
-	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/leonelquinteros/gotext"
 )
 
 const exampleCustomHyperkubeImage = `example.azurecr.io/example/hyperkube-amd64:custom`
@@ -42,13 +39,7 @@ const exampleAPIModel = `{
 `
 
 func TestLoadContainerServiceFromFile(t *testing.T) {
-	locale := gotext.NewLocale(path.Join("..", "..", "translations"), "en_US")
-	i18n.Initialize(locale)
-	apiloader := &Apiloader{
-		Translator: &i18n.Translator{
-			Locale: locale,
-		},
-	}
+	apiloader := &Apiloader{}
 
 	_, _, err := apiloader.LoadContainerServiceFromFile("./testdata/simple/kubernetes.json")
 	if err != nil {
@@ -123,9 +114,7 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 }
 
 func TestDeserializeContainerService(t *testing.T) {
-	apiloader := &Apiloader{
-		Translator: nil,
-	}
+	apiloader := &Apiloader{}
 
 	// Test AKS Engine api model
 	cs, version, err := apiloader.DeserializeContainerService([]byte(exampleAPIModel))
@@ -157,9 +146,7 @@ func TestSerializeContainerService(t *testing.T) {
 		Subnet:      "sampleSubnet",
 		IPMasqAgent: true,
 	}
-	apiloader := &Apiloader{
-		Translator: &i18n.Translator{},
-	}
+	apiloader := &Apiloader{}
 
 	// Test with version vlabs
 	b, err := apiloader.SerializeContainerService(cs, vlabs.APIVersion)
@@ -286,23 +273,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			OrchestratorProfile: &datamodel.OrchestratorProfile{
 				OrchestratorType:    "Kubernetes",
 				OrchestratorVersion: "1.11.6",
-				DcosConfig: &api.DcosConfig{
-					DcosBootstrapURL:         "SampleDcosBootstrapURL",
-					DcosWindowsBootstrapURL:  "SampleWindowsDcosBootstrapURL",
-					Registry:                 "SampleRegistry",
-					RegistryPass:             "SampleRegistryPass",
-					RegistryUser:             "SampleRegistryUser",
-					DcosClusterPackageListID: "SampleDcosClusterPackageListID",
-					DcosProviderPackageID:    "SampleDcosProviderPackageID",
-					BootstrapProfile: &api.BootstrapProfile{
-						VMSize:       "Standard_Ds1_v1",
-						OSDiskSizeGB: 256,
-						OAuthEnabled: true,
-						StaticIP:     "172.0.0.1",
-						Subnet:       "255.255.255.0",
-					},
-				},
-				KubernetesConfig: &datamodel.KubernetesConfig{},
+				KubernetesConfig:    &datamodel.KubernetesConfig{},
 			},
 			MasterProfile: &datamodel.MasterProfile{
 				Count:     1,
