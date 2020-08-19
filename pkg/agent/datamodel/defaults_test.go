@@ -622,7 +622,7 @@ func TestNetworkPluginDefaults(t *testing.T) {
 	mockCS = getMockBaseContainerService("1.15.7")
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
+	properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.FlannelAddonName,
 			Enabled: to.BoolPtr(true),
@@ -888,9 +888,9 @@ func TestStorageProfile(t *testing.T) {
 	properties := mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	properties.MasterProfile.Count = 1
-	properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &api.PrivateCluster{
+	properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &PrivateCluster{
 		Enabled:        to.BoolPtr(true),
-		JumpboxProfile: &api.PrivateJumpboxProfile{},
+		JumpboxProfile: &PrivateJumpboxProfile{},
 	}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -2230,7 +2230,7 @@ func TestProxyModeDefaults(t *testing.T) {
 	properties.MasterProfile.Count = 1
 	mockCS.setOrchestratorDefaults(true, true)
 
-	if properties.OrchestratorProfile.KubernetesConfig.ProxyMode != api.DefaultKubeProxyMode {
+	if properties.OrchestratorProfile.KubernetesConfig.ProxyMode != DefaultKubeProxyMode {
 		t.Fatalf("ProxyMode string not the expected default value, got %s, expected %s", properties.OrchestratorProfile.KubernetesConfig.ProxyMode, api.DefaultKubeProxyMode)
 	}
 
@@ -2238,11 +2238,11 @@ func TestProxyModeDefaults(t *testing.T) {
 	mockCS = getMockBaseContainerService("1.10.12")
 	properties = mockCS.Properties
 	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.OrchestratorProfile.KubernetesConfig.ProxyMode = api.KubeProxyModeIPVS
+	properties.OrchestratorProfile.KubernetesConfig.ProxyMode = KubeProxyModeIPVS
 	properties.MasterProfile.Count = 1
 	mockCS.setOrchestratorDefaults(true, true)
 
-	if properties.OrchestratorProfile.KubernetesConfig.ProxyMode != api.KubeProxyModeIPVS {
+	if properties.OrchestratorProfile.KubernetesConfig.ProxyMode != KubeProxyModeIPVS {
 		t.Fatalf("ProxyMode string not the expected default value, got %s, expected %s", properties.OrchestratorProfile.KubernetesConfig.ProxyMode, api.KubeProxyModeIPVS)
 	}
 }

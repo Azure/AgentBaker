@@ -281,7 +281,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				SubjectAltNames: []string{
 					"fooSubjectAltName",
 				},
-				CustomFiles: &[]api.CustomFile{
+				CustomFiles: &[]datamodel.CustomFile{
 					{
 						Source: "sampleCustomFileSource",
 						Dest:   "sampleCustomFileDest",
@@ -356,16 +356,16 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					AzureCNIURLWindows:              "https://mirror.azk8s.cn/kubernetes/azure-container-networking/windows",
 					KeyVaultSku:                     "Basic",
 					MaximumLoadBalancerRuleCount:    3,
-					ProxyMode:                       api.KubeProxyModeIPTables,
+					ProxyMode:                       datamodel.KubeProxyModeIPTables,
 					PrivateAzureRegistryServer:      "sampleRegistryServerURL",
 					KubeletConfig: map[string]string{
 						"barKey": "bazValue",
 					},
-					Addons: []api.KubernetesAddon{
+					Addons: []datamodel.KubernetesAddon{
 						{
 							Name:    "sampleAddon",
 							Enabled: to.BoolPtr(true),
-							Containers: []api.KubernetesContainerSpec{
+							Containers: []datamodel.KubernetesContainerSpec{
 								{
 									Name:           "sampleK8sContainer",
 									Image:          "sampleK8sImage",
@@ -390,9 +390,9 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					SchedulerConfig: map[string]string{
 						"sampleSchedulerKey": "sampleSchedulerVal",
 					},
-					PrivateCluster: &api.PrivateCluster{
+					PrivateCluster: &datamodel.PrivateCluster{
 						Enabled: to.BoolPtr(true),
-						JumpboxProfile: &api.PrivateJumpboxProfile{
+						JumpboxProfile: &datamodel.PrivateJumpboxProfile{
 							Name:           "sampleJumpboxProfile",
 							VMSize:         "Standard_DS1_v2",
 							OSDiskSizeGB:   512,

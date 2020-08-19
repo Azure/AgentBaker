@@ -108,7 +108,7 @@ func TestKubeletConfigDefaults(t *testing.T) {
 
 	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
 	// check when ip-masq-agent is explicitly disabled in kubernetes config
-	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
+	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(false),
@@ -431,7 +431,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 		IPMasqAgent: false,
 	}
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
-	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
+	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(true),
@@ -451,7 +451,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 		IPMasqAgent: true,
 	}
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
-	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
+	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(true),
@@ -467,7 +467,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 	// no HostedMasterProfile, --non-masquerade-cidr should be 0.0.0.0/0
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
-	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []api.KubernetesAddon{
+	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(true),
@@ -487,7 +487,7 @@ func TestKubeletIPMasqAgentEnabledOrDisabled(t *testing.T) {
 	cs := CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
 	b := false
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
-		Addons: []api.KubernetesAddon{
+		Addons: []KubernetesAddon{
 			{
 				Name:    common.IPMASQAgentAddonName,
 				Enabled: &b,
@@ -506,7 +506,7 @@ func TestKubeletIPMasqAgentEnabledOrDisabled(t *testing.T) {
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
 	b = true
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
-		Addons: []api.KubernetesAddon{
+		Addons: []KubernetesAddon{
 			{
 				Name:    common.IPMASQAgentAddonName,
 				Enabled: &b,

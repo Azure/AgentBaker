@@ -199,7 +199,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 			p: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.CoreDNSAddonName,
 								Enabled: to.BoolPtr(true),
@@ -215,7 +215,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 			p: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(false),
@@ -231,7 +231,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 			p: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name: common.IPMASQAgentAddonName,
 							},
@@ -246,7 +246,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 			p: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(true),
@@ -1119,7 +1119,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							getMockAddon(common.IPMASQAgentAddonName),
 						},
 					},
@@ -1133,7 +1133,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{},
+						Addons: []KubernetesAddon{},
 					},
 				},
 			},
@@ -1145,10 +1145,10 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name: common.IPMASQAgentAddonName,
-								Containers: []api.KubernetesContainerSpec{
+								Containers: []KubernetesContainerSpec{
 									{
 										Name: common.IPMASQAgentAddonName,
 									},
@@ -1166,11 +1166,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(false),
-								Containers: []api.KubernetesContainerSpec{
+								Containers: []KubernetesContainerSpec{
 									{
 										Name: common.IPMASQAgentAddonName,
 									},
@@ -1188,11 +1188,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(false),
-								Containers: []api.KubernetesContainerSpec{
+								Containers: []KubernetesContainerSpec{
 									{
 										Name: common.IPMASQAgentAddonName,
 									},
@@ -1213,11 +1213,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(true),
-								Containers: []api.KubernetesContainerSpec{
+								Containers: []KubernetesContainerSpec{
 									{
 										Name: common.IPMASQAgentAddonName,
 									},
@@ -1238,11 +1238,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						Addons: []api.KubernetesAddon{
+						Addons: []KubernetesAddon{
 							{
 								Name:    common.IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(true),
-								Containers: []api.KubernetesContainerSpec{
+								Containers: []KubernetesContainerSpec{
 									{
 										Name: common.IPMASQAgentAddonName,
 									},
@@ -2475,9 +2475,9 @@ func TestHasStorageProfile(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &api.PrivateCluster{
+						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(true),
-							JumpboxProfile: &api.PrivateJumpboxProfile{
+							JumpboxProfile: &PrivateJumpboxProfile{
 								StorageProfile: api.ManagedDisks,
 							},
 						},
@@ -2505,9 +2505,9 @@ func TestHasStorageProfile(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &api.PrivateCluster{
+						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(true),
-							JumpboxProfile: &api.PrivateJumpboxProfile{
+							JumpboxProfile: &PrivateJumpboxProfile{
 								StorageProfile: api.StorageAccount,
 							},
 						},
@@ -2939,7 +2939,7 @@ func TestIsPrivateCluster(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &api.PrivateCluster{
+						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(true),
 						},
 					},
@@ -2952,7 +2952,7 @@ func TestIsPrivateCluster(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &api.PrivateCluster{
+						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(false),
 						},
 					},
@@ -2965,7 +2965,7 @@ func TestIsPrivateCluster(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: api.Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &api.PrivateCluster{},
+						PrivateCluster: &PrivateCluster{},
 					},
 				},
 			},
@@ -3247,7 +3247,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name: "foo",
 					},
@@ -3258,7 +3258,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
 						Enabled: to.BoolPtr(false),
@@ -3270,7 +3270,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
 						Enabled: to.BoolPtr(true),
@@ -3282,7 +3282,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    "bar",
 						Enabled: to.BoolPtr(true),
@@ -3315,7 +3315,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "ip-masq-agent present but no configuration",
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name: common.IPMASQAgentAddonName,
 					},
@@ -3326,7 +3326,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "ip-masq-agent explicitly disabled",
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    common.IPMASQAgentAddonName,
 						Enabled: to.BoolPtr(false),
@@ -3338,7 +3338,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 		{
 			name: "ip-masq-agent explicitly enabled",
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    common.IPMASQAgentAddonName,
 						Enabled: to.BoolPtr(true),
@@ -3364,7 +3364,7 @@ func TestGetAddonByName(t *testing.T) {
 	// Addon present and enabled with logAnalyticsWorkspaceResourceId in config
 	b := true
 	c := KubernetesConfig{
-		Addons: []api.KubernetesAddon{
+		Addons: []KubernetesAddon{
 			{
 				Name:    common.ContainerMonitoringAddonName,
 				Enabled: &b,
@@ -3397,7 +3397,7 @@ func TestGetAddonByName(t *testing.T) {
 	// Addon present and enabled with legacy config
 	b = true
 	c = KubernetesConfig{
-		Addons: []api.KubernetesAddon{
+		Addons: []KubernetesAddon{
 			{
 				Name:    common.ContainerMonitoringAddonName,
 				Enabled: &b,
@@ -3436,7 +3436,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name: "foo",
 					},
@@ -3447,7 +3447,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
 						Enabled: to.BoolPtr(false),
@@ -3459,7 +3459,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
 						Enabled: to.BoolPtr(true),
@@ -3471,7 +3471,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 		},
 		{
 			k: &KubernetesConfig{
-				Addons: []api.KubernetesAddon{
+				Addons: []KubernetesAddon{
 					{
 						Name:    "bar",
 						Enabled: to.BoolPtr(true),
@@ -3628,5 +3628,78 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.kc.GetOrderedKubeletConfigStringForPowershell())
 			}
 		})
+	}
+}
+
+func TestKubernetesAddonIsEnabled(t *testing.T) {
+	cases := []struct {
+		a        *KubernetesAddon
+		expected bool
+	}{
+		{
+			a:        &KubernetesAddon{},
+			expected: false,
+		},
+		{
+			a: &KubernetesAddon{
+				Enabled: to.BoolPtr(false),
+			},
+			expected: false,
+		},
+		{
+			a: &KubernetesAddon{
+				Enabled: to.BoolPtr(true),
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		if c.a.IsEnabled() != c.expected {
+			t.Fatalf("expected IsEnabled() to return %t but instead returned %t", c.expected, c.a.IsEnabled())
+		}
+	}
+}
+
+func TestKubernetesAddonIsDisabled(t *testing.T) {
+	cases := []struct {
+		a        *KubernetesAddon
+		expected bool
+	}{
+		{
+			a:        &KubernetesAddon{},
+			expected: false,
+		},
+		{
+			a: &KubernetesAddon{
+				Enabled: to.BoolPtr(false),
+			},
+			expected: true,
+		},
+		{
+			a: &KubernetesAddon{
+				Enabled: to.BoolPtr(true),
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		if c.a.IsDisabled() != c.expected {
+			t.Fatalf("expected IsDisabled() to return %t but instead returned %t", c.expected, c.a.IsDisabled())
+		}
+	}
+}
+
+func TestGetAddonContainersIndexByName(t *testing.T) {
+	addonName := "testaddon"
+	addon := getMockAddon(addonName)
+	i := addon.GetAddonContainersIndexByName(addonName)
+	if i != 0 {
+		t.Fatalf("getAddonContainersIndexByName() did not return the expected index value 0, instead returned: %d", i)
+	}
+	i = addon.GetAddonContainersIndexByName("nonExistentContainerName")
+	if i != -1 {
+		t.Fatalf("getAddonContainersIndexByName() did not return the expected index value -1, instead returned: %d", i)
 	}
 }
