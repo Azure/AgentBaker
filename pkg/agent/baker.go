@@ -254,12 +254,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
-		"HasPrivateRegistry": func() bool {
-			if cs.Properties.OrchestratorProfile.DcosConfig != nil {
-				return cs.Properties.OrchestratorProfile.DcosConfig.HasPrivateRegistry()
-			}
-			return false
-		},
 		"IsSwarmMode": func() bool {
 			return cs.Properties.OrchestratorProfile.IsSwarmMode()
 		},
@@ -321,9 +315,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"GetDataDisks": func(profile *datamodel.AgentPoolProfile) string {
 			return getDataDisks(profile)
-		},
-		"HasBootstrap": func() bool {
-			return cs.Properties.OrchestratorProfile.DcosConfig != nil && cs.Properties.OrchestratorProfile.DcosConfig.HasBootstrap()
 		},
 		"GetDefaultVNETCIDR": func() string {
 			return DefaultVNETCIDR

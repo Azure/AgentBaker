@@ -478,7 +478,6 @@ type OrchestratorProfile struct {
 	OrchestratorType    string            `json:"orchestratorType"`
 	OrchestratorVersion string            `json:"orchestratorVersion"`
 	KubernetesConfig    *KubernetesConfig `json:"kubernetesConfig,omitempty"`
-	DcosConfig          *api.DcosConfig   `json:"dcosConfig,omitempty"`
 }
 
 // ProvisioningState represents the current state of container service resource.
