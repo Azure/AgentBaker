@@ -70,8 +70,6 @@ write_files:
 
 
     
-        
-    
 
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"

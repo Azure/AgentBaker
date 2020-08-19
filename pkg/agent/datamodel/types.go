@@ -1080,11 +1080,6 @@ func (a *AgentPoolProfile) HasDisks() bool {
 	return len(a.DiskSizesGB) > 0
 }
 
-// IsCoreOS returns true if the agent specified a CoreOS distro
-func (a *AgentPoolProfile) IsCoreOS() bool {
-	return strings.EqualFold(string(a.OSType), string(api.Linux)) && strings.EqualFold(string(a.Distro), string(api.CoreOS))
-}
-
 // IsAuditDEnabled returns true if the master profile is configured for auditd
 func (a *AgentPoolProfile) IsAuditDEnabled() bool {
 	return to.Bool(a.AuditDEnabled)
