@@ -16,7 +16,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/engine/transform"
-	"github.com/Azure/aks-engine/pkg/i18n"
 	"github.com/google/uuid"
 	"github.com/leonelquinteros/gotext"
 	"github.com/pkg/errors"
@@ -88,13 +87,6 @@ func newGenerateCmd() *cobra.Command {
 }
 
 func (gc *generateCmd) validate(cmd *cobra.Command, args []string) error {
-	var err error
-
-	gc.locale, err = i18n.LoadTranslations()
-	if err != nil {
-		return errors.Wrap(err, "error loading translation files")
-	}
-
 	if gc.apimodelPath == "" {
 		if len(args) == 1 {
 			gc.apimodelPath = args[0]
@@ -140,11 +132,7 @@ func (gc *generateCmd) loadAPIModel() error {
 	var caKeyBytes []byte
 	var err error
 
-	apiloader := &aksenginefork.Apiloader{
-		Translator: &i18n.Translator{
-			Locale: gc.locale,
-		},
-	}
+	apiloader := &aksenginefork.Apiloader{}
 
 	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
 	if err != nil {
@@ -240,11 +228,7 @@ func (gc *generateCmd) run() error {
 
 	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(config)
 
-	writer := &engine.ArtifactWriter{
-		Translator: &i18n.Translator{
-			Locale: gc.locale,
-		},
-	}
+	writer := &engine.ArtifactWriter{}
 	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
