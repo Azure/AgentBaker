@@ -525,9 +525,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()
 		},
-		"HasCoreOS": func() bool {
-			return cs.Properties.HasCoreOS()
-		},
 		"GetComponentImageReference": func(name string) string {
 			k := cs.Properties.OrchestratorProfile.KubernetesConfig
 			switch name {
