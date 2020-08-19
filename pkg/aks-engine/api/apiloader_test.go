@@ -286,23 +286,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			OrchestratorProfile: &datamodel.OrchestratorProfile{
 				OrchestratorType:    "Kubernetes",
 				OrchestratorVersion: "1.11.6",
-				DcosConfig: &api.DcosConfig{
-					DcosBootstrapURL:         "SampleDcosBootstrapURL",
-					DcosWindowsBootstrapURL:  "SampleWindowsDcosBootstrapURL",
-					Registry:                 "SampleRegistry",
-					RegistryPass:             "SampleRegistryPass",
-					RegistryUser:             "SampleRegistryUser",
-					DcosClusterPackageListID: "SampleDcosClusterPackageListID",
-					DcosProviderPackageID:    "SampleDcosProviderPackageID",
-					BootstrapProfile: &api.BootstrapProfile{
-						VMSize:       "Standard_Ds1_v1",
-						OSDiskSizeGB: 256,
-						OAuthEnabled: true,
-						StaticIP:     "172.0.0.1",
-						Subnet:       "255.255.255.0",
-					},
-				},
-				KubernetesConfig: &datamodel.KubernetesConfig{},
+				KubernetesConfig:    &datamodel.KubernetesConfig{},
 			},
 			MasterProfile: &datamodel.MasterProfile{
 				Count:     1,
