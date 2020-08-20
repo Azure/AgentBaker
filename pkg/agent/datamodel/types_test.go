@@ -350,14 +350,6 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsLinux() to return true but instead returned false")
 	}
 
-	if p.AgentPoolProfiles[0].IsCoreOS() {
-		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
-	}
-
-	if p.AgentPoolProfiles[1].IsCoreOS() {
-		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
-	}
-
 	p.AgentPoolProfiles[0].OSType = Windows
 
 	if !p.HasWindows() {
@@ -370,10 +362,6 @@ func TestOSType(t *testing.T) {
 
 	if p.AgentPoolProfiles[0].IsLinux() {
 		t.Fatalf("expected IsLinux() to return false but instead returned true")
-	}
-
-	if p.AgentPoolProfiles[0].IsCoreOS() {
-		t.Fatalf("expected IsCoreOS() to return false but instead returned true")
 	}
 }
 

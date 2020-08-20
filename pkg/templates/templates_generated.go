@@ -3292,11 +3292,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 {{if not .IsVHDDistro}}
-    {{if .IsCoreOS}}
-- path: /opt/bin/health-monitor.sh
-    {{else}}
 - path: /usr/local/bin/health-monitor.sh
-    {{end}}
   permissions: "0544"
   encoding: gzip
   owner: root
@@ -3365,15 +3361,13 @@ write_files:
 {{end}}
 
 {{if RequiresDocker}}
-    {{if not .IsCoreOS}}
-        {{if not .IsVHDDistro}}
+    {{if not .IsVHDDistro}}
 - path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   permissions: "0644"
   encoding: gzip
   owner: "root"
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
-        {{end}}
     {{end}}
 
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
