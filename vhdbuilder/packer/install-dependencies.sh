@@ -402,12 +402,12 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.15.11-hotfix.20200714.1
-# v1.15.12-hotfix.20200714.1
-# v1.16.10-hotfix.20200714.1
-# v1.16.13-hotfix.20200714.1
-# v1.17.7-hotfix.20200714.2
-# v1.17.9-hotfix.20200714.1
+# v1.15.11-hotfix.20200817.1
+# v1.15.12-hotfix.20200817.1
+# v1.16.10-hotfix.20200817.1
+# v1.16.13-hotfix.20200817.1
+# v1.17.7-hotfix.20200817.1
+# v1.17.9-hotfix.20200817.1
 # v1.18.4-hotfix.20200626.1
 # v1.18.6-hotfix.20200723.1	
 K8S_VERSIONS="
@@ -415,14 +415,14 @@ K8S_VERSIONS="
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
-1.15.11-hotfix.20200714.1
-1.15.12-hotfix.20200714.1
+1.15.11-hotfix.20200817.1
+1.15.12-hotfix.20200817.1
 1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200714.1
-1.16.13-hotfix.20200714.1
+1.16.10-hotfix.20200817.1
+1.16.13-hotfix.20200817.1
 1.17.3-hotfix.20200601.1
-1.17.7-hotfix.20200714.2
-1.17.9-hotfix.20200714.1
+1.17.7-hotfix.20200817.1
+1.17.9-hotfix.20200817.1
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
@@ -456,12 +456,12 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.15.11-hotfix.20200714.1
-# v1.15.12-hotfix.20200714.1
-# v1.16.10-hotfix.20200714.1
-# v1.16.13-hotfix.20200714.1
-# v1.17.7-hotfix.20200714.1
-# v1.17.9-hotfix.20200714.1
+# v1.15.11-hotfix.20200817.1
+# v1.15.12-hotfix.20200817.1
+# v1.16.10-hotfix.20200817.1
+# v1.16.13-hotfix.20200817.1
+# v1.17.7-hotfix.20200817.1
+# v1.17.9-hotfix.20200817.1
 # v1.18.4-hotfix.20200626.1
 # v1.18.6-hotfix.20200723.1	
 PATCHED_HYPERKUBE_IMAGES="
@@ -471,17 +471,23 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
 1.15.11-hotfix.20200714.1
+1.15.11-hotfix.20200817.1
 1.15.12-hotfix.20200623.1
 1.15.12-hotfix.20200714.1
+1.15.12-hotfix.20200817.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200623.1
 1.16.10-hotfix.20200714.1
+1.16.10-hotfix.20200817.1
 1.16.13-hotfix.20200714.1
+1.16.13-hotfix.20200817.1
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200624
 1.17.7-hotfix.20200714.1
 1.17.7-hotfix.20200714.2
+1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200714.1
+1.17.9-hotfix.20200817.1
 1.18.2-hotfix.20200624
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200624
