@@ -71,7 +71,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 	}
 
 	switch o.OrchestratorType {
-	case api.Kubernetes:
+	case Kubernetes:
 		if o.KubernetesConfig == nil {
 			o.KubernetesConfig = &KubernetesConfig{}
 		}
@@ -81,7 +81,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		switch o.KubernetesConfig.NetworkPolicy {
 		case api.NetworkPolicyAzure:
 			if o.KubernetesConfig.NetworkPlugin == "" {
-				o.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+				o.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 				o.KubernetesConfig.NetworkPolicy = api.DefaultNetworkPolicy
 			}
 		case api.NetworkPolicyNone:
@@ -137,7 +137,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			o.KubernetesConfig.ContainerRuntime = api.DefaultContainerRuntime
 		}
 		switch o.KubernetesConfig.ContainerRuntime {
-		case api.Docker:
+		case Docker:
 			if o.KubernetesConfig.MobyVersion == "" || isUpdate {
 				if o.KubernetesConfig.MobyVersion != api.DefaultMobyVersion {
 					if isUpgrade {
@@ -148,7 +148,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 				}
 				o.KubernetesConfig.MobyVersion = api.DefaultMobyVersion
 			}
-		case api.Containerd, api.KataContainers:
+		case Containerd, KataContainers:
 			if o.KubernetesConfig.ContainerdVersion == "" || isUpdate {
 				if o.KubernetesConfig.ContainerdVersion != api.DefaultContainerdVersion {
 					if isUpgrade {
@@ -220,7 +220,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		}
 
 		if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
-			o.KubernetesConfig.CloudProviderBackoffMode = api.CloudProviderBackoffModeV2
+			o.KubernetesConfig.CloudProviderBackoffMode = CloudProviderBackoffModeV2
 			if o.KubernetesConfig.CloudProviderBackoff == nil {
 				o.KubernetesConfig.CloudProviderBackoff = to.BoolPtr(true)
 			}
@@ -280,7 +280,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		}
 
 		if a.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() && a.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile == "" {
-			a.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile = api.ManagedDisks
+			a.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile = ManagedDisks
 		}
 
 		if a.OrchestratorProfile.KubernetesConfig.EnableRbac == nil {
@@ -358,7 +358,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 					// FirstConsecutiveStaticIP is not reset if it is upgrade and some value already exists
 					if !isUpgrade || len(cs.Properties.MasterProfile.FirstConsecutiveStaticIP) == 0 {
 						if cs.Properties.MasterProfile.IsVirtualMachineScaleSets() {
-							cs.Properties.MasterProfile.FirstConsecutiveStaticIP = api.DefaultFirstConsecutiveKubernetesStaticIPVMSS
+							cs.Properties.MasterProfile.FirstConsecutiveStaticIP = DefaultFirstConsecutiveKubernetesStaticIPVMSS
 							cs.Properties.MasterProfile.Subnet = api.DefaultKubernetesMasterSubnet
 							cs.Properties.MasterProfile.AgentSubnet = api.DefaultKubernetesAgentSubnetVMSS
 						} else {
@@ -371,10 +371,10 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 					// FirstConsecutiveStaticIP is not reset if it is upgrade and some value already exists
 					if !isUpgrade || len(cs.Properties.MasterProfile.FirstConsecutiveStaticIP) == 0 {
 						if cs.Properties.MasterProfile.IsVirtualMachineScaleSets() {
-							cs.Properties.MasterProfile.FirstConsecutiveStaticIP = api.DefaultFirstConsecutiveKubernetesStaticIPVMSS
+							cs.Properties.MasterProfile.FirstConsecutiveStaticIP = DefaultFirstConsecutiveKubernetesStaticIPVMSS
 							cs.Properties.MasterProfile.AgentSubnet = api.DefaultKubernetesAgentSubnetVMSS
 						} else {
-							cs.Properties.MasterProfile.FirstConsecutiveStaticIP = api.DefaultFirstConsecutiveKubernetesStaticIP
+							cs.Properties.MasterProfile.FirstConsecutiveStaticIP = DefaultFirstConsecutiveKubernetesStaticIP
 						}
 					}
 				}
@@ -406,7 +406,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 					if !cs.Properties.MasterProfile.IsVirtualMachineScaleSets() {
 						profile.Subnet = cs.Properties.MasterProfile.Subnet
 					}
-					if cs.Properties.OrchestratorProfile.OrchestratorType == api.Kubernetes {
+					if cs.Properties.OrchestratorProfile.OrchestratorType == Kubernetes {
 						if !cs.Properties.MasterProfile.IsVirtualMachineScaleSets() {
 							profile.Subnet = cs.Properties.MasterProfile.Subnet
 						}
@@ -582,7 +582,7 @@ func (cs *ContainerService) setMasterProfileDefaults(isUpgrade bool) {
 
 	// set default to VMAS for now
 	if p.MasterProfile.AvailabilityProfile == "" {
-		p.MasterProfile.AvailabilityProfile = api.AvailabilitySet
+		p.MasterProfile.AvailabilityProfile = AvailabilitySet
 	}
 
 	if p.MasterProfile.IsVirtualMachineScaleSets() {
@@ -592,7 +592,7 @@ func (cs *ContainerService) setMasterProfileDefaults(isUpgrade bool) {
 	}
 
 	if p.MasterProfile.IsCustomVNET() && p.MasterProfile.IsVirtualMachineScaleSets() {
-		if p.OrchestratorProfile.OrchestratorType == api.Kubernetes {
+		if p.OrchestratorProfile.OrchestratorType == Kubernetes {
 			p.MasterProfile.FirstConsecutiveStaticIP = p.MasterProfile.GetFirstConsecutiveStaticIPAddress(p.MasterProfile.VnetCidr)
 		}
 	}
@@ -600,7 +600,7 @@ func (cs *ContainerService) setMasterProfileDefaults(isUpgrade bool) {
 	if !p.OrchestratorProfile.IsKubernetes() {
 		p.MasterProfile.Distro = Ubuntu
 		if !p.MasterProfile.IsCustomVNET() {
-			if p.OrchestratorProfile.OrchestratorType == api.DCOS {
+			if p.OrchestratorProfile.OrchestratorType == DCOS {
 				p.MasterProfile.Subnet = api.DefaultDCOSMasterSubnet
 				// FirstConsecutiveStaticIP is not reset if it is upgrade and some value already exists
 				if !isUpgrade || len(p.MasterProfile.FirstConsecutiveStaticIP) == 0 {
@@ -667,14 +667,14 @@ func (cs *ContainerService) setAgentProfileDefaults(isUpgrade, isScale bool) {
 
 	for _, profile := range p.AgentPoolProfiles {
 		if profile.AvailabilityProfile == "" {
-			profile.AvailabilityProfile = api.VirtualMachineScaleSets
+			profile.AvailabilityProfile = VirtualMachineScaleSets
 		}
-		if profile.AvailabilityProfile == api.VirtualMachineScaleSets {
-			if profile.ScaleSetEvictionPolicy == "" && (profile.ScaleSetPriority == api.ScaleSetPriorityLow || profile.ScaleSetPriority == api.ScaleSetPrioritySpot) {
-				profile.ScaleSetEvictionPolicy = api.ScaleSetEvictionPolicyDelete
+		if profile.AvailabilityProfile == VirtualMachineScaleSets {
+			if profile.ScaleSetEvictionPolicy == "" && (profile.ScaleSetPriority == ScaleSetPriorityLow || profile.ScaleSetPriority == ScaleSetPrioritySpot) {
+				profile.ScaleSetEvictionPolicy = ScaleSetEvictionPolicyDelete
 			}
 
-			if profile.ScaleSetPriority == api.ScaleSetPrioritySpot && profile.SpotMaxPrice == nil {
+			if profile.ScaleSetPriority == ScaleSetPrioritySpot && profile.SpotMaxPrice == nil {
 				var maximumValueFlag float64 = -1
 				profile.SpotMaxPrice = &maximumValueFlag
 			}
@@ -734,18 +734,18 @@ func (cs *ContainerService) setAgentProfileDefaults(isUpgrade, isScale bool) {
 func (cs *ContainerService) setStorageDefaults() {
 	p := cs.Properties
 	if p.MasterProfile != nil && len(p.MasterProfile.StorageProfile) == 0 {
-		if p.OrchestratorProfile.OrchestratorType == api.Kubernetes {
-			p.MasterProfile.StorageProfile = api.ManagedDisks
+		if p.OrchestratorProfile.OrchestratorType == Kubernetes {
+			p.MasterProfile.StorageProfile = ManagedDisks
 		} else {
-			p.MasterProfile.StorageProfile = api.StorageAccount
+			p.MasterProfile.StorageProfile = StorageAccount
 		}
 	}
 	for _, profile := range p.AgentPoolProfiles {
 		if len(profile.StorageProfile) == 0 {
-			if p.OrchestratorProfile.OrchestratorType == api.Kubernetes {
-				profile.StorageProfile = api.ManagedDisks
+			if p.OrchestratorProfile.OrchestratorType == Kubernetes {
+				profile.StorageProfile = ManagedDisks
 			} else {
-				profile.StorageProfile = api.StorageAccount
+				profile.StorageProfile = StorageAccount
 			}
 		}
 	}
@@ -773,7 +773,7 @@ func (cs *ContainerService) setWindowsProfileDefaults(isUpgrade, isScale bool) {
 	windowsProfile := p.WindowsProfile
 	if !isUpgrade && !isScale {
 		if windowsProfile.SSHEnabled == nil {
-			windowsProfile.SSHEnabled = to.BoolPtr(api.DefaultWindowsSSHEnabled)
+			windowsProfile.SSHEnabled = to.BoolPtr(DefaultWindowsSSHEnabled)
 		}
 
 		// This allows caller to use the latest ImageVersion and WindowsSku for adding a new Windows pool to an existing cluster.

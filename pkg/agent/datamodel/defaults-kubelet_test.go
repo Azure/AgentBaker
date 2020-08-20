@@ -16,7 +16,7 @@ import (
 )
 
 func TestKubeletConfigDefaults(t *testing.T) {
-	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
+	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
 	winProfile := &AgentPoolProfile{}
 	winProfile.Count = 1
 	winProfile.Name = "agentpool2"
@@ -106,7 +106,7 @@ func TestKubeletConfigDefaults(t *testing.T) {
 		}
 	}
 
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
 	// check when ip-masq-agent is explicitly disabled in kubernetes config
 	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
@@ -154,7 +154,7 @@ func TestKubeletConfigDefaults(t *testing.T) {
 }
 
 func TestKubeletConfigDefaultsRemovals(t *testing.T) {
-	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.13", "", false, false), 3, 2, true)
+	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.13", "", false, false), 3, 2, true)
 	poolProfile := &AgentPoolProfile{}
 	poolProfile.Count = 1
 	poolProfile.Name = "agentpool2"
@@ -264,7 +264,7 @@ func TestKubeletConfigNetworkPlugin(t *testing.T) {
 
 	// Test NetworkPlugin = "azure"
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
-	cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--network-plugin"] != "cni" {
@@ -373,12 +373,12 @@ func TestKubeletConfigEnableSecureKubelet(t *testing.T) {
 
 func TestKubeletMaxPods(t *testing.T) {
 	cs := CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
-	cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	cs.setKubeletConfig(false)
 	k := cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--max-pods"] != strconv.Itoa(api.DefaultKubernetesMaxPodsVNETIntegrated) {
 		t.Fatalf("got unexpected '--max-pods' kubelet config value for NetworkPolicy=%s: %s",
-			api.NetworkPluginAzure, k["--max-pods"])
+			NetworkPluginAzure, k["--max-pods"])
 	}
 
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
@@ -402,7 +402,7 @@ func TestKubeletMaxPods(t *testing.T) {
 	}
 
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, true)
-	cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig["--max-pods"] = "99"
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
@@ -731,7 +731,7 @@ func TestKubeletRotateCertificates(t *testing.T) {
 	}
 
 	// Test 1.14
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.14", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--rotate-certificates"] != "true" {
@@ -740,7 +740,7 @@ func TestKubeletRotateCertificates(t *testing.T) {
 	}
 
 	// Test 1.16
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.16", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.16", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--rotate-certificates"] != "true" {
@@ -749,7 +749,7 @@ func TestKubeletRotateCertificates(t *testing.T) {
 	}
 
 	// Test user-override
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.14", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	k["--rotate-certificates"] = "false"
 	cs.setKubeletConfig(false)
@@ -770,7 +770,7 @@ func TestKubeletConfigDefaultFeatureGates(t *testing.T) {
 	}
 
 	// test 1.14
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.14", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--feature-gates"] != "RotateKubeletServerCertificate=true" {
@@ -779,7 +779,7 @@ func TestKubeletConfigDefaultFeatureGates(t *testing.T) {
 	}
 
 	// test 1.16
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(api.Kubernetes, "1.16", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.16", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--feature-gates"] != "RotateKubeletServerCertificate=true" {
@@ -839,7 +839,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig:    &KubernetesConfig{},
 					},
@@ -853,7 +853,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -871,7 +871,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -889,7 +889,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -907,7 +907,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -926,7 +926,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -945,7 +945,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig:    &KubernetesConfig{},
 					},
@@ -960,7 +960,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -979,7 +979,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -998,7 +998,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -1017,7 +1017,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -1036,7 +1036,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -1056,7 +1056,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -1076,7 +1076,7 @@ func TestSupportPodPidsLimitFeatureGate(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{
@@ -1125,7 +1125,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1144,7 +1144,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1167,7 +1167,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1190,7 +1190,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1213,7 +1213,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1237,7 +1237,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1261,7 +1261,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1281,7 +1281,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1305,7 +1305,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1329,7 +1329,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1353,7 +1353,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1377,7 +1377,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1402,7 +1402,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1427,7 +1427,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1452,7 +1452,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1477,7 +1477,7 @@ func TestSupportPodPidsLimitFeatureGateInMasterProfile(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1531,7 +1531,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1554,7 +1554,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1579,7 +1579,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1604,7 +1604,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1629,7 +1629,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1655,7 +1655,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1681,7 +1681,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1705,7 +1705,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1731,7 +1731,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1757,7 +1757,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1783,7 +1783,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1809,7 +1809,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1836,7 +1836,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1863,7 +1863,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1889,7 +1889,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1916,7 +1916,7 @@ func TestSupportPodPidsLimitFeatureGateInAgentPool(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							KubeletConfig: map[string]string{},
@@ -1969,7 +1969,7 @@ func TestReadOnlyPort(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.15.0",
 						KubernetesConfig:    &KubernetesConfig{},
 					},
@@ -1982,7 +1982,7 @@ func TestReadOnlyPort(t *testing.T) {
 			cs: &ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.16.0",
 						KubernetesConfig:    &KubernetesConfig{},
 					},
@@ -1998,7 +1998,7 @@ func TestReadOnlyPort(t *testing.T) {
 						FQDN: "foo",
 					},
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.16.0",
 						KubernetesConfig:    &KubernetesConfig{},
 					},

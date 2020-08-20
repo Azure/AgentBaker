@@ -21,6 +21,106 @@ import (
 	"sync"
 )
 
+// the orchestrators
+const (
+	// DCOS is the string constant for DCOS orchestrator type and defaults to DCOS188
+	DCOS string = "DCOS"
+	// Swarm is the string constant for the Swarm orchestrator type
+	Swarm string = "Swarm"
+	// Kubernetes is the string constant for the Kubernetes orchestrator type
+	Kubernetes string = "Kubernetes"
+	// SwarmMode is the string constant for the Swarm Mode orchestrator type
+	SwarmMode string = "SwarmMode"
+)
+
+// container runtimes
+const (
+	Docker         = "docker"
+	KataContainers = "kata-containers"
+	Containerd     = "containerd"
+)
+
+const (
+	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
+	KubernetesWindowsDockerVersion = "19.03.5"
+	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
+	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
+)
+
+// storage profiles
+const (
+	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
+	StorageAccount = "StorageAccount"
+	// ManagedDisks means that the nodes use managed disks for their os and attached volumes
+	ManagedDisks = "ManagedDisks"
+	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
+	Ephemeral = "Ephemeral"
+)
+
+// Availability profiles
+const (
+	// AvailabilitySet means that the vms are in an availability set
+	AvailabilitySet = "AvailabilitySet"
+	// DefaultOrchestratorName specifies the 3 character orchestrator code of the cluster template and affects resource naming.
+	DefaultOrchestratorName = "k8s"
+	// DefaultHostedProfileMasterName specifies the 3 character orchestrator code of the clusters with hosted master profiles.
+	DefaultHostedProfileMasterName = "aks"
+	// DefaultFirstConsecutiveKubernetesStaticIP specifies the static IP address on Kubernetes master 0
+	DefaultFirstConsecutiveKubernetesStaticIP = "10.240.255.5"
+	// DefaultFirstConsecutiveKubernetesStaticIPVMSS specifies the static IP address on Kubernetes master 0 of VMSS
+	DefaultFirstConsecutiveKubernetesStaticIPVMSS = "10.240.0.4"
+	// DefaultKubernetesFirstConsecutiveStaticIPOffset specifies the IP address offset of master 0
+	// when VNET integration is enabled.
+	DefaultKubernetesFirstConsecutiveStaticIPOffset = 5
+	// DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS specifies the IP address offset of master 0 in VMSS
+	// when VNET integration is enabled.
+	DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS = 4
+	// DefaultSubnetNameResourceSegmentIndex specifies the default subnet name resource segment index.
+	DefaultSubnetNameResourceSegmentIndex = 10
+	// DefaultVnetResourceGroupSegmentIndex specifies the default virtual network resource segment index.
+	DefaultVnetResourceGroupSegmentIndex = 4
+	// DefaultVnetNameResourceSegmentIndex specifies the default virtual network name segment index.
+	DefaultVnetNameResourceSegmentIndex = 8
+	// VirtualMachineScaleSets means that the vms are in a virtual machine scaleset
+	VirtualMachineScaleSets = "VirtualMachineScaleSets"
+	// ScaleSetPriorityRegular is the default ScaleSet Priority
+	ScaleSetPriorityRegular = "Regular"
+	// ScaleSetPriorityLow means the ScaleSet will use Low-priority VMs
+	ScaleSetPriorityLow = "Low"
+	// ScaleSetPrioritySpot means the ScaleSet will use Spot VMs
+	ScaleSetPrioritySpot = "Spot"
+	// ScaleSetEvictionPolicyDelete is the default Eviction Policy for Low-priority VM ScaleSets
+	ScaleSetEvictionPolicyDelete = "Delete"
+)
+
+const (
+	CloudProviderBackoffModeV2 = "v2"
+	// DefaultKubernetesCloudProviderBackoffRetries is 6, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	DefaultKubernetesCloudProviderBackoffRetries = 6
+	// DefaultKubernetesCloudProviderBackoffJitter is 1, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	DefaultKubernetesCloudProviderBackoffJitter = 1.0
+	// DefaultKubernetesCloudProviderBackoffDuration is 5, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	DefaultKubernetesCloudProviderBackoffDuration = 5
+	// DefaultKubernetesCloudProviderBackoffExponent is 1.5, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	DefaultKubernetesCloudProviderBackoffExponent = 1.5
+	// DefaultKubernetesCloudProviderRateLimitQPS is 3, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	DefaultKubernetesCloudProviderRateLimitQPS = 3.0
+	// DefaultKubernetesCloudProviderRateLimitQPSWrite is 1, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	DefaultKubernetesCloudProviderRateLimitQPSWrite = 1.0
+	// DefaultKubernetesCloudProviderRateLimitBucket is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	DefaultKubernetesCloudProviderRateLimitBucket = 10
+	// DefaultKubernetesCloudProviderRateLimitBucketWrite is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	DefaultKubernetesCloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucket
+	// VMSSVMType is the string const for the vmss VM Type
+	VMSSVMType = "vmss"
+	// StandardVMType is the string const for the standard VM Type
+	StandardVMType = "standard"
+	// NetworkPluginAzure is the string expression for Azure CNI plugin.
+	NetworkPluginAzure = "azure"
+	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
+	DefaultWindowsSSHEnabled = true
+)
+
 // CustomNodesDNS represents the Search Domain when the custom vnet for a custom DNS as a nameserver.
 type CustomNodesDNS struct {
 	DNSServer string `json:"dnsServer,omitempty"`
@@ -703,31 +803,31 @@ func (p *Properties) SetCloudProviderRateLimitDefaults() {
 	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket == 0 {
 		var agentPoolProfilesCount = len(p.AgentPoolProfiles)
 		if agentPoolProfilesCount == 0 {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = api.DefaultKubernetesCloudProviderRateLimitBucket
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = DefaultKubernetesCloudProviderRateLimitBucket
 		} else {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = agentPoolProfilesCount * common.MaxAgentCount
 		}
 	}
 	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS == 0 {
-		if (api.DefaultKubernetesCloudProviderRateLimitQPS / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)) < common.MinCloudProviderQPSToBucketFactor {
+		if (DefaultKubernetesCloudProviderRateLimitQPS / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)) < common.MinCloudProviderQPSToBucketFactor {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket) * common.MinCloudProviderQPSToBucketFactor
 		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = api.DefaultKubernetesCloudProviderRateLimitQPS
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = DefaultKubernetesCloudProviderRateLimitQPS
 		}
 	}
 	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite == 0 {
 		var agentPoolProfilesCount = len(p.AgentPoolProfiles)
 		if agentPoolProfilesCount == 0 {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = api.DefaultKubernetesCloudProviderRateLimitBucketWrite
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucketWrite
 		} else {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = agentPoolProfilesCount * common.MaxAgentCount
 		}
 	}
 	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite == 0 {
-		if (api.DefaultKubernetesCloudProviderRateLimitQPSWrite / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)) < common.MinCloudProviderQPSToBucketFactor {
+		if (DefaultKubernetesCloudProviderRateLimitQPSWrite / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)) < common.MinCloudProviderQPSToBucketFactor {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite) * common.MinCloudProviderQPSToBucketFactor
 		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = api.DefaultKubernetesCloudProviderRateLimitQPSWrite
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = DefaultKubernetesCloudProviderRateLimitQPSWrite
 		}
 	}
 }
@@ -848,9 +948,9 @@ func (p *Properties) HasDCSeriesSKU() bool {
 func (p *Properties) K8sOrchestratorName() string {
 	if p.OrchestratorProfile.IsKubernetes() {
 		if p.HostedMasterProfile != nil {
-			return api.DefaultHostedProfileMasterName
+			return DefaultHostedProfileMasterName
 		}
-		return api.DefaultOrchestratorName
+		return DefaultOrchestratorName
 	}
 	return ""
 }
@@ -873,15 +973,15 @@ func (p *Properties) IsVHDDistroForAllNodes() bool {
 // GetVMType returns the type of VM "vmss" or "standard" to be passed to the cloud provider
 func (p *Properties) GetVMType() string {
 	if p.HasVMSSAgentPool() {
-		return api.VMSSVMType
+		return VMSSVMType
 	}
-	return api.StandardVMType
+	return StandardVMType
 }
 
 // HasVMSSAgentPool returns true if the cluster contains Virtual Machine Scale Sets agent pools
 func (p *Properties) HasVMSSAgentPool() bool {
 	for _, agentPoolProfile := range p.AgentPoolProfiles {
-		if strings.EqualFold(agentPoolProfile.AvailabilityProfile, api.VirtualMachineScaleSets) {
+		if strings.EqualFold(agentPoolProfile.AvailabilityProfile, VirtualMachineScaleSets) {
 			return true
 		}
 	}
@@ -894,7 +994,7 @@ func (p *Properties) GetSubnetName() string {
 
 	if !p.IsHostedMasterProfile() {
 		if p.MasterProfile.IsCustomVNET() {
-			subnetName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[api.DefaultSubnetNameResourceSegmentIndex]
+			subnetName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[DefaultSubnetNameResourceSegmentIndex]
 		} else if p.MasterProfile.IsVirtualMachineScaleSets() {
 			subnetName = "subnetmaster"
 		} else {
@@ -902,7 +1002,7 @@ func (p *Properties) GetSubnetName() string {
 		}
 	} else {
 		if p.AreAgentProfilesCustomVNET() {
-			subnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[api.DefaultSubnetNameResourceSegmentIndex]
+			subnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultSubnetNameResourceSegmentIndex]
 		} else {
 			subnetName = p.K8sOrchestratorName() + "-subnet"
 		}
@@ -927,9 +1027,9 @@ func (p *Properties) GetResourcePrefix() string {
 func (p *Properties) GetVirtualNetworkName() string {
 	var vnetName string
 	if p.IsHostedMasterProfile() && p.AreAgentProfilesCustomVNET() {
-		vnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[api.DefaultVnetNameResourceSegmentIndex]
+		vnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetNameResourceSegmentIndex]
 	} else if !p.IsHostedMasterProfile() && p.MasterProfile.IsCustomVNET() {
-		vnetName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[api.DefaultVnetNameResourceSegmentIndex]
+		vnetName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[DefaultVnetNameResourceSegmentIndex]
 	} else {
 		vnetName = p.K8sOrchestratorName() + "-vnet-" + p.GetClusterID()
 	}
@@ -940,9 +1040,9 @@ func (p *Properties) GetVirtualNetworkName() string {
 func (p *Properties) GetVNetResourceGroupName() string {
 	var vnetResourceGroupName string
 	if p.IsHostedMasterProfile() && p.AreAgentProfilesCustomVNET() {
-		vnetResourceGroupName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[api.DefaultVnetResourceGroupSegmentIndex]
+		vnetResourceGroupName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetResourceGroupSegmentIndex]
 	} else if !p.IsHostedMasterProfile() && p.MasterProfile.IsCustomVNET() {
-		vnetResourceGroupName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[api.DefaultVnetResourceGroupSegmentIndex]
+		vnetResourceGroupName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[DefaultVnetResourceGroupSegmentIndex]
 	}
 	return vnetResourceGroupName
 }
@@ -955,7 +1055,7 @@ func (p *Properties) GetRouteTableName() string {
 // GetPrimaryAvailabilitySetName returns the name of the primary availability set of the cluster
 func (p *Properties) GetPrimaryAvailabilitySetName() string {
 	if len(p.AgentPoolProfiles) > 0 {
-		if strings.EqualFold(p.AgentPoolProfiles[0].AvailabilityProfile, api.AvailabilitySet) {
+		if strings.EqualFold(p.AgentPoolProfiles[0].AvailabilityProfile, AvailabilitySet) {
 			return p.AgentPoolProfiles[0].Name + "-availabilitySet-" + p.GetClusterID()
 		}
 	}
@@ -965,7 +1065,7 @@ func (p *Properties) GetPrimaryAvailabilitySetName() string {
 // GetPrimaryScaleSetName returns the name of the primary scale set node of the cluster
 func (p *Properties) GetPrimaryScaleSetName() string {
 	if len(p.AgentPoolProfiles) > 0 {
-		if strings.EqualFold(p.AgentPoolProfiles[0].AvailabilityProfile, api.VirtualMachineScaleSets) {
+		if strings.EqualFold(p.AgentPoolProfiles[0].AvailabilityProfile, VirtualMachineScaleSets) {
 			return p.GetAgentVMPrefix(p.AgentPoolProfiles[0], 0)
 		}
 	}
@@ -995,7 +1095,7 @@ func (p *Properties) GetAgentVMPrefix(a *AgentPoolProfile, index int) string {
 
 // IsVHDDistro returns true if the distro uses VHD SKUs
 func (a *AgentPoolProfile) IsVHDDistro() bool {
-	return strings.EqualFold(string(a.Distro), string(api.AKSUbuntu1604)) || strings.EqualFold(string(a.Distro), string(api.AKSUbuntu1804)) || strings.EqualFold(string(a.Distro), string(api.Ubuntu1804Gen2)) || strings.EqualFold(string(a.Distro), string(api.AKSUbuntuGPU1804)) || strings.EqualFold(string(a.Distro), string(api.AKSUbuntuGPU1804Gen2))
+	return strings.EqualFold(string(a.Distro), string(AKSUbuntu1604)) || strings.EqualFold(string(a.Distro), string(AKSUbuntu1804)) || strings.EqualFold(string(a.Distro), string(Ubuntu1804Gen2)) || strings.EqualFold(string(a.Distro), string(AKSUbuntuGPU1804)) || strings.EqualFold(string(a.Distro), string(AKSUbuntuGPU1804Gen2))
 }
 
 // IsUbuntu1804 returns true if the agent pool profile distro is based on Ubuntu 16.04
@@ -1033,17 +1133,17 @@ func (a *AgentPoolProfile) IsWindows() bool {
 
 // IsVirtualMachineScaleSets returns true if the agent pool availability profile is VMSS
 func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
-	return strings.EqualFold(a.AvailabilityProfile, api.VirtualMachineScaleSets)
+	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets)
 }
 
 // IsAvailabilitySets returns true if the customer specified disks
 func (a *AgentPoolProfile) IsAvailabilitySets() bool {
-	return strings.EqualFold(a.AvailabilityProfile, api.AvailabilitySet)
+	return strings.EqualFold(a.AvailabilityProfile, AvailabilitySet)
 }
 
 // IsSpotScaleSet returns true if the VMSS is Spot Scale Set
 func (a *AgentPoolProfile) IsSpotScaleSet() bool {
-	return strings.EqualFold(a.AvailabilityProfile, api.VirtualMachineScaleSets) && strings.EqualFold(a.ScaleSetPriority, api.ScaleSetPrioritySpot)
+	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets) && strings.EqualFold(a.ScaleSetPriority, ScaleSetPrioritySpot)
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
@@ -1055,7 +1155,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) strin
 		buf.WriteString(",kubernetes.io/role=agent")
 	}
 	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
-	if strings.EqualFold(a.StorageProfile, api.ManagedDisks) {
+	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
 		storagetier, _ := common.GetStorageAccountType(a.VMSize)
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
 	}
@@ -1113,7 +1213,7 @@ func (o *OrchestratorProfile) GetAPIServerEtcdAPIVersion() string {
 // IsAzureCNI returns true if Azure CNI network plugin is enabled
 func (o *OrchestratorProfile) IsAzureCNI() bool {
 	if o.KubernetesConfig != nil {
-		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, api.NetworkPluginAzure)
+		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginAzure)
 	}
 	return false
 }
@@ -1143,7 +1243,7 @@ func (w *WindowsProfile) GetSSHEnabled() bool {
 	if w.SSHEnabled != nil {
 		return *w.SSHEnabled
 	}
-	return api.DefaultWindowsSSHEnabled
+	return DefaultWindowsSSHEnabled
 }
 
 // HasImageRef returns true if the customer brought os image
@@ -1156,7 +1256,7 @@ func (w *WindowsProfile) GetWindowsSku() string {
 	if w.WindowsSku != "" {
 		return w.WindowsSku
 	}
-	return api.KubernetesDefaultWindowsSku
+	return KubernetesDefaultWindowsSku
 }
 
 // GetWindowsDockerVersion gets the docker version specified or returns default value
@@ -1164,17 +1264,17 @@ func (w *WindowsProfile) GetWindowsDockerVersion() string {
 	if w.WindowsDockerVersion != "" {
 		return w.WindowsDockerVersion
 	}
-	return api.KubernetesWindowsDockerVersion
+	return KubernetesWindowsDockerVersion
 }
 
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
-	return strings.EqualFold(o.OrchestratorType, api.Kubernetes)
+	return strings.EqualFold(o.OrchestratorType, Kubernetes)
 }
 
 // IsSwarmMode returns true if this template is for Swarm Mode orchestrator
 func (o *OrchestratorProfile) IsSwarmMode() bool {
-	return strings.EqualFold(o.OrchestratorType, api.SwarmMode)
+	return strings.EqualFold(o.OrchestratorType, SwarmMode)
 }
 
 // IsPrivateCluster returns true if this deployment is a private cluster
@@ -1225,14 +1325,14 @@ func (m *MasterProfile) IsCustomVNET() bool {
 
 // IsVirtualMachineScaleSets returns true if the master availability profile is VMSS
 func (m *MasterProfile) IsVirtualMachineScaleSets() bool {
-	return strings.EqualFold(m.AvailabilityProfile, api.VirtualMachineScaleSets)
+	return strings.EqualFold(m.AvailabilityProfile, VirtualMachineScaleSets)
 }
 
 // GetFirstConsecutiveStaticIPAddress returns the first static IP address of the given subnet.
 func (m *MasterProfile) GetFirstConsecutiveStaticIPAddress(subnetStr string) string {
 	_, subnet, err := net.ParseCIDR(subnetStr)
 	if err != nil {
-		return api.DefaultFirstConsecutiveKubernetesStaticIP
+		return DefaultFirstConsecutiveKubernetesStaticIP
 	}
 
 	// Find the first and last octet of the host bits.
@@ -1241,7 +1341,7 @@ func (m *MasterProfile) GetFirstConsecutiveStaticIPAddress(subnetStr string) str
 	lastOctet := bits/8 - 1
 
 	if m.IsVirtualMachineScaleSets() {
-		subnet.IP[lastOctet] = api.DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS
+		subnet.IP[lastOctet] = DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS
 	} else {
 		// Set the remaining host bits in the first octet.
 		subnet.IP[firstOctet] |= (1 << byte((8 - (ones % 8)))) - 1
@@ -1251,7 +1351,7 @@ func (m *MasterProfile) GetFirstConsecutiveStaticIPAddress(subnetStr string) str
 		for i := firstOctet + 1; i < lastOctet; i++ {
 			subnet.IP[i] = 255
 		}
-		subnet.IP[lastOctet] = api.DefaultKubernetesFirstConsecutiveStaticIPOffset
+		subnet.IP[lastOctet] = DefaultKubernetesFirstConsecutiveStaticIPOffset
 	}
 
 	return subnet.IP.String()
@@ -1303,17 +1403,17 @@ func (k *KubernetesConfig) IsAddonEnabled(addonName string) bool {
 // SetCloudProviderBackoffDefaults sets default cloudprovider backoff config
 func (k *KubernetesConfig) SetCloudProviderBackoffDefaults() {
 	if k.CloudProviderBackoffDuration == 0 {
-		k.CloudProviderBackoffDuration = api.DefaultKubernetesCloudProviderBackoffDuration
+		k.CloudProviderBackoffDuration = DefaultKubernetesCloudProviderBackoffDuration
 	}
 	if k.CloudProviderBackoffRetries == 0 {
-		k.CloudProviderBackoffRetries = api.DefaultKubernetesCloudProviderBackoffRetries
+		k.CloudProviderBackoffRetries = DefaultKubernetesCloudProviderBackoffRetries
 	}
-	if !strings.EqualFold(k.CloudProviderBackoffMode, api.CloudProviderBackoffModeV2) {
+	if !strings.EqualFold(k.CloudProviderBackoffMode, CloudProviderBackoffModeV2) {
 		if k.CloudProviderBackoffExponent == 0 {
-			k.CloudProviderBackoffExponent = api.DefaultKubernetesCloudProviderBackoffExponent
+			k.CloudProviderBackoffExponent = DefaultKubernetesCloudProviderBackoffExponent
 		}
 		if k.CloudProviderBackoffJitter == 0 {
-			k.CloudProviderBackoffJitter = api.DefaultKubernetesCloudProviderBackoffJitter
+			k.CloudProviderBackoffJitter = DefaultKubernetesCloudProviderBackoffJitter
 		}
 	}
 }
@@ -1366,7 +1466,7 @@ func (k *KubernetesConfig) IsAddonDisabled(addonName string) bool {
 // NeedsContainerd returns whether or not we need the containerd runtime configuration
 // E.g., kata configuration requires containerd config
 func (k *KubernetesConfig) NeedsContainerd() bool {
-	return strings.EqualFold(k.ContainerRuntime, api.KataContainers) || strings.EqualFold(k.ContainerRuntime, api.Containerd)
+	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
 }
 
 // RequiresDocker returns if the kubernetes settings require docker binary to be installed.
@@ -1375,7 +1475,7 @@ func (k *KubernetesConfig) RequiresDocker() bool {
 		return false
 	}
 
-	return strings.EqualFold(k.ContainerRuntime, api.Docker) || k.ContainerRuntime == ""
+	return strings.EqualFold(k.ContainerRuntime, Docker) || k.ContainerRuntime == ""
 }
 
 // IsAADPodIdentityEnabled checks if the AAD pod identity addon is enabled

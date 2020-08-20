@@ -50,7 +50,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.ServicePrincipalProfile.Secret = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
 
 	cs.Properties.OrchestratorProfile = &OrchestratorProfile{}
-	cs.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	cs.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		EnableSecureKubelet:     to.BoolPtr(api.DefaultSecureKubeletEnabled),
@@ -100,7 +100,7 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 func GetK8sDefaultProperties(hasWindows bool) *Properties {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
-			OrchestratorType: api.Kubernetes,
+			OrchestratorType: Kubernetes,
 			KubernetesConfig: &KubernetesConfig{},
 		},
 		MasterProfile: &MasterProfile{
@@ -113,7 +113,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				Count:               1,
-				AvailabilityProfile: api.AvailabilitySet,
+				AvailabilityProfile: AvailabilitySet,
 			},
 		},
 		ServicePrincipalProfile: &ServicePrincipalProfile{
@@ -128,7 +128,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				Count:               1,
-				AvailabilityProfile: api.AvailabilitySet,
+				AvailabilityProfile: AvailabilitySet,
 				OSType:              Windows,
 			},
 		}

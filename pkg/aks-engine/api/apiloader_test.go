@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -124,8 +123,8 @@ func TestDeserializeContainerService(t *testing.T) {
 	if version != vlabs.APIVersion {
 		t.Errorf("expected apiVersion %s, instead got: %s", vlabs.APIVersion, version)
 	}
-	if cs.Properties.OrchestratorProfile.OrchestratorType != api.Kubernetes {
-		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", api.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
+	if cs.Properties.OrchestratorProfile.OrchestratorType != datamodel.Kubernetes {
+		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", datamodel.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
 	}
 
 	// Test error case
@@ -295,7 +294,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				AgentVnetSubnetID:        "sampleAgentVnetSubnetID",
 				FirstConsecutiveStaticIP: "10.240.0.0",
 				IPAddressCount:           5,
-				StorageProfile:           api.StorageAccount,
+				StorageProfile:           datamodel.StorageAccount,
 				HTTPSourceAddressPrefix:  "fooHTTPSourceAddressPrefix",
 				OAuthEnabled:             true,
 				PreprovisionExtension: &datamodel.Extension{
@@ -398,7 +397,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 							OSDiskSizeGB:   512,
 							Username:       "userName",
 							PublicKey:      ValidSSHPublicKey,
-							StorageProfile: api.StorageAccount,
+							StorageProfile: datamodel.StorageAccount,
 						},
 					},
 					PodSecurityPolicyConfig: map[string]string{

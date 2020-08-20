@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -384,19 +383,19 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderBackoffRetries,
+			defaultVal:  DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderBackoffDuration,
+			defaultVal:  DefaultKubernetesCloudProviderBackoffDuration,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderRateLimitBucket,
+			defaultVal:  DefaultKubernetesCloudProviderRateLimitBucket,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucket,
 		},
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderRateLimitBucketWrite,
+			defaultVal:  DefaultKubernetesCloudProviderRateLimitBucketWrite,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucketWrite,
 		},
 	}
@@ -412,19 +411,19 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal float64
 	}{
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderBackoffJitter,
+			defaultVal:  DefaultKubernetesCloudProviderBackoffJitter,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffJitter,
 		},
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderBackoffExponent,
+			defaultVal:  DefaultKubernetesCloudProviderBackoffExponent,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderRateLimitQPS,
+			defaultVal:  DefaultKubernetesCloudProviderRateLimitQPS,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPS,
 		},
 		{
-			defaultVal:  api.DefaultKubernetesCloudProviderRateLimitQPSWrite,
+			defaultVal:  DefaultKubernetesCloudProviderRateLimitQPSWrite,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPSWrite,
 		},
 	}
@@ -544,7 +543,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffRetries,
+			expectedVal: DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
@@ -589,7 +588,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
 	}
@@ -602,11 +601,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffRetries,
+			expectedVal: DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffDuration,
+			expectedVal: DefaultKubernetesCloudProviderBackoffDuration,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
@@ -626,11 +625,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal float64
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffJitter,
+			expectedVal: DefaultKubernetesCloudProviderBackoffJitter,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffJitter,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffExponent,
+			expectedVal: DefaultKubernetesCloudProviderBackoffExponent,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
@@ -655,13 +654,13 @@ func TestCloudProviderDefaults(t *testing.T) {
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 			{
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 			{
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
 	}
@@ -674,11 +673,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffRetries,
+			expectedVal: DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffDuration,
+			expectedVal: DefaultKubernetesCloudProviderBackoffDuration,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
@@ -698,11 +697,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal float64
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffJitter,
+			expectedVal: DefaultKubernetesCloudProviderBackoffJitter,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffJitter,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffExponent,
+			expectedVal: DefaultKubernetesCloudProviderBackoffExponent,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
@@ -727,7 +726,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
 		HostedMasterProfile: &HostedMasterProfile{
@@ -743,11 +742,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffRetries,
+			expectedVal: DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffDuration,
+			expectedVal: DefaultKubernetesCloudProviderBackoffDuration,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
@@ -767,11 +766,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal float64
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffJitter,
+			expectedVal: DefaultKubernetesCloudProviderBackoffJitter,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffJitter,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffExponent,
+			expectedVal: DefaultKubernetesCloudProviderBackoffExponent,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
@@ -796,7 +795,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				AvailabilityProfile: api.AvailabilitySet,
+				AvailabilityProfile: AvailabilitySet,
 			},
 		},
 	}
@@ -809,11 +808,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffRetries,
+			expectedVal: DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffDuration,
+			expectedVal: DefaultKubernetesCloudProviderBackoffDuration,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
@@ -833,11 +832,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal float64
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffJitter,
+			expectedVal: DefaultKubernetesCloudProviderBackoffJitter,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffJitter,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffExponent,
+			expectedVal: DefaultKubernetesCloudProviderBackoffExponent,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
@@ -862,10 +861,10 @@ func TestCloudProviderDefaults(t *testing.T) {
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				AvailabilityProfile: api.AvailabilitySet,
+				AvailabilityProfile: AvailabilitySet,
 			},
 			{
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
 	}
@@ -878,11 +877,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal int
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffRetries,
+			expectedVal: DefaultKubernetesCloudProviderBackoffRetries,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffRetries,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffDuration,
+			expectedVal: DefaultKubernetesCloudProviderBackoffDuration,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
@@ -902,11 +901,11 @@ func TestCloudProviderDefaults(t *testing.T) {
 		computedVal float64
 	}{
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffJitter,
+			expectedVal: DefaultKubernetesCloudProviderBackoffJitter,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffJitter,
 		},
 		{
-			expectedVal: api.DefaultKubernetesCloudProviderBackoffExponent,
+			expectedVal: DefaultKubernetesCloudProviderBackoffExponent,
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
@@ -928,7 +927,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			OrchestratorType:    "Kubernetes",
 			OrchestratorVersion: v,
 			KubernetesConfig: &KubernetesConfig{
-				CloudProviderBackoffMode: api.CloudProviderBackoffModeV2,
+				CloudProviderBackoffMode: CloudProviderBackoffModeV2,
 			},
 		},
 	}
@@ -1105,7 +1104,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							getMockAddon(common.IPMASQAgentAddonName),
@@ -1119,7 +1118,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{},
 					},
@@ -1131,7 +1130,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
@@ -1152,7 +1151,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
@@ -1174,7 +1173,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
@@ -1199,7 +1198,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
@@ -1224,7 +1223,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
@@ -1456,7 +1455,7 @@ func TestPropertiesHasDCSeriesSKU(t *testing.T) {
 				},
 			},
 			OrchestratorProfile: &OrchestratorProfile{
-				OrchestratorType:    api.Kubernetes,
+				OrchestratorType:    Kubernetes,
 				OrchestratorVersion: "1.16.0",
 			},
 		}
@@ -1637,8 +1636,8 @@ func TestAvailabilityProfile(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						AvailabilityProfile: api.VirtualMachineScaleSets,
-						ScaleSetPriority:    api.ScaleSetPrioritySpot,
+						AvailabilityProfile: VirtualMachineScaleSets,
+						ScaleSetPriority:    ScaleSetPrioritySpot,
 					},
 				},
 			},
@@ -1647,14 +1646,14 @@ func TestAvailabilityProfile(t *testing.T) {
 			expectedIsAS:    false,
 			expectedLowPri:  false,
 			expectedSpot:    true,
-			expectedVMType:  api.VMSSVMType,
+			expectedVMType:  VMSSVMType,
 		},
 		{
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						AvailabilityProfile: api.VirtualMachineScaleSets,
-						ScaleSetPriority:    api.ScaleSetPriorityLow,
+						AvailabilityProfile: VirtualMachineScaleSets,
+						ScaleSetPriority:    ScaleSetPriorityLow,
 					},
 				},
 			},
@@ -1663,17 +1662,17 @@ func TestAvailabilityProfile(t *testing.T) {
 			expectedIsAS:    false,
 			expectedLowPri:  true,
 			expectedSpot:    false,
-			expectedVMType:  api.VMSSVMType,
+			expectedVMType:  VMSSVMType,
 		},
 		{
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						AvailabilityProfile: api.VirtualMachineScaleSets,
-						ScaleSetPriority:    api.ScaleSetPriorityRegular,
+						AvailabilityProfile: VirtualMachineScaleSets,
+						ScaleSetPriority:    ScaleSetPriorityRegular,
 					},
 					{
-						AvailabilityProfile: api.AvailabilitySet,
+						AvailabilityProfile: AvailabilitySet,
 					},
 				},
 			},
@@ -1682,13 +1681,13 @@ func TestAvailabilityProfile(t *testing.T) {
 			expectedIsAS:    false,
 			expectedLowPri:  false,
 			expectedSpot:    false,
-			expectedVMType:  api.VMSSVMType,
+			expectedVMType:  VMSSVMType,
 		},
 		{
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						AvailabilityProfile: api.AvailabilitySet,
+						AvailabilityProfile: AvailabilitySet,
 					},
 				},
 			},
@@ -1697,7 +1696,7 @@ func TestAvailabilityProfile(t *testing.T) {
 			expectedIsAS:    true,
 			expectedLowPri:  false,
 			expectedSpot:    false,
-			expectedVMType:  api.StandardVMType,
+			expectedVMType:  StandardVMType,
 		},
 	}
 
@@ -1730,7 +1729,7 @@ func TestGetSubnetName(t *testing.T) {
 			name: "Cluster with HosterMasterProfile",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
@@ -1742,7 +1741,7 @@ func TestGetSubnetName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
 			},
@@ -1752,7 +1751,7 @@ func TestGetSubnetName(t *testing.T) {
 			name: "Cluster with HosterMasterProfile and custom VNET",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
@@ -1764,7 +1763,7 @@ func TestGetSubnetName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 					},
 				},
@@ -1775,7 +1774,7 @@ func TestGetSubnetName(t *testing.T) {
 			name: "Cluster with MasterProfile",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
 					Count:     1,
@@ -1787,7 +1786,7 @@ func TestGetSubnetName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
 			},
@@ -1797,7 +1796,7 @@ func TestGetSubnetName(t *testing.T) {
 			name: "Cluster with MasterProfile and custom VNET",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
 					Count:        1,
@@ -1810,7 +1809,7 @@ func TestGetSubnetName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
 			},
@@ -1820,20 +1819,20 @@ func TestGetSubnetName(t *testing.T) {
 			name: "Cluster with VMSS MasterProfile",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
 					Count:               1,
 					DNSPrefix:           "foo",
 					VMSize:              "Standard_DS2_v2",
-					AvailabilityProfile: api.VirtualMachineScaleSets,
+					AvailabilityProfile: VirtualMachineScaleSets,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
 			},
@@ -1857,7 +1856,7 @@ func TestGetSubnetName(t *testing.T) {
 func TestGetRouteTableName(t *testing.T) {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
-			OrchestratorType: api.Kubernetes,
+			OrchestratorType: Kubernetes,
 		},
 		HostedMasterProfile: &HostedMasterProfile{
 			FQDN:      "fqdn",
@@ -1869,7 +1868,7 @@ func TestGetRouteTableName(t *testing.T) {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				Count:               1,
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
 	}
@@ -1890,7 +1889,7 @@ func TestGetRouteTableName(t *testing.T) {
 
 	p = &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
-			OrchestratorType: api.Kubernetes,
+			OrchestratorType: Kubernetes,
 		},
 		MasterProfile: &MasterProfile{
 			Count:     1,
@@ -1902,7 +1901,7 @@ func TestGetRouteTableName(t *testing.T) {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				Count:               1,
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
 	}
@@ -1941,7 +1940,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 					},
 				},
@@ -1952,7 +1951,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 			name: "Cluster with HostedMasterProfile and AgentProfiles",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				HostedMasterProfile: &HostedMasterProfile{
 					FQDN:      "fqdn",
@@ -1964,7 +1963,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						Count:               1,
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
 			},
@@ -1997,7 +1996,7 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				Count:               1,
-				AvailabilityProfile: api.VirtualMachineScaleSets,
+				AvailabilityProfile: VirtualMachineScaleSets,
 				VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 			},
 		},
@@ -2014,7 +2013,7 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 	p := &Properties{
 		OrchestratorProfile: &OrchestratorProfile{
-			OrchestratorType: api.Kubernetes,
+			OrchestratorType: Kubernetes,
 		},
 		MasterProfile: &MasterProfile{
 			Count:     1,
@@ -2026,7 +2025,7 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				Count:               1,
-				AvailabilityProfile: api.AvailabilitySet,
+				AvailabilityProfile: AvailabilitySet,
 			},
 		},
 	}
@@ -2042,7 +2041,7 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 			Name:                "agentpool",
 			VMSize:              "Standard_D2_v2",
 			Count:               1,
-			AvailabilityProfile: api.VirtualMachineScaleSets,
+			AvailabilityProfile: VirtualMachineScaleSets,
 		},
 	}
 	expected = ""
@@ -2264,7 +2263,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 		{
 			name: "with managed disk",
 			ap: AgentPoolProfile{
-				StorageProfile: api.ManagedDisks,
+				StorageProfile: ManagedDisks,
 			},
 			rg:         "my-resource-group",
 			deprecated: true,
@@ -2306,7 +2305,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 		{
 			name: "N series and managed disk with custom labels",
 			ap: AgentPoolProfile{
-				StorageProfile: api.ManagedDisks,
+				StorageProfile: ManagedDisks,
 				VMSize:         "Standard_NC6",
 				CustomNodeLabels: map[string]string{
 					"mycustomlabel1": "foo",
@@ -2349,15 +2348,15 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Storage Account",
 			p: Properties{
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.StorageAccount,
+					StorageProfile: StorageAccount,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.StorageAccount,
+						StorageProfile: StorageAccount,
 						DiskSizesGB:    []int{5},
 					},
 					{
-						StorageProfile: api.StorageAccount,
+						StorageProfile: StorageAccount,
 					},
 				},
 			},
@@ -2372,14 +2371,14 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Managed Disk",
 			p: Properties{
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.ManagedDisks,
+					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.StorageAccount,
+						StorageProfile: StorageAccount,
 					},
 					{
-						StorageProfile: api.StorageAccount,
+						StorageProfile: StorageAccount,
 					},
 				},
 			},
@@ -2393,14 +2392,14 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "both",
 			p: Properties{
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.StorageAccount,
+					StorageProfile: StorageAccount,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.ManagedDisks,
+						StorageProfile: ManagedDisks,
 					},
 					{
-						StorageProfile: api.StorageAccount,
+						StorageProfile: StorageAccount,
 					},
 				},
 			},
@@ -2414,17 +2413,17 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Managed Disk everywhere",
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.ManagedDisks,
+					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.ManagedDisks,
+						StorageProfile: ManagedDisks,
 					},
 					{
-						StorageProfile: api.ManagedDisks,
+						StorageProfile: ManagedDisks,
 					},
 				},
 			},
@@ -2439,14 +2438,14 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Managed disk master with ephemeral agent",
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.ManagedDisks,
+					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.Ephemeral,
+						StorageProfile: Ephemeral,
 					},
 				},
 			},
@@ -2461,22 +2460,22 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Mixed with jumpbox",
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(true),
 							JumpboxProfile: &PrivateJumpboxProfile{
-								StorageProfile: api.ManagedDisks,
+								StorageProfile: ManagedDisks,
 							},
 						},
 					},
 				},
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.StorageAccount,
+					StorageProfile: StorageAccount,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.StorageAccount,
+						StorageProfile: StorageAccount,
 					},
 				},
 			},
@@ -2491,22 +2490,22 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Mixed with jumpbox alternate",
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(true),
 							JumpboxProfile: &PrivateJumpboxProfile{
-								StorageProfile: api.StorageAccount,
+								StorageProfile: StorageAccount,
 							},
 						},
 					},
 				},
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.ManagedDisks,
+					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile: api.ManagedDisks,
+						StorageProfile: ManagedDisks,
 					},
 				},
 			},
@@ -2521,18 +2520,18 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "Managed Disk with DiskEncryptionSetID setting",
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
-					StorageProfile: api.ManagedDisks,
+					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile:      api.ManagedDisks,
+						StorageProfile:      ManagedDisks,
 						DiskEncryptionSetID: "DiskEncryptionSetID",
 					},
 					{
-						StorageProfile:      api.ManagedDisks,
+						StorageProfile:      ManagedDisks,
 						DiskEncryptionSetID: "DiskEncryptionSetID",
 					},
 				},
@@ -2549,19 +2548,19 @@ func TestHasStorageProfile(t *testing.T) {
 			name: "EncryptionAtHost setting",
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 				MasterProfile: &MasterProfile{
-					StorageProfile:   api.ManagedDisks,
+					StorageProfile:   ManagedDisks,
 					EncryptionAtHost: to.BoolPtr(true),
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile:   api.ManagedDisks,
+						StorageProfile:   ManagedDisks,
 						EncryptionAtHost: to.BoolPtr(true),
 					},
 					{
-						StorageProfile:   api.ManagedDisks,
+						StorageProfile:   ManagedDisks,
 						EncryptionAtHost: to.BoolPtr(true),
 					},
 				},
@@ -2680,12 +2679,12 @@ func TestWindowsProfile(t *testing.T) {
 	}
 
 	dv := w.GetWindowsDockerVersion()
-	if dv != api.KubernetesWindowsDockerVersion {
+	if dv != KubernetesWindowsDockerVersion {
 		t.Fatalf("Expected GetWindowsDockerVersion() to equal default KubernetesWindowsDockerVersion, got %s", dv)
 	}
 
 	windowsSku := w.GetWindowsSku()
-	if windowsSku != api.KubernetesDefaultWindowsSku {
+	if windowsSku != KubernetesDefaultWindowsSku {
 		t.Fatalf("Expected GetWindowsSku() to equal default KubernetesDefaultWindowsSku, got %s", windowsSku)
 	}
 
@@ -2825,7 +2824,7 @@ func TestGetAPIServerEtcdAPIVersion(t *testing.T) {
 
 func TestIsAzureCNI(t *testing.T) {
 	k := &KubernetesConfig{
-		NetworkPlugin: api.NetworkPluginAzure,
+		NetworkPlugin: NetworkPluginAzure,
 	}
 
 	o := &OrchestratorProfile{
@@ -2862,7 +2861,7 @@ func TestOrchestrator(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.DCOS,
+					OrchestratorType: DCOS,
 				},
 			},
 			expectedIsDCOS:       true,
@@ -2872,7 +2871,7 @@ func TestOrchestrator(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 			},
 			expectedIsDCOS:       false,
@@ -2882,7 +2881,7 @@ func TestOrchestrator(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.SwarmMode,
+					OrchestratorType: SwarmMode,
 				},
 			},
 			expectedIsDCOS:       false,
@@ -2909,7 +2908,7 @@ func TestIsPrivateCluster(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.DCOS,
+					OrchestratorType: DCOS,
 				},
 			},
 			expected: false,
@@ -2917,7 +2916,7 @@ func TestIsPrivateCluster(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 				},
 			},
 			expected: false,
@@ -2925,7 +2924,7 @@ func TestIsPrivateCluster(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(true),
@@ -2938,7 +2937,7 @@ func TestIsPrivateCluster(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
 							Enabled: to.BoolPtr(false),
@@ -2951,7 +2950,7 @@ func TestIsPrivateCluster(t *testing.T) {
 		{
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: api.Kubernetes,
+					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{},
 					},
@@ -3073,7 +3072,7 @@ func TestMasterAvailabilityProfile(t *testing.T) {
 			name: "master profile w/ AS",
 			p: Properties{
 				MasterProfile: &MasterProfile{
-					AvailabilityProfile: api.AvailabilitySet,
+					AvailabilityProfile: AvailabilitySet,
 				},
 			},
 			expectedISVMSS: false,
@@ -3083,7 +3082,7 @@ func TestMasterAvailabilityProfile(t *testing.T) {
 			name: "master profile w/ VMSS",
 			p: Properties{
 				MasterProfile: &MasterProfile{
-					AvailabilityProfile: api.VirtualMachineScaleSets,
+					AvailabilityProfile: VirtualMachineScaleSets,
 				},
 			},
 			expectedISVMSS: true,
@@ -3487,7 +3486,7 @@ func TestHasContainerd(t *testing.T) {
 		{
 			name: "docker",
 			k: &KubernetesConfig{
-				ContainerRuntime: api.Docker,
+				ContainerRuntime: Docker,
 			},
 			expected: false,
 		},
@@ -3508,14 +3507,14 @@ func TestHasContainerd(t *testing.T) {
 		{
 			name: "containerd",
 			k: &KubernetesConfig{
-				ContainerRuntime: api.Containerd,
+				ContainerRuntime: Containerd,
 			},
 			expected: true,
 		},
 		{
 			name: "kata",
 			k: &KubernetesConfig{
-				ContainerRuntime: api.KataContainers,
+				ContainerRuntime: KataContainers,
 			},
 			expected: true,
 		},
@@ -3545,7 +3544,7 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 
 	// k8sConfig with empty runtime string
 	k = &KubernetesConfig{
-		ContainerRuntime: api.Docker,
+		ContainerRuntime: Docker,
 	}
 
 	if !k.RequiresDocker() {
