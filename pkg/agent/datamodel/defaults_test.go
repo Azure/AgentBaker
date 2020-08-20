@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
-	"github.com/Azure/aks-engine/pkg/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 

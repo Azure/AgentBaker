@@ -10,9 +10,9 @@ import (
 
 	"github.com/Azure/go-autorest/autorest/to"
 
+	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
-	"github.com/Azure/aks-engine/pkg/helpers"
 )
 
 func TestKubeletConfigDefaults(t *testing.T) {
