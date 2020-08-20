@@ -12,7 +12,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
-	"github.com/Azure/aks-engine/pkg/armhelpers"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -83,7 +82,6 @@ func writeDefaultModel(out io.Writer) error {
 
 type authProvider interface {
 	getAuthArgs() *authArgs
-	getClient() (armhelpers.AKSEngineClient, error)
 }
 
 type authArgs struct {
@@ -186,39 +184,6 @@ func getCloudSubFromAzConfig(cloud string, f *ini.File) (uuid.UUID, error) {
 		return uuid.UUID{}, errors.Wrap(err, "error reading subscription id from cloud config")
 	}
 	return uuid.Parse(sub.String())
-}
-
-func (authArgs *authArgs) getClient() (armhelpers.AKSEngineClient, error) {
-	return authArgs.getAzureClient()
-}
-
-func (authArgs *authArgs) getAzureClient() (armhelpers.AKSEngineClient, error) {
-	var client *armhelpers.AzureClient
-	env, err := azure.EnvironmentFromName(authArgs.RawAzureEnvironment)
-	if err != nil {
-		return nil, err
-	}
-	switch authArgs.AuthMethod {
-	case "cli":
-		client, err = armhelpers.NewAzureClientWithCLI(env, authArgs.SubscriptionID.String())
-	case "device":
-		client, err = armhelpers.NewAzureClientWithDeviceAuth(env, authArgs.SubscriptionID.String())
-	case "client_secret":
-		client, err = armhelpers.NewAzureClientWithClientSecret(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.ClientSecret)
-	case "client_certificate":
-		client, err = armhelpers.NewAzureClientWithClientCertificateFile(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.CertificatePath, authArgs.PrivateKeyPath)
-	default:
-		return nil, errors.Errorf("--auth-method: ERROR: method unsupported. method=%q", authArgs.AuthMethod)
-	}
-	if err != nil {
-		return nil, err
-	}
-	err = client.EnsureProvidersRegistered(authArgs.SubscriptionID.String())
-	if err != nil {
-		return nil, err
-	}
-	client.AddAcceptLanguages([]string{authArgs.language})
-	return client, nil
 }
 
 func getCompletionCmd(root *cobra.Command) *cobra.Command {
