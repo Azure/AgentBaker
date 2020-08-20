@@ -497,9 +497,9 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.ContainerRuntime == api.Docker
+				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == datamodel.Docker
 		},
 		"RequiresDocker": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {

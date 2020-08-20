@@ -106,7 +106,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	}
 
 	// Apply Azure CNI-specific --max-pods value
-	if o.KubernetesConfig.NetworkPlugin == api.NetworkPluginAzure {
+	if o.KubernetesConfig.NetworkPlugin == NetworkPluginAzure {
 		defaultKubeletConfig["--max-pods"] = strconv.Itoa(api.DefaultKubernetesMaxPodsVNETIntegrated)
 	}
 

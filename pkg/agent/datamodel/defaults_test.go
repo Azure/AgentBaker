@@ -171,8 +171,8 @@ func TestSetMissingKubeletValues(t *testing.T) {
 	}
 }
 
-func getFakeAddons(defaultAddonMap map[string]string, customImage string) []api.KubernetesAddon {
-	var fakeCustomAddons []api.KubernetesAddon
+func getFakeAddons(defaultAddonMap map[string]string, customImage string) []KubernetesAddon {
+	var fakeCustomAddons []KubernetesAddon
 	for addonName := range defaultAddonMap {
 		containerName := addonName
 		if addonName == common.ContainerMonitoringAddonName {
@@ -193,10 +193,10 @@ func getFakeAddons(defaultAddonMap map[string]string, customImage string) []api.
 		if addonName == common.FlannelAddonName {
 			containerName = common.KubeFlannelContainerName
 		}
-		customAddon := api.KubernetesAddon{
+		customAddon := KubernetesAddon{
 			Name:    addonName,
 			Enabled: to.BoolPtr(true),
-			Containers: []api.KubernetesContainerSpec{
+			Containers: []KubernetesContainerSpec{
 				{
 					Name:           containerName,
 					CPURequests:    "50m",
@@ -216,7 +216,7 @@ func getFakeAddons(defaultAddonMap map[string]string, customImage string) []api.
 
 func TestAcceleratedNetworking(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabled = nil
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabledWindows = nil
 
@@ -236,7 +236,7 @@ func TestAcceleratedNetworking(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabled = nil
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabledWindows = nil
 
@@ -256,7 +256,7 @@ func TestAcceleratedNetworking(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabled = nil
 	mockCS.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2_v2"
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabledWindows = nil
@@ -280,7 +280,7 @@ func TestAcceleratedNetworking(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabled = nil
 	mockCS.Properties.AgentPoolProfiles[0].VMSize = "Standard_D666_v2"
 	mockCS.Properties.AgentPoolProfiles[0].AcceleratedNetworkingEnabledWindows = nil
@@ -304,8 +304,8 @@ func TestAcceleratedNetworking(t *testing.T) {
 
 func TestVMSSOverProvisioning(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = api.VirtualMachineScaleSets
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.Properties.AgentPoolProfiles[0].VMSSOverProvisioningEnabled = nil
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -319,8 +319,8 @@ func TestVMSSOverProvisioning(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = api.VirtualMachineScaleSets
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.Properties.AgentPoolProfiles[0].VMSSOverProvisioningEnabled = nil
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    true,
@@ -334,8 +334,8 @@ func TestVMSSOverProvisioning(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = api.VirtualMachineScaleSets
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.Properties.AgentPoolProfiles[0].VMSSOverProvisioningEnabled = nil
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -350,8 +350,8 @@ func TestVMSSOverProvisioning(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = api.VirtualMachineScaleSets
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.Properties.AgentPoolProfiles[0].VMSSOverProvisioningEnabled = to.BoolPtr(true)
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -365,8 +365,8 @@ func TestVMSSOverProvisioning(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = api.VirtualMachineScaleSets
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	mockCS.Properties.AgentPoolProfiles[0].AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.Properties.AgentPoolProfiles[0].VMSSOverProvisioningEnabled = to.BoolPtr(false)
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -382,7 +382,7 @@ func TestVMSSOverProvisioning(t *testing.T) {
 
 func TestAuditDEnabled(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.12.7")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	isUpgrade := true
 	mockCS.setAgentProfileDefaults(isUpgrade, false)
 
@@ -392,7 +392,7 @@ func TestAuditDEnabled(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.12.7")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	isScale := true
 	mockCS.setAgentProfileDefaults(false, isScale)
 
@@ -402,7 +402,7 @@ func TestAuditDEnabled(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.12.7")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.setAgentProfileDefaults(false, false)
 
 	// In create scenario, nil AuditDEnabled should be the defaults
@@ -412,7 +412,7 @@ func TestAuditDEnabled(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.Properties.AgentPoolProfiles[0].AuditDEnabled = to.BoolPtr(true)
 	mockCS.setAgentProfileDefaults(false, false)
 
@@ -422,7 +422,7 @@ func TestAuditDEnabled(t *testing.T) {
 	}
 
 	mockCS = getMockBaseContainerService("1.10.8")
-	mockCS.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	mockCS.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.Properties.AgentPoolProfiles[0].AuditDEnabled = to.BoolPtr(false)
 	mockCS.setAgentProfileDefaults(false, false)
 
@@ -481,7 +481,7 @@ func TestKubeletFeatureGatesEnsureMasterAndAgentConfigUsedFor1_6_0(t *testing.T)
 func TestEtcdDiskSize(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.8.10")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != api.DefaultEtcdDiskSize {
@@ -491,7 +491,7 @@ func TestEtcdDiskSize(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 5
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.EtcdDiskSizeGB != api.DefaultEtcdDiskSizeGT3Nodes {
@@ -501,7 +501,7 @@ func TestEtcdDiskSize(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 5
 	properties.AgentPoolProfiles[0].Count = 6
 	mockCS.setOrchestratorDefaults(true, true)
@@ -512,7 +512,7 @@ func TestEtcdDiskSize(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 5
 	properties.AgentPoolProfiles[0].Count = 16
 	mockCS.setOrchestratorDefaults(true, true)
@@ -523,7 +523,7 @@ func TestEtcdDiskSize(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 5
 	properties.AgentPoolProfiles[0].Count = 50
 	customEtcdDiskSize := "512"
@@ -552,7 +552,7 @@ func TestGenerateEtcdEncryptionKey(t *testing.T) {
 func TestNetworkPolicyDefaults(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.8.10")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = api.NetworkPolicyCalico
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != api.NetworkPluginKubenet {
@@ -562,7 +562,7 @@ func TestNetworkPolicyDefaults(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = api.NetworkPolicyCilium
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != api.NetworkPluginCilium {
@@ -572,7 +572,7 @@ func TestNetworkPolicyDefaults(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.15.7")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = api.NetworkPolicyAntrea
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != api.NetworkPluginAntrea {
@@ -582,12 +582,12 @@ func TestNetworkPolicyDefaults(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = api.NetworkPolicyAzure
 	mockCS.setOrchestratorDefaults(true, true)
-	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != api.NetworkPluginAzure {
+	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != NetworkPluginAzure {
 		t.Fatalf("NetworkPlugin did not have the expected value, got %s, expected %s",
-			properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin, api.NetworkPluginAzure)
+			properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin, NetworkPluginAzure)
 	}
 	if properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy != "" {
 		t.Fatalf("NetworkPolicy did not have the expected value, got %s, expected %s",
@@ -596,7 +596,7 @@ func TestNetworkPolicyDefaults(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.8.10")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = api.NetworkPolicyNone
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != api.NetworkPluginKubenet {
@@ -612,7 +612,7 @@ func TestNetworkPolicyDefaults(t *testing.T) {
 func TestNetworkPluginDefaults(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.15.7")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.setOrchestratorDefaults(true, true)
 	if properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin != api.DefaultNetworkPlugin {
 		t.Fatalf("NetworkPlugin did not have the expected value, got %s, expected %s",
@@ -621,7 +621,7 @@ func TestNetworkPluginDefaults(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.15.7")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
 			Name:    common.FlannelAddonName,
@@ -640,12 +640,12 @@ func TestContainerRuntime(t *testing.T) {
 	for _, mobyVersion := range []string{"3.0.1", "3.0.3", "3.0.4", "3.0.5", "3.0.6", "3.0.7", "3.0.8", "3.0.10"} {
 		mockCS := getMockBaseContainerService("1.10.13")
 		properties := mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.MobyVersion = mobyVersion
 		mockCS.setOrchestratorDefaults(true, true)
-		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.Docker {
+		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != Docker {
 			t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.Docker)
+				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, Docker)
 		}
 		if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != api.DefaultMobyVersion {
 			t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -658,12 +658,12 @@ func TestContainerRuntime(t *testing.T) {
 
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.MobyVersion = mobyVersion
 		mockCS.setOrchestratorDefaults(false, false)
-		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.Docker {
+		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != Docker {
 			t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.Docker)
+				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, Docker)
 		}
 		if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != mobyVersion {
 			t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -677,11 +677,11 @@ func TestContainerRuntime(t *testing.T) {
 
 	mockCS := getMockBaseContainerService("1.10.13")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.setOrchestratorDefaults(false, false)
-	if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.Docker {
+	if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != Docker {
 		t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-			properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.Docker)
+			properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, Docker)
 	}
 	if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != api.DefaultMobyVersion {
 		t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -694,12 +694,12 @@ func TestContainerRuntime(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.10.13")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = api.Containerd
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = Containerd
 	mockCS.setOrchestratorDefaults(false, false)
-	if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.Containerd {
+	if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != Containerd {
 		t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-			properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.Containerd)
+			properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, Containerd)
 	}
 	if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != "" {
 		t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -712,12 +712,12 @@ func TestContainerRuntime(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.10.13")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = api.KataContainers
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = KataContainers
 	mockCS.setOrchestratorDefaults(false, false)
-	if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.KataContainers {
+	if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != KataContainers {
 		t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-			properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.KataContainers)
+			properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, KataContainers)
 	}
 	if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != "" {
 		t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -732,13 +732,13 @@ func TestContainerRuntime(t *testing.T) {
 
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-		properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = api.Containerd
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
+		properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = Containerd
 		properties.OrchestratorProfile.KubernetesConfig.ContainerdVersion = containerdVersion
 		mockCS.setOrchestratorDefaults(true, true)
-		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.Containerd {
+		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != Containerd {
 			t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.Containerd)
+				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, Containerd)
 		}
 		if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != "" {
 			t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -751,13 +751,13 @@ func TestContainerRuntime(t *testing.T) {
 
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-		properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = api.Containerd
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
+		properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime = Containerd
 		properties.OrchestratorProfile.KubernetesConfig.ContainerdVersion = containerdVersion
 		mockCS.setOrchestratorDefaults(false, false)
-		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != api.Containerd {
+		if properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime != Containerd {
 			t.Fatalf("ContainerRuntime did not have the expected value, got %s, expected %s",
-				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, api.Containerd)
+				properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime, Containerd)
 		}
 		if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != "" {
 			t.Fatalf("MobyVersion did not have the expected value, got %s, expected %s",
@@ -777,7 +777,7 @@ func TestEtcdVersion(t *testing.T) {
 		// This sort of artificial (upgrade scenario should always have value), but strictly speaking this is what we want to do
 		mockCS := getMockBaseContainerService("1.10.13")
 		properties := mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(true, false)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != api.DefaultEtcdVersion {
@@ -788,7 +788,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Create scenario should always accept the provided value
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(false, false)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != api.DefaultEtcdVersion {
@@ -800,7 +800,7 @@ func TestEtcdVersion(t *testing.T) {
 		// This sort of artificial (upgrade scenario should always have value), but strictly speaking this is what we want to do
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(false, true)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != api.DefaultEtcdVersion {
@@ -814,7 +814,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Upgrade scenario should always upgrade to newer, default etcd version
 		mockCS := getMockBaseContainerService("1.10.13")
 		properties := mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(true, false)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != api.DefaultEtcdVersion {
@@ -825,7 +825,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Create scenario should always accept the provided value
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(false, false)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != etcdVersion {
@@ -836,7 +836,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Scale scenario should always accept the provided value
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(false, true)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != etcdVersion {
@@ -850,7 +850,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Upgrade scenario should always keep the user-configured etcd version if it is greater than default
 		mockCS := getMockBaseContainerService("1.10.13")
 		properties := mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(true, false)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != etcdVersion {
@@ -861,7 +861,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Create scenario should always accept the provided value
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(false, false)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != etcdVersion {
@@ -872,7 +872,7 @@ func TestEtcdVersion(t *testing.T) {
 		// Scale scenario should always accept the provided value
 		mockCS = getMockBaseContainerService("1.10.13")
 		properties = mockCS.Properties
-		properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+		properties.OrchestratorProfile.OrchestratorType = Kubernetes
 		properties.OrchestratorProfile.KubernetesConfig.EtcdVersion = etcdVersion
 		mockCS.setOrchestratorDefaults(false, true)
 		if properties.OrchestratorProfile.KubernetesConfig.EtcdVersion != etcdVersion {
@@ -886,7 +886,7 @@ func TestStorageProfile(t *testing.T) {
 	// Test ManagedDisks default configuration
 	mockCS := getMockBaseContainerService("1.13.12")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
 	properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &PrivateCluster{
 		Enabled:        to.BoolPtr(true),
@@ -897,26 +897,26 @@ func TestStorageProfile(t *testing.T) {
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
 	})
-	if properties.MasterProfile.StorageProfile != api.ManagedDisks {
+	if properties.MasterProfile.StorageProfile != ManagedDisks {
 		t.Fatalf("MasterProfile.StorageProfile did not have the expected configuration, got %s, expected %s",
-			properties.MasterProfile.StorageProfile, api.ManagedDisks)
+			properties.MasterProfile.StorageProfile, ManagedDisks)
 	}
-	if properties.AgentPoolProfiles[0].StorageProfile != api.ManagedDisks {
+	if properties.AgentPoolProfiles[0].StorageProfile != ManagedDisks {
 		t.Fatalf("AgentPoolProfile.StorageProfile did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].StorageProfile, api.ManagedDisks)
+			properties.AgentPoolProfiles[0].StorageProfile, ManagedDisks)
 	}
-	if properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile != api.ManagedDisks {
+	if properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile != ManagedDisks {
 		t.Fatalf("MasterProfile.StorageProfile did not have the expected configuration, got %s, expected %s",
-			properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile, api.ManagedDisks)
+			properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.StorageProfile, ManagedDisks)
 	}
 	if !properties.AgentPoolProfiles[0].IsVirtualMachineScaleSets() {
 		t.Fatalf("AgentPoolProfile[0].AvailabilityProfile did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].AvailabilityProfile, api.AvailabilitySet)
+			properties.AgentPoolProfiles[0].AvailabilityProfile, AvailabilitySet)
 	}
 
 	mockCS = getMockBaseContainerService("1.13.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -924,7 +924,7 @@ func TestStorageProfile(t *testing.T) {
 	})
 	if !properties.AgentPoolProfiles[0].IsVirtualMachineScaleSets() {
 		t.Fatalf("AgentPoolProfile[0].AvailabilityProfile did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].AvailabilityProfile, api.VirtualMachineScaleSets)
+			properties.AgentPoolProfiles[0].AvailabilityProfile, VirtualMachineScaleSets)
 	}
 
 }
@@ -934,9 +934,9 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default masterProfile configuration
 	mockCS := getMockBaseContainerService("1.13.12")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = ""
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	properties.MasterProfile.AvailabilityProfile = ""
 	properties.MasterProfile.Count = 3
 	mockCS.Properties = properties
@@ -947,7 +947,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	})
 	if properties.MasterProfile.IsVirtualMachineScaleSets() {
 		t.Fatalf("Master VMAS, AzureCNI: MasterProfile AvailabilityProfile did not have the expected default configuration, got %s, expected %s",
-			properties.MasterProfile.AvailabilityProfile, api.AvailabilitySet)
+			properties.MasterProfile.AvailabilityProfile, AvailabilitySet)
 	}
 	if properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet != api.DefaultKubernetesSubnet {
 		t.Fatalf("Master VMAS, AzureCNI: MasterProfile ClusterSubnet did not have the expected default configuration, got %s, expected %s",
@@ -969,10 +969,10 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default VMSS masterProfile configuration
 	mockCS = getMockBaseContainerService("1.13.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = ""
-	properties.MasterProfile.AvailabilityProfile = api.VirtualMachineScaleSets
+	properties.MasterProfile.AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  true,
@@ -980,15 +980,15 @@ func TestMasterProfileDefaults(t *testing.T) {
 	})
 	if !properties.MasterProfile.IsVirtualMachineScaleSets() {
 		t.Fatalf("Master VMSS, AzureCNI: MasterProfile AvailabilityProfile did not have the expected default configuration, got %s, expected %s",
-			properties.MasterProfile.AvailabilityProfile, api.VirtualMachineScaleSets)
+			properties.MasterProfile.AvailabilityProfile, VirtualMachineScaleSets)
 	}
 	if properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet != api.DefaultKubernetesSubnet {
 		t.Fatalf("Master VMSS, AzureCNI: MasterProfile ClusterSubnet did not have the expected default configuration, got %s, expected %s",
 			properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet, api.DefaultKubernetesSubnet)
 	}
-	if properties.MasterProfile.FirstConsecutiveStaticIP != api.DefaultFirstConsecutiveKubernetesStaticIPVMSS {
+	if properties.MasterProfile.FirstConsecutiveStaticIP != DefaultFirstConsecutiveKubernetesStaticIPVMSS {
 		t.Fatalf("Master VMSS, AzureCNI: MasterProfile FirstConsecutiveStaticIP did not have the expected default configuration, got %s, expected %s",
-			properties.MasterProfile.FirstConsecutiveStaticIP, api.DefaultFirstConsecutiveKubernetesStaticIPVMSS)
+			properties.MasterProfile.FirstConsecutiveStaticIP, DefaultFirstConsecutiveKubernetesStaticIPVMSS)
 	}
 	if properties.MasterProfile.Subnet != api.DefaultKubernetesMasterSubnet {
 		t.Fatalf("Master VMSS, AzureCNI: MasterProfile Subnet did not have the expected default configuration, got %s, expected %s",
@@ -1002,10 +1002,10 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default masterProfile configuration and kubenet
 	mockCS = getMockBaseContainerService("1.13.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = ""
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginKubenet
-	properties.MasterProfile.AvailabilityProfile = api.VirtualMachineScaleSets
+	properties.MasterProfile.AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    true,
 		IsUpgrade:  false,
@@ -1019,35 +1019,35 @@ func TestMasterProfileDefaults(t *testing.T) {
 		t.Fatalf("Master VMSS, kubenet: MasterProfile Subnet did not have the expected default configuration, got %s, expected %s",
 			properties.MasterProfile.Subnet, api.DefaultKubernetesMasterSubnet)
 	}
-	if properties.MasterProfile.FirstConsecutiveStaticIP != api.DefaultFirstConsecutiveKubernetesStaticIPVMSS {
+	if properties.MasterProfile.FirstConsecutiveStaticIP != DefaultFirstConsecutiveKubernetesStaticIPVMSS {
 		t.Fatalf("Master VMSS, kubenet: MasterProfile FirstConsecutiveStaticIP did not have the expected default configuration, got %s, expected %s",
-			properties.MasterProfile.FirstConsecutiveStaticIP, api.DefaultFirstConsecutiveKubernetesStaticIPVMSS)
+			properties.MasterProfile.FirstConsecutiveStaticIP, DefaultFirstConsecutiveKubernetesStaticIPVMSS)
 	}
 	if properties.MasterProfile.AgentSubnet != api.DefaultKubernetesAgentSubnetVMSS {
 		t.Fatalf("Master VMSS, kubenet: MasterProfile AgentSubnet did not have the expected default configuration, got %s, expected %s",
 			properties.MasterProfile.AgentSubnet, api.DefaultKubernetesAgentSubnetVMSS)
 	}
-	properties.MasterProfile.AvailabilityProfile = api.AvailabilitySet
+	properties.MasterProfile.AvailabilityProfile = AvailabilitySet
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    true,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
 	})
-	if properties.MasterProfile.FirstConsecutiveStaticIP != api.DefaultFirstConsecutiveKubernetesStaticIP {
+	if properties.MasterProfile.FirstConsecutiveStaticIP != DefaultFirstConsecutiveKubernetesStaticIP {
 		t.Fatalf("Master VMAS, kubenet: MasterProfile FirstConsecutiveStaticIP did not have the expected default configuration, got %s, expected %s",
-			properties.MasterProfile.FirstConsecutiveStaticIP, api.DefaultFirstConsecutiveKubernetesStaticIP)
+			properties.MasterProfile.FirstConsecutiveStaticIP, DefaultFirstConsecutiveKubernetesStaticIP)
 	}
 
 	// this validates default vmas masterProfile configuration, AzureCNI, and custom vnet
 	mockCS = getMockBaseContainerService("1.10.3")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.VnetSubnetID = "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/ExampleMasterSubnet"
 	properties.MasterProfile.VnetCidr = "10.239.0.0/16"
 	properties.MasterProfile.FirstConsecutiveStaticIP = "10.239.255.239"
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = ""
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
-	properties.MasterProfile.AvailabilityProfile = api.AvailabilitySet
+	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
+	properties.MasterProfile.AvailabilityProfile = AvailabilitySet
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    true,
 		IsUpgrade:  false,
@@ -1062,12 +1062,12 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default VMSS masterProfile configuration, AzureCNI, and custom VNET
 	mockCS = getMockBaseContainerService("1.10.3")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.VnetSubnetID = "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/ExampleMasterSubnet"
 	properties.MasterProfile.VnetCidr = "10.239.0.0/16"
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = ""
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
-	properties.MasterProfile.AvailabilityProfile = api.VirtualMachineScaleSets
+	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
+	properties.MasterProfile.AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    true,
 		IsUpgrade:  false,
@@ -1081,7 +1081,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default configurations for LoadBalancerSku and ExcludeMasterFromStandardLB
 	mockCS = getMockBaseContainerService("1.13.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = api.StandardLoadBalancerSku
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1097,7 +1097,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default configurations for MaximumLoadBalancerRuleCount.
 	mockCS = getMockBaseContainerService("1.13.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1111,7 +1111,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates cluster subnet default configuration for dual stack feature with 1.16
 	mockCS = getMockBaseContainerService("1.16.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1127,7 +1127,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates cluster subnet default configuration for dual stack feature in 1.16 when only ipv4 subnet provided
 	mockCS = getMockBaseContainerService("1.16.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1143,7 +1143,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates cluster subnet default configuration for dual stack feature.
 	mockCS = getMockBaseContainerService("1.17.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1159,7 +1159,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates cluster subnet default configuration for dual stack feature when only ipv4 subnet provided
 	mockCS = getMockBaseContainerService("1.17.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "10.244.0.0/16"
 	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
@@ -1176,7 +1176,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates cluster subnet default configuration for dual stack feature when only ipv6 subnet provided
 	mockCS = getMockBaseContainerService("1.17.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "ace:cab:deca::/8"
 	properties.FeatureFlags = &FeatureFlags{EnableIPv6DualStack: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
@@ -1193,7 +1193,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates default configurations for OutboundRuleIdleTimeoutInMinutes.
 	mockCS = getMockBaseContainerService("1.14.4")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = api.StandardLoadBalancerSku
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1208,7 +1208,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 	// this validates cluster subnet default configuration for single stack IPv6 only cluster
 	mockCS = getMockBaseContainerService("1.18.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.FeatureFlags = &FeatureFlags{EnableIPv6Only: true}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1232,7 +1232,7 @@ func TestMasterProfileDefaults(t *testing.T) {
 func TestAgentPoolProfile(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1247,25 +1247,25 @@ func TestAgentPoolProfile(t *testing.T) {
 		t.Fatalf("AgentPoolProfiles[0].ScaleSetEvictionPolicy did not have the expected configuration, got %s, expected %s",
 			properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy, "")
 	}
-	properties.AgentPoolProfiles[0].ScaleSetPriority = api.ScaleSetPriorityLow
+	properties.AgentPoolProfiles[0].ScaleSetPriority = ScaleSetPriorityLow
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
 	})
-	if properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy != api.ScaleSetEvictionPolicyDelete {
+	if properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy != ScaleSetEvictionPolicyDelete {
 		t.Fatalf("AgentPoolProfile[0].ScaleSetEvictionPolicy did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy, api.ScaleSetEvictionPolicyDelete)
+			properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy, ScaleSetEvictionPolicyDelete)
 	}
-	properties.AgentPoolProfiles[0].ScaleSetPriority = api.ScaleSetPrioritySpot
+	properties.AgentPoolProfiles[0].ScaleSetPriority = ScaleSetPrioritySpot
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
 	})
-	if properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy != api.ScaleSetEvictionPolicyDelete {
+	if properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy != ScaleSetEvictionPolicyDelete {
 		t.Fatalf("AgentPoolProfile[0].ScaleSetEvictionPolicy did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy, api.ScaleSetEvictionPolicyDelete)
+			properties.AgentPoolProfiles[0].ScaleSetEvictionPolicy, ScaleSetEvictionPolicyDelete)
 	}
 	if *properties.AgentPoolProfiles[0].SpotMaxPrice != float64(-1) {
 		t.Fatalf("AgentPoolProfile[0].SpotMaxPrice did not have the expected value, got %g, expected %g",
@@ -1301,7 +1301,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"default_kubernetes",
 			OrchestratorProfile{
-				OrchestratorType: api.Kubernetes,
+				OrchestratorType: Kubernetes,
 				KubernetesConfig: &KubernetesConfig{},
 			},
 			"",
@@ -1315,7 +1315,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"default_kubernetes_usgov",
 			OrchestratorProfile{
-				OrchestratorType: api.Kubernetes,
+				OrchestratorType: Kubernetes,
 				KubernetesConfig: &KubernetesConfig{},
 			},
 			"",
@@ -1329,7 +1329,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"1804_upgrade_kubernetes",
 			OrchestratorProfile{
-				OrchestratorType: api.Kubernetes,
+				OrchestratorType: Kubernetes,
 				KubernetesConfig: &KubernetesConfig{},
 			},
 			AKSUbuntu1804,
@@ -1343,7 +1343,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"default_kubernetes_germancloud",
 			OrchestratorProfile{
-				OrchestratorType: api.Kubernetes,
+				OrchestratorType: Kubernetes,
 				KubernetesConfig: &KubernetesConfig{},
 			},
 			AKSUbuntu1604,
@@ -1357,7 +1357,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"default_swarm",
 			OrchestratorProfile{
-				OrchestratorType: api.Swarm,
+				OrchestratorType: Swarm,
 			},
 			"",
 			"",
@@ -1370,7 +1370,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"default_swarmmode",
 			OrchestratorProfile{
-				OrchestratorType: api.SwarmMode,
+				OrchestratorType: SwarmMode,
 			},
 			"",
 			"",
@@ -1383,7 +1383,7 @@ func TestDistroDefaults(t *testing.T) {
 		{
 			"default_dcos",
 			OrchestratorProfile{
-				OrchestratorType: api.DCOS,
+				OrchestratorType: DCOS,
 			},
 			"",
 			"",
@@ -1861,8 +1861,8 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 	// masters with VMSS and no zones
 	mockCS := getMockBaseContainerService("1.12.0")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.MasterProfile.AvailabilityProfile = api.VirtualMachineScaleSets
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	properties.MasterProfile.AvailabilityProfile = VirtualMachineScaleSets
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
@@ -1879,8 +1879,8 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 	// masters with VMSS and zones
 	mockCS = getMockBaseContainerService("1.12.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	properties.MasterProfile.AvailabilityProfile = api.VirtualMachineScaleSets
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
+	properties.MasterProfile.AvailabilityProfile = VirtualMachineScaleSets
 	properties.MasterProfile.AvailabilityZones = []string{"1", "2"}
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1908,7 +1908,7 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 	// agents with VMSS and no zones
 	mockCS = getMockBaseContainerService("1.12.0")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.AgentPoolProfiles[0].Count = 4
 	mockCS.SetPropertiesDefaults(api.PropertiesDefaultsParams{
 		IsScale:    false,
@@ -1926,7 +1926,7 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 	// agents with VMSS and zones
 	mockCS = getMockBaseContainerService("1.13.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.AgentPoolProfiles[0].Count = 4
 	properties.AgentPoolProfiles[0].SinglePlacementGroup = nil
 	properties.AgentPoolProfiles[0].AvailabilityZones = []string{"1", "2"}
@@ -1937,7 +1937,7 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 	})
 	if !properties.AgentPoolProfiles[0].IsVirtualMachineScaleSets() {
 		t.Fatalf("AgentPoolProfile[0].AvailabilityProfile did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].AvailabilityProfile, api.VirtualMachineScaleSets)
+			properties.AgentPoolProfiles[0].AvailabilityProfile, VirtualMachineScaleSets)
 	}
 	if !properties.AgentPoolProfiles[0].HasAvailabilityZones() {
 		t.Fatalf("AgentPoolProfiles[0].HasAvailabilityZones did not have the expected return, got %t, expected %t",
@@ -1969,9 +1969,9 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 			*properties.AgentPoolProfiles[0].SinglePlacementGroup, false)
 	}
 
-	if !*properties.AgentPoolProfiles[0].SinglePlacementGroup && properties.AgentPoolProfiles[0].StorageProfile != api.ManagedDisks {
+	if !*properties.AgentPoolProfiles[0].SinglePlacementGroup && properties.AgentPoolProfiles[0].StorageProfile != ManagedDisks {
 		t.Fatalf("AgentPoolProfile[0].StorageProfile did not have the expected configuration, got %s, expected %s",
-			properties.AgentPoolProfiles[0].StorageProfile, api.ManagedDisks)
+			properties.AgentPoolProfiles[0].StorageProfile, ManagedDisks)
 	}
 
 }
@@ -1979,9 +1979,9 @@ func TestSetVMSSDefaultsAndZones(t *testing.T) {
 func TestAzureCNIVersionString(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10.3")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	mockCS.setOrchestratorDefaults(true, true)
 
 	if properties.OrchestratorProfile.KubernetesConfig.AzureCNIVersion != api.AzureCniPluginVerLinux {
@@ -1990,10 +1990,10 @@ func TestAzureCNIVersionString(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.10.3")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
 	properties.AgentPoolProfiles[0].OSType = Windows
-	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginAzure
+	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginAzure
 	mockCS.setOrchestratorDefaults(true, true)
 
 	if properties.OrchestratorProfile.KubernetesConfig.AzureCNIVersion != api.AzureCniPluginVerWindows {
@@ -2002,7 +2002,7 @@ func TestAzureCNIVersionString(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.10.3")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
 	properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = api.NetworkPluginKubenet
 	mockCS.setOrchestratorDefaults(true, true)
@@ -2015,7 +2015,7 @@ func TestAzureCNIVersionString(t *testing.T) {
 func TestEnableAggregatedAPIs(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10.3")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.EnableRbac = to.BoolPtr(false)
 	mockCS.setOrchestratorDefaults(true, true)
 
@@ -2026,7 +2026,7 @@ func TestEnableAggregatedAPIs(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.10.3")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.EnableRbac = to.BoolPtr(true)
 	mockCS.setOrchestratorDefaults(true, true)
 
@@ -2055,7 +2055,7 @@ func TestCloudControllerManagerEnabled(t *testing.T) {
 func TestDefaultCloudProvider(t *testing.T) {
 	mockCS := getMockBaseContainerService("1.10.3")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	mockCS.setOrchestratorDefaults(true, true)
 
 	if to.Bool(properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoff) {
@@ -2070,7 +2070,7 @@ func TestDefaultCloudProvider(t *testing.T) {
 
 	mockCS = getMockBaseContainerService("1.10.3")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoff = to.BoolPtr(false)
 	properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimit = to.BoolPtr(false)
 	mockCS.setOrchestratorDefaults(true, true)
@@ -2099,7 +2099,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 					},
 					MasterProfile: &MasterProfile{},
 				},
@@ -2107,15 +2107,15 @@ func TestCloudProviderBackoff(t *testing.T) {
 			expected: KubernetesConfig{
 				CloudProviderBackoffMode:          "v1",
 				CloudProviderBackoff:              to.BoolPtr(false),
-				CloudProviderBackoffRetries:       api.DefaultKubernetesCloudProviderBackoffRetries,
-				CloudProviderBackoffJitter:        api.DefaultKubernetesCloudProviderBackoffJitter,
-				CloudProviderBackoffDuration:      api.DefaultKubernetesCloudProviderBackoffDuration,
-				CloudProviderBackoffExponent:      api.DefaultKubernetesCloudProviderBackoffExponent,
+				CloudProviderBackoffRetries:       DefaultKubernetesCloudProviderBackoffRetries,
+				CloudProviderBackoffJitter:        DefaultKubernetesCloudProviderBackoffJitter,
+				CloudProviderBackoffDuration:      DefaultKubernetesCloudProviderBackoffDuration,
+				CloudProviderBackoffExponent:      DefaultKubernetesCloudProviderBackoffExponent,
 				CloudProviderRateLimit:            to.BoolPtr(api.DefaultKubernetesCloudProviderRateLimit),
-				CloudProviderRateLimitQPS:         api.DefaultKubernetesCloudProviderRateLimitQPS,
-				CloudProviderRateLimitQPSWrite:    api.DefaultKubernetesCloudProviderRateLimitQPSWrite,
-				CloudProviderRateLimitBucket:      api.DefaultKubernetesCloudProviderRateLimitBucket,
-				CloudProviderRateLimitBucketWrite: api.DefaultKubernetesCloudProviderRateLimitBucketWrite,
+				CloudProviderRateLimitQPS:         DefaultKubernetesCloudProviderRateLimitQPS,
+				CloudProviderRateLimitQPSWrite:    DefaultKubernetesCloudProviderRateLimitQPSWrite,
+				CloudProviderRateLimitBucket:      DefaultKubernetesCloudProviderRateLimitBucket,
+				CloudProviderRateLimitBucketWrite: DefaultKubernetesCloudProviderRateLimitBucketWrite,
 			},
 		},
 		{
@@ -2123,7 +2123,7 @@ func TestCloudProviderBackoff(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2132,15 +2132,15 @@ func TestCloudProviderBackoff(t *testing.T) {
 			expected: KubernetesConfig{
 				CloudProviderBackoffMode:          "v2",
 				CloudProviderBackoff:              to.BoolPtr(true),
-				CloudProviderBackoffRetries:       api.DefaultKubernetesCloudProviderBackoffRetries,
+				CloudProviderBackoffRetries:       DefaultKubernetesCloudProviderBackoffRetries,
 				CloudProviderBackoffJitter:        0,
-				CloudProviderBackoffDuration:      api.DefaultKubernetesCloudProviderBackoffDuration,
+				CloudProviderBackoffDuration:      DefaultKubernetesCloudProviderBackoffDuration,
 				CloudProviderBackoffExponent:      0,
 				CloudProviderRateLimit:            to.BoolPtr(api.DefaultKubernetesCloudProviderRateLimit),
-				CloudProviderRateLimitQPS:         api.DefaultKubernetesCloudProviderRateLimitQPS,
-				CloudProviderRateLimitQPSWrite:    api.DefaultKubernetesCloudProviderRateLimitQPSWrite,
-				CloudProviderRateLimitBucket:      api.DefaultKubernetesCloudProviderRateLimitBucket,
-				CloudProviderRateLimitBucketWrite: api.DefaultKubernetesCloudProviderRateLimitBucketWrite,
+				CloudProviderRateLimitQPS:         DefaultKubernetesCloudProviderRateLimitQPS,
+				CloudProviderRateLimitQPSWrite:    DefaultKubernetesCloudProviderRateLimitQPSWrite,
+				CloudProviderRateLimitBucket:      DefaultKubernetesCloudProviderRateLimitBucket,
+				CloudProviderRateLimitBucketWrite: DefaultKubernetesCloudProviderRateLimitBucketWrite,
 			},
 		},
 	}
@@ -2198,13 +2198,13 @@ func TestSetOrchestratorDefaultsVMAS(t *testing.T) {
 				Count:               3,
 				DNSPrefix:           "myprefix1",
 				VMSize:              "Standard_DS2_v2",
-				AvailabilityProfile: api.AvailabilitySet,
+				AvailabilityProfile: AvailabilitySet,
 			},
 			OrchestratorProfile: &OrchestratorProfile{
-				OrchestratorType:    api.Kubernetes,
+				OrchestratorType:    Kubernetes,
 				OrchestratorVersion: "1.12.8",
 				KubernetesConfig: &KubernetesConfig{
-					NetworkPlugin: api.NetworkPluginAzure,
+					NetworkPlugin: NetworkPluginAzure,
 				},
 			},
 		},
@@ -2226,7 +2226,7 @@ func TestProxyModeDefaults(t *testing.T) {
 	// Test that default is what we expect
 	mockCS := getMockBaseContainerService("1.10.12")
 	properties := mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.MasterProfile.Count = 1
 	mockCS.setOrchestratorDefaults(true, true)
 
@@ -2237,7 +2237,7 @@ func TestProxyModeDefaults(t *testing.T) {
 	// Test that default assignment flow doesn't overwrite a user-provided config
 	mockCS = getMockBaseContainerService("1.10.12")
 	properties = mockCS.Properties
-	properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
+	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.ProxyMode = KubeProxyModeIPVS
 	properties.MasterProfile.Count = 1
 	mockCS.setOrchestratorDefaults(true, true)
@@ -2385,7 +2385,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2398,7 +2398,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.15.0-alpha.1",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2411,7 +2411,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.15.0-beta.1",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2424,7 +2424,7 @@ func TestDefaultEnablePodSecurityPolicy(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.15.0",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2457,7 +2457,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2470,7 +2470,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: "basic",
@@ -2486,7 +2486,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
@@ -2502,7 +2502,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: "standard",
@@ -2518,7 +2518,7 @@ func TestDefaultLoadBalancerSKU(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.StandardLoadBalancerSku,
@@ -2556,7 +2556,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 					},
 					MasterProfile: &MasterProfile{},
 				},
@@ -2568,7 +2568,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
@@ -2584,7 +2584,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
@@ -2601,7 +2601,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 					},
 					MasterProfile: &MasterProfile{},
@@ -2614,7 +2614,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 					},
 					MasterProfile: &MasterProfile{},
@@ -2628,7 +2628,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
@@ -2645,7 +2645,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.16", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
@@ -2662,7 +2662,7 @@ func TestEnableRBAC(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
@@ -2701,7 +2701,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 					},
 					MasterProfile: &MasterProfile{},
@@ -2714,7 +2714,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
@@ -2730,7 +2730,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.BasicLoadBalancerSku,
@@ -2747,7 +2747,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.BasicLoadBalancerSku,
@@ -2764,7 +2764,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.StandardLoadBalancerSku,
@@ -2781,7 +2781,7 @@ func TestDefaultCloudProviderDisableOutboundSNAT(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku:                  api.StandardLoadBalancerSku,
@@ -2930,7 +2930,7 @@ func TestImageReference(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 					},
 					MasterProfile:      &MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
@@ -2955,7 +2955,7 @@ func TestImageReference(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 					},
 					MasterProfile: &MasterProfile{
 						ImageRef: &ImageReference{
@@ -3008,7 +3008,7 @@ func TestImageReference(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 					},
 					MasterProfile:      &MasterProfile{},
 					CertificateProfile: getMockCertificateProfile(),
@@ -3139,7 +3139,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 						KubernetesConfig: &KubernetesConfig{
 							LoadBalancerSku: api.BasicLoadBalancerSku,
 						},
@@ -3166,7 +3166,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 						KubernetesConfig: &KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
@@ -3192,7 +3192,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 						KubernetesConfig: &KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
@@ -3222,7 +3222,7 @@ func TestCustomHyperkubeDistro(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType: api.Kubernetes,
+						OrchestratorType: Kubernetes,
 						KubernetesConfig: &KubernetesConfig{
 							CustomHyperkubeImage: "myimage",
 							LoadBalancerSku:      api.BasicLoadBalancerSku,
@@ -3291,7 +3291,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginKubenet,
@@ -3319,10 +3319,10 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
-							NetworkPlugin:   api.NetworkPluginAzure,
+							NetworkPlugin:   NetworkPluginAzure,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
@@ -3347,10 +3347,10 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
-							NetworkPlugin:   api.NetworkPluginAzure,
+							NetworkPlugin:   NetworkPluginAzure,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
@@ -3379,7 +3379,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginKubenet,
@@ -3411,10 +3411,10 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
-							NetworkPlugin:   api.NetworkPluginAzure,
+							NetworkPlugin:   NetworkPluginAzure,
 							LoadBalancerSku: api.StandardLoadBalancerSku,
 						},
 					},
@@ -3450,7 +3450,7 @@ func TestDefaultIPAddressCount(t *testing.T) {
 			cs: ContainerService{
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
-						OrchestratorType:    api.Kubernetes,
+						OrchestratorType:    Kubernetes,
 						OrchestratorVersion: "1.14.0",
 						KubernetesConfig: &KubernetesConfig{
 							NetworkPlugin:   api.NetworkPluginKubenet,
