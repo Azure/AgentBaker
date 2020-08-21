@@ -14,7 +14,6 @@ import (
 	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/engine/transform"
 	"github.com/google/uuid"
 	"github.com/leonelquinteros/gotext"
@@ -192,7 +191,7 @@ func (gc *generateCmd) autofillApimodel() error {
 func (gc *generateCmd) run() error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
 
-	err := gc.containerService.SetPropertiesDefaults(api.PropertiesDefaultsParams{
+	err := gc.containerService.SetPropertiesDefaults(datamodel.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,

@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 )
 
@@ -43,11 +42,11 @@ func (cs *ContainerService) setAPIServerConfig() {
 	if cs.Properties.MasterProfile != nil {
 		if cs.Properties.MasterProfile.HasCosmosEtcd() {
 			// Configuration for cosmos etcd
-			staticAPIServerConfig["--etcd-servers"] = fmt.Sprintf("https://%s:%s", cs.Properties.MasterProfile.GetCosmosEndPointURI(), strconv.Itoa(api.DefaultMasterEtcdClientPort))
+			staticAPIServerConfig["--etcd-servers"] = fmt.Sprintf("https://%s:%s", cs.Properties.MasterProfile.GetCosmosEndPointURI(), strconv.Itoa(DefaultMasterEtcdClientPort))
 		} else {
 			// Configuration for local etcd
 			staticAPIServerConfig["--etcd-cafile"] = "/etc/kubernetes/certs/ca.crt"
-			staticAPIServerConfig["--etcd-servers"] = fmt.Sprintf("https://127.0.0.1:%s", strconv.Itoa(api.DefaultMasterEtcdClientPort))
+			staticAPIServerConfig["--etcd-servers"] = fmt.Sprintf("https://127.0.0.1:%s", strconv.Itoa(DefaultMasterEtcdClientPort))
 		}
 	}
 
@@ -56,8 +55,8 @@ func (cs *ContainerService) setAPIServerConfig() {
 		"--audit-log-maxage":    "30",
 		"--audit-log-maxbackup": "10",
 		"--audit-log-maxsize":   "100",
-		"--profiling":           api.DefaultKubernetesAPIServerEnableProfiling,
-		"--tls-cipher-suites":   api.TLSStrongCipherSuitesAPIServer,
+		"--profiling":           DefaultKubernetesAPIServerEnableProfiling,
+		"--tls-cipher-suites":   TLSStrongCipherSuitesAPIServer,
 	}
 
 	// Data Encryption at REST configuration conditions

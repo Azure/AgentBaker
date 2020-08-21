@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
@@ -19,106 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
-
-// the orchestrators
-const (
-	// DCOS is the string constant for DCOS orchestrator type and defaults to DCOS188
-	DCOS string = "DCOS"
-	// Swarm is the string constant for the Swarm orchestrator type
-	Swarm string = "Swarm"
-	// Kubernetes is the string constant for the Kubernetes orchestrator type
-	Kubernetes string = "Kubernetes"
-	// SwarmMode is the string constant for the Swarm Mode orchestrator type
-	SwarmMode string = "SwarmMode"
-)
-
-// container runtimes
-const (
-	Docker         = "docker"
-	KataContainers = "kata-containers"
-	Containerd     = "containerd"
-)
-
-const (
-	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
-	KubernetesWindowsDockerVersion = "19.03.5"
-	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
-	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
-)
-
-// storage profiles
-const (
-	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
-	StorageAccount = "StorageAccount"
-	// ManagedDisks means that the nodes use managed disks for their os and attached volumes
-	ManagedDisks = "ManagedDisks"
-	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
-	Ephemeral = "Ephemeral"
-)
-
-// Availability profiles
-const (
-	// AvailabilitySet means that the vms are in an availability set
-	AvailabilitySet = "AvailabilitySet"
-	// DefaultOrchestratorName specifies the 3 character orchestrator code of the cluster template and affects resource naming.
-	DefaultOrchestratorName = "k8s"
-	// DefaultHostedProfileMasterName specifies the 3 character orchestrator code of the clusters with hosted master profiles.
-	DefaultHostedProfileMasterName = "aks"
-	// DefaultFirstConsecutiveKubernetesStaticIP specifies the static IP address on Kubernetes master 0
-	DefaultFirstConsecutiveKubernetesStaticIP = "10.240.255.5"
-	// DefaultFirstConsecutiveKubernetesStaticIPVMSS specifies the static IP address on Kubernetes master 0 of VMSS
-	DefaultFirstConsecutiveKubernetesStaticIPVMSS = "10.240.0.4"
-	// DefaultKubernetesFirstConsecutiveStaticIPOffset specifies the IP address offset of master 0
-	// when VNET integration is enabled.
-	DefaultKubernetesFirstConsecutiveStaticIPOffset = 5
-	// DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS specifies the IP address offset of master 0 in VMSS
-	// when VNET integration is enabled.
-	DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS = 4
-	// DefaultSubnetNameResourceSegmentIndex specifies the default subnet name resource segment index.
-	DefaultSubnetNameResourceSegmentIndex = 10
-	// DefaultVnetResourceGroupSegmentIndex specifies the default virtual network resource segment index.
-	DefaultVnetResourceGroupSegmentIndex = 4
-	// DefaultVnetNameResourceSegmentIndex specifies the default virtual network name segment index.
-	DefaultVnetNameResourceSegmentIndex = 8
-	// VirtualMachineScaleSets means that the vms are in a virtual machine scaleset
-	VirtualMachineScaleSets = "VirtualMachineScaleSets"
-	// ScaleSetPriorityRegular is the default ScaleSet Priority
-	ScaleSetPriorityRegular = "Regular"
-	// ScaleSetPriorityLow means the ScaleSet will use Low-priority VMs
-	ScaleSetPriorityLow = "Low"
-	// ScaleSetPrioritySpot means the ScaleSet will use Spot VMs
-	ScaleSetPrioritySpot = "Spot"
-	// ScaleSetEvictionPolicyDelete is the default Eviction Policy for Low-priority VM ScaleSets
-	ScaleSetEvictionPolicyDelete = "Delete"
-)
-
-const (
-	CloudProviderBackoffModeV2 = "v2"
-	// DefaultKubernetesCloudProviderBackoffRetries is 6, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffRetries = 6
-	// DefaultKubernetesCloudProviderBackoffJitter is 1, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffJitter = 1.0
-	// DefaultKubernetesCloudProviderBackoffDuration is 5, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffDuration = 5
-	// DefaultKubernetesCloudProviderBackoffExponent is 1.5, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffExponent = 1.5
-	// DefaultKubernetesCloudProviderRateLimitQPS is 3, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitQPS = 3.0
-	// DefaultKubernetesCloudProviderRateLimitQPSWrite is 1, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitQPSWrite = 1.0
-	// DefaultKubernetesCloudProviderRateLimitBucket is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitBucket = 10
-	// DefaultKubernetesCloudProviderRateLimitBucketWrite is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucket
-	// VMSSVMType is the string const for the vmss VM Type
-	VMSSVMType = "vmss"
-	// StandardVMType is the string const for the standard VM Type
-	StandardVMType = "standard"
-	// NetworkPluginAzure is the string expression for Azure CNI plugin.
-	NetworkPluginAzure = "azure"
-	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
-	DefaultWindowsSSHEnabled = true
 )
 
 // CustomNodesDNS represents the Search Domain when the custom vnet for a custom DNS as a nameserver.
@@ -1287,7 +1186,7 @@ func (o *OrchestratorProfile) IsPrivateCluster() bool {
 
 // GetPodInfraContainerSpec returns the sandbox image as a string (ex: k8s.gcr.io/pause-amd64:3.1)
 func (o *OrchestratorProfile) GetPodInfraContainerSpec() string {
-	return o.KubernetesConfig.MCRKubernetesImageBase + api.K8sComponentsByVersionMap[o.OrchestratorVersion]["pause"]
+	return o.KubernetesConfig.MCRKubernetesImageBase + K8sComponentsByVersionMap[o.OrchestratorVersion]["pause"]
 }
 
 // HasCosmosEtcd returns true if cosmos etcd configuration is enabled

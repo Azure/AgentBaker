@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -385,7 +384,7 @@ func TestAPIServerConfigEnableProfiling(t *testing.T) {
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 3, 2, false)
 	cs.setAPIServerConfig()
 	a = cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
-	if a["--profiling"] != api.DefaultKubernetesAPIServerEnableProfiling {
+	if a["--profiling"] != DefaultKubernetesAPIServerEnableProfiling {
 		t.Fatalf("got unexpected default value for '--profiling' API server config: %s",
 			a["--profiling"])
 	}
@@ -431,7 +430,7 @@ func TestAPIServerWeakCipherSuites(t *testing.T) {
 		cs := CreateMockContainerService("testcluster", version, 3, 2, false)
 		cs.setAPIServerConfig()
 		a := cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
-		if a["--tls-cipher-suites"] != api.TLSStrongCipherSuitesAPIServer {
+		if a["--tls-cipher-suites"] != TLSStrongCipherSuitesAPIServer {
 			t.Fatalf("got unexpected default value for '--tls-cipher-suites' API server config for Kubernetes version %s: %s",
 				version, a["--tls-cipher-suites"])
 		}
@@ -462,7 +461,7 @@ func TestAPIServerCosmosEtcd(t *testing.T) {
 		t.Fatalf("got unexpected default value for '--etcd-cafile' API server config: %s",
 			a["--etcd-cafile"])
 	}
-	if a["--etcd-servers"] != fmt.Sprintf("https://127.0.0.1:%s", strconv.Itoa(api.DefaultMasterEtcdClientPort)) {
+	if a["--etcd-servers"] != fmt.Sprintf("https://127.0.0.1:%s", strconv.Itoa(DefaultMasterEtcdClientPort)) {
 		t.Fatalf("got unexpected default value for '--etcd-servers' API server config: %s",
 			a["--etcd-servers"])
 	}
@@ -473,7 +472,7 @@ func TestAPIServerCosmosEtcd(t *testing.T) {
 	cs.Properties.MasterProfile.DNSPrefix = "my-cosmos"
 	cs.setAPIServerConfig()
 	a = cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
-	if a["--etcd-servers"] != fmt.Sprintf("https://%s:%s", cs.Properties.MasterProfile.GetCosmosEndPointURI(), strconv.Itoa(api.DefaultMasterEtcdClientPort)) {
+	if a["--etcd-servers"] != fmt.Sprintf("https://%s:%s", cs.Properties.MasterProfile.GetCosmosEndPointURI(), strconv.Itoa(DefaultMasterEtcdClientPort)) {
 		t.Fatalf("got unexpected default value for '--etcd-servers' API server config: %s",
 			a["--etcd-servers"])
 	}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
 )
 
 func TestWriteTLSArtifacts(t *testing.T) {
@@ -72,7 +71,7 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	// Generate files with custom cloud profile in configuration
 	csCustom := datamodel.CreateMockContainerService("testcluster", "1.11.6", 1, 2, true)
 	csCustom.Location = "customlocation"
-	csCustom.SetPropertiesDefaults(api.PropertiesDefaultsParams{
+	csCustom.SetPropertiesDefaults(datamodel.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
