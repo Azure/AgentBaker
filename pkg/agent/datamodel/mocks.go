@@ -4,7 +4,6 @@
 package datamodel
 
 import (
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/google/uuid"
 )
@@ -53,23 +52,23 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
-		EnableSecureKubelet:     to.BoolPtr(api.DefaultSecureKubeletEnabled),
-		EnableRbac:              to.BoolPtr(api.DefaultRBACEnabled),
-		EtcdDiskSizeGB:          api.DefaultEtcdDiskSize,
-		ServiceCIDR:             api.DefaultKubernetesServiceCIDR,
-		DockerBridgeSubnet:      api.DefaultDockerBridgeSubnet,
-		DNSServiceIP:            api.DefaultKubernetesDNSServiceIP,
-		GCLowThreshold:          api.DefaultKubernetesGCLowThreshold,
-		GCHighThreshold:         api.DefaultKubernetesGCHighThreshold,
-		MaxPods:                 api.DefaultKubernetesMaxPodsVNETIntegrated,
-		ClusterSubnet:           api.DefaultKubernetesSubnet,
-		ContainerRuntime:        api.DefaultContainerRuntime,
-		NetworkPlugin:           api.DefaultNetworkPlugin,
-		NetworkPolicy:           api.DefaultNetworkPolicy,
-		EtcdVersion:             api.DefaultEtcdVersion,
-		MobyVersion:             api.DefaultMobyVersion,
-		ContainerdVersion:       api.DefaultContainerdVersion,
-		LoadBalancerSku:         api.DefaultLoadBalancerSku,
+		EnableSecureKubelet:     to.BoolPtr(DefaultSecureKubeletEnabled),
+		EnableRbac:              to.BoolPtr(DefaultRBACEnabled),
+		EtcdDiskSizeGB:          DefaultEtcdDiskSize,
+		ServiceCIDR:             DefaultKubernetesServiceCIDR,
+		DockerBridgeSubnet:      DefaultDockerBridgeSubnet,
+		DNSServiceIP:            DefaultKubernetesDNSServiceIP,
+		GCLowThreshold:          DefaultKubernetesGCLowThreshold,
+		GCHighThreshold:         DefaultKubernetesGCHighThreshold,
+		MaxPods:                 DefaultKubernetesMaxPodsVNETIntegrated,
+		ClusterSubnet:           DefaultKubernetesSubnet,
+		ContainerRuntime:        DefaultContainerRuntime,
+		NetworkPlugin:           DefaultNetworkPlugin,
+		NetworkPolicy:           DefaultNetworkPolicy,
+		EtcdVersion:             DefaultEtcdVersion,
+		MobyVersion:             DefaultMobyVersion,
+		ContainerdVersion:       DefaultContainerdVersion,
+		LoadBalancerSku:         DefaultLoadBalancerSku,
 		KubeletConfig:           make(map[string]string),
 		ControllerManagerConfig: make(map[string]string),
 	}

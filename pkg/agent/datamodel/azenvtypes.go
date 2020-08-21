@@ -3,11 +3,6 @@
 
 package datamodel
 
-import (
-	"fmt"
-	"github.com/Azure/aks-engine/pkg/api"
-)
-
 //AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 type AzureEnvironmentSpecConfig struct {
 	CloudName            string                        `json:"cloudName,omitempty"`
@@ -86,26 +81,14 @@ var (
 		EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
 		KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 		WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
-		CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-" + api.CNIPluginVer + ".tgz",
-		VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/" + api.AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + api.AzureCniPluginVerLinux + ".tgz",
-		VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/" + api.AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + api.AzureCniPluginVerWindows + ".zip",
+		CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-" + CNIPluginVer + ".tgz",
+		VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + AzureCniPluginVerLinux + ".tgz",
+		VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + AzureCniPluginVerWindows + ".zip",
 		ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 		CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-		WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-" + api.DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
-		WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + api.WindowsPauseImageVersion,
-		AlwaysPullWindowsPauseImage:          api.DefaultAlwaysPullWindowsPauseImage,
-	}
-
-	//DefaultDCOSSpecConfig is the default DC/OS binary download URL.
-	DefaultDCOSSpecConfig = api.DCOSSpecConfig{
-		DCOS188BootstrapDownloadURL:     fmt.Sprintf(api.AzureEdgeDCOSBootstrapDownloadURL, "stable", "5df43052907c021eeb5de145419a3da1898c58a5"),
-		DCOS190BootstrapDownloadURL:     fmt.Sprintf(api.AzureEdgeDCOSBootstrapDownloadURL, "stable", "58fd0833ce81b6244fc73bf65b5deb43217b0bd7"),
-		DCOS198BootstrapDownloadURL:     fmt.Sprintf(api.AzureEdgeDCOSBootstrapDownloadURL, "stable/1.9.8", "f4ae0d20665fc68ee25282d6f78681b2773c6e10"),
-		DCOS110BootstrapDownloadURL:     fmt.Sprintf(api.AzureEdgeDCOSBootstrapDownloadURL, "stable/1.10.0", "4d92536e7381176206e71ee15b5ffe454439920c"),
-		DCOS111BootstrapDownloadURL:     fmt.Sprintf(api.AzureEdgeDCOSBootstrapDownloadURL, "stable/1.11.0", "a0654657903fb68dff60f6e522a7f241c1bfbf0f"),
-		DCOSWindowsBootstrapDownloadURL: "http://dcos-win.westus.cloudapp.azure.com/dcos-windows/stable/",
-		DcosRepositoryURL:               "https://dcosio.azureedge.net/dcos/stable/1.11.0",
-		DcosClusterPackageListID:        "248a66388bba1adbcb14a52fd3b7b424ab06fa76",
+		WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-" + DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
+		WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + WindowsPauseImageVersion,
+		AlwaysPullWindowsPauseImage:          DefaultAlwaysPullWindowsPauseImage,
 	}
 
 	//DefaultDockerSpecConfig is the default Docker engine repo.
@@ -196,7 +179,7 @@ var (
 
 	//AzureCloudSpec is the default configurations for global azure.
 	AzureCloudSpec = AzureEnvironmentSpecConfig{
-		CloudName: api.AzurePublicCloud,
+		CloudName: AzurePublicCloud,
 		//DockerSpecConfig specify the docker engine download repo
 		DockerSpecConfig: DefaultDockerSpecConfig,
 		//KubernetesSpecConfig is the default kubernetes container image url.
@@ -217,7 +200,7 @@ var (
 
 	//AzureGermanCloudSpec is the German cloud config.
 	AzureGermanCloudSpec = AzureEnvironmentSpecConfig{
-		CloudName:            api.AzureGermanCloud,
+		CloudName:            AzureGermanCloud,
 		DockerSpecConfig:     DefaultDockerSpecConfig,
 		KubernetesSpecConfig: DefaultKubernetesSpecConfig,
 		EndpointConfig: AzureEndpointConfig{
@@ -234,7 +217,7 @@ var (
 
 	//AzureUSGovernmentCloudSpec is the US government config.
 	AzureUSGovernmentCloudSpec = AzureEnvironmentSpecConfig{
-		CloudName:            api.AzureUSGovernmentCloud,
+		CloudName:            AzureUSGovernmentCloud,
 		DockerSpecConfig:     DefaultDockerSpecConfig,
 		KubernetesSpecConfig: DefaultKubernetesSpecConfig,
 		EndpointConfig: AzureEndpointConfig{
@@ -251,7 +234,7 @@ var (
 
 	//AzureChinaCloudSpec is the configurations for Azure China (Mooncake)
 	AzureChinaCloudSpec = AzureEnvironmentSpecConfig{
-		CloudName: api.AzureChinaCloud,
+		CloudName: AzureChinaCloud,
 		//DockerSpecConfig specify the docker engine download repo
 		DockerSpecConfig: DockerSpecConfig{
 			DockerEngineRepo:         "https://mirror.azk8s.cn/docker-engine/apt/repo/",
@@ -269,14 +252,14 @@ var (
 			EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
 			KubeBinariesSASURLBase:               DefaultKubernetesSpecConfig.KubeBinariesSASURLBase,
 			WindowsTelemetryGUID:                 DefaultKubernetesSpecConfig.WindowsTelemetryGUID,
-			CNIPluginsDownloadURL:                "https://mirror.azk8s.cn/kubernetes/containernetworking-plugins/cni-plugins-amd64-" + api.CNIPluginVer + ".tgz",
-			VnetCNILinuxPluginsDownloadURL:       "https://mirror.azk8s.cn/azure-cni/" + api.AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + api.AzureCniPluginVerLinux + ".tgz",
-			VnetCNIWindowsPluginsDownloadURL:     "https://mirror.azk8s.cn/azure-cni/" + api.AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + api.AzureCniPluginVerWindows + ".zip",
+			CNIPluginsDownloadURL:                "https://mirror.azk8s.cn/kubernetes/containernetworking-plugins/cni-plugins-amd64-" + CNIPluginVer + ".tgz",
+			VnetCNILinuxPluginsDownloadURL:       "https://mirror.azk8s.cn/azure-cni/" + AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + AzureCniPluginVerLinux + ".tgz",
+			VnetCNIWindowsPluginsDownloadURL:     "https://mirror.azk8s.cn/azure-cni/" + AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + AzureCniPluginVerWindows + ".zip",
 			ContainerdDownloadURLBase:            "https://mirror.azk8s.cn/kubernetes/containerd/",
 			CSIProxyDownloadURL:                  "https://mirror.azk8s.cn/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-			WindowsProvisioningScriptsPackageURL: "https://mirror.azk8s.cn/aks-engine/windows/provisioning/signedscripts-" + api.DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
-			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + api.WindowsPauseImageVersion,
-			AlwaysPullWindowsPauseImage:          api.DefaultAlwaysPullWindowsPauseImage,
+			WindowsProvisioningScriptsPackageURL: "https://mirror.azk8s.cn/aks-engine/windows/provisioning/signedscripts-" + DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
+			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + WindowsPauseImageVersion,
+			AlwaysPullWindowsPauseImage:          DefaultAlwaysPullWindowsPauseImage,
 		},
 
 		EndpointConfig: AzureEndpointConfig{
@@ -293,9 +276,9 @@ var (
 
 	// AzureCloudSpecEnvMap is the environment configuration map for all the Azure cloud environments.
 	AzureCloudSpecEnvMap = map[string]AzureEnvironmentSpecConfig{
-		api.AzureChinaCloud:        AzureChinaCloudSpec,
-		api.AzureGermanCloud:       AzureGermanCloudSpec,
-		api.AzureUSGovernmentCloud: AzureUSGovernmentCloudSpec,
-		api.AzurePublicCloud:       AzureCloudSpec,
+		AzureChinaCloud:        AzureChinaCloudSpec,
+		AzureGermanCloud:       AzureGermanCloudSpec,
+		AzureUSGovernmentCloud: AzureUSGovernmentCloudSpec,
+		AzurePublicCloud:       AzureCloudSpec,
 	}
 )
