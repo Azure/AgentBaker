@@ -11,11 +11,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api/common"
 )
 
 func TestKubeletConfigDefaults(t *testing.T) {
-	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
+	cs := CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, KubernetesDefaultRelease, "", false, false), 3, 2, true)
 	winProfile := &AgentPoolProfile{}
 	winProfile.Count = 1
 	winProfile.Name = "agentpool2"
@@ -105,11 +104,11 @@ func TestKubeletConfigDefaults(t *testing.T) {
 		}
 	}
 
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, common.KubernetesDefaultRelease, "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, KubernetesDefaultRelease, "", false, false), 3, 2, true)
 	// check when ip-masq-agent is explicitly disabled in kubernetes config
 	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
-			Name:    common.IPMASQAgentAddonName,
+			Name:    IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(false),
 		},
 	}
@@ -153,7 +152,7 @@ func TestKubeletConfigDefaults(t *testing.T) {
 }
 
 func TestKubeletConfigDefaultsRemovals(t *testing.T) {
-	cs := CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.13", "", false, false), 3, 2, true)
+	cs := CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, "1.13", "", false, false), 3, 2, true)
 	poolProfile := &AgentPoolProfile{}
 	poolProfile.Count = 1
 	poolProfile.Name = "agentpool2"
@@ -432,7 +431,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
 	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
-			Name:    common.IPMASQAgentAddonName,
+			Name:    IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(true),
 		},
 	}
@@ -452,7 +451,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
 	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
-			Name:    common.IPMASQAgentAddonName,
+			Name:    IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(true),
 		},
 	}
@@ -468,7 +467,7 @@ func TestKubeletHostedMasterIPMasqAgentDisabled(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = subnet
 	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
-			Name:    common.IPMASQAgentAddonName,
+			Name:    IPMASQAgentAddonName,
 			Enabled: to.BoolPtr(true),
 		},
 	}
@@ -488,7 +487,7 @@ func TestKubeletIPMasqAgentEnabledOrDisabled(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    common.IPMASQAgentAddonName,
+				Name:    IPMASQAgentAddonName,
 				Enabled: &b,
 			},
 		},
@@ -507,7 +506,7 @@ func TestKubeletIPMasqAgentEnabledOrDisabled(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    common.IPMASQAgentAddonName,
+				Name:    IPMASQAgentAddonName,
 				Enabled: &b,
 			},
 		},
@@ -730,7 +729,7 @@ func TestKubeletRotateCertificates(t *testing.T) {
 	}
 
 	// Test 1.14
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--rotate-certificates"] != "true" {
@@ -739,7 +738,7 @@ func TestKubeletRotateCertificates(t *testing.T) {
 	}
 
 	// Test 1.16
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.16", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, "1.16", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--rotate-certificates"] != "true" {
@@ -748,7 +747,7 @@ func TestKubeletRotateCertificates(t *testing.T) {
 	}
 
 	// Test user-override
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	k["--rotate-certificates"] = "false"
 	cs.setKubeletConfig(false)
@@ -769,7 +768,7 @@ func TestKubeletConfigDefaultFeatureGates(t *testing.T) {
 	}
 
 	// test 1.14
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, "1.14", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--feature-gates"] != "RotateKubeletServerCertificate=true" {
@@ -778,7 +777,7 @@ func TestKubeletConfigDefaultFeatureGates(t *testing.T) {
 	}
 
 	// test 1.16
-	cs = CreateMockContainerService("testcluster", common.RationalizeReleaseAndVersion(Kubernetes, "1.16", "", false, false), 3, 2, true)
+	cs = CreateMockContainerService("testcluster", RationalizeReleaseAndVersion(Kubernetes, "1.16", "", false, false), 3, 2, true)
 	cs.setKubeletConfig(false)
 	k = cs.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig
 	if k["--feature-gates"] != "RotateKubeletServerCertificate=true" {

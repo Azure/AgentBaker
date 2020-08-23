@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api/common"
 )
 
 func (cs *ContainerService) setAPIServerConfig() {
@@ -98,7 +97,7 @@ func (cs *ContainerService) setAPIServerConfig() {
 
 	// RBAC configuration
 	if to.Bool(o.KubernetesConfig.EnableRbac) {
-		if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.7.0") {
+		if IsKubernetesVersionGe(o.OrchestratorVersion, "1.7.0") {
 			defaultAPIServerConfig["--authorization-mode"] = "Node,RBAC"
 		} else {
 			defaultAPIServerConfig["--authorization-mode"] = "RBAC"
@@ -111,7 +110,7 @@ func (cs *ContainerService) setAPIServerConfig() {
 
 	// Enable VolumeSnapshotDataSource feature gate for Azure Disk CSI Driver
 	// which is disabled from 1.13 to 1.16 by default
-	if !common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.17.0") {
+	if !IsKubernetesVersionGe(o.OrchestratorVersion, "1.17.0") {
 		addDefaultFeatureGates(defaultAPIServerConfig, o.OrchestratorVersion, "1.13.0", "VolumeSnapshotDataSource=true")
 	}
 
@@ -150,14 +149,14 @@ func (cs *ContainerService) setAPIServerConfig() {
 
 	// Enforce flags removal that don't work with specific versions, to accommodate upgrade
 	// Remove flags that are not compatible with 1.10
-	if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.10.0") {
+	if IsKubernetesVersionGe(o.OrchestratorVersion, "1.10.0") {
 		for _, key := range []string{"--admission-control"} {
 			delete(o.KubernetesConfig.APIServerConfig, key)
 		}
 	}
 	// Enforce flags removal that don't work with specific versions, to accommodate upgrade
 	// Remove flags that are not compatible with 1.14
-	if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0-alpha.1") {
+	if IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0-alpha.1") {
 		for _, key := range []string{"--repair-malformed-updates"} {
 			delete(o.KubernetesConfig.APIServerConfig, key)
 		}
@@ -178,7 +177,7 @@ func getDefaultAdmissionControls(cs *ContainerService) (string, string) {
 	admissionControlValues := "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,ValidatingAdmissionWebhook,ResourceQuota,ExtendedResourceToleration"
 
 	// Pod Security Policy configuration
-	if o.KubernetesConfig.IsAddonEnabled(common.PodSecurityPolicyAddonName) {
+	if o.KubernetesConfig.IsAddonEnabled(PodSecurityPolicyAddonName) {
 		admissionControlValues += ",PodSecurityPolicy"
 	}
 

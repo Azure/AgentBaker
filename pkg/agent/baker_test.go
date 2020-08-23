@@ -7,7 +7,6 @@ import (
 	"os/exec"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -143,14 +142,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
-					common.ContainerDataDirKey: "/mnt/containers",
+					datamodel.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
 		}),
 		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
-					common.ContainerDataDirKey: "/mnt/containers",
+					datamodel.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{

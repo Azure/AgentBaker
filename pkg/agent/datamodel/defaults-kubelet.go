@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/Azure/go-autorest/autorest/to"
-
-	"github.com/Azure/aks-engine/pkg/api/common"
 )
 
 func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
@@ -110,11 +108,11 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	}
 
 	minVersionRotateCerts := "1.11.9"
-	if common.IsKubernetesVersionGe(o.OrchestratorVersion, minVersionRotateCerts) {
+	if IsKubernetesVersionGe(o.OrchestratorVersion, minVersionRotateCerts) {
 		defaultKubeletConfig["--rotate-certificates"] = "true"
 	}
 
-	if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.16.0") {
+	if IsKubernetesVersionGe(o.OrchestratorVersion, "1.16.0") {
 		// for enabling metrics-server v0.3.0+
 		defaultKubeletConfig["--authentication-token-webhook"] = "true"
 		if !cs.Properties.IsHostedMasterProfile() { // Skip for AKS until it supports metrics-server v0.3
@@ -144,7 +142,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 		o.KubernetesConfig.KubeletConfig[key] = val
 	}
 
-	if isUpgrade && common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
+	if isUpgrade && IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
 		hasSupportPodPidsLimitFeatureGate := strings.Contains(o.KubernetesConfig.KubeletConfig["--feature-gates"], "SupportPodPidsLimit=true")
 		podMaxPids, err := strconv.Atoi(o.KubernetesConfig.KubeletConfig["--pod-max-pids"])
 		if err != nil {
@@ -169,7 +167,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 		setMissingKubeletValues(cs.Properties.MasterProfile.KubernetesConfig, o.KubernetesConfig.KubeletConfig)
 		addDefaultFeatureGates(cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig, o.OrchestratorVersion, "", "")
 
-		if isUpgrade && common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
+		if isUpgrade && IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
 			hasSupportPodPidsLimitFeatureGate := strings.Contains(cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig["--feature-gates"], "SupportPodPidsLimit=true")
 			podMaxPids, err := strconv.Atoi(cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig["--pod-max-pids"])
 			if err != nil {
@@ -215,7 +213,7 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 
 		setMissingKubeletValues(profile.KubernetesConfig, o.KubernetesConfig.KubeletConfig)
 
-		if isUpgrade && common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
+		if isUpgrade && IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
 			hasSupportPodPidsLimitFeatureGate := strings.Contains(profile.KubernetesConfig.KubeletConfig["--feature-gates"], "SupportPodPidsLimit=true")
 			podMaxPids, err := strconv.Atoi(profile.KubernetesConfig.KubeletConfig["--pod-max-pids"])
 			if err != nil {
@@ -246,21 +244,21 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 
 func removeKubeletFlags(k map[string]string, v string) {
 	// Get rid of values not supported until v1.10
-	if !common.IsKubernetesVersionGe(v, "1.10.0") {
+	if !IsKubernetesVersionGe(v, "1.10.0") {
 		for _, key := range []string{"--pod-max-pids"} {
 			delete(k, key)
 		}
 	}
 
 	// Get rid of values not supported in v1.12 and up
-	if common.IsKubernetesVersionGe(v, "1.12.0") {
+	if IsKubernetesVersionGe(v, "1.12.0") {
 		for _, key := range []string{"--cadvisor-port"} {
 			delete(k, key)
 		}
 	}
 
 	// Get rid of values not supported in v1.15 and up
-	if common.IsKubernetesVersionGe(v, "1.15.0-beta.1") {
+	if IsKubernetesVersionGe(v, "1.15.0-beta.1") {
 		for _, key := range []string{"--allow-privileged"} {
 			delete(k, key)
 		}

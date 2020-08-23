@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -174,23 +173,23 @@ func getFakeAddons(defaultAddonMap map[string]string, customImage string) []Kube
 	var fakeCustomAddons []KubernetesAddon
 	for addonName := range defaultAddonMap {
 		containerName := addonName
-		if addonName == common.ContainerMonitoringAddonName {
+		if addonName == ContainerMonitoringAddonName {
 			containerName = "omsagent"
 		}
-		if addonName == common.CalicoAddonName {
+		if addonName == CalicoAddonName {
 			containerName = "calico-typha"
 		}
-		if addonName == common.AADPodIdentityAddonName {
+		if addonName == AADPodIdentityAddonName {
 			containerName = "nmi"
 		}
-		if addonName == common.KubeDNSAddonName {
+		if addonName == KubeDNSAddonName {
 			containerName = "kubedns"
 		}
-		if addonName == common.AntreaAddonName {
-			containerName = common.AntreaControllerContainerName
+		if addonName == AntreaAddonName {
+			containerName = AntreaControllerContainerName
 		}
-		if addonName == common.FlannelAddonName {
-			containerName = common.KubeFlannelContainerName
+		if addonName == FlannelAddonName {
+			containerName = KubeFlannelContainerName
 		}
 		customAddon := KubernetesAddon{
 			Name:    addonName,
@@ -623,7 +622,7 @@ func TestNetworkPluginDefaults(t *testing.T) {
 	properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
-			Name:    common.FlannelAddonName,
+			Name:    FlannelAddonName,
 			Enabled: to.BoolPtr(true),
 		},
 	}
@@ -2568,7 +2567,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.14", GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
@@ -2584,7 +2583,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.14", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.14", GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
@@ -2601,7 +2600,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.15", GetAllSupportedKubernetesVersions(false, false)),
 					},
 					MasterProfile: &MasterProfile{},
 				},
@@ -2614,7 +2613,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.15", GetAllSupportedKubernetesVersions(false, false)),
 					},
 					MasterProfile: &MasterProfile{},
 				},
@@ -2628,7 +2627,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.15", GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
@@ -2645,7 +2644,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.16", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.16", GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},
@@ -2662,7 +2661,7 @@ func TestEnableRBAC(t *testing.T) {
 				Properties: &Properties{
 					OrchestratorProfile: &OrchestratorProfile{
 						OrchestratorType:    Kubernetes,
-						OrchestratorVersion: common.GetLatestPatchVersion("1.15", common.GetAllSupportedKubernetesVersions(false, false)),
+						OrchestratorVersion: GetLatestPatchVersion("1.15", GetAllSupportedKubernetesVersions(false, false)),
 						KubernetesConfig: &KubernetesConfig{
 							EnableRbac: to.BoolPtr(false),
 						},

@@ -16,7 +16,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,7 +70,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 	}
 	o := a.OrchestratorProfile
 	if o.OrchestratorVersion == "" {
-		o.OrchestratorVersion = common.GetValidPatchVersion(
+		o.OrchestratorVersion = GetValidPatchVersion(
 			o.OrchestratorType,
 			o.OrchestratorVersion, isUpdate, a.HasWindows())
 	}
@@ -118,7 +117,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 		} else if isUpgrade {
 			if o.KubernetesConfig.EtcdVersion != DefaultEtcdVersion {
 				// Override (i.e., upgrade) the etcd version if the default is newer in an upgrade scenario
-				if common.GetMinVersion([]string{o.KubernetesConfig.EtcdVersion, DefaultEtcdVersion}, true) == o.KubernetesConfig.EtcdVersion {
+				if GetMinVersion([]string{o.KubernetesConfig.EtcdVersion, DefaultEtcdVersion}, true) == o.KubernetesConfig.EtcdVersion {
 					log.Warnf("etcd will be upgraded to version %s\n", DefaultEtcdVersion)
 					o.KubernetesConfig.EtcdVersion = DefaultEtcdVersion
 				}
@@ -132,7 +131,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		} else {
 			if o.KubernetesConfig.NetworkPlugin == "" {
-				if o.KubernetesConfig.IsAddonEnabled(common.FlannelAddonName) {
+				if o.KubernetesConfig.IsAddonEnabled(FlannelAddonName) {
 					o.KubernetesConfig.NetworkPlugin = NetworkPluginFlannel
 				} else {
 					o.KubernetesConfig.NetworkPlugin = DefaultNetworkPlugin
@@ -225,7 +224,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 			}
 		}
 
-		if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
+		if IsKubernetesVersionGe(o.OrchestratorVersion, "1.14.0") {
 			o.KubernetesConfig.CloudProviderBackoffMode = CloudProviderBackoffModeV2
 			if o.KubernetesConfig.CloudProviderBackoff == nil {
 				o.KubernetesConfig.CloudProviderBackoff = to.BoolPtr(true)
@@ -295,7 +294,7 @@ func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
 
 		// Upgrade scenario:
 		// We need to force set EnableRbac to true for upgrades to 1.15.0 and greater if it was previously set to false (AKS Engine only)
-		if !a.OrchestratorProfile.KubernetesConfig.IsRBACEnabled() && common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.15.0") && isUpgrade && !cs.Properties.IsHostedMasterProfile() {
+		if !a.OrchestratorProfile.KubernetesConfig.IsRBACEnabled() && IsKubernetesVersionGe(o.OrchestratorVersion, "1.15.0") && isUpgrade && !cs.Properties.IsHostedMasterProfile() {
 			log.Warnf("RBAC will be enabled during upgrade to version %s\n", o.OrchestratorVersion)
 			a.OrchestratorProfile.KubernetesConfig.EnableRbac = to.BoolPtr(true)
 		}
@@ -520,7 +519,7 @@ func certsAlreadyPresent(c *CertificateProfile, m int) map[string]bool {
 // a minimum k8s version may be declared as required for defaults assignment
 func addDefaultFeatureGates(m map[string]string, version string, minVersion string, defaults string) {
 	if minVersion != "" {
-		if common.IsKubernetesVersionGe(version, minVersion) {
+		if IsKubernetesVersionGe(version, minVersion) {
 			m["--feature-gates"] = combineValues(m["--feature-gates"], defaults)
 		} else {
 			m["--feature-gates"] = combineValues(m["--feature-gates"], "")
@@ -575,7 +574,7 @@ func (cs *ContainerService) getDefaultKubernetesClusterSubnetIPv6() string {
 	o := cs.Properties.OrchestratorProfile
 	// In 1.17+ the default IPv6 mask size is /64 which means the cluster
 	// subnet mask size >= /48
-	if common.IsKubernetesVersionGe(o.OrchestratorVersion, "1.17.0") {
+	if IsKubernetesVersionGe(o.OrchestratorVersion, "1.17.0") {
 		return DefaultKubernetesClusterSubnetIPv6
 	}
 	// In 1.16, the default mask size for IPv6 is /24 which forces the cluster

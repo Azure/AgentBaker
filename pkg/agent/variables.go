@@ -8,7 +8,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/aks-engine/pkg/api"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -77,8 +76,8 @@ func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
 		"maximumLoadBalancerRuleCount":    getMaximumLoadBalancerRuleCount(cs),
 		"userAssignedIdentityID":          config.UserAssignedIdentityClientID,
 		"isVHD":                           isVHD(profile),
-		"gpuNode":                         strconv.FormatBool(common.IsNvidiaEnabledSKU(profile.VMSize)),
-		"sgxNode":                         strconv.FormatBool(common.IsSgxEnabledSKU(profile.VMSize)),
+		"gpuNode":                         strconv.FormatBool(datamodel.IsNvidiaEnabledSKU(profile.VMSize)),
+		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
