@@ -21,7 +21,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
-	cloudSpecConfig := cs.GetCloudSpecConfig()
+	cloudSpecConfig := config.CloudSpecConfig
 
 	addValue(parametersMap, "bakerVersion", bakerVersion)
 	addValue(parametersMap, "location", location)
@@ -60,9 +60,9 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, generatorCode)
+		assignKubernetesParameters(properties, parametersMap, *cloudSpecConfig, generatorCode)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, *cloudSpecConfig, generatorCode)
 		}
 	}
 

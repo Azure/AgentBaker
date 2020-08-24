@@ -273,12 +273,4 @@ var (
 			AKSUbuntu1804:  AKSUbuntu1804OSImageConfig,
 		},
 	}
-
-	// AzureCloudSpecEnvMap is the environment configuration map for all the Azure cloud environments.
-	AzureCloudSpecEnvMap = map[string]AzureEnvironmentSpecConfig{
-		AzureChinaCloud:        AzureChinaCloudSpec,
-		AzureGermanCloud:       AzureGermanCloudSpec,
-		AzureUSGovernmentCloud: AzureUSGovernmentCloudSpec,
-		AzurePublicCloud:       AzureCloudSpec,
-	}
 )

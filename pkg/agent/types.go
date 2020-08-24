@@ -19,6 +19,7 @@ type KeyVaultRef struct {
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *datamodel.ContainerService
+	CloudSpecConfig               *datamodel.AzureEnvironmentSpecConfig
 	AgentPoolProfile              *datamodel.AgentPoolProfile
 	TenantID                      string
 	SubscriptionID                string

@@ -635,14 +635,6 @@ type ContainerService struct {
 	Properties *Properties `json:"properties,omitempty"`
 }
 
-// GetCloudSpecConfig returns the Kubernetes container images URL configurations based on the deploy target environment.
-//for example: if the target is the public azure, then the default container image url should be k8s.gcr.io/...
-//if the target is azure china, then the default container image should be mirror.azure.cn:5000/google_container/...
-func (cs *ContainerService) GetCloudSpecConfig() AzureEnvironmentSpecConfig {
-	targetEnv := helpers.GetTargetEnv(cs.Location, cs.Properties.GetCustomCloudName())
-	return AzureCloudSpecEnvMap[targetEnv]
-}
-
 // IsAKSCustomCloud checks if it's in AKS custom cloud
 func (cs *ContainerService) IsAKSCustomCloud() bool {
 	return cs.Properties.CustomCloudEnv != nil &&
