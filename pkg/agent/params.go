@@ -60,9 +60,9 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, *cloudSpecConfig, generatorCode)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, generatorCode)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, *cloudSpecConfig, generatorCode)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode)
 		}
 	}
 
@@ -145,7 +145,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
@@ -154,7 +154,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 }
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
-	cloudSpecConfig datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 
 	orchestratorProfile := properties.OrchestratorProfile
@@ -219,8 +219,8 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
 			addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
 			addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
-			addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
-			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
+			addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(*cloudSpecConfig))
+			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(*cloudSpecConfig))
 			addValue(parametersMap, "gchighthreshold", kubernetesConfig.GCHighThreshold)
 			addValue(parametersMap, "gclowthreshold", kubernetesConfig.GCLowThreshold)
 			addValue(parametersMap, "etcdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.EtcdDownloadURLBase)
