@@ -30,7 +30,7 @@ type PropertiesDefaultsParams struct {
 }
 
 // SetPropertiesDefaults for the container Properties
-func (cs *ContainerService) SetPropertiesDefaults(params PropertiesDefaultsParams) error {
+func (cs *ContainerService) SetPropertiesDefaults(params PropertiesDefaultsParams, cloudSpecConfig *AzureEnvironmentSpecConfig) error {
 	// Set master profile defaults if this cluster configuration includes master node(s)
 	if cs.Properties.MasterProfile != nil {
 		cs.setMasterProfileDefaults(params.IsUpgrade)
@@ -42,7 +42,7 @@ func (cs *ContainerService) SetPropertiesDefaults(params PropertiesDefaultsParam
 	cs.setAgentProfileDefaults(params.IsUpgrade, params.IsScale)
 
 	cs.setStorageDefaults()
-	cs.setOrchestratorDefaults(params.IsUpgrade, params.IsScale)
+	cs.setOrchestratorDefaults(params.IsUpgrade, params.IsScale, cloudSpecConfig)
 	cs.setExtensionDefaults()
 
 	// Set hosted master profile defaults if this cluster configuration has a hosted control plane
@@ -60,11 +60,10 @@ func (cs *ContainerService) SetPropertiesDefaults(params PropertiesDefaultsParam
 }
 
 // setOrchestratorDefaults for orchestrators
-func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool) {
+func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool, cloudSpecConfig *AzureEnvironmentSpecConfig) {
 	isUpdate := isUpgrade || isScale
 	a := cs.Properties
 
-	cloudSpecConfig := cs.GetCloudSpecConfig()
 	if a.OrchestratorProfile == nil {
 		return
 	}

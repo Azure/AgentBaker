@@ -16,7 +16,7 @@ func TestGetAzureCNIURLFuncs(t *testing.T) {
 	// Default case
 	cs := CreateMockContainerService("testcluster", defaultTestClusterVer, 1, 3, false)
 	cs.Location = "eastus"
-	cloudSpecConfig := cs.GetCloudSpecConfig()
+	cloudSpecConfig := azurePublicCloudSpec
 
 	o := OrchestratorProfile{
 		OrchestratorType: "Kubernetes",
@@ -34,7 +34,7 @@ func TestGetAzureCNIURLFuncs(t *testing.T) {
 	// User-configurable case
 	cs = CreateMockContainerService("testcluster", defaultTestClusterVer, 1, 3, false)
 	cs.Location = "eastus"
-	cloudSpecConfig = cs.GetCloudSpecConfig()
+	cloudSpecConfig = azurePublicCloudSpec
 
 	customLinuxURL := "https://custom-url/azure-cni-linux.0.0.1.tgz"
 	customWindowsURL := "https://custom-url/azure-cni-windows.0.0.1.tgz"

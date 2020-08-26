@@ -21,7 +21,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
-	cloudSpecConfig := cs.GetCloudSpecConfig()
+	cloudSpecConfig := config.CloudSpecConfig
 
 	addValue(parametersMap, "bakerVersion", bakerVersion)
 	addValue(parametersMap, "location", location)
@@ -145,7 +145,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
@@ -154,7 +154,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 }
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
-	cloudSpecConfig datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 
 	orchestratorProfile := properties.OrchestratorProfile

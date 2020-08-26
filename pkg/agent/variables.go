@@ -56,7 +56,7 @@ func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return map[string]interface{}{
-		"outBoundCmd":                     getOutBoundCmd(cs),
+		"outBoundCmd":                     getOutBoundCmd(cs, config.CloudSpecConfig),
 		"tenantID":                        config.TenantID,
 		"subscriptionId":                  config.SubscriptionID,
 		"resourceGroup":                   config.ResourceGroupName,
@@ -110,13 +110,13 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(cs *datamodel.ContainerService) string {
+func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}
 	registry := ""
 	ncBinary := "nc"
-	if cs.GetCloudSpecConfig().CloudName == api.AzureChinaCloud {
+	if cloudSpecConfig.CloudName == api.AzureChinaCloud {
 		registry = `gcr.azk8s.cn 443`
 	} else if cs.IsAKSCustomCloud() {
 		registry = cs.Properties.CustomCloudEnv.McrURL + " 443"

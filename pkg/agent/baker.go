@@ -431,19 +431,19 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return linuxProfile.ScriptRootURL
 		},
 		"GetAgentOSImageOffer": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
+			cloudSpecConfig := config.CloudSpecConfig
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageOffer)
 		},
 		"GetAgentOSImagePublisher": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
+			cloudSpecConfig := config.CloudSpecConfig
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImagePublisher)
 		},
 		"GetAgentOSImageSKU": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
+			cloudSpecConfig := config.CloudSpecConfig
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageSku)
 		},
 		"GetAgentOSImageVersion": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
+			cloudSpecConfig := config.CloudSpecConfig
 			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageVersion)
 		},
 		"UseCloudControllerManager": func() bool {
