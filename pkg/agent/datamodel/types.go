@@ -1429,3 +1429,12 @@ func (a KubernetesAddon) GetAddonContainersIndexByName(containerName string) int
 	}
 	return -1
 }
+
+// FormatProdFQDNByLocation constructs an Azure prod fqdn with custom cloud profile
+// CustomCloudName is name of environment if customCloudProfile is provided, it will be empty string if customCloudProfile is empty.
+// Because customCloudProfile is empty for deployment for AzurePublicCloud, AzureChinaCloud,AzureGermanCloud,AzureUSGovernmentCloud,
+// The customCloudName value will be empty string for those clouds
+func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfig *AzureEnvironmentSpecConfig) string {
+	FQDNFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
+	return fmt.Sprintf("%s.%s."+FQDNFormat, fqdnPrefix, location)
+}

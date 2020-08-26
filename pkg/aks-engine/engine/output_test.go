@@ -24,7 +24,7 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	defer os.RemoveAll(defaultDir)
 
 	// Generate apimodel and azure deploy artifacts without certs
-	err := writer.WriteTLSArtifacts(cs, "vlabs", "fake template", "fake parameters", dir, false, false)
+	err := writer.WriteTLSArtifacts(cs, "vlabs", "fake template", "fake parameters", dir, false, false, datamodel.AzurePublicCloudSpecForTest)
 
 	if err != nil {
 		t.Fatalf("unexpected error trying to write TLS artifacts: %s", err.Error())
@@ -41,7 +41,7 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	os.RemoveAll(dir)
 
 	// Generate parameters only and certs
-	err = writer.WriteTLSArtifacts(cs, "vlabs", "fake template", "fake parameters", "", true, true)
+	err = writer.WriteTLSArtifacts(cs, "vlabs", "fake template", "fake parameters", "", true, true, datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Fatalf("unexpected error trying to write TLS artifacts: %s", err.Error())
 	}
@@ -95,7 +95,7 @@ func TestWriteTLSArtifacts(t *testing.T) {
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
 	}, azurePublicCloudSpec)
-	err = writer.WriteTLSArtifacts(csCustom, "vlabs", "fake template", "fake parameters", "", true, false)
+	err = writer.WriteTLSArtifacts(csCustom, "vlabs", "fake template", "fake parameters", "", true, false, datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Fatalf("unexpected error trying to write TLS artifacts: %s", err.Error())
 	}
@@ -116,7 +116,7 @@ func TestWriteTLSArtifacts(t *testing.T) {
 
 	// Generate certs with all kubeconfig locations
 	cs.Location = ""
-	err = writer.WriteTLSArtifacts(cs, "vlabs", "fake template", "fake parameters", "", true, false)
+	err = writer.WriteTLSArtifacts(cs, "vlabs", "fake template", "fake parameters", "", true, false, datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Fatalf("unexpected error trying to write TLS artifacts: %s", err.Error())
 	}

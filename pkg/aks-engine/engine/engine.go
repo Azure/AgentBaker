@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/pkg/errors"
 
@@ -56,7 +55,7 @@ const (
 )
 
 // GenerateKubeConfig returns a JSON string representing the KubeConfig
-func GenerateKubeConfig(properties *datamodel.Properties, location string) (string, error) {
+func GenerateKubeConfig(properties *datamodel.Properties, location string, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) (string, error) {
 	if properties == nil {
 		return "", errors.New("Properties nil in GenerateKubeConfig")
 	}
@@ -83,7 +82,7 @@ func GenerateKubeConfig(properties *datamodel.Properties, location string) (stri
 			kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVerbatim \"reference(concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))).dnsSettings.fqdn\"}}", properties.MasterProfile.FirstConsecutiveStaticIP, -1)
 		}
 	} else {
-		kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVerbatim \"reference(concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))).dnsSettings.fqdn\"}}", api.FormatProdFQDNByLocation(properties.MasterProfile.DNSPrefix, location, properties.GetCustomCloudName()), -1)
+		kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVerbatim \"reference(concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))).dnsSettings.fqdn\"}}", datamodel.FormatProdFQDNByLocation(properties.MasterProfile.DNSPrefix, location, cloudSpecConfig), -1)
 	}
 	kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVariable \"resourceGroup\"}}", properties.MasterProfile.DNSPrefix, -1)
 
