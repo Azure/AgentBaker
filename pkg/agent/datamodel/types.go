@@ -20,6 +20,12 @@ import (
 	"sync"
 )
 
+// TypeMeta describes an individual API model object
+type TypeMeta struct {
+	// APIVersion is on every object
+	APIVersion string `json:"apiVersion"`
+}
+
 // CustomNodesDNS represents the Search Domain when the custom vnet for a custom DNS as a nameserver.
 type CustomNodesDNS struct {
 	DNSServer string `json:"dnsServer,omitempty"`

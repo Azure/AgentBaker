@@ -3,6 +3,10 @@
 
 package datamodel
 
+const (
+	VlabsAPIVersion = "vlabs"
+)
+
 // the orchestrators supported by vlabs
 const (
 	// Mesos is the string constant for MESOS orchestrator type
