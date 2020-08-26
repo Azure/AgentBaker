@@ -1375,7 +1375,7 @@ func (k *KubernetesConfig) IsAADPodIdentityEnabled() bool {
 }
 
 // GetAzureCNIURLLinux returns the full URL to source Azure CNI binaries from
-func (k *KubernetesConfig) GetAzureCNIURLLinux(cloudSpecConfig AzureEnvironmentSpecConfig) string {
+func (k *KubernetesConfig) GetAzureCNIURLLinux(cloudSpecConfig *AzureEnvironmentSpecConfig) string {
 	if k.AzureCNIURLLinux != "" {
 		return k.AzureCNIURLLinux
 	}
@@ -1383,7 +1383,7 @@ func (k *KubernetesConfig) GetAzureCNIURLLinux(cloudSpecConfig AzureEnvironmentS
 }
 
 // GetAzureCNIURLWindows returns the full URL to source Azure CNI binaries from
-func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig AzureEnvironmentSpecConfig) string {
+func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironmentSpecConfig) string {
 	if k.AzureCNIURLWindows != "" {
 		return k.AzureCNIURLWindows
 	}
