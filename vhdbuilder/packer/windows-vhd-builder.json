@@ -12,7 +12,9 @@
         "tenant_id": "{{env `AZURE_TENANT_ID`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
         "location": "{{env `AZURE_LOCATION`}}",
-        "vm_size": "{{env `AZURE_VM_SIZE`}}"
+        "vm_size": "{{env `AZURE_VM_SIZE`}}",
+        "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
+        "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}"
     },
     "builders": [
         {
@@ -26,8 +28,8 @@
             "os_type": "Windows",
             "image_publisher": "MicrosoftWindowsServer",
             "image_offer": "WindowsServer",
-            "image_sku": "2019-Datacenter-Core-smalldisk",
-            "image_version": "17763.1282.2006061952",
+            "image_sku": "{{user `windows_image_sku`}}",
+            "image_version": "{{user `windows_image_version`}}",
             "resource_group_name": "{{user `resource_group_name`}}",
             "capture_container_name": "aks-vhds-windows-ws2019",
             "capture_name_prefix": "aks-{{user `create_time`}}",

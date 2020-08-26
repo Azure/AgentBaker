@@ -1,4 +1,6 @@
 # Required pipeline variables:
+# - WINDOWS_SKU - SKU of the image offer to use for your base image 
+#   - Valida values are '2019' for '2019-Datacenter-Core-smalldisk' or '2004' for 'datacenter-core-2004-with-containers-smalldisk'
 # - AZURE_LOCATION - Azure region to create resources in
 # - AZURE_RESOURCE_GROUP_NAME - Resource group to create resources in
 # - BUILD_POOL - Azure DevOps build pool to use
@@ -41,6 +43,7 @@ jobs:
       -e BUILD_ID=$(Build.BuildId) \
       -e BUILD_NUMBER=$(Build.BuildNumber) \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
+      -e WINDOWS_SKU=$(WINDOWS_SKU) \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - task: PublishPipelineArtifact@1
