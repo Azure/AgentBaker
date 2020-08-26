@@ -27,11 +27,10 @@ var (
 		},
 
 		OSImageConfig: map[Distro]AzureOSImageConfig{
-			Ubuntu:         Ubuntu1604OSImageConfig,
-			Ubuntu1804:     Ubuntu1804OSImageConfig,
-			Ubuntu1804Gen2: Ubuntu1804Gen2OSImageConfig,
-			AKSUbuntu1604:  AKSUbuntu1604OSImageConfig,
-			AKSUbuntu1804:  AKSUbuntu1804OSImageConfig,
+			Ubuntu:        Ubuntu1604OSImageConfig,
+			Ubuntu1804:    Ubuntu1804OSImageConfig,
+			AKSUbuntu1604: AKSUbuntu1604OSImageConfig,
+			AKSUbuntu1804: AKSUbuntu1804OSImageConfig,
 		},
 	}
 )
