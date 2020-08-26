@@ -15,6 +15,23 @@
 # - SUBSCRIPTION_ID - Subscription ID used by the pipeline
 # - TENANT_ID - Tenant Id used for service principal login
 
+# Two modes in prioritized order
+# sigMode: Shared Image Gallery mode
+#    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
+#    It is similar to mode 1 except it will create a gen1 image and the SIG destination is specified by the provided env var.
+#    This is good for quick testing purpose as you can use the SIG image as soon as the build is completed.
+#    steps:
+#    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION
+#
+# default mode: Hyper-Generation V1 +VHD
+#    This default mode generates VHD and store it in a classic storage account. This is mainly for publishing a new VM image to Platform Image Repository(PIR) and Share Image Gallery.
+#    steps:
+#    - create an VHD in Packer to normal storage account
+#    - copy from Packer storage account to classic storage account using AzCopy
+#    - generate SAS link from azure CLI
+#    - (offline)POST a new SKU to azure marketplace
+
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(WINDOWS_SKU)_$(CONTAINER_RUNTIME)_$(Build.SourceBranchName)
 trigger: none
 pr: none
 
@@ -26,7 +43,13 @@ jobs:
   pool:
     name: $(BUILD_POOL)
   steps:
+  - bash: |
+      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
+      echo "Set build mode to $m" && \
+      echo "##vso[task.setvariable variable=MODE]$m"
+    displayName: Get Build Mode
   - script: |
+      echo MODE=$(MODE) && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -44,6 +67,10 @@ jobs:
       -e BUILD_NUMBER=$(Build.BuildNumber) \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
+      -e MODE=$(MODE) \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - task: PublishPipelineArtifact@1
@@ -51,6 +78,7 @@ jobs:
       artifact: 'vhd-release-notes'
       path: 'release-notes.txt'
   - script: |
+      echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
       docker run --rm \
@@ -66,29 +94,9 @@ jobs:
       -e VHD_NAME=${VHD_NAME} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
-    condition: eq(variables.DRY_RUN, 'False')
-  - script: |
-      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-      -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
-      -e VHD_NAME=${VHD_NAME} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk windows-vhd-publishing-info
-    displayName: Generating publishing info for Windows VHD
-    condition: eq(variables.DRY_RUN, 'False')
-  - task: PublishPipelineArtifact@1
-    inputs:
-      artifact: 'publishing-info'
-      path: 'windows-vhd-publishing-info.json'
-    condition: eq(variables.DRY_RUN, 'False')
-  - script: |
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+  - bash: |
+      echo MODE=$(MODE) && \
       SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -100,9 +108,45 @@ jobs:
       -e SA_NAME=${SA_NAME} \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-sa
-    displayName: cleanup - delete temp storage account
-    condition: always()
-  - script: |
-      sudo chown -R $USER:$USER .
-    displayName: cleanup - chown all files in work directory
-    condition: always()
+    displayName: Clean-up Storage Account
+  - bash: |
+      echo MODE=$(MODE) && \
+      IMAGE_NAME=$SIG_IMAGE_NAME && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e IMAGE_NAME=${IMAGE_NAME} \
+      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+      ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-mi
+    displayName: Clean-up Managed Image
+    condition: ne(variables['MODE'], 'default')
+  - bash: |
+      echo MODE=$(MODE) && \
+      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
+      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      SKU_NAME="windows-$WINDOWS_SKU" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+      -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
+      -e VHD_NAME=${VHD_NAME} \
+      -e OS_NAME="Windows" \
+      -e SKU_NAME=${SKU_NAME} \
+      -e OFFER_NAME="aks-windows" \
+      ${DEIS_GO_DEV_IMAGE} make -f packer.mk generate-sas
+    displayName: Getting Shared Access Signature URI
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+      artifactName: 'publishing-info'
+      targetPath: 'vhd-publishing-info.json'
+    condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))

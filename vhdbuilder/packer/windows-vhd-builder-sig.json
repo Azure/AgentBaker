@@ -1,0 +1,139 @@
+
+{
+    "variables": {
+        "build_branch": "{{env `GIT_BRANCH`}}",
+        "build_commit": "{{env `GIT_VERSION`}}",
+        "build_id": "{{env `BUILD_ID`}}",
+        "build_number": "{{env `BUILD_NUMBER`}}",
+        "build_repo": "{{env `GIT_REPO`}}",
+        "client_id": "{{env `AZURE_CLIENT_ID`}}",
+        "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
+        "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
+        "tenant_id": "{{env `AZURE_TENANT_ID`}}",
+        "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
+        "location": "{{env `AZURE_LOCATION`}}",
+        "vm_size": "{{env `AZURE_VM_SIZE`}}",
+        "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
+        "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
+        "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+        "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
+        "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
+    },
+    "builders": [
+        {
+            "type": "azure-arm",
+            "client_id": "{{user `client_id`}}",
+            "client_secret": "{{user `client_secret`}}",
+            "tenant_id": "{{user `tenant_id`}}",
+            "subscription_id": "{{user `subscription_id`}}",
+            "location": "{{user `location`}}",
+            "vm_size": "{{user `vm_size`}}",
+            "os_type": "Windows",
+            "image_publisher": "MicrosoftWindowsServer",
+            "image_offer": "WindowsServer",
+            "image_sku": "{{user `windows_image_sku`}}",
+            "image_version": "{{user `windows_image_version`}}",
+            "managed_image_resource_group_name": "{{user `resource_group_name`}}",
+            "managed_image_name": "{{user `sig_image_name`}}",
+            "shared_image_gallery_destination": {
+              "resource_group": "{{user `resource_group_name`}}",
+              "gallery_name": "{{user `sig_gallery_name`}}",
+              "image_name": "{{user `sig_image_name`}}",
+              "image_version": "{{user `sig_image_version`}}",
+              "replication_regions": ["{{user `location`}}"]
+            },
+            "communicator": "winrm",
+            "winrm_use_ssl": true,
+            "winrm_insecure": true,
+            "winrm_timeout": "10m",
+            "winrm_username": "packer",
+            "azure_tags": {
+                "os": "Windows",
+                "now": "{{user `create_time`}}",
+                "createdBy": "aks-vhd-pipeline"
+            }
+        }
+    ],
+    "provisioners": [
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=1",
+                "ContainerRuntime={{user `container_runtime`}}"
+            ],
+            "type": "powershell",
+            "script": "vhdbuilder/packer/configure-windows-vhd.ps1"
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=2",
+                "ContainerRuntime={{user `container_runtime`}}"
+            ],
+            "type": "powershell",
+            "script": "vhdbuilder/packer/configure-windows-vhd.ps1"
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
+        },
+        {
+            "type": "file",
+            "direction": "upload",
+            "source": "vhdbuilder/scripts/windows/collect-windows-logs.ps1",
+            "destination": "c:\\akse-cache\\collect-windows-logs.ps1"
+        },
+        {
+            "type": "file",
+            "direction": "upload",
+            "source": "vhdbuilder/notice_windows.txt",
+            "destination": "c:\\NOTICE.txt"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars" : [
+                "BUILD_BRANCH={{user `build_branch`}}",
+                "BUILD_COMMIT={{user `build_commit`}}",
+                "BUILD_ID={{user `build_id`}}",
+                "BUILD_NUMBER={{user `build_number`}}",
+                "BUILD_REPO={{user `build_repo`}}"
+            ],
+            "type": "powershell",
+            "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "c:\\release-notes.txt",
+            "destination": "release-notes.txt"
+        },
+        {
+            "type": "powershell",
+            "inline": [
+                "& $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit",
+                "Stop-Service WindowsAzureGuestAgent",
+                "Stop-Service WindowsAzureNetAgentSvc",
+                "Stop-Service RdAgent",
+                "Stop-Service WindowsAzureTelemetryService",
+                "& sc.exe delete WindowsAzureGuestAgent",
+                "& sc.exe delete WindowsAzureNetAgentSvc",
+                "& sc.exe delete RdAgent",
+                "& sc.exe delete WindowsAzureTelemetryService",
+                "Get-ChildItem c:\\WindowsAzure -Force | Sort-Object -Property FullName -Descending | ForEach-Object { try { Remove-Item -Path $_.FullName -Force -Recurse -ErrorAction SilentlyContinue; } catch { } }",
+                "while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Output $imageState.ImageState; Start-Sleep -s 10  } else { break } }",
+                "Remove-Item -Path WSMan:\\Localhost\\listener\\listener* -Recurse"
+            ]
+        }
+    ]
+}
