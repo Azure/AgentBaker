@@ -21,7 +21,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
-	cloudSpecConfig := cs.GetCloudSpecConfig()
+	cloudSpecConfig := config.CloudSpecConfig
 
 	addValue(parametersMap, "bakerVersion", bakerVersion)
 	addValue(parametersMap, "location", location)
@@ -94,10 +94,10 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 				addValue(parametersMap, fmt.Sprintf("%sosImageName", agentProfile.Name), agentProfile.ImageRef.Name)
 				addValue(parametersMap, fmt.Sprintf("%sosImageResourceGroup", agentProfile.Name), agentProfile.ImageRef.ResourceGroup)
 			}
-			addValue(parametersMap, fmt.Sprintf("%sosImageOffer", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImageOffer)
-			addValue(parametersMap, fmt.Sprintf("%sosImageSKU", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImageSku)
-			addValue(parametersMap, fmt.Sprintf("%sosImagePublisher", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImagePublisher)
-			addValue(parametersMap, fmt.Sprintf("%sosImageVersion", agentProfile.Name), cloudSpecConfig.OSImageConfig[api.Distro(agentProfile.Distro)].ImageVersion)
+			addValue(parametersMap, fmt.Sprintf("%sosImageOffer", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImageOffer)
+			addValue(parametersMap, fmt.Sprintf("%sosImageSKU", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImageSku)
+			addValue(parametersMap, fmt.Sprintf("%sosImagePublisher", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImagePublisher)
+			addValue(parametersMap, fmt.Sprintf("%sosImageVersion", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImageVersion)
 		}
 	}
 
@@ -145,7 +145,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig api.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
@@ -154,7 +154,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 }
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
-	cloudSpecConfig api.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 
 	orchestratorProfile := properties.OrchestratorProfile

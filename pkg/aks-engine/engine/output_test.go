@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
 )
 
 func TestWriteTLSArtifacts(t *testing.T) {
@@ -72,11 +71,30 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	// Generate files with custom cloud profile in configuration
 	csCustom := datamodel.CreateMockContainerService("testcluster", "1.11.6", 1, 2, true)
 	csCustom.Location = "customlocation"
-	csCustom.SetPropertiesDefaults(api.PropertiesDefaultsParams{
+	azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
+		CloudName: datamodel.AzurePublicCloud,
+		//DockerSpecConfig specify the docker engine download repo
+		DockerSpecConfig: datamodel.DefaultDockerSpecConfig,
+		//KubernetesSpecConfig is the default kubernetes container image url.
+		KubernetesSpecConfig: datamodel.DefaultKubernetesSpecConfig,
+
+		EndpointConfig: datamodel.AzureEndpointConfig{
+			ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
+		},
+
+		OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig{
+			datamodel.Ubuntu:         datamodel.Ubuntu1604OSImageConfig,
+			datamodel.Ubuntu1804:     datamodel.Ubuntu1804OSImageConfig,
+			datamodel.Ubuntu1804Gen2: datamodel.Ubuntu1804Gen2OSImageConfig,
+			datamodel.AKSUbuntu1604:  datamodel.AKSUbuntu1604OSImageConfig,
+			datamodel.AKSUbuntu1804:  datamodel.AKSUbuntu1804OSImageConfig,
+		},
+	}
+	csCustom.SetPropertiesDefaults(datamodel.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
+	}, azurePublicCloudSpec)
 	err = writer.WriteTLSArtifacts(csCustom, "vlabs", "fake template", "fake parameters", "", true, false)
 	if err != nil {
 		t.Fatalf("unexpected error trying to write TLS artifacts: %s", err.Error())

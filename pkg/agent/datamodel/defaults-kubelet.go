@@ -9,7 +9,6 @@ import (
 
 	"github.com/Azure/go-autorest/autorest/to"
 
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 )
 
@@ -80,23 +79,23 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	defaultKubeletConfig := map[string]string{
 		"--cluster-domain":                    "cluster.local",
 		"--network-plugin":                    "cni",
-		"--pod-infra-container-image":         o.KubernetesConfig.MCRKubernetesImageBase + api.K8sComponentsByVersionMap[o.OrchestratorVersion]["pause"],
-		"--max-pods":                          strconv.Itoa(api.DefaultKubernetesMaxPods),
-		"--eviction-hard":                     api.DefaultKubernetesHardEvictionThreshold,
-		"--node-status-update-frequency":      api.K8sComponentsByVersionMap[o.OrchestratorVersion]["nodestatusfreq"],
-		"--image-gc-high-threshold":           strconv.Itoa(api.DefaultKubernetesGCHighThreshold),
-		"--image-gc-low-threshold":            strconv.Itoa(api.DefaultKubernetesGCLowThreshold),
-		"--non-masquerade-cidr":               api.DefaultNonMasqueradeCIDR,
+		"--pod-infra-container-image":         o.KubernetesConfig.MCRKubernetesImageBase + K8sComponentsByVersionMap[o.OrchestratorVersion]["pause"],
+		"--max-pods":                          strconv.Itoa(DefaultKubernetesMaxPods),
+		"--eviction-hard":                     DefaultKubernetesHardEvictionThreshold,
+		"--node-status-update-frequency":      K8sComponentsByVersionMap[o.OrchestratorVersion]["nodestatusfreq"],
+		"--image-gc-high-threshold":           strconv.Itoa(DefaultKubernetesGCHighThreshold),
+		"--image-gc-low-threshold":            strconv.Itoa(DefaultKubernetesGCLowThreshold),
+		"--non-masquerade-cidr":               DefaultNonMasqueradeCIDR,
 		"--cloud-provider":                    "azure",
 		"--cloud-config":                      "/etc/kubernetes/azure.json",
 		"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
-		"--event-qps":                         api.DefaultKubeletEventQPS,
-		"--cadvisor-port":                     api.DefaultKubeletCadvisorPort,
-		"--pod-max-pids":                      strconv.Itoa(api.DefaultKubeletPodMaxPIDs),
+		"--event-qps":                         DefaultKubeletEventQPS,
+		"--cadvisor-port":                     DefaultKubeletCadvisorPort,
+		"--pod-max-pids":                      strconv.Itoa(DefaultKubeletPodMaxPIDs),
 		"--image-pull-progress-deadline":      "30m",
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h",
-		"--tls-cipher-suites":                 api.TLSStrongCipherSuitesKubelet,
+		"--tls-cipher-suites":                 TLSStrongCipherSuitesKubelet,
 	}
 
 	// Set --non-masquerade-cidr if ip-masq-agent is disabled on AKS or
@@ -106,8 +105,8 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	}
 
 	// Apply Azure CNI-specific --max-pods value
-	if o.KubernetesConfig.NetworkPlugin == api.NetworkPluginAzure {
-		defaultKubeletConfig["--max-pods"] = strconv.Itoa(api.DefaultKubernetesMaxPodsVNETIntegrated)
+	if o.KubernetesConfig.NetworkPlugin == NetworkPluginAzure {
+		defaultKubeletConfig["--max-pods"] = strconv.Itoa(DefaultKubernetesMaxPodsVNETIntegrated)
 	}
 
 	minVersionRotateCerts := "1.11.9"
@@ -133,9 +132,9 @@ func (cs *ContainerService) setKubeletConfig(isUpgrade bool) {
 	}
 
 	// Override default --network-plugin?
-	if o.KubernetesConfig.NetworkPlugin == api.NetworkPluginKubenet {
-		if o.KubernetesConfig.NetworkPolicy != api.NetworkPolicyCalico {
-			o.KubernetesConfig.KubeletConfig["--network-plugin"] = api.NetworkPluginKubenet
+	if o.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet {
+		if o.KubernetesConfig.NetworkPolicy != NetworkPolicyCalico {
+			o.KubernetesConfig.KubeletConfig["--network-plugin"] = NetworkPluginKubenet
 		}
 	}
 

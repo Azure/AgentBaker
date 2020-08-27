@@ -19,8 +19,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/blang/semver"
-
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/pkg/errors"
 )
 
@@ -331,9 +329,9 @@ func getDataDisks(a *datamodel.AgentPoolProfile) string {
 		if i > 0 {
 			buf.WriteString(",\n")
 		}
-		if a.StorageProfile == api.StorageAccount {
+		if a.StorageProfile == datamodel.StorageAccount {
 			buf.WriteString(fmt.Sprintf(dataDisks, diskSize, i, a.Name, i, a.Name, a.Name, a.Name, a.Name, i))
-		} else if a.StorageProfile == api.ManagedDisks {
+		} else if a.StorageProfile == datamodel.ManagedDisks {
 			buf.WriteString(fmt.Sprintf(managedDataDisks, diskSize, i))
 		}
 	}

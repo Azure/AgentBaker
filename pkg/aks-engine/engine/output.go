@@ -10,7 +10,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/api"
-	"github.com/Azure/aks-engine/pkg/helpers"
+	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/pkg/errors"
 )
 

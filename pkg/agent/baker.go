@@ -432,20 +432,20 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return linuxProfile.ScriptRootURL
 		},
 		"GetAgentOSImageOffer": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageOffer)
+			cloudSpecConfig := config.CloudSpecConfig
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageOffer)
 		},
 		"GetAgentOSImagePublisher": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImagePublisher)
+			cloudSpecConfig := config.CloudSpecConfig
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImagePublisher)
 		},
 		"GetAgentOSImageSKU": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageSku)
+			cloudSpecConfig := config.CloudSpecConfig
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageSku)
 		},
 		"GetAgentOSImageVersion": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[api.Distro(profile.Distro)].ImageVersion)
+			cloudSpecConfig := config.CloudSpecConfig
+			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageVersion)
 		},
 		"UseCloudControllerManager": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager
@@ -497,9 +497,9 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.ContainerRuntime == api.Docker
+				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == api.Docker
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == datamodel.Docker
 		},
 		"RequiresDocker": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {

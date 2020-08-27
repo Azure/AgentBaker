@@ -13,9 +13,8 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine"
+	"github.com/Azure/agentbaker/pkg/aks-engine/engine/transform"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
-	"github.com/Azure/aks-engine/pkg/engine/transform"
 	"github.com/google/uuid"
 	"github.com/leonelquinteros/gotext"
 	"github.com/pkg/errors"
@@ -69,7 +68,27 @@ func newGenerateCmd() *cobra.Command {
 				return errors.Wrap(err, "loading API model in generateCmd")
 			}
 
-			return gc.run()
+			azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
+				CloudName: datamodel.AzurePublicCloud,
+				//DockerSpecConfig specify the docker engine download repo
+				DockerSpecConfig: datamodel.DefaultDockerSpecConfig,
+				//KubernetesSpecConfig is the default kubernetes container image url.
+				KubernetesSpecConfig: datamodel.DefaultKubernetesSpecConfig,
+
+				EndpointConfig: datamodel.AzureEndpointConfig{
+					ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
+				},
+
+				OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig{
+					datamodel.Ubuntu:         datamodel.Ubuntu1604OSImageConfig,
+					datamodel.Ubuntu1804:     datamodel.Ubuntu1804OSImageConfig,
+					datamodel.Ubuntu1804Gen2: datamodel.Ubuntu1804Gen2OSImageConfig,
+					datamodel.AKSUbuntu1604:  datamodel.AKSUbuntu1604OSImageConfig,
+					datamodel.AKSUbuntu1804:  datamodel.AKSUbuntu1804OSImageConfig,
+				},
+			}
+
+			return gc.run(azurePublicCloudSpec)
 		},
 	}
 
@@ -189,14 +208,14 @@ func (gc *generateCmd) autofillApimodel() error {
 	return nil
 }
 
-func (gc *generateCmd) run() error {
+func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
 
-	err := gc.containerService.SetPropertiesDefaults(api.PropertiesDefaultsParams{
+	err := gc.containerService.SetPropertiesDefaults(datamodel.PropertiesDefaultsParams{
 		IsScale:    false,
 		IsUpgrade:  false,
 		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
+	}, cloudSpecConfig)
 	if err != nil {
 		return errors.Wrapf(err, "in SetPropertiesDefaults template %s", gc.apimodelPath)
 	}
@@ -214,6 +233,7 @@ func (gc *generateCmd) run() error {
 
 	config := &agent.NodeBootstrappingConfiguration{
 		ContainerService:              gc.containerService,
+		CloudSpecConfig:               cloudSpecConfig,
 		AgentPoolProfile:              gc.containerService.Properties.AgentPoolProfiles[0],
 		TenantID:                      "<tenantid>",
 		SubscriptionID:                "<subid>",

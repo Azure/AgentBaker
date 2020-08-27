@@ -52,9 +52,7 @@ write_files:
     H4sIAAAAAAAA/6SUz07jPBTF93kKq2LxfQsnbalQEfIChsBUVAwiRSxKFTnOJbHq2JHvTWlnmHcf9Q9oSosGhJfX53fOkWXd8Z3VNAnOAZXXNWlnxVWTgQEKvjmb6+XkRlIZzzUSiqhBHxmnpIkybaPpRhoE4wT8TCuYBLeAJD0JaZ7kAoPYzrR3tgJLF9qAiIBUlMOjbAy98kmjFCDGc00JSWpQdHqHQTwHlSy9bjyIVV4msWSRqymSPxsPkXKWpLbg8cUqxHIPV01z7RmvWTSTPjI6e03+iFZZ/V4XrlhLP7IxO/ivco0l9swKDzV7aL1NemixZ/akGDf/M26AtdmEnTAqwbJ17ArnPNM236m5Ozhhj7q1r/3GppJT4FhKD7tuQfAGxCWJC1RkGH9iFijU9awXkqpTD+Q1YFf0/w0p5yFEV8m5ctaKztFhv/eJqErOU1zYNJNqalzxUX6VWgGiLCBVDkn02p+kssYjiX77ow9jQRdluPnFYaFSKj1g2RG99vHR1zy6ot857n7N43DzdNsufG0DGcnMADJOzMrlXzEaaa9U12+ltqnAa7UDvbMY2EPANodzsEszjuBn4LdurMuBG5mBQdE6+HV1dxYP41F6/eM8ToenZ/Ew+d3aAmaiy7YHzjQV8No0hbY81369Z5Y1vAUCjNaKtQD/Yg9e0i6Gp5fJvovb+HKQjOLbVZ894/vB6Hs6Oh1cj5IgGA8skjRmEtxLS5CfLUTVGNK8QfAhSV8A/QkAAP//lvMgPnQFAAA=
 
 
-    
 - path: /usr/local/bin/health-monitor.sh
-    
   permissions: "0544"
   encoding: gzip
   owner: root
@@ -110,14 +108,12 @@ write_files:
 
 
     
-        
 - path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   permissions: "0644"
   encoding: gzip
   owner: "root"
   content: !!binary |
     H4sIAAAAAAAA/4oOTi0qy0xOjeXyzS/NK3HLSUwvti3OSCxKTeFSdvV34wIEAAD//6XumLkhAAAA
-        
     
 
 - path: /etc/systemd/system/docker.service.d/exec_start.conf

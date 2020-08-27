@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -124,8 +123,8 @@ func TestDeserializeContainerService(t *testing.T) {
 	if version != vlabs.APIVersion {
 		t.Errorf("expected apiVersion %s, instead got: %s", vlabs.APIVersion, version)
 	}
-	if cs.Properties.OrchestratorProfile.OrchestratorType != api.Kubernetes {
-		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", api.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
+	if cs.Properties.OrchestratorProfile.OrchestratorType != datamodel.Kubernetes {
+		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", datamodel.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
 	}
 
 	// Test error case
@@ -295,7 +294,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				AgentVnetSubnetID:        "sampleAgentVnetSubnetID",
 				FirstConsecutiveStaticIP: "10.240.0.0",
 				IPAddressCount:           5,
-				StorageProfile:           api.StorageAccount,
+				StorageProfile:           datamodel.StorageAccount,
 				HTTPSourceAddressPrefix:  "fooHTTPSourceAddressPrefix",
 				OAuthEnabled:             true,
 				PreprovisionExtension: &datamodel.Extension{
@@ -398,7 +397,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 							OSDiskSizeGB:   512,
 							Username:       "userName",
 							PublicKey:      ValidSSHPublicKey,
-							StorageProfile: api.StorageAccount,
+							StorageProfile: datamodel.StorageAccount,
 						},
 					},
 					PodSecurityPolicyConfig: map[string]string{
@@ -438,3 +437,51 @@ func getDefaultContainerService() *datamodel.ContainerService {
 }
 
 const ValidSSHPublicKey = "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEApD8+lRvLtUcyfO8N2Cwq0zY9DG1Un9d+tcmU3HgnAzBr6UR/dDT5M07NV7DN1lmu/0dt6Ay/ItjF9xK//nwVJL3ezEX32yhLKkCKFMB1LcANNzlhT++SB5tlRBx65CTL8z9FORe4UCWVJNafxu3as/BshQSrSaYt3hjSeYuzTpwd4+4xQutzbTXEUBDUr01zEfjjzfUu0HDrg1IFae62hnLm3ajG6b432IIdUhFUmgjZDljUt5bI3OEz5IWPsNOOlVTuo6fqU8lJHClAtAlZEZkyv0VotidC7ZSCfV153rRsEk9IWscwL2PQIQnCw7YyEYEffDeLjBwkH6MIdJ6OgQ== rsa-key-20170510"
+
+func TestLoadDefaultContainerServiceProperties(t *testing.T) {
+	m, p := LoadDefaultContainerServiceProperties()
+
+	if m.APIVersion != defaultAPIVersion {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return API version %s, instead got %s", defaultAPIVersion, m.APIVersion)
+	}
+
+	if p.OrchestratorProfile.OrchestratorType != defaultOrchestrator {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s OrchestratorProfile.OrchestratorType, instead got %s", datamodel.Kubernetes, p.OrchestratorProfile.OrchestratorType)
+	}
+
+	if p.MasterProfile.Count != defaultMasterCount {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d MasterProfile.Count, instead got %d", defaultMasterCount, p.MasterProfile.Count)
+	}
+
+	if p.MasterProfile.VMSize != defaultVMSize {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s MasterProfile.VMSize, instead got %s", defaultVMSize, p.MasterProfile.VMSize)
+	}
+
+	if p.MasterProfile.OSDiskSizeGB != defaultOSDiskSizeGB {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d MasterProfile.OSDiskSizeGB, instead got %d", defaultOSDiskSizeGB, p.MasterProfile.OSDiskSizeGB)
+	}
+
+	if len(p.AgentPoolProfiles) != 1 {
+		t.Errorf("Expected 1 agent pool, instead got %d", len(p.AgentPoolProfiles))
+	}
+
+	if p.AgentPoolProfiles[0].Name != defaultAgentPoolName {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s AgentPoolProfiles[0].Name, instead got %s", defaultAgentPoolName, p.AgentPoolProfiles[0].Name)
+	}
+
+	if p.AgentPoolProfiles[0].Count != defaultAgentCount {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d AgentPoolProfiles[0].Count, instead got %d", defaultAgentCount, p.AgentPoolProfiles[0].Count)
+	}
+
+	if p.AgentPoolProfiles[0].VMSize != defaultVMSize {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s AgentPoolProfiles[0].VMSize, instead got %s", defaultVMSize, p.AgentPoolProfiles[0].VMSize)
+	}
+
+	if p.AgentPoolProfiles[0].OSDiskSizeGB != defaultOSDiskSizeGB {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d AgentPoolProfiles[0].OSDiskSizeGB, instead got %d", defaultOSDiskSizeGB, p.AgentPoolProfiles[0].OSDiskSizeGB)
+	}
+
+	if p.LinuxProfile.AdminUsername != defaultAdminUser {
+		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s LinuxProfile.AdminAdminUsernameUsername, instead got %s", defaultAdminUser, p.LinuxProfile.AdminUsername)
+	}
+}

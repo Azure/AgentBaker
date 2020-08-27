@@ -166,3 +166,74 @@ func TestGetTargetEnv(t *testing.T) {
 		}
 	}
 }
+
+func TestAcceleratedNetworkingSupported(t *testing.T) {
+	cases := []struct {
+		input          string
+		expectedResult bool
+	}{
+		{
+			input:          "Standard_A1",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_G4",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_B3",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_D1_v2",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_L3",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_NC6",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_G4",
+			expectedResult: false,
+		},
+		{
+			input:          "Standard_D2_v2",
+			expectedResult: true,
+		},
+		{
+			input:          "Standard_DS2_v2",
+			expectedResult: true,
+		},
+		{
+			input:          "Standard_DS3_v2",
+			expectedResult: true,
+		},
+		{
+			input:          "Standard_M8ms",
+			expectedResult: true,
+		},
+		{
+			input:          "AZAP_Performance_ComputeV17C",
+			expectedResult: true,
+		},
+		{
+			input:          "SQLGL",
+			expectedResult: true,
+		},
+		{
+			input:          "",
+			expectedResult: false,
+		},
+	}
+
+	for _, c := range cases {
+		result := AcceleratedNetworkingSupported(c.input)
+		if c.expectedResult != result {
+			t.Fatalf("AcceleratedNetworkingSupported returned unexpected result for %s: expected %t but got %t", c.input, c.expectedResult, result)
+		}
+	}
+}

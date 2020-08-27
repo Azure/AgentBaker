@@ -7,7 +7,6 @@ import (
 	"os/exec"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/ginkgo"
@@ -22,7 +21,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Type:     "Microsoft.ContainerService/ManagedClusters",
 			Properties: &datamodel.Properties{
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
-					OrchestratorType:    api.Kubernetes,
+					OrchestratorType:    datamodel.Kubernetes,
 					OrchestratorVersion: k8sVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubeletConfig: map[string]string{
@@ -41,7 +40,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
-						AvailabilityProfile: api.VirtualMachineScaleSets,
+						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						KubernetesConfig: &datamodel.KubernetesConfig{
 							KubeletConfig: map[string]string{
 								"--address":                           "0.0.0.0",
@@ -102,8 +101,28 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 		baker := InitializeTemplateGenerator()
 
+		azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
+			CloudName: datamodel.AzurePublicCloud,
+			//DockerSpecConfig specify the docker engine download repo
+			DockerSpecConfig: datamodel.DefaultDockerSpecConfig,
+			//KubernetesSpecConfig is the default kubernetes container image url.
+			KubernetesSpecConfig: datamodel.DefaultKubernetesSpecConfig,
+
+			EndpointConfig: datamodel.AzureEndpointConfig{
+				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
+			},
+
+			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig{
+				datamodel.Ubuntu:         datamodel.Ubuntu1604OSImageConfig,
+				datamodel.Ubuntu1804:     datamodel.Ubuntu1804OSImageConfig,
+				datamodel.Ubuntu1804Gen2: datamodel.Ubuntu1804Gen2OSImageConfig,
+				datamodel.AKSUbuntu1604:  datamodel.AKSUbuntu1604OSImageConfig,
+				datamodel.AKSUbuntu1804:  datamodel.AKSUbuntu1804OSImageConfig,
+			},
+		}
 		config := &NodeBootstrappingConfiguration{
 			ContainerService:              cs,
+			CloudSpecConfig:               azurePublicCloudSpec,
 			AgentPoolProfile:              agentPool,
 			TenantID:                      "tenantID",
 			SubscriptionID:                "subID",
@@ -156,7 +175,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
-				ContainerRuntime: api.Containerd,
+				ContainerRuntime: datamodel.Containerd,
 			}
 		}),
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
@@ -182,7 +201,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
-				ContainerRuntime: api.Containerd,
+				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 		}))
