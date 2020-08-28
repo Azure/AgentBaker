@@ -111,13 +111,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			EndpointConfig: datamodel.AzureEndpointConfig{
 				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
 			},
-
-			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig{
-				datamodel.Ubuntu:        datamodel.Ubuntu1604OSImageConfig,
-				datamodel.Ubuntu1804:    datamodel.Ubuntu1804OSImageConfig,
-				datamodel.AKSUbuntu1604: datamodel.AKSUbuntu1604OSImageConfig,
-				datamodel.AKSUbuntu1804: datamodel.AKSUbuntu1804OSImageConfig,
-			},
 		}
 		config := &NodeBootstrappingConfiguration{
 			ContainerService:              cs,
