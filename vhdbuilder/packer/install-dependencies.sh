@@ -507,7 +507,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/bash -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
     if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
@@ -524,7 +524,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     fi
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
-    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/bash -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
     if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
