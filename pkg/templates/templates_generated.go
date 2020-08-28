@@ -3375,7 +3375,6 @@ write_files:
   owner: root
   content: |
     [Service]
-    Restart=always
     ExecStart=
     ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip={{GetParameter "dockerBridgeCidr"}}
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
