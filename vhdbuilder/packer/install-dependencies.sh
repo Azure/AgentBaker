@@ -467,9 +467,6 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.18.6-hotfix.20200723.1
 # v1.18.8
 PATCHED_HYPERKUBE_IMAGES="
-1.14.7-hotfix.20200408.1
-1.14.8-hotfix.20200529.1
-1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
 1.15.11-hotfix.20200714.1
