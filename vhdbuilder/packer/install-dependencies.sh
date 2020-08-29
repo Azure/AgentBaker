@@ -427,6 +427,7 @@ K8S_VERSIONS="
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8
+1.19.0
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
@@ -499,6 +500,7 @@ PATCHED_HYPERKUBE_IMAGES="
 1.18.6-hotfix.20200723.1
 1.18.6
 1.18.8
+1.19.0
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
