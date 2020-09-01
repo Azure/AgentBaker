@@ -1,18 +1,3 @@
-# github.com/Azure/aks-engine v0.47.0-aks-gomod-a5
-github.com/Azure/aks-engine/pkg/api
-github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20170831
-github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/v20180331
-github.com/Azure/aks-engine/pkg/api/agentPoolOnlyApi/vlabs
-github.com/Azure/aks-engine/pkg/api/common
-github.com/Azure/aks-engine/pkg/api/vlabs
-github.com/Azure/aks-engine/pkg/armhelpers
-github.com/Azure/aks-engine/pkg/armhelpers/azurestack
-github.com/Azure/aks-engine/pkg/armhelpers/azurestack/testserver
-github.com/Azure/aks-engine/pkg/armhelpers/testserver
-github.com/Azure/aks-engine/pkg/engine
-github.com/Azure/aks-engine/pkg/engine/transform
-github.com/Azure/aks-engine/pkg/helpers
-github.com/Azure/aks-engine/pkg/i18n
 # github.com/Azure/azure-sdk-for-go v36.2.0+incompatible
 github.com/Azure/azure-sdk-for-go/services/apimanagement/mgmt/2017-03-01/apimanagement
 github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization
