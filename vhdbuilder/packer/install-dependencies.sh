@@ -404,28 +404,31 @@ done
 # below are the required to support versions
 # v1.15.11-hotfix.20200817.1
 # v1.15.12-hotfix.20200817.1
-# v1.16.10-hotfix.20200817.1
-# v1.16.13-hotfix.20200817.1
-# v1.17.7-hotfix.20200817.1
-# v1.17.9-hotfix.20200817.1
-# v1.18.4-hotfix.20200626.1
-# v1.18.6-hotfix.20200723.1	
+# v1.16.10-hotfix.20200824.1
+# v1.16.13-hotfix.20200824.1
+# v1.17.7-hotfix.20200817.1 #we just need the kubelet/kubectl from it, kube-proxy is bad and we will use v1.17.7-hotfix.20200714.1
+# v1.17.9-hotfix.20200824.1
+# v1.18.6-hotfix.20200723.1
+# v1.18.8
+# NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
 1.14.7-hotfix.20200408.1
 1.14.8-hotfix.20200529.1
 1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
-1.15.11-hotfix.20200817.1
-1.15.12-hotfix.20200817.1
+1.15.11-hotfix.20200824.1
+1.15.12-hotfix.20200824.1
 1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200817.1
-1.16.13-hotfix.20200817.1
+1.16.10-hotfix.20200824.1
+1.16.13-hotfix.20200824.1
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200817.1
-1.17.9-hotfix.20200817.1
+1.17.9-hotfix.20200824.1
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
+1.18.8
+1.19.0
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
@@ -458,43 +461,40 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # below are the required to support versions
 # v1.15.11-hotfix.20200817.1
 # v1.15.12-hotfix.20200817.1
-# v1.16.10-hotfix.20200817.1
-# v1.16.13-hotfix.20200817.1
-# v1.17.7-hotfix.20200817.1
-# v1.17.9-hotfix.20200817.1
-# v1.18.4-hotfix.20200626.1
-# v1.18.6-hotfix.20200723.1	
+# v1.16.10-hotfix.20200824.1
+# v1.16.13-hotfix.20200824.1
+# v1.17.7-hotfix.20200817.1 #we just need the kubelet/kubectl from it, kube-proxy is bad and we will use v1.17.7-hotfix.20200714.1
+# v1.17.9-hotfix.20200824.1
+# v1.18.6-hotfix.20200723.1
+# v1.18.8
+# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP
 PATCHED_HYPERKUBE_IMAGES="
-1.14.7-hotfix.20200408.1
-1.14.8-hotfix.20200529.1
-1.15.7-hotfix.20200326
-1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200529.1
-1.15.11-hotfix.20200714.1
-1.15.11-hotfix.20200817.1
+1.15.11-hotfix.20200824.1
 1.15.12-hotfix.20200623.1
 1.15.12-hotfix.20200714.1
-1.15.12-hotfix.20200817.1
+1.15.12-hotfix.20200824.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200623.1
 1.16.10-hotfix.20200714.1
 1.16.10-hotfix.20200817.1
+1.16.10-hotfix.20200824.1
 1.16.13-hotfix.20200714.1
 1.16.13-hotfix.20200817.1
+1.16.13-hotfix.20200824.1
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200624
 1.17.7-hotfix.20200714.1
 1.17.7-hotfix.20200714.2
-1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200714.1
 1.17.9-hotfix.20200817.1
-1.18.2-hotfix.20200624
-1.18.2-hotfix.20200624.1
+1.17.9-hotfix.20200824.1
 1.18.4-hotfix.20200624
-1.18.4-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.6
+1.18.8
+1.19.0
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
@@ -502,7 +502,11 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/bash -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables" || (echo "Hyperkube contains nf_tables" && exit 99)
+    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+    if [[ $? != 0 ]]; then
+      echo "Hyperkube contains nf_tables, exiting..."
+      exit 99
+    fi
   fi
 
   # from 1.17 onwards start using kube-proxy as well
@@ -515,7 +519,11 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     fi
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
-    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/bash -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables" || (echo "kube-proxy contains nf_tables" && exit 99)
+    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+    if [[ $? != 0 ]]; then
+      echo "Hyperkube contains nf_tables, exiting..."
+      exit 99
+    fi
     echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
   fi
 done

@@ -100,6 +100,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 		baker := InitializeTemplateGenerator()
+
 		config := &NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,

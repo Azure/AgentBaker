@@ -97,62 +97,6 @@ var (
 		DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
 	}
 
-	//Ubuntu1604OSImageConfig is the default Linux distribution.
-	Ubuntu1604OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "UbuntuServer",
-		ImageSku:       "16.04-LTS",
-		ImagePublisher: "Canonical",
-		ImageVersion:   "latest",
-	}
-
-	//Ubuntu1804OSImageConfig is the Ubunutu 18.04-LTS Linux distribution.
-	Ubuntu1804OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "UbuntuServer",
-		ImageSku:       "18.04-LTS",
-		ImagePublisher: "Canonical",
-		ImageVersion:   "latest",
-	}
-
-	//Ubuntu1804Gen2OSImageConfig is Gen2 flavor the Ubunutu 18.04-LTS Linux distribution.
-	Ubuntu1804Gen2OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-gen2-2020-q3",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.08.06",
-	}
-
-	//RHELOSImageConfig is the RHEL Linux distribution.
-	RHELOSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "RHEL",
-		ImageSku:       "7.3",
-		ImagePublisher: "RedHat",
-		ImageVersion:   "latest",
-	}
-
-	//CoreOSImageConfig is the CoreOS Linux distribution.
-	CoreOSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "CoreOS",
-		ImageSku:       "Stable",
-		ImagePublisher: "CoreOS",
-		ImageVersion:   "latest",
-	}
-
-	// AKSUbuntu1604OSImageConfig is the AKS image based on Ubuntu 16.04-LTS.
-	AKSUbuntu1604OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1604-2020-q3",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.08.06",
-	}
-
-	// AKSUbuntu1804OSImageConfig is the AKS image based on Ubuntu 18.04-LTS.
-	AKSUbuntu1804OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-2020-q3",
-		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2020.08.06",
-	}
-
 	// AKSWindowsServer2019OSImageConfig is the AKS image based on Windows Server 2019
 	AKSWindowsServer2019OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks-windows",
@@ -167,13 +111,5 @@ var (
 		ImageSku:       "2019-Datacenter-Core-with-Containers-smalldisk",
 		ImagePublisher: "MicrosoftWindowsServer",
 		ImageVersion:   "17763.1339.2007101755",
-	}
-
-	// ACC1604OSImageConfig is the ACC image based on Ubuntu 16.04.
-	ACC1604OSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "confidential-compute-preview",
-		ImageSku:       "16.04-LTS",
-		ImagePublisher: "Canonical",
-		ImageVersion:   "latest",
 	}
 )
