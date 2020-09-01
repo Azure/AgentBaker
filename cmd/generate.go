@@ -78,14 +78,6 @@ func newGenerateCmd() *cobra.Command {
 				EndpointConfig: datamodel.AzureEndpointConfig{
 					ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
 				},
-
-				OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig{
-					datamodel.Ubuntu:         datamodel.Ubuntu1604OSImageConfig,
-					datamodel.Ubuntu1804:     datamodel.Ubuntu1804OSImageConfig,
-					datamodel.Ubuntu1804Gen2: datamodel.Ubuntu1804Gen2OSImageConfig,
-					datamodel.AKSUbuntu1604:  datamodel.AKSUbuntu1604OSImageConfig,
-					datamodel.AKSUbuntu1804:  datamodel.AKSUbuntu1804OSImageConfig,
-				},
 			}
 
 			return gc.run(azurePublicCloudSpec)
