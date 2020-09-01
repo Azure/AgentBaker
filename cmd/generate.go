@@ -11,7 +11,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
+	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine/transform"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
@@ -143,7 +143,7 @@ func (gc *generateCmd) loadAPIModel() error {
 	var caKeyBytes []byte
 	var err error
 
-	apiloader := &aksenginefork.Apiloader{}
+	apiloader := &api.Apiloader{}
 
 	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
 	if err != nil {

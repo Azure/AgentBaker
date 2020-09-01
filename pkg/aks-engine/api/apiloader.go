@@ -11,13 +11,11 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api"
-	"github.com/Azure/aks-engine/pkg/api/vlabs"
 )
 
 const (
-	defaultOrchestrator  = api.Kubernetes
-	defaultAPIVersion    = vlabs.APIVersion
+	defaultOrchestrator  = datamodel.Kubernetes
+	defaultAPIVersion    = datamodel.VlabsAPIVersion
 	defaultMasterCount   = 3
 	defaultVMSize        = "Standard_DS2_v2"
 	defaultOSDiskSizeGB  = 200
@@ -40,7 +38,7 @@ func (a *Apiloader) LoadContainerServiceFromFile(jsonFile string) (*datamodel.Co
 
 // DeserializeContainerService loads an AKS Engine Cluster API Model, validates it, and returns the unversioned representation
 func (a *Apiloader) DeserializeContainerService(contents []byte) (*datamodel.ContainerService, string, error) {
-	m := &api.TypeMeta{}
+	m := &datamodel.TypeMeta{}
 	if err := json.Unmarshal(contents, &m); err != nil {
 		return nil, "", err
 	}
@@ -56,7 +54,7 @@ func (a *Apiloader) LoadContainerService(
 	if e := json.Unmarshal(contents, &containerService); e != nil {
 		return nil, e
 	}
-	if e := checkJSONKeys(contents, reflect.TypeOf(*containerService), reflect.TypeOf(api.TypeMeta{})); e != nil {
+	if e := checkJSONKeys(contents, reflect.TypeOf(*containerService), reflect.TypeOf(datamodel.TypeMeta{})); e != nil {
 		return nil, e
 	}
 	return containerService, nil
@@ -68,14 +66,14 @@ func (a *Apiloader) LoadContainerService(
 //
 // This was copied from aks-engine's github.com/Azure/aks-engine/pkg/api/types.go
 type vlabsARMContainerService struct {
-	api.TypeMeta
+	datamodel.TypeMeta
 	*datamodel.ContainerService
 }
 
 // SerializeContainerService takes an unversioned container service and returns the bytes
 func (a *Apiloader) SerializeContainerService(containerService *datamodel.ContainerService, version string) ([]byte, error) {
 	switch version {
-	case vlabs.APIVersion:
+	case datamodel.VlabsAPIVersion:
 		armContainerService := &vlabsARMContainerService{}
 		armContainerService.ContainerService = containerService
 		armContainerService.APIVersion = version
@@ -105,24 +103,24 @@ func (a *Apiloader) LoadAgentPoolProfile(contents []byte) (*datamodel.AgentPoolP
 	if e := json.Unmarshal(contents, &agentPoolProfile); e != nil {
 		return nil, e
 	}
-	if e := checkJSONKeys(contents, reflect.TypeOf(*agentPoolProfile), reflect.TypeOf(api.TypeMeta{})); e != nil {
+	if e := checkJSONKeys(contents, reflect.TypeOf(*agentPoolProfile), reflect.TypeOf(datamodel.TypeMeta{})); e != nil {
 		return nil, e
 	}
 	return agentPoolProfile, nil
 }
 
 // LoadDefaultContainerServiceProperties loads the default API model
-func LoadDefaultContainerServiceProperties() (api.TypeMeta, *vlabs.Properties) {
-	return api.TypeMeta{APIVersion: defaultAPIVersion}, &vlabs.Properties{
-		OrchestratorProfile: &vlabs.OrchestratorProfile{
+func LoadDefaultContainerServiceProperties() (datamodel.TypeMeta, *datamodel.Properties) {
+	return datamodel.TypeMeta{APIVersion: defaultAPIVersion}, &datamodel.Properties{
+		OrchestratorProfile: &datamodel.OrchestratorProfile{
 			OrchestratorType: defaultOrchestrator,
 		},
-		MasterProfile: &vlabs.MasterProfile{
+		MasterProfile: &datamodel.MasterProfile{
 			Count:        defaultMasterCount,
 			VMSize:       defaultVMSize,
 			OSDiskSizeGB: defaultOSDiskSizeGB,
 		},
-		AgentPoolProfiles: []*vlabs.AgentPoolProfile{
+		AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 			{
 				Name:         defaultAgentPoolName,
 				Count:        defaultAgentCount,
@@ -130,6 +128,6 @@ func LoadDefaultContainerServiceProperties() (api.TypeMeta, *vlabs.Properties) {
 				OSDiskSizeGB: defaultOSDiskSizeGB,
 			},
 		},
-		LinuxProfile: &vlabs.LinuxProfile{AdminUsername: defaultAdminUser},
+		LinuxProfile: &datamodel.LinuxProfile{AdminUsername: defaultAdminUser},
 	}
 }

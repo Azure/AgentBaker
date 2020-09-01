@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -163,7 +162,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		k8sVersion := orchestratorProfile.OrchestratorVersion
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
-		k8sComponents := api.K8sComponentsByVersionMap[k8sVersion]
+		k8sComponents := datamodel.K8sComponentsByVersionMap[k8sVersion]
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
 		mcrKubernetesImageBase := kubernetesConfig.MCRKubernetesImageBase
 		hyperkubeImageBase := kubernetesConfig.KubernetesImageBase

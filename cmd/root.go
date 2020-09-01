@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -65,8 +65,8 @@ func NewRootCmd() *cobra.Command {
 func writeDefaultModel(out io.Writer) error {
 	meta, p := api.LoadDefaultContainerServiceProperties()
 	type withMeta struct {
-		APIVersion string            `json:"apiVersion"`
-		Properties *vlabs.Properties `json:"properties"`
+		APIVersion string                `json:"apiVersion"`
+		Properties *datamodel.Properties `json:"properties"`
 	}
 
 	b, err := json.MarshalIndent(withMeta{APIVersion: meta.APIVersion, Properties: p}, "", "\t")
