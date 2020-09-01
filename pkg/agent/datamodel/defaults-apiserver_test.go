@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -341,7 +340,7 @@ func TestAPIServerConfigDefaultAdmissionControls(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig[admissonControlKey] = "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,AlwaysPullImages,ExtendedResourceToleration"
 	cs.Properties.OrchestratorProfile.KubernetesConfig.Addons = []KubernetesAddon{
 		{
-			Name:    common.PodSecurityPolicyAddonName,
+			Name:    PodSecurityPolicyAddonName,
 			Enabled: to.BoolPtr(true),
 		},
 	}

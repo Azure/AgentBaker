@@ -13,7 +13,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -507,10 +506,10 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey] != ""
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
 		},
 		"GetDataDir": func() string {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[common.ContainerDataDirKey]
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()

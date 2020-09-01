@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -200,7 +199,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.CoreDNSAddonName,
+								Name:    CoreDNSAddonName,
 								Enabled: to.BoolPtr(true),
 							},
 						},
@@ -216,7 +215,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.IPMASQAgentAddonName,
+								Name:    IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(false),
 							},
 						},
@@ -232,7 +231,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name: common.IPMASQAgentAddonName,
+								Name: IPMASQAgentAddonName,
 							},
 						},
 					},
@@ -247,7 +246,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.IPMASQAgentAddonName,
+								Name:    IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(true),
 							},
 						},
@@ -609,7 +608,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
-			expectedVal: common.MaxAgentCount,
+			expectedVal: MaxAgentCount,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucket,
 		},
 	}
@@ -633,7 +632,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
-			expectedVal: float64(common.MaxAgentCount) * common.MinCloudProviderQPSToBucketFactor,
+			expectedVal: float64(MaxAgentCount) * MinCloudProviderQPSToBucketFactor,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPS,
 		},
 	}
@@ -681,7 +680,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
-			expectedVal: common.MaxAgentCount * 3,
+			expectedVal: MaxAgentCount * 3,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucket,
 		},
 	}
@@ -705,7 +704,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
-			expectedVal: float64(common.MaxAgentCount*3) * common.MinCloudProviderQPSToBucketFactor,
+			expectedVal: float64(MaxAgentCount*3) * MinCloudProviderQPSToBucketFactor,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPS,
 		},
 	}
@@ -750,7 +749,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
-			expectedVal: common.MaxAgentCount,
+			expectedVal: MaxAgentCount,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucket,
 		},
 	}
@@ -774,7 +773,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
-			expectedVal: float64(common.MaxAgentCount) * common.MinCloudProviderQPSToBucketFactor,
+			expectedVal: float64(MaxAgentCount) * MinCloudProviderQPSToBucketFactor,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPS,
 		},
 	}
@@ -816,7 +815,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
-			expectedVal: common.MaxAgentCount,
+			expectedVal: MaxAgentCount,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucket,
 		},
 	}
@@ -840,7 +839,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
-			expectedVal: float64(common.MaxAgentCount) * common.MinCloudProviderQPSToBucketFactor,
+			expectedVal: float64(MaxAgentCount) * MinCloudProviderQPSToBucketFactor,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPS,
 		},
 	}
@@ -885,7 +884,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffDuration,
 		},
 		{
-			expectedVal: 2 * common.MaxAgentCount,
+			expectedVal: 2 * MaxAgentCount,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitBucket,
 		},
 	}
@@ -909,7 +908,7 @@ func TestCloudProviderDefaults(t *testing.T) {
 			computedVal: o.KubernetesConfig.CloudProviderBackoffExponent,
 		},
 		{
-			expectedVal: float64(common.MaxAgentCount*2) * common.MinCloudProviderQPSToBucketFactor,
+			expectedVal: float64(MaxAgentCount*2) * MinCloudProviderQPSToBucketFactor,
 			computedVal: o.KubernetesConfig.CloudProviderRateLimitQPS,
 		},
 	}
@@ -1107,7 +1106,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
-							getMockAddon(common.IPMASQAgentAddonName),
+							getMockAddon(IPMASQAgentAddonName),
 						},
 					},
 				},
@@ -1134,10 +1133,10 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name: common.IPMASQAgentAddonName,
+								Name: IPMASQAgentAddonName,
 								Containers: []KubernetesContainerSpec{
 									{
-										Name: common.IPMASQAgentAddonName,
+										Name: IPMASQAgentAddonName,
 									},
 								},
 							},
@@ -1155,11 +1154,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.IPMASQAgentAddonName,
+								Name:    IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(false),
 								Containers: []KubernetesContainerSpec{
 									{
-										Name: common.IPMASQAgentAddonName,
+										Name: IPMASQAgentAddonName,
 									},
 								},
 							},
@@ -1177,11 +1176,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.IPMASQAgentAddonName,
+								Name:    IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(false),
 								Containers: []KubernetesContainerSpec{
 									{
-										Name: common.IPMASQAgentAddonName,
+										Name: IPMASQAgentAddonName,
 									},
 								},
 							},
@@ -1202,11 +1201,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.IPMASQAgentAddonName,
+								Name:    IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(true),
 								Containers: []KubernetesContainerSpec{
 									{
-										Name: common.IPMASQAgentAddonName,
+										Name: IPMASQAgentAddonName,
 									},
 								},
 							},
@@ -1227,11 +1226,11 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    common.IPMASQAgentAddonName,
+								Name:    IPMASQAgentAddonName,
 								Enabled: to.BoolPtr(true),
 								Containers: []KubernetesContainerSpec{
 									{
-										Name: common.IPMASQAgentAddonName,
+										Name: IPMASQAgentAddonName,
 									},
 								},
 							},
@@ -1443,7 +1442,7 @@ func TestAreAgentProfilesCustomVNET(t *testing.T) {
 }
 
 func TestPropertiesHasDCSeriesSKU(t *testing.T) {
-	cases := common.GetDCSeriesVMCasesForTesting()
+	cases := GetDCSeriesVMCasesForTesting()
 
 	for _, c := range cases {
 		p := Properties{
@@ -3304,7 +3303,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 			k: &KubernetesConfig{
 				Addons: []KubernetesAddon{
 					{
-						Name: common.IPMASQAgentAddonName,
+						Name: IPMASQAgentAddonName,
 					},
 				},
 			},
@@ -3315,7 +3314,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 			k: &KubernetesConfig{
 				Addons: []KubernetesAddon{
 					{
-						Name:    common.IPMASQAgentAddonName,
+						Name:    IPMASQAgentAddonName,
 						Enabled: to.BoolPtr(false),
 					},
 				},
@@ -3327,7 +3326,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 			k: &KubernetesConfig{
 				Addons: []KubernetesAddon{
 					{
-						Name:    common.IPMASQAgentAddonName,
+						Name:    IPMASQAgentAddonName,
 						Enabled: to.BoolPtr(true),
 					},
 				},
@@ -3353,7 +3352,7 @@ func TestGetAddonByName(t *testing.T) {
 	c := KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    common.ContainerMonitoringAddonName,
+				Name:    ContainerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
 					"logAnalyticsWorkspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-workspace-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace",
@@ -3362,7 +3361,7 @@ func TestGetAddonByName(t *testing.T) {
 		},
 	}
 
-	addon := c.GetAddonByName(common.ContainerMonitoringAddonName)
+	addon := c.GetAddonByName(ContainerMonitoringAddonName)
 	if addon.Config == nil || len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
@@ -3386,7 +3385,7 @@ func TestGetAddonByName(t *testing.T) {
 	c = KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    common.ContainerMonitoringAddonName,
+				Name:    ContainerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
 					"workspaceGuid": "MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAw",
@@ -3396,7 +3395,7 @@ func TestGetAddonByName(t *testing.T) {
 		},
 	}
 
-	addon = c.GetAddonByName(common.ContainerMonitoringAddonName)
+	addon = c.GetAddonByName(ContainerMonitoringAddonName)
 	if addon.Config == nil || len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}

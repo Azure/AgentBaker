@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -320,7 +319,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					NetworkPlugin:       "azure-cni",
 					ContainerRuntime:    "docker",
 					ContainerRuntimeConfig: map[string]string{
-						common.ContainerDataDirKey: "/mnt/docker",
+						datamodel.ContainerDataDirKey: "/mnt/docker",
 					},
 					MaxPods:                         3,
 					DockerBridgeSubnet:              "sampleDockerSubnet",

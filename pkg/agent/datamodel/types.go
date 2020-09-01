@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/aks-engine/pkg/api/common"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
 	"hash/fnv"
@@ -702,12 +701,12 @@ func (p *Properties) SetCloudProviderRateLimitDefaults() {
 		if agentPoolProfilesCount == 0 {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = DefaultKubernetesCloudProviderRateLimitBucket
 		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = agentPoolProfilesCount * common.MaxAgentCount
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = agentPoolProfilesCount * MaxAgentCount
 		}
 	}
 	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS == 0 {
-		if (DefaultKubernetesCloudProviderRateLimitQPS / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)) < common.MinCloudProviderQPSToBucketFactor {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket) * common.MinCloudProviderQPSToBucketFactor
+		if (DefaultKubernetesCloudProviderRateLimitQPS / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)) < MinCloudProviderQPSToBucketFactor {
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket) * MinCloudProviderQPSToBucketFactor
 		} else {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = DefaultKubernetesCloudProviderRateLimitQPS
 		}
@@ -717,12 +716,12 @@ func (p *Properties) SetCloudProviderRateLimitDefaults() {
 		if agentPoolProfilesCount == 0 {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucketWrite
 		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = agentPoolProfilesCount * common.MaxAgentCount
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = agentPoolProfilesCount * MaxAgentCount
 		}
 	}
 	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite == 0 {
-		if (DefaultKubernetesCloudProviderRateLimitQPSWrite / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)) < common.MinCloudProviderQPSToBucketFactor {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite) * common.MinCloudProviderQPSToBucketFactor
+		if (DefaultKubernetesCloudProviderRateLimitQPSWrite / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)) < MinCloudProviderQPSToBucketFactor {
+			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite) * MinCloudProviderQPSToBucketFactor
 		} else {
 			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = DefaultKubernetesCloudProviderRateLimitQPSWrite
 		}
@@ -1053,10 +1052,10 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) strin
 	}
 	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
 	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
-		storagetier, _ := common.GetStorageAccountType(a.VMSize)
+		storagetier, _ := GetStorageAccountType(a.VMSize)
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
 	}
-	if common.IsNvidiaEnabledSKU(a.VMSize) {
+	if IsNvidiaEnabledSKU(a.VMSize) {
 		accelerator := "nvidia"
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
 	}
@@ -1333,12 +1332,12 @@ func (k *KubernetesConfig) IsRBACEnabled() bool {
 
 // IsIPMasqAgentDisabled checks if the ip-masq-agent addon is disabled
 func (k *KubernetesConfig) IsIPMasqAgentDisabled() bool {
-	return k.IsAddonDisabled(common.IPMASQAgentAddonName)
+	return k.IsAddonDisabled(IPMASQAgentAddonName)
 }
 
 // IsIPMasqAgentEnabled checks if the ip-masq-agent addon is enabled
 func (k *KubernetesConfig) IsIPMasqAgentEnabled() bool {
-	return k.IsAddonEnabled(common.IPMASQAgentAddonName)
+	return k.IsAddonEnabled(IPMASQAgentAddonName)
 }
 
 // GetAddonByName returns the KubernetesAddon instance with name `addonName`
@@ -1377,7 +1376,7 @@ func (k *KubernetesConfig) RequiresDocker() bool {
 
 // IsAADPodIdentityEnabled checks if the AAD pod identity addon is enabled
 func (k *KubernetesConfig) IsAADPodIdentityEnabled() bool {
-	return k.IsAddonEnabled(common.AADPodIdentityAddonName)
+	return k.IsAddonEnabled(AADPodIdentityAddonName)
 }
 
 // GetAzureCNIURLLinux returns the full URL to source Azure CNI binaries from
