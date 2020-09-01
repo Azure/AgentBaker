@@ -19,7 +19,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to load container service from file: %v", err)
 	}
-	kubeConfig, err := GenerateKubeConfig(containerService.Properties, "westus2")
+	kubeConfig, err := GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	// TODO add actual kubeconfig validation
 	if len(kubeConfig) < 1 {
 		t.Errorf("Got unexpected kubeconfig payload: %v", kubeConfig)
@@ -29,12 +29,12 @@ func TestGenerateKubeConfig(t *testing.T) {
 	}
 
 	p := datamodel.Properties{}
-	_, err = GenerateKubeConfig(&p, "westus2")
+	_, err = GenerateKubeConfig(&p, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err == nil {
 		t.Errorf("Expected an error result from nil Properties child properties")
 	}
 
-	_, err = GenerateKubeConfig(nil, "westus2")
+	_, err = GenerateKubeConfig(nil, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err == nil {
 		t.Errorf("Expected an error result from nil Properties child properties")
 	}
@@ -46,19 +46,19 @@ func TestGenerateKubeConfig(t *testing.T) {
 		Enabled: to.BoolPtr(true),
 	}
 
-	_, err = GenerateKubeConfig(containerService.Properties, "westus2")
+	_, err = GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Errorf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
 	}
 
 	containerService.Properties.MasterProfile.Count = 3
-	_, err = GenerateKubeConfig(containerService.Properties, "westus2")
+	_, err = GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err == nil {
 		t.Errorf("expected an error result when Private Cluster is Enabled and no FirstConsecutiveStaticIP was specified")
 	}
 
 	containerService.Properties.MasterProfile.FirstConsecutiveStaticIP = "10.239.255.239"
-	_, err = GenerateKubeConfig(containerService.Properties, "westus2")
+	_, err = GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Errorf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
 	}
@@ -69,7 +69,7 @@ func TestGenerateKubeConfig(t *testing.T) {
 		ServerAppID: "fooServerAppID",
 	}
 
-	_, err = GenerateKubeConfig(containerService.Properties, "westus2")
+	_, err = GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Errorf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
 	}

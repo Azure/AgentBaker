@@ -100,20 +100,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 		baker := InitializeTemplateGenerator()
 
-		azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
-			CloudName: datamodel.AzurePublicCloud,
-			//DockerSpecConfig specify the docker engine download repo
-			DockerSpecConfig: datamodel.DefaultDockerSpecConfig,
-			//KubernetesSpecConfig is the default kubernetes container image url.
-			KubernetesSpecConfig: datamodel.DefaultKubernetesSpecConfig,
-
-			EndpointConfig: datamodel.AzureEndpointConfig{
-				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
-			},
-		}
 		config := &NodeBootstrappingConfiguration{
 			ContainerService:              cs,
-			CloudSpecConfig:               azurePublicCloudSpec,
+			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
 			AgentPoolProfile:              agentPool,
 			TenantID:                      "tenantID",
 			SubscriptionID:                "subID",

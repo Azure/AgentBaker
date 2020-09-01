@@ -163,3 +163,17 @@ func getMockAddon(name string) KubernetesAddon {
 		},
 	}
 }
+
+var (
+	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
+		CloudName: AzurePublicCloud,
+		//DockerSpecConfig specify the docker engine download repo
+		DockerSpecConfig: DefaultDockerSpecConfig,
+		//KubernetesSpecConfig is the default kubernetes container image url.
+		KubernetesSpecConfig: DefaultKubernetesSpecConfig,
+
+		EndpointConfig: AzureEndpointConfig{
+			ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
+		},
+	}
+)

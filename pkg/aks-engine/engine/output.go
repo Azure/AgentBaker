@@ -18,7 +18,8 @@ import (
 type ArtifactWriter struct{}
 
 // WriteTLSArtifacts saves TLS certificates and keys to the server filesystem
-func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.ContainerService, apiVersion, template, parameters, artifactsDir string, certsGenerated bool, parametersOnly bool) error {
+func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.ContainerService, apiVersion, template, parameters, artifactsDir string, certsGenerated bool, parametersOnly bool,
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) error {
 	if len(artifactsDir) == 0 {
 		artifactsDir = fmt.Sprintf("%s-%s", containerService.Properties.OrchestratorProfile.OrchestratorType, containerService.Properties.GetClusterID())
 		artifactsDir = path.Join("_output", artifactsDir)
@@ -65,7 +66,7 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.Container
 		}
 
 		for _, location := range locations {
-			b, gkcerr := GenerateKubeConfig(properties, location)
+			b, gkcerr := GenerateKubeConfig(properties, location, cloudSpecConfig)
 			if gkcerr != nil {
 				return gkcerr
 			}

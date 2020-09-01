@@ -241,7 +241,7 @@ func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig
 	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(config)
 
 	writer := &engine.ArtifactWriter{}
-	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly); err != nil {
+	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly, cloudSpecConfig); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 
