@@ -530,14 +530,14 @@ done
 
 ADDON_IMAGES="
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.8
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.12
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
 mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200519.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200804.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200901.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
