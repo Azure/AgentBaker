@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -116,7 +115,7 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 	}
 	registry := ""
 	ncBinary := "nc"
-	if cloudSpecConfig.CloudName == api.AzureChinaCloud {
+	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
 		registry = `gcr.azk8s.cn 443`
 	} else if cs.IsAKSCustomCloud() {
 		registry = cs.Properties.CustomCloudEnv.McrURL + " 443"

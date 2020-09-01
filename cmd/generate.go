@@ -11,7 +11,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksenginefork "github.com/Azure/agentbaker/pkg/aks-engine/api"
+	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine/transform"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
@@ -78,14 +78,6 @@ func newGenerateCmd() *cobra.Command {
 				EndpointConfig: datamodel.AzureEndpointConfig{
 					ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
 				},
-
-				OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig{
-					datamodel.Ubuntu:         datamodel.Ubuntu1604OSImageConfig,
-					datamodel.Ubuntu1804:     datamodel.Ubuntu1804OSImageConfig,
-					datamodel.Ubuntu1804Gen2: datamodel.Ubuntu1804Gen2OSImageConfig,
-					datamodel.AKSUbuntu1604:  datamodel.AKSUbuntu1604OSImageConfig,
-					datamodel.AKSUbuntu1804:  datamodel.AKSUbuntu1804OSImageConfig,
-				},
 			}
 
 			return gc.run(azurePublicCloudSpec)
@@ -151,7 +143,7 @@ func (gc *generateCmd) loadAPIModel() error {
 	var caKeyBytes []byte
 	var err error
 
-	apiloader := &aksenginefork.Apiloader{}
+	apiloader := &api.Apiloader{}
 
 	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
 	if err != nil {

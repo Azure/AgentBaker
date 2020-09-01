@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/aks-engine/pkg/api/vlabs"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -119,8 +118,8 @@ func TestDeserializeContainerService(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error deserializing the example apimodel: %s", err)
 	}
-	if version != vlabs.APIVersion {
-		t.Errorf("expected apiVersion %s, instead got: %s", vlabs.APIVersion, version)
+	if version != datamodel.VlabsAPIVersion {
+		t.Errorf("expected apiVersion %s, instead got: %s", datamodel.VlabsAPIVersion, version)
 	}
 	if cs.Properties.OrchestratorProfile.OrchestratorType != datamodel.Kubernetes {
 		t.Errorf("expected cs.Properties.OrchestratorProfile.OrchestratorType %s, instead got: %s", datamodel.Kubernetes, cs.Properties.OrchestratorProfile.OrchestratorType)
@@ -147,7 +146,7 @@ func TestSerializeContainerService(t *testing.T) {
 	apiloader := &Apiloader{}
 
 	// Test with version vlabs
-	b, err := apiloader.SerializeContainerService(cs, vlabs.APIVersion)
+	b, err := apiloader.SerializeContainerService(cs, datamodel.VlabsAPIVersion)
 	if b == nil || err != nil {
 		t.Errorf("unexpected error while trying to Serialize Container Service with version vlabs: %s", err.Error())
 	}

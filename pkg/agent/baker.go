@@ -13,7 +13,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/Azure/aks-engine/pkg/api"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -480,7 +479,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
 		},
 		"GetIdentitySystem": func() string {
-			return api.AzureADIdentitySystem
+			return datamodel.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
 			return cs.Properties.OrchestratorProfile.GetPodInfraContainerSpec()
@@ -535,12 +534,12 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 				}
 			}
 			kubernetesImageBase := k.KubernetesImageBase
-			k8sComponents := api.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+			k8sComponents := datamodel.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 			return kubernetesImageBase + k8sComponents[name]
 		},
 		"GetHyperkubeImageReference": func() string {
 			hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-			k8sComponents := api.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+			k8sComponents := datamodel.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 			hyperkubeImage := hyperkubeImageBase + k8sComponents["hyperkube"]
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
 				hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
