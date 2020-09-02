@@ -18,7 +18,7 @@ do
 done
 
 SKU_INFO="sku/sku_info/sku-publishing-info.json"
-VHD_INFO="vhd/publishing-info/windows-vhd-publishing-info.json"
+VHD_INFO="vhd/publishing-info/vhd-publishing-info.json"
 
 required_files=(
     "SKU_INFO"
@@ -50,8 +50,13 @@ version_date=$(date +"%y%m%d")
 image_version="${vhd_version}.${version_date}"
 
 # generate media name
+# Media name must be under 63 characters
 sku_prefix=$(< $SKU_INFO jq -r ".sku_prefix")
-media_name="aks-windows-${sku_prefix}-${image_version}"
+media_name="${sku_prefix}-${image_version}"
+if [ "${#media_name}" -ge 63 ]; then
+	echo "$media_name should be undr 63 characters"
+	exit 1
+fi
 
 # generate published date
 published_date=$(date +"%m/%d/%Y")
