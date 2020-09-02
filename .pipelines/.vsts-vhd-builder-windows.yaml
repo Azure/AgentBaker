@@ -142,7 +142,7 @@ jobs:
       -e VHD_NAME=${VHD_NAME} \
       -e OS_NAME="Windows" \
       -e SKU_NAME=${SKU_NAME} \
-      -e OFFER_NAME="aks-windows" \
+      -e OFFER_NAME="Windows" \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
