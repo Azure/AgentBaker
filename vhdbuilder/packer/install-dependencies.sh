@@ -402,12 +402,10 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.15.11-hotfix.20200817.1
-# v1.15.12-hotfix.20200817.1
-# v1.16.10-hotfix.20200824.1
 # v1.16.13-hotfix.20200824.1
-# v1.17.7-hotfix.20200817.1 #we just need the kubelet/kubectl from it, kube-proxy is bad and we will use v1.17.7-hotfix.20200714.1
+# v1.16.15-hotfix.20200903
 # v1.17.9-hotfix.20200824.1
+# v1.17.11-hotfix.20200901
 # v1.18.6-hotfix.20200723.1
 # v1.18.8
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
@@ -461,12 +459,10 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.15.11-hotfix.20200817.1
-# v1.15.12-hotfix.20200817.1
-# v1.16.10-hotfix.20200824.1
 # v1.16.13-hotfix.20200824.1
-# v1.17.7-hotfix.20200817.1 #we just need the kubelet/kubectl from it, kube-proxy is bad and we will use v1.17.7-hotfix.20200714.1
+# v1.16.15-hotfix.20200903
 # v1.17.9-hotfix.20200824.1
+# v1.17.11-hotfix.20200901
 # v1.18.6-hotfix.20200723.1
 # v1.18.8
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP
