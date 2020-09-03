@@ -1443,13 +1443,12 @@ installMoby() {
 }
 
 {{if NeedsContainerd}}
-# Note: currently hard-coding to install 1.3.4 until 1.4.x is available
-# once we have updated moby-engine and moby-containerd we will update the vhd builder to install both
+# CSE+VHD can dicate the containerd version, users don't care as long as it works
 installContainerd() {
     # we want at least 1.3.x - need to safeguard against aks-e setting this to < 1.3.x
     if [[ ! "${CONTAINERD_VERSION}" =~ 1\.[3-9]\.[0-9].* ]]; then
-        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.4"
-        CONTAINERD_VERSION="1.3.4"
+        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.7"
+        CONTAINERD_VERSION="1.3.7"
     fi
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     if [[ "${CONTAINERD_VERSION}" == "${CURRENT_VERSION}" ]]; then
