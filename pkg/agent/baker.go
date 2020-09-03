@@ -201,12 +201,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		profile = nil
 	}
 	return template.FuncMap{
-		"IsMultiMasterCluster": func() bool {
-			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasMultipleNodes()
-		},
-		"IsMasterVirtualMachineScaleSets": func() bool {
-			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.IsVirtualMachineScaleSets()
-		},
 		"IsHostedMaster": func() bool {
 			return cs.Properties.IsHostedMasterProfile()
 		},
@@ -215,9 +209,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"IsKubernetesVersionGe": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
-		},
-		"IsKubernetesVersionLt": func(version string) bool {
-			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
 			return profile.GetKubernetesLabels(rg, false)
@@ -264,12 +255,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"HasCosmosEtcd": func() bool {
 			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasCosmosEtcd()
 		},
-		"GetCosmosEndPointUri": func() string {
-			if cs.Properties.MasterProfile != nil {
-				return cs.Properties.MasterProfile.GetCosmosEndPointURI()
-			}
-			return ""
-		},
 		"IsPrivateCluster": func() bool {
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
 		},
@@ -278,41 +263,8 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
 				to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
 		},
-		"ProvisionJumpbox": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision()
-		},
 		"UseManagedIdentity": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
-		},
-		"GetVNETSubnetDependencies": func() string {
-			return getVNETSubnetDependencies(cs.Properties)
-		},
-		"GetLBRules": func(name string, ports []int) string {
-			return getLBRules(name, ports)
-		},
-		"GetProbes": func(ports []int) string {
-			return getProbes(ports)
-		},
-		"GetSecurityRules": func(ports []int) string {
-			return getSecurityRules(ports)
-		},
-		"GetUniqueNameSuffix": func() string {
-			return cs.Properties.GetClusterID()
-		},
-		"GetVNETAddressPrefixes": func() string {
-			return getVNETAddressPrefixes(cs.Properties)
-		},
-		"GetVNETSubnets": func(addNSG bool) string {
-			return getVNETSubnets(cs.Properties, addNSG)
-		},
-		"GetDataDisks": func(profile *datamodel.AgentPoolProfile) string {
-			return getDataDisks(profile)
-		},
-		"GetDefaultVNETCIDR": func() string {
-			return DefaultVNETCIDR
-		},
-		"GetDefaultVNETCIDRIPv6": func() string {
-			return DefaultVNETCIDRIPv6
 		},
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
@@ -374,9 +326,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
 			return profile.HasAvailabilityZones()
 		},
-		"HasLinuxSecrets": func() bool {
-			return cs.Properties.LinuxProfile.HasSecrets()
-		},
 		"HasCustomSearchDomain": func() bool {
 			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain()
 		},
@@ -413,37 +362,8 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"HasCustomNodesDNS": func() bool {
 			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasCustomNodesDNS()
 		},
-		"HasWindowsSecrets": func() bool {
-			return cs.Properties.WindowsProfile.HasSecrets()
-		},
-		"HasWindowsCustomImage": func() bool {
-			return cs.Properties.WindowsProfile.HasCustomImage()
-		},
 		"WindowsSSHEnabled": func() bool {
 			return cs.Properties.WindowsProfile.GetSSHEnabled()
-		},
-		"GetConfigurationScriptRootURL": func() string {
-			linuxProfile := cs.Properties.LinuxProfile
-			if linuxProfile == nil || linuxProfile.ScriptRootURL == "" {
-				return DefaultConfigurationScriptRootURL
-			}
-			return linuxProfile.ScriptRootURL
-		},
-		"GetAgentOSImageOffer": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := config.CloudSpecConfig
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageOffer)
-		},
-		"GetAgentOSImagePublisher": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := config.CloudSpecConfig
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImagePublisher)
-		},
-		"GetAgentOSImageSKU": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := config.CloudSpecConfig
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageSku)
-		},
-		"GetAgentOSImageVersion": func(profile *datamodel.AgentPoolProfile) string {
-			cloudSpecConfig := config.CloudSpecConfig
-			return fmt.Sprintf("\"%s\"", cloudSpecConfig.OSImageConfig[datamodel.Distro(profile.Distro)].ImageVersion)
 		},
 		"UseCloudControllerManager": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager
@@ -473,10 +393,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
-		},
-		"GetBase64EncodedEnvironmentJSON": func() string {
-			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
-			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
 		},
 		"GetIdentitySystem": func() string {
 			return datamodel.AzureADIdentitySystem
@@ -516,26 +432,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()
-		},
-		"GetComponentImageReference": func(name string) string {
-			k := cs.Properties.OrchestratorProfile.KubernetesConfig
-			switch name {
-			case "kube-apiserver":
-				if k.CustomKubeAPIServerImage != "" {
-					return k.CustomKubeAPIServerImage
-				}
-			case "kube-controller-manager":
-				if k.CustomKubeControllerManagerImage != "" {
-					return k.CustomKubeControllerManagerImage
-				}
-			case "kube-scheduler":
-				if k.CustomKubeSchedulerImage != "" {
-					return k.CustomKubeSchedulerImage
-				}
-			}
-			kubernetesImageBase := k.KubernetesImageBase
-			k8sComponents := datamodel.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-			return kubernetesImageBase + k8sComponents[name]
 		},
 		"GetHyperkubeImageReference": func() string {
 			hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
@@ -639,9 +535,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"AKSCustomCloudResourceIdentifiersStorage": func() string {
 			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Storage
 		},
-		"GetCustomCloudConfigCSEScriptFilepath": func() string {
-			return customCloudConfigCSEScriptFilepath
-		},
 		"GetCSEHelpersScriptFilepath": func() string {
 			return cseHelpersScriptFilepath
 		},
@@ -665,12 +558,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"GetPrivateAzureRegistryServer": func() string {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer
-		},
-		"HasTelemetryEnabled": func() bool {
-			return cs.Properties.FeatureFlags != nil && cs.Properties.FeatureFlags.EnableTelemetry
-		},
-		"GetApplicationInsightsTelemetryKey": func() string {
-			return cs.Properties.TelemetryProfile.ApplicationInsightsKey
 		},
 		"OpenBraces": func() string {
 			return "{{"
