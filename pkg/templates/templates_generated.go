@@ -378,7 +378,7 @@ done;
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
-CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+CONTAINERD_VERSION="1.3.4"
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
 KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
@@ -1456,13 +1456,10 @@ installMoby() {
 # CSE+VHD can dicate the containerd version, users don't care as long as it works
 installContainerd() {
     # we want at least 1.3.x - need to safeguard against aks-e setting this to < 1.3.x
-    if [[ ! "${CONTAINERD_VERSION}" =~ 1\.[3-9]\.[0-9].* ]]; then
-        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.7"
-        CONTAINERD_VERSION="1.3.7"
-    fi
+    # target CONTAINERD_VERSION is hard-coded to 1.3.4 so this is the lowest supported version
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     if semverCompare ${CURRENT_VERSION} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than target version ${CONTAINERD_VERSION}. skipping installContainerd."
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target version ${CONTAINERD_VERSION}. skipping installContainerd."
     else 
         apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
         retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
