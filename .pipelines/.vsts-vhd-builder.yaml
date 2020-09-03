@@ -1,4 +1,14 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(UBUNTU_SKU)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
+- task: DownloadBuildArtifacts@0
+  inputs:
+    buildType: 'specific'
+    project: '09706533-03bf-4b43-9a9b-b49c75429646'
+    pipeline: '119535'
+    specificBuildWithTriggering: true
+    buildVersionToDownload: 'latest'
+    tags: 'Prod'
+    downloadType: 'specific'
+    downloadPath: '$(System.ArtifactsDirectory)'
 trigger: none
 
 # Three modes in prioritized order
