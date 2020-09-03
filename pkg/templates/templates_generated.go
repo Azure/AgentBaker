@@ -1304,6 +1304,16 @@ systemctlDisableAndStop() {
         systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
 }
+
+# return true if a >= b 
+semverCompare() {
+    VERSION_A=$1
+    VERSION_B=$2
+    [[ "${VERSION_A}" == "${VERSION_B}" ]] && return 0
+    sorted=( $( echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V ) )
+    [[ "${VERSION_A}" == ${sorted[1]} ]] && return 0
+    return 1
+}
 #HELPERSEOF
 `)
 
@@ -1451,8 +1461,8 @@ installContainerd() {
         CONTAINERD_VERSION="1.3.7"
     fi
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    if [[ "${CONTAINERD_VERSION}" == "${CURRENT_VERSION}" ]]; then
-        echo "containerd version ${CURRENT_VERSION} is already installed, skipping installContainerd"
+    if semverCompare ${CURRENT_VERSION} ${CONTAINERD_VERSION}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than target version ${CONTAINERD_VERSION}. skipping installContainerd."
     else 
         apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
         retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
