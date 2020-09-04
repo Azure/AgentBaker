@@ -11,9 +11,6 @@ required_env_vars=(
     "CONTAINER_RUNTIME"
 )
 
-< $SKU_TEMPLATE_FILE sed s/{{ID}}/"$sku_id"/ | sed s/{{MONTH-YEAR}}/"$pretty_date/" | sed s/{{CONTAINER_RUNTIME}}/"$CONTAINER_RUNTIME/" > sku.json
-cat sku.json
-
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
@@ -32,6 +29,8 @@ pretty_date=$(date +"%b %Y")
 
 sku_id="${SKU_PREFIX}-${short_date}"
 
+< $SKU_TEMPLATE_FILE sed s/{{ID}}/"$sku_id"/ | sed s/{{MONTH-YEAR}}/"$pretty_date/" | sed s/{{CONTAINER_RUNTIME}}/"$CONTAINER_RUNTIME/" > sku.json
+cat sku.json
 
 echo "Creating new SKU"
 (set -x ; hack/tools/bin/pub skus put -p $PUBLISHER -o "$OFFER" -f sku.json ; echo "")
