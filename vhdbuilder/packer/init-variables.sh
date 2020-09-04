@@ -95,7 +95,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	case "${WINDOWS_SKU}" in
 	"2019") 
 		WINDOWS_IMAGE_SKU="2019-Datacenter-Core-smalldisk"
-		WINDOWS_IMAGE_VERSION="17763.1282.2006061952"
+		WINDOWS_IMAGE_VERSION="17763.1339.2007101755"
 		;;
 	"2004")
 		WINDOWS_IMAGE_SKU="datacenter-core-2004-with-containers-smalldisk"
