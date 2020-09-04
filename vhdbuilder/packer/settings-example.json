@@ -7,5 +7,7 @@
   "managed_image_resource_group_name": "aksimages",
   "storage_account_name": "",
   "location": "West US 2",
-  "vm_size": "Standard_D2_v2"
+  "vm_size": "Standard_D2_v2",
+  "windows_image_sku": "2019-Datacenter-Core-smalldisk",
+  "windows_image_version": "17763.1282.2006061952"
 }
