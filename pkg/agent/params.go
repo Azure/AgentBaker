@@ -343,10 +343,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "mobyVersion", properties.OrchestratorProfile.KubernetesConfig.MobyVersion)
 		}
 
-		if properties.OrchestratorProfile.KubernetesConfig.ContainerdVersion != "" {
-			addValue(parametersMap, "containerdVersion", properties.OrchestratorProfile.KubernetesConfig.ContainerdVersion)
-		}
-
 		if properties.AADProfile != nil {
 			addValue(parametersMap, "aadTenantId", properties.AADProfile.TenantID)
 			if properties.AADProfile.AdminGroupID != "" {

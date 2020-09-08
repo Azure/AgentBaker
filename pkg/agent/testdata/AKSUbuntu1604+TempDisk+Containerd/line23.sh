@@ -121,17 +121,15 @@ installMoby() {
 
 # CSE+VHD can dicate the containerd version, users don't care as long as it works
 installContainerd() {
-    # we want at least 1.3.x - need to safeguard against aks-e setting this to < 1.3.x
-    if [[ ! "${CONTAINERD_VERSION}" =~ 1\.[3-9]\.[0-9].* ]]; then
-        echo "requested ${CONTAINERD_VERSION} is not supported, setting desired version to 1.3.7"
-        CONTAINERD_VERSION="1.3.7"
-    fi
+    # azure-built runtimes have a "+azure" prefix in their version strings (i.e 1.3.7+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    if [[ "${CONTAINERD_VERSION}" == "${CURRENT_VERSION}" ]]; then
-        echo "containerd version ${CURRENT_VERSION} is already installed, skipping installContainerd"
+    # v1.3.7 is our lowest supported version of containerd
+    local BASE_VERSION="1.3.7"
+    if semverCompare ${CURRENT_VERSION} ${BASE_VERSION}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${BASE_VERSION}. skipping installContainerd."
     else 
         apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
-        retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
+        retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${BASE_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
     fi  
 }

@@ -12,7 +12,6 @@ done;
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
-CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
 KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
