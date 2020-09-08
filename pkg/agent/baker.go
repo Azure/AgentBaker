@@ -210,6 +210,9 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"IsKubernetesVersionGe": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
+		"IsKubernetesVersionLt": func(version string) bool {
+			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
+		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
 			return profile.GetKubernetesLabels(rg, false)
 		},
