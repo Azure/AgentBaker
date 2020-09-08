@@ -83,6 +83,31 @@ else
 	echo "Skipping SIG check for $MODE"
 fi
 
+# considerations to also add the windows support here instead of an extra script to initialize windows variables:
+# 1. we can demonstrate the whole user defined parameters all at once
+# 2. help us keep in mind that changes of this variables will influence both windows and linux VHD building
+
+# windows image sku and windows image version are recorded in code instead of pipeline variables
+# because a pr gives a better chance to take a review of the version changes.
+WINDOWS_IMAGE_SKU=""
+WINDOWS_IMAGE_VERSION=""
+if [ ! -z "${WINDOWS_SKU}" ]; then
+	case "${WINDOWS_SKU}" in
+	"2019") 
+		WINDOWS_IMAGE_SKU="2019-Datacenter-Core-smalldisk"
+		WINDOWS_IMAGE_VERSION="17763.1339.2007101755"
+		;;
+	"2004")
+		WINDOWS_IMAGE_SKU="datacenter-core-2004-with-containers-smalldisk"
+		WINDOWS_IMAGE_VERSION="19041.388.2007101729"
+		;;
+	*)  
+		echo "unsupported windows sku: ${WINDOWS_SKU}" 
+		exit 1
+		;; 
+	esac
+fi
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -93,7 +118,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
-  "create_time": "${CREATE_TIME}"
+  "create_time": "${CREATE_TIME}",
+  "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
+  "windows_image_version": "${WINDOWS_IMAGE_VERSION}"
 }
 EOF
 
