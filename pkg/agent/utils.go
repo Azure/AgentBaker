@@ -232,17 +232,6 @@ func getSecurityRule(port int, portIndex int) string {
           }`, port, port, port, BaseLBPriority+portIndex)
 }
 
-func getSecurityRules(ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getSecurityRule(port, index))
-	}
-	return buf.String()
-}
-
 func escapeSingleLine(escapedStr string) string {
 	// template.JSEscapeString leaves undesirable chars that don't work with pretty print
 	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
