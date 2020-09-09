@@ -88,27 +88,6 @@ func (a *Apiloader) SerializeContainerService(containerService *datamodel.Contai
 	}
 }
 
-// LoadAgentpoolProfileFromFile loads an an AgentPoolProfile object from a JSON file
-func (a *Apiloader) LoadAgentpoolProfileFromFile(jsonFile string) (*datamodel.AgentPoolProfile, error) {
-	contents, e := ioutil.ReadFile(jsonFile)
-	if e != nil {
-		return nil, fmt.Errorf("error reading file %s: %s", jsonFile, e.Error())
-	}
-	return a.LoadAgentPoolProfile(contents)
-}
-
-// LoadAgentPoolProfile marshalls raw data into a strongly typed AgentPoolProfile return object
-func (a *Apiloader) LoadAgentPoolProfile(contents []byte) (*datamodel.AgentPoolProfile, error) {
-	agentPoolProfile := &datamodel.AgentPoolProfile{}
-	if e := json.Unmarshal(contents, &agentPoolProfile); e != nil {
-		return nil, e
-	}
-	if e := checkJSONKeys(contents, reflect.TypeOf(*agentPoolProfile), reflect.TypeOf(datamodel.TypeMeta{})); e != nil {
-		return nil, e
-	}
-	return agentPoolProfile, nil
-}
-
 // LoadDefaultContainerServiceProperties loads the default API model
 func LoadDefaultContainerServiceProperties() (datamodel.TypeMeta, *datamodel.Properties) {
 	return datamodel.TypeMeta{APIVersion: defaultAPIVersion}, &datamodel.Properties{
