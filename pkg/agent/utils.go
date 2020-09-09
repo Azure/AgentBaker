@@ -166,19 +166,6 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; Invoke-WebRequest -Uri \"%s\" -OutFile \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
-func getVNETAddressPrefixes(properties *datamodel.Properties) string {
-	visitedSubnets := make(map[string]bool)
-	var buf bytes.Buffer
-	buf.WriteString(`"[variables('masterSubnet')]"`)
-	visitedSubnets[properties.MasterProfile.Subnet] = true
-	for _, profile := range properties.AgentPoolProfiles {
-		if _, ok := visitedSubnets[profile.Subnet]; !ok {
-			buf.WriteString(fmt.Sprintf(",\n            \"[variables('%sSubnet')]\"", profile.Name))
-		}
-	}
-	return buf.String()
-}
-
 func getVNETSubnetDependencies(properties *datamodel.Properties) string {
 	agentString := `        "[concat('Microsoft.Network/networkSecurityGroups/', variables('%sNSGName'))]"`
 	var buf bytes.Buffer
@@ -187,42 +174,6 @@ func getVNETSubnetDependencies(properties *datamodel.Properties) string {
 			buf.WriteString(",\n")
 		}
 		buf.WriteString(fmt.Sprintf(agentString, agentProfile.Name))
-	}
-	return buf.String()
-}
-
-func getVNETSubnets(properties *datamodel.Properties, addNSG bool) string {
-	masterString := `{
-            "name": "[variables('masterSubnetName')]",
-            "properties": {
-              "addressPrefix": "[variables('masterSubnet')]"
-            }
-          }`
-	agentString := `          {
-            "name": "[variables('%sSubnetName')]",
-            "properties": {
-              "addressPrefix": "[variables('%sSubnet')]"
-            }
-          }`
-	agentStringNSG := `          {
-            "name": "[variables('%sSubnetName')]",
-            "properties": {
-              "addressPrefix": "[variables('%sSubnet')]",
-              "networkSecurityGroup": {
-                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('%sNSGName'))]"
-              }
-            }
-          }`
-	var buf bytes.Buffer
-	buf.WriteString(masterString)
-	for _, agentProfile := range properties.AgentPoolProfiles {
-		buf.WriteString(",\n")
-		if addNSG {
-			buf.WriteString(fmt.Sprintf(agentStringNSG, agentProfile.Name, agentProfile.Name, agentProfile.Name))
-		} else {
-			buf.WriteString(fmt.Sprintf(agentString, agentProfile.Name, agentProfile.Name))
-		}
-
 	}
 	return buf.String()
 }
@@ -250,17 +201,6 @@ func getLBRule(name string, port int) string {
           }`, port, name, name, port, name, port, name, port)
 }
 
-func getLBRules(name string, ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getLBRule(name, port))
-	}
-	return buf.String()
-}
-
 func getProbe(port int) string {
 	return fmt.Sprintf(`          {
             "name": "tcp%dProbe",
@@ -271,17 +211,6 @@ func getProbe(port int) string {
               "protocol": "Tcp"
             }
           }`, port, port)
-}
-
-func getProbes(ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getProbe(port))
-	}
-	return buf.String()
 }
 
 func getSecurityRule(port int, portIndex int) string {
@@ -301,53 +230,6 @@ func getSecurityRule(port int, portIndex int) string {
               "sourcePortRange": "*"
             }
           }`, port, port, port, BaseLBPriority+portIndex)
-}
-
-func getDataDisks(a *datamodel.AgentPoolProfile) string {
-	if !a.HasDisks() {
-		return ""
-	}
-	var buf bytes.Buffer
-	buf.WriteString("\"dataDisks\": [\n")
-	dataDisks := `            {
-              "createOption": "Empty",
-              "diskSizeGB": "%d",
-              "lun": %d,
-              "caching": "ReadOnly",
-              "name": "[concat(variables('%sVMNamePrefix'), copyIndex(),'-datadisk%d')]",
-              "vhd": {
-                "uri": "[concat('http://',variables('storageAccountPrefixes')[mod(add(add(div(copyIndex(),variables('maxVMsPerStorageAccount')),variables('%sStorageAccountOffset')),variables('dataStorageAccountPrefixSeed')),variables('storageAccountPrefixesCount'))],variables('storageAccountPrefixes')[div(add(add(div(copyIndex(),variables('maxVMsPerStorageAccount')),variables('%sStorageAccountOffset')),variables('dataStorageAccountPrefixSeed')),variables('storageAccountPrefixesCount'))],variables('%sDataAccountName'),'.blob.core.windows.net/vhds/',variables('%sVMNamePrefix'),copyIndex(), '--datadisk%d.vhd')]"
-              }
-            }`
-	managedDataDisks := `            {
-              "diskSizeGB": "%d",
-              "lun": %d,
-              "caching": "ReadOnly",
-              "createOption": "Empty"
-            }`
-	for i, diskSize := range a.DiskSizesGB {
-		if i > 0 {
-			buf.WriteString(",\n")
-		}
-		if a.StorageProfile == datamodel.StorageAccount {
-			buf.WriteString(fmt.Sprintf(dataDisks, diskSize, i, a.Name, i, a.Name, a.Name, a.Name, a.Name, i))
-		} else if a.StorageProfile == datamodel.ManagedDisks {
-			buf.WriteString(fmt.Sprintf(managedDataDisks, diskSize, i))
-		}
-	}
-	buf.WriteString("\n          ],")
-	return buf.String()
-}
-
-func getSecurityRules(ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getSecurityRule(port, index))
-	}
-	return buf.String()
 }
 
 func escapeSingleLine(escapedStr string) string {
