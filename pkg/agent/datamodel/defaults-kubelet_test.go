@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/Azure/go-autorest/autorest/to"
-
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 )
 
 func TestKubeletConfigDefaults(t *testing.T) {
@@ -551,117 +549,6 @@ func TestEnforceNodeAllocatable(t *testing.T) {
 	if k["--enforce-node-allocatable"] != "kube-reserved/system-reserved" {
 		t.Fatalf("got unexpected '--enforce-node-allocatable' kubelet config value %s, the expected value is %s",
 			k["--enforce-node-allocatable"], "kube-reserved/system-reserved")
-	}
-}
-
-func TestProtectKernelDefaults(t *testing.T) {
-	// Validate default
-	cs := CreateMockContainerService("testcluster", "1.12.7", 3, 2, true)
-	cs.SetPropertiesDefaults(PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	}, azurePublicCloudSpec)
-	km := cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig
-	if km["--protect-kernel-defaults"] != "true" {
-		t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-			km["--protect-kernel-defaults"], "true")
-	}
-	ka := cs.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig
-	if ka["--protect-kernel-defaults"] != "true" {
-		t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-			ka["--protect-kernel-defaults"], "true")
-	}
-
-	// Validate that --protect-kernel-defaults is "true" by default for relevant distros
-	for _, distro := range DistroValues {
-		switch distro {
-		case AKSUbuntu1604, AKSUbuntu1804:
-			cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-			cs.Properties.MasterProfile.Distro = distro
-			cs.Properties.AgentPoolProfiles[0].Distro = distro
-			cs.SetPropertiesDefaults(PropertiesDefaultsParams{
-				IsScale:    false,
-				IsUpgrade:  false,
-				PkiKeySize: helpers.DefaultPkiKeySize,
-			}, azurePublicCloudSpec)
-			km = cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig
-			if km["--protect-kernel-defaults"] != "true" {
-				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-					km["--protect-kernel-defaults"], "true")
-			}
-			ka = cs.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig
-			if ka["--protect-kernel-defaults"] != "true" {
-				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-					ka["--protect-kernel-defaults"], "true")
-			}
-
-		// Validate that --protect-kernel-defaults is not enabled for relevant distros
-		case Ubuntu, Ubuntu1804, Ubuntu1804Gen2:
-			cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-			cs.Properties.MasterProfile.Distro = distro
-			cs.Properties.AgentPoolProfiles[0].Distro = distro
-			cs.SetPropertiesDefaults(PropertiesDefaultsParams{
-				IsScale:    false,
-				IsUpgrade:  false,
-				PkiKeySize: helpers.DefaultPkiKeySize,
-			}, azurePublicCloudSpec)
-			km = cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig
-			if _, ok := km["--protect-kernel-defaults"]; ok {
-				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s",
-					km["--protect-kernel-defaults"])
-			}
-		}
-	}
-
-	// Validate that --protect-kernel-defaults is not enabled for Windows
-	cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-	cs.Properties.MasterProfile.Distro = AKSUbuntu1604
-	cs.Properties.AgentPoolProfiles[0].OSType = Windows
-	cs.SetPropertiesDefaults(PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	}, azurePublicCloudSpec)
-	km = cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig
-	if km["--protect-kernel-defaults"] != "true" {
-		t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-			km["--protect-kernel-defaults"], "true")
-	}
-	ka = cs.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig
-	if _, ok := ka["--protect-kernel-defaults"]; ok {
-		t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s",
-			ka["--protect-kernel-defaults"])
-	}
-
-	// Validate that --protect-kernel-defaults is overridable
-	for _, distro := range DistroValues {
-		switch distro {
-		case Ubuntu, Ubuntu1804, Ubuntu1804Gen2, AKSUbuntu1604, AKSUbuntu1804:
-			cs = CreateMockContainerService("testcluster", "1.10.13", 3, 2, true)
-			cs.Properties.MasterProfile.Distro = "ubuntu"
-			cs.Properties.AgentPoolProfiles[0].Distro = "ubuntu"
-			cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
-				KubeletConfig: map[string]string{
-					"--protect-kernel-defaults": "false",
-				},
-			}
-			cs.SetPropertiesDefaults(PropertiesDefaultsParams{
-				IsScale:    false,
-				IsUpgrade:  false,
-				PkiKeySize: helpers.DefaultPkiKeySize,
-			}, azurePublicCloudSpec)
-			km = cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig
-			if km["--protect-kernel-defaults"] != "false" {
-				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-					km["--protect-kernel-defaults"], "false")
-			}
-			ka = cs.Properties.AgentPoolProfiles[0].KubernetesConfig.KubeletConfig
-			if ka["--protect-kernel-defaults"] != "false" {
-				t.Fatalf("got unexpected '--protect-kernel-defaults' kubelet config value %s, the expected value is %s",
-					ka["--protect-kernel-defaults"], "false")
-			}
-		}
 	}
 }
 

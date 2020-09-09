@@ -14,7 +14,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine"
 	"github.com/Azure/agentbaker/pkg/aks-engine/engine/transform"
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/google/uuid"
 	"github.com/leonelquinteros/gotext"
 	"github.com/pkg/errors"
@@ -203,15 +202,6 @@ func (gc *generateCmd) autofillApimodel() error {
 func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
 
-	err := gc.containerService.SetPropertiesDefaults(datamodel.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	}, cloudSpecConfig)
-	if err != nil {
-		return errors.Wrapf(err, "in SetPropertiesDefaults template %s", gc.apimodelPath)
-	}
-
 	templateGenerator := agent.InitializeTemplateGenerator()
 
 	//extra parameters
@@ -241,7 +231,7 @@ func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig
 	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(config)
 
 	writer := &engine.ArtifactWriter{}
-	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly, cloudSpecConfig); err != nil {
+	if err := writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly, cloudSpecConfig); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 
