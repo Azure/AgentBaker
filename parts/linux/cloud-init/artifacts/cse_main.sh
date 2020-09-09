@@ -156,7 +156,6 @@ fi
 
 VALIDATION_ERR=0
 
-{{- if IsHostedMaster }}
 API_SERVER_DNS_RETRIES=20
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
@@ -176,8 +175,6 @@ else
     fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
-
-{{end}}
 
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'

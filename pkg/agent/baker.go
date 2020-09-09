@@ -201,9 +201,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		profile = nil
 	}
 	return template.FuncMap{
-		"IsHostedMaster": func() bool {
-			return cs.Properties.IsHostedMasterProfile()
-		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
 		},
