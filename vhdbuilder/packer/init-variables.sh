@@ -26,7 +26,7 @@ fi
 rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
 if [ -z "$rg_id" ]; then
 	echo "Creating resource group $AZURE_RESOURCE_GROUP_NAME, location ${AZURE_LOCATION}"
-	az group create $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
+	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 fi
 
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
