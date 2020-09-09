@@ -201,18 +201,6 @@ func getLBRule(name string, port int) string {
           }`, port, name, name, port, name, port, name, port)
 }
 
-func getProbe(port int) string {
-	return fmt.Sprintf(`          {
-            "name": "tcp%dProbe",
-            "properties": {
-              "intervalInSeconds": 5,
-              "numberOfProbes": 2,
-              "port": %d,
-              "protocol": "Tcp"
-            }
-          }`, port, port)
-}
-
 func getSecurityRule(port int, portIndex int) string {
 	// BaseLBPriority specifies the base lb priority.
 	BaseLBPriority := 200
