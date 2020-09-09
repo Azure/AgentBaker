@@ -23,6 +23,12 @@ elif [ -z "${CLIENT_ID}" ]; then
 	TENANT_ID=$(jq -r .tenant ${SP_JSON})
 fi
 
+rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
+if [ -z "$rg_id" ]; then
+	echo "Creating resource group $AZURE_RESOURCE_GROUP_NAME, location ${AZURE_LOCATION}"
+	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
+fi
+
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
 if $avail ; then
 	echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
@@ -92,19 +98,20 @@ fi
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
 if [ ! -z "${WINDOWS_SKU}" ]; then
+	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
-	"2019") 
-		WINDOWS_IMAGE_SKU="2019-Datacenter-Core-smalldisk"
-		WINDOWS_IMAGE_VERSION="17763.1339.2007101755"
+	"2019")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
 		;;
 	"2004")
-		WINDOWS_IMAGE_SKU="datacenter-core-2004-with-containers-smalldisk"
-		WINDOWS_IMAGE_VERSION="19041.388.2007101729"
+		WINDOWS_IMAGE_SKU=$WINDOWS_2004_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2004_BASE_IMAGE_VERSION
 		;;
-	*)  
-		echo "unsupported windows sku: ${WINDOWS_SKU}" 
+	*)
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
 		exit 1
-		;; 
+		;;
 	esac
 fi
 
