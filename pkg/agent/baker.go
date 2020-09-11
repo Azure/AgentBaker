@@ -371,7 +371,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.AnyAgentIsLinux()
 		},
 		"IsNSeriesSKU": func(profile *datamodel.AgentPoolProfile) bool {
-			return IsNvidiaEnabledSKU(profile.VMSize)
+			return datamodel.IsNvidiaEnabledSKU(profile.VMSize)
 		},
 		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
 			return profile.HasAvailabilityZones()
