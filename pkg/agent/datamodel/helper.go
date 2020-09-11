@@ -49,6 +49,11 @@ var (
 		"Standard_NC24rs_v3": true,
 		"Standard_ND40s_v3":  true,
 		"Standard_ND40rs_v2": true,
+		// T4 (still in preview by Sep2020)
+		"Standard_NC4as_T4_v3":  true,
+		"Standard_NC8as_T4_v3":  true,
+		"Standard_NC16as_T4_v3": true,
+		"Standard_NC64as_T4_v3": true,
 	}
 )
 
@@ -65,165 +70,6 @@ func ValidateDNSPrefix(dnsName string) error {
 	return nil
 }
 
-// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
-func IsNvidiaEnabledSKU(vmSize string) bool {
-	// Trim the optional _Promo suffix.
-	vmSize = strings.TrimSuffix(vmSize, "_Promo")
-	if _, ok := NvidiaEnabledSKUs[vmSize]; ok {
-		return NvidiaEnabledSKUs[vmSize]
-	}
-
-	return false
-}
-
-// GetNSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them to be nvidia-enabled
-func GetNSeriesVMCasesForTesting() []struct {
-	VMSKU    string
-	Expected bool
-} {
-	cases := []struct {
-		VMSKU    string
-		Expected bool
-	}{
-		{
-			"Standard_NC6",
-			true,
-		},
-		{
-			"Standard_NC6_Promo",
-			true,
-		},
-		{
-			"Standard_NC12",
-			true,
-		},
-		{
-			"Standard_NC24",
-			true,
-		},
-		{
-			"Standard_NC24r",
-			true,
-		},
-		{
-			"Standard_NV6",
-			true,
-		},
-		{
-			"Standard_NV12",
-			true,
-		},
-		{
-			"Standard_NV24",
-			true,
-		},
-		{
-			"Standard_NV24r",
-			true,
-		},
-		{
-			"Standard_ND6s",
-			true,
-		},
-		{
-			"Standard_ND12s",
-			true,
-		},
-		{
-			"Standard_ND24s",
-			true,
-		},
-		{
-			"Standard_ND24rs",
-			true,
-		},
-		{
-			"Standard_NC6s_v2",
-			true,
-		},
-		{
-			"Standard_NC12s_v2",
-			true,
-		},
-		{
-			"Standard_NC24s_v2",
-			true,
-		},
-		{
-			"Standard_NC24rs_v2",
-			true,
-		},
-		{
-			"Standard_NC24rs_v2",
-			true,
-		},
-		{
-			"Standard_NC6s_v3",
-			true,
-		},
-		{
-			"Standard_NC12s_v3",
-			true,
-		},
-		{
-			"Standard_NC24s_v3",
-			true,
-		},
-		{
-			"Standard_NC24rs_v3",
-			true,
-		},
-		{
-			"Standard_D2_v2",
-			false,
-		},
-		{
-			"gobledygook",
-			false,
-		},
-		{
-			"",
-			false,
-		},
-	}
-
-	return cases
-}
-
-// GetDCSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them to be SGX-enabled
-func GetDCSeriesVMCasesForTesting() []struct {
-	VMSKU    string
-	Expected bool
-} {
-	cases := []struct {
-		VMSKU    string
-		Expected bool
-	}{
-		{
-			"Standard_DC2s",
-			true,
-		},
-		{
-			"Standard_DC4s",
-			true,
-		},
-		{
-			"Standard_NC12",
-			false,
-		},
-		{
-			"gobledygook",
-			false,
-		},
-		{
-			"",
-			false,
-		},
-	}
-
-	return cases
-}
-
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support
 func IsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
@@ -231,22 +77,6 @@ func IsSgxEnabledSKU(vmSize string) bool {
 		return true
 	}
 	return false
-}
-
-// GetMasterKubernetesLabels returns a k8s API-compliant labels string.
-// The `kubernetes.io/role` and `node-role.kubernetes.io` labels are disallowed
-// by the kubelet `--node-labels` argument in Kubernetes 1.16 and later.
-func GetMasterKubernetesLabels(rg string, deprecated bool) string {
-	var buf bytes.Buffer
-	buf.WriteString("kubernetes.azure.com/role=master")
-	buf.WriteString(",node.kubernetes.io/exclude-from-external-load-balancers=true")
-	buf.WriteString(",node.kubernetes.io/exclude-disruption=true")
-	if deprecated {
-		buf.WriteString(",kubernetes.io/role=master")
-		buf.WriteString(",node-role.kubernetes.io/master=")
-	}
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
-	return buf.String()
 }
 
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size
@@ -281,16 +111,6 @@ func SliceIntIsNonEmpty(s []int) bool {
 	return len(s) > 0
 }
 
-// WrapAsARMVariable formats a string for inserting an ARM variable into an ARM expression
-func WrapAsARMVariable(s string) string {
-	return fmt.Sprintf("',variables('%s'),'", s)
-}
-
-// WrapAsParameter formats a string for inserting an ARM parameter into an ARM expression
-func WrapAsParameter(s string) string {
-	return fmt.Sprintf("',parameters('%s'),'", s)
-}
-
 // WrapAsVerbatim formats a string for inserting a literal string into an ARM expression
 func WrapAsVerbatim(s string) string {
 	return fmt.Sprintf("',%s,'", s)
@@ -310,187 +130,13 @@ func IndentString(original string, spaces int) string {
 	return out.String()
 }
 
-func GetDockerConfigTestCases() map[string]string {
-	return map[string]string{
-		"default": defaultDockerConfigString,
-		"gpu":     dockerNvidiaConfigString,
-		"reroot":  dockerRerootConfigString,
-		"all":     dockerAllConfigString,
+// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+func IsNvidiaEnabledSKU(vmSize string) bool {
+	// Trim the optional _Promo suffix.
+	vmSize = strings.TrimSuffix(vmSize, "_Promo")
+	if _, ok := NvidiaEnabledSKUs[vmSize]; ok {
+		return NvidiaEnabledSKUs[vmSize]
 	}
+
+	return false
 }
-
-func GetContainerdConfigTestCases() map[string]string {
-	return map[string]string{
-		"default": containerdImageConfigString,
-		"kubenet": containerdImageKubenetConfigString,
-		"reroot":  containerdImageRerootConfigString,
-		"all":     containerdAllConfigString,
-	}
-}
-
-var defaultContainerdConfigString = `oom_score = 0
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    [plugins."io.containerd.grpc.v1.cri".cni]
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var containerdRerootConfigString = `oom_score = 0
-root = "/mnt/containerd"
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    [plugins."io.containerd.grpc.v1.cri".cni]
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var containerdKubenetConfigString = `oom_score = 0
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    [plugins."io.containerd.grpc.v1.cri".cni]
-      conf_template = "/etc/containerd/kubenet_template.conf"
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var containerdImageConfigString = `oom_score = 0
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    sandbox_image = "foo/k8s/core/pause:1.2.0"
-    [plugins."io.containerd.grpc.v1.cri".cni]
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var containerdImageRerootConfigString = `oom_score = 0
-root = "/mnt/containerd"
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    sandbox_image = "foo/k8s/core/pause:1.2.0"
-    [plugins."io.containerd.grpc.v1.cri".cni]
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var containerdImageKubenetConfigString = `oom_score = 0
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    sandbox_image = "foo/k8s/core/pause:1.2.0"
-    [plugins."io.containerd.grpc.v1.cri".cni]
-      conf_template = "/etc/containerd/kubenet_template.conf"
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var containerdAllConfigString = `oom_score = 0
-root = "/mnt/containerd"
-version = 2
-
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    sandbox_image = "foo/k8s/core/pause:1.2.0"
-    [plugins."io.containerd.grpc.v1.cri".cni]
-      conf_template = "/etc/containerd/kubenet_template.conf"
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      default_runtime_name = "runc"
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-`
-
-var defaultDockerConfigString = `{
-    "live-restore": true,
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "50m",
-        "max-file": "5"
-    }
-}`
-
-var dockerRerootConfigString = `{
-    "data-root": "/mnt/docker",
-    "live-restore": true,
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "50m",
-        "max-file": "5"
-    }
-}`
-
-var dockerNvidiaConfigString = `{
-    "live-restore": true,
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "50m",
-        "max-file": "5"
-    },
-    "default-runtime": "nvidia",
-    "runtimes": {
-        "nvidia": {
-            "path": "/usr/bin/nvidia-container-runtime",
-            "runtimeArgs": []
-        }
-    }
-}`
-
-var dockerAllConfigString = `{
-    "data-root": "/mnt/docker",
-    "live-restore": true,
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "50m",
-        "max-file": "5"
-    },
-    "default-runtime": "nvidia",
-    "runtimes": {
-        "nvidia": {
-            "path": "/usr/bin/nvidia-container-runtime",
-            "runtimeArgs": []
-        }
-    }
-}`
