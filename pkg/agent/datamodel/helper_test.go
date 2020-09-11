@@ -84,6 +84,136 @@ func TestIsNvidiaEnabledSKU(t *testing.T) {
 	}
 }
 
+// GetNSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them to be nvidia-enabled
+func GetNSeriesVMCasesForTesting() []struct {
+	VMSKU    string
+	Expected bool
+} {
+	cases := []struct {
+		VMSKU    string
+		Expected bool
+	}{
+		{
+			"Standard_NC6",
+			true,
+		},
+		{
+			"Standard_NC6_Promo",
+			true,
+		},
+		{
+			"Standard_NC12",
+			true,
+		},
+		{
+			"Standard_NC24",
+			true,
+		},
+		{
+			"Standard_NC24r",
+			true,
+		},
+		{
+			"Standard_NV6",
+			true,
+		},
+		{
+			"Standard_NV12",
+			true,
+		},
+		{
+			"Standard_NV24",
+			true,
+		},
+		{
+			"Standard_NV24r",
+			true,
+		},
+		{
+			"Standard_ND6s",
+			true,
+		},
+		{
+			"Standard_ND12s",
+			true,
+		},
+		{
+			"Standard_ND24s",
+			true,
+		},
+		{
+			"Standard_ND24rs",
+			true,
+		},
+		{
+			"Standard_NC6s_v2",
+			true,
+		},
+		{
+			"Standard_NC12s_v2",
+			true,
+		},
+		{
+			"Standard_NC24s_v2",
+			true,
+		},
+		{
+			"Standard_NC24rs_v2",
+			true,
+		},
+		{
+			"Standard_NC24rs_v2",
+			true,
+		},
+		{
+			"Standard_NC6s_v3",
+			true,
+		},
+		{
+			"Standard_NC12s_v3",
+			true,
+		},
+		{
+			"Standard_NC24s_v3",
+			true,
+		},
+		{
+			"Standard_NC24rs_v3",
+			true,
+		},
+		{
+			"Standard_NC4as_T4_v3",
+			true,
+		},
+		{
+			"Standard_NC8as_T4_v3",
+			true,
+		},
+		{
+			"Standard_NC16as_T4_v3",
+			true,
+		},
+		{
+			"Standard_NC64as_T4_v3",
+			true,
+		},
+		{
+			"Standard_D2_v2",
+			false,
+		},
+		{
+			"gobledygook",
+			false,
+		},
+		{
+			"",
+			false,
+		},
+	}
+
+	return cases
+}
+
 func getCSeriesVMCasesForTesting() []struct {
 	name     string
 	VMSKU    string
@@ -123,6 +253,40 @@ func getCSeriesVMCasesForTesting() []struct {
 	return cases
 }
 
+// GetDCSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them to be SGX-enabled
+func GetDCSeriesVMCasesForTesting() []struct {
+	VMSKU    string
+	Expected bool
+} {
+	cases := []struct {
+		VMSKU    string
+		Expected bool
+	}{
+		{
+			"Standard_DC2s",
+			true,
+		},
+		{
+			"Standard_DC4s",
+			true,
+		},
+		{
+			"Standard_NC12",
+			false,
+		},
+		{
+			"gobledygook",
+			false,
+		},
+		{
+			"",
+			false,
+		},
+	}
+
+	return cases
+}
+
 func TestIsSGXEnabledSKU(t *testing.T) {
 	cases := getCSeriesVMCasesForTesting()
 
@@ -133,51 +297,6 @@ func TestIsSGXEnabledSKU(t *testing.T) {
 			ret := IsSgxEnabledSKU(c.VMSKU)
 			if ret != c.Expected {
 				t.Fatalf("expected IsSgxEnabledSKU(%s) to return %t, but instead got %t", c.VMSKU, c.Expected, ret)
-			}
-		})
-	}
-}
-
-func TestGetMasterKubernetesLabelsDeprecated(t *testing.T) {
-	cases := []struct {
-		name       string
-		rg         string
-		deprecated bool
-		expected   string
-	}{
-		{
-			"valid rg string",
-			"my-resource-group",
-			false,
-			"kubernetes.azure.com/role=master,node.kubernetes.io/exclude-from-external-load-balancers=true,node.kubernetes.io/exclude-disruption=true,kubernetes.azure.com/cluster=my-resource-group",
-		},
-		{
-			"valid rg string",
-			"my-resource-group",
-			true,
-			"kubernetes.azure.com/role=master,node.kubernetes.io/exclude-from-external-load-balancers=true,node.kubernetes.io/exclude-disruption=true,kubernetes.io/role=master,node-role.kubernetes.io/master=,kubernetes.azure.com/cluster=my-resource-group",
-		},
-		{
-			"empty string",
-			"",
-			false,
-			"kubernetes.azure.com/role=master,node.kubernetes.io/exclude-from-external-load-balancers=true,node.kubernetes.io/exclude-disruption=true,kubernetes.azure.com/cluster=",
-		},
-		{
-			"empty string",
-			"",
-			true,
-			"kubernetes.azure.com/role=master,node.kubernetes.io/exclude-from-external-load-balancers=true,node.kubernetes.io/exclude-disruption=true,kubernetes.io/role=master,node-role.kubernetes.io/master=,kubernetes.azure.com/cluster=",
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			ret := GetMasterKubernetesLabels(c.rg, c.deprecated)
-			if ret != c.expected {
-				t.Fatalf("expected GetMasterKubernetesLabels(%s, %t) to return %s, but instead got %s", c.rg, c.deprecated, c.expected, ret)
 			}
 		})
 	}
@@ -291,66 +410,6 @@ func TestSliceIntIsNonEmpty(t *testing.T) {
 			ret := SliceIntIsNonEmpty(c.input)
 			if ret != c.expected {
 				t.Fatalf("expected SliceIntIsNonEmpty(%v) to return %t, but instead got %t", c.input, c.expected, ret)
-			}
-		})
-	}
-}
-
-func TestWrapAsARMVariable(t *testing.T) {
-	tests := []struct {
-		name     string
-		s        string
-		expected string
-	}{
-		{
-			name:     "just a string",
-			s:        "foo",
-			expected: "',variables('foo'),'",
-		},
-		{
-			name:     "empty string",
-			s:        "",
-			expected: "',variables(''),'",
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			ret := WrapAsARMVariable(test.s)
-			if test.expected != ret {
-				t.Errorf("expected %s, instead got : %s", test.expected, ret)
-			}
-		})
-	}
-}
-
-func TestWrapAsParameter(t *testing.T) {
-	tests := []struct {
-		name     string
-		s        string
-		expected string
-	}{
-		{
-			name:     "just a string",
-			s:        "foo",
-			expected: "',parameters('foo'),'",
-		},
-		{
-			name:     "empty string",
-			s:        "",
-			expected: "',parameters(''),'",
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			ret := WrapAsParameter(test.s)
-			if test.expected != ret {
-				t.Errorf("expected %s, instead got : %s", test.expected, ret)
 			}
 		})
 	}
