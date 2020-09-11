@@ -49,7 +49,7 @@ phases:
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes.txt'
+          targetPath: 'release-notes-1604.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -143,7 +143,7 @@ phases:
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info.json'
+          targetPath: 'vhd-publishing-info-1604.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804
     queue:
@@ -189,7 +189,7 @@ phases:
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes.txt'
+          targetPath: 'release-notes-1804.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -283,7 +283,7 @@ phases:
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info.json'
+          targetPath: 'vhd-publishing-info-1804.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gen2
     queue:
@@ -329,7 +329,7 @@ phases:
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes.txt'
+          targetPath: 'release-notes-1804-gen2.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -423,7 +423,7 @@ phases:
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info.json'
+          targetPath: 'vhd-publishing-info-1804-gen2.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gpu
     queue:
@@ -469,7 +469,7 @@ phases:
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes.txt'
+          targetPath: 'release-notes-1804-gpu.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -563,7 +563,7 @@ phases:
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info.json'
+          targetPath: 'vhd-publishing-info-1804-gpu.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gen2_gpu
     queue:
@@ -609,7 +609,7 @@ phases:
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes.txt'
+          targetPath: 'release-notes-1804-gen2-gpu.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -703,5 +703,5 @@ phases:
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info.json'
+          targetPath: 'vhd-publishing-info-1804-gen2-gpu.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
