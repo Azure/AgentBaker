@@ -71,22 +71,6 @@ func TestWriteTLSArtifacts(t *testing.T) {
 	// Generate files with custom cloud profile in configuration
 	csCustom := datamodel.CreateMockContainerService("testcluster", "1.11.6", 1, 2, true)
 	csCustom.Location = "customlocation"
-	azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
-		CloudName: datamodel.AzurePublicCloud,
-		//DockerSpecConfig specify the docker engine download repo
-		DockerSpecConfig: datamodel.DefaultDockerSpecConfig,
-		//KubernetesSpecConfig is the default kubernetes container image url.
-		KubernetesSpecConfig: datamodel.DefaultKubernetesSpecConfig,
-
-		EndpointConfig: datamodel.AzureEndpointConfig{
-			ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
-		},
-	}
-	csCustom.SetPropertiesDefaults(datamodel.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	}, azurePublicCloudSpec)
 	err = writer.WriteTLSArtifacts(csCustom, "vlabs", "fake template", "fake parameters", "", true, false, datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {
 		t.Fatalf("unexpected error trying to write TLS artifacts: %s", err.Error())

@@ -29,36 +29,6 @@ type PropertiesDefaultsParams struct {
 	PkiKeySize int
 }
 
-// SetPropertiesDefaults for the container Properties
-func (cs *ContainerService) SetPropertiesDefaults(params PropertiesDefaultsParams, cloudSpecConfig *AzureEnvironmentSpecConfig) error {
-	// Set master profile defaults if this cluster configuration includes master node(s)
-	if cs.Properties.MasterProfile != nil {
-		cs.setMasterProfileDefaults(params.IsUpgrade)
-	}
-
-	// move load balancer sku defaults logic from setOrchestratorDefaults() to here to serve LB checking at setAgentProfileDefaults()
-	cs.setLoadBalancerSkuDefaults()
-
-	cs.setAgentProfileDefaults(params.IsUpgrade, params.IsScale)
-
-	cs.setStorageDefaults()
-	cs.setOrchestratorDefaults(params.IsUpgrade, params.IsScale, cloudSpecConfig)
-	cs.setExtensionDefaults()
-
-	// Set hosted master profile defaults if this cluster configuration has a hosted control plane
-	if cs.Properties.HostedMasterProfile != nil {
-		cs.setHostedMasterProfileDefaults()
-	}
-
-	if cs.Properties.WindowsProfile != nil {
-		cs.setWindowsProfileDefaults(params.IsUpgrade, params.IsScale)
-	}
-
-	cs.setTelemetryProfileDefaults()
-
-	return nil
-}
-
 // setOrchestratorDefaults for orchestrators
 func (cs *ContainerService) setOrchestratorDefaults(isUpgrade, isScale bool, cloudSpecConfig *AzureEnvironmentSpecConfig) {
 	isUpdate := isUpgrade || isScale
