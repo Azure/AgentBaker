@@ -84,6 +84,19 @@ jobs:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
+  - script: |
+      OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e OS_DISK_URI=${OS_DISK_URI} \
+      -e OS_TYPE="Windows" \
+      ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
+    displayName: Run VHD cache test
   - task: PublishPipelineArtifact@1
     inputs:
       artifact: 'vhd-release-notes'
