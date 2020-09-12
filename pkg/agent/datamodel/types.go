@@ -6,9 +6,6 @@ package datamodel
 import (
 	"bytes"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/blang/semver"
 	"hash/fnv"
 	"math/rand"
 	"net"
@@ -17,6 +14,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
+	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/blang/semver"
 )
 
 // TypeMeta describes an individual API model object
@@ -1166,11 +1167,6 @@ func (w *WindowsProfile) GetWindowsDockerVersion() string {
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
 	return strings.EqualFold(o.OrchestratorType, Kubernetes)
-}
-
-// IsSwarmMode returns true if this template is for Swarm Mode orchestrator
-func (o *OrchestratorProfile) IsSwarmMode() bool {
-	return strings.EqualFold(o.OrchestratorType, SwarmMode)
 }
 
 // IsPrivateCluster returns true if this deployment is a private cluster

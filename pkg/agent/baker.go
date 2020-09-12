@@ -237,9 +237,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
-		"IsSwarmMode": func() bool {
-			return cs.Properties.OrchestratorProfile.IsSwarmMode()
-		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
