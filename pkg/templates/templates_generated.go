@@ -1458,7 +1458,7 @@ installContainerd() {
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.3.7 is our lowest supported version of containerd
     local BASE_VERSION="1.3.7"
-    if semverCompare ${CURRENT_VERSION} ${BASE_VERSION}; then
+    if semverCompare ${CURRENT_VERSION:-0.0.0} ${BASE_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${BASE_VERSION}. skipping installContainerd."
     else 
         apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
