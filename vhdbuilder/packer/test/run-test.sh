@@ -9,7 +9,7 @@ az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 
 
 # defer function to cleanup resource group
 function cleanup {
-    az group delete --name $RESOURCE_GROUP_NAME --yes
+    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
 trap cleanup EXIT
 
