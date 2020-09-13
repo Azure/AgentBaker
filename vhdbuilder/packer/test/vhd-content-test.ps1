@@ -4,7 +4,7 @@
     .DESCRIPTION
         This script is used to verify the content of Windows image built
 #>
-
+# TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
 $global:containerdPackageUrl = "https://marosset.blob.core.windows.net/pub/containerd/containerd-0.0.87-public.zip"
 
 function Compare-AllowedSecurityProtocols

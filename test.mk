@@ -27,3 +27,6 @@ test-kubernetes:
 
 test-azure-constants:
 	./scripts/azure-const.sh
+
+test-building-vhd:
+	./vhdbuilder/packer/test/run-test.sh
