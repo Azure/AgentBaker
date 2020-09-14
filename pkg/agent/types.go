@@ -20,7 +20,7 @@ type KeyVaultRef struct {
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *datamodel.ContainerService
 	CloudSpecConfig               *datamodel.AzureEnvironmentSpecConfig
-	K8sComponentsByVersionMap     map[string]map[string]string
+	K8sComponents                 map[string]string
 	AgentPoolProfile              *datamodel.AgentPoolProfile
 	TenantID                      string
 	SubscriptionID                string

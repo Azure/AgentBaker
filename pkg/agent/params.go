@@ -59,7 +59,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponentsByVersionMap, generatorCode)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode)
 		if profile != nil {
 			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode)
 		}
@@ -154,7 +154,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
-	k8sComponentsByVersionMap map[string]map[string]string,
+	k8sComponents map[string]string,
 	generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 
@@ -164,7 +164,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		k8sVersion := orchestratorProfile.OrchestratorVersion
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
-		k8sComponents := k8sComponentsByVersionMap[k8sVersion]
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
 		mcrKubernetesImageBase := kubernetesConfig.MCRKubernetesImageBase
 		hyperkubeImageBase := kubernetesConfig.KubernetesImageBase
