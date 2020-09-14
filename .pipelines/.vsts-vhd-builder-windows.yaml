@@ -96,7 +96,7 @@ jobs:
       -e OS_DISK_URI=${OS_DISK_URI} \
       -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
       -e OS_TYPE="Windows" \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
+      ${DEIS_GO_DEV_IMAGE} make -f test.mk test-building-vhd
     displayName: Run VHD cache test
   - task: PublishPipelineArtifact@1
     inputs:

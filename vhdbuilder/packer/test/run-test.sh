@@ -17,14 +17,28 @@ DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 VM_ADMIN_NAME="vhdtest"
 VM_ADMIN_PASSWORD="Password12!@#"
-DISK_ID=$(az disk create --resource-group $RESOURCE_GROUP_NAME --name $DISK_NAME --source "${OS_DISK_SAS}"  --query id)
-az vm create --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --attach-os-disk $DISK_ID --os-type $OS_TYPE  --admin-username $VM_ADMIN_NAME  --admin-password $VM_ADMIN_PASSWORD
+DISK_ID=$(az disk create --resource-group $RESOURCE_GROUP_NAME \
+    --name $DISK_NAME \
+    --source "${OS_DISK_SAS}"  \
+    --query id)
+az vm create --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --attach-os-disk $DISK_ID \
+    --os-type $OS_TYPE  \
+    --admin-username $VM_ADMIN_NAME  \
+    --admin-password $VM_ADMIN_PASSWORD \
+    --public-ip-address ""
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 
-CDIR=$(dirname "${BASH_SOURCE}")
+FULL_PATH=$(realpath $0)
+CDIR=$(dirname $FULL_PATH)
 if [ "$OS_TYPE" == "Windows" ]; then
     SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
-    ret=$(az vm run-command invoke --command-id RunPowerShellScript --name $VM_NAME  --resource-group $RESOURCE_GROUP_NAME  --scripts  @$SCRIPT_PATH --parameters ""  --output json)
+    ret=$(az vm run-command invoke --command-id RunPowerShellScript \
+        --name $VM_NAME \
+        --resource-group $RESOURCE_GROUP_NAME  \
+        --scripts  @$SCRIPT_PATH \
+        --output json)
 fi
 # An example of failed run-command output:
 # {
@@ -57,6 +71,8 @@ fi
 
 # we have to use `-E` to disable interpretation of backslash escape sequences, for jq cannot process string 
 # with a range of control characters not escaped as shown in the error below:
-# Invalid string: control characters from U+0000 through U+001F must be escaped
+#   Invalid string: control characters from U+0000 through U+001F must be escaped
 errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
-[  ! -z "$errMsg" ] && exit 1
+if [ $errMsg != \"\" ]; then
+    exit 1
+fi

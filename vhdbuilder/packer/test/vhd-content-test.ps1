@@ -113,16 +113,6 @@ function Test-FilesToCacheOnVHD
                 exit 1
             }
 
-            $expecedFileName = $fileName + ".expected"
-            $expectedFileDest =  [IO.Path]::Combine($dir, $expecedFileName)
-
-            Invoke-WebRequest -UseBasicParsing -Uri $URL -OutFile $expectedFileDest
-
-            if((Get-FileHash $dest).hash  -ne (Get-FileHash $expectedFileDest).hash)
-            {
-                Write-Error "File $dest is not expected"
-                exit 1
-            }
             Write-Output "$dest is cached as expected"
         }
     }
@@ -149,6 +139,39 @@ function Test-PatchInstalled
     Write-Output "All pathced $patchIDs are installed"
 }
 
+function Test-ImagesPulled
+{
+    param (
+        $containerRuntime
+    )
+    $imagesToPull = @(
+        "mcr.microsoft.com/windows/servercore:ltsc2019",
+        "mcr.microsoft.com/windows/nanoserver:1809",
+        "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+
+    if ($containerRuntime -eq 'containerd') {
+        $pulledImages = ctr.exe -n k8s.io -q
+    }
+    else
+    {
+        $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
+    }
+
+    Write-Output "Container runtime: $containerRuntime"
+    if(Compare-Object $imagesToPull $pulledImages)
+    {
+        Write-Error "images to pull do not equal images cached $imagesToPull != $pulledImages"
+        exit 1
+    }
+    else
+    {
+        Write-Output "images are cached as expected"
+    }
+}
+
 Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
+Test-ImagesPulled
