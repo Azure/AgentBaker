@@ -103,6 +103,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		config := &NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
+			K8sComponentsByVersionMap:     K8sComponentsByVersionMap,
 			AgentPoolProfile:              agentPool,
 			TenantID:                      "tenantID",
 			SubscriptionID:                "subID",

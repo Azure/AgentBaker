@@ -395,7 +395,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return datamodel.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
-			return cs.Properties.OrchestratorProfile.GetPodInfraContainerSpec()
+			return cs.Properties.OrchestratorProfile.GetPodInfraContainerSpec(config.K8sComponentsByVersionMap)
 		},
 		"IsKubenet": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
@@ -432,7 +432,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"GetHyperkubeImageReference": func() string {
 			hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-			k8sComponents := datamodel.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+			k8sComponents := config.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 			hyperkubeImage := hyperkubeImageBase + k8sComponents["hyperkube"]
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
 				hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
