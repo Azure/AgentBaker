@@ -14,8 +14,7 @@ import (
 )
 
 func generateTestData() bool {
-	flag, k := os.LookupEnv("GENERATE_TEST_DATA")
-	return k == true && flag == "true"
+	return os.Getenv("GENERATE_TEST_DATA") == "true"
 }
 
 var _ = Describe("Assert generated customData and cseCmd", func() {
