@@ -22,6 +22,6 @@ phases:
       steps:
         - template: 'ev2-template.yaml'
           parameters:
-            PACKAGE: '****' # pass some parameters, define as you like
+            PACKAGE: '*****' # pass some parameters, define as you like
             previous: 'test_and_build' # just make sure ev2 build run at last
             artifact: 'drop' # it is the deploy artifact name, not ev2 artifact name
