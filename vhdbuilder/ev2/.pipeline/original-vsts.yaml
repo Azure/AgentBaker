@@ -3,7 +3,7 @@ name: $(SourceBranchName).$(date:yyMMdd)$(rev:.r)
 phases:
   - phase: build_vhd
     queue:
-      name: Hosted Ubuntu 1604
+      name: ace-test
       timeoutInMinutes: 120
     steps:
       - task: PublishBuildArtifacts@1
@@ -18,7 +18,7 @@ phases:
   - phase: ev2_build
     dependsOn: build_vhd
     queue:
-      name: Hosted Ubuntu 1604
+      name: ace-test
       timeoutInMinutes: 120
     steps:
       - task: DownloadBuildArtifacts@0
