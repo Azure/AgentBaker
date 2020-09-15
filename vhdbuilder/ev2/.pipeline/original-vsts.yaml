@@ -18,6 +18,10 @@ phases:
                   "windows_version" : "windows_version"
               }
         displayName: set vhd publishing info
+        parameters:
+          PACKAGE: '****' # pass some parameters, define as you like
+          previous: 'test_and_build' # just make sure ev2 build run at last
+          artifact: 'drop' # it is the deploy artifact name, not ev2 artifact name
   - phase: ev2_build
     dependsOn:
       - ${{ parameters.previous }}
