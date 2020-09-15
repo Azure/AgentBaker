@@ -2,6 +2,9 @@ name: $(SourceBranchName).$(date:yyMMdd)$(rev:.r)
 
 phases:
   - phase: build_vhd
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
     steps:
       - task: PublishBuildArtifacts@1
         displayName: 'Publish vhd artifacts'
@@ -19,6 +22,9 @@ phases:
               }
         displayName: set vhd publishing info
   - phase: ev2_build
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
     steps:
       - task: DownloadBuildArtifacts@0
         displayName: Download vhd
