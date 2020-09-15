@@ -85,6 +85,7 @@ generate: bootstrap
 	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
 	popd \
 	)
+	GENERATE_TEST_DATA="true" go test ./pkg/agent...
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -157,6 +158,7 @@ ginkgoBuild: generate
 
 test: generate
 	go test ./...
+
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
