@@ -1,0 +1,40 @@
+# Custom script engine will be packaged into a zip, thus, variable outside (from release pipeline) will be unable to parse.
+# Instead, we do recommend set your variables here.
+# There are many existed variable groups, see config/variables/xxx.vg.yaml
+
+# ATTENTION:
+# 1. all variable will be upletter as environment variable
+# 2. Selector variable will be SELECTOR_{selector name}, e.g. REGION -> SELECTOR_REGION
+# 3. Variable groups in ev2ab.yaml will not be parsed into the linux machine by default
+
+VariableGroup:
+  Variables:
+    BUILDDROP: ../images
+    HCP_DEPLOYMENT_SP: "{aks_operator_appid}"
+    HCP_DEPLOYMENT_SP_TENANT: "{tenant_id}"
+
+  # we have stored some of the passwords in a specific keyvault, {resource_name_prefix}acs-ev2 in resource group {resource_name_prefix}Deployment.Infrastructure
+  # this section will help you get these passwords in custom scripts, it is an alternative to password in pipeline variables.
+  # now including:
+  # - acsdeployment-registry-password
+  # - aks-deployment-hub-geneva-thumbprint
+  # - aks-geneva-actions-secret
+  # - aks-operator-secret (similiar as hcp-deployment-sp)
+  # - hcp-underlay-global-customer-secret
+  # - hcp-underlay-global-service-secret
+  # - toggle-storage-url
+  # - vsa-nodescan-agent-package-sasuri
+  # - others, you can create your own secret in that keyvault and get the value directly here.
+
+  # format:
+  # {variable name}: {secret name}
+Secrets:
+  registry_password: acsdeployment-registry-password
+  hcp_deployment_sp_pw: aks-operator-secret
+Steps:
+- Script: |
+    ensure_docker
+    apt-get install -qq make > /dev/null
+  Retry: true
+- Script: |
+    bash ./scripts.sh
