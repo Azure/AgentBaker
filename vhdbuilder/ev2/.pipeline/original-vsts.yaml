@@ -9,6 +9,7 @@ phases:
       # store some variables into files, later copy them into ev2 repo
       - bash: |
           echo "I was here" > vhd-publishing-info.json
+          ls
         displayName: set vhd publishing info
 
       - task: PublishBuildArtifacts@1
@@ -23,6 +24,9 @@ phases:
       name: ace-test
       timeoutInMinutes: 120
     steps:
+      - bash: |
+          ls
+          displayName: ls directory
       - task: DownloadBuildArtifacts@0
         displayName: Download vhd
         inputs:
