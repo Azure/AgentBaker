@@ -10,6 +10,7 @@ phases:
       - bash: |
           echo "I was here" > vhd-publishing-info.json
           ls
+          pwd
         displayName: set vhd publishing info
 
       - task: PublishBuildArtifacts@1
@@ -26,7 +27,8 @@ phases:
     steps:
       - bash: |
           ls
-          displayName: ls directory
+          pwd
+        displayName: ls directory
       - task: DownloadBuildArtifacts@0
         displayName: Download vhd
         inputs:
@@ -35,7 +37,7 @@ phases:
           downloadPath: 'ev2/vhd/artifacts'
 
       - powershell: |
-          $env:BUILD_BUILDNUMBER | Out-File ev2/vhd/version.txt
+          $env:BUILD_BUILDNUMBER | Out-File vhd-publishing-info.json
           ./tools/ev2ab.ps1 ev2 $(Build.ArtifactStagingDirectory)/ev2.artifacts
         displayName: Build ev2 artifacts
 
