@@ -3,7 +3,7 @@ name: $(SourceBranchName).$(date:yyMMdd)$(rev:.r)
 phases:
   - phase: build_vhd
     queue:
-      name: ace-test
+      name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
     steps:
       # store some variables into files, later copy them into ev2 repo
@@ -22,7 +22,7 @@ phases:
   - phase: ev2_build
     dependsOn: build_vhd
     queue:
-      name: ace-test
+      name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
     steps:
       - powershell: |
