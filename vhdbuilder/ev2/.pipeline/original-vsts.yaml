@@ -12,14 +12,8 @@ phases:
           artifactName: 'vhd'
       # store some variables into files, later copy them into ev2 repo
       - bash: |
-          cat <<EOF > vhd-publishing-info.json
-              {
-                  "vhd_url" : "vhd_url",
-                  "os_name" : "OS_NAME",
-                  "sku_name" : "sku_name",
-                  "offer_name" : "OFFER_NAME",
-                  "windows_version" : "windows_version"
-              }
+          echo "I was here" > vhd-publishing-info.json
+
         displayName: set vhd publishing info
   - phase: ev2_build
     queue:
