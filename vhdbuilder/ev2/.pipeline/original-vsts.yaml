@@ -1,24 +1,27 @@
 name: $(SourceBranchName).$(date:yyMMdd)$(rev:.r)
 
 phases:
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish vhd artifacts'
-    inputs:
-      artifactName: 'vhd'
-  # store some variables into files, later copy them into ev2 repo
-  - bash: |
-      cat <<EOF > vhd-publishing-info.json
-          {
-              "vhd_url" : "vhd_url",
-              "os_name" : "OS_NAME",
-              "sku_name" : "sku_name",
-              "offer_name" : "OFFER_NAME",
-              "windows_version" : "windows_version"
-          }
-    displayName: set vhd publishing info
-
-  - template: 'ev2-template.yaml'
-    parameters:
-      PACKAGE: '****' # pass some parameters, define as you like
-      previous: 'test_and_build' # just make sure ev2 build run at last
-      artifact: 'drop' # it is the deploy artifact name, not ev2 artifact name
+  - phase: build_vhd
+    steps:
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish vhd artifacts'
+        inputs:
+          artifactName: 'vhd'
+      # store some variables into files, later copy them into ev2 repo
+      - bash: |
+          cat <<EOF > vhd-publishing-info.json
+              {
+                  "vhd_url" : "vhd_url",
+                  "os_name" : "OS_NAME",
+                  "sku_name" : "sku_name",
+                  "offer_name" : "OFFER_NAME",
+                  "windows_version" : "windows_version"
+              }
+        displayName: set vhd publishing info
+  - phase:
+      steps:
+        - template: 'ev2-template.yaml'
+          parameters:
+            PACKAGE: '****' # pass some parameters, define as you like
+            previous: 'test_and_build' # just make sure ev2 build run at last
+            artifact: 'drop' # it is the deploy artifact name, not ev2 artifact name
