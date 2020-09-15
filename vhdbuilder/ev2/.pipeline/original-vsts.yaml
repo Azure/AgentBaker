@@ -6,8 +6,6 @@ phases:
       name: ace-test
       timeoutInMinutes: 120
     steps:
-      - script: 'bash ./scripts/save_docker_image'
-        displayName: 'Build image'
       # store some variables into files, later copy them into ev2 repo
       - bash: |
           echo "I was here" > vhd-publishing-info.json
@@ -17,6 +15,7 @@ phases:
         displayName: 'Publish vhd artifacts'
         inputs:
           artifactName: 'vhd'
+          targetPath: 'vhd-publishing-info.json'
 
   - phase: ev2_build
     dependsOn: build_vhd
