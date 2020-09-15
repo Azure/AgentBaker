@@ -18,10 +18,37 @@ phases:
                   "windows_version" : "windows_version"
               }
         displayName: set vhd publishing info
-  - phase:
-    steps:
-      - template: 'ev2-template.yaml'
-        parameters:
-          PACKAGE: '*****' # pass some parameters, define as you like
-          previous: 'test_and_build' # just make sure ev2 build run at last
-          artifact: 'drop' # it is the deploy artifact name, not ev2 artifact name
+  - phase: ev2_build
+      dependsOn:
+        - ${{ parameters.previous }}
+      steps:
+        - task: DownloadBuildArtifacts@0
+          displayName: Download vhd
+          inputs:
+            downloadType: 'single'
+            artifactName: 'vhd'
+            downloadPath: 'ev2/vhd/artifacts'
+
+        - task: DownloadBuildArtifacts@0
+          displayName: Download Common
+          inputs:
+            downloadType: 'single'
+            artifactName: '${{ parameters.artifact }}'
+            downloadPath: 'ev2-drop'
+
+        - script: |
+            mkdir -p ev2/vhd/common
+
+            cp -rf ev2-drop/${{ parameters.artifact }}/* ev2/vhd/common
+          displayName: Copy common
+
+        - powershell: |
+            $env:BUILD_BUILDNUMBER | Out-File ev2/sample.Image/package/version.txt
+            ./tools/ev2ab.ps1 ev2 $(Build.ArtifactStagingDirectory)/ev2.artifacts
+          displayName: Build ev2 artifacts
+
+        - task: PublishBuildArtifacts@1
+          displayName: 'Publish ev2 sample.Image artifacts'
+          inputs:
+            pathtoPublish: $(Build.ArtifactStagingDirectory)/ev2.artifacts/sample.Image
+            artifactName: 'ev2.sample.Image'
