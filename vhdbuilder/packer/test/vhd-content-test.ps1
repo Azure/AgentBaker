@@ -4,6 +4,11 @@
     .DESCRIPTION
         This script is used to verify the content of Windows image built
 #>
+
+param (
+    $containerRuntime
+)
+
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
 $global:containerdPackageUrl = "https://marosset.blob.core.windows.net/pub/containerd/containerd-0.0.87-public.zip"
 
@@ -113,6 +118,13 @@ function Test-FilesToCacheOnVHD
                 exit 1
             }
 
+            # NOTE(qinhao): tried to download all the files and compare file MD5 but as it takes
+            #               too long(hours) for the whole process, so check the file size temporarily
+            #               until we have a better way to validate these cached files
+            if ((Get-Item $FileExists1).length -gt 0kb) {
+                Write-Error "File $dest does not exist"
+            }
+
             Write-Output "$dest is cached as expected"
         }
     }
@@ -154,19 +166,19 @@ function Test-ImagesPulled
     if ($containerRuntime -eq 'containerd') {
         $pulledImages = ctr.exe -n k8s.io -q
     }
-    else
-    {
+    elseif ($containerRuntime -eq 'docker') {
         $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
+    }
+    else {
+        Write-Error "unsupported container runtime $containerRuntime"
     }
 
     Write-Output "Container runtime: $containerRuntime"
-    if(Compare-Object $imagesToPull $pulledImages)
-    {
+    if(Compare-Object $imagesToPull $pulledImages) {
         Write-Error "images to pull do not equal images cached $imagesToPull != $pulledImages"
         exit 1
     }
-    else
-    {
+    else {
         Write-Output "images are cached as expected"
     }
 }
@@ -174,4 +186,4 @@ function Test-ImagesPulled
 Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
-Test-ImagesPulled
+Test-ImagesPulled  -containerRuntime $containerRuntime

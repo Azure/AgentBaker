@@ -6,7 +6,9 @@
         This script is used by packer to produce Windows AKS images.
 #>
 
-param()
+param (
+    $containerRuntime
+)
 
 $ErrorActionPreference = "Stop"
 

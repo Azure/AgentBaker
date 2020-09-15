@@ -4,7 +4,7 @@ set -eux
 WIN_SCRIPT_PATH="vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(uuidgen)"
+RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group
@@ -15,15 +15,13 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-VM_ADMIN_NAME="vhdtest"
-VM_ADMIN_PASSWORD="Password12!@#"
-DISK_ID=$(az disk create --resource-group $RESOURCE_GROUP_NAME \
+az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
     --source "${OS_DISK_SAS}"  \
-    --query id)
+    --query id
 az vm create --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
-    --attach-os-disk $DISK_ID \
+    --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE  \
     --admin-username $VM_ADMIN_NAME  \
     --admin-password $VM_ADMIN_PASSWORD \
@@ -38,7 +36,8 @@ if [ "$OS_TYPE" == "Windows" ]; then
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME  \
         --scripts  @$SCRIPT_PATH \
-        --output json)
+        --output json \
+        --parameters 'containerRuntime=docker')
 fi
 # An example of failed run-command output:
 # {
