@@ -16,6 +16,7 @@ phases:
 
         displayName: set vhd publishing info
   - phase: ev2_build
+    dependsOn: build_vhd
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
