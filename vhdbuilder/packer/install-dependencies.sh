@@ -544,6 +544,7 @@ done
 
 AZUREDISK_CSI_VERSIONS="
 0.7.0
+0.9.0
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
@@ -553,6 +554,7 @@ done
 
 AZUREFILE_CSI_VERSIONS="
 0.7.0
+0.9.0
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
