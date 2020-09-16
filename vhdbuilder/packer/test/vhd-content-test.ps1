@@ -121,8 +121,8 @@ function Test-FilesToCacheOnVHD
             # NOTE(qinhao): tried to download all the files and compare file MD5 but as it takes
             #               too long(hours) for the whole process, so check the file size temporarily
             #               until we have a better way to validate these cached files
-            if ((Get-Item $FileExists1).length -gt 0kb) {
-                Write-Error "File $dest does not exist"
+            if ((Get-Item $dest).length -eq 0kb) {
+                Write-Error "File $dest is with size 0kb"
             }
 
             Write-Output "$dest is cached as expected"

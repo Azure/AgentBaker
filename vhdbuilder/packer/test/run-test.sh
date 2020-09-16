@@ -17,14 +17,12 @@ DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
-    --source "${OS_DISK_SAS}"  \
+    --source "${OS_DISK_URI}"  \
     --query id
 az vm create --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE  \
-    --admin-username $VM_ADMIN_NAME  \
-    --admin-password $VM_ADMIN_PASSWORD \
     --public-ip-address ""
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 
@@ -37,7 +35,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
         --resource-group $RESOURCE_GROUP_NAME  \
         --scripts  @$SCRIPT_PATH \
         --output json \
-        --parameters 'containerRuntime=docker')
+        --parameters "containerRuntime=${CONTAINER_RUNTIME}")
 fi
 # An example of failed run-command output:
 # {
@@ -72,6 +70,6 @@ fi
 # with a range of control characters not escaped as shown in the error below:
 #   Invalid string: control characters from U+0000 through U+001F must be escaped
 errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
-if [ $errMsg != \"\" ]; then
+if [[ $errMsg != \"\" ]]; then
     exit 1
 fi
