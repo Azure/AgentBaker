@@ -1,4 +1,4 @@
-export EV2AB_VERSION       ?= 9.10.0
+export EV2AB_VERSION       ?= 9.7.0
 # Shared makefile for ev2ab
 # version 1.0
 # Source: https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-deployment?path=%2Fmakefiles%2Fev2ab.mk
