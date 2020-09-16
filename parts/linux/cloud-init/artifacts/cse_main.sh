@@ -59,7 +59,6 @@ if [ -f $VHD_LOGS_FILEPATH ]; then
     export -f retrycmd_if_failure
     export -f cleanUpContainerImages
     export KUBERNETES_VERSION
-    echo "start to clean up container images"
     bash -c cleanUpContainerImages &
     FULL_INSTALL_REQUIRED=false
 else

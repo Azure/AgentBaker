@@ -255,6 +255,7 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
+    echo $(date),$(hostname), startCleanUpContainerImages
     function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
@@ -277,6 +278,7 @@ cleanUpContainerImages() {
     export -f cleanUpKubeProxyImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    echo $(date),$(hostname), endCleanUpContainerImages
 }
 
 cleanUpGPUDrivers() {

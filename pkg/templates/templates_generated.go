@@ -1079,6 +1079,7 @@ NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
 NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
 aptmarkWALinuxAgent() {
+    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [[ "$1" == "hold" ]]; then
@@ -1086,6 +1087,7 @@ aptmarkWALinuxAgent() {
     elif [[ "$1" == "unhold" ]]; then
         exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
+    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
 
 retrycmd_if_failure() {
@@ -1605,6 +1607,7 @@ pullContainerImage() {
 }
 
 cleanUpContainerImages() {
+    echo $(date),$(hostname), startCleanUpContainerImages
     function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
@@ -1627,6 +1630,7 @@ cleanUpContainerImages() {
     export -f cleanUpKubeProxyImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    echo $(date),$(hostname), endCleanUpContainerImages
 }
 
 cleanUpGPUDrivers() {
@@ -1726,7 +1730,6 @@ if [ -f $VHD_LOGS_FILEPATH ]; then
     export -f retrycmd_if_failure
     export -f cleanUpContainerImages
     export KUBERNETES_VERSION
-    echo "start to clean up container images"
     bash -c cleanUpContainerImages &
     FULL_INSTALL_REQUIRED=false
 else
