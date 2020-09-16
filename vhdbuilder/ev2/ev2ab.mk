@@ -6,7 +6,7 @@ export EV2AB_VERSION       ?= 9.7.0
 # $(BUILD_DIR)/source/     | ev2 artifact source
 # $(OUTPUT_DIR)/           | ev2 artifact
 
-PROJECT_ROOT        ?= ../../../..
+PROJECT_ROOT        ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))../../..)
 BUILD_DIR           ?= $(PROJECT_ROOT)/build/ev2
 OUTPUT_DIR          ?= $(BUILD_DIR)/output
 EV2AB               := $(BUILD_DIR)/tools/ev2ab/ev2ab.sh
