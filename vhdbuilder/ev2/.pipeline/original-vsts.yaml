@@ -4,14 +4,12 @@ trigger: none
 phases:
   - phase: build_vhd
     queue:
-      name: Hosted Ubuntu 1604
+      name: ace-test
       timeoutInMinutes: 120
     steps:
       # store some variables into files, later copy them into ev2 repo
       - bash: |
           echo "I was here" > vhd-publishing-info.json
-          ls
-          pwd
         displayName: set vhd publishing info
 
       - task: PublishBuildArtifacts@1
@@ -23,7 +21,7 @@ phases:
   - phase: ev2_build
     dependsOn: build_vhd
     queue:
-      name: Hosted Ubuntu 1604
+      name: ace-test
       timeoutInMinutes: 120
 
     steps:
@@ -34,11 +32,14 @@ phases:
           project: 'CloudNativeCompute'
           pipeline: 'aks-deployment-tools'
           buildVersionToDownload: 'latestFromBranch'
-          branchName: 'refs/heads/release/v2'
+          branchName: 'master'
           downloadType: 'single'
           artifactName: 'tools'
           downloadPath: '.'
-
+      - bash: |
+          pw
+          ls
+          displayName: show directory
       - powershell: |
           $env:BUILD_BUILDNUMBER | Out-File vhd-publishing-info.json
           ./tools/ev2ab.ps1 ev2 $(Build.ArtifactStagingDirectory)/ev2.artifacts
