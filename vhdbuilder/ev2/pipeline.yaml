@@ -1,0 +1,26 @@
+name: $(Build.SourceBranchName).$(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+  OUTPUT_DIR: $(Build.ArtifactStagingDirectory)/ev2_artifacts
+
+steps:
+- task: UniversalPackages@0
+  displayName: Download tools
+  inputs:
+    command: download
+    vstsFeed: CloudNativeCompute/aks-deployment
+    vstsFeedPackage: ev2ab-aks
+    vstsPackageVersion: 9.7.0
+    downloadDirectory: build/ev2/tools/ev2ab
+
+- script: make -C ev2 all
+  displayName: Build ev2 artifacts
+  env:
+    REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish ev2 toggle.service artifacts'
+  inputs:
+    pathtoPublish: $(OUTPUT_DIR)/toggle.service
+    artifactName: 'toggle.service'
+

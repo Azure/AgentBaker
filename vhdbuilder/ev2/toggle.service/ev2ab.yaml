@@ -1,0 +1,7 @@
+Template:
+  - customscript-linux.CLOUDENV.DEPLOYENV
+  - rolloutspec.CLOUDENV.DEPLOYENV
+VariableGroup:
+  Variables:
+    rollout_name: toggle.service
+AutoSelector: true

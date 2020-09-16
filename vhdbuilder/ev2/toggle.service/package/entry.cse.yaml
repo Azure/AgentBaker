@@ -1,0 +1,19 @@
+Secrets:
+  aks_operator_secret: aks-operator-secret
+VariableGroup:
+  Variables:
+    AZURE_STORAGE_ACCOUNT_NAME: "{resource_name_prefix_nodash}aksconfig"
+  Match:
+    Key: CLOUDENV
+    Values:
+      gb:
+        Match:
+          Key: DEPLOYENV
+          Values:
+            int:
+              Variables:
+                AZURE_STORAGE_ACCOUNT_NAME: "hcpudlintv2eastus"
+Steps:
+- Script: ensure_azlogin ${GLOBAL_SUBSCRIPTION_ID}
+  Retry: true
+- Script: az storage blob upload --account-name "${AZURE_STORAGE_ACCOUNT_NAME}" -f toggles.yaml -c config -n toggles
