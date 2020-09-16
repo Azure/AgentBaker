@@ -1827,8 +1827,12 @@ API_SERVER_DNS_RETRIES=20
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
 fi
+{{- if not EnableHostsConfigAgent}}
 RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 3 nslookup ${API_SERVER_NAME})
 STS=$?
+{{- else}}
+STS=0
+{{- end}}
 if [[ $STS != 0 ]]; then
     if [[ $RES == *"168.63.129.16"*  ]]; then
         VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
