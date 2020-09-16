@@ -12,7 +12,10 @@ steps:
     vstsFeedPackage: ev2ab-aks
     vstsPackageVersion: 9.7.0
     downloadDirectory: build/ev2/tools/ev2ab
-
+- bash: |
+    pwd
+    ls
+    displayName: show directory
 - script: make -C ev2 all
   displayName: Build ev2 artifacts
   env:
