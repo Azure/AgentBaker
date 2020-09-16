@@ -32,7 +32,7 @@ phases:
           project: 'CloudNativeCompute'
           pipeline: 'aks-deployment-tools'
           buildVersionToDownload: 'latestFromBranch'
-          branchName: 'master'
+          branchName: 'refs/heads/master'
           downloadType: 'single'
           artifactName: 'tools'
           downloadPath: '.'
