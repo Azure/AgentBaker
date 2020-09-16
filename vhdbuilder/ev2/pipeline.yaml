@@ -15,8 +15,8 @@ steps:
 - bash: |
     pwd
     ls
-    displayName: show directory
-- script: make -C ev2 all
+  displayName: show directory
+- script: make -C vhdbuilder/ev2 all
   displayName: Build ev2 artifacts
   env:
     REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
