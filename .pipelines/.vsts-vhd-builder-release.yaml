@@ -1,4 +1,4 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(Build.BuildId)
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 variables:
