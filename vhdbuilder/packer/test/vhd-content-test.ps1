@@ -10,7 +10,7 @@ param (
 )
 
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
-$global:containerdPackageUrl = "https://marosset.blob.core.windows.net/pub/containerd/containerd-0.0.87-public.zip"
+$global:containerdPackageUrl = "https://kubernetesartifacts.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
 
 function Compare-AllowedSecurityProtocols
 {
@@ -29,11 +29,11 @@ function Compare-AllowedSecurityProtocols
         Write-Error "allowedSecurityProtocols '$([System.Net.ServicePointManager]::SecurityProtocol)', expecting '$allowedProtocols'"
         exit 1
     }
-    
 }
 
 function Test-FilesToCacheOnVHD
 {
+    # TODO(qinhao): share this map variable with `configure-windows-vhd.ps1`
     $map = @{
         "c:\akse-cache\" = @(
             "https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
@@ -99,12 +99,15 @@ function Test-FilesToCacheOnVHD
         )
     }
 
+    $emptyFiles = @()
+    $missingPaths = @()
     foreach ($dir in $map.Keys)
     {
         if(!(Test-Path $dir))
         {
             Write-Error "Directory $dir does not exit"
-            exit 1
+            $missingPaths = $missingPaths + $dir
+            continue
         }
 
         foreach ($URL in $map[$dir])
@@ -115,7 +118,8 @@ function Test-FilesToCacheOnVHD
             if(![System.IO.File]::Exists($dest))
             {
                 Write-Error "File $dest does not exist"
-                exit 1
+                $emptyFiles = $emptyFiles + $dest
+                continue
             }
 
             # NOTE(qinhao): tried to download all the files and compare file MD5 but as it takes
@@ -123,10 +127,16 @@ function Test-FilesToCacheOnVHD
             #               until we have a better way to validate these cached files
             if ((Get-Item $dest).length -eq 0kb) {
                 Write-Error "File $dest is with size 0kb"
+                $emptyFiles = $emptyFiles + $dest
             }
 
             Write-Output "$dest is cached as expected"
         }
+    }
+    if ($emptyFiles.count -gt 0 -Or $missingPaths.count -gt 0)
+    {
+        Write-Error "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
+        exit 1
     }
 
 }

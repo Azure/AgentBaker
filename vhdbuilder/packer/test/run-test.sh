@@ -70,6 +70,7 @@ fi
 # with a range of control characters not escaped as shown in the error below:
 #   Invalid string: control characters from U+0000 through U+001F must be escaped
 errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
+# a successful errMsg should be '""' after parsed by `jq`
 if [[ $errMsg != \"\" ]]; then
     exit 1
 fi
