@@ -1044,7 +1044,7 @@ func (a *AgentPoolProfile) IsSpotScaleSet() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) string {
+func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool) string {
 	var buf bytes.Buffer
 	buf.WriteString("kubernetes.azure.com/role=agent")
 	if deprecated {
@@ -1056,7 +1056,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) strin
 		storagetier, _ := GetStorageAccountType(a.VMSize)
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
 	}
-	if IsNvidiaEnabledSKU(a.VMSize) {
+	if nvidiaEnabled {
 		accelerator := "nvidia"
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
 	}

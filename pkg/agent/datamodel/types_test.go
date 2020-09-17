@@ -2121,43 +2121,48 @@ func TestIsCustomVNET(t *testing.T) {
 
 func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 	cases := []struct {
-		name       string
-		ap         AgentPoolProfile
-		rg         string
-		deprecated bool
-		expected   string
+		name          string
+		ap            AgentPoolProfile
+		rg            string
+		deprecated    bool
+		nvidiaEnabled bool
+		expected      string
 	}{
 		{
-			name:       "vanilla pool profile",
-			ap:         AgentPoolProfile{},
-			rg:         "my-resource-group",
-			deprecated: true,
-			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
+			name:          "vanilla pool profile",
+			ap:            AgentPoolProfile{},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
-			name:       "vanilla pool profile, no deprecated labels",
-			ap:         AgentPoolProfile{},
-			rg:         "my-resource-group",
-			deprecated: false,
-			expected:   "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
+			name:          "vanilla pool profile, no deprecated labels",
+			ap:            AgentPoolProfile{},
+			rg:            "my-resource-group",
+			deprecated:    false,
+			nvidiaEnabled: false,
+			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "with managed disk",
 			ap: AgentPoolProfile{
 				StorageProfile: ManagedDisks,
 			},
-			rg:         "my-resource-group",
-			deprecated: true,
-			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/cluster=my-resource-group",
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "N series",
 			ap: AgentPoolProfile{
 				VMSize: "Standard_NC6",
 			},
-			rg:         "my-resource-group",
-			deprecated: true,
-			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group",
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: true,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "with custom labels",
@@ -2167,9 +2172,10 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 					"mycustomlabel2": "bar",
 				},
 			},
-			rg:         "my-resource-group",
-			deprecated: true,
-			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
 			name: "with custom labels, no deprecated labels",
@@ -2179,9 +2185,10 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 					"mycustomlabel2": "bar",
 				},
 			},
-			rg:         "my-resource-group",
-			deprecated: false,
-			expected:   "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			rg:            "my-resource-group",
+			deprecated:    false,
+			nvidiaEnabled: false,
+			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
 			name: "N series and managed disk with custom labels",
@@ -2193,9 +2200,10 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 					"mycustomlabel2": "bar",
 				},
 			},
-			rg:         "my-resource-group",
-			deprecated: true,
-			expected:   "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: true,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 	}
 
@@ -2203,9 +2211,9 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated) {
+			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled) {
 				t.Fatalf("Got unexpected AgentPoolProfile.GetKubernetesLabels(%s, %t) result. Expected: %s. Got: %s.",
-					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated))
+					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled))
 			}
 		})
 	}

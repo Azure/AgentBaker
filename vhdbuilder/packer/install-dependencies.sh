@@ -269,9 +269,9 @@ fi
 
 TUNNELFRONT_VERSIONS="
 v1.9.2-v3.0.14
-v1.9.2-v3.0.16
+v1.9.2-v3.0.17
 v1.9.2-v4.0.13
-v1.9.2-v4.0.14
+v1.9.2-v4.0.15
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
@@ -544,6 +544,7 @@ done
 
 AZUREDISK_CSI_VERSIONS="
 0.7.0
+0.9.0
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
@@ -553,6 +554,7 @@ done
 
 AZUREFILE_CSI_VERSIONS="
 0.7.0
+0.9.0
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"

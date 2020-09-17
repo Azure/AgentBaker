@@ -1,11 +1,34 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
+
+parameters:
+- name: build1604
+  displayName: Build 1604
+  type: boolean
+  default: true
+- name: build1804
+  displayName: Build 1804
+  type: boolean
+  default: true
+- name: build1804gen2
+  displayName: Build 1804 Gen2
+  type: boolean
+  default: true
+- name: build1804gpu
+  displayName: Build 1804 GPU
+  type: boolean
+  default: true
+- name: build1804gen2gpu
+  displayName: Build 1804 Gen2 GPU
+  type: boolean
+  default: true
 
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
 
 phases:
   - phase: build_vhd_1604
+    condition: eq('${{ parameters.build1604 }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -48,8 +71,8 @@ phases:
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes-1604.txt'
+          artifactName: 'vhd-release-notes-1604'
+          targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -142,10 +165,11 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
-          artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info-1604.json'
+          artifactName: 'publishing-info-1604'
+          targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804
+    condition: eq('${{ parameters.build1804 }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -188,8 +212,8 @@ phases:
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes-1804.txt'
+          artifactName: 'vhd-release-notes-1804'
+          targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -282,10 +306,11 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
-          artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info-1804.json'
+          artifactName: 'publishing-info-1804'
+          targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gen2
+    condition: eq('${{ parameters.build1804gen2 }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -328,8 +353,8 @@ phases:
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes-1804-gen2.txt'
+          artifactName: 'vhd-release-notes-1804-gen2'
+          targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -422,10 +447,11 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
-          artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info-1804-gen2.json'
+          artifactName: 'publishing-info-1804-gen2'
+          targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gpu
+    condition: eq('${{ parameters.build1804gpu }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -468,8 +494,8 @@ phases:
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes-1804-gpu.txt'
+          artifactName: 'vhd-release-notes-1804-gpu'
+          targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -562,10 +588,11 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
-          artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info-1804-gpu.json'
+          artifactName: 'publishing-info-1804-gpu'
+          targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gen2_gpu
+    condition: eq('${{ parameters.build1804gen2gpu }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -608,8 +635,8 @@ phases:
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
         inputs:
-          artifactName: 'vhd-release-notes'
-          targetPath: 'release-notes-1804-gen2-gpu.txt'
+          artifactName: 'vhd-release-notes-1804-gen2-gpu'
+          targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -702,6 +729,6 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
-          artifactName: 'publishing-info'
-          targetPath: 'vhd-publishing-info-1804-gen2-gpu.json'
+          artifactName: 'publishing-info-1804-gen2-gpu'
+          targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))

@@ -13,6 +13,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func generateTestData() bool {
+	return os.Getenv("GENERATE_TEST_DATA") == "true"
+}
+
 var _ = Describe("Assert generated customData and cseCmd", func() {
 	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*NodeBootstrappingConfiguration)) {
 		cs := &datamodel.ContainerService{
@@ -112,6 +116,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			ConfigGPUDriverIfNeeded:       true,
 			EnableGPUDevicePluginIfNeeded: false,
 			EnableDynamicKubelet:          false,
+			EnableNvidia:                  false,
 		}
 
 		if configUpdator != nil {
@@ -120,8 +125,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		// customData
 		customData := baker.GetNodeBootstrappingPayload(config)
-		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
-		// backfillCustomData(folder, customData)
+		if generateTestData() {
+			backfillCustomData(folder, customData)
+		}
+
 		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		if err != nil {
 			panic(err)
@@ -130,8 +137,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		// CSE
 		cseCommand := baker.GetNodeBootstrappingCmd(config)
-		// Uncomment below line to generate test data in local if agentbaker is changed in generating customData
-		// ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+		if generateTestData() {
+			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+		}
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		if err != nil {
 			panic(err)
@@ -175,6 +183,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true
+			config.EnableNvidia = true
 		}),
 		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.EnableDynamicKubelet = true
@@ -185,6 +194,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+			config.EnableNvidia = true
 		}))
 })
 
