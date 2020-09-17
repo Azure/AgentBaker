@@ -1177,11 +1177,6 @@ func (o *OrchestratorProfile) IsPrivateCluster() bool {
 	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.Enabled)
 }
 
-// GetPodInfraContainerSpec returns the sandbox image as a string (ex: k8s.gcr.io/pause-amd64:3.1)
-func (o *OrchestratorProfile) GetPodInfraContainerSpec() string {
-	return o.KubernetesConfig.MCRKubernetesImageBase + K8sComponentsByVersionMap[o.OrchestratorVersion]["pause"]
-}
-
 // HasCosmosEtcd returns true if cosmos etcd configuration is enabled
 func (m *MasterProfile) HasCosmosEtcd() bool {
 	return to.Bool(m.CosmosEtcd)
