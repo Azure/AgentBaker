@@ -51,6 +51,7 @@ else
         "os_name" : "$OS_NAME",
         "sku_name" : "$sku_name",
         "offer_name" : "$OFFER_NAME"
+        "hyperv_generation": "${HYPERV_GENERATION}"
     }
 EOF
 fi
