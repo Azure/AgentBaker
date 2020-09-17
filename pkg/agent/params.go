@@ -154,7 +154,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
-	k8sComponents map[string]string,
+	k8sComponents *K8sComponents,
 	generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 
@@ -165,8 +165,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
-		mcrKubernetesImageBase := kubernetesConfig.MCRKubernetesImageBase
-		hyperkubeImageBase := kubernetesConfig.KubernetesImageBase
 
 		if kubernetesConfig != nil {
 			if kubernetesConfig.CustomKubeProxyImage != "" {
@@ -177,11 +175,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
 			}
 
-			kubernetesHyperkubeSpec := hyperkubeImageBase + k8sComponents["hyperkube"]
-			if kubernetesConfig.CustomHyperkubeImage != "" {
-				kubernetesHyperkubeSpec = kubernetesConfig.CustomHyperkubeImage
-			}
-			addValue(parametersMap, "kubernetesHyperkubeSpec", kubernetesHyperkubeSpec)
+			addValue(parametersMap, "kubernetesHyperkubeSpec", k8sComponents.HyperkubeImageURL)
 
 			addValue(parametersMap, "kubeDNSServiceIP", kubernetesConfig.DNSServiceIP)
 			if kubernetesConfig.IsAADPodIdentityEnabled() {
@@ -196,7 +190,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			} else {
 				addValue(parametersMap, "kubernetesACIConnectorEnabled", false)
 			}
-			addValue(parametersMap, "kubernetesPodInfraContainerSpec", mcrKubernetesImageBase+k8sComponents["pause"])
+			addValue(parametersMap, "kubernetesPodInfraContainerSpec", k8sComponents.PodInfraContainerImageURL)
 			addValue(parametersMap, "cloudproviderConfig", paramsMap{
 				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
 				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
@@ -231,13 +225,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "enableAggregatedAPIs", kubernetesConfig.EnableAggregatedAPIs)
 
 			if properties.HasWindows() {
-				// Kubernetes packages as zip file as created by scripts/build-windows-k8s.sh
-				// will be removed in future release as if gets phased out (https://github.com/Azure/aks-engine/issues/3851)
-				kubeBinariesSASURL := kubernetesConfig.CustomWindowsPackageURL
-				if kubeBinariesSASURL == "" {
-					kubeBinariesSASURL = cloudSpecConfig.KubernetesSpecConfig.KubeBinariesSASURLBase + k8sComponents["windowszip"]
-				}
-				addValue(parametersMap, "kubeBinariesSASURL", kubeBinariesSASURL)
+				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
 
 				// Kubernetes node binaries as packaged by upstream kubernetes
 				// example at https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.11.md#node-binaries-1

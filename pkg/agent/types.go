@@ -16,11 +16,25 @@ type KeyVaultRef struct {
 	SecretVersion string     `json:"secretVersion,omitempty"`
 }
 
+type K8sComponents struct {
+	// Full path to the "pause" image. Used for --pod-infra-container-image
+	// For example: "mcr.microsoft.com/oss/kubernetes/pause:1.3.1"
+	PodInfraContainerImageURL string
+
+	// Full path to the hyperkube image.
+	// For example: "mcr.microsoft.com/hyperkube-amd64:v1.16.13"
+	HyperkubeImageURL string
+
+	// Full path to the Windows package (windowszip) to use.
+	// For example: https://acs-mirror.azureedge.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip
+	WindowsPackageURL string
+}
+
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *datamodel.ContainerService
 	CloudSpecConfig               *datamodel.AzureEnvironmentSpecConfig
-	K8sComponents                 map[string]string
+	K8sComponents                 *K8sComponents
 	AgentPoolProfile              *datamodel.AgentPoolProfile
 	TenantID                      string
 	SubscriptionID                string

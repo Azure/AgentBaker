@@ -104,10 +104,26 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 		baker := InitializeTemplateGenerator()
 
+		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
+
+		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
+		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
+		if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
+			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
+		}
+
+		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
+		k8sComponents := &K8sComponents{
+			PodInfraContainerImageURL: pauseImage,
+			HyperkubeImageURL:         hyperkubeImage,
+			WindowsPackageURL:         windowsPackage,
+		}
+
 		config := &NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
-			K8sComponents:                 K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion],
+			K8sComponents:                 k8sComponents,
 			AgentPoolProfile:              agentPool,
 			TenantID:                      "tenantID",
 			SubscriptionID:                "subID",
