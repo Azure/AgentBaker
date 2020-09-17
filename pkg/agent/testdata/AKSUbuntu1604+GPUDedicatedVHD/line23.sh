@@ -290,9 +290,10 @@ cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export -f retrycmd_if_failure
     export -f cleanUpHyperkubeImages
+    export -f cleanUpKubeProxyImages
     export KUBERNETES_VERSION
     bash -c cleanUpHyperkubeImages &
-    cleanUpKubeProxyImages
+    bash -c cleanUpKubeProxyImages &
 }
 
 cleanUpGPUDrivers() {
