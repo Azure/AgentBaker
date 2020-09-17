@@ -78,6 +78,7 @@ fi
 installContainerRuntime
 
 installNetworkPlugin
+echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
         installGPUDrivers
@@ -89,6 +90,7 @@ if [[ "${GPU_NODE}" = true ]]; then
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
+echo $(date),$(hostname), "End configuring GPU drivers"
 
 
 installKubeletKubectlAndKubeProxy
