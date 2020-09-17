@@ -1079,6 +1079,7 @@ NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
 NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
 aptmarkWALinuxAgent() {
+    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [[ "$1" == "hold" ]]; then
@@ -1086,6 +1087,7 @@ aptmarkWALinuxAgent() {
     elif [[ "$1" == "unhold" ]]; then
         exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
+    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
 
 retrycmd_if_failure() {
@@ -1604,7 +1606,8 @@ pullContainerImage() {
     retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $DOCKER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
 }
 
-cleanUpContainerImages() {
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), startCleanUpHyperkubeImages
     function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
@@ -1614,6 +1617,13 @@ cleanUpContainerImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
+    export -f cleanUpHyperkubeImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    echo $(date),$(hostname), endCleanUpHyperkubeImages
+}
+
+cleanUpKubeProxyImages() {
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
     function cleanUpKubeProxyImagesRun() {
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
         local exit_code=$?
@@ -1623,10 +1633,19 @@ cleanUpContainerImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
-    export -f cleanUpHyperkubeImagesRun
     export -f cleanUpKubeProxyImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
+}
+
+cleanUpContainerImages() {
+    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
+    export -f retrycmd_if_failure
+    export -f cleanUpHyperkubeImages
+    export -f cleanUpKubeProxyImages
+    export KUBERNETES_VERSION
+    bash -c cleanUpHyperkubeImages &
+    bash -c cleanUpKubeProxyImages &
 }
 
 cleanUpGPUDrivers() {
@@ -1723,11 +1742,7 @@ fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    export -f retrycmd_if_failure
-    export -f cleanUpContainerImages
-    export KUBERNETES_VERSION
-    echo "start to clean up container images"
-    bash -c cleanUpContainerImages &
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -1752,6 +1767,7 @@ installContainerRuntime
 installNetworkPlugin
 
 {{- if HasNSeriesSKU}}
+echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
         installGPUDrivers
@@ -1763,6 +1779,7 @@ if [[ "${GPU_NODE}" = true ]]; then
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
+echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
