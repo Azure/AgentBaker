@@ -7,6 +7,7 @@ required_env_vars=(
     "OS_NAME"
     "OFFER_NAME"
     "SKU_NAME"
+    "HYPERV_GENERATION"
 )
 
 for v in "${required_env_vars[@]}"
