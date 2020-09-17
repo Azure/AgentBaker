@@ -75,7 +75,7 @@ func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
 		"maximumLoadBalancerRuleCount":    getMaximumLoadBalancerRuleCount(cs),
 		"userAssignedIdentityID":          config.UserAssignedIdentityClientID,
 		"isVHD":                           isVHD(profile),
-		"gpuNode":                         strconv.FormatBool(datamodel.IsNvidiaEnabledSKU(profile.VMSize)),
+		"gpuNode":                         strconv.FormatBool(config.EnableNvidia),
 		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,

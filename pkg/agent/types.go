@@ -28,6 +28,7 @@ type NodeBootstrappingConfiguration struct {
 	ConfigGPUDriverIfNeeded       bool
 	EnableGPUDevicePluginIfNeeded bool
 	EnableDynamicKubelet          bool
+	EnableNvidia                  bool
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set

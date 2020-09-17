@@ -115,6 +115,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			ConfigGPUDriverIfNeeded:       true,
 			EnableGPUDevicePluginIfNeeded: false,
 			EnableDynamicKubelet:          false,
+			EnableNvidia:                  false,
 		}
 
 		if configUpdator != nil {
@@ -181,6 +182,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true
+			config.EnableNvidia = true
 		}),
 		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.EnableDynamicKubelet = true
@@ -191,6 +193,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+			config.EnableNvidia = true
 		}))
 })
 
