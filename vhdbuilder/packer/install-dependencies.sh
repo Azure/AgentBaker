@@ -269,9 +269,9 @@ fi
 
 TUNNELFRONT_VERSIONS="
 v1.9.2-v3.0.14
-v1.9.2-v3.0.16
+v1.9.2-v3.0.17
 v1.9.2-v4.0.13
-v1.9.2-v4.0.14
+v1.9.2-v4.0.15
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
