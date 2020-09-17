@@ -395,7 +395,11 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return datamodel.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
+<<<<<<< HEAD
 			return config.K8sComponents.PodInfraContainerImageURL
+=======
+			return profile.KubernetesConfig.ContainerRuntimeConfig["SandboxImageUrl"]
+>>>>>>> 3546bf0... remove k8scomponentmap
 		},
 		"IsKubenet": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
