@@ -160,6 +160,7 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -301,6 +302,7 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -442,6 +444,7 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -583,6 +586,7 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -724,6 +728,7 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))

@@ -7,6 +7,7 @@ required_env_vars=(
     "OS_NAME"
     "OFFER_NAME"
     "SKU_NAME"
+    "HYPERV_GENERATION"
 )
 
 for v in "${required_env_vars[@]}"
@@ -50,7 +51,8 @@ else
         "vhd_url" : "$vhd_url",
         "os_name" : "$OS_NAME",
         "sku_name" : "$sku_name",
-        "offer_name" : "$OFFER_NAME"
+        "offer_name" : "$OFFER_NAME",
+        "hyperv_generation": "${HYPERV_GENERATION}"
     }
 EOF
 fi
