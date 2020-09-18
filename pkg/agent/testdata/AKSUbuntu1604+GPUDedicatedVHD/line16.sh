@@ -54,11 +54,7 @@ fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    export -f retrycmd_if_failure
-    export -f cleanUpContainerImages
-    export KUBERNETES_VERSION
-    echo "start to clean up container images"
-    bash -c cleanUpContainerImages &
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -81,6 +77,7 @@ fi
 installContainerRuntime
 
 installNetworkPlugin
+echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
         installGPUDrivers
@@ -92,6 +89,7 @@ if [[ "${GPU_NODE}" = true ]]; then
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
+echo $(date),$(hostname), "End configuring GPU drivers"
 
 
 installKubeletKubectlAndKubeProxy

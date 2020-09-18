@@ -1,11 +1,34 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
+
+parameters:
+- name: build1604
+  displayName: Build 1604
+  type: boolean
+  default: true
+- name: build1804
+  displayName: Build 1804
+  type: boolean
+  default: true
+- name: build1804gen2
+  displayName: Build 1804 Gen2
+  type: boolean
+  default: true
+- name: build1804gpu
+  displayName: Build 1804 GPU
+  type: boolean
+  default: true
+- name: build1804gen2gpu
+  displayName: Build 1804 Gen2 GPU
+  type: boolean
+  default: true
 
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
 
 phases:
   - phase: build_vhd_1604
+    condition: eq('${{ parameters.build1604 }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -147,6 +170,7 @@ phases:
           targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804
+    condition: eq('${{ parameters.build1804 }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -288,6 +312,7 @@ phases:
           targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gen2
+    condition: eq('${{ parameters.build1804gen2 }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -429,6 +454,7 @@ phases:
           targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gpu
+    condition: eq('${{ parameters.build1804gpu }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120
@@ -570,6 +596,7 @@ phases:
           targetPath: 'vhd-publishing-info.json'
         condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - phase: build_vhd_1804_gen2_gpu
+    condition: eq('${{ parameters.build1804gen2gpu }}', true)
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 120

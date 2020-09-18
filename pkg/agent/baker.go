@@ -211,10 +211,10 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, false)
+			return profile.GetKubernetesLabels(rg, false, config.EnableNvidia)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, true)
+			return profile.GetKubernetesLabels(rg, true, config.EnableNvidia)
 		},
 		"GetDynamicKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {
@@ -318,7 +318,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.AnyAgentIsLinux()
 		},
 		"IsNSeriesSKU": func(profile *datamodel.AgentPoolProfile) bool {
-			return datamodel.IsNvidiaEnabledSKU(profile.VMSize)
+			return config.EnableNvidia
 		},
 		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
 			return profile.HasAvailabilityZones()
@@ -395,7 +395,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return datamodel.AzureADIdentitySystem
 		},
 		"GetPodInfraContainerSpec": func() string {
-			return cs.Properties.OrchestratorProfile.GetPodInfraContainerSpec()
+			return config.K8sComponents.PodInfraContainerImageURL
 		},
 		"IsKubenet": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
@@ -431,13 +431,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.HasDCSeriesSKU()
 		},
 		"GetHyperkubeImageReference": func() string {
-			hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-			k8sComponents := datamodel.K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-			hyperkubeImage := hyperkubeImageBase + k8sComponents["hyperkube"]
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-				hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-			}
-			return hyperkubeImage
+			return config.K8sComponents.HyperkubeImageURL
 		},
 		"GetTargetEnvironment": func() string {
 			if cs.IsAKSCustomCloud() {

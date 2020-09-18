@@ -254,7 +254,8 @@ pullContainerImage() {
     retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $DOCKER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
 }
 
-cleanUpContainerImages() {
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), startCleanUpHyperkubeImages
     function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
@@ -264,6 +265,13 @@ cleanUpContainerImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
+    export -f cleanUpHyperkubeImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    echo $(date),$(hostname), endCleanUpHyperkubeImages
+}
+
+cleanUpKubeProxyImages() {
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
     function cleanUpKubeProxyImagesRun() {
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
         local exit_code=$?
@@ -273,10 +281,19 @@ cleanUpContainerImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
-    export -f cleanUpHyperkubeImagesRun
     export -f cleanUpKubeProxyImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
+}
+
+cleanUpContainerImages() {
+    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
+    export -f retrycmd_if_failure
+    export -f cleanUpHyperkubeImages
+    export -f cleanUpKubeProxyImages
+    export KUBERNETES_VERSION
+    bash -c cleanUpHyperkubeImages &
+    bash -c cleanUpKubeProxyImages &
 }
 
 cleanUpGPUDrivers() {

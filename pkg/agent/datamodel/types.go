@@ -1044,7 +1044,7 @@ func (a *AgentPoolProfile) IsSpotScaleSet() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) string {
+func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool) string {
 	var buf bytes.Buffer
 	buf.WriteString("kubernetes.azure.com/role=agent")
 	if deprecated {
@@ -1056,7 +1056,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool) strin
 		storagetier, _ := GetStorageAccountType(a.VMSize)
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
 	}
-	if IsNvidiaEnabledSKU(a.VMSize) {
+	if nvidiaEnabled {
 		accelerator := "nvidia"
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
 	}
@@ -1175,11 +1175,6 @@ func (o *OrchestratorProfile) IsPrivateCluster() bool {
 		return false
 	}
 	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.Enabled)
-}
-
-// GetPodInfraContainerSpec returns the sandbox image as a string (ex: k8s.gcr.io/pause-amd64:3.1)
-func (o *OrchestratorProfile) GetPodInfraContainerSpec() string {
-	return o.KubernetesConfig.MCRKubernetesImageBase + K8sComponentsByVersionMap[o.OrchestratorVersion]["pause"]
 }
 
 // HasCosmosEtcd returns true if cosmos etcd configuration is enabled
