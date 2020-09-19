@@ -22,6 +22,10 @@ parameters:
   displayName: Build 1804 Gen2 GPU
   type: boolean
   default: true
+- name: nodryrun
+  displayName: Uncheck this for dry run
+  type: boolean
+  default: true
 
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
@@ -40,6 +44,10 @@ phases:
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
         displayName: Setup Build Variables
+      - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]True'
+        displayName: Override dry run
+        condition: eq('${{ parameters.nodryrun }}', false)
       - bash: |
           if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
           echo "Set build mode to $m" && \
@@ -62,6 +70,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -183,6 +192,10 @@ phases:
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
         displayName: Setup Build Variables
       - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]True'
+        displayName: Override dry run
+        condition: eq('${{ parameters.nodryrun }}', false)
+      - bash: |
           if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
           echo "Set build mode to $m" && \
           echo "##vso[task.setvariable variable=MODE]$m"
@@ -204,6 +217,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -325,6 +339,10 @@ phases:
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
         displayName: Setup Build Variables
       - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]True'
+        displayName: Override dry run
+        condition: eq('${{ parameters.nodryrun }}', false)
+      - bash: |
           if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
           echo "Set build mode to $m" && \
           echo "##vso[task.setvariable variable=MODE]$m"
@@ -346,6 +364,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -467,6 +486,10 @@ phases:
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
         displayName: Setup Build Variables
       - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]True'
+        displayName: Override dry run
+        condition: eq('${{ parameters.nodryrun }}', false)
+      - bash: |
           if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
           echo "Set build mode to $m" && \
           echo "##vso[task.setvariable variable=MODE]$m"
@@ -488,6 +511,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -609,6 +633,10 @@ phases:
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
         displayName: Setup Build Variables
       - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]True'
+        displayName: Override dry run
+        condition: eq('${{ parameters.nodryrun }}', false)
+      - bash: |
           if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
           echo "Set build mode to $m" && \
           echo "##vso[task.setvariable variable=MODE]$m"
@@ -630,6 +658,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
