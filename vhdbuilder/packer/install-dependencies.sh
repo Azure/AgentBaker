@@ -536,6 +536,7 @@ mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200804.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200901.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
+mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage "docker" ${ADDON_IMAGE}
