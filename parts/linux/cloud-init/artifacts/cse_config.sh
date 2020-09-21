@@ -294,6 +294,7 @@ ensureDocker() {
             sleep 1
         fi
     done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer

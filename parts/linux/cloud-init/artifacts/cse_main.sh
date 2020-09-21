@@ -45,10 +45,6 @@ fi
 
 configureAdminUser
 
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -77,6 +73,9 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+{{end}}
 
 installNetworkPlugin
 

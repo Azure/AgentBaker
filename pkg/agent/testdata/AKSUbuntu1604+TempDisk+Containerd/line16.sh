@@ -73,6 +73,8 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+installCrictl
+
 
 installNetworkPlugin
 
