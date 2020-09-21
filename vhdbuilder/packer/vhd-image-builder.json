@@ -79,6 +79,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/image_cache.sh",
+      "destination": "/home/packer/image_cache.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },

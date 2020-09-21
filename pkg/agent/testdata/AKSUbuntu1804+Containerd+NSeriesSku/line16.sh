@@ -73,6 +73,8 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+installCrictl
+
 
 installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"

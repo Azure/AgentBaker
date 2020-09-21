@@ -403,6 +403,8 @@ NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
 CNI_PLUGINS_URL={{GetParameter "cniPluginsURL"}}
+## TODO parameterize this
+CRICTL_PLUGINS_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v.17.0/crictl-v1.17.0-linux-amd64.tar.gz"
 CLOUDPROVIDER_BACKOFF={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoff"}}
 CLOUDPROVIDER_BACKOFF_MODE={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffMode"}}
 CLOUDPROVIDER_BACKOFF_RETRIES={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffRetries"}}
@@ -745,6 +747,7 @@ ensureDocker() {
             sleep 1
         fi
     done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
@@ -1056,6 +1059,9 @@ ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in 
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
 ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
+ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
+ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -1340,6 +1346,8 @@ CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
+CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
+CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
@@ -1506,6 +1514,23 @@ downloadContainerd() {
     retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
 }
 
+{{if NeedsContainerd}}
+downloadCrictl() {
+    mkdir -p $CRICTL_DOWNLOAD_DIR
+    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
+    retrycmd_get_tarball 120 5 "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+}
+
+installCrictl() {
+    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    if [[ ! -f "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" ]]; then
+        downloadCrictl
+    fi
+    tar zxvf "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+    chmod 755 $CRICTL_BIN_DIR/crictl
+}
+{{end}}
+
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
@@ -1602,12 +1627,30 @@ installKubeletKubectlAndKubeProxy() {
 
 pullContainerImage() {
     CLI_TOOL=$1
-    DOCKER_IMAGE_URL=$2
-    retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $DOCKER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    CONTAINER_IMAGE_URL=$2
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    else
+        retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    fi
 }
 
 cleanUpHyperkubeImages() {
     echo $(date),$(hostname), startCleanUpHyperkubeImages
+    {{if NeedsContainerd}}
+    function cleanUpHyperkubeImagesRun() {
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube' | awk '{print $1}')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            for image in "${images_to_delete[@]}"
+            do 
+                ctr --namespace k8s.io image rm ${image}
+            done
+        fi
+    }
+    {{else}}
     function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
@@ -1617,6 +1660,7 @@ cleanUpHyperkubeImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
+    {{end}}
     export -f cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     echo $(date),$(hostname), endCleanUpHyperkubeImages
@@ -1624,7 +1668,21 @@ cleanUpHyperkubeImages() {
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    function cleanUpKubeProxyImagesRun() {
+    {{if NeedsContainerd}}
+    function cleanUpHyperkubeImagesRun() {
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy' | awk '{print $1}')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            for image in "${images_to_delete[@]}"
+            do 
+                ctr --namespace k8s.io image rm ${image}
+            done
+        fi
+    }
+    {{else}}
+    function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
@@ -1633,6 +1691,8 @@ cleanUpKubeProxyImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
+    {{end}}
+
     export -f cleanUpKubeProxyImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
     echo $(date),$(hostname), endCleanUpKubeProxyImages
@@ -1646,6 +1706,22 @@ cleanUpContainerImages() {
     export KUBERNETES_VERSION
     bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
+    # note: ubuntu18.04 VHDs will have both docker and containerd images pre-pulled. if provisioned runtime is containerd, we will simply remove docker root and vice versa.
+    {{if NeedsContainerd}}
+        export -f clearDockerRootDir
+        cleanDockerRootDir &
+    {{else}}
+        export -f clearContainerdRootDir
+        clearContainerdRootDir &
+    {{end}}
+}
+
+clearDockerRootDir() {
+    rm -rf /var/lib/docker 2>&1 >/dev/null
+}
+
+clearContainerdRootDir() {
+    rm -rf /var/lib/containerd 2>&1 >/dev/null
 }
 
 cleanUpGPUDrivers() {
@@ -1731,10 +1807,6 @@ fi
 
 configureAdminUser
 
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -1763,6 +1835,9 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+{{end}}
 
 installNetworkPlugin
 
@@ -3520,6 +3595,12 @@ write_files:
     bin_dir = "/opt/cni/bin"
     conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
+    {{end}}
+    {{if HasPrivateAzureRegistryServer}}
+    [plugins.cri.registry.auths]
+      [plugins.cri.registry.auths."{{GetPrivateAzureRegistryServer}}""]
+        username = {{GetParameter "servicePrincipalClientId"}}
+        password = {{GetParameter "servicePrincipalClientSecret"}}
     {{end}}
     #EOF
 

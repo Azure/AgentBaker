@@ -5,6 +5,8 @@ CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
+CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
+CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
@@ -154,6 +156,8 @@ downloadContainerd() {
     retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
 }
 
+
+
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
@@ -250,12 +254,17 @@ installKubeletKubectlAndKubeProxy() {
 
 pullContainerImage() {
     CLI_TOOL=$1
-    DOCKER_IMAGE_URL=$2
-    retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $DOCKER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    CONTAINER_IMAGE_URL=$2
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    else
+        retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    fi
 }
 
 cleanUpHyperkubeImages() {
     echo $(date),$(hostname), startCleanUpHyperkubeImages
+    
     function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
@@ -265,6 +274,7 @@ cleanUpHyperkubeImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
+    
     export -f cleanUpHyperkubeImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
     echo $(date),$(hostname), endCleanUpHyperkubeImages
@@ -272,7 +282,8 @@ cleanUpHyperkubeImages() {
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    function cleanUpKubeProxyImagesRun() {
+    
+    function cleanUpHyperkubeImagesRun() {
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
@@ -281,6 +292,8 @@ cleanUpKubeProxyImages() {
             docker rmi ${images_to_delete[@]}
         fi
     }
+    
+
     export -f cleanUpKubeProxyImagesRun
     retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
     echo $(date),$(hostname), endCleanUpKubeProxyImages
@@ -294,6 +307,19 @@ cleanUpContainerImages() {
     export KUBERNETES_VERSION
     bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
+    # note: ubuntu18.04 VHDs will have both docker and containerd images pre-pulled. if provisioned runtime is containerd, we will simply remove docker root and vice versa.
+    
+        export -f clearContainerdRootDir
+        clearContainerdRootDir &
+    
+}
+
+clearDockerRootDir() {
+    rm -rf /var/lib/docker 2>&1 >/dev/null
+}
+
+clearContainerdRootDir() {
+    rm -rf /var/lib/containerd 2>&1 >/dev/null
 }
 
 cleanUpGPUDrivers() {
