@@ -268,10 +268,10 @@ if [[ ${installSGX} == "True" ]]; then
 fi
 
 TUNNELFRONT_VERSIONS="
-v1.9.2-v3.0.14
 v1.9.2-v3.0.17
-v1.9.2-v4.0.13
+v1.9.2-v3.0.18
 v1.9.2-v4.0.15
+v1.9.2-v4.0.16
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
@@ -279,12 +279,12 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# 1.0.9 is for the cve fix
 # 1.0.10 is for the ipv6 fix
+# 1.0.11 is for the cve fix
 OPENVPN_VERSIONS="
 1.0.8
-1.0.9
 1.0.10
+1.0.11
 "
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
