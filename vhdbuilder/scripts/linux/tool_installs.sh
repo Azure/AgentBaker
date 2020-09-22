@@ -11,6 +11,16 @@ ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default pr
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
 
+installAscBaseline() {
+  echo "Installing ASC Baseline tools..."
+  ASC_BASELINE_TMP=/tmp/baseline.deb
+  ASC_BASELINE_URL=https://msazure.visualstudio.com/_apis/resources/Containers/52851470/build\?itemPath\=build%2Fasc-baseline-1.0.0-master.342.amd64.deb
+  retrycmd_if_failure_no_stats 120 5 25 curl -fsSL  $ASC_BASELINE_URL > $ASC_BASELINE_TMP
+  retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP
+
+  echo "Finished Setting up ASC Baseline"
+}
+
 installBcc() {
     echo "Installing BCC tools..."
     IOVISOR_KEY_TMP=/tmp/iovisor-release.key
