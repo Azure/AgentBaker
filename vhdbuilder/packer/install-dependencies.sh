@@ -68,8 +68,6 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     ensureGPUDrivers
 fi
 
-installAscBaseline
-
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
