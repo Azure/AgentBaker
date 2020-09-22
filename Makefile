@@ -75,8 +75,8 @@ validate-go:
 
 .PHONY: validate-shell
 validate-shell:
-	@./scripts/validate-shell.sh
-
+	@./.pipelines/scripts/verify_shell.sh
+	
 .PHONY: generate
 generate: bootstrap
 	@echo $(GOFLAGS)
