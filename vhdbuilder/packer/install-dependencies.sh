@@ -596,5 +596,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "VSTS Build NUMBER: ${BUILD_NUMBER}"
   echo "VSTS Build ID: ${BUILD_ID}"
   echo "Commit: ${COMMIT}"
+  echo "Ubuntu version: ${UBUNTU_RELEASE}"
+  echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
 } >> ${VHD_LOGS_FILEPATH}

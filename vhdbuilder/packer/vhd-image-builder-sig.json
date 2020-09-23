@@ -11,6 +11,7 @@
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
+    "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
@@ -243,7 +244,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

@@ -10,7 +10,8 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "ubuntu_sku": "{{env `UBUNTU_SKU`}}"
+    "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
+    "hyperv_generation": "{{env `HYPERV_GENERATION`}}"
   },
   "builders": [
     {
@@ -240,7 +241,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} SGX_DEVICE_PLUGIN_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} SGX_DEVICE_PLUGIN_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
