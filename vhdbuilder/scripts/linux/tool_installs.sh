@@ -14,7 +14,7 @@ installAscBaseline() {
   echo "Installing ASC Baseline tools..."
   pwd
   ls -R
-  ASC_BASELINE_TMP=vhdbuilder/asc-baseline-1.0.0-master.348.amd64.deb
+  ASC_BASELINE_TMP=asc-baseline-1.0.0-master.348.amd64.deb
   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP
 
   echo "Finished Setting up ASC Baseline"
