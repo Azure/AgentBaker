@@ -115,7 +115,8 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   for CRICTL_VERSION in $CRICTL_VERSIONS; do
       export CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSIONS}/crictl-${CRICTL_VERSIONS}-linux-amd64.tar.gz"
       
-      echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
+      #installCrictl
+      #echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
 fi
 
@@ -126,7 +127,7 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   echo "Pre-pull system images for containerd" >> ${VHD_LOGS_FILEPATH}
 
   containerd &>/dev/null &
-  containerdPID=$1
+  containerdPID=$!
   echo "Started a containerd process. PID=${containerdPID}" >> ${VHD_LOGS_FILEPATH}
   retrycmd_if_failure 60 1 1200 ctr namespace create k8s.io || exit $ERR_CTR_OPERATION_ERROR
   
