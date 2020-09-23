@@ -20,7 +20,6 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/
 echo "Running shellcheck..."
 
 IGNORED="
-SC2010
 SC1127
 SC1009
 SC1054
@@ -31,6 +30,7 @@ SC1083
 SC1090
 SC1091
 SC2004
+SC2006
 SC2015
 SC2034
 SC2046

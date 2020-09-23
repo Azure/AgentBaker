@@ -97,6 +97,7 @@ fi
 # because a pr gives a better chance to take a review of the version changes.
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
+# shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
 	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
