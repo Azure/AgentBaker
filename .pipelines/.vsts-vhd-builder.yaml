@@ -51,6 +51,7 @@ phases:
           ls -R
         displayName: show Directory
       - bash: |
+          ls &&
           echo MODE=$(MODE) && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
