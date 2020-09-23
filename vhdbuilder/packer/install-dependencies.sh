@@ -47,9 +47,12 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - zip
 EOF
 
+supportContainerd=""
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
   disableSystemdTimesyncdAndEnableNTP || exit 1
+  supportContainerd="true"
+  imageSaveDir="/opt/azure/images"
 fi
 
 installBpftrace
@@ -114,6 +117,9 @@ DASHBOARD_VERSIONS="1.10.1"
 for DASHBOARD_VERSION in ${DASHBOARD_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v${DASHBOARD_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -129,6 +135,16 @@ for DASHBOARD_VERSION in ${NEW_DASHBOARD_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+if [[ ${supportContainerd} ]]; then
+  NEW_DASHBOARD_VERSIONS="
+    2.0.1
+    "
+  for DASHBOARD_VERSION in ${NEW_DASHBOARD_VERSIONS}; do
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${DASHBOARD_VERSION}"
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  done
+fi
+
 NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS="
 1.0.2
 1.0.3
@@ -140,10 +156,23 @@ for DASHBOARD_VERSION in ${NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+if [[ ${supportContainerd} ]]; then
+  NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS="
+    1.0.4
+    "
+  for DASHBOARD_VERSION in ${NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS}; do
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${DASHBOARD_VERSION}"
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  done
+fi
+
 EXECHEALTHZ_VERSIONS="1.2"
 for EXECHEALTHZ_VERSION in ${EXECHEALTHZ_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/exechealthz:${EXECHEALTHZ_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -155,9 +184,21 @@ ADDON_RESIZER_VERSIONS="
 "
 for ADDON_RESIZER_VERSION in ${ADDON_RESIZER_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:${ADDON_RESIZER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
+
+if [[ ${supportContainerd} ]]; then
+  ADDON_RESIZER_VERSIONS="
+  1.8.5
+  1.8.4
+  1.8.1
+  1.7
+  "
+  for ADDON_RESIZER_VERSION in ${ADDON_RESIZER_VERSIONS}; do
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${ADDON_RESIZER_VERSION}"
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  done
+fi
 
 METRICS_SERVER_VERSIONS="
 0.3.6
@@ -169,11 +210,24 @@ for METRICS_SERVER_VERSION in ${METRICS_SERVER_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+if [[ ${supportContainerd} ]]; then
+  METRICS_SERVER_VERSIONS="
+  0.3.6
+  "
+  for METRICS_SERVER_VERSION in ${METRICS_SERVER_VERSIONS}; do
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${METRICS_SERVER_VERSION}"
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  done
+fi
+
 LEGACY_MCR_PAUSE_VERSIONS="1.2.0"
 for PAUSE_VERSION in ${LEGACY_MCR_PAUSE_VERSIONS}; do
     # Pull the arch independent MCR pause image which is built for Linux and Windows
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/core/pause:${PAUSE_VERSION}"
     pullContainerImage "docker" "${CONTAINER_IMAGE}"
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -185,6 +239,9 @@ MCR_PAUSE_VERSIONS="
 for PAUSE_VERSION in ${MCR_PAUSE_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/pause:${PAUSE_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -201,6 +258,16 @@ for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+if [[ ${supportContainerd} ]]; then
+  CORE_DNS_VERSIONS="
+  1.6.6
+  "
+  for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${CORE_DNS_VERSION}"
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  done
+fi
+
 AZURE_CNIIMAGEBASE="mcr.microsoft.com/containernetworking"
 AZURE_CNI_NETWORKMONITOR_VERSIONS="
 0.0.7
@@ -209,6 +276,9 @@ AZURE_CNI_NETWORKMONITOR_VERSIONS="
 for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/networkmonitor:v${AZURE_CNI_NETWORKMONITOR_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -220,6 +290,9 @@ AZURE_NPM_VERSIONS="
 for AZURE_NPM_VERSION in ${AZURE_NPM_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-npm:v${AZURE_NPM_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -229,6 +302,9 @@ AZURE_VNET_TELEMETRY_VERSIONS="
 for AZURE_VNET_TELEMETRY_VERSION in ${AZURE_VNET_TELEMETRY_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-vnet-telemetry:v${AZURE_VNET_TELEMETRY_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -239,6 +315,9 @@ NVIDIA_DEVICE_PLUGIN_VERSIONS="
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -263,6 +342,9 @@ if [[ ${installSGX} == "True" ]]; then
     for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
         pullContainerImage "docker" ${CONTAINER_IMAGE}
+        if [[ ${supportContainerd} ]]; then
+          dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+        fi
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 fi
@@ -276,6 +358,9 @@ v1.9.2-v4.0.16
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -289,6 +374,9 @@ OPENVPN_VERSIONS="
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -296,6 +384,9 @@ KUBE_SVC_REDIRECT_VERSIONS="1.0.7"
 for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/kube-svc-redirect:v${KUBE_SVC_REDIRECT_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -305,6 +396,9 @@ OMS_AGENT_IMAGES="ciprod07152020 ciprod08072020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -316,6 +410,9 @@ v3.8.0
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -326,6 +423,9 @@ v3.8.0
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -336,6 +436,9 @@ v3.8.0
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:${CALICO_TYPHA_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -343,18 +446,22 @@ CALICO_POD2DAEMON_IMAGES="v3.8.0"
 for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:${CALICO_POD2DAEMON_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # Cluster Proportional Autoscaler
 CPA_IMAGES="
-1.3.0_v0.0.5
-1.7.1
 1.7.1-hotfix.20200403
 "
 for CPA_IMAGE in ${CPA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:${CPA_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -362,6 +469,9 @@ KV_FLEXVOLUME_VERSIONS="0.0.13"
 for KV_FLEXVOLUME_VERSION in ${KV_FLEXVOLUME_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:v${KV_FLEXVOLUME_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -369,6 +479,9 @@ BLOBFUSE_FLEXVOLUME_VERSIONS="1.0.13"
 for BLOBFUSE_FLEXVOLUME_VERSION in ${BLOBFUSE_FLEXVOLUME_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:${BLOBFUSE_FLEXVOLUME_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -380,6 +493,9 @@ AKS_IP_MASQ_AGENT_VERSIONS="
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -387,6 +503,9 @@ NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
     CONTAINER_IMAGE="nginx:${NGINX_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -394,6 +513,9 @@ KMS_PLUGIN_VERSIONS="0.0.9"
 for KMS_PLUGIN_VERSION in ${KMS_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/kms/keyvault:v${KMS_PLUGIN_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ ${supportContainerd} ]]; then
+      dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+    fi
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -542,6 +664,9 @@ mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage "docker" ${ADDON_IMAGE}
+  if [[ ${supportContainerd} ]]; then
+    dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  fi
   echo "  - ${ADDON_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -552,6 +677,9 @@ AZUREDISK_CSI_VERSIONS="
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
+  if [[ ${supportContainerd} ]]; then
+    dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  fi
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -562,6 +690,9 @@ AZUREFILE_CSI_VERSIONS="
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
+  if [[ ${supportContainerd} ]]; then
+    dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  fi
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -571,6 +702,9 @@ CSI_LIVENESSPROBE_VERSIONS="
 for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
+  if [[ ${supportContainerd} ]]; then
+    dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  fi
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -580,6 +714,9 @@ CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
 for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
   pullContainerImage "docker" ${CONTAINER_IMAGE}
+  if [[ ${supportContainerd} ]]; then
+    dockerSaveImageAsTargzip ${CONTAINER_IMAGE} ${imageSaveDir}
+  fi
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
