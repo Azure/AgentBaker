@@ -75,9 +75,9 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 VNET_CNI_VERSIONS="
+1.1.7
 1.1.6
 1.1.3
-1.0.33
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
