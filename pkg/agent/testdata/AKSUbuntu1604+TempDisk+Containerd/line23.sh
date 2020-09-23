@@ -174,10 +174,11 @@ downloadContainerd() {
 }
 
 
+
 downloadCrictl() {
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
-    retrycmd_get_tarball 120 5 "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 5 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -185,7 +186,7 @@ installCrictl() {
     if [[ ! -f "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" ]]; then
         downloadCrictl
     fi
-    tar zxvf "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+    tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
     chmod 755 $CRICTL_BIN_DIR/crictl
 }
 
