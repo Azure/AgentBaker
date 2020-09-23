@@ -10,7 +10,7 @@ param (
 )
 
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
-$global:containerdPackageUrl = "https://kubernetesartifacts.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
+$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
 
 function Compare-AllowedSecurityProtocols
 {
