@@ -111,9 +111,7 @@ done
 #TODO: sync up with jpalma and replace with buildkit/buildx daemon
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   # for UBUNTU RELEASE 18.04 we also want to pre-bake in crictl and system images
-  CRICTL_VERSIONS="
-  v.1.17.0
-  "
+  CRICTL_VERSIONS="v1.17.0"
   for CRICTL_VERSION in $CRICTL_VERSIONS; do
       export CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSIONS}/crictl-${CRICTL_VERSIONS}-linux-amd64.tar.gz"
       downloadCrictl
