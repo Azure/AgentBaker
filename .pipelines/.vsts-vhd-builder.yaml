@@ -45,7 +45,7 @@ phases:
           vstsFeed: ASMPackages
           vstsFeedPackage: asc-baseline
           vstsPackageVersion: '*'
-          downloadDirectory: vhdbuilder
+          downloadDirectory: vhdbuilder/packer
       - bash: |
           pwd
           ls -R
