@@ -3598,6 +3598,8 @@ write_files:
     conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
     {{end}}
+    [metrics]
+    address = "127.0.0.1:10257"
     {{if HasPrivateAzureRegistryServer}}
     [plugins.cri.registry.auths]
       [plugins.cri.registry.auths."{{GetPrivateAzureRegistryServer}}""]

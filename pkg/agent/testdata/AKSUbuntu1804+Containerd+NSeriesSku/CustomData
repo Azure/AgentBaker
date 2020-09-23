@@ -75,6 +75,8 @@ write_files:
     runtime_type = "io.containerd.runtime.v1.linux" 
     runtime_engine = "/usr/bin/nvidia-container-runtime"
     
+    [metrics]
+    address = "127.0.0.1:10257"
     
     #EOF
 
