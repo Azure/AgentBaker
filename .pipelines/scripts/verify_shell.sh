@@ -15,11 +15,12 @@ if [[ ${installed} -ne 0 ]]; then
     fi
 fi
 
-filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*')
+filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*')
 
 echo "Running shellcheck..."
 
 IGNORED="
+SC2010
 SC1127
 SC1009
 SC1054
@@ -40,5 +41,6 @@ SC2128
 SC2145
 SC2154
 SC2206
+SC2153
 "
 shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
