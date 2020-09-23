@@ -443,6 +443,7 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   else
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
+      # shellcheck disable=SC2006
       PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
     else
       PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
@@ -499,6 +500,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+    # shellcheck disable=SC2181
     if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
@@ -516,6 +518,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+    # shellcheck disable=SC2181
     if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
@@ -580,7 +583,8 @@ for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; 
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
+# shellcheck disable=SC2010
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 df -h
 

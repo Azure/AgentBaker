@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 {{/* BCC/BPF-related error codes */}}
