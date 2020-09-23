@@ -13,9 +13,7 @@ UBUNTU_CODENAME=$(lsb_release -c -s)
 
 installAscBaseline() {
   echo "Installing ASC Baseline tools..."
-  ASC_BASELINE_TMP=/tmp/baseline.deb
-  ASC_BASELINE_URL=https://msazure.visualstudio.com/_apis/resources/Containers/52851470/build\?itemPath\=build%2Fasc-baseline-1.0.0-master.342.amd64.deb
-  retrycmd_if_failure_no_stats 120 5 25 curl -fsSL  $ASC_BASELINE_URL > $ASC_BASELINE_TMP
+  ASC_BASELINE_TMP=/vhdbuilder/asc-baseline.deb
   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP
 
   echo "Finished Setting up ASC Baseline"
