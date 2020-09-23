@@ -186,6 +186,7 @@ installCrictl() {
     if [[ ! -f "$CRICTL_DOWNLOAD_URL/${CRICTL_TGZ_TEMP}" ]]; then
         downloadCrictl
     fi
+    echo "Unpacking crictl into bin"
     tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
     chmod 755 $CRICTL_BIN_DIR/crictl
 }

@@ -114,7 +114,7 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   CRICTL_VERSIONS="v1.17.0"
   for CRICTL_VERSION in $CRICTL_VERSIONS; do
       export CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSIONS}/crictl-${CRICTL_VERSIONS}-linux-amd64.tar.gz"
-      downloadCrictl
+      
       echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
 fi
@@ -125,14 +125,15 @@ pullSystemImages "docker"
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   echo "Pre-pull system images for containerd" >> ${VHD_LOGS_FILEPATH}
 
-  pid=$(containerd &>/dev/null &) 
-  echo "Started a containerd process. PID=${pid}" >> ${VHD_LOGS_FILEPATH}
+  containerd &>/dev/null &
+  containerdPID=$1
+  echo "Started a containerd process. PID=${containerdPID}" >> ${VHD_LOGS_FILEPATH}
   retrycmd_if_failure 60 1 1200 ctr namespace create k8s.io || exit $ERR_CTR_OPERATION_ERROR
   
   pullSystemImages "containerd"
   
   echo "Killing background containerd process. PID=${pid}" >> ${VHD_LOGS_FILEPATH}
-  kill -9 ${pid}
+  kill -9 ${containerdPID}
 fi
 
 # kubelet and kubectl
@@ -270,13 +271,14 @@ pullAddonImages "docker"
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   echo "Pre-pull addon images for containerd" >> ${VHD_LOGS_FILEPATH}
 
-  pid=$(containerd &>/dev/null &) 
-  echo "Started a containerd process. PID=${pid}" >> ${VHD_LOGS_FILEPATH}
+  containerd &>/dev/null &
+  containerdPID=$!
+  echo "Started a containerd process. PID=${containerdPID}" >> ${VHD_LOGS_FILEPATH}
 
   pullAddonImages "containerd"
   
-  echo "Killing background containerd process. PID=${pid}" >> ${VHD_LOGS_FILEPATH}
-  kill -9 ${pid}
+  echo "Killing background containerd process. PID=${containerdPID}" >> ${VHD_LOGS_FILEPATH}
+  kill -9 ${containerdPID}
 fi
 
 # shellcheck disable=SC2010

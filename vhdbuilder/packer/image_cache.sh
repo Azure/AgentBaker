@@ -3,7 +3,7 @@
 pullSystemImages() {
     runtime=$1
     if [[ ${runtime} == "containerd" ]]; then
-        cliTool="cri"
+        cliTool="ctr"
     else 
         cliTool="docker"
     fi
@@ -307,7 +307,7 @@ pullSystemImages() {
 pullAddonImages() {
     runtime=$1
     if [[ ${runtime} == "containerd" ]]; then
-        cliTool="cri"
+        cliTool="ctr"
     else 
         cliTool="docker"
     fi
