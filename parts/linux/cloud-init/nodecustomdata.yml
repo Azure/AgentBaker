@@ -89,6 +89,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
+
 - path: /etc/systemd/system/kubelet-monitor.service
   permissions: "0644"
   encoding: gzip

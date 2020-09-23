@@ -180,6 +180,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/configure_azure0.sh",
+      "destination": "/home/packer/configure_azure0.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/kubelet-monitor.service",
       "destination": "/home/packer/kubelet-monitor.service"
     },
