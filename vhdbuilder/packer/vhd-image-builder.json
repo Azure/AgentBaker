@@ -78,6 +78,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-master.348.amd64.deb",
+      "destination": "/home/packer/asc-baseline-1.0.0-master.348.amd64.deb"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },
