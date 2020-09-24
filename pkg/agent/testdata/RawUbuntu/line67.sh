@@ -4,6 +4,12 @@
 # Also don't want to run this when not using azure-cni
 [ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
 
+# CNI team mentions that this is not needed for calico network policy to run this script
+export NETWORK_POLICY = $1
+if [[ "${NETWORK_POLICY}" == "calico" ]]; then
+    exit 0
+fi
+
 # Check if the azure0 bridge is already configured
 # We don't need to run if so.
 ip link show azure0 && exit 0
