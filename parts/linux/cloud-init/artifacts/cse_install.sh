@@ -278,7 +278,7 @@ dockerSaveImageAsTargzip() {
     if [[ ! -d ${LOCATION} ]]; then
         mkdir -p ${LOCATION}
     fi
-    TARGE=${LOCATION}/${IMAGE}.tar.gz
+    TARGET=${LOCATION}/${IMAGE}.tar.gz
     docker save ${IMAGE_URL} | gzip > ${TARGET}
     du -h ${TARGET}
 }
@@ -290,7 +290,7 @@ dockerSaveImageAndCtrImport()) {
     if [[ ! -d ${LOCATION} ]]; then
         mkdir -p ${LOCATION}
     fi
-    TARGE=${LOCATION}/${IMAGE}.tar
+    TARGET=${LOCATION}/${IMAGE}.tar
     docker save ${IMAGE_URL} -o ${TARGET}
     ctr -namespace k8s.io image import ${TARGET} --no-unpack
     rm ${TARGET}
