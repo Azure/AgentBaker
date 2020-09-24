@@ -168,9 +168,31 @@ var (
 	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
 		CloudName: AzurePublicCloud,
 		//DockerSpecConfig specify the docker engine download repo
-		DockerSpecConfig: DefaultDockerSpecConfig,
+		DockerSpecConfig: DockerSpecConfig{
+			DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
+			DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
+		},
 		//KubernetesSpecConfig is the default kubernetes container image url.
-		KubernetesSpecConfig: DefaultKubernetesSpecConfig,
+		KubernetesSpecConfig: KubernetesSpecConfig{
+			KubernetesImageBase:                  "k8s.gcr.io/",
+			TillerImageBase:                      "gcr.io/kubernetes-helm/",
+			ACIConnectorImageBase:                "microsoft/",
+			NVIDIAImageBase:                      "nvidia/",
+			CalicoImageBase:                      "calico/",
+			AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
+			MCRKubernetesImageBase:               "mcr.microsoft.com/",
+			EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
+			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
+			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
+			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-" + CNIPluginVer + ".tgz",
+			VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + AzureCniPluginVerLinux + ".tgz",
+			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + AzureCniPluginVerWindows + ".zip",
+			ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
+			CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-" + DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
+			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + WindowsPauseImageVersion,
+			AlwaysPullWindowsPauseImage:          DefaultAlwaysPullWindowsPauseImage,
+		},
 
 		EndpointConfig: AzureEndpointConfig{
 			ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
