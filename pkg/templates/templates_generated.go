@@ -1613,7 +1613,9 @@ dockerSaveImageAsTargzip() {
     if [[ ! -d ${LOCATION} ]]; then
         mkdir -p ${LOCATION}
     fi
-    docker save ${IMAGE_URL} | gzip > ${LOCATION}/${IMAGE}.tar.gz
+    TARGE=${LOCATION}/${IMAGE}.tar.gz
+    docker save ${IMAGE_URL} | gzip > ${TARGET}
+    du -h ${TARGET}
 }
 
 cleanUpHyperkubeImages() {
