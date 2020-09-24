@@ -283,6 +283,19 @@ dockerSaveImageAsTargzip() {
     du -h ${TARGET}
 }
 
+dockerSaveImageAndCtrImport()) {
+    IMAGE_URL=$1
+    LOCATION=$2
+    IMAGE=${IMAGE_URL##*/} 
+    if [[ ! -d ${LOCATION} ]]; then
+        mkdir -p ${LOCATION}
+    fi
+    TARGE=${LOCATION}/${IMAGE}.tar
+    docker save ${IMAGE_URL} -o ${TARGET}
+    ctr -namespace k8s.io image import ${TARGET} --no-unpack
+    rm ${TARGET}
+}
+
 cleanUpHyperkubeImages() {
     echo $(date),$(hostname), startCleanUpHyperkubeImages
     function cleanUpHyperkubeImagesRun() {
