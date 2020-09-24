@@ -254,6 +254,16 @@ pullContainerImage() {
     retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $DOCKER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
 }
 
+dockerSaveImageAsTargzip() {
+    IMAGE_URL=$1
+    LOCATION=$2
+    IMAGE=${IMAGE_URL##*/} 
+    if [[ ! -d ${LOCATION} ]]; then
+        mkdir -p ${LOCATION}
+    fi
+    docker save ${IMAGE_URL} | gzip > ${LOCATION}/${IMAGE}.tar.gz
+}
+
 cleanUpHyperkubeImages() {
     echo $(date),$(hostname), startCleanUpHyperkubeImages
     function cleanUpHyperkubeImagesRun() {

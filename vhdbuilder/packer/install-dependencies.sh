@@ -53,6 +53,7 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   disableSystemdTimesyncdAndEnableNTP || exit 1
   supportContainerd="true"
   imageSaveDir="/opt/azure/images"
+  mkdir -p ${imageSaveDir}
 fi
 
 installBpftrace

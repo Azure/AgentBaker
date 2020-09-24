@@ -275,6 +275,9 @@ dockerSaveImageAsTargzip() {
     IMAGE_URL=$1
     LOCATION=$2
     IMAGE=${IMAGE_URL##*/} 
+    if [[ ! -d ${LOCATION} ]]; then
+        mkdir -p ${LOCATION}
+    fi
     docker save ${IMAGE_URL} | gzip > ${LOCATION}/${IMAGE}.tar.gz
 }
 
