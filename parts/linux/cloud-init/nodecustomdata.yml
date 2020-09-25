@@ -109,7 +109,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
+    NETWORK_POLICY={{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"

@@ -349,7 +349,6 @@ var _linuxCloudInitArtifactsConfigure_azure0Sh = []byte(`#!/usr/bin/env bash
 [ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
 
 # CNI team mentions that this is not needed for calico network policy to run this script
-export NETWORK_POLICY = $1
 if [[ "${NETWORK_POLICY}" == "calico" ]]; then
     exit 0
 fi
@@ -3460,7 +3459,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
+    NETWORK_POLICY={{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"
