@@ -419,10 +419,28 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+				return true
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
 		},
 		"GetDataDir": func() string {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+		},
+		"HasKubeletDisk": func() bool {
+			if profile != nil && profile.KubeletDisk != nil && string(*profile.KubeletDisk) != "" {
+				return true
+			}
+			return false
+		},
+		"GetKubeletDisk": func() string {
+			if profile != nil && profile.KubeletDisk != nil && string(*profile.KubeletDisk) != "" {
+				return string(*profile.KubeletDisk)
+			}
+			return ""
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()

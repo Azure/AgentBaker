@@ -96,6 +96,8 @@ const (
 	auditdRules                            = "linux/cloud-init/artifacts/auditd-rules"
 	reconcilePrivateHostsScript            = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
 	reconcilePrivateHostsService           = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
+	bindMountScript                        = "linux/cloud-init/artifacts/bind-mount.sh"
+	bindMountSystemdService                = "linux/cloud-init/artifacts/bind-mount.service"
 
 	// scripts and service for enabling ipv6 dual stack
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
