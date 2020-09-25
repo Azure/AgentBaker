@@ -361,6 +361,16 @@ const (
 	ContainerDataDirKey = "dataDir"
 )
 
+// KubeletDiskType abstracts choices for data disk type: os, temp, or nvme.
+type KubeletDiskType string
+
+var (
+	// OSDisk indicates data wil be shared with the OS.
+	OSDisk KubeletDiskType = "OS"
+	// TempDisk indicates data wil be placed on the temp disk.
+	TempDisk KubeletDiskType = "Temporary"
+)
+
 const (
 	// KubernetesDefaultRelease is the default Kubernetes release
 	KubernetesDefaultRelease string = "1.13"

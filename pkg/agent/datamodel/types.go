@@ -603,6 +603,7 @@ type AgentPoolProfile struct {
 	UltraSSDEnabled                     *bool                `json:"ultraSSDEnabled,omitempty"`
 	EncryptionAtHost                    *bool                `json:"encryptionAtHost,omitempty"`
 	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
+	KubeletDisk                         *KubeletDiskType     `json:"kubeletDisk,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
