@@ -279,8 +279,8 @@ dockerSaveImageAndCtrImport() {
         mkdir -p ${LOCATION}
     fi
     TARGET=${LOCATION}/${IMAGE}.tar
-    docker save ${IMAGE_URL} -o ${TARGET}
-    ctr -namespace k8s.io image import ${TARGET} --no-unpack
+    time docker save ${IMAGE_URL} -o ${TARGET}
+    time ctr -namespace k8s.io image import ${TARGET} --no-unpack
     rm ${TARGET}
 }
 
