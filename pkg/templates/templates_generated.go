@@ -3424,6 +3424,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -3439,14 +3447,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
-    {{GetParameter "networkPolicy"}}
-
 - path: /etc/systemd/system/kubelet-monitor.service
   permissions: "0644"
   encoding: gzip
@@ -3459,7 +3459,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    NETWORK_POLICY={{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
+    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"

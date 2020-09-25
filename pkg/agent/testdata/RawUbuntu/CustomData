@@ -44,6 +44,14 @@ write_files:
 
 
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4SSUW/aMBSF3/0rTgGVVhsJfRutoikCtqG2ARW0akIImcQBr+k1s52yFvjvk5OWpVOr5Smy7z333M+nfuTnRvsLSb6gByy4WTFWR3cl4jvIFHYlwJ9yLRCTRKwolUtI48618DwPpEBCJLAKOifYlTQwsZZr69pJWVZHmBmFRFHTYsPJvqrdrAS5MuRG0rKc1YpJsimO0ErhCxv7MUmfhPUS/6zdKko8ZyWTxmKG42OI39KiXTiPBrCC3+NekJWKnFVuy1nSFJOcX5EgVRoxz2TsNrAbpe+wVpmMH9/YhckU0ylqjW3Un9wOby7no+HVoPtjX0MQoFbK1DCbXTgyxAC8eErl20DbWGiZLIVzxTMtePL4zDfXImF13IpnZlW+MoVRHpNrZJLuYFZq8yJXwaBzmq+zfCnp5BTbwk3paK20dYjm3eH1dRj1gsbZ4Tbm9v+0d/j5C02P+L0AN2gUPzt4McnvQhupqDh+eP7fwSt9mOnsQ4CtKz8vuz7ib8/5oWNfbWnPmtjBV2tbeHIhLfPxQMKyPWOVhcKbr+OgeflpPB8Ne/MovO6PR2G3HyQi5XlmL6o3wYFz6OS60aDJXrGJJuEg6t8MekGn0+lU76L+JBoHvs7JISLjH6T4k0ttpXTwpZgl7OpfkVE4+RZU12LuQQs98CRB42TBjSjQNraHqfvTyrsi7PVYkUo0PqO1tGijGj73HTQTkaH2nmitEg9pcVYEtjKo179ir5TedfcnAAD//9oCkudMBAAA
+    NETWORK_POLICY=
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -59,14 +67,6 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/6RVXW/bNhR91684VoTBaSErMtAOSKcCXWasQReniJPuoS0MmrqyCEukQFJpMsP/fZBEf6h2CwzziyXxfp1zz708G0S10dFCyIjkIxbM5J53hvtcGBiuRWWhtFgKySylYBa5tZW5jKKlsHm9GHFVRqt6QVqSJXP4uCjUIiqZsaQjXtTt/5JTtOQiyokVNg9LJYVVemRy7wxMpsiZwYJIolSpyASlyJQGW5mQ5FJIGnmeIYtQQapaGrLb10pUlDFReB5X0jIhSc91La0oae6yCLkcnmPtAYXirECoUbKnObOWysqa5NXuxH1K4kNbrgW3ReIH6w8Pv0/m729vJpuWtu7A79ke1SBZSY3v1e30/t31dHI3v3uY3l/fTObTdzeTyzBVfEV6s4/SMcRz4qs5V2XJZJr4nRUq09iJDJ8/41TMfTgMEjgvH1+/voHNSXoATscP1h2YDSqVtkky4XlAA6JAA0TVFq8vEKxP+G/wFlFKj5Gsi+INUtUmEhmGwy2lSJIe6Tg/P6gJIJ4r+DfsaecQrA/tN9DEeE7pAB+14kSpkEtYBdfjPfNwzDugQpIxI9+lWWhiq/Y5E94+b7BNKqSwYi8EfPFPA/7iD3Cvn5sa2JIJCSGxC2KIK5ma0cilNQVRBT8YDjHGixfb4C9f4vy8sUiVJA/4louCYHVNhxQO/iv7R6ReHTETrE/rdINmkigdbOnaKu20ud809bTIul+1EkWBcHb958PsLkZnmToD1wDAPBtLJbcFOvOw+Qu/5SopG2b9H1a7rbLjNx5fdB0tDPUO/GA9+2sy+TifTa5up3/MnF+bv6V+43nN9irIHm+MjsK/mbDtQhqjFLK2ZNo359XIcEHIasmtUJK1K+GwqN7acepI4v2Jqm1V28T3f6ICZxMMea0LhGUD6yDcxkeYITQIZ+2ivoyiePzr6GJ0MYov44vxq1du9f6D8dtf4hPDF3QZetL54AAKg1p2/s87cXzXN0dGj/rX/6MlW+2d+QglIT4UWFfdg2FLusTRlYLfdoIJnWAiV93bJhE9CYvYazbcbqMnfnsbtv1olrvfHU2mnxI/IsujlDJWF7YNFJJ89F2BCAnbq2Ey/bTpDYJRtebfnbd5e+gbKXBVVkqStEkQex28mWXaYn+vOqDYa7QVYTMeznfj72k7/NrO6REnvUp/dnl6VPwwquO1F+t4mDyngA7Y+5M4dpF7iBrpSWVh6qpS2ra7KRPevwEAAP//kxgmoL0IAAA=
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/4SSUW/aMBSF3/0rTgGVVhsJfRutoikCtqG2ARW0akIImcQBr+k1s52yFvjvk5OWpVOr5Smy7z333M+nfuTnRvsLSb6gByy4WTFWR3cl4jvIFHYlwJ9yLRCTRKwolUtI48618DwPpEBCJLAKOifYlTQwsZZr69pJWVZHmBmFRFHTYsPJvqrdrAS5MuRG0rKc1YpJsimO0ErhCxv7MUmfhPUS/6zdKko8ZyWTxmKG42OI39KiXTiPBrCC3+NekJWKnFVuy1nSFJOcX5EgVRoxz2TsNrAbpe+wVpmMH9/YhckU0ylqjW3Un9wOby7no+HVoPtjX0MQoFbK1DCbXTgyxAC8eErl20DbWGiZLIVzxTMtePL4zDfXImF13IpnZlW+MoVRHpNrZJLuYFZq8yJXwaBzmq+zfCnp5BTbwk3paK20dYjm3eH1dRj1gsbZ4Tbm9v+0d/j5C02P+L0AN2gUPzt4McnvQhupqDh+eP7fwSt9mOnsQ4CtKz8vuz7ib8/5oWNfbWnPmtjBV2tbeHIhLfPxQMKyPWOVhcKbr+OgeflpPB8Ne/MovO6PR2G3HyQi5XlmL6o3wYFz6OS60aDJXrGJJuEg6t8MekGn0+lU76L+JBoHvs7JISLjH6T4k0ttpXTwpZgl7OpfkVE4+RZU12LuQQs98CRB42TBjSjQNraHqfvTyrsi7PVYkUo0PqO1tGijGj73HTQTkaH2nmitEg9pcVYEtjKo179ir5TedfcnAAD//9oCkudMBAAA
-    
-
 - path: /etc/systemd/system/kubelet-monitor.service
   permissions: "0644"
   encoding: gzip
@@ -79,7 +79,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    NETWORK_POLICY=H4sIAAAAAAAA/xTMsYrCQBAG4H6fYuDqHAdXpwkqWKVQsQgpxmQSB3dnZPZPkbcXX+AbbqYY00HqFPqGurVM0CJBeDJolsx7pdmnl0RT3BQetIQXquCA2kpwp+puxAsk6OGONFy/xph669xxkan9/ytqaThbBec8pjsbZO72tmwZ2mxV4hccqyD9HPtT+gQAAP//XmnFIZoAAAA=
+    H4sIAAAAAAAA/xTMsYrCQBAG4H6fYuDqHAdXpwkqWKVQsQgpxmQSB3dnZPZPkbcXX+AbbqYY00HqFPqGurVM0CJBeDJolsx7pdmnl0RT3BQetIQXquCA2kpwp+puxAsk6OGONFy/xph669xxkan9/ytqaThbBec8pjsbZO72tmwZ2mxV4hccqyD9HPtT+gQAAP//XmnFIZoAAAA=
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"

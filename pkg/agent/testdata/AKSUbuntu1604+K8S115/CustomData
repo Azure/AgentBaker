@@ -35,6 +35,14 @@ write_files:
 
 
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
+    NETWORK_POLICY=
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
