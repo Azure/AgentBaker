@@ -3430,7 +3430,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
-    NETWORK_POLICY={{GetParameter "networkPolicy"}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
@@ -3732,6 +3731,7 @@ write_files:
   content: |
     KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig}}
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}

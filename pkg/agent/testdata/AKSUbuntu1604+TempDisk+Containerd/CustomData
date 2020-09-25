@@ -41,7 +41,6 @@ write_files:
   owner: root
   content: !!binary |
     
-    NETWORK_POLICY=
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
@@ -199,6 +198,7 @@ write_files:
   content: |
     KUBELET_FLAGS=
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY=
     KUBELET_IMAGE=hyperkube-amd64:v1.15.7
 
 
