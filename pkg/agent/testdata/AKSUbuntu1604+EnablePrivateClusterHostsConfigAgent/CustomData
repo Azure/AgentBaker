@@ -48,6 +48,8 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/zTOMU4DMRCF4d6n8AUSn2AbBBJ0KAFRrLaYDG/ZkZyxNTOOCKdHAaV8r/m/+V0llvQIZ5Me0nQ6gJuyVOSC4LI1D8/rba/Ncje5UCBzHR6wNB9hF2Es6e3aMbmce0U6wIMspqa7laQOQ3r6Bh//znISLSfyLZfWo9DPMBRuGiQK82J3wOt/6/km2PuW5hf1oFqX9EEa+Hy4TudRQ3bDYfsg+0L8BgAA//8Sy/8V0QAAAA==
 
+
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
