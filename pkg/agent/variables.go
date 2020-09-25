@@ -29,6 +29,7 @@ func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
+	cloudInitData["configureAzure0Script"] = getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config)
 	if cs.IsAKSCustomCloud() {
 		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 	}
@@ -40,7 +41,6 @@ func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
 		cloudInitData["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
 		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
-		cloudInitData["configureAzure0Script"] = getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config)
 		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
 		cloudInitData["dockerMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, config)
 		cloudInitData["dockerMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, config)
