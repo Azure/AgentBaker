@@ -20,10 +20,10 @@ MOUNT_POINT="/mnt/aks"
 #     CONTAINER_RUNTIME="containerd"
 # {{end}}
 
-# echo "stopping container runtime: '${CONTAINER_RUNTIME}'"
+# echo "stopping container runtime: ${CONTAINER_RUNTIME}"
 # systemctl stop "${CONTAINER_RUNTIME}" || true
 
-# echo "unmounting '/var/lib/${CONTAINER_RUNTIME}'"
+# echo "unmounting /var/lib/${CONTAINER_RUNTIME}"
 # umount "/var/lib/${CONTAINER_RUNTIME}" || true
 # mkdir -p "/var/lib/${CONTAINER_RUNTIME}"
 

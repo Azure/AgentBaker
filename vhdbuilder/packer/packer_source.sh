@@ -45,6 +45,10 @@ copyPackerFiles() {
   DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  BIND_MOUNT_SCRIPT_SRC=/home/packer/bind-mount.sh
+  BIND_MOUNT_SCRIPT_DEST=/opt/azure/containers/bind-mount.sh
+  BIND_MOUNT_SERVICE_SRC=/home/packer/bind-mount.service
+  BIND_MOUNT_SERVICE_DEST=/etc/systemd/system/bind-mount.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
@@ -77,6 +81,8 @@ copyPackerFiles() {
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
   cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
+  cpAndMode $BIND_MOUNT_SCRIPT_SRC $BIND_MOUNT_SCRIPT_DEST 544
+  cpAndMode $BIND_MOUNT_SERVICE_SRC $BIND_MOUNT_SERVICE_DEST 644
   cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
   cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 644
