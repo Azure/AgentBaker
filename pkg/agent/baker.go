@@ -220,7 +220,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			if profile.KubernetesConfig == nil {
 				return ""
 			}
-			return getDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig)
+			return GetDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"IsDynamicKubeletEnabled": func() bool {
 			return IsDynamicKubeletEnabled(cs, config.EnableDynamicKubelet)
@@ -236,6 +236,33 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 				return ""
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
+		},
+		"ShouldConfigSysctl": func() bool {
+			if profile.CustomOSConfig == nil || profile.CustomOSConfig.Sysctls == nil {
+				return false
+			}
+			return len(profile.CustomOSConfig.Sysctls) != 0
+		},
+		"GetSysctlConfigFileContent": func() string {
+			return GetSysctlConfigFileContent(profile.CustomOSConfig)
+		},
+		"ShouldConfigTransparentHugePage": func() bool {
+			if profile.CustomOSConfig == nil {
+				return false
+			}
+			return profile.CustomOSConfig.TransparentHugePageEnabled != "" || profile.CustomOSConfig.TransparentHugePageDefrag != ""
+		},
+		"GetTransparentHugePageEnabled": func() string {
+			if profile.CustomOSConfig == nil {
+				return ""
+			}
+			return profile.CustomOSConfig.TransparentHugePageEnabled
+		},
+		"GetTransparentHugePageDefrag": func() string {
+			if profile.CustomOSConfig == nil {
+				return ""
+			}
+			return profile.CustomOSConfig.TransparentHugePageDefrag
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()

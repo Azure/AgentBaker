@@ -211,7 +211,29 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
+		}),
+		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomOSConfig", "1.16.13", func(config *NodeBootstrappingConfiguration) {
+			config.EnableDynamicKubelet = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+				CPUManagerPolicy:      "static",
+				CPUCfsQuota:           GetBoolPtr(false),
+				CPUCfsQuotaPeriod:     "200ms",
+				ImageGcHighThreshold:  GetInt32Ptr(90),
+				ImageGcLowThreshold:   GetInt32Ptr(70),
+				TopologyManagerPolicy: "best-effort",
+				AllowedUnsafeSysctls:  []string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomOSConfig = &datamodel.CustomOSConfig{
+				Sysctls: map[string]string{
+					"net.core.somaxconn":           "16384",
+					"net.ipv4.tcp_tw_reuse":        "1",
+					"net.ipv4.ip_local_port_range": "32768 60999",
+				},
+				TransparentHugePageEnabled: "never",
+				TransparentHugePageDefrag:  "defer+madvise",
+			}
 		}))
+
 })
 
 func backfillCustomData(folder, customData string) {

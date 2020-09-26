@@ -610,6 +610,35 @@ ensureAuditD() {
   fi
 }
 
+configureSysctl() {
+    set +x
+    SYSCTL_CONFIG_PATH="/etc/sysctl.d/99-sysctl-aks.conf"
+    touch "${SYSCTL_CONFIG_PATH}"
+    chmod 0644 "${SYSCTL_CONFIG_PATH}"
+    chown root:root "${SYSCTL_CONFIG_PATH}"
+    cat << EOF > "${SYSCTL_CONFIG_PATH}"
+{{GetSysctlConfigFileContent}}
+EOF
+    retrycmd_if_failure 100 5 30 sysctl --system
+    set -x
+}
+
+configureTransparentHugePage() {
+    set +x
+    THP_CONFIG_PATH="/etc/sysfs.conf"
+    THP_ENABLED={{GetTransparentHugePageEnabled}}
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${THP_CONFIG_PATH}
+    fi
+    THP_DEFRAG={{GetTransparentHugePageDefrag}}
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
+    fi
+    set -x
+}
+
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -1888,8 +1917,16 @@ ensureDHCPv6
 configPrivateClusterHosts
 {{- end}}
 
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage
+{{- end}}
+
 ensureKubelet
 ensureJournal
+
+{{- if ShouldConfigSysctl}}
+configureSysctl
+{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -2487,15 +2524,6 @@ ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le
 ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 {{/* This is a partial workaround to this upstream Kubernetes issue: */}}
 {{/* https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731 */}}
-ExecStartPre=/sbin/sysctl -w net.ipv4.tcp_retries2=8
-ExecStartPre=/sbin/sysctl -w net.core.somaxconn=16384
-ExecStartPre=/sbin/sysctl -w net.ipv4.tcp_max_syn_backlog=16384
-ExecStartPre=/sbin/sysctl -w net.core.message_cost=40
-ExecStartPre=/sbin/sysctl -w net.core.message_burst=80
-
-ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh1=4096
-ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh2=8192
-ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh3=16384
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list

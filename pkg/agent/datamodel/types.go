@@ -512,6 +512,24 @@ type ProvisioningState string
 // AgentPoolProfileRole represents an agent role
 type AgentPoolProfileRole string
 
+// CustomKubeletConfig represents custom kubelet configurations for agent pool nodes
+type CustomKubeletConfig struct {
+	CPUManagerPolicy      string   `json:"cpuManagerPolicy,omitempty"`
+	CPUCfsQuota           *bool    `json:"cpuCfsQuota,omitempty"`
+	CPUCfsQuotaPeriod     string   `json:"cpuCfsQuotaPeriod,omitempty"`
+	ImageGcHighThreshold  *int32   `json:"imageGcHighThreshold,omitempty"`
+	ImageGcLowThreshold   *int32   `json:"imageGcLowThreshold,omitempty"`
+	TopologyManagerPolicy string   `json:"topologyManagerPolicy,omitempty"`
+	AllowedUnsafeSysctls  []string `json:"allowedUnsafeSysctls,omitempty"`
+}
+
+// CustomOSConfig represents custom os configurations for agent pool nodes
+type CustomOSConfig struct {
+	Sysctls                    map[string]string `json:"sysctls,omitempty"`
+	TransparentHugePageEnabled string            `json:"transparentHugePageEnabled,omitempty"`
+	TransparentHugePageDefrag  string            `json:"transparentHugePageDefrag,omitempty"`
+}
+
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
 	Name                                string               `json:"name"`
@@ -561,6 +579,8 @@ type AgentPoolProfile struct {
 	UltraSSDEnabled                     *bool                `json:"ultraSSDEnabled,omitempty"`
 	EncryptionAtHost                    *bool                `json:"encryptionAtHost,omitempty"`
 	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
+	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
+	CustomOSConfig                      *CustomOSConfig      `json:"customOsConfig,omitempty"`
 }
 
 // Properties represents the AKS cluster definition

@@ -91,6 +91,35 @@ ensureAuditD() {
   fi
 }
 
+configureSysctl() {
+    set +x
+    SYSCTL_CONFIG_PATH="/etc/sysctl.d/99-sysctl-aks.conf"
+    touch "${SYSCTL_CONFIG_PATH}"
+    chmod 0644 "${SYSCTL_CONFIG_PATH}"
+    chown root:root "${SYSCTL_CONFIG_PATH}"
+    cat << EOF > "${SYSCTL_CONFIG_PATH}"
+{{GetSysctlConfigFileContent}}
+EOF
+    retrycmd_if_failure 100 5 30 sysctl --system
+    set -x
+}
+
+configureTransparentHugePage() {
+    set +x
+    THP_CONFIG_PATH="/etc/sysfs.conf"
+    THP_ENABLED={{GetTransparentHugePageEnabled}}
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${THP_CONFIG_PATH}
+    fi
+    THP_DEFRAG={{GetTransparentHugePageDefrag}}
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
+    fi
+    set -x
+}
+
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"

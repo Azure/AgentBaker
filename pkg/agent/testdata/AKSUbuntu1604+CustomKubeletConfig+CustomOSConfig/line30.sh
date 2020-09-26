@@ -92,9 +92,11 @@ configureSysctl() {
     chmod 0644 "${SYSCTL_CONFIG_PATH}"
     chown root:root "${SYSCTL_CONFIG_PATH}"
     cat << EOF > "${SYSCTL_CONFIG_PATH}"
+net.core.somaxconn=16384
+net.ipv4.ip_local_port_range=32768 60999
+net.ipv4.tcp_tw_reuse=1
 net.core.message_burst=80
 net.core.message_cost=40
-net.core.somaxconn=16384
 net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
@@ -109,12 +111,12 @@ EOF
 configureTransparentHugePage() {
     set +x
     THP_CONFIG_PATH="/etc/sysfs.conf"
-    THP_ENABLED=
+    THP_ENABLED=never
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${THP_CONFIG_PATH}
     fi
-    THP_DEFRAG=
+    THP_DEFRAG=defer+madvise
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
@@ -199,6 +201,95 @@ EOF
     fi
 
     configureKubeletServerCert
+    set +x
+    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+    touch "${KUBELET_CONFIG_JSON_PATH}"
+    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
+    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
+{
+    "kind": "KubeletConfiguration",
+    "apiVersion": "kubelet.config.k8s.io/v1beta1",
+    "staticPodPath": "/etc/kubernetes/manifests",
+    "address": "0.0.0.0",
+    "readOnlyPort": 10255,
+    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
+    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
+    "tlsCipherSuites": [
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "rotateCertificates": true,
+    "authentication": {
+        "x509": {
+            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
+        },
+        "webhook": {
+            "enabled": true,
+            "cacheTTL": "2m0s"
+        },
+        "anonymous": {}
+    },
+    "authorization": {
+        "mode": "Webhook",
+        "webhook": {
+            "cacheAuthorizedTTL": "5m0s",
+            "cacheUnauthorizedTTL": "30s"
+        }
+    },
+    "eventRecordQPS": 0,
+    "clusterDomain": "cluster.local",
+    "clusterDNS": [
+        "10.0.0.10"
+    ],
+    "streamingConnectionIdleTimeout": "4h0m0s",
+    "nodeStatusUpdateFrequency": "10s",
+    "imageGCHighThresholdPercent": 90,
+    "imageGCLowThresholdPercent": 70,
+    "cgroupsPerQOS": true,
+    "cpuManagerPolicy": "static",
+    "topologyManagerPolicy": "best-effort",
+    "maxPods": 110,
+    "podPidsLimit": -1,
+    "resolvConf": "/etc/resolv.conf",
+    "cpuCFSQuota": false,
+    "cpuCFSQuotaPeriod": "200ms",
+    "evictionHard": {
+        "memory.available": "750Mi",
+        "nodefs.available": "10%",
+        "nodefs.inodesFree": "5%"
+    },
+    "protectKernelDefaults": true,
+    "featureGates": {
+        "PodPriority": true,
+        "RotateKubeletServerCertificate": true,
+        "a": false,
+        "x": false
+    },
+    "systemReserved": {
+        "cpu": "2",
+        "memory": "1Gi"
+    },
+    "kubeReserved": {
+        "cpu": "100m",
+        "memory": "1638Mi"
+    },
+    "enforceNodeAllocatable": [
+        "pods"
+    ],
+    "allowedUnsafeSysctls": [
+        "kernel.msg*",
+        "net.ipv4.route.min_pmtu"
+    ]
+}
+EOF
+    set -x
 }
 
 configureCNI() {
@@ -370,91 +461,5 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-
-installGPUDriversRun() {
-    set -x
-    MODULE_NAME="nvidia"
-    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
-    KERNEL_NAME=$(uname -r)
-    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
-        if [ -x "$(command -v dkms)" ]; then
-          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
-        else
-          rm -rf "${NVIDIA_DKMS_DIR}"
-        fi
-    fi
-    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
-    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
-        installGPUDrivers
-    fi
-    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
-        -k=$KERNEL_NAME \
-        --log-file-name=${log_file_name} \
-        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
-    exit $?
-}
-
-configGPUDrivers() {
-    
-    
-    rmmod nouveau
-    echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      wait_for_apt_locks
-      dpkg-deb -R ./nvidia-docker2*.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-      cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    )
-    rm -rf $GPU_DEST/tmp
-    
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    
-    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
-    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    export -f installGPUDriversRun
-    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
-    mv ${GPU_DEST}/bin/* /usr/bin
-    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-    umount -l /usr/lib/x86_64-linux-gnu
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-}
-
-validateGPUDrivers() {
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    which nvidia-smi
-    if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
-    else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
-    fi
-    SMI_STATUS=$?
-    if [[ $SMI_STATUS != 0 ]]; then
-        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
-            exit $ERR_GPU_INFO_ROM_CORRUPTED
-        else
-            exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
-    else
-        echo "gpu driver working fine"
-    fi
-}
-
-ensureGPUDrivers() {
-    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
-    else
-        validateGPUDrivers
-    fi
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
-}
 
 #EOF
