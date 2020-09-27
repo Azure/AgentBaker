@@ -1,6 +1,6 @@
 # Required pipeline variables:
 # - WINDOWS_SKU - SKU of the image offer to use for your base image 
-#   - Valida values are '2019' for '2019-Datacenter-Core-smalldisk' or '2004' for 'datacenter-core-2004-with-containers-smalldisk'
+#   - Valid values are '2019' for '2019-Datacenter-Core-smalldisk' or '2004' for 'datacenter-core-2004-with-containers-smalldisk'
 # - DRY_RUN - Set to 'False' if VHD should be copied to classic storage account in preparation for publishing
 # - CONTAINER_RUNTIME - Container runtime to in for VHD - Valid values are 'containerd' or 'docker'
 #
