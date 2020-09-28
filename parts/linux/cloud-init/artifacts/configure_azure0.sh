@@ -4,6 +4,7 @@
 lsb_release -ir | grep 18.04 &> /dev/null
 if [ $? != 0 ]; then
     echo 'It is not Ubuntu 18.04. Skip configuring azure0'
+    exit 0
 fi
 
 # Check if the azure cni config is there... no need to run this script if not
