@@ -3,51 +3,17 @@
 
 package datamodel
 
-const (
-	VlabsAPIVersion = "vlabs"
-)
-
 // the orchestrators supported by vlabs
 const (
-	// Mesos is the string constant for MESOS orchestrator type
-	Mesos string = "Mesos"
-	// DCOS is the string constant for DCOS orchestrator type and defaults to DCOS188
-	DCOS string = "DCOS"
-	// Swarm is the string constant for the Swarm orchestrator type
-	Swarm string = "Swarm"
 	// Kubernetes is the string constant for the Kubernetes orchestrator type
 	Kubernetes string = "Kubernetes"
-	// SwarmMode is the string constant for the Swarm Mode orchestrator type
-	SwarmMode string = "SwarmMode"
 )
 
 const (
-	// SwarmVersion is the Swarm orchestrator version
-	SwarmVersion = "swarm:1.1.0"
-	// SwarmDockerComposeVersion is the Docker Compose version
-	SwarmDockerComposeVersion = "1.6.2"
-	// DockerCEVersion is the DockerCE orchestrator version
-	DockerCEVersion = "17.03.*"
-	// DockerCEDockerComposeVersion is the Docker Compose version
-	DockerCEDockerComposeVersion = "1.14.0"
 	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
 	KubernetesWindowsDockerVersion = "19.03.5"
 	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
 	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
-)
-
-// validation values
-const (
-	// MinAgentCount are the minimum number of agents per agent pool
-	MinAgentCount = 1
-	// MaxAgentCount are the maximum number of agents per agent pool
-	MaxAgentCount = 100
-	// MinPort specifies the minimum tcp port to open
-	MinPort = 1
-	// MaxPort specifies the maximum tcp port to open
-	MaxPort = 65535
-	// MaxDisks specifies the maximum attached disks to add to the cluster
-	MaxDisks = 4
 )
 
 // Availability profiles
@@ -270,26 +236,6 @@ const (
 const (
 	// VHDDiskSizeAKS maps to the OSDiskSizeGB for AKS VHD image
 	VHDDiskSizeAKS = 30
-)
-
-const (
-	CloudProviderBackoffModeV2 = "v2"
-	// DefaultKubernetesCloudProviderBackoffRetries is 6, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffRetries = 6
-	// DefaultKubernetesCloudProviderBackoffJitter is 1, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffJitter = 1.0
-	// DefaultKubernetesCloudProviderBackoffDuration is 5, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffDuration = 5
-	// DefaultKubernetesCloudProviderBackoffExponent is 1.5, takes effect if DefaultKubernetesCloudProviderBackoff is true
-	DefaultKubernetesCloudProviderBackoffExponent = 1.5
-	// DefaultKubernetesCloudProviderRateLimitQPS is 3, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitQPS = 3.0
-	// DefaultKubernetesCloudProviderRateLimitQPSWrite is 1, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitQPSWrite = 1.0
-	// DefaultKubernetesCloudProviderRateLimitBucket is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitBucket = 10
-	// DefaultKubernetesCloudProviderRateLimitBucketWrite is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
-	DefaultKubernetesCloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucket
 )
 
 const (

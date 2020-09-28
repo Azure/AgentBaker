@@ -695,40 +695,6 @@ func (p *Properties) HasWindows() bool {
 	return false
 }
 
-// SetCloudProviderRateLimitDefaults sets default cloudprovider rate limiter config
-func (p *Properties) SetCloudProviderRateLimitDefaults() {
-	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket == 0 {
-		var agentPoolProfilesCount = len(p.AgentPoolProfiles)
-		if agentPoolProfilesCount == 0 {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = DefaultKubernetesCloudProviderRateLimitBucket
-		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket = agentPoolProfilesCount * MaxAgentCount
-		}
-	}
-	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS == 0 {
-		if (DefaultKubernetesCloudProviderRateLimitQPS / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)) < MinCloudProviderQPSToBucketFactor {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket) * MinCloudProviderQPSToBucketFactor
-		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS = DefaultKubernetesCloudProviderRateLimitQPS
-		}
-	}
-	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite == 0 {
-		var agentPoolProfilesCount = len(p.AgentPoolProfiles)
-		if agentPoolProfilesCount == 0 {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucketWrite
-		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite = agentPoolProfilesCount * MaxAgentCount
-		}
-	}
-	if p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite == 0 {
-		if (DefaultKubernetesCloudProviderRateLimitQPSWrite / float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)) < MinCloudProviderQPSToBucketFactor {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = float64(p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite) * MinCloudProviderQPSToBucketFactor
-		} else {
-			p.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite = DefaultKubernetesCloudProviderRateLimitQPSWrite
-		}
-	}
-}
-
 // TotalNodes returns the total number of nodes in the cluster configuration
 func (p *Properties) TotalNodes() int {
 	var totalNodes int
@@ -1285,24 +1251,6 @@ func (i *ImageReference) IsValid() bool {
 func (k *KubernetesConfig) IsAddonEnabled(addonName string) bool {
 	kubeAddon := k.GetAddonByName(addonName)
 	return kubeAddon.IsEnabled()
-}
-
-// SetCloudProviderBackoffDefaults sets default cloudprovider backoff config
-func (k *KubernetesConfig) SetCloudProviderBackoffDefaults() {
-	if k.CloudProviderBackoffDuration == 0 {
-		k.CloudProviderBackoffDuration = DefaultKubernetesCloudProviderBackoffDuration
-	}
-	if k.CloudProviderBackoffRetries == 0 {
-		k.CloudProviderBackoffRetries = DefaultKubernetesCloudProviderBackoffRetries
-	}
-	if !strings.EqualFold(k.CloudProviderBackoffMode, CloudProviderBackoffModeV2) {
-		if k.CloudProviderBackoffExponent == 0 {
-			k.CloudProviderBackoffExponent = DefaultKubernetesCloudProviderBackoffExponent
-		}
-		if k.CloudProviderBackoffJitter == 0 {
-			k.CloudProviderBackoffJitter = DefaultKubernetesCloudProviderBackoffJitter
-		}
-	}
 }
 
 // PrivateJumpboxProvision checks if a private cluster has jumpbox auto-provisioning
