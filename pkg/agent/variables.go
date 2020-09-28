@@ -25,11 +25,11 @@ func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
 			"systemdBPFMount":              getBase64EncodedGzippedCustomScript(systemdBPFMount, config),
 			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
+			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
-	cloudInitData["configureAzure0Script"] = getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config)
 	if cs.IsAKSCustomCloud() {
 		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 	}
