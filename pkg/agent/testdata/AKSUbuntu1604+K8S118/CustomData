@@ -35,19 +35,12 @@ write_files:
 
 
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/4SSUW/aMBSF3/0rTgGVVhsJfRutoikCtqG2ARW0akIImcQBr+k1s52yFvjvk5OWpVOr5Smy7z333M+nfuTnRvsLSb6gByy4WTFWR3cl4jvIFHYlwJ9yLRCTRKwolUtI48618DwPpEBCJLAKOifYlTQwsZZr69pJWVZHmBmFRFHTYsPJvqrdrAS5MuRG0rKc1YpJsimO0ErhCxv7MUmfhPUS/6zdKko8ZyWTxmKG42OI39KiXTiPBrCC3+NekJWKnFVuy1nSFJOcX5EgVRoxz2TsNrAbpe+wVpmMH9/YhckU0ylqjW3Un9wOby7no+HVoPtjX0MQoFbK1DCbXTgyxAC8eErl20DbWGiZLIVzxTMtePL4zDfXImF13IpnZlW+MoVRHpNrZJLuYFZq8yJXwaBzmq+zfCnp5BTbwk3paK20dYjm3eH1dRj1gsbZ4Tbm9v+0d/j5C02P+L0AN2gUPzt4McnvQhupqDh+eP7fwSt9mOnsQ4CtKz8vuz7ib8/5oWNfbWnPmtjBV2tbeHIhLfPxQMKyPWOVhcKbr+OgeflpPB8Ne/MovO6PR2G3HyQi5XlmL6o3wYFz6OS60aDJXrGJJuEg6t8MekGn0+lU76L+JBoHvs7JISLjH6T4k0ttpXTwpZgl7OpfkVE4+RZU12LuQQs98CRB42TBjSjQNraHqfvTyrsi7PVYkUo0PqO1tGijGj73HTQTkaH2nmitEg9pcVYEtjKo179ir5TedfcnAAD//9oCkudMBAAA
-
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/6SU0U8iMRDG3/evaIgPdw9lAYnBmD7ouXpE4hkX4wOSTbcMuw3ddtOZRbjz/vfLAnoHYk5jH6ff7/smk3ZGd1bTODgHVF6XpJ0VV1UKBij45uxE15UbSXm00Egowgp9aJySJky1DWcbaRCMYvBzrWAc3AKS9CSkeZRLDCI7197ZAixdaAMiBFLhBKayMvTCx5VSgBgtNMUkqULR7h4G0QJUXHvdeBCrvFRizkJXUih/Vh5C5SxJbcHjs1UT8z1cMZtoz3jJwrn0odHpS/J7tMrqt3rhijX0lI3YwZfCVZbYE8s8lOyhsZv00GBP7FExbr4yboC12JidMMrBsnXsCuc81Xbyqs3XhRM21Y193W9sCjkDjrn08NotCHZArElcoiLD+COzQE1dzrtNUmXigbwG7Ije/yHlPDTRFXKhnLWifXTY634gqpCLBJc2SaWaGZe9l1+lFoAoM0iUQxLd1geptPJIotd672As6Cxvbl5xM1MJ5R4wb4tu6/jocx4d0Wsfdz7ncbgZ3bYLX9tASjI1gIwTs7J+K0Yj7ZXqcldqqwK8Vs/Q7ry2t4NydqqzykOy+q2t+m/+Bd7YJewhYJvDOdg6nyP4OfitG+smwI1MwaBoHPy6ujuLBtEwuf5xHiWD07NoEP9ubAFz0WHbBWeqAnhpqkxbPtF+vZrqNrwFAgzXirUA/2EPntMuBqeX8b6L2+iyHw+j21U/e8r3/eH3ZHjavx7GQTDqWyRpzDi4l5ZgcrYURWVI8wrBN0n6DOhPAAAA//+HJPwRpwUAAA==
+    H4sIAAAAAAAA/6SUz07jPBTF93kKq2LxfQsnbalQEfIChsBUVAwiRSxKFTnOJbHq2JHvTWlnmHcf9Q9oSosGhJfX53fOkWXd8Z3VNAnOAZXXNWlnxVWTgQEKvjmb6+XkRlIZzzUSiqhBHxmnpIkybaPpRhoE4wT8TCuYBLeAJD0JaZ7kAoPYzrR3tgJLF9qAiIBUlMOjbAy98kmjFCDGc00JSWpQdHqHQTwHlSy9bjyIVV4msWSRqymSPxsPkXKWpLbg8cUqxHIPV01z7RmvWTSTPjI6e03+iFZZ/V4XrlhLP7IxO/ivco0l9swKDzV7aL1NemixZ/akGDf/M26AtdmEnTAqwbJ17ArnPNM236m5Ozhhj7q1r/3GppJT4FhKD7tuQfAGxCWJC1RkGH9iFijU9awXkqpTD+Q1YFf0/w0p5yFEV8m5ctaKztFhv/eJqErOU1zYNJNqalzxUX6VWgGiLCBVDkn02p+kssYjiX77ow9jQRdluPnFYaFSKj1g2RG99vHR1zy6ot857n7N43DzdNsufG0DGcnMADJOzMrlXzEaaa9U12+ltqnAa7UDvbMY2EPANodzsEszjuBn4LdurMuBG5mBQdE6+HV1dxYP41F6/eM8ToenZ/Ew+d3aAmaiy7YHzjQV8No0hbY81369Z5Y1vAUCjNaKtQD/Yg9e0i6Gp5fJvovb+HKQjOLbVZ894/vB6Hs6Oh1cj5IgGA8skjRmEtxLS5CfLUTVGNK8QfAhSV8A/QkAAP//lvMgPnQFAAA=
 
 
 
@@ -141,7 +134,6 @@ write_files:
   content: |
     KUBELET_FLAGS=--address=0.0.0.0 --anonymous-auth=false --authentication-token-webhook=true --authorization-mode=Webhook --azure-container-registry-config=/etc/kubernetes/azure.json --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --enforce-node-allocatable=pods --event-qps=0 --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5% --feature-gates=RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y --image-gc-high-threshold=85 --image-gc-low-threshold=80 --kube-reserved=cpu=100m,memory=1638Mi --max-pods=110 --node-status-update-frequency=10s --pod-manifest-path=/etc/kubernetes/manifests --pod-max-pids=-1 --protect-kernel-defaults=true --read-only-port=10255 --resolv-conf=/etc/resolv.conf --rotate-certificates=true --streaming-connection-idle-timeout=4h0m0s --system-reserved=cpu=2,memory=1Gi --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256 --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key 
     KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY=
 
     KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=',variables('labelResourceGroup'),'
 
