@@ -75,9 +75,9 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 VNET_CNI_VERSIONS="
+1.1.7
 1.1.6
 1.1.3
-1.0.33
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -529,14 +529,14 @@ done
 
 ADDON_IMAGES="
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.12
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.1
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
 mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200804.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200901.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200923.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
