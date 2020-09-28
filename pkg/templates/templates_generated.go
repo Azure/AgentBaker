@@ -344,11 +344,18 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsConfigure_azure0Sh = []byte(`#!/usr/bin/env bash
 
+# It's only necessary to configure azure0 in Ubuntu 18.04
+lsb_release -ir | grep 18.04 &> /dev/null
+if [ $? != 0 ]; then
+    echo 'It is not Ubuntu 18.04. Skip configuring azure0'
+fi
+
 # Check if the azure cni config is there... no need to run this script if not
 # Also don't want to run this when not using azure-cni
 [ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
 
 # CNI team mentions that this is not needed for calico network policy to run this script
+echo "Network policy: ${NETWORK_POLICY}"
 if [[ "${NETWORK_POLICY}" == "calico" ]]; then
     exit 0
 fi
