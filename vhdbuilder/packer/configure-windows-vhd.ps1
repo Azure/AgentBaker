@@ -8,7 +8,7 @@
 
 param (
     $containerRuntime,
-    $WindowsSKU
+    $windowsSKU
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,12 +42,12 @@ function Disable-WindowsUpdates {
 function Get-ContainerImages {
     param (
         $containerRuntime,
-        $WindowsSKU
+        $windowsSKU
     )
 
     $imagesToPull = @()
 
-    switch ($WindowsSKU) {
+    switch ($windowsSKU) {
         '2019' {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -65,7 +65,7 @@ function Get-ContainerImages {
             Write-Log "Pulling images for windows server core 2004"
         }
         default {
-            Write-Log "No valid windows SKU is specified $WindowsSKU"
+            Write-Log "No valid windows SKU is specified $windowsSKU"
             exit 1
         }
     }
@@ -306,6 +306,13 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
     exit 1
 }
 
+$windowsSKU = $env:WindowsSKU
+$validSKU = @('2019', '2004')
+if (-not ($validSKU -contains $windowsSKU)) {
+    Write-Host "Unsupported windows image SKU: $windowsSKU"
+    exit 1
+}
+
 switch ($env:ProvisioningPhase) {
     "1" {
         Write-Log "Performing actions for provisioning phase 1"
@@ -325,7 +332,7 @@ switch ($env:ProvisioningPhase) {
         if ($containerRuntime -eq 'containerd') {
             Install-ContainerD
         }
-        Get-ContainerImages -containerRuntime $containerRuntime -WindowsSKU $WindowsSKU
+        Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }
