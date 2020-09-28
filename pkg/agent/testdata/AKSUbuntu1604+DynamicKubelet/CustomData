@@ -35,12 +35,19 @@ write_files:
 
 
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4SSUW/aMBSF3/0rTgGVVhsJfRutoikCtqG2ARW0akIImcQBr+k1s52yFvjvk5OWpVOr5Smy7z333M+nfuTnRvsLSb6gByy4WTFWR3cl4jvIFHYlwJ9yLRCTRKwolUtI48618DwPpEBCJLAKOifYlTQwsZZr69pJWVZHmBmFRFHTYsPJvqrdrAS5MuRG0rKc1YpJsimO0ErhCxv7MUmfhPUS/6zdKko8ZyWTxmKG42OI39KiXTiPBrCC3+NekJWKnFVuy1nSFJOcX5EgVRoxz2TsNrAbpe+wVpmMH9/YhckU0ylqjW3Un9wOby7no+HVoPtjX0MQoFbK1DCbXTgyxAC8eErl20DbWGiZLIVzxTMtePL4zDfXImF13IpnZlW+MoVRHpNrZJLuYFZq8yJXwaBzmq+zfCnp5BTbwk3paK20dYjm3eH1dRj1gsbZ4Tbm9v+0d/j5C02P+L0AN2gUPzt4McnvQhupqDh+eP7fwSt9mOnsQ4CtKz8vuz7ib8/5oWNfbWnPmtjBV2tbeHIhLfPxQMKyPWOVhcKbr+OgeflpPB8Ne/MovO6PR2G3HyQi5XlmL6o3wYFz6OS60aDJXrGJJuEg6t8MekGn0+lU76L+JBoHvs7JISLjH6T4k0ttpXTwpZgl7OpfkVE4+RZU12LuQQs98CRB42TBjSjQNraHqfvTyrsi7PVYkUo0PqO1tGijGj73HTQTkaH2nmitEg9pcVYEtjKo179ir5TedfcnAAD//9oCkudMBAAA
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/6SUX0/bMBTF3/MprIqH7cFJWypUhPwAI7CKiiFSxEOpIse9Tbw6duR7U9qNffepf0ArLRqIPF6f3zknlnWHd1bTKDgHVF5XpJ0VV3UGBij45uxYLyc3kop4rpFQRDX6yDglTZRpG0030iAYJuBnWsEouAUk6UlI8ygXGMR2pr2zJVi60AZEBKSiMUxkbeiFT2qlADGea0pIUo2i1TkM4jmoZOl140Gs8jKJBYtcRZH8VXuIlLMktQWPz1YhFnu4cjrWnvGKRTPpI6Ozl+T3aJXVb3XhijX0hA3ZwZfS1ZbYE8s9VOyh8TrpocGe2KNi3Hxl3ABrshE7YVSAZevYFc55pu14p+bu4IRNdGNf+41NKafAsZAedt2C4BWISxIXqMgw/sgsUKirWSckVaUeyGvAtuj+H1LOQ4iulHPlrBWto8Nu5wNRpZynuLBpJtXUuPy9/Cq1BESZQ6ockug0P0hltUcS3eZ7L8aCzotw84rDXKVUeMCiJTrN46PPebRFt3Xc/pzH4ebqtl342gYykpkBZJyYlcu3YjTSXqmuXkttXYLXagd6YzGwh4BtPs7BLs04gp+B3zqxbgzcyAwMisbB76u7s7gfD9LrH+dx2j89i/vJn8YWMBNttj1wpi6BV6bOteVj7dd7ZlnDWyDAaK1YC3CLVc5OdM72Lab1UfgTnf0HOXgueNE/vUz2HdzGl71kEN+ufmHP+L43+J4OTnvXgyQIhj2LJI0ZBffSEozPFqKsDWleI/iQpM+B/gYAAP//lA9GUacFAAA=
+    H4sIAAAAAAAA/6SUT0/jPBDG7/kUVsXhfQ9O2lKhIuQDLIGtqFhEijiUKnLcaeKtY0eeSWl32e++6h/YbSlaEDmOn9/zTEb2DO+splFwDqi8rkg7K67qDAxQ8MXZsV5WbiQV8VwjoYhq9JFxSpoo0zaabqRBMEzAz7SCUXALSNKTkOZRLjCI7Ux7Z0uwdKENiAhIRWOYyNrQC5/USgFiPNeUkKQaRatzGMRzUMnS68aDWOVlEgsWuYoi+aP2EClnSWoLHp+tQiz2cOV0rD3jFYtm0kdGZy/J79Eqq9/qhSvW0BM2ZAf/la62xJ5Y7qFiD43dpIcGe2KPinHzP+MGWJON2AmjAixbx65wzjNtx6/afF04YRPd2Nf9xqaUU+BYSA+v3YJgB8QliQtUZBh/ZBYo1NWsE5KqUg/kNWBbdP8NKechRFfKuXLWitbRYbfzgahSzlNc2DSTampc/l5+lVoCoswhVQ5JdJofpLLaI4lu872DsaDzItzc4jBXKRUesGiJTvP46HMebdFtHbc/53G4Gd22C1/bQEYyM4CME7NyeVeMRtor1dWu1NYleK2eod15bW8H5exE57WHdPVam8u3+Qd4Y5ewh4BtPs7BLvM5gp+B3zqxbgzcyAwMisbBz6u7s7gfD9Lrb+dx2j89i/vJr8YWMBNttl1wpi6BV6bOteVj7deradmGt0CA0VqxFuAWu/4ztm+XrY/C7+jsX8jBc4MX/dPLZN/BbXzZSwbx7eoX9pTve4Ov6eC0dz1IgmDYs0jSmFFwLy3B+GwhytqQ5jWCD0n6HOh3AAAA//+tvX692gUAAA==
 
 
 
@@ -134,6 +141,7 @@ write_files:
   content: |
     KUBELET_FLAGS=--azure-container-registry-config=/etc/kubernetes/azure.json --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --dynamic-config-dir=/var/lib/kubelet 
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY=
     KUBELET_IMAGE=hyperkube-amd64:v1.15.7
 
 
