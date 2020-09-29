@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 # It's only necessary to configure azure0 in Ubuntu 18.04
-lsb_release -ir | grep 18.04 &> /dev/null
+lsb_release -i | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -qi "^ubuntu$"
+if [ $? != 0 ]; then
+    echo 'It is not Ubuntu Skip configuring azure0'
+    exit 0
+fi
+
+lsb_release -r | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -q "^18.04$"
 if [ $? != 0 ]; then
     echo 'It is not Ubuntu 18.04. Skip configuring azure0'
     exit 0
@@ -22,8 +28,8 @@ fi
 ip link show azure0 && exit 0
 
 run_plugin() {
-        export CNI_COMMAND=$1
-        cat /etc/cni/net.d/10-azure.conflist | jq '.name as $name | .cniVersion as $version | .plugins[]+= {name: $name, cniVersion: $version} | .plugins[0]' | /opt/cni/bin/azure-vnet
+    export CNI_COMMAND=$1
+    cat /etc/cni/net.d/10-azure.conflist | jq '.name as $name | .cniVersion as $version | .plugins[]+= {name: $name, cniVersion: $version} | .plugins[0]' | /opt/cni/bin/azure-vnet
 }
 
 export CNI_ARGS='K8S_POD_NAMESPACE=default;K8S_POD_NAME=configureAzureCNI'
@@ -36,8 +42,8 @@ ip netns add $(basename ${CNI_NETNS})
 run_plugin ADD
 
 if [ $? -gt 0 ]; then
-        ip netns del "$(basename ${CNI_NETNS})"
-        exit 1
+    ip netns del "$(basename ${CNI_NETNS})"
+    exit 1
 fi
 
 run_plugin DEL
