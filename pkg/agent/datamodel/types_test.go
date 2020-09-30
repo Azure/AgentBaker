@@ -252,20 +252,6 @@ func TestTotalNodes(t *testing.T) {
 		expected int
 	}{
 		{
-			name: "2 total nodes between master and pool",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 1,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count: 1,
-					},
-				},
-			},
-			expected: 2,
-		},
-		{
 			name: "7 total nodes between 2 pools",
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -278,20 +264,6 @@ func TestTotalNodes(t *testing.T) {
 				},
 			},
 			expected: 7,
-		},
-		{
-			name: "11 total nodes between master and pool",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 5,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count: 6,
-					},
-				},
-			},
-			expected: 11,
 		},
 	}
 
@@ -554,20 +526,6 @@ func TestGenerateClusterID(t *testing.T) {
 		expectedClusterID string
 	}{
 		{
-			name: "From Master Profile",
-			properties: &Properties{
-				MasterProfile: &MasterProfile{
-					DNSPrefix: "foo_master",
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name: "foo_agent0",
-					},
-				},
-			},
-			expectedClusterID: "24569115",
-		},
-		{
 			name: "From Hosted Master Profile",
 			properties: &Properties{
 				HostedMasterProfile: &HostedMasterProfile{
@@ -761,126 +719,6 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 		p        Properties
 		expected bool
 	}{
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1604,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: Ubuntu,
-					},
-					{
-						Count:  1,
-						Distro: AKSUbuntu1604,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1804,
-				},
-			},
-			expected: true,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: Ubuntu1804,
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1804,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: AKSUbuntu1804,
-					},
-					{
-						Count:  1,
-						Distro: AKSUbuntu1804,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: Ubuntu1804,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: Ubuntu,
-					},
-					{
-						Count:  1,
-						Distro: Ubuntu1804Gen2,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: Ubuntu1804,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: Ubuntu1804,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1604,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						OSType: Windows,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1804,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						OSType: Windows,
-					},
-				},
-			},
-			expected: false,
-		},
 		{
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
@@ -1176,39 +1014,6 @@ func TestGetRouteTableName(t *testing.T) {
 	if actualNSGName != expectedNSGName {
 		t.Errorf("expected route table name %s, but got %s", expectedNSGName, actualNSGName)
 	}
-
-	p = &Properties{
-		OrchestratorProfile: &OrchestratorProfile{
-			OrchestratorType: Kubernetes,
-		},
-		MasterProfile: &MasterProfile{
-			Count:     1,
-			DNSPrefix: "foo",
-			VMSize:    "Standard_DS2_v2",
-		},
-		AgentPoolProfiles: []*AgentPoolProfile{
-			{
-				Name:                "agentpool",
-				VMSize:              "Standard_D2_v2",
-				Count:               1,
-				AvailabilityProfile: VirtualMachineScaleSets,
-			},
-		},
-	}
-
-	actualRTName = p.GetRouteTableName()
-	expectedRTName = "k8s-master-28513887-routetable"
-
-	actualNSGName = p.GetNSGName()
-	expectedNSGName = "k8s-master-28513887-nsg"
-
-	if actualRTName != expectedRTName {
-		t.Errorf("expected route table name %s, but got %s", actualRTName, expectedRTName)
-	}
-
-	if actualNSGName != expectedNSGName {
-		t.Errorf("expected route table name %s, but got %s", actualNSGName, expectedNSGName)
-	}
 }
 
 func TestProperties_GetVirtualNetworkName(t *testing.T) {
@@ -1305,10 +1110,9 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 		OrchestratorProfile: &OrchestratorProfile{
 			OrchestratorType: Kubernetes,
 		},
-		MasterProfile: &MasterProfile{
-			Count:     1,
-			DNSPrefix: "foo",
-			VMSize:    "Standard_DS2_v2",
+		HostedMasterProfile: &HostedMasterProfile{
+			IPMasqAgent: false,
+			DNSPrefix:   "foo",
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{

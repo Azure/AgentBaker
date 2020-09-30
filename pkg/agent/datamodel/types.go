@@ -698,9 +698,6 @@ func (p *Properties) HasWindows() bool {
 // TotalNodes returns the total number of nodes in the cluster configuration
 func (p *Properties) TotalNodes() int {
 	var totalNodes int
-	if p.MasterProfile != nil {
-		totalNodes = p.MasterProfile.Count
-	}
 	for _, pool := range p.AgentPoolProfiles {
 		totalNodes += pool.Count
 	}
@@ -709,7 +706,7 @@ func (p *Properties) TotalNodes() int {
 
 // HasAvailabilityZones returns true if the cluster contains a profile with zones
 func (p *Properties) HasAvailabilityZones() bool {
-	hasZones := p.MasterProfile != nil && p.MasterProfile.HasAvailabilityZones()
+	hasZones := false
 	if !hasZones && p.AgentPoolProfiles != nil {
 		for _, agentPoolProfile := range p.AgentPoolProfiles {
 			if agentPoolProfile.HasAvailabilityZones() {
@@ -743,9 +740,7 @@ func (p *Properties) GetClusterID() string {
 		// the name suffix uniquely identifies the cluster and is generated off a hash
 		// from the master dns name
 		h := fnv.New64a()
-		if p.MasterProfile != nil {
-			h.Write([]byte(p.MasterProfile.DNSPrefix))
-		} else if p.HostedMasterProfile != nil {
+		if p.HostedMasterProfile != nil {
 			h.Write([]byte(p.HostedMasterProfile.DNSPrefix))
 		} else if len(p.AgentPoolProfiles) > 0 {
 			h.Write([]byte(p.AgentPoolProfiles[0].Name))
@@ -826,9 +821,6 @@ func (p *Properties) IsVHDDistroForAllNodes() bool {
 				return false
 			}
 		}
-	}
-	if p.MasterProfile != nil {
-		return p.MasterProfile.IsVHDDistro()
 	}
 	return true
 }

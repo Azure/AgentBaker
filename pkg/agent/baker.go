@@ -250,7 +250,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
 		},
 		"HasCosmosEtcd": func() bool {
-			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasCosmosEtcd()
+			return false
 		},
 		"IsPrivateCluster": func() bool {
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
