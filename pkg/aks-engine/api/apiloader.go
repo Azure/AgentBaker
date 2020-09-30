@@ -14,8 +14,9 @@ import (
 )
 
 const (
+	VlabsAPIVersion      = "vlabs"
 	defaultOrchestrator  = datamodel.Kubernetes
-	defaultAPIVersion    = datamodel.VlabsAPIVersion
+	defaultAPIVersion    = VlabsAPIVersion
 	defaultMasterCount   = 3
 	defaultVMSize        = "Standard_DS2_v2"
 	defaultOSDiskSizeGB  = 200
@@ -73,7 +74,7 @@ type vlabsARMContainerService struct {
 // SerializeContainerService takes an unversioned container service and returns the bytes
 func (a *Apiloader) SerializeContainerService(containerService *datamodel.ContainerService, version string) ([]byte, error) {
 	switch version {
-	case datamodel.VlabsAPIVersion:
+	case VlabsAPIVersion:
 		armContainerService := &vlabsARMContainerService{}
 		armContainerService.ContainerService = containerService
 		armContainerService.APIVersion = version
