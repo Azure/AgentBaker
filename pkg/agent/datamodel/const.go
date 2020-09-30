@@ -24,18 +24,6 @@ const (
 	DefaultOrchestratorName = "k8s"
 	// DefaultHostedProfileMasterName specifies the 3 character orchestrator code of the clusters with hosted master profiles.
 	DefaultHostedProfileMasterName = "aks"
-	// DefaultFirstConsecutiveKubernetesStaticIP specifies the static IP address on Kubernetes master 0
-	DefaultFirstConsecutiveKubernetesStaticIP = "10.240.255.5"
-	// DefaultFirstConsecutiveKubernetesStaticIPVMSS specifies the static IP address on Kubernetes master 0 of VMSS
-	DefaultFirstConsecutiveKubernetesStaticIPVMSS = "10.240.0.4"
-	//DefaultCNICIDR specifies the default value for
-	DefaultCNICIDR = "168.63.129.16/32"
-	// DefaultKubernetesFirstConsecutiveStaticIPOffset specifies the IP address offset of master 0
-	// when VNET integration is enabled.
-	DefaultKubernetesFirstConsecutiveStaticIPOffset = 5
-	// DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS specifies the IP address offset of master 0 in VMSS
-	// when VNET integration is enabled.
-	DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS = 4
 	// DefaultSubnetNameResourceSegmentIndex specifies the default subnet name resource segment index.
 	DefaultSubnetNameResourceSegmentIndex = 10
 	// DefaultVnetResourceGroupSegmentIndex specifies the default virtual network resource segment index.
@@ -44,16 +32,8 @@ const (
 	DefaultVnetNameResourceSegmentIndex = 8
 	// VirtualMachineScaleSets means that the vms are in a virtual machine scaleset
 	VirtualMachineScaleSets = "VirtualMachineScaleSets"
-	// ScaleSetPriorityRegular is the default ScaleSet Priority
-	ScaleSetPriorityRegular = "Regular"
-	// ScaleSetPriorityLow means the ScaleSet will use Low-priority VMs
-	ScaleSetPriorityLow = "Low"
 	// ScaleSetPrioritySpot means the ScaleSet will use Spot VMs
 	ScaleSetPrioritySpot = "Spot"
-	// ScaleSetEvictionPolicyDelete is the default Eviction Policy for Low-priority VM ScaleSets
-	ScaleSetEvictionPolicyDelete = "Delete"
-	// ScaleSetEvictionPolicyDeallocate means a Low-priority VM ScaleSet will deallocate, rather than delete, VMs.
-	ScaleSetEvictionPolicyDeallocate = "Deallocate"
 )
 
 // Supported container runtimes
@@ -65,103 +45,15 @@ const (
 
 // storage profiles
 const (
-	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
-	StorageAccount = "StorageAccount"
 	// ManagedDisks means that the nodes use managed disks for their os and attached volumes
 	ManagedDisks = "ManagedDisks"
-	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
-	Ephemeral = "Ephemeral"
 )
 
-// To identify programmatically generated public agent pools
-const publicAgentPoolSuffix = "-public"
-
 const (
-	// DefaultHeapsterAddonEnabled determines the aks-engine provided default for enabling heapster addon
-	DefaultHeapsterAddonEnabled = false
-	// DefaultTillerAddonEnabled determines the aks-engine provided default for enabling tiller addon
-	DefaultTillerAddonEnabled = false
-	// DefaultAADPodIdentityAddonEnabled determines the aks-engine provided default for enabling aad-pod-identity addon
-	DefaultAADPodIdentityAddonEnabled = false
-	// DefaultAzurePolicyAddonEnabled determines the aks-engine provided default for enabling azure policy addon
-	DefaultAzurePolicyAddonEnabled = false
-	// DefaultNodeProblemDetectorAddonEnabled determines the aks-engine provided default for enabling the node problem detector addon
-	DefaultNodeProblemDetectorAddonEnabled = false
-	// DefaultACIConnectorAddonEnabled determines the aks-engine provided default for enabling aci connector addon
-	DefaultACIConnectorAddonEnabled = false
-	// DefaultAppGwIngressAddonEnabled determines the aks-engine provided default for enabling appgw ingress addon
-	DefaultAppGwIngressAddonEnabled = false
-	// DefaultAzureDiskCSIDriverAddonEnabled determines the aks-engine provided default for enabling Azure Disk CSI Driver
-	DefaultAzureDiskCSIDriverAddonEnabled = true
-	// DefaultAzureFileCSIDriverAddonEnabled determines the aks-engine provided default for enabling Azure File CSI Driver
-	DefaultAzureFileCSIDriverAddonEnabled = true
-	// DefaultClusterAutoscalerAddonEnabled determines the aks-engine provided default for enabling cluster autoscaler addon
-	DefaultClusterAutoscalerAddonEnabled = false
-	// DefaultBlobfuseFlexVolumeAddonEnabled determines the aks-engine provided default for enabling blobfuse flexvolume addon
-	DefaultBlobfuseFlexVolumeAddonEnabled = true
-	// DefaultSMBFlexVolumeAddonEnabled determines the aks-engine provided default for enabling smb flexvolume addon
-	DefaultSMBFlexVolumeAddonEnabled = false
-	// DefaultKeyVaultFlexVolumeAddonEnabled determines the aks-engine provided default for enabling key vault flexvolume addon
-	DefaultKeyVaultFlexVolumeAddonEnabled = true
-	// DefaultDashboardAddonEnabled determines the aks-engine provided default for enabling kubernetes-dashboard addon
-	DefaultDashboardAddonEnabled = true
-	// DefaultReschedulerAddonEnabled determines the aks-engine provided default for enabling kubernetes-rescheduler addon
-	DefaultReschedulerAddonEnabled = false
-	// DefaultAzureCNIMonitoringAddonEnabled determines the aks-engine provided default for enabling azurecni-network monitoring addon
-	DefaultAzureCNIMonitoringAddonEnabled = true
-	// DefaultKubeDNSAddonEnabled determines the aks-engine provided default for enabling coredns addon
-	DefaultKubeDNSAddonEnabled = false
-	// DefaultCoreDNSAddonEnabled determines the aks-engine provided default for enabling coredns addon
-	DefaultCoreDNSAddonEnabled = true
-	// DefaultKubeProxyAddonEnabled determines the aks-engine provided default for enabling kube-proxy addon
-	DefaultKubeProxyAddonEnabled = true
-	// DefaultRBACEnabled determines the aks-engine provided default for enabling kubernetes RBAC
-	DefaultRBACEnabled = true
-	// DefaultUseInstanceMetadata determines the aks-engine provided default for enabling Azure cloudprovider instance metadata service
-	DefaultUseInstanceMetadata = true
-	// BasicLoadBalancerSku is the string const for Azure Basic Load Balancer
-	BasicLoadBalancerSku = "Basic"
-	// StandardLoadBalancerSku is the string const for Azure Standard Load Balancer
-	StandardLoadBalancerSku = "Standard"
-	// DefaultLoadBalancerSku determines the aks-engine provided default for enabling Azure cloudprovider load balancer SKU
-	DefaultLoadBalancerSku = BasicLoadBalancerSku
-	// DefaultExcludeMasterFromStandardLB determines the aks-engine provided default for excluding master nodes from standard load balancer.
-	DefaultExcludeMasterFromStandardLB = true
-	// DefaultSecureKubeletEnabled determines the aks-engine provided default for securing kubelet communications
-	DefaultSecureKubeletEnabled = true
-	// DefaultMetricsServerAddonEnabled determines the aks-engine provided default for enabling kubernetes metrics-server addon
-	DefaultMetricsServerAddonEnabled = true
-	// DefaultNVIDIADevicePluginAddonEnabled determines the aks-engine provided default for enabling NVIDIA Device Plugin
-	DefaultNVIDIADevicePluginAddonEnabled = false
-	// DefaultContainerMonitoringAddonEnabled determines the aks-engine provided default for enabling kubernetes container monitoring addon
-	DefaultContainerMonitoringAddonEnabled = false
-	// DefaultDNSAutoscalerAddonEnabled determines the aks-engine provided default for dns-autoscaler addon
-	DefaultDNSAutoscalerAddonEnabled = false
-	// DefaultIPMasqAgentAddonEnabled enables the ip-masq-agent addon
-	DefaultIPMasqAgentAddonEnabled = true
-	// DefaultPrivateClusterEnabled determines the aks-engine provided default for enabling kubernetes Private Cluster
-	DefaultPrivateClusterEnabled = false
-	// DefaultPrivateClusterHostsConfigAgentEnabled enables the hosts config agent for private cluster
-	DefaultPrivateClusterHostsConfigAgentEnabled = false
-	// NetworkPolicyAzure is the string expression for Azure CNI network policy manager
-	NetworkPolicyAzure = "azure"
-	// NetworkPolicyNone is the string expression for the deprecated NetworkPolicy usage pattern "none"
-	NetworkPolicyNone = "none"
 	// NetworkPluginKubenet is the string expression for the kubenet NetworkPlugin config
 	NetworkPluginKubenet = "kubenet"
 	// NetworkPluginAzure is the string expression for Azure CNI plugin.
 	NetworkPluginAzure = "azure"
-	// DefaultSinglePlacementGroup determines the aks-engine provided default for supporting large VMSS
-	// (true = single placement group 0-100 VMs, false = multiple placement group 0-1000 VMs)
-	DefaultSinglePlacementGroup = true
-	// ARMNetworkNamespace is the ARM-specific namespace for ARM's network providers.
-	ARMNetworkNamespace = "Microsoft.Networks"
-	// ARMVirtualNetworksResourceType is the ARM resource type for virtual network resources of ARM.
-	ARMVirtualNetworksResourceType = "virtualNetworks"
-	// DefaultAcceleratedNetworkingWindowsEnabled determines the aks-engine provided default for enabling accelerated networking on Windows nodes
-	DefaultAcceleratedNetworkingWindowsEnabled = false
-	// DefaultAcceleratedNetworking determines the aks-engine provided default for enabling accelerated networking on Linux nodes
-	DefaultAcceleratedNetworking = true
 	// DefaultVMSSOverProvisioningEnabled determines the aks-engine provided default for enabling VMSS Overprovisioning
 	DefaultVMSSOverProvisioningEnabled = false
 	// DefaultAuditDEnabled determines the aks-engine provided default for enabling auditd
@@ -316,7 +208,7 @@ const (
 	// NetworkPolicyAntrea is the string expression for antrea network policy config option
 	NetworkPolicyAntrea = NetworkPluginAntrea
 	// DefaultNetworkPlugin defines the network plugin to use by default
-	DefaultNetworkPlugin = NetworkPluginKubenet
+	//DefaultNetworkPlugin = NetworkPluginKubenet
 	// DefaultNetworkPolicy defines the network policy implementation to use by default
 	DefaultNetworkPolicy = ""
 	// DefaultNetworkPluginWindows defines the network plugin implementation to use by default for clusters with Windows agent pools

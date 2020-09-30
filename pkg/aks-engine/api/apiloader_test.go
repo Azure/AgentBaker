@@ -13,6 +13,11 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
+const (
+	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
+	StorageAccount = "StorageAccount"
+)
+
 const exampleCustomHyperkubeImage = `example.azurecr.io/example/hyperkube-amd64:custom`
 const examplePrivateAzureRegistryServer = `example.azurecr.io`
 
@@ -292,7 +297,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				AgentVnetSubnetID:        "sampleAgentVnetSubnetID",
 				FirstConsecutiveStaticIP: "10.240.0.0",
 				IPAddressCount:           5,
-				StorageProfile:           datamodel.StorageAccount,
+				StorageProfile:           StorageAccount,
 				HTTPSourceAddressPrefix:  "fooHTTPSourceAddressPrefix",
 				OAuthEnabled:             true,
 				PreprovisionExtension: &datamodel.Extension{
@@ -395,7 +400,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 							OSDiskSizeGB:   512,
 							Username:       "userName",
 							PublicKey:      ValidSSHPublicKey,
-							StorageProfile: datamodel.StorageAccount,
+							StorageProfile: StorageAccount,
 						},
 					},
 					PodSecurityPolicyConfig: map[string]string{

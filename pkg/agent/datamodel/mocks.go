@@ -52,8 +52,8 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
-		EnableSecureKubelet:     to.BoolPtr(DefaultSecureKubeletEnabled),
-		EnableRbac:              to.BoolPtr(DefaultRBACEnabled),
+		EnableSecureKubelet:     to.BoolPtr(true),
+		EnableRbac:              to.BoolPtr(true),
 		EtcdDiskSizeGB:          DefaultEtcdDiskSize,
 		ServiceCIDR:             DefaultKubernetesServiceCIDR,
 		DockerBridgeSubnet:      DefaultDockerBridgeSubnet,
@@ -63,12 +63,12 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 		MaxPods:                 DefaultKubernetesMaxPodsVNETIntegrated,
 		ClusterSubnet:           DefaultKubernetesSubnet,
 		ContainerRuntime:        DefaultContainerRuntime,
-		NetworkPlugin:           DefaultNetworkPlugin,
+		NetworkPlugin:           "kubenet",
 		NetworkPolicy:           DefaultNetworkPolicy,
 		EtcdVersion:             DefaultEtcdVersion,
 		MobyVersion:             DefaultMobyVersion,
 		ContainerdVersion:       DefaultContainerdVersion,
-		LoadBalancerSku:         DefaultLoadBalancerSku,
+		LoadBalancerSku:         "Basic",
 		KubeletConfig:           make(map[string]string),
 		ControllerManagerConfig: make(map[string]string),
 	}
