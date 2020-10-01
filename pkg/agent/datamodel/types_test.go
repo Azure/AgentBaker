@@ -11,6 +11,17 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
+const (
+	// scaleSetPriorityRegular is the default ScaleSet Priority
+	ScaleSetPriorityRegular = "Regular"
+	// ScaleSetPriorityLow means the ScaleSet will use Low-priority VMs
+	ScaleSetPriorityLow = "Low"
+	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
+	StorageAccount = "StorageAccount"
+	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
+	Ephemeral = "Ephemeral"
+)
+
 func TestHasAadProfile(t *testing.T) {
 	p := Properties{}
 

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"net"
 	neturl "net/url"
 	"sort"
 	"strconv"
@@ -1171,35 +1170,6 @@ func (m *MasterProfile) IsCustomVNET() bool {
 // IsVirtualMachineScaleSets returns true if the master availability profile is VMSS
 func (m *MasterProfile) IsVirtualMachineScaleSets() bool {
 	return strings.EqualFold(m.AvailabilityProfile, VirtualMachineScaleSets)
-}
-
-// GetFirstConsecutiveStaticIPAddress returns the first static IP address of the given subnet.
-func (m *MasterProfile) GetFirstConsecutiveStaticIPAddress(subnetStr string) string {
-	_, subnet, err := net.ParseCIDR(subnetStr)
-	if err != nil {
-		return DefaultFirstConsecutiveKubernetesStaticIP
-	}
-
-	// Find the first and last octet of the host bits.
-	ones, bits := subnet.Mask.Size()
-	firstOctet := ones / 8
-	lastOctet := bits/8 - 1
-
-	if m.IsVirtualMachineScaleSets() {
-		subnet.IP[lastOctet] = DefaultKubernetesFirstConsecutiveStaticIPOffsetVMSS
-	} else {
-		// Set the remaining host bits in the first octet.
-		subnet.IP[firstOctet] |= (1 << byte((8 - (ones % 8)))) - 1
-
-		// Fill the intermediate octets with 1s and last octet with offset. This is done so to match
-		// the existing behavior of allocating static IP addresses from the last /24 of the subnet.
-		for i := firstOctet + 1; i < lastOctet; i++ {
-			subnet.IP[i] = 255
-		}
-		subnet.IP[lastOctet] = DefaultKubernetesFirstConsecutiveStaticIPOffset
-	}
-
-	return subnet.IP.String()
 }
 
 // HasAvailabilityZones returns true if the master profile has availability zones
