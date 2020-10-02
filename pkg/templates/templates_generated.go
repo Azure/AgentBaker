@@ -305,10 +305,12 @@ MOUNT_POINT="/mnt/aks"
 # umount "/var/lib/${CONTAINER_RUNTIME}" || true
 # mkdir -p "/var/lib/${CONTAINER_RUNTIME}"
 
+KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
 KUBELET_DIR="/var/lib/kubelet"
-mkdir -p "${MOUNT_POINT}/kubelet"
+mkdir -p "${KUBELET_MOUNT_POINT}"
 mkdir -p "${KUBELET_DIR}"
-mount --bind "${MOUNT_POINT}/kubelet" "${KUBELET_DIR}"
+mv "${KUBELET_DIR}" "${KUBELET_MOUNT_POINT}"
+mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
 chmod a+w "${KUBELET_DIR}"
 `)
 
@@ -924,7 +926,6 @@ ensureKubelet() {
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-    systemctl_restart 100 5 30 kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasCiliumNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/05-cilium.conf ]; do
         sleep 3
@@ -940,6 +941,12 @@ ensureKubelet() {
         sleep 3
     done
     {{end}}
+    {{if IsAzureCNI}}
+    while [ ! -f /etc/cni/net.d/10-azure.conflist ]; do
+        sleep 3
+    done
+    {{end}}
+    systemctl_restart 100 5 30 kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureLabelNodes() {
@@ -2555,6 +2562,10 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
+{{if HasKubeletDisk}}
+Requires=bind-mount.service
+After=bind-mount.service
+{{end}}
 
 [Service]
 Restart=always
@@ -3532,6 +3543,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 {{end}}
 
 - path: /etc/systemd/system/kubelet.service
