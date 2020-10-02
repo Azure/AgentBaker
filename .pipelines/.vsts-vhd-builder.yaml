@@ -27,11 +27,11 @@ trigger: none
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
 
-jobs:
-  - job: build_vhd
-    pool:
-      name: ace-test
-    timeoutInMinutes: 120
+phases:
+  - phase: build_vhd
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
     steps:
       - bash: |
           if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
