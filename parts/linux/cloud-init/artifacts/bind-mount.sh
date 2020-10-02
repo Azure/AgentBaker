@@ -27,8 +27,9 @@ MOUNT_POINT="/mnt/aks"
 # umount "/var/lib/${CONTAINER_RUNTIME}" || true
 # mkdir -p "/var/lib/${CONTAINER_RUNTIME}"
 
+KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
 KUBELET_DIR="/var/lib/kubelet"
-mkdir -p "${MOUNT_POINT}/kubelet"
+mkdir -p "${KUBELET_MOUNT_POINT}"
 mkdir -p "${KUBELET_DIR}"
-mount --bind "${MOUNT_POINT}/kubelet" "${KUBELET_DIR}"
+mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
 chmod a+w "${KUBELET_DIR}"
