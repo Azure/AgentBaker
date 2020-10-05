@@ -3766,12 +3766,7 @@ write_files:
     #!/bin/bash
 {{if not IsIPMasqAgentEnabled}}
     {{if IsAzureCNI}}
-    IFS=','
-    read -ra vnetCidrs <<< {{GetParameter "vnetCidr"}}
-    for vnetCidr in "${vnetCidrs[@]}"; do
-      iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d $vnetCidr -j MASQUERADE
-    done
-    IFS=' '
+    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
     {{end}}
 {{end}}
 
