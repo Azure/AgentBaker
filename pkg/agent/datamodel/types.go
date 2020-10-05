@@ -706,7 +706,7 @@ func (p *Properties) TotalNodes() int {
 // HasAvailabilityZones returns true if the cluster contains a profile with zones
 func (p *Properties) HasAvailabilityZones() bool {
 	hasZones := false
-	if !hasZones && p.AgentPoolProfiles != nil {
+	if p.AgentPoolProfiles != nil {
 		for _, agentPoolProfile := range p.AgentPoolProfiles {
 			if agentPoolProfile.HasAvailabilityZones() {
 				hasZones = true
