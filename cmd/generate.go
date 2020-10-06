@@ -172,11 +172,7 @@ func (gc *generateCmd) loadAPIModel() error {
 	}
 
 	if gc.outputDirectory == "" {
-		if gc.containerService.Properties.MasterProfile != nil {
-			gc.outputDirectory = path.Join("_output", gc.containerService.Properties.MasterProfile.DNSPrefix)
-		} else {
-			gc.outputDirectory = path.Join("_output", gc.containerService.Properties.HostedMasterProfile.DNSPrefix)
-		}
+		gc.outputDirectory = path.Join("_output", gc.containerService.Properties.HostedMasterProfile.DNSPrefix)
 	}
 
 	// consume gc.caCertificatePath and gc.caPrivateKeyPath
