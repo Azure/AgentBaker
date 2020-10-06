@@ -233,30 +233,26 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			}
 		}
 
-		if kubernetesConfig == nil ||
-			!kubernetesConfig.UseManagedIdentity ||
-			properties.IsHostedMasterProfile() {
-			servicePrincipalProfile := properties.ServicePrincipalProfile
+		servicePrincipalProfile := properties.ServicePrincipalProfile
 
-			if servicePrincipalProfile != nil {
-				addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
-				keyVaultSecretRef := servicePrincipalProfile.KeyvaultSecretRef
-				if keyVaultSecretRef != nil {
-					addKeyvaultReference(parametersMap, "servicePrincipalClientSecret",
-						keyVaultSecretRef.VaultID,
-						keyVaultSecretRef.SecretName,
-						keyVaultSecretRef.SecretVersion)
-				} else {
-					addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+		if servicePrincipalProfile != nil {
+			addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
+			keyVaultSecretRef := servicePrincipalProfile.KeyvaultSecretRef
+			if keyVaultSecretRef != nil {
+				addKeyvaultReference(parametersMap, "servicePrincipalClientSecret",
+					keyVaultSecretRef.VaultID,
+					keyVaultSecretRef.SecretName,
+					keyVaultSecretRef.SecretVersion)
+			} else {
+				addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+			}
+
+			if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
+				if kubernetesConfig.KeyVaultSku != "" {
+					addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
 				}
-
-				if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
-					if kubernetesConfig.KeyVaultSku != "" {
-						addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
-					}
-					if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
-						addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
-					}
+				if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
+					addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
 				}
 			}
 		}
