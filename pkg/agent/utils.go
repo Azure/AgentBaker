@@ -296,10 +296,7 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	return str
 }
 
-func getWindowsMasterSubnetARMParam(masterProfile *datamodel.MasterProfile) string {
-	if masterProfile != nil && masterProfile.IsCustomVNET() {
-		return fmt.Sprintf("',parameters('vnetCidr'),'")
-	}
+func getWindowsMasterSubnetARMParam() string {
 	return fmt.Sprintf("',parameters('masterSubnet'),'")
 }
 
