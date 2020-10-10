@@ -846,21 +846,12 @@ func (p *Properties) HasVMSSAgentPool() bool {
 func (p *Properties) GetSubnetName() string {
 	var subnetName string
 
-	if !p.IsHostedMasterProfile() {
-		if p.MasterProfile.IsCustomVNET() {
-			subnetName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[DefaultSubnetNameResourceSegmentIndex]
-		} else if p.MasterProfile.IsVirtualMachineScaleSets() {
-			subnetName = "subnetmaster"
-		} else {
-			subnetName = p.K8sOrchestratorName() + "-subnet"
-		}
+	if p.AreAgentProfilesCustomVNET() {
+		subnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultSubnetNameResourceSegmentIndex]
 	} else {
-		if p.AreAgentProfilesCustomVNET() {
-			subnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultSubnetNameResourceSegmentIndex]
-		} else {
-			subnetName = p.K8sOrchestratorName() + "-subnet"
-		}
+		subnetName = p.K8sOrchestratorName() + "-subnet"
 	}
+
 	return subnetName
 }
 
@@ -882,8 +873,6 @@ func (p *Properties) GetVirtualNetworkName() string {
 	var vnetName string
 	if p.IsHostedMasterProfile() && p.AreAgentProfilesCustomVNET() {
 		vnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetNameResourceSegmentIndex]
-	} else if !p.IsHostedMasterProfile() && p.MasterProfile.IsCustomVNET() {
-		vnetName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[DefaultVnetNameResourceSegmentIndex]
 	} else {
 		vnetName = p.K8sOrchestratorName() + "-vnet-" + p.GetClusterID()
 	}
@@ -895,8 +884,6 @@ func (p *Properties) GetVNetResourceGroupName() string {
 	var vnetResourceGroupName string
 	if p.IsHostedMasterProfile() && p.AreAgentProfilesCustomVNET() {
 		vnetResourceGroupName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetResourceGroupSegmentIndex]
-	} else if !p.IsHostedMasterProfile() && p.MasterProfile.IsCustomVNET() {
-		vnetResourceGroupName = strings.Split(p.MasterProfile.VnetSubnetID, "/")[DefaultVnetResourceGroupSegmentIndex]
 	}
 	return vnetResourceGroupName
 }
@@ -1132,54 +1119,6 @@ func (o *OrchestratorProfile) IsPrivateCluster() bool {
 		return false
 	}
 	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.Enabled)
-}
-
-// HasCosmosEtcd returns true if cosmos etcd configuration is enabled
-func (m *MasterProfile) HasCosmosEtcd() bool {
-	return to.Bool(m.CosmosEtcd)
-}
-
-// GetCosmosEndPointURI returns the URI string for the cosmos etcd endpoint
-func (m *MasterProfile) GetCosmosEndPointURI() string {
-	if m.HasCosmosEtcd() {
-		return fmt.Sprintf("%sk8s.etcd.cosmosdb.azure.com", m.DNSPrefix)
-	}
-	return ""
-}
-
-// IsVHDDistro returns true if the distro uses VHD SKUs
-func (m *MasterProfile) IsVHDDistro() bool {
-	return strings.EqualFold(string(m.Distro), string(AKSUbuntu1604)) || strings.EqualFold(string(m.Distro), string(AKSUbuntu1804))
-}
-
-// IsUbuntu1804 returns true if the master profile distro is based on Ubuntu 18.04
-func (m *MasterProfile) IsUbuntu1804() bool {
-	switch m.Distro {
-	case AKSUbuntu1804, Ubuntu1804, Ubuntu1804Gen2:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsCustomVNET returns true if the customer brought their own VNET
-func (m *MasterProfile) IsCustomVNET() bool {
-	return len(m.VnetSubnetID) > 0
-}
-
-// IsVirtualMachineScaleSets returns true if the master availability profile is VMSS
-func (m *MasterProfile) IsVirtualMachineScaleSets() bool {
-	return strings.EqualFold(m.AvailabilityProfile, VirtualMachineScaleSets)
-}
-
-// HasAvailabilityZones returns true if the master profile has availability zones
-func (m *MasterProfile) HasAvailabilityZones() bool {
-	return m.AvailabilityZones != nil && len(m.AvailabilityZones) > 0
-}
-
-// HasMultipleNodes returns true if there are more than one master nodes
-func (m *MasterProfile) HasMultipleNodes() bool {
-	return m.Count > 1
 }
 
 // IsFeatureEnabled returns true if a feature flag is on for the provided feature

@@ -51,12 +51,6 @@ func TestGenerateKubeConfig(t *testing.T) {
 		t.Errorf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
 	}
 
-	containerService.Properties.MasterProfile.Count = 3
-	_, err = GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
-	if err == nil {
-		t.Errorf("expected an error result when Private Cluster is Enabled and no FirstConsecutiveStaticIP was specified")
-	}
-
 	containerService.Properties.MasterProfile.FirstConsecutiveStaticIP = "10.239.255.239"
 	_, err = GenerateKubeConfig(containerService.Properties, "westus2", datamodel.AzurePublicCloudSpecForTest)
 	if err != nil {

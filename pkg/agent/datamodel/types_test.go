@@ -4,7 +4,6 @@
 package datamodel
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -292,7 +291,6 @@ func TestTotalNodes(t *testing.T) {
 func TestHasAvailabilityZones(t *testing.T) {
 	cases := []struct {
 		p                Properties
-		expectedMaster   bool
 		expectedAgent    bool
 		expectedAllZones bool
 	}{
@@ -313,7 +311,6 @@ func TestHasAvailabilityZones(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster:   true,
 			expectedAgent:    true,
 			expectedAllZones: true,
 		},
@@ -332,7 +329,6 @@ func TestHasAvailabilityZones(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster:   false,
 			expectedAgent:    false,
 			expectedAllZones: false,
 		},
@@ -352,16 +348,12 @@ func TestHasAvailabilityZones(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster:   false,
 			expectedAgent:    false,
 			expectedAllZones: false,
 		},
 	}
 
 	for _, c := range cases {
-		if c.p.MasterProfile.HasAvailabilityZones() != c.expectedMaster {
-			t.Fatalf("expected HasAvailabilityZones() to return %t but instead returned %t", c.expectedMaster, c.p.MasterProfile.HasAvailabilityZones())
-		}
 		if c.p.AgentPoolProfiles[0].HasAvailabilityZones() != c.expectedAgent {
 			t.Fatalf("expected HasAvailabilityZones() to return %t but instead returned %t", c.expectedAgent, c.p.AgentPoolProfiles[0].HasAvailabilityZones())
 		}
@@ -909,74 +901,6 @@ func TestGetSubnetName(t *testing.T) {
 			},
 			expectedSubnetName: "BazAgentSubnet",
 		},
-		{
-			name: "Cluster with MasterProfile",
-			properties: &Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-				},
-				MasterProfile: &MasterProfile{
-					Count:     1,
-					DNSPrefix: "foo",
-					VMSize:    "Standard_DS2_v2",
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:                "agentpool",
-						VMSize:              "Standard_D2_v2",
-						Count:               1,
-						AvailabilityProfile: VirtualMachineScaleSets,
-					},
-				},
-			},
-			expectedSubnetName: "k8s-subnet",
-		},
-		{
-			name: "Cluster with MasterProfile and custom VNET",
-			properties: &Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-				},
-				MasterProfile: &MasterProfile{
-					Count:        1,
-					DNSPrefix:    "foo",
-					VMSize:       "Standard_DS2_v2",
-					VnetSubnetID: "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:                "agentpool",
-						VMSize:              "Standard_D2_v2",
-						Count:               1,
-						AvailabilityProfile: VirtualMachineScaleSets,
-					},
-				},
-			},
-			expectedSubnetName: "BazAgentSubnet",
-		},
-		{
-			name: "Cluster with VMSS MasterProfile",
-			properties: &Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-				},
-				MasterProfile: &MasterProfile{
-					Count:               1,
-					DNSPrefix:           "foo",
-					VMSize:              "Standard_DS2_v2",
-					AvailabilityProfile: VirtualMachineScaleSets,
-				},
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:                "agentpool",
-						VMSize:              "Standard_D2_v2",
-						Count:               1,
-						AvailabilityProfile: VirtualMachineScaleSets,
-					},
-				},
-			},
-			expectedSubnetName: "subnetmaster",
-		},
 	}
 
 	for _, test := range tests {
@@ -1219,11 +1143,9 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 
 func TestUbuntuVersion(t *testing.T) {
 	cases := []struct {
-		p                  Properties
-		expectedMaster1604 bool
-		expectedAgent1604  bool
-		expectedMaster1804 bool
-		expectedAgent1804  bool
+		p                 Properties
+		expectedAgent1604 bool
+		expectedAgent1804 bool
 	}{
 		{
 			p: Properties{
@@ -1239,10 +1161,8 @@ func TestUbuntuVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster1604: true,
-			expectedAgent1604:  true,
-			expectedMaster1804: false,
-			expectedAgent1804:  false,
+			expectedAgent1604: true,
+			expectedAgent1804: false,
 		},
 		{
 			p: Properties{
@@ -1257,10 +1177,8 @@ func TestUbuntuVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster1604: false,
-			expectedAgent1604:  true,
-			expectedMaster1804: true,
-			expectedAgent1804:  false,
+			expectedAgent1604: true,
+			expectedAgent1804: false,
 		},
 		{
 			p: Properties{
@@ -1276,17 +1194,12 @@ func TestUbuntuVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster1604: true,
-			expectedAgent1604:  false,
-			expectedMaster1804: false,
-			expectedAgent1804:  false,
+			expectedAgent1604: false,
+			expectedAgent1804: false,
 		},
 	}
 
 	for _, c := range cases {
-		if c.p.MasterProfile.IsUbuntu1804() != c.expectedMaster1804 {
-			t.Fatalf("expected IsUbuntu1804() for master to return %t but instead returned %t", c.expectedMaster1804, c.p.MasterProfile.IsUbuntu1804())
-		}
 		if c.p.AgentPoolProfiles[0].IsUbuntu1804() != c.expectedAgent1804 {
 			t.Fatalf("expected IsUbuntu1804() for agent to return %t but instead returned %t", c.expectedAgent1804, c.p.AgentPoolProfiles[0].IsUbuntu1804())
 		}
@@ -1295,9 +1208,8 @@ func TestUbuntuVersion(t *testing.T) {
 
 func TestIsCustomVNET(t *testing.T) {
 	cases := []struct {
-		p              Properties
-		expectedMaster bool
-		expectedAgent  bool
+		p             Properties
+		expectedAgent bool
 	}{
 		{
 			p: Properties{
@@ -1310,8 +1222,7 @@ func TestIsCustomVNET(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster: true,
-			expectedAgent:  true,
+			expectedAgent: true,
 		},
 		{
 			p: Properties{
@@ -1327,15 +1238,11 @@ func TestIsCustomVNET(t *testing.T) {
 					},
 				},
 			},
-			expectedMaster: false,
-			expectedAgent:  false,
+			expectedAgent: false,
 		},
 	}
 
 	for _, c := range cases {
-		if c.p.MasterProfile.IsCustomVNET() != c.expectedMaster {
-			t.Fatalf("expected IsCustomVnet() to return %t but instead returned %t", c.expectedMaster, c.p.MasterProfile.IsCustomVNET())
-		}
 		if c.p.AgentPoolProfiles[0].IsCustomVNET() != c.expectedAgent {
 			t.Fatalf("expected IsCustomVnet() to return %t but instead returned %t", c.expectedAgent, c.p.AgentPoolProfiles[0].IsCustomVNET())
 		}
@@ -2050,194 +1957,6 @@ func TestIsPrivateCluster(t *testing.T) {
 		if c.p.OrchestratorProfile.IsPrivateCluster() != c.expected {
 			t.Fatalf("expected IsPrivateCluster() to return %t but instead got %t", c.expected, c.p.OrchestratorProfile.IsPrivateCluster())
 		}
-	}
-}
-
-func TestMasterProfileHasCosmosEtcd(t *testing.T) {
-	cases := []struct {
-		name     string
-		m        MasterProfile
-		expected bool
-	}{
-		{
-			name: "enabled",
-			m: MasterProfile{
-				CosmosEtcd: to.BoolPtr(true),
-			},
-			expected: true,
-		},
-		{
-			name: "disabled",
-			m: MasterProfile{
-				CosmosEtcd: to.BoolPtr(false),
-			},
-			expected: false,
-		},
-		{
-			name:     "zero value master profile",
-			m:        MasterProfile{},
-			expected: false,
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			if c.expected != c.m.HasCosmosEtcd() {
-				t.Fatalf("Got unexpected MasterProfile.HasCosmosEtcd() result. Expected: %t. Got: %t.", c.expected, c.m.HasCosmosEtcd())
-			}
-		})
-	}
-}
-
-func TestMasterProfileGetCosmosEndPointURI(t *testing.T) {
-	dnsPrefix := "my-prefix"
-	etcdEndpointURIFmt := "%sk8s.etcd.cosmosdb.azure.com"
-	cases := []struct {
-		name     string
-		m        MasterProfile
-		expected string
-	}{
-		{
-			name: "valid DNS prefix",
-			m: MasterProfile{
-				CosmosEtcd: to.BoolPtr(true),
-				DNSPrefix:  dnsPrefix,
-			},
-			expected: fmt.Sprintf(etcdEndpointURIFmt, dnsPrefix),
-		},
-		{
-			name: "no DNS prefix",
-			m: MasterProfile{
-				CosmosEtcd: to.BoolPtr(true),
-			},
-			expected: fmt.Sprintf(etcdEndpointURIFmt, ""),
-		},
-		{
-			name: "cosmos etcd disabled",
-			m: MasterProfile{
-				CosmosEtcd: to.BoolPtr(false),
-			},
-			expected: "",
-		},
-		{
-			name:     "zero value master profile",
-			m:        MasterProfile{},
-			expected: "",
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			if c.expected != c.m.GetCosmosEndPointURI() {
-				t.Fatalf("Got unexpected MasterProfile.GetCosmosEndPointURI() result. Expected: %s. Got: %s.", c.expected, c.m.GetCosmosEndPointURI())
-			}
-		})
-	}
-}
-
-func TestMasterAvailabilityProfile(t *testing.T) {
-	cases := []struct {
-		name           string
-		p              Properties
-		expectedISVMSS bool
-		expectedIsVMAS bool
-	}{
-		{
-			name: "zero value master profile",
-			p: Properties{
-				MasterProfile: &MasterProfile{},
-			},
-			expectedISVMSS: false,
-			expectedIsVMAS: false,
-		},
-		{
-			name: "master profile w/ AS",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					AvailabilityProfile: AvailabilitySet,
-				},
-			},
-			expectedISVMSS: false,
-			expectedIsVMAS: true,
-		},
-		{
-			name: "master profile w/ VMSS",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					AvailabilityProfile: VirtualMachineScaleSets,
-				},
-			},
-			expectedISVMSS: true,
-			expectedIsVMAS: false,
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			if c.p.MasterProfile.IsVirtualMachineScaleSets() != c.expectedISVMSS {
-				t.Fatalf("expected MasterProfile.IsVirtualMachineScaleSets() to return %t but instead returned %t", c.expectedISVMSS, c.p.MasterProfile.IsVirtualMachineScaleSets())
-			}
-		})
-	}
-}
-
-func TestMasterProfileHasMultipleNodes(t *testing.T) {
-	cases := []struct {
-		name     string
-		m        MasterProfile
-		expected bool
-	}{
-		{
-			name: "1",
-			m: MasterProfile{
-				Count: 1,
-			},
-			expected: false,
-		},
-		{
-			name: "2",
-			m: MasterProfile{
-				Count: 2,
-			},
-			expected: true,
-		},
-		{
-			name: "3",
-			m: MasterProfile{
-				Count: 3,
-			},
-			expected: true,
-		},
-		{
-			name: "0",
-			m: MasterProfile{
-				Count: 0,
-			},
-			expected: false,
-		},
-		{
-			name: "-1",
-			m: MasterProfile{
-				Count: -1,
-			},
-			expected: false,
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			if c.expected != c.m.HasMultipleNodes() {
-				t.Fatalf("Got unexpected MasterProfile.HasMultipleNodes() result. Expected: %t. Got: %t.", c.expected, c.m.HasMultipleNodes())
-			}
-		})
 	}
 }
 
