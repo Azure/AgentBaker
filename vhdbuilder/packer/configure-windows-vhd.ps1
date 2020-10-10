@@ -61,7 +61,7 @@ function Get-ContainerImages {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:2004",
                 "mcr.microsoft.com/windows/nanoserver:2004",
-                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0-windows-2004-amd64")
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0")
             Write-Log "Pulling images for windows server core 2004"
         }
         default {
