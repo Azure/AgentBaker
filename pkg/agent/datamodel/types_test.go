@@ -160,59 +160,6 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 	}
 }
 
-func TestPropertiesIsHostedMasterProfile(t *testing.T) {
-	cases := []struct {
-		name     string
-		p        Properties
-		expected bool
-	}{
-		{
-			name: "valid master 1 node",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 1,
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "valid master 3 nodes",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 3,
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "valid master 5 nodes",
-			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 5,
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "zero value hosted master",
-			p: Properties{
-				HostedMasterProfile: &HostedMasterProfile{},
-			},
-			expected: true,
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			if c.p.IsHostedMasterProfile() != c.expected {
-				t.Fatalf("expected IsHostedMasterProfile() to return %t but instead returned %t", c.expected, c.p.IsHostedMasterProfile())
-			}
-		})
-	}
-}
-
 func TestOSType(t *testing.T) {
 	p := Properties{
 		MasterProfile: &MasterProfile{

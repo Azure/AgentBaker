@@ -679,11 +679,6 @@ func (p *Properties) IsIPMasqAgentDisabled() bool {
 	return false
 }
 
-// IsHostedMasterProfile returns true if the cluster has a hosted master
-func (p *Properties) IsHostedMasterProfile() bool {
-	return p.HostedMasterProfile != nil
-}
-
 // HasWindows returns true if the cluster contains windows
 func (p *Properties) HasWindows() bool {
 	for _, agentPoolProfile := range p.AgentPoolProfiles {
@@ -862,16 +857,13 @@ func (p *Properties) GetNSGName() string {
 
 // GetResourcePrefix returns the prefix to use for naming cluster resources
 func (p *Properties) GetResourcePrefix() string {
-	if p.IsHostedMasterProfile() {
-		return p.K8sOrchestratorName() + "-agentpool-" + p.GetClusterID() + "-"
-	}
-	return p.K8sOrchestratorName() + "-master-" + p.GetClusterID() + "-"
+	return p.K8sOrchestratorName() + "-agentpool-" + p.GetClusterID() + "-"
 }
 
 // GetVirtualNetworkName returns the virtual network name of the cluster
 func (p *Properties) GetVirtualNetworkName() string {
 	var vnetName string
-	if p.IsHostedMasterProfile() && p.AreAgentProfilesCustomVNET() {
+	if p.AreAgentProfilesCustomVNET() {
 		vnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetNameResourceSegmentIndex]
 	} else {
 		vnetName = p.K8sOrchestratorName() + "-vnet-" + p.GetClusterID()
@@ -882,7 +874,7 @@ func (p *Properties) GetVirtualNetworkName() string {
 // GetVNetResourceGroupName returns the virtual network resource group name of the cluster
 func (p *Properties) GetVNetResourceGroupName() string {
 	var vnetResourceGroupName string
-	if p.IsHostedMasterProfile() && p.AreAgentProfilesCustomVNET() {
+	if p.AreAgentProfilesCustomVNET() {
 		vnetResourceGroupName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetResourceGroupSegmentIndex]
 	}
 	return vnetResourceGroupName
