@@ -1113,54 +1113,6 @@ func (o *OrchestratorProfile) IsPrivateCluster() bool {
 	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.Enabled)
 }
 
-// HasCosmosEtcd returns true if cosmos etcd configuration is enabled
-func (m *MasterProfile) HasCosmosEtcd() bool {
-	return to.Bool(m.CosmosEtcd)
-}
-
-// GetCosmosEndPointURI returns the URI string for the cosmos etcd endpoint
-func (m *MasterProfile) GetCosmosEndPointURI() string {
-	if m.HasCosmosEtcd() {
-		return fmt.Sprintf("%sk8s.etcd.cosmosdb.azure.com", m.DNSPrefix)
-	}
-	return ""
-}
-
-// IsVHDDistro returns true if the distro uses VHD SKUs
-func (m *MasterProfile) IsVHDDistro() bool {
-	return strings.EqualFold(string(m.Distro), string(AKSUbuntu1604)) || strings.EqualFold(string(m.Distro), string(AKSUbuntu1804))
-}
-
-// IsUbuntu1804 returns true if the master profile distro is based on Ubuntu 18.04
-func (m *MasterProfile) IsUbuntu1804() bool {
-	switch m.Distro {
-	case AKSUbuntu1804, Ubuntu1804, Ubuntu1804Gen2:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsCustomVNET returns true if the customer brought their own VNET
-func (m *MasterProfile) IsCustomVNET() bool {
-	return len(m.VnetSubnetID) > 0
-}
-
-// IsVirtualMachineScaleSets returns true if the master availability profile is VMSS
-func (m *MasterProfile) IsVirtualMachineScaleSets() bool {
-	return strings.EqualFold(m.AvailabilityProfile, VirtualMachineScaleSets)
-}
-
-// HasAvailabilityZones returns true if the master profile has availability zones
-func (m *MasterProfile) HasAvailabilityZones() bool {
-	return m.AvailabilityZones != nil && len(m.AvailabilityZones) > 0
-}
-
-// HasMultipleNodes returns true if there are more than one master nodes
-func (m *MasterProfile) HasMultipleNodes() bool {
-	return m.Count > 1
-}
-
 // IsFeatureEnabled returns true if a feature flag is on for the provided feature
 func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 	if f != nil {
