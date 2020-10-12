@@ -3663,7 +3663,7 @@ write_files:
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
-    
+
 {{if IsKubenet }}
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
@@ -3779,7 +3779,7 @@ write_files:
     #
     # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
     # for DNS.
-    iptables -I FORWARD -d 168.63.129.16 -p tcp -j DROP
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
 runcmd:
