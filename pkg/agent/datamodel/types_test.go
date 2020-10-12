@@ -162,9 +162,6 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 
 func TestOSType(t *testing.T) {
 	p := Properties{
-		MasterProfile: &MasterProfile{
-			Distro: AKSUbuntu1604,
-		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
 				OSType: Linux,
@@ -243,10 +240,6 @@ func TestHasAvailabilityZones(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:             1,
-					AvailabilityZones: []string{"1", "2"},
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:             1,
@@ -263,9 +256,6 @@ func TestHasAvailabilityZones(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 1,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count: 1,
@@ -281,9 +271,6 @@ func TestHasAvailabilityZones(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 1,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:             1,
@@ -804,7 +791,7 @@ func TestGetSubnetName(t *testing.T) {
 		expectedSubnetName string
 	}{
 		{
-			name: "Cluster with HosterMasterProfile",
+			name: "Cluster with HostedMasterProfile",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: Kubernetes,
@@ -826,7 +813,7 @@ func TestGetSubnetName(t *testing.T) {
 			expectedSubnetName: "aks-subnet",
 		},
 		{
-			name: "Cluster with HosterMasterProfile and custom VNET",
+			name: "Cluster with HostedMasterProfile and custom VNET",
 			properties: &Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: Kubernetes,
@@ -1091,15 +1078,10 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 func TestUbuntuVersion(t *testing.T) {
 	cases := []struct {
 		p                 Properties
-		expectedAgent1604 bool
 		expectedAgent1804 bool
 	}{
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1604,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
@@ -1108,15 +1090,10 @@ func TestUbuntuVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedAgent1604: true,
 			expectedAgent1804: false,
 		},
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: AKSUbuntu1804,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
@@ -1124,15 +1101,10 @@ func TestUbuntuVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedAgent1604: true,
 			expectedAgent1804: false,
 		},
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count:  1,
-					Distro: Ubuntu,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count:  1,
@@ -1141,7 +1113,6 @@ func TestUbuntuVersion(t *testing.T) {
 					},
 				},
 			},
-			expectedAgent1604: false,
 			expectedAgent1804: false,
 		},
 	}
@@ -1160,9 +1131,6 @@ func TestIsCustomVNET(t *testing.T) {
 	}{
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					VnetSubnetID: "testSubnet",
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						VnetSubnetID: "testSubnet",
@@ -1173,9 +1141,6 @@ func TestIsCustomVNET(t *testing.T) {
 		},
 		{
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					Count: 1,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						Count: 1,
@@ -1314,9 +1279,6 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Storage Account",
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					StorageProfile: StorageAccount,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile: StorageAccount,
@@ -1337,9 +1299,6 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "Managed Disk",
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					StorageProfile: ManagedDisks,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile: StorageAccount,
@@ -1358,9 +1317,6 @@ func TestHasStorageProfile(t *testing.T) {
 		{
 			name: "both",
 			p: Properties{
-				MasterProfile: &MasterProfile{
-					StorageProfile: StorageAccount,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile: ManagedDisks,
@@ -1381,9 +1337,6 @@ func TestHasStorageProfile(t *testing.T) {
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: Kubernetes,
-				},
-				MasterProfile: &MasterProfile{
-					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
@@ -1406,9 +1359,6 @@ func TestHasStorageProfile(t *testing.T) {
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: Kubernetes,
-				},
-				MasterProfile: &MasterProfile{
-					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
@@ -1437,9 +1387,6 @@ func TestHasStorageProfile(t *testing.T) {
 						},
 					},
 				},
-				MasterProfile: &MasterProfile{
-					StorageProfile: StorageAccount,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile: StorageAccount,
@@ -1467,9 +1414,6 @@ func TestHasStorageProfile(t *testing.T) {
 						},
 					},
 				},
-				MasterProfile: &MasterProfile{
-					StorageProfile: ManagedDisks,
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile: ManagedDisks,
@@ -1488,9 +1432,6 @@ func TestHasStorageProfile(t *testing.T) {
 			p: Properties{
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: Kubernetes,
-				},
-				MasterProfile: &MasterProfile{
-					StorageProfile: ManagedDisks,
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
@@ -1517,10 +1458,6 @@ func TestHasStorageProfile(t *testing.T) {
 				OrchestratorProfile: &OrchestratorProfile{
 					OrchestratorType: Kubernetes,
 				},
-				MasterProfile: &MasterProfile{
-					StorageProfile:   ManagedDisks,
-					EncryptionAtHost: to.BoolPtr(true),
-				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile:   ManagedDisks,
@@ -1546,9 +1483,6 @@ func TestHasStorageProfile(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if to.Bool(c.p.MasterProfile.EncryptionAtHost) != c.expectedEncryptionAtHost {
-				t.Fatalf("expected EncryptionAtHost to return %v but instead returned %v", c.expectedEncryptionAtHost, to.Bool(c.p.MasterProfile.EncryptionAtHost))
-			}
 			if c.p.OrchestratorProfile != nil && c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() != c.expectedPrivateJB {
 				t.Fatalf("expected PrivateJumpboxProvision() to return %t but instead returned %t", c.expectedPrivateJB, c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision())
 			}

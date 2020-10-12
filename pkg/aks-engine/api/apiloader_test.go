@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 const (
@@ -30,7 +29,7 @@ const exampleAPIModel = `{
 				"customHyperkubeImage": "` + exampleCustomHyperkubeImage + `"
 			}
 		},
-		"masterProfile": { "count": 1, "dnsPrefix": "", "vmSize": "Standard_D2_v2" },
+		"hostedMasterProfile": { "dnsPrefix": "" },
 		"agentPoolProfiles": [ { "name": "linuxpool1", "count": 2, "vmSize": "Standard_D2_v2", "availabilityProfile": "AvailabilitySet" } ],
 		"windowsProfile": { "adminUsername": "azureuser", "adminPassword": "replacepassword1234$" },
 		"linuxProfile": { "adminUsername": "azureuser", "ssh": { "publicKeys": [ { "keyData": "" } ] }
@@ -67,12 +66,8 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 					"networkPolicy": "none"
 				}
 			},
-			"masterProfile": {
-				"dnsPrefix": "k111006",
-				"distro": "ubuntu",
-				"osDiskSizeGB": 200,
-				"count": 3,
-				"vmSize": "Standard_D2_v2"
+			"hostedMasterProfile": {
+				"dnsPrefix": "k111006"
 			},
 			"agentPoolProfiles": [
 				{
@@ -277,136 +272,9 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				OrchestratorVersion: "1.11.6",
 				KubernetesConfig:    &datamodel.KubernetesConfig{},
 			},
-			MasterProfile: &datamodel.MasterProfile{
-				Count:     1,
+			HostedMasterProfile: &datamodel.HostedMasterProfile{
 				DNSPrefix: "blueorange",
-				SubjectAltNames: []string{
-					"fooSubjectAltName",
-				},
-				CustomFiles: &[]datamodel.CustomFile{
-					{
-						Source: "sampleCustomFileSource",
-						Dest:   "sampleCustomFileDest",
-					},
-				},
-				VMSize:                   "Standard_DS1_v1",
-				OSDiskSizeGB:             256,
-				VnetSubnetID:             "sampleVnetSubnetID",
-				Subnet:                   "sampleSubnet",
-				VnetCidr:                 "10.240.0.0/8",
-				AgentVnetSubnetID:        "sampleAgentVnetSubnetID",
-				FirstConsecutiveStaticIP: "10.240.0.0",
-				IPAddressCount:           5,
-				StorageProfile:           StorageAccount,
-				HTTPSourceAddressPrefix:  "fooHTTPSourceAddressPrefix",
-				OAuthEnabled:             true,
-				PreprovisionExtension: &datamodel.Extension{
-					Name:        "sampleExtension",
-					SingleOrAll: "single",
-					Template:    "{{foobar}}",
-				},
-				Extensions: []datamodel.Extension{
-					{
-						Name:        "sampleExtension",
-						SingleOrAll: "single",
-						Template:    "{{foobar}}",
-					},
-				},
-				Distro: datamodel.Ubuntu,
-				ImageRef: &datamodel.ImageReference{
-					Name:          "FooImageRef",
-					ResourceGroup: "FooImageRefResourceGroup",
-				},
-				KubernetesConfig: &datamodel.KubernetesConfig{
-					KubernetesImageBase: "quay.io",
-					ClusterSubnet:       "fooClusterSubnet",
-					NetworkPolicy:       "calico",
-					NetworkPlugin:       "azure-cni",
-					ContainerRuntime:    "docker",
-					ContainerRuntimeConfig: map[string]string{
-						datamodel.ContainerDataDirKey: "/mnt/docker",
-					},
-					MaxPods:                         3,
-					DockerBridgeSubnet:              "sampleDockerSubnet",
-					DNSServiceIP:                    "172.0.0.1",
-					ServiceCIDR:                     "172.0.0.1/16",
-					UseManagedIdentity:              true,
-					UserAssignedID:                  "fooUserAssigneID",
-					UserAssignedClientID:            "fooUserAssigneClientID",
-					MobyVersion:                     "3.0.0",
-					CustomHyperkubeImage:            "",
-					ContainerdVersion:               "1.2.4",
-					CustomCcmImage:                  "sampleCCMImage",
-					UseCloudControllerManager:       to.BoolPtr(true),
-					CustomWindowsPackageURL:         "https://deisartifacts.windows.net",
-					WindowsNodeBinariesURL:          "https://deisartifacts.windows.net",
-					UseInstanceMetadata:             to.BoolPtr(true),
-					ExcludeMasterFromStandardLB:     to.BoolPtr(false),
-					EnableRbac:                      to.BoolPtr(true),
-					EnableSecureKubelet:             to.BoolPtr(true),
-					EnableAggregatedAPIs:            true,
-					EnableDataEncryptionAtRest:      to.BoolPtr(true),
-					EnablePodSecurityPolicy:         to.BoolPtr(true),
-					EnableEncryptionWithExternalKms: to.BoolPtr(true),
-					GCHighThreshold:                 85,
-					GCLowThreshold:                  80,
-					EtcdVersion:                     "3.0.0",
-					EtcdDiskSizeGB:                  "256",
-					EtcdEncryptionKey:               "sampleEncruptionKey",
-					AzureCNIVersion:                 "1.1.2",
-					AzureCNIURLLinux:                "https://mirror.azk8s.cn/kubernetes/azure-container-networking/linux",
-					AzureCNIURLWindows:              "https://mirror.azk8s.cn/kubernetes/azure-container-networking/windows",
-					KeyVaultSku:                     "Basic",
-					MaximumLoadBalancerRuleCount:    3,
-					ProxyMode:                       datamodel.KubeProxyModeIPTables,
-					PrivateAzureRegistryServer:      "sampleRegistryServerURL",
-					KubeletConfig: map[string]string{
-						"barKey": "bazValue",
-					},
-					Addons: []datamodel.KubernetesAddon{
-						{
-							Name:    "sampleAddon",
-							Enabled: to.BoolPtr(true),
-							Containers: []datamodel.KubernetesContainerSpec{
-								{
-									Name:           "sampleK8sContainer",
-									Image:          "sampleK8sImage",
-									MemoryRequests: "20Mi",
-									CPURequests:    "10m",
-								},
-							},
-							Config: map[string]string{
-								"sampleKey": "sampleVal",
-							},
-						},
-					},
-					APIServerConfig: map[string]string{
-						"sampleAPIServerKey": "sampleAPIServerVal",
-					},
-					ControllerManagerConfig: map[string]string{
-						"sampleCMKey": "sampleCMVal",
-					},
-					CloudControllerManagerConfig: map[string]string{
-						"sampleCCMKey": "sampleCCMVal",
-					},
-					SchedulerConfig: map[string]string{
-						"sampleSchedulerKey": "sampleSchedulerVal",
-					},
-					PrivateCluster: &datamodel.PrivateCluster{
-						Enabled: to.BoolPtr(true),
-						JumpboxProfile: &datamodel.PrivateJumpboxProfile{
-							Name:           "sampleJumpboxProfile",
-							VMSize:         "Standard_DS1_v2",
-							OSDiskSizeGB:   512,
-							Username:       "userName",
-							PublicKey:      ValidSSHPublicKey,
-							StorageProfile: StorageAccount,
-						},
-					},
-					PodSecurityPolicyConfig: map[string]string{
-						"samplePSPConfigKey": "samplePSPConfigVal",
-					},
-				},
+				Subnet:    "sampleSubnet",
 			},
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
@@ -450,18 +318,6 @@ func TestLoadDefaultContainerServiceProperties(t *testing.T) {
 
 	if p.OrchestratorProfile.OrchestratorType != defaultOrchestrator {
 		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s OrchestratorProfile.OrchestratorType, instead got %s", datamodel.Kubernetes, p.OrchestratorProfile.OrchestratorType)
-	}
-
-	if p.MasterProfile.Count != defaultMasterCount {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d MasterProfile.Count, instead got %d", defaultMasterCount, p.MasterProfile.Count)
-	}
-
-	if p.MasterProfile.VMSize != defaultVMSize {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s MasterProfile.VMSize, instead got %s", defaultVMSize, p.MasterProfile.VMSize)
-	}
-
-	if p.MasterProfile.OSDiskSizeGB != defaultOSDiskSizeGB {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d MasterProfile.OSDiskSizeGB, instead got %d", defaultOSDiskSizeGB, p.MasterProfile.OSDiskSizeGB)
 	}
 
 	if len(p.AgentPoolProfiles) != 1 {

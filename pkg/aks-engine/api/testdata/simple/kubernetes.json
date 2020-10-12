@@ -4,10 +4,8 @@
     "orchestratorProfile": {
       "orchestratorType": "Kubernetes"
     },
-    "masterProfile": {
-      "count": 1,
-      "dnsPrefix": "masterdns1",
-      "vmSize": "Standard_D2_v2"
+    "hostedMasterProfile": {
+      "dnsPrefix": "masterdns1"
     },
     "agentPoolProfiles": [
       {

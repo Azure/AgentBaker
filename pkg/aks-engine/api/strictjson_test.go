@@ -199,11 +199,8 @@ const jsonWithTypo = `
 	  "orchestratorProfile": {
 		"orchestratorType": "DCOS"
 	  },
-	  "masterProfile": {
-		"count": 1,
-		"dnsprefix": "masterdns1",
-		"vmsize": "Standard_D2_v2",
-		"ventSubnetID": "/this/attribute/was/mistyped"
+	  "hosteeedMasterProfile": {
+		"dnsprefix": "masterdns1"
 	  },
 	  "agentPoolProfiles": [],
 	  "linuxProfile": {
@@ -227,8 +224,8 @@ func TestStrictJSONValidationIsAppliedToVersionsAbove20170701(t *testing.T) {
 	a := &Apiloader{}
 	_, e := a.LoadContainerService([]byte(jsonWithTypo))
 	if e == nil {
-		t.Error("Expected mistyped 'ventSubnetID' key to be detected but it wasn't")
-	} else if !strings.Contains(e.Error(), "ventSubnetID") {
-		t.Errorf("Expected error on 'ventSubnetID' but error was %v", e)
+		t.Error("Expected mistyped 'hosteeedMasterProfile' key to be detected but it wasn't")
+	} else if !strings.Contains(e.Error(), "hosteeedMasterProfile") {
+		t.Errorf("Expected error on 'hosteeedMasterProfile' but error was %v", e)
 	}
 }

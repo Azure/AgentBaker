@@ -226,9 +226,6 @@ func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig
 	gc.containerService.Properties.HostedMasterProfile = &datamodel.HostedMasterProfile{
 		FQDN: "abc.aks.com",
 	}
-	gc.containerService.Properties.MasterProfile.VnetCidr = "vnetcidr"
-	gc.containerService.Properties.MasterProfile.VnetSubnetID = "VnetSubnetID"
-	fmt.Printf("Cs%++v", gc.containerService.Properties.MasterProfile)
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
 	config := &agent.NodeBootstrappingConfiguration{

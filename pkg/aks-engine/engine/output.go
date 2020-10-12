@@ -6,12 +6,10 @@ package engine
 import (
 	"fmt"
 	"path"
-	"strconv"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/api"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/pkg/errors"
 )
 
 // ArtifactWriter represents the object that writes artifacts
@@ -110,19 +108,6 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.Container
 		}
 		if e := f.SaveFileString(artifactsDir, "etcdclient.crt", properties.CertificateProfile.EtcdClientCertificate); e != nil {
 			return e
-		}
-		for i := 0; i < properties.MasterProfile.Count; i++ {
-			if len(properties.CertificateProfile.EtcdPeerPrivateKeys) <= i || len(properties.CertificateProfile.EtcdPeerCertificates) <= i {
-				return errors.New("missing etcd peer certificate/key pair")
-			}
-			k := "etcdpeer" + strconv.Itoa(i) + ".key"
-			if e := f.SaveFileString(artifactsDir, k, properties.CertificateProfile.EtcdPeerPrivateKeys[i]); e != nil {
-				return e
-			}
-			c := "etcdpeer" + strconv.Itoa(i) + ".crt"
-			if e := f.SaveFileString(artifactsDir, c, properties.CertificateProfile.EtcdPeerCertificates[i]); e != nil {
-				return e
-			}
 		}
 	}
 

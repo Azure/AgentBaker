@@ -95,11 +95,7 @@ func LoadDefaultContainerServiceProperties() (datamodel.TypeMeta, *datamodel.Pro
 		OrchestratorProfile: &datamodel.OrchestratorProfile{
 			OrchestratorType: defaultOrchestrator,
 		},
-		MasterProfile: &datamodel.MasterProfile{
-			Count:        defaultMasterCount,
-			VMSize:       defaultVMSize,
-			OSDiskSizeGB: defaultOSDiskSizeGB,
-		},
+		HostedMasterProfile: &datamodel.HostedMasterProfile{},
 		AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 			{
 				Name:         defaultAgentPoolName,
