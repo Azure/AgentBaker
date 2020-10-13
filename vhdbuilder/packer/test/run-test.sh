@@ -35,7 +35,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
         --resource-group $RESOURCE_GROUP_NAME  \
         --scripts  @$SCRIPT_PATH \
         --output json \
-        --parameters "containerRuntime=${CONTAINER_RUNTIME}")
+        --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
 fi
 # An example of failed run-command output:
 # {

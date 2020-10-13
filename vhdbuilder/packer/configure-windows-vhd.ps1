@@ -7,7 +7,8 @@
 #>
 
 param (
-    $containerRuntime
+    $containerRuntime,
+    $windowsSKU
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,14 +41,34 @@ function Disable-WindowsUpdates {
 
 function Get-ContainerImages {
     param (
-        $containerRuntime
+        $containerRuntime,
+        $windowsSKU
     )
-    $imagesToPull = @(
-        "mcr.microsoft.com/windows/servercore:ltsc2019",
-        "mcr.microsoft.com/windows/nanoserver:1809",
-        "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
-        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
-        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+
+    $imagesToPull = @()
+
+    switch ($windowsSKU) {
+        '2019' {
+            $imagesToPull = @(
+                "mcr.microsoft.com/windows/servercore:ltsc2019",
+                "mcr.microsoft.com/windows/nanoserver:1809",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+            Write-Log "Pulling images for windows server 2019"
+        }
+        '2004' {
+            $imagesToPull = @(
+                "mcr.microsoft.com/windows/servercore:2004",
+                "mcr.microsoft.com/windows/nanoserver:2004",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0")
+            Write-Log "Pulling images for windows server core 2004"
+        }
+        default {
+            Write-Log "No valid windows SKU is specified $windowsSKU"
+            exit 1
+        }
+    }
 
     if ($containerRuntime -eq 'containerd') {
         foreach ($image in $imagesToPull) {
@@ -288,6 +309,13 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
     exit 1
 }
 
+$windowsSKU = $env:WindowsSKU
+$validSKU = @('2019', '2004')
+if (-not ($validSKU -contains $windowsSKU)) {
+    Write-Host "Unsupported windows image SKU: $windowsSKU"
+    exit 1
+}
+
 switch ($env:ProvisioningPhase) {
     "1" {
         Write-Log "Performing actions for provisioning phase 1"
@@ -307,7 +335,7 @@ switch ($env:ProvisioningPhase) {
         if ($containerRuntime -eq 'containerd') {
             Install-ContainerD
         }
-        Get-ContainerImages -containerRuntime $containerRuntime
+        Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }

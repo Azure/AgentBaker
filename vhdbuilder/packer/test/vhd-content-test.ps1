@@ -6,7 +6,8 @@
 #>
 
 param (
-    $containerRuntime
+    $containerRuntime,
+    $WindowsSKU
 )
 
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
@@ -169,15 +170,32 @@ function Test-PatchInstalled
 function Test-ImagesPulled
 {
     param (
-        $containerRuntime
+        $containerRuntime,
+        $WindowsSKU
     )
-    $imagesToPull = @(
-        "mcr.microsoft.com/windows/servercore:ltsc2019",
-        "mcr.microsoft.com/windows/nanoserver:1809",
-        "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
-        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
-        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
-
+    $imagesToPull = @()
+    switch ($WindowsSKU) {
+        '2019' {
+            $imagesToPull = @(
+                "mcr.microsoft.com/windows/servercore:ltsc2019",
+                "mcr.microsoft.com/windows/nanoserver:1809",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+            Write-Log "Pulling images for windows server 2019"
+        }
+        '2004' {
+            $imagesToPull = @(
+                "mcr.microsoft.com/windows/servercore:2004",
+                "mcr.microsoft.com/windows/nanoserver:2004",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0-windows-2004-amd64")
+            Write-Log "Pulling images for windows server core 2004"
+        }
+        default {
+            Write-Log "No valid windows SKU is specified $WindowsSKU"
+            exit 1
+        }
+    }
     if ($containerRuntime -eq 'containerd') {
         $pulledImages = ctr.exe -n k8s.io -q
     }
@@ -201,4 +219,4 @@ function Test-ImagesPulled
 Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
-Test-ImagesPulled  -containerRuntime $containerRuntime
+Test-ImagesPulled  -containerRuntime $containerRuntime -WindowsSKU $WindowsSKU
