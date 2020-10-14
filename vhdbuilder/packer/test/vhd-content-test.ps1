@@ -183,17 +183,17 @@ function Test-ImagesPulled
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
-            Write-Log "Pulling images for windows server 2019"
+            Write-Output "Pulling images for windows server 2019"
         }
         '2004' {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:2004",
                 "mcr.microsoft.com/windows/nanoserver:2004",
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0-windows-2004-amd64")
-            Write-Log "Pulling images for windows server core 2004"
+            Write-Output "Pulling images for windows server core 2004"
         }
         default {
-            Write-Log "No valid windows SKU is specified $WindowsSKU"
+            Write-Output "No valid windows SKU is specified $WindowsSKU"
             exit 1
         }
     }
