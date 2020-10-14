@@ -499,48 +499,6 @@ type CustomFile struct {
 	Dest   string `json:"dest,omitempty"`
 }
 
-// MasterProfile represents the definition of the master cluster
-type MasterProfile struct {
-	Count                     int               `json:"count"`
-	DNSPrefix                 string            `json:"dnsPrefix"`
-	SubjectAltNames           []string          `json:"subjectAltNames"`
-	VMSize                    string            `json:"vmSize"`
-	OSDiskSizeGB              int               `json:"osDiskSizeGB,omitempty"`
-	VnetSubnetID              string            `json:"vnetSubnetID,omitempty"`
-	VnetCidr                  string            `json:"vnetCidr,omitempty"`
-	AgentVnetSubnetID         string            `json:"agentVnetSubnetID,omitempty"`
-	FirstConsecutiveStaticIP  string            `json:"firstConsecutiveStaticIP,omitempty"`
-	Subnet                    string            `json:"subnet"`
-	SubnetIPv6                string            `json:"subnetIPv6"`
-	IPAddressCount            int               `json:"ipAddressCount,omitempty"`
-	StorageProfile            string            `json:"storageProfile,omitempty"`
-	HTTPSourceAddressPrefix   string            `json:"HTTPSourceAddressPrefix,omitempty"`
-	OAuthEnabled              bool              `json:"oauthEnabled"`
-	PreprovisionExtension     *Extension        `json:"preProvisionExtension"`
-	Extensions                []Extension       `json:"extensions"`
-	Distro                    Distro            `json:"distro,omitempty"`
-	KubernetesConfig          *KubernetesConfig `json:"kubernetesConfig,omitempty"`
-	ImageRef                  *ImageReference   `json:"imageReference,omitempty"`
-	CustomFiles               *[]CustomFile     `json:"customFiles,omitempty"`
-	AvailabilityProfile       string            `json:"availabilityProfile"`
-	PlatformFaultDomainCount  *int              `json:"platformFaultDomainCount"`
-	PlatformUpdateDomainCount *int              `json:"platformUpdateDomainCount"`
-	AgentSubnet               string            `json:"agentSubnet,omitempty"`
-	AvailabilityZones         []string          `json:"availabilityZones,omitempty"`
-	SinglePlacementGroup      *bool             `json:"singlePlacementGroup,omitempty"`
-	AuditDEnabled             *bool             `json:"auditDEnabled,omitempty"`
-	UltraSSDEnabled           *bool             `json:"ultraSSDEnabled,omitempty"`
-	EncryptionAtHost          *bool             `json:"encryptionAtHost,omitempty"`
-	CustomVMTags              map[string]string `json:"customVMTags,omitempty"`
-	// Master LB public endpoint/FQDN with port
-	// The format will be FQDN:2376
-	// Not used during PUT, returned as part of GET
-	FQDN string `json:"fqdn,omitempty"`
-	// True: uses cosmos etcd endpoint instead of installing etcd on masters
-	CosmosEtcd                *bool  `json:"cosmosEtcd,omitempty"`
-	ProximityPlacementGroupID string `json:"proximityPlacementGroupID,omitempty"`
-}
-
 // OrchestratorProfile contains Orchestrator properties
 type OrchestratorProfile struct {
 	OrchestratorType    string            `json:"orchestratorType"`
@@ -610,7 +568,6 @@ type Properties struct {
 	ClusterID               string
 	ProvisioningState       ProvisioningState        `json:"provisioningState,omitempty"`
 	OrchestratorProfile     *OrchestratorProfile     `json:"orchestratorProfile,omitempty"`
-	MasterProfile           *MasterProfile           `json:"masterProfile,omitempty"`
 	AgentPoolProfiles       []*AgentPoolProfile      `json:"agentPoolProfiles,omitempty"`
 	LinuxProfile            *LinuxProfile            `json:"linuxProfile,omitempty"`
 	WindowsProfile          *WindowsProfile          `json:"windowsProfile,omitempty"`

@@ -17,11 +17,6 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 
 	cs.Properties = &Properties{}
 
-	cs.Properties.MasterProfile = &MasterProfile{}
-	cs.Properties.MasterProfile.Count = masterCount
-	cs.Properties.MasterProfile.DNSPrefix = "testmaster"
-	cs.Properties.MasterProfile.VMSize = "Standard_D2_v2"
-
 	cs.Properties.AgentPoolProfiles = []*AgentPoolProfile{}
 	agentPool := &AgentPoolProfile{}
 	agentPool.Count = agentCount
@@ -102,10 +97,8 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 			OrchestratorType: Kubernetes,
 			KubernetesConfig: &KubernetesConfig{},
 		},
-		MasterProfile: &MasterProfile{
-			Count:     1,
+		HostedMasterProfile: &HostedMasterProfile{
 			DNSPrefix: "foo",
-			VMSize:    "Standard_DS2_v2",
 		},
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{

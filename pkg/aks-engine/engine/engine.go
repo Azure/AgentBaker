@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/pkg/errors"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure" // register azure (AD) authentication plugin
@@ -64,13 +63,6 @@ func GenerateKubeConfig(properties *datamodel.Properties, location string, cloud
 	kubeconfig := string(k8sKubeconfigJson)
 	// variable replacement
 	kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVerbatim \"parameters('caCertificate')\"}}", base64.StdEncoding.EncodeToString([]byte(properties.CertificateProfile.CaCertificate)), -1)
-	if !(properties.OrchestratorProfile != nil &&
-		properties.OrchestratorProfile.KubernetesConfig != nil &&
-		properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
-		to.Bool(properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.Enabled)) {
-		kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVerbatim \"reference(concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))).dnsSettings.fqdn\"}}", datamodel.FormatProdFQDNByLocation(properties.MasterProfile.DNSPrefix, location, cloudSpecConfig), -1)
-	}
-	kubeconfig = strings.Replace(kubeconfig, "{{WrapAsVariable \"resourceGroup\"}}", properties.MasterProfile.DNSPrefix, -1)
 
 	var authInfo string
 	if properties.AADProfile == nil {
