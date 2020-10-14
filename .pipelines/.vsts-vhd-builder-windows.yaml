@@ -155,6 +155,7 @@ jobs:
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      WINDOWS_VERSION="$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
       SKU_NAME="windows-$WINDOWS_SKU" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -169,6 +170,8 @@ jobs:
       -e OS_NAME="Windows" \
       -e SKU_NAME=${SKU_NAME} \
       -e OFFER_NAME="Windows" \
+      -e IMAGE_VERSION=${WINDOWS_VERSION} \
+      -e HYPERV_GENERATION="V1" \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
