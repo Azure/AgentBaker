@@ -49,20 +49,14 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		EnableSecureKubelet:     to.BoolPtr(true),
 		EnableRbac:              to.BoolPtr(true),
-		EtcdDiskSizeGB:          DefaultEtcdDiskSize,
-		ServiceCIDR:             DefaultKubernetesServiceCIDR,
-		DockerBridgeSubnet:      DefaultDockerBridgeSubnet,
-		DNSServiceIP:            DefaultKubernetesDNSServiceIP,
-		GCLowThreshold:          DefaultKubernetesGCLowThreshold,
-		GCHighThreshold:         DefaultKubernetesGCHighThreshold,
-		MaxPods:                 DefaultKubernetesMaxPodsVNETIntegrated,
-		ClusterSubnet:           DefaultKubernetesSubnet,
-		ContainerRuntime:        DefaultContainerRuntime,
+		EtcdDiskSizeGB:          "256",
+		DockerBridgeSubnet:      "172.17.0.1/16",
+		GCLowThreshold:          80,
+		GCHighThreshold:         85,
+		MaxPods:                 30,
+		ClusterSubnet:           "10.240.0.0/12",
+		ContainerRuntime:        Docker,
 		NetworkPlugin:           "kubenet",
-		NetworkPolicy:           DefaultNetworkPolicy,
-		EtcdVersion:             DefaultEtcdVersion,
-		MobyVersion:             DefaultMobyVersion,
-		ContainerdVersion:       DefaultContainerdVersion,
 		LoadBalancerSku:         "Basic",
 		KubeletConfig:           make(map[string]string),
 		ControllerManagerConfig: make(map[string]string),
@@ -159,7 +153,7 @@ func getMockAddon(name string) KubernetesAddon {
 
 var (
 	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
-		CloudName: AzurePublicCloud,
+		CloudName: "AzurePublicCloud",
 		//DockerSpecConfig specify the docker engine download repo
 		DockerSpecConfig: DockerSpecConfig{
 			DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
@@ -177,14 +171,14 @@ var (
 			EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
 			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
-			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-" + CNIPluginVer + ".tgz",
-			VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + AzureCniPluginVerLinux + ".tgz",
-			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/" + AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + AzureCniPluginVerWindows + ".zip",
+			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+			VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
 			ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 			CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-" + DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
-			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + WindowsPauseImageVersion,
-			AlwaysPullWindowsPauseImage:          DefaultAlwaysPullWindowsPauseImage,
+			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+			AlwaysPullWindowsPauseImage:          false,
 		},
 
 		EndpointConfig: AzureEndpointConfig{

@@ -68,7 +68,7 @@ func newGenerateCmd() *cobra.Command {
 			}
 
 			azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
-				CloudName: datamodel.AzurePublicCloud,
+				CloudName: "AzurePublicCloud",
 				//DockerSpecConfig specify the docker engine download repo
 				DockerSpecConfig: datamodel.DockerSpecConfig{
 					DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
@@ -86,14 +86,14 @@ func newGenerateCmd() *cobra.Command {
 					EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
 					KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 					WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
-					CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-" + datamodel.CNIPluginVer + ".tgz",
-					VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/" + datamodel.AzureCniPluginVerLinux + "/binaries/azure-vnet-cni-linux-amd64-" + datamodel.AzureCniPluginVerLinux + ".tgz",
-					VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/" + datamodel.AzureCniPluginVerWindows + "/binaries/azure-vnet-cni-singletenancy-windows-amd64-" + datamodel.AzureCniPluginVerWindows + ".zip",
+					CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+					VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+					VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
 					ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 					CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-					WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-" + datamodel.DefaultWindowsProvisioningScriptsPackageVersion + ".zip",
-					WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:" + datamodel.WindowsPauseImageVersion,
-					AlwaysPullWindowsPauseImage:          datamodel.DefaultAlwaysPullWindowsPauseImage,
+					WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+					WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+					AlwaysPullWindowsPauseImage:          false,
 				},
 
 				EndpointConfig: datamodel.AzureEndpointConfig{

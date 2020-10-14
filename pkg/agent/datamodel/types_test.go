@@ -91,7 +91,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 					KubernetesConfig: &KubernetesConfig{
 						Addons: []KubernetesAddon{
 							{
-								Name:    CoreDNSAddonName,
+								Name:    "coredns",
 								Enabled: to.BoolPtr(true),
 							},
 						},
@@ -2034,6 +2034,8 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 }
 
 func TestGetAddonByName(t *testing.T) {
+	ContainerMonitoringAddonName := "container-monitoring"
+
 	// Addon present and enabled with logAnalyticsWorkspaceResourceId in config
 	b := true
 	c := KubernetesConfig{
