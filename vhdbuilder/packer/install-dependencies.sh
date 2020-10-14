@@ -471,7 +471,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.18.9
 # v1.19.0
 # v1.19.1-hotfix.20200923
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP
+# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.15.11-hotfix.20200529.1
 1.15.12-hotfix.20200623.1
