@@ -320,8 +320,8 @@ for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
 done
 
 CALICO_NODE_IMAGES="
-v3.5.0
 v3.8.0
+v3.8.9
 "
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
@@ -330,8 +330,8 @@ for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
 done
 
 CALICO_TYPHA_IMAGES="
-v3.5.0
 v3.8.0
+v3.8.9
 "
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:${CALICO_TYPHA_IMAGE}"
@@ -339,7 +339,10 @@ for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-CALICO_POD2DAEMON_IMAGES="v3.8.0"
+CALICO_POD2DAEMON_IMAGES="
+v3.8.0
+v3.8.9
+"
 for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:${CALICO_POD2DAEMON_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
