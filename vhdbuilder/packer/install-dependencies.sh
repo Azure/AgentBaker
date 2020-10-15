@@ -412,7 +412,6 @@ done
 # v1.19.1-hotfix.20200923
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
-1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200824.1
 1.15.12-hotfix.20200824.1
@@ -478,11 +477,9 @@ PATCHED_HYPERKUBE_IMAGES="
 1.15.12-hotfix.20200714.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200623.1
-1.16.10-hotfix.20200714.1
 1.16.10-hotfix.20200817.1
 1.16.10-hotfix.20200824.1
 1.16.13-hotfix.20200714.1
-1.16.13-hotfix.20200817.1
 1.16.13-hotfix.20200824.1
 1.16.15-hotfix.20200903
 1.17.3-hotfix.20200601.1
@@ -490,14 +487,12 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.7-hotfix.20200714.1
 1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200714.1
-1.17.9-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
 1.17.12
 1.18.4-hotfix.20200624
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
-1.18.6
 1.18.8
 1.18.8-hotfix.20200924
 1.18.9
