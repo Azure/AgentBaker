@@ -310,8 +310,8 @@ done
 
 # calico images used by AKS
 CALICO_CNI_IMAGES="
-v3.5.0
 v3.8.0
+v3.8.9
 "
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
@@ -376,6 +376,7 @@ done
 AKS_IP_MASQ_AGENT_VERSIONS="
 2.5.0
 2.5.0.1
+2.5.0.2
 "
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
