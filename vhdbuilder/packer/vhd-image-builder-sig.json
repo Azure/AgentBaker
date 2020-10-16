@@ -222,8 +222,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.0.0-master.354.amd64.deb",
-      "destination": "/home/packer/asc-baseline-1.0.0-master.354.amd64.deb"
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-master.370.amd64.deb",
+      "destination": "/home/packer/asc-baseline.deb"
     },
     {
       "type": "file",
