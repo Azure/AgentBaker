@@ -138,12 +138,12 @@ configPrivateClusterHosts
 configureTransparentHugePage
 {{- end}}
 
+{{- if ShouldConfigSwapFile}}
+configureSwapFile
+{{- end}}
+
 ensureKubelet
 ensureJournal
-
-{{- if ShouldConfigSysctl}}
-configureSysctl
-{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then

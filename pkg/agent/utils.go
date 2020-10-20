@@ -408,10 +408,6 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 		StaticPodPath: kc["--pod-manifest-path"],
 		Authorization: KubeletAuthorization{
 			Mode: KubeletAuthorizationMode(kc["--authorization-mode"]),
-			Webhook: KubeletWebhookAuthorization{
-				CacheAuthorizedTTL:   Duration(KubeletCacheAuthorizedTTL),
-				CacheUnauthorizedTTL: Duration(KubeletCacheUnauthorizedTTL),
-			},
 		},
 		ClusterDNS:                     strings.Split(kc["--cluster-dns"], ","),
 		CgroupsPerQOS:                  strToBoolPtr(kc["--cgroups-per-qos"]),
@@ -434,24 +430,21 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 	}
 
 	// Authentication
-	kubeletConfig.Authentication = KubeletAuthentication{
-		X509: KubeletX509Authentication{},
-		Webhook: KubeletWebhookAuthentication{
-			Enabled:  false,
-			CacheTTL: Duration(KubeletWebhookAuthenticationCacheTTL),
-		},
-		Anonymous: KubeletAnonymousAuthentication{
-			Enabled: true,
-		},
-	}
+	kubeletConfig.Authentication = KubeletAuthentication{}
 	if ca := kc["--client-ca-file"]; ca != "" {
-		kubeletConfig.Authentication.X509.ClientCAFile = ca
+		kubeletConfig.Authentication.X509 = KubeletX509Authentication{
+			ClientCAFile: ca,
+		}
 	}
 	if aw := kc["--authentication-token-webhook"]; aw != "" {
-		kubeletConfig.Authentication.Webhook.Enabled = strToBool(aw)
+		kubeletConfig.Authentication.Webhook = KubeletWebhookAuthentication{
+			Enabled: strToBool(aw),
+		}
 	}
 	if aa := kc["--anonymous-auth"]; aa != "" {
-		kubeletConfig.Authentication.Anonymous.Enabled = strToBool(aa)
+		kubeletConfig.Authentication.Anonymous = KubeletAnonymousAuthentication{
+			Enabled: strToBool(aa),
+		}
 	}
 
 	// EvictionHard
@@ -490,51 +483,15 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 			kubeletConfig.ImageGCLowThresholdPercent = customKc.ImageGcLowThreshold
 		}
 		if customKc.AllowedUnsafeSysctls != nil {
-			kubeletConfig.AllowedUnsafeSysctls = customKc.AllowedUnsafeSysctls
+			kubeletConfig.AllowedUnsafeSysctls = *customKc.AllowedUnsafeSysctls
+		}
+		if customKc.FailSwapOn != nil {
+			kubeletConfig.FailSwapOn = customKc.FailSwapOn
 		}
 	}
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)
-}
-
-// GetSysctlConfigFileContent gets sysctl config file content
-// this func sorts the keys so that the order is fixed (mainly for test assertions)
-func GetSysctlConfigFileContent(osConfig *datamodel.CustomOSConfig) string {
-	buf := bytes.Buffer{}
-	customConfigExists := osConfig != nil && osConfig.Sysctls != nil
-	if customConfigExists {
-		keys := []string{}
-		for k := range osConfig.Sysctls {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			buf.WriteString(fmt.Sprintf("%s=%s\n", k, osConfig.Sysctls[k]))
-		}
-	}
-
-	keys := []string{}
-	for k := range SysctlDefaults {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for _, k := range keys {
-		if !customConfigExists || osConfig.Sysctls[k] == "" {
-			buf.WriteString(fmt.Sprintf("%s=%s\n", k, SysctlDefaults[k]))
-		}
-	}
-
-	return buf.String()
-}
-
-func GetBoolPtr(b bool) *bool {
-	return &b
-}
-
-func GetInt32Ptr(i int32) *int32 {
-	return &i
 }
 
 func strToBool(str string) bool {

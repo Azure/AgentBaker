@@ -84,32 +84,7 @@ ensureAuditD() {
     fi
   fi
 }
-
-configureSysctl() {
-    set +x
-    SYSCTL_CONFIG_PATH="/etc/sysctl.d/99-sysctl-aks.conf"
-    touch "${SYSCTL_CONFIG_PATH}"
-    chmod 0644 "${SYSCTL_CONFIG_PATH}"
-    chown root:root "${SYSCTL_CONFIG_PATH}"
-    cat << EOF > "${SYSCTL_CONFIG_PATH}"
-net.core.somaxconn=16384
-net.ipv4.ip_local_port_range=32768 60999
-net.ipv4.tcp_tw_reuse=1
-net.core.message_burst=80
-net.core.message_cost=40
-net.ipv4.neigh.default.gc_thresh1=4096
-net.ipv4.neigh.default.gc_thresh2=8192
-net.ipv4.neigh.default.gc_thresh3=16384
-net.ipv4.tcp_max_syn_backlog=16384
-net.ipv4.tcp_retries2=8
-
-EOF
-    retrycmd_if_failure 100 5 30 sysctl --system
-    set -x
-}
-
 configureTransparentHugePage() {
-    set +x
     THP_CONFIG_PATH="/etc/sysfs.conf"
     THP_ENABLED=never
     if [[ "${THP_ENABLED}" != "" ]]; then
@@ -121,7 +96,14 @@ configureTransparentHugePage() {
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
     fi
-    set -x
+}
+configureSwapFile() {
+    SWAP_SIZE_KB=$(expr 1500 \* 1000)
+    DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
+    if [[ ${DISK_FREE_KB} -le ${SWAP_SIZE_KB} ]]; then
+        exit $ERR_SWAP_FILE_CREAT_INSUFFICIENT_DISK_SPACE
+    fi
+    fallocate -l ${SWAP_SIZE_KB}M /swapfile || exit $ERR_SWAP_FILE_CREAT_FAIL
 }
 
 configureKubeletServerCert() {
@@ -231,17 +213,13 @@ EOF
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
         },
         "webhook": {
-            "enabled": true,
-            "cacheTTL": "2m0s"
+            "enabled": true
         },
         "anonymous": {}
     },
     "authorization": {
         "mode": "Webhook",
-        "webhook": {
-            "cacheAuthorizedTTL": "5m0s",
-            "cacheUnauthorizedTTL": "30s"
-        }
+        "webhook": {}
     },
     "eventRecordQPS": 0,
     "clusterDomain": "cluster.local",
@@ -272,6 +250,7 @@ EOF
         "a": false,
         "x": false
     },
+    "failSwapOn": true,
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"

@@ -238,31 +238,24 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
 		"ShouldConfigSysctl": func() bool {
-			if profile.CustomOSConfig == nil || profile.CustomOSConfig.Sysctls == nil {
-				return false
-			}
-			return len(profile.CustomOSConfig.Sysctls) != 0
-		},
-		"GetSysctlConfigFileContent": func() string {
-			return GetSysctlConfigFileContent(profile.CustomOSConfig)
+			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
 		},
 		"ShouldConfigTransparentHugePage": func() bool {
-			if profile.CustomOSConfig == nil {
-				return false
-			}
-			return profile.CustomOSConfig.TransparentHugePageEnabled != "" || profile.CustomOSConfig.TransparentHugePageDefrag != ""
+			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
 		},
 		"GetTransparentHugePageEnabled": func() string {
-			if profile.CustomOSConfig == nil {
-				return ""
-			}
-			return profile.CustomOSConfig.TransparentHugePageEnabled
+			return profile.CustomLinuxOSConfig.TransparentHugePageEnabled
 		},
 		"GetTransparentHugePageDefrag": func() string {
-			if profile.CustomOSConfig == nil {
-				return ""
-			}
-			return profile.CustomOSConfig.TransparentHugePageDefrag
+			return profile.CustomLinuxOSConfig.TransparentHugePageDefrag
+		},
+		"ShouldConfigSwapFile": func() bool {
+			// only configure swap file when FailSwapOn is true and SwapFileSizeMB is valid
+			return profile.CustomKubeletConfig != nil && profile.CustomKubeletConfig.FailSwapOn != nil && *profile.CustomKubeletConfig.FailSwapOn &&
+				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
+		},
+		"GetSwapFileSizeMB": func() int32 {
+			return *profile.CustomLinuxOSConfig.SwapFileSizeMB
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
@@ -579,6 +572,15 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"CloseBraces": func() string {
 			return "}}"
+		},
+		"BoolPtrToInt": func(p *bool) int {
+			if p == nil {
+				return 0
+			}
+			if v := *p; v {
+				return 1
+			}
+			return 0
 		},
 	}
 }

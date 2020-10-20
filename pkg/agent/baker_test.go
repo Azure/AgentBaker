@@ -212,25 +212,31 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
 		}),
-		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomOSConfig", "1.16.13", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *NodeBootstrappingConfiguration) {
 			config.EnableDynamicKubelet = true
+			netIpv4TcpTwReuse := true
+			failSwapOn := true
+			var swapFileSizeMB int32 = 1500
+			var netCoreSomaxconn int32 = 1638499
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
 				CPUManagerPolicy:      "static",
-				CPUCfsQuota:           GetBoolPtr(false),
+				CPUCfsQuota:           to.BoolPtr(false),
 				CPUCfsQuotaPeriod:     "200ms",
-				ImageGcHighThreshold:  GetInt32Ptr(90),
-				ImageGcLowThreshold:   GetInt32Ptr(70),
+				ImageGcHighThreshold:  to.Int32Ptr(90),
+				ImageGcLowThreshold:   to.Int32Ptr(70),
 				TopologyManagerPolicy: "best-effort",
-				AllowedUnsafeSysctls:  []string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				FailSwapOn:            &failSwapOn,
 			}
-			config.ContainerService.Properties.AgentPoolProfiles[0].CustomOSConfig = &datamodel.CustomOSConfig{
-				Sysctls: map[string]string{
-					"net.core.somaxconn":           "16384",
-					"net.ipv4.tcp_tw_reuse":        "1",
-					"net.ipv4.ip_local_port_range": "32768 60999",
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				Sysctls: &datamodel.SysctlConfig{
+					NetCoreSomaxconn:        &netCoreSomaxconn,
+					NetIpv4TcpTwReuse:       &netIpv4TcpTwReuse,
+					NetIpv4IpLocalPortRange: "32768 60999",
 				},
 				TransparentHugePageEnabled: "never",
 				TransparentHugePageDefrag:  "defer+madvise",
+				SwapFileSizeMB:             &swapFileSizeMB,
 			}
 		}))
 

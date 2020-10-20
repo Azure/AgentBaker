@@ -293,6 +293,12 @@ type AKSKubeletConfiguration struct {
 	// Default: nil
 	// +optional
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
+	// failSwapOn tells the Kubelet to fail to start if swap is enabled on the node.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// setting it to true will cause the Kubelet to crash-loop if swap is enabled.
+	// Default: true
+	// +optional
+	FailSwapOn *bool `json:"failSwapOn,omitempty"`
 
 	/* the following fields are meant for Node Allocatable */
 

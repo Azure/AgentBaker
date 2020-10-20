@@ -514,20 +514,54 @@ type AgentPoolProfileRole string
 
 // CustomKubeletConfig represents custom kubelet configurations for agent pool nodes
 type CustomKubeletConfig struct {
-	CPUManagerPolicy      string   `json:"cpuManagerPolicy,omitempty"`
-	CPUCfsQuota           *bool    `json:"cpuCfsQuota,omitempty"`
-	CPUCfsQuotaPeriod     string   `json:"cpuCfsQuotaPeriod,omitempty"`
-	ImageGcHighThreshold  *int32   `json:"imageGcHighThreshold,omitempty"`
-	ImageGcLowThreshold   *int32   `json:"imageGcLowThreshold,omitempty"`
-	TopologyManagerPolicy string   `json:"topologyManagerPolicy,omitempty"`
-	AllowedUnsafeSysctls  []string `json:"allowedUnsafeSysctls,omitempty"`
+	CPUManagerPolicy      string    `json:"cpuManagerPolicy,omitempty"`
+	CPUCfsQuota           *bool     `json:"cpuCfsQuota,omitempty"`
+	CPUCfsQuotaPeriod     string    `json:"cpuCfsQuotaPeriod,omitempty"`
+	ImageGcHighThreshold  *int32    `json:"imageGcHighThreshold,omitempty"`
+	ImageGcLowThreshold   *int32    `json:"imageGcLowThreshold,omitempty"`
+	TopologyManagerPolicy string    `json:"topologyManagerPolicy,omitempty"`
+	AllowedUnsafeSysctls  *[]string `json:"allowedUnsafeSysctls,omitempty"`
+	FailSwapOn            *bool     `json:"failSwapOn,omitempty"`
 }
 
-// CustomOSConfig represents custom os configurations for agent pool nodes
-type CustomOSConfig struct {
-	Sysctls                    map[string]string `json:"sysctls,omitempty"`
-	TransparentHugePageEnabled string            `json:"transparentHugePageEnabled,omitempty"`
-	TransparentHugePageDefrag  string            `json:"transparentHugePageDefrag,omitempty"`
+// CustomLinuxOSConfig represents custom os configurations for agent pool nodes
+type CustomLinuxOSConfig struct {
+	Sysctls                    *SysctlConfig `json:"sysctls,omitempty"`
+	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
+	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
+	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+}
+
+// SysctlConfig represents sysctl configs in customLinuxOsConfig
+type SysctlConfig struct {
+	NetCoreSomaxconn               *int32 `json:"netCoreSomaxconn,omitempty"`
+	NetCoreNetdevMaxBacklog        *int32 `json:"netCoreNetdevMaxBacklog,omitempty"`
+	NetCoreRmemMax                 *int32 `json:"netCoreRmemMax,omitempty"`
+	NetCoreWmemMax                 *int32 `json:"netCoreWmemMax,omitempty"`
+	NetCoreOptmemMax               *int32 `json:"netCoreOptmemMax,omitempty"`
+	NetIpv4TcpMaxSynBacklog        *int32 `json:"netIpv4TcpMaxSynBacklog,omitempty"`
+	NetIpv4TcpMaxTwBuckets         *int32 `json:"netIpv4TcpMaxTwBuckets,omitempty"`
+	NetIpv4TcpFinTimeout           *int32 `json:"netIpv4TcpFinTimeout,omitempty"`
+	NetIpv4TcpKeepaliveTime        *int32 `json:"netIpv4TcpKeepaliveTime,omitempty"`
+	NetIpv4TcpKeepaliveProbes      *int32 `json:"netIpv4TcpKeepaliveProbes,omitempty"`
+	NetIpv4TcpkeepaliveIntvl       *int32 `json:"netIpv4TcpkeepaliveIntvl,omitempty"`
+	NetIpv4TcpRmem                 *int32 `json:"netIpv4TcpRmem,omitempty"`
+	NetIpv4TcpWmem                 *int32 `json:"netIpv4TcpWmem,omitempty"`
+	NetIpv4TcpTwReuse              *bool  `json:"netIpv4TcpTwReuse,omitempty"`
+	NetIpv4IpLocalPortRange        string `json:"netIpv4IpLocalPortRange,omitempty"`
+	NetIpv4NeighDefaultGcThresh1   *int32 `json:"netIpv4NeighDefaultGcThresh1,omitempty"`
+	NetIpv4NeighDefaultGcThresh2   *int32 `json:"netIpv4NeighDefaultGcThresh2,omitempty"`
+	NetIpv4NeighDefaultGcThresh3   *int32 `json:"netIpv4NeighDefaultGcThresh3,omitempty"`
+	NetNetfilterNfConntrackMax     *int32 `json:"netNetfilterNfConntrackMax,omitempty"`
+	NetNetfilterNfConntrackBuckets *int32 `json:"netNetfilterNfConntrackBuckets,omitempty"`
+	FsInotifyMaxUserWatches        *int32 `json:"fsInotifyMaxUserWatches,omitempty"`
+	FsFileMax                      *int32 `json:"fsFileMax,omitempty"`
+	FsAioMaxNr                     *int32 `json:"fsAioMaxNr,omitempty"`
+	FsNrOpen                       *int32 `json:"fsNrOpen,omitempty"`
+	KernelThreadsMax               *int32 `json:"kernelThreadsMax,omitempty"`
+	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
+	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
+	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
 }
 
 // AgentPoolProfile represents an agent pool definition
@@ -580,7 +614,7 @@ type AgentPoolProfile struct {
 	EncryptionAtHost                    *bool                `json:"encryptionAtHost,omitempty"`
 	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
 	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
-	CustomOSConfig                      *CustomOSConfig      `json:"customOsConfig,omitempty"`
+	CustomLinuxOSConfig                 *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 }
 
 // Properties represents the AKS cluster definition

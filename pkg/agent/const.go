@@ -196,10 +196,4 @@ const (
 const (
 	// DynamicKubeletConfigDir specifies the directory for dynamic kubelet to store configs
 	DynamicKubeletConfigDir = "/var/lib/kubelet"
-	// KubeletCacheAuthorizedTTL is CacheAuthorizedTTL for kubelet authorization
-	KubeletCacheAuthorizedTTL = "5m0s"
-	// KubeletCacheUnauthorizedTTL is CacheUnauthorizedTTL for kubelet authorization
-	KubeletCacheUnauthorizedTTL = "30s"
-	// KubeletWebhookAuthenticationCacheTTL is CacheTTL for KubeletWebhookAuthentication
-	KubeletWebhookAuthenticationCacheTTL = "2m0s"
 )

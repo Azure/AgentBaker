@@ -610,21 +610,8 @@ ensureAuditD() {
   fi
 }
 
-configureSysctl() {
-    set +x
-    SYSCTL_CONFIG_PATH="/etc/sysctl.d/99-sysctl-aks.conf"
-    touch "${SYSCTL_CONFIG_PATH}"
-    chmod 0644 "${SYSCTL_CONFIG_PATH}"
-    chown root:root "${SYSCTL_CONFIG_PATH}"
-    cat << EOF > "${SYSCTL_CONFIG_PATH}"
-{{GetSysctlConfigFileContent}}
-EOF
-    retrycmd_if_failure 100 5 30 sysctl --system
-    set -x
-}
-
+{{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
-    set +x
     THP_CONFIG_PATH="/etc/sysfs.conf"
     THP_ENABLED={{GetTransparentHugePageEnabled}}
     if [[ "${THP_ENABLED}" != "" ]]; then
@@ -636,8 +623,19 @@ configureTransparentHugePage() {
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
     fi
-    set -x
 }
+{{- end}}
+
+{{- if ShouldConfigSwapFile}}
+configureSwapFile() {
+    SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
+    if [[ ${DISK_FREE_KB} -le ${SWAP_SIZE_KB} ]]; then
+        exit $ERR_SWAP_FILE_CREAT_INSUFFICIENT_DISK_SPACE
+    fi
+    fallocate -l ${SWAP_SIZE_KB}M /swapfile || exit $ERR_SWAP_FILE_CREAT_FAIL
+}
+{{- end}}
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -1161,6 +1159,9 @@ ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azure Resource Manager */}}
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
+
+ERR_SWAP_FILE_CREAT_INSUFFICIENT_DISK_SPACE=130 {{/* Error insufficient disk space for swap file creation */}}
+ERR_SWAP_FILE_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1921,12 +1922,12 @@ configPrivateClusterHosts
 configureTransparentHugePage
 {{- end}}
 
+{{- if ShouldConfigSwapFile}}
+configureSwapFile
+{{- end}}
+
 ensureKubelet
 ensureJournal
-
-{{- if ShouldConfigSysctl}}
-configureSysctl
-{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -2522,8 +2523,6 @@ ExecStartPre=/bin/mkdir -p /var/lib/kubelet
 ExecStartPre=/bin/mkdir -p /var/lib/cni
 ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le 0 ] ; then /bin/mount --bind /var/lib/kubelet /var/lib/kubelet ; fi"
 ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
-{{/* This is a partial workaround to this upstream Kubernetes issue: */}}
-{{/* https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731 */}}
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
@@ -3808,6 +3807,111 @@ write_files:
     # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
     # for DNS.
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    #EOF
+
+- path: /etc/sysctl.d/99-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue: */}}
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731 */}}
+    net.ipv4.tcp_retries2=8
+    net.ipv4.tcp_max_syn_backlog=16384
+    net.core.somaxconn=16384
+    net.core.message_burst=80
+    net.core.message_cost=40
+    net.ipv4.neigh.default.gc_thresh1=4096
+    net.ipv4.neigh.default.gc_thresh2=8192
+    net.ipv4.neigh.default.gc_thresh3=16384
+    
+{{if ShouldConfigSysctl}}
+    # The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreSomaxconn}}
+    net.core.somaxconn={{$s.NetCoreSomaxconn}}
+{{- end}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+    net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+    net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+    net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxSynBacklog}}
+    net.ipv4.tcp_max_syn_backlog={{$s.NetIpv4TcpMaxSynBacklog}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpRmem}}
+    net.ipv4.tcp_rmem={{$s.NetIpv4TcpRmem}}
+{{- end}}
+{{- if $s.NetIpv4TcpWmem}}
+    net.ipv4.tcp_wmem={{$s.NetIpv4TcpWmem}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetIpv4NeighDefaultGcThresh1}}
+    net.ipv4.neigh.default.gc_thresh1={{$s.NetIpv4NeighDefaultGcThresh1}}
+{{- end}}
+{{- if $s.NetIpv4NeighDefaultGcThresh2}}
+    net.ipv4.neigh.default.gc_thresh2={{$s.NetIpv4NeighDefaultGcThresh2}}
+{{- end}}
+{{- if $s.NetIpv4NeighDefaultGcThresh3}}
+    net.ipv4.neigh.default.gc_thresh3={{$s.NetIpv4NeighDefaultGcThresh3}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+    fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+    fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+    fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+    kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+    vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+    vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
     #EOF
 
 runcmd:
