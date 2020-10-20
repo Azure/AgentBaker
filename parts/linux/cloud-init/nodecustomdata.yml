@@ -418,7 +418,7 @@ write_files:
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
-- path: /etc/sysctl.d/99-sysctl-aks.conf
+- path: /etc/sysctl.d/999-sysctl-aks.conf
   permissions: "0644"
   owner: root
   content: |

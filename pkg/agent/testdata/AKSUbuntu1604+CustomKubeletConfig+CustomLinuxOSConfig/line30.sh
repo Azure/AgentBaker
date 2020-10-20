@@ -100,10 +100,11 @@ configureTransparentHugePage() {
 configureSwapFile() {
     SWAP_SIZE_KB=$(expr 1500 \* 1000)
     DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
-    if [[ ${DISK_FREE_KB} -le ${SWAP_SIZE_KB} ]]; then
-        exit $ERR_SWAP_FILE_CREAT_INSUFFICIENT_DISK_SPACE
+    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}M /swapfile
+    else
+        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
     fi
-    fallocate -l ${SWAP_SIZE_KB}M /swapfile || exit $ERR_SWAP_FILE_CREAT_FAIL
 }
 
 configureKubeletServerCert() {
@@ -352,6 +353,12 @@ ensureLabelNodes() {
     LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
     wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureSysctl() {
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 24 5 25 sysctl --system
 }
 
 ensureJournal() {

@@ -142,6 +142,7 @@ configureTransparentHugePage
 configureSwapFile
 {{- end}}
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 

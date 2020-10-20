@@ -630,10 +630,11 @@ configureTransparentHugePage() {
 configureSwapFile() {
     SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
     DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
-    if [[ ${DISK_FREE_KB} -le ${SWAP_SIZE_KB} ]]; then
-        exit $ERR_SWAP_FILE_CREAT_INSUFFICIENT_DISK_SPACE
+    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}M /swapfile
+    else
+        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
     fi
-    fallocate -l ${SWAP_SIZE_KB}M /swapfile || exit $ERR_SWAP_FILE_CREAT_FAIL
 }
 {{- end}}
 
@@ -895,6 +896,12 @@ ensureLabelNodes() {
     LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
     wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureSysctl() {
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 24 5 25 sysctl --system
 }
 
 ensureJournal() {
@@ -1159,9 +1166,6 @@ ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azure Resource Manager */}}
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
-
-ERR_SWAP_FILE_CREAT_INSUFFICIENT_DISK_SPACE=130 {{/* Error insufficient disk space for swap file creation */}}
-ERR_SWAP_FILE_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1926,6 +1930,7 @@ configureTransparentHugePage
 configureSwapFile
 {{- end}}
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 
@@ -3809,7 +3814,7 @@ write_files:
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
-- path: /etc/sysctl.d/99-sysctl-aks.conf
+- path: /etc/sysctl.d/999-sysctl-aks.conf
   permissions: "0644"
   owner: root
   content: |

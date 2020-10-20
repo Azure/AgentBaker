@@ -96,6 +96,7 @@ configureCNI
 configureTransparentHugePage
 configureSwapFile
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 
