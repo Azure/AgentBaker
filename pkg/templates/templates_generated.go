@@ -3827,8 +3827,7 @@ write_files:
     net.core.message_cost=40
     net.ipv4.neigh.default.gc_thresh1=4096
     net.ipv4.neigh.default.gc_thresh2=8192
-    net.ipv4.neigh.default.gc_thresh3=16384
-    
+    net.ipv4.neigh.default.gc_thresh3=16384 
 {{if ShouldConfigSysctl}}
     # The following are sysctl configs passed from API
 {{- $s:=.CustomLinuxOSConfig.Sysctls}}
