@@ -35,12 +35,19 @@ write_files:
 
 
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/6SU0W/bNhDG3/lXfJGFqsVmyR720CQQBsF2N6ONEsTZiiFwDVqiLM4KqZJUPNf2/z5QchS5W7ZhexN0d9/9+N2RvbOg0ipYchEw8Ygl1TkhPUyNpyFFsYVgCdOaqi2MRCJFxleVYqBfKsUG4AI/LythKgzf+oPvSaGXC8UKRjVDn2MPulmj/8678ODtSsWFgfvdwWv+ezt3GLrDSxwDw4OHPVaKleh/5nA+VbW06xCe4R7uDzgLMcD8EiZnggAAS3IJb2rANYQ0TzCzNS9bWC5WR1yvqfmdGwxIxskprvo/uHA+1Q78B9i6zv/XzD2McpaswTOr3GQhEfxYa8VNzhTzfR9CQjCW2tGpSsDkXEMnipfGlgtpSA9RoSVSKTyDDRXmJHeTM1GjVrol6ieCk3ucoZ8hYCYJEsEDwYyfBsNBv07xLUrBtcEcr149wVvyeArD6AMemDBcCotKTdPraIrlZSkyqZDQgif2BGYj1RqlLHiy/YuzkNpYJz7Ju4C7iyd3H69v3y9urj9MR78emtHcw/lzBGEIp+nnYH4ytL93foCl4umKWXxaKEbT7fMtSUkPH9nR3O4geAYtfcJLFFysoXO5eZLr+KUqsSiLasXF6zfYHWlKqYz1cTG6vrqK4nHoDutIQs0/j2OP3z7D8wV9YKAabv2xh58I/gtTmktR/348fu/hN/31/fybEDubftFUfYvnmou24tAtGczt/QhkaWom+8Q0C/QomCEHQjqHiW5/nIXe+7ezxc31eBFHV5PZTTSahCnLaFWYy24kbP2NrNwonnrkxJf4LprGk9vpODw/Pz/vxuLJXTwLA1UJa5HQQStFv9i17qRO39W9mMm/FrmJ7n4Ku8cidpC1Hmiawn29pJrV1rq7tuvhTWeeiMZj0j4U/ZX56qVo9VJWwHlJ0Hle0GG9oJ0G48kHcqLyItUfAQAA//+8Xj4iAgYAAA==
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySz28aPxDF7/4rRqscvt+D4/66RXuAZpOioDRiiXIAhLzeAaZ4vSt7TEib/u/VAolK2Ej1ceZ93nuWZnLviGfiEoPx1DDVLr2JBVpk8bV2JbWTO82rbEuBQ6pi8MrWRltVkFPrg1SISY5+QwZnYoSBtedU20f9FETmNuRrV6HjK7KYKmSjSlzoaPmVz6MxGEK2Jc5Zcwzpxy+fRbZFk7dedx7TXV6hwwpU3bDSP6NHZWrHmhz68GJ1HlYdXLUuyYNsQG20V5aK1+R/0RpH73WRBhJawATO/qvq6BieYemxgWnyNmmawDM8GpD2f5AW4QPM4AJ4hQ72sTtcyoJceVLzdHABC0q62h9sKr1GGVba46mbOOakCi2JBevCYgDJ4HTrYSlwp5Sat1IXK/RkTqB3DgamAg5PSnStmQzoN+iPNq4uUVpdoA1pcvbr5r6fDbPx/Pb7ZTYf9vrZMP+dHAGb9BMcD2obK5SNjUtysiS/v7+2hnfIGNResReEI9bUbkFL6DrY/er8R6jdX8jZS8GrYe8671qMsutBPs5Guy90jB8G42/zcW9wO86FmAxcYG3tTDxox1j2n9IqWiYZA/pz1n6J/CcAAP//+bw/Yr8DAAA=
+    H4sIAAAAAAAA/4ySz0/bThDF7/tXjCwO3+9hWfrjhnyAYmhERBEO4hCiaL2eJFPWa2t3NoSW/u+V44Q2iZHq48z7vPesnfG9I56ICwzGU8NUu/Q6FmiRxZfaldRObjUvshUFDqmKwStbG21VQU49baRCjHP0SzI4EXcYWHtOtX3WL0Fkbkm+dhU6viSLqUI2qsSZjpbf+DwagyFkK+KcNceQfvj8SWQrNHnrdesxXecVOixA1Q0r/SN6VKZ2rMmhD1ur47Do4aqnkjzIBtRSe2WpeEv+F61x9F4XaSChGYzh6L+qjo7hFeYeG3hM9pMeE3iFZwPS/g/SIpzABE6BF+igi13jUhbkyoOah4NTmFHS135jU+knlGGhPR66iV1OqtCSWLAuLAaQDE63HpYC90qp2Ze6WKEns4X2EvauxtRuRvPocbp+xZP2zf4A79wYPArYfFKia/NlQL9Ev7NxdYnS6gJtSJOjn9f359kwG01vvl1k0+HZeTbMfyU7wDL9CLuD2sYKZWPjnJwsyXcn29bwDhmD6hSdIOyw3Z9B3413q+PvoXZ/IUfbgpfDs6u8b3GXXQ3yUXa3/oWe8cNg9HU6OhvcjHIhxgMXWFs7EQ/aMZbnL2kVLZOMAf0xaz9H/h0AAP//dUjVXvIDAAA=
 
 
 
@@ -134,6 +141,7 @@ write_files:
   content: |
     KUBELET_FLAGS=--azure-container-registry-config=/etc/kubernetes/azure.json --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --dynamic-config-dir=/var/lib/kubelet 
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY=
     KUBELET_IMAGE=hyperkube-amd64:v1.16.13
 
 
@@ -157,9 +165,9 @@ write_files:
     #
     # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
     #
-    # Note: we shouldn't block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
     # for DNS.
-    iptables -I FORWARD -d 168.63.129.16 -p tcp -j DROP
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
 - path: /etc/sysctl.d/99-sysctl-aks.conf
