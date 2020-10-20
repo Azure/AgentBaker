@@ -540,6 +540,7 @@ mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
 mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200901.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200923.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
