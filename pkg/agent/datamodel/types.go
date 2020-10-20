@@ -100,16 +100,48 @@ const (
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
+// IsUbuntu1804 returns true if distro is ubuntu1804
+func (d Distro) IsUbuntu1804() bool {
+	_, k := ubuntu1804Distros[d]
+	return k
+}
+
+// IsContainerd returns true if distro is containerd-enabled
+func (d Distro) IsContainerd() bool {
+	_, k := containerdDistros[d]
+	return k
+}
+
 // Distro string consts
 const (
-	Ubuntu               Distro = "ubuntu"
-	Ubuntu1804           Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2       Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1604        Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804        Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804     Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2 Distro = "aks-ubuntu-gpu-18.04-gen2"
+	Ubuntu                         Distro = "ubuntu"
+	Ubuntu1804                     Distro = "ubuntu-18.04"
+	Ubuntu1804Gen2                 Distro = "ubuntu-18.04-gen2"
+	AKSUbuntu1604                  Distro = "aks-ubuntu-16.04"
+	AKSUbuntu1804                  Distro = "aks-ubuntu-18.04"
+	AKSUbuntuGPU1804               Distro = "aks-ubuntu-gpu-18.04"
+	AKSUbuntuGPU1804Gen2           Distro = "aks-ubuntu-gpu-18.04-gen2"
+	AKSUbuntuContainerd1804        Distro = "aks-ubuntu-containerd-18.04"
+	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
+	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
+	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 )
+
+var ubuntu1804Distros = map[Distro]struct{}{
+	AKSUbuntu1804:                  {},
+	AKSUbuntuGPU1804:               {},
+	AKSUbuntuContainerd1804:        {},
+	AKSUbuntuContainerd1804Gen2:    {},
+	AKSUbuntuGPUContainerd1804:     {},
+	AKSUbuntuGPUContainerd1804Gen2: {},
+}
+
+var containerdDistros = map[Distro]struct{}{
+	AKSUbuntuContainerd1804:        {},
+	AKSUbuntuContainerd1804Gen2:    {},
+	AKSUbuntuGPUContainerd1804:     {},
+	AKSUbuntuGPUContainerd1804Gen2: {},
+}
 
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
 // for Service Principal's secret
@@ -891,12 +923,15 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 // IsUbuntu1804 returns true if the agent pool profile distro is based on Ubuntu 16.04
 func (a *AgentPoolProfile) IsUbuntu1804() bool {
 	if !strings.EqualFold(string(a.OSType), string(Windows)) {
-		switch a.Distro {
-		case AKSUbuntu1804, Ubuntu1804, Ubuntu1804Gen2, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2:
-			return true
-		default:
-			return false
-		}
+		return a.Distro.IsUbuntu1804()
+	}
+	return false
+}
+
+// IsContainerdDistro returns true if the agent pool profile distro is containerd-enabled
+func (a *AgentPoolProfile) IsContainerdDistro() bool {
+	if !strings.EqualFold(string(a.OSType), string(Windows)) {
+		return a.Distro.IsContainerd()
 	}
 	return false
 }
@@ -1151,7 +1186,7 @@ func (k *KubernetesConfig) IsAddonDisabled(addonName string) bool {
 // NeedsContainerd returns whether or not we need the containerd runtime configuration
 // E.g., kata configuration requires containerd config
 func (k *KubernetesConfig) NeedsContainerd() bool {
-	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
+	return strings.EqualFold(k.ContainerRuntime, Containerd)
 }
 
 // RequiresDocker returns if the kubernetes settings require docker binary to be installed.

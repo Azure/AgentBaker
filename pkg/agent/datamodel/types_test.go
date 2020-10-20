@@ -2204,7 +2204,7 @@ func TestHasContainerd(t *testing.T) {
 			k: &KubernetesConfig{
 				ContainerRuntime: KataContainers,
 			},
-			expected: true,
+			expected: false,
 		},
 	}
 

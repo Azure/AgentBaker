@@ -398,6 +398,10 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
+			// if agentpool uses a containerd-distro, always enable containerd provisioning logic
+			if profile != nil && profile.IsContainerdDistro() {
+				return true
+			}
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.NeedsContainerd()
 			}

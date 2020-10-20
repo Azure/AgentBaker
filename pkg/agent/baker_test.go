@@ -211,6 +211,22 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
+		}),
+		Entry("AKSUbuntu1804 with Containerd enabled VHD ", "AKSUbuntu1804+ContainerdEnabledVHD", "1.19.0", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig: map[string]string{},
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd1804
+		}),
+		Entry("AKSUbuntu1804 with GPU dedicated and containerd enabled VHD ", "AKSUbuntu1804+GPUDedicatedContainerdEnabledVHD", "1.19.0", func(config *NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig: map[string]string{},
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuGPUContainerd1804
+			config.AgentPoolProfile.VMSize = "Standard_NC6"
+			config.ConfigGPUDriverIfNeeded = false
+			config.EnableGPUDevicePluginIfNeeded = true
+			config.EnableNvidia = true
 		}))
 })
 
