@@ -130,6 +130,7 @@ const (
 var ubuntu1804Distros = map[Distro]struct{}{
 	AKSUbuntu1804:                  {},
 	AKSUbuntuGPU1804:               {},
+	AKSUbuntuGPU1804Gen2:           {},
 	AKSUbuntuContainerd1804:        {},
 	AKSUbuntuContainerd1804Gen2:    {},
 	AKSUbuntuGPUContainerd1804:     {},
