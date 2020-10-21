@@ -629,17 +629,15 @@ configureTransparentHugePage() {
 {{- if ShouldConfigSwapFile}}
 configureSwapFile() {
     SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
-    DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
+    DISK_FREE_KB=$(df /dev/sdb1 | sed 1d | awk '{print $4}')
     if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
-        function setupSwap() {
-            fallocate -l ${SWAP_SIZE_KB}M /swapfile
-            chmod 600 /swapfile
-            mkswap /swapfile
-            swapon /swapfile
-        }
-        export -f setupSwap
-        retrycmd_if_failure 24 5 25 bash -c setupSwap || exit $ERR_SWAP_CREAT_FAIL
-        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+        SWAP_LOCATION=/mnt/swapfile
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        chmod 600 ${SWAP_LOCATION}
+        retrycmd_if_failure 24 5 25 mkswap ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon --show | grep ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
     else
         echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
         exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
