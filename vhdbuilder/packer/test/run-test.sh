@@ -15,15 +15,43 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-az disk create --resource-group $RESOURCE_GROUP_NAME \
-    --name $DISK_NAME \
-    --source "${OS_DISK_URI}"  \
-    --query id
-az vm create --name $VM_NAME \
+
+if [ "$MODE" == "sigMode" ]; then
+	echo "SIG existence checking for $MODE"
+	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
+	if [ -z "$id" ]; then
+		echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+        exit 1
+	fi
+
+	id=$(az sig image-definition show \
+		--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+		--gallery-name ${SIG_GALLERY_NAME} \
+		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
+	if [ -z "$id" ]; then
+		echo "Creating image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+        exit 1
+	fi
+
+    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+
+    az vm create\
     --resource-group $RESOURCE_GROUP_NAME \
-    --attach-os-disk $DISK_NAME \
-    --os-type $OS_TYPE  \
+    --name $VM_NAME \
+    --image $IMG_DEF \
     --public-ip-address ""
+else
+    az disk create --resource-group $RESOURCE_GROUP_NAME \
+        --name $DISK_NAME \
+        --source "${OS_DISK_URI}"  \
+        --query id
+    az vm create --name $VM_NAME \
+        --resource-group $RESOURCE_GROUP_NAME \
+        --attach-os-disk $DISK_NAME \
+        --os-type $OS_TYPE  \
+        --public-ip-address ""
+fi
+
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 
 FULL_PATH=$(realpath $0)
