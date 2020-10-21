@@ -411,11 +411,11 @@ done
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
 # v1.17.11-hotfix.20200901
-# v1.17.12
+# v1.17.13
 # v1.18.8-hotfix.20200924
-# v1.18.9
+# v1.18.10
 # v1.19.0
-# v1.19.1-hotfix.20200923
+# v1.19.3
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
 1.15.10-hotfix.20200408.1
@@ -429,14 +429,14 @@ K8S_VERSIONS="
 1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
-1.17.12
+1.17.13
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
-1.18.9
+1.18.10
 1.19.0
-1.19.1-hotfix.20200923
+1.19.3
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
@@ -471,11 +471,11 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
 # v1.17.11-hotfix.20200901
-# v1.17.12
+# v1.17.13
 # v1.18.8-hotfix.20200924
-# v1.18.9
+# v1.18.10
 # v1.19.0
-# v1.19.1-hotfix.20200923
+# v1.19.3
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.15.11-hotfix.20200529.1
@@ -488,14 +488,14 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
-1.17.12
+1.17.13
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8
 1.18.8-hotfix.20200924
-1.18.9
+1.18.10
 1.19.0
-1.19.1-hotfix.20200923
+1.19.3
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
