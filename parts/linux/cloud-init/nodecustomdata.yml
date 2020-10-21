@@ -434,6 +434,7 @@ write_files:
     net.ipv4.neigh.default.gc_thresh3=16384 
 {{if ShouldConfigSysctl}}
     # The following are sysctl configs passed from API
+    # will override above settings if key is same
 {{- $s:=.CustomLinuxOSConfig.Sysctls}}
 {{- if $s.NetCoreSomaxconn}}
     net.core.somaxconn={{$s.NetCoreSomaxconn}}

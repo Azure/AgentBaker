@@ -85,25 +85,34 @@ ensureAuditD() {
   fi
 }
 configureTransparentHugePage() {
-    THP_CONFIG_PATH="/etc/sysfs.conf"
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
     THP_ENABLED=never
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
-        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${THP_CONFIG_PATH}
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
     THP_DEFRAG=defer+madvise
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
-        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
 configureSwapFile() {
     SWAP_SIZE_KB=$(expr 1500 \* 1000)
     DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
     if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
-        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}M /swapfile
+        function setupSwap() {
+            fallocate -l ${SWAP_SIZE_KB}M /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+        }
+        export -f setupSwap
+        retrycmd_if_failure 24 5 25 bash -c setupSwap || exit $ERR_SWAP_CREAT_FAIL
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
     else
         echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
+        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
     fi
 }
 

@@ -612,16 +612,16 @@ ensureAuditD() {
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
-    THP_CONFIG_PATH="/etc/sysfs.conf"
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
     THP_ENABLED={{GetTransparentHugePageEnabled}}
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
-        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${THP_CONFIG_PATH}
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
     THP_DEFRAG={{GetTransparentHugePageDefrag}}
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
-        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${THP_CONFIG_PATH}
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
 {{- end}}
@@ -631,9 +631,18 @@ configureSwapFile() {
     SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
     DISK_FREE_KB=$(df /dev/sda1 | sed 1d | awk '{print $4}')
     if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
-        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}M /swapfile
+        function setupSwap() {
+            fallocate -l ${SWAP_SIZE_KB}M /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+        }
+        export -f setupSwap
+        retrycmd_if_failure 24 5 25 bash -c setupSwap || exit $ERR_SWAP_CREAT_FAIL
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
     else
         echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
+        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
     fi
 }
 {{- end}}
@@ -1166,6 +1175,9 @@ ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azure Resource Manager */}}
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
+
+ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
+ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -3830,6 +3842,7 @@ write_files:
     net.ipv4.neigh.default.gc_thresh3=16384 
 {{if ShouldConfigSysctl}}
     # The following are sysctl configs passed from API
+    # will override above settings if key is same
 {{- $s:=.CustomLinuxOSConfig.Sysctls}}
 {{- if $s.NetCoreSomaxconn}}
     net.core.somaxconn={{$s.NetCoreSomaxconn}}
