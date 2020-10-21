@@ -77,6 +77,7 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200714/windowszip/v1.16.13-hotfix.20200714-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200817/windowszip/v1.16.13-hotfix.20200817-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200824/windowszip/v1.16.13-hotfix.20200824-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200917/windowszip/v1.16.13-hotfix.20200917-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.14/windowszip/v1.16.14-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.15-hotfix.20200903/windowszip/v1.16.15-hotfix.20200903-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.7-hotfix.20200817/windowszip/v1.17.7-hotfix.20200817-1int.zip",
@@ -88,16 +89,20 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11/windowszip/v1.17.11-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11-hotfix.20200901/windowszip/v1.17.11-hotfix.20200901-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.12/windowszip/v1.17.12-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.17.13/windowszip/v1.17.13-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.4-hotfix.20200626/windowszip/v1.18.4-hotfix.20200626-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.5/windowszip/v1.18.5-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.6/windowszip/v1.18.6-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.6-hotfix.20200723/windowszip/v1.18.6-hotfix.20200723-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.8/windowszip/v1.18.8-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.8-hotfix.20200924/windowszip/v1.18.8-hotfix.20200924-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.9/windowszip/v1.18.9-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.10/windowszip/v1.18.10-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.1/windowszip/v1.19.1-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.2/windowszip/v1.19.2-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.2/windowszip/v1.19.2-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.3/windowszip/v1.19.3-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
             "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
@@ -151,7 +156,7 @@ function Test-FilesToCacheOnVHD
 function Test-PatchInstalled
 {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @()
+    $patchIDs = @("kb4580390")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID)
