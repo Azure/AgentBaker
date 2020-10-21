@@ -35,10 +35,15 @@ if [ "$MODE" == "sigMode" ]; then
 
     IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 
+    # In SIG mode, Windows VM requires admin-username and admin-password to be set,
+    # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
+    # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
     az vm create\
     --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $IMG_DEF \
+    --admin-username azureuser \
+    --admin-password "TestVM@$(date +%s)" \
     --public-ip-address ""
 else
     az disk create --resource-group $RESOURCE_GROUP_NAME \
