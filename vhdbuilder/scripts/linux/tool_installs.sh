@@ -17,7 +17,7 @@ installAscBaseline() {
   sudo cp /opt/microsoft/asc-baseline/baselines/oms_audits.xml /opt/microsoft/asc-baseline/oms_audits.xml
   cd /opt/microsoft/asc-baseline
   sudo ./ascbaseline -d .​
-  sudo ./ascremediate -d . -m all​
+  sudo ./ascremediate -d . -m all
   sudo ./ascbaseline -d . ​| grep -B2 -A6 "FAIL"
   cd -
   echo "Finished Setting up ASC Baseline"
