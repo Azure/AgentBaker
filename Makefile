@@ -86,6 +86,8 @@ generate: bootstrap
 	popd \
 	)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	@echo "running validate-shell to make sure generated cse scripts are correct"
+	@$(MAKE) validate-shell
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
