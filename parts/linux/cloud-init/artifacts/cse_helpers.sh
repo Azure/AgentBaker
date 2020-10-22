@@ -128,16 +128,15 @@ retrycmd_get_tarball() {
         fi
     done
 }
-retrycmd_get_executable() {
-    retries=$1; wait_sleep=$2; filepath=$3; url=$4; validation_args=$5
-    echo "${retries} retries"
-    for i in $(seq 1 $retries); do
-        $filepath $validation_args && break || \
-        if [ $i -eq $retries ]; then
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    echo "${curl_retries} retries"
+    for i in $(seq 1 $curl_retries); do
+        [[ -f $filepath ]] && break
+        if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout 30 curl -fsSL $url -o $filepath
-            chmod +x $filepath
+            timeout $timeout curl -fsSL $url -o $filepath
             sleep $wait_sleep
         fi
     done
