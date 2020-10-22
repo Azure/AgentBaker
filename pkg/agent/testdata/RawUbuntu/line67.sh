@@ -6,27 +6,14 @@
 set -o nounset
 set -o pipefail
 
-# node could very well be running both dockerd and containerd. we just care about the runtime that kubelet is using.
-getKubeletRuntime() {
-  kubeletArgs=$(systemctl show kubelet | grep 'ExecStart=')
-  runtimeArg=$(echo ${kubeletArgs##*--container-runtime-endpoint=} | cut -f1 -d" ")
-  if [[ "${runtimeArg}" == *containerd.sock ]]; then
-    echo "containerd"
-  else 
-    echo "docker"
-  fi
-}
-
 container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
   local -r crictl="${KUBE_HOME}/bin/crictl"
-  local -r container_runtime_name="$(getKubeletRuntime)"
-
-  if [[ ${container_runtime_name} == "containerd" ]]; then
-    local healthcheck_command="ctr --namespace k8s.io container list"
-  else 
-    local healthcheck_command="docker ps"
+  local -r container_runtime_name="${CONTAINER_RUNTIME_NAME:-docker}"
+  local healthcheck_command="docker ps"
+  if [[ "${CONTAINER_RUNTIME:-docker}" != "docker" ]]; then
+    healthcheck_command="${crictl} pods"
   fi
 
   until timeout 60 ${healthcheck_command} > /dev/null; do
@@ -40,10 +27,8 @@ container_runtime_monitoring() {
   while true; do
     if ! timeout 60 ${healthcheck_command} > /dev/null; then
       echo "Container runtime ${container_runtime_name} failed!"
-      if [[ "$container_runtime_name" == "containerd" ]]; then
-        pkill -SIGUSR1 containerd
-      else 
-        pkill -SIGUSR1 dockerd
+      if [[ "$container_runtime_name" == "docker" ]]; then
+          pkill -SIGUSR1 dockerd
       fi
       systemctl kill --kill-who=main "${container_runtime_name}"
       sleep 120
