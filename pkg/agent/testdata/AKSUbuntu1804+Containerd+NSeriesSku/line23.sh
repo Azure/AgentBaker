@@ -102,26 +102,6 @@ installContainerRuntime() {
     
 }
 
-
-# CSE+VHD can dicate the containerd version, users don't care as long as it works
-installStandaloneContainerd() {
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    # v1.4.1 is our lowest supported version of containerd
-    local CONTAINERD_VERSION="1.4.1"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
-        removeMoby
-        removeContainerd
-        downloadContainerd
-        retrycmd_if_failure 10 5 10 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-    fi  
-}
-
-
 getMobyPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -150,7 +130,25 @@ downloadAzureCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+# CSE+VHD can dictate the containerd version, users don't care as long as it works
+installStandaloneContainerd() {
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    # v1.4.1 is our lowest supported version of containerd
+    local CONTAINERD_VERSION="1.4.1"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    else
+        echo "installing containerd version ${CONTAINERD_VERSION}"
+        removeMoby
+        removeContainerd
+        downloadContainerd ${CONTAINERD_VERSION}
+        retrycmd_if_failure 10 5 10 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    fi  
+}
 downloadContainerd() {
+    CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION}+azure-1_amd64.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
@@ -160,6 +158,7 @@ downloadContainerd() {
 }
 
 downloadCrictl() {
+    CRICTL_VERSION=$1
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -167,18 +166,17 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    currentVersion=$(crictl --version 2>/dev/null)
-    CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
+    currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
+    local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then  
         echo "crictl with target version of ${CRICTL_VERSION} already installed. skipping installCrictl"
     else
-        downloadCrictl
+        downloadCrictl ${CRICTL_VERSION}
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
-    CLI_TOOL="crictl"
 }
 
 
@@ -273,56 +271,58 @@ pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
-    else 
-        retrycmd_if_failure 60 1 1200 ${CLI_TOOL} pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+    else if [[ ${CLI_TOOL} == "crictl" ]]
+        retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+    else
+        retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
     fi
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), startCleanUpHyperkubeImages
-    
-    function cleanUpHyperkubeImagesRun() {
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube' | awk '{print $1}')
+
+removeContainerImage() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE_URL=$2
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
+    else if [[ ${CLI_TOOL} == "crictl" ]]; then
+        crictl image rm $CONTAINER_IMAGE_URL
+    else
+        docker image rm $CONTAINER_IMAGE_URL 
+    fi
+}
+
+cleanUpAllImages() {
+    local targetImage=$1
+    function cleanupAllImagesRun() {
+        
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
+        
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             for image in "${images_to_delete[@]}"
             do 
-                ctr --namespace k8s.io image rm ${image}
+                
+                removeContainerImage "ctr" ${images_to_delete}
+                
             done
         fi
     }
-    
-    export -f cleanUpHyperkubeImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
+    export -f cleanupAllImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanupAllImagesRun
+}
+
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
+    cleanUpAllImages "hyperkube"
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    
-    function cleanUpKubeProxyImagesRun() {
-        if [[ ! -S /var/run/containerd/containerd.sock ]]; then
-            echo "cleanUpKubeProxyImagesRun: containerd not running, exiting early" 
-            exit
-        fi
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy' | awk '{print $1}')
-        local exit_code=$?
-        if [[ $exit_code != 0 ]]; then
-            exit $exit_code
-        elif [[ "${images_to_delete}" != "" ]]; then
-            for image in "${images_to_delete[@]}"
-            do 
-                ctr --namespace k8s.io image rm ${image}
-            done
-        fi
-    }
-    
-
-    export -f cleanUpKubeProxyImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    cleanUpAllImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
@@ -336,15 +336,6 @@ cleanUpContainerImages() {
     bash -c cleanUpKubeProxyImages &
 }
 
-removeContainerImage() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE_URL=$2
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
-    else
-        ${CLI_TOOL} image rm $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
-    fi
-}
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST

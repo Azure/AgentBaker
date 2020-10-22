@@ -102,24 +102,6 @@ installContainerRuntime() {
     
 }
 
-
-installMoby() {
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.12"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-    else
-        removeMoby
-        getMobyPkg
-        MOBY_CLI=${MOBY_VERSION}
-        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
-            MOBY_CLI="3.0.3"
-        fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-    fi
-}
-
-
 getMobyPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -146,6 +128,22 @@ downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+installMoby() {
+    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
+    local MOBY_VERSION="19.03.12"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
+        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
+    else
+        removeMoby
+        getMobyPkg
+        MOBY_CLI=${MOBY_VERSION}
+        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+            MOBY_CLI="3.0.3"
+        fi
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
 }
 
 
@@ -240,50 +238,58 @@ pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
-    else 
-        retrycmd_if_failure 60 1 1200 ${CLI_TOOL} pull $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+    else if [[ ${CLI_TOOL} == "crictl" ]]
+        retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+    else
+        retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
     fi
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), startCleanUpHyperkubeImages
-    
-    function cleanUpHyperkubeImagesRun() {
+
+removeContainerImage() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE_URL=$2
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
+    else if [[ ${CLI_TOOL} == "crictl" ]]; then
+        crictl image rm $CONTAINER_IMAGE_URL
+    else
+        docker image rm $CONTAINER_IMAGE_URL 
+    fi
+}
+
+cleanUpAllImages() {
+    local targetImage=$1
+    function cleanupAllImagesRun() {
+        
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
+        
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            docker rmi ${images_to_delete[@]}
+            for image in "${images_to_delete[@]}"
+            do 
+                
+                removeContainerImage "docker" ${images_to_delete}
+                
+            done
         fi
     }
-    
-    export -f cleanUpHyperkubeImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
+    export -f cleanupAllImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanupAllImagesRun
+}
+
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
+    cleanUpAllImages "hyperkube"
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    
-    function cleanUpKubeProxyImagesRun() {
-        if [[ ! -S /var/run/docker.sock ]]; then
-            echo "cleanUpKubeProxyImagesRun: docker not running, exiting early"
-            exit
-        fi
-        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
-        local exit_code=$?
-        if [[ $exit_code != 0 ]]; then
-            exit $exit_code
-        elif [[ "${images_to_delete}" != "" ]]; then
-            docker rmi ${images_to_delete[@]}
-        fi
-    }
-    
-
-    export -f cleanUpKubeProxyImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    cleanUpAllImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
@@ -297,15 +303,6 @@ cleanUpContainerImages() {
     bash -c cleanUpKubeProxyImages &
 }
 
-removeContainerImage() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE_URL=$2
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
-    else
-        ${CLI_TOOL} image rm $CONTAINER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
-    fi
-}
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
