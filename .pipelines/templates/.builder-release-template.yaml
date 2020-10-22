@@ -37,7 +37,7 @@ steps:
     displayName: Building VHD
   - task: PublishPipelineArtifact@0
     inputs:
-        artifactName: 'vhd-release-notes-{{ parameters.artifactName }}'
+        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
   - bash: |
         echo MODE=$(MODE) && \
@@ -134,6 +134,6 @@ steps:
     condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
   - task: PublishPipelineArtifact@1
     inputs:
-        artifactName: 'publishing-info-{{ parameters.artifactName }}'
+        artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
