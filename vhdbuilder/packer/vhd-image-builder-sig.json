@@ -36,7 +36,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}",
       "shared_image_gallery_destination": {
@@ -44,7 +43,9 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `sig_image_version`}}",
-        "replication_regions": ["{{user `location`}}"]
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
       }
     }
   ],
@@ -200,6 +201,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/docker-monitor.timer",
       "destination": "/home/packer/docker-monitor.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.service",
+      "destination": "/home/packer/containerd-monitor.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
+      "destination": "/home/packer/containerd-monitor.timer"
     },
     {
       "type": "file",
