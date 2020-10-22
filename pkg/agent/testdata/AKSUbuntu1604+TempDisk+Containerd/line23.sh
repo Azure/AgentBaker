@@ -308,37 +308,35 @@ removeContainerImage() {
     fi
 }
 
-cleanUpAllImages() {
-    local targetImage=$1
-    function cleanupAllImagesRun() {
-        
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
-        
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), startCleanUpHyperkubeImages
+    function cleanUpHyperkubeImagesRun() {
+        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            for image in "${images_to_delete[@]}"
-            do 
-                
-                removeContainerImage "ctr" ${images_to_delete}
-                
-            done
+            docker rmi ${images_to_delete[@]}
         fi
     }
-    export -f cleanupAllImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanupAllImagesRun
-}
-
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpAllImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
+    export -f cleanUpHyperkubeImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpAllImages "kube-proxy"
+    function cleanUpKubeProxyImagesRun() {
+        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
+        local exit_code=$?
+        if [[ $exit_code != 0 ]]; then
+            exit $exit_code
+        elif [[ "${images_to_delete}" != "" ]]; then
+            docker rmi ${images_to_delete[@]}
+        fi
+    }
+    export -f cleanUpKubeProxyImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 

@@ -59,7 +59,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "  - containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
   CRICTL_VERSIONS="1.19.0"
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
-    downloadCrictl 
+    downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
   # k8s will use images in the k8s.io namespaces - create it
