@@ -14,7 +14,8 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
-    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
+    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
+    "container_runtime": "{{env `CONTAINER_RUNTIME`}}"
   },
   "builders": [
     {
@@ -36,7 +37,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}",
       "shared_image_gallery_destination": {
@@ -44,7 +44,9 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `sig_image_version`}}",
-        "replication_regions": ["{{user `location`}}"]
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
       }
     }
   ],
@@ -249,7 +251,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

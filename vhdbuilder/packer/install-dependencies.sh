@@ -52,6 +52,28 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   disableSystemdTimesyncdAndEnableNTP || exit 1
 fi
 
+if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
+  echo "VHD will be built with containerd as the container runtime" >> ${VHD_LOGS_FILEPATH}
+  CONTAINERD_VERSION="1.4.1"
+  installStandaloneContainerd
+  echo "  - containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  CRICTL_VERSIONS="1.19.0"
+  for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
+    downloadCrictl 
+    echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  done
+  # k8s will use images in the k8s.io namespaces - create it
+  ctr namespace create k8s.io
+  cliTool="ctr"
+else
+  CONTAINER_RUNTIME="docker"
+  MOBY_VERSION="19.03.12"
+  installMoby
+  echo "VHD will be built with docker as container runtime" >> ${VHD_LOGS_FILEPATH}
+  echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  cliTool="docker"
+fi
+
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
@@ -114,7 +136,7 @@ echo "Docker images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 DASHBOARD_VERSIONS="1.10.1"
 for DASHBOARD_VERSION in ${DASHBOARD_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v${DASHBOARD_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -126,7 +148,7 @@ NEW_DASHBOARD_VERSIONS="
 "
 for DASHBOARD_VERSION in ${NEW_DASHBOARD_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${DASHBOARD_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -137,14 +159,14 @@ NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS="
 "
 for DASHBOARD_VERSION in ${NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/metrics-scraper:v${DASHBOARD_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 EXECHEALTHZ_VERSIONS="1.2"
 for EXECHEALTHZ_VERSION in ${EXECHEALTHZ_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/exechealthz:${EXECHEALTHZ_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -156,7 +178,7 @@ ADDON_RESIZER_VERSIONS="
 "
 for ADDON_RESIZER_VERSION in ${ADDON_RESIZER_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:${ADDON_RESIZER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -166,7 +188,7 @@ METRICS_SERVER_VERSIONS="
 "
 for METRICS_SERVER_VERSION in ${METRICS_SERVER_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/metrics-server:v${METRICS_SERVER_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -174,7 +196,7 @@ LEGACY_MCR_PAUSE_VERSIONS="1.2.0"
 for PAUSE_VERSION in ${LEGACY_MCR_PAUSE_VERSIONS}; do
     # Pull the arch independent MCR pause image which is built for Linux and Windows
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/core/pause:${PAUSE_VERSION}"
-    pullContainerImage "docker" "${CONTAINER_IMAGE}"
+    pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -185,7 +207,7 @@ MCR_PAUSE_VERSIONS="
 "
 for PAUSE_VERSION in ${MCR_PAUSE_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/pause:${PAUSE_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -198,7 +220,7 @@ CORE_DNS_VERSIONS="
 "
 for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/coredns:${CORE_DNS_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -209,19 +231,18 @@ AZURE_CNI_NETWORKMONITOR_VERSIONS="
 "
 for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/networkmonitor:v${AZURE_CNI_NETWORKMONITOR_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 AZURE_NPM_VERSIONS="
-1.1.8
 1.1.7
 1.1.5
 1.1.4
 "
 for AZURE_NPM_VERSION in ${AZURE_NPM_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-npm:v${AZURE_NPM_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -230,7 +251,7 @@ AZURE_VNET_TELEMETRY_VERSIONS="
 "
 for AZURE_VNET_TELEMETRY_VERSION in ${AZURE_VNET_TELEMETRY_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-vnet-telemetry:v${AZURE_VNET_TELEMETRY_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -239,32 +260,42 @@ NVIDIA_DEVICE_PLUGIN_VERSIONS="
 1.10
 "
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
+  if [[ "${cliTool}" == "ctr" ]]; then
+    # containerd/ctr doesn't auto-resolve to docker.io
+    CONTAINER_IMAGE="docker.io/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
+  else
     CONTAINER_IMAGE="nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+  fi
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # GPU device plugin
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
-    kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
-    mkdir -p $kubeletDevicePluginPath
-    echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
+  kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
+  mkdir -p $kubeletDevicePluginPath
+  echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
 
-    DEST="/usr/local/nvidia/bin"
-    mkdir -p $DEST
+  DEST="/usr/local/nvidia/bin"
+  mkdir -p $DEST
+  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "docker.io/nvidia/k8s-device-plugin:1.11" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1   
+  else
     docker run --rm --entrypoint "" -v $DEST:$DEST "nvidia/k8s-device-plugin:1.11" /bin/bash -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-    chmod a+x $DEST/nvidia-device-plugin
-    echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
-    ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
+  fi
+  chmod a+x $DEST/nvidia-device-plugin
+  echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
+  ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
-    systemctlEnableAndStart nvidia-device-plugin || exit 1
+  systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
+
 installSGX=${SGX_DEVICE_PLUGIN_INSTALL:-"False"}
 if [[ ${installSGX} == "True" ]]; then
     SGX_DEVICE_PLUGIN_VERSIONS="1.0"
     for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
-        pullContainerImage "docker" ${CONTAINER_IMAGE}
+        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 fi
@@ -277,7 +308,7 @@ v1.9.2-v4.0.16
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -290,14 +321,14 @@ OPENVPN_VERSIONS="
 "
 for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 KUBE_SVC_REDIRECT_VERSIONS="1.0.7"
 for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/kube-svc-redirect:v${KUBE_SVC_REDIRECT_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -306,7 +337,7 @@ done
 OMS_AGENT_IMAGES="ciprod08072020 ciprod10052020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -317,7 +348,7 @@ v3.8.9
 "
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -327,7 +358,7 @@ v3.8.9
 "
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -337,7 +368,7 @@ v3.8.9
 "
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:${CALICO_TYPHA_IMAGE}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -347,7 +378,7 @@ v3.8.9
 "
 for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:${CALICO_POD2DAEMON_IMAGE}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -359,21 +390,21 @@ CPA_IMAGES="
 "
 for CPA_IMAGE in ${CPA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:${CPA_IMAGE}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 KV_FLEXVOLUME_VERSIONS="0.0.13"
 for KV_FLEXVOLUME_VERSION in ${KV_FLEXVOLUME_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:v${KV_FLEXVOLUME_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 BLOBFUSE_FLEXVOLUME_VERSIONS="1.0.13"
 for BLOBFUSE_FLEXVOLUME_VERSION in ${BLOBFUSE_FLEXVOLUME_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:${BLOBFUSE_FLEXVOLUME_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -385,21 +416,26 @@ AKS_IP_MASQ_AGENT_VERSIONS="
 "
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    CONTAINER_IMAGE="nginx:${NGINX_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    if [[ "${cliTool}" == "ctr" ]]; then
+      # containerd/ctr doesn't auto-resolve to docker.io
+      CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"
+    else
+      CONTAINER_IMAGE="nginx:${NGINX_VERSION}"
+    fi
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 KMS_PLUGIN_VERSIONS="0.0.9"
 for KMS_PLUGIN_VERSION in ${KMS_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/k8s/kms/keyvault:v${KMS_PLUGIN_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -411,11 +447,11 @@ done
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
 # v1.17.11-hotfix.20200901
-# v1.17.13
+# v1.17.12
 # v1.18.8-hotfix.20200924
-# v1.18.10
+# v1.18.9
 # v1.19.0
-# v1.19.3
+# v1.19.1-hotfix.20200923
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
 1.15.10-hotfix.20200408.1
@@ -429,16 +465,20 @@ K8S_VERSIONS="
 1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
-1.17.13
+1.17.12
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
-1.18.10
+1.18.9
 1.19.0
-1.19.3
+1.19.1-hotfix.20200923
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
+  # Only need to store k8s components >= 1.19 for containerd VHDs
+  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    continue
+  fi
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
     HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
     # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
@@ -447,9 +487,9 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
     KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
     # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
     # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
-    extractHyperkube "docker"
+    extractHyperkube ${cliTool}
     # remove hyperkube here as the one that we really need is pulled later
-    docker image rm $HYPERKUBE_URL
+    removeContainerImage ${cliTool} $HYPERKUBE_URL
   else
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
@@ -471,11 +511,11 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
 # v1.17.11-hotfix.20200901
-# v1.17.13
+# v1.17.12
 # v1.18.8-hotfix.20200924
-# v1.18.10
+# v1.18.9
 # v1.19.0
-# v1.19.3
+# v1.19.1-hotfix.20200923
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.15.11-hotfix.20200529.1
@@ -488,46 +528,58 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
-1.17.13
+1.17.12
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8
 1.18.8-hotfix.20200924
-1.18.10
+1.18.9
 1.19.0
-1.19.3
+1.19.1-hotfix.20200923
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
+  # Only need to store k8s components >= 1.19 for containerd VHDs
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    continue
+  fi
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
   if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)); then
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-    # shellcheck disable=SC2181
-    if [[ $? != 0 ]]; then
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
+      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+      if [[ ${cliTool} == "docker" ]]; then
+          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+      else 
+          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+      fi
+      # shellcheck disable=SC2181
+      if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
-    fi
+      fi
   fi
 
   # from 1.17 onwards start using kube-proxy as well
   # strip the last .1 as that is for base image patch for hyperkube
   if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
-    if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
+      if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
       KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-    else
+      else
       KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-    fi
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
-    pullContainerImage "docker" ${CONTAINER_IMAGE}
-    docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-    # shellcheck disable=SC2181
-    if [[ $? != 0 ]]; then
+      fi
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+      if [[ ${cliTool} == "docker" ]]; then
+          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+      else
+          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+      fi
+      # shellcheck disable=SC2181
+      if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
-    fi
-    echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
+      fi
+      echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
   fi
 done
 
@@ -546,7 +598,7 @@ mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
-  pullContainerImage "docker" ${ADDON_IMAGE}
+  pullContainerImage ${cliTool} ${ADDON_IMAGE}
   echo "  - ${ADDON_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -556,7 +608,7 @@ AZUREDISK_CSI_VERSIONS="
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -566,7 +618,7 @@ AZUREFILE_CSI_VERSIONS="
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -575,7 +627,7 @@ CSI_LIVENESSPROBE_VERSIONS="
 "
 for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -584,7 +636,7 @@ CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
 "
 for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
-  pullContainerImage "docker" ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -608,4 +660,5 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Ubuntu version: ${UBUNTU_RELEASE}"
   echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
+  echo "Container runtime: ${CONTAINER_RUNTIME}"
 } >> ${VHD_LOGS_FILEPATH}
