@@ -26,6 +26,7 @@ func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
 			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
+			"mountProgapationSystemdConf":  getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config),
 		},
 	}
 

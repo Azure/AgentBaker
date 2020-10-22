@@ -3716,6 +3716,13 @@ write_files:
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
 
+- path: /etc/systemd/system/containerd.service.d/clear_mount_propagation_flags.conf
+    permissions: "0644"
+    encoding: gzip
+    owner: "root"
+    content: !!binary |
+      {{GetVariableProperty "cloudInitData" "mountProgapationSystemdConf"}}
+
 - path: /etc/crictl.yaml
   permissions: "0644"
   owner: root
