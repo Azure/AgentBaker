@@ -16,7 +16,8 @@ ERR_DOCKER_APT_KEY_TIMEOUT=23 {{/* Timeout waiting for docker apt-key */}}
 ERR_DOCKER_START_FAIL=24 {{/* Docker could not be started by systemctl */}}
 ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
-ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby install */}}
+ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
+ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
 ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
 ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
 ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
@@ -55,6 +56,9 @@ ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in 
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
 ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
+ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
+ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -126,16 +130,16 @@ retrycmd_get_tarball() {
         fi
     done
 }
-retrycmd_get_executable() {
-    retries=$1; wait_sleep=$2; filepath=$3; url=$4; validation_args=$5
-    echo "${retries} retries"
-    for i in $(seq 1 $retries); do
-        $filepath $validation_args && break || \
-        if [ $i -eq $retries ]; then
+
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    echo "${curl_retries} retries"
+    for i in $(seq 1 $curl_retries); do
+        [[ -f $filepath ]] && break
+        if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout 30 curl -fsSL $url -o $filepath
-            chmod +x $filepath
+            timeout $timeout curl -fsSL $url -o $filepath
             sleep $wait_sleep
         fi
     done

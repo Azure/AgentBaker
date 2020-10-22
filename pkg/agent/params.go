@@ -146,6 +146,11 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
+		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
+			addValue(parametersMap, "cliTool", "ctr")
+		} else {
+			addValue(parametersMap, "cliTool", "docker")
+		}
 	}
 }
 
@@ -208,6 +213,11 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "networkPlugin", kubernetesConfig.NetworkPlugin)
 			addValue(parametersMap, "networkMode", kubernetesConfig.NetworkMode)
 			addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
+			if kubernetesConfig.ContainerRuntime == "containerd" {
+				addValue(parametersMap, "cliTool", "ctr")
+			} else {
+				addValue(parametersMap, "cliTool", "docker")
+			}
 			addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
 			addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
 			addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))

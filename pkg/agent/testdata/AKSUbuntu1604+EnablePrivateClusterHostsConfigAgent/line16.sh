@@ -44,8 +44,6 @@ else
 fi
 
 configureAdminUser
-cleanUpContainerd
-
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
@@ -86,13 +84,17 @@ fi
 
 createKubeManifestDir
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
 
 
+
+
+ensureDocker
+
+
+ensureMonitorService
 configPrivateClusterHosts
 
 ensureKubelet

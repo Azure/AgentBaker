@@ -55,6 +55,7 @@ LOAD_BALANCER_SKU={{GetVariable "loadBalancerSku"}}
 EXCLUDE_MASTER_FROM_STANDARD_LB={{GetVariable "excludeMasterFromStandardLB"}}
 MAXIMUM_LOADBALANCER_RULE_COUNT={{GetVariable "maximumLoadBalancerRuleCount"}}
 CONTAINER_RUNTIME={{GetParameter "containerRuntime"}}
+CLI_TOOL={{GetParameter "cliTool"}}
 CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}

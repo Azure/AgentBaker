@@ -45,10 +45,6 @@ fi
 
 configureAdminUser
 
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -77,6 +73,10 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+cliTool="crictl"
+{{end}}
 
 installNetworkPlugin
 
@@ -119,8 +119,6 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
@@ -129,6 +127,15 @@ configureCNI
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
 {{end}}
+
+{{/* containerd should not be configured until cni has been configured first */}}
+{{- if NeedsContainerd}}
+ensureContainerd
+{{else}}
+ensureDocker
+{{end}}
+
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
