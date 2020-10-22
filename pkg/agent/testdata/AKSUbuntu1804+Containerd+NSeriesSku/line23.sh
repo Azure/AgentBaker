@@ -169,7 +169,7 @@ installCrictl() {
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then  
-        echo "crictl with target version of ${CRICTL_VERSION} already installed. skipping installCrictl"
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
     else
         downloadCrictl ${CRICTL_VERSION}
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
