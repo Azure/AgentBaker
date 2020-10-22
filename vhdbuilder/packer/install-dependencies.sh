@@ -53,7 +53,7 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
 fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
-  echo "VHD will be built with containerd as the container runtime" >> ${VHD_LOGS_FILEPATH}
+  echo "VHD will be built with containerd as the container runtime"
   CONTAINERD_VERSION="1.4.1"
   installStandaloneContainerd
   echo "  - containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -69,7 +69,7 @@ else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.12"
   installMoby
-  echo "VHD will be built with docker as container runtime" >> ${VHD_LOGS_FILEPATH}
+  echo "VHD will be built with docker as container runtime"
   echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
   cliTool="docker"
 fi
@@ -77,9 +77,6 @@ fi
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-MOBY_VERSION="19.03.12"
-installMoby
-echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
 installGPUDrivers
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
