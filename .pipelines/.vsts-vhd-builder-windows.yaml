@@ -1,6 +1,6 @@
 # Required pipeline variables:
 # - WINDOWS_SKU - SKU of the image offer to use for your base image 
-#   - Valida values are '2019' for '2019-Datacenter-Core-smalldisk' or '2004' for 'datacenter-core-2004-with-containers-smalldisk'
+#   - Valid values are '2019' for '2019-Datacenter-Core-smalldisk' or '2004' for 'datacenter-core-2004-with-containers-smalldisk'
 # - DRY_RUN - Set to 'False' if VHD should be copied to classic storage account in preparation for publishing
 # - CONTAINER_RUNTIME - Container runtime to in for VHD - Valid values are 'containerd' or 'docker'
 #
@@ -84,6 +84,22 @@ jobs:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
+  - script: |
+      OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e OS_DISK_URI=${OS_DISK_URI} \
+      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
+      -e WINDOWS_SKU=$(WINDOWS_SKU) \
+      -e OS_TYPE="Windows" \
+      ${DEIS_GO_DEV_IMAGE} make -f packer.mk test-building-vhd
+    displayName: Run VHD cache test
   - task: PublishPipelineArtifact@1
     inputs:
       artifact: 'vhd-release-notes'
@@ -139,6 +155,7 @@ jobs:
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      WINDOWS_VERSION="$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
       SKU_NAME="windows-$WINDOWS_SKU" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -153,6 +170,8 @@ jobs:
       -e OS_NAME="Windows" \
       -e SKU_NAME=${SKU_NAME} \
       -e OFFER_NAME="Windows" \
+      -e IMAGE_VERSION=${WINDOWS_VERSION} \
+      -e HYPERV_GENERATION="V1" \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))

@@ -1,4 +1,4 @@
-Starting build on  Thu Sep 10 17:01:12 UTC 2020
+Starting build on  Wed Sep 23 20:36:59 UTC 2020
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -36,9 +36,9 @@ Components downloaded in this VHD build (some of the below components might get 
   - ensureGPUDrivers
   - bcc-tools
   - libbcc-examples
+  - Azure CNI version 1.1.7
   - Azure CNI version 1.1.6
   - Azure CNI version 1.1.3
-  - Azure CNI version 1.0.33
   - CNI plugin version 0.7.6
   - CNI plugin version 0.7.5
   - CNI plugin version 0.7.1
@@ -80,15 +80,14 @@ Docker images pre-pulled:
   - /var/lib/kubelet/device-plugins
   - extracted nvidia-device-plugin...
 total 7684
--rwxr-xr-x 1 root root 7868416 Sep 10 17:11 nvidia-device-plugin
-  - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.14
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.16
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.13
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.14
+-rwxr-xr-x 1 root root 7868416 Sep 23 20:46 nvidia-device-plugin
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.17
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.18
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.15
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.16
   - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.8
-  - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.9
   - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.10
+  - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.11
   - mcr.microsoft.com/aks/hcp/kube-svc-redirect:v1.0.7
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod07152020
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod08072020
@@ -126,25 +125,25 @@ total 7684
 -rwxr-xr-x 1 root root  60373229 Aug 26 19:09 /usr/local/bin/kubectl-1.19.0
 -rwxr-xr-x 1 root root 150682912 Sep  2 07:06 /usr/local/bin/kubelet-1.17.11
 -rwxr-xr-x 1 root root  59403188 Sep  2 07:06 /usr/local/bin/kubectl-1.17.11
--r-xr--r-- 1 root root      2237 Sep 10 17:01 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root  35384960 Sep 10 17:03 /usr/local/bin/bpftrace
--rwxr-xr-x 1 root root  25700016 Sep 10 17:09 /usr/local/bin/img
--rwxr-xr-x 1 root root 250267632 Sep 10 17:13 /usr/local/bin/kubelet-1.15.7
--rwxr-xr-x 1 root root 250267632 Sep 10 17:13 /usr/local/bin/kubectl-1.15.7
--rwxr-xr-x 1 root root 250320176 Sep 10 17:13 /usr/local/bin/kubelet-1.15.10
--rwxr-xr-x 1 root root 250320176 Sep 10 17:13 /usr/local/bin/kubectl-1.15.10
--rwxr-xr-x 1 root root 250381624 Sep 10 17:14 /usr/local/bin/kubelet-1.15.11
--rwxr-xr-x 1 root root 250381624 Sep 10 17:14 /usr/local/bin/kubectl-1.15.11
--rwxr-xr-x 1 root root 250471792 Sep 10 17:14 /usr/local/bin/kubelet-1.15.12
--rwxr-xr-x 1 root root 250471792 Sep 10 17:14 /usr/local/bin/kubectl-1.15.12
--rwxr-xr-x 1 root root 203802912 Sep 10 17:15 /usr/local/bin/kubelet-1.16.9
--rwxr-xr-x 1 root root 203802912 Sep 10 17:15 /usr/local/bin/kubectl-1.16.9
--rwxr-xr-x 1 root root 203833416 Sep 10 17:15 /usr/local/bin/kubelet-1.16.10
--rwxr-xr-x 1 root root 203833416 Sep 10 17:15 /usr/local/bin/kubectl-1.16.10
--rwxr-xr-x 1 root root 203854928 Sep 10 17:16 /usr/local/bin/kubelet-1.16.13
--rwxr-xr-x 1 root root 203854928 Sep 10 17:16 /usr/local/bin/kubectl-1.16.13
--rwxr-xr-x 1 root root 203885576 Sep 10 17:16 /usr/local/bin/kubelet-1.16.15
--rwxr-xr-x 1 root root 203885576 Sep 10 17:16 /usr/local/bin/kubectl-1.16.15
+-r-xr--r-- 1 root root      2237 Sep 23 20:36 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root  35384960 Sep 23 20:39 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root  25700016 Sep 23 20:44 /usr/local/bin/img
+-rwxr-xr-x 1 root root 250267632 Sep 23 20:49 /usr/local/bin/kubelet-1.15.7
+-rwxr-xr-x 1 root root 250267632 Sep 23 20:49 /usr/local/bin/kubectl-1.15.7
+-rwxr-xr-x 1 root root 250320176 Sep 23 20:50 /usr/local/bin/kubelet-1.15.10
+-rwxr-xr-x 1 root root 250320176 Sep 23 20:50 /usr/local/bin/kubectl-1.15.10
+-rwxr-xr-x 1 root root 250381624 Sep 23 20:51 /usr/local/bin/kubelet-1.15.11
+-rwxr-xr-x 1 root root 250381624 Sep 23 20:51 /usr/local/bin/kubectl-1.15.11
+-rwxr-xr-x 1 root root 250471792 Sep 23 20:52 /usr/local/bin/kubelet-1.15.12
+-rwxr-xr-x 1 root root 250471792 Sep 23 20:52 /usr/local/bin/kubectl-1.15.12
+-rwxr-xr-x 1 root root 203802912 Sep 23 20:52 /usr/local/bin/kubelet-1.16.9
+-rwxr-xr-x 1 root root 203802912 Sep 23 20:52 /usr/local/bin/kubectl-1.16.9
+-rwxr-xr-x 1 root root 203833416 Sep 23 20:53 /usr/local/bin/kubelet-1.16.10
+-rwxr-xr-x 1 root root 203833416 Sep 23 20:53 /usr/local/bin/kubectl-1.16.10
+-rwxr-xr-x 1 root root 203854928 Sep 23 20:54 /usr/local/bin/kubelet-1.16.13
+-rwxr-xr-x 1 root root 203854928 Sep 23 20:54 /usr/local/bin/kubectl-1.16.13
+-rwxr-xr-x 1 root root 203885576 Sep 23 20:54 /usr/local/bin/kubelet-1.16.15
+-rwxr-xr-x 1 root root 203885576 Sep 23 20:54 /usr/local/bin/kubectl-1.16.15
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.15.11-hotfix.20200529.1
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.15.12-hotfix.20200623.1
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.15.12-hotfix.20200714.1
@@ -196,14 +195,18 @@ total 7684
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
   - mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
   - mcr.microsoft.com/k8s/csi/azuredisk-csi:v0.7.0
+  - mcr.microsoft.com/k8s/csi/azuredisk-csi:v0.9.0
   - mcr.microsoft.com/k8s/csi/azurefile-csi:v0.7.0
+  - mcr.microsoft.com/k8s/csi/azurefile-csi:v0.9.0
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v1.1.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.0
 WARNING: 75% of /dev/sda1 is used
 Using kernel:
-Linux version 5.4.0-1025-azure (buildd@lgw01-amd64-016) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #25~18.04.1-Ubuntu SMP Sat Sep 5 15:28:57 UTC 2020
-Install completed successfully on  Thu Sep 10 17:31:33 UTC 2020
-VSTS Build NUMBER: 20200910.8_18.04_V2_fullgpudaemon_v20200909
-VSTS Build ID: 34674797
-Commit: b1023fa610d9290bea6eb518a598267503e03f1a
+Linux version 5.4.0-1026-azure (buildd@lcy01-amd64-004) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #26~18.04.1-Ubuntu SMP Thu Sep 10 16:19:25 UTC 2020
+Install completed successfully on  Wed Sep 23 21:11:22 UTC 2020
+VSTS Build NUMBER: 20200923.7_v20200923_35104751
+VSTS Build ID: 35104751
+Commit: 9f185c7c773c7cc75a42a92174b9b1d96ba45196
+Ubuntu version: 18.04
+Hyperv generation: V1
 Feature flags: fullgpudaemon

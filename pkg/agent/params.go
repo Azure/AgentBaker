@@ -35,10 +35,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 		}
 	}
 	// masterEndpointDNSNamePrefix is the basis for storage account creation across dcos, swarm, and k8s
-	if properties.MasterProfile != nil {
-		// MasterProfile exists, uses master DNS prefix
-		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.MasterProfile.DNSPrefix)
-	} else if properties.HostedMasterProfile != nil {
+	if properties.HostedMasterProfile != nil {
 		// Agents only, use cluster DNS prefix
 		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
 	}
@@ -236,30 +233,26 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			}
 		}
 
-		if kubernetesConfig == nil ||
-			!kubernetesConfig.UseManagedIdentity ||
-			properties.IsHostedMasterProfile() {
-			servicePrincipalProfile := properties.ServicePrincipalProfile
+		servicePrincipalProfile := properties.ServicePrincipalProfile
 
-			if servicePrincipalProfile != nil {
-				addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
-				keyVaultSecretRef := servicePrincipalProfile.KeyvaultSecretRef
-				if keyVaultSecretRef != nil {
-					addKeyvaultReference(parametersMap, "servicePrincipalClientSecret",
-						keyVaultSecretRef.VaultID,
-						keyVaultSecretRef.SecretName,
-						keyVaultSecretRef.SecretVersion)
-				} else {
-					addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+		if servicePrincipalProfile != nil {
+			addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
+			keyVaultSecretRef := servicePrincipalProfile.KeyvaultSecretRef
+			if keyVaultSecretRef != nil {
+				addKeyvaultReference(parametersMap, "servicePrincipalClientSecret",
+					keyVaultSecretRef.VaultID,
+					keyVaultSecretRef.SecretName,
+					keyVaultSecretRef.SecretVersion)
+			} else {
+				addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+			}
+
+			if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
+				if kubernetesConfig.KeyVaultSku != "" {
+					addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
 				}
-
-				if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
-					if kubernetesConfig.KeyVaultSku != "" {
-						addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
-					}
-					if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
-						addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
-					}
+				if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
+					addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
 				}
 			}
 		}
@@ -314,18 +307,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)
 			addSecret(parametersMap, "kubeConfigCertificate", certificateProfile.KubeConfigCertificate, true)
 			addSecret(parametersMap, "kubeConfigPrivateKey", certificateProfile.KubeConfigPrivateKey, true)
-			if properties.MasterProfile != nil {
-				addSecret(parametersMap, "etcdServerCertificate", certificateProfile.EtcdServerCertificate, true)
-				addSecret(parametersMap, "etcdServerPrivateKey", certificateProfile.EtcdServerPrivateKey, true)
-				addSecret(parametersMap, "etcdClientCertificate", certificateProfile.EtcdClientCertificate, true)
-				addSecret(parametersMap, "etcdClientPrivateKey", certificateProfile.EtcdClientPrivateKey, true)
-				for i, pc := range certificateProfile.EtcdPeerCertificates {
-					addSecret(parametersMap, "etcdPeerCertificate"+strconv.Itoa(i), pc, true)
-				}
-				for i, pk := range certificateProfile.EtcdPeerPrivateKeys {
-					addSecret(parametersMap, "etcdPeerPrivateKey"+strconv.Itoa(i), pk, true)
-				}
-			}
 		}
 
 		if properties.AADProfile != nil {

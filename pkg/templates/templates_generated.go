@@ -3,6 +3,7 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/auditd-rules
 // linux/cloud-init/artifacts/cis.sh
+// linux/cloud-init/artifacts/configure_azure0.sh
 // linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
@@ -337,6 +338,73 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsConfigure_azure0Sh = []byte(`#!/usr/bin/env bash
+
+# It's only necessary to configure azure0 in Ubuntu 18.04
+lsb_release -i | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -qi "^ubuntu$"
+if [ $? != 0 ]; then
+    echo 'It is not Ubuntu Skip configuring azure0'
+    exit 0
+fi
+
+lsb_release -r | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -q "^18.04$"
+if [ $? != 0 ]; then
+    echo 'It is not Ubuntu 18.04. Skip configuring azure0'
+    exit 0
+fi
+
+# Check if the azure cni config is there... no need to run this script if not
+# Also don't want to run this when not using azure-cni
+[ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
+
+# CNI team mentions that this is not needed for calico network policy to run this script
+echo "Network policy: ${NETWORK_POLICY}"
+if [[ "${NETWORK_POLICY}" == "calico" ]]; then
+    exit 0
+fi
+
+# Check if the azure0 bridge is already configured
+# We don't need to run if so.
+ip link show azure0 && exit 0
+
+run_plugin() {
+    export CNI_COMMAND=$1
+    cat /etc/cni/net.d/10-azure.conflist | jq '.name as $name | .cniVersion as $version | .plugins[]+= {name: $name, cniVersion: $version} | .plugins[0]' | /opt/cni/bin/azure-vnet
+}
+
+export CNI_ARGS='K8S_POD_NAMESPACE=default;K8S_POD_NAME=configureAzureCNI'
+export CNI_CONTAINERID=9999
+export CNI_NETNS=/run/netns/configureazcni
+export CNI_IFNAME=eth9999
+export CNI_PATH=/opt/cni/bin
+
+ip netns add $(basename ${CNI_NETNS})
+run_plugin ADD
+
+if [ $? -gt 0 ]; then
+    ip netns del "$(basename ${CNI_NETNS})"
+    exit 1
+fi
+
+run_plugin DEL
+ip netns del $(basename ${CNI_NETNS})
+`)
+
+func linuxCloudInitArtifactsConfigure_azure0ShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsConfigure_azure0Sh, nil
+}
+
+func linuxCloudInitArtifactsConfigure_azure0Sh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsConfigure_azure0ShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/configure_azure0.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1362,7 +1430,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in apache2-utils apt-transport-https blobfuse=1.1.1 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysstat traceroute util-linux xz-utils zip; do
+    for apt_package in apache2-utils apt-transport-https blobfuse=1.1.1 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -2431,6 +2499,10 @@ ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh3=16384
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
+
+{{/* This is a workaround to setup azure0 bridge for CNI */}}
+ExecStartPre=/usr/local/bin/configure_azure0.sh
+
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
@@ -3366,6 +3438,13 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -3584,7 +3663,7 @@ write_files:
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
-    
+
 {{if IsKubenet }}
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
@@ -3666,6 +3745,7 @@ write_files:
   content: |
     KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig}}
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
@@ -3686,14 +3766,20 @@ write_files:
     #!/bin/bash
 {{if not IsIPMasqAgentEnabled}}
     {{if IsAzureCNI}}
-    IFS=','
-    read -ra vnetCidrs <<< {{GetParameter "vnetCidr"}}
-    for vnetCidr in "${vnetCidrs[@]}"; do
-      iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d $vnetCidr -j MASQUERADE
-    done
-    IFS=' '
+    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
     {{end}}
 {{end}}
+
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
 runcmd:
@@ -5553,6 +5639,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
+	"linux/cloud-init/artifacts/configure_azure0.sh":                       linuxCloudInitArtifactsConfigure_azure0Sh,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
@@ -5651,6 +5738,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
+				"configure_azure0.sh":                       &bintree{linuxCloudInitArtifactsConfigure_azure0Sh, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},

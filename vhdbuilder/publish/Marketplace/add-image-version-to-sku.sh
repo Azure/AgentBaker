@@ -45,7 +45,7 @@ cat $VHD_INFO
 echo
 
 # generate image version
-vhd_version=$(< $VHD_INFO jq -r ".windows_version")
+vhd_version=$(< $VHD_INFO jq -r ".image_version")
 version_date=$(date +"%y%m%d")
 image_version="${vhd_version}.${version_date}"
 

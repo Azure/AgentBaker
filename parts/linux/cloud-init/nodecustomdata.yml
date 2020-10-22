@@ -74,6 +74,13 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+- path: /usr/local/bin/configure_azure0.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -292,7 +299,7 @@ write_files:
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
-    
+
 {{if IsKubenet }}
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
@@ -374,6 +381,7 @@ write_files:
   content: |
     KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig}}
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
@@ -394,14 +402,20 @@ write_files:
     #!/bin/bash
 {{if not IsIPMasqAgentEnabled}}
     {{if IsAzureCNI}}
-    IFS=','
-    read -ra vnetCidrs <<< {{GetParameter "vnetCidr"}}
-    for vnetCidr in "${vnetCidrs[@]}"; do
-      iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d $vnetCidr -j MASQUERADE
-    done
-    IFS=' '
+    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
     {{end}}
 {{end}}
+
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
 runcmd:

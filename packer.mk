@@ -49,3 +49,7 @@ convert-sig-to-classic-storage-account-blob: az-login
 
 windows-vhd-publishing-info: az-login
 	@./vhdbuilder/packer/generate-windows-vhd-publishing-info.sh
+
+test-building-vhd: az-login
+	@./vhdbuilder/packer/test/run-test.sh
+

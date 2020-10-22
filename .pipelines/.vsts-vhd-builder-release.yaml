@@ -22,6 +22,10 @@ parameters:
   displayName: Build 1804 Gen2 GPU
   type: boolean
   default: true
+- name: dryrun
+  displayName: Dry run
+  type: boolean
+  default: false
 
 variables:
   CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
@@ -34,7 +38,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - bash: |
-          echo '##vso[task.setvariable variable=DRY_RUN]False'
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
           echo '##vso[task.setvariable variable=UBUNTU_SKU]16.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
@@ -62,6 +66,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -161,6 +166,7 @@ phases:
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
           -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -176,7 +182,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - bash: |
-          echo '##vso[task.setvariable variable=DRY_RUN]False'
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
           echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
@@ -204,6 +210,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -303,6 +310,7 @@ phases:
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
           -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -318,7 +326,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - bash: |
-          echo '##vso[task.setvariable variable=DRY_RUN]False'
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
           echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
@@ -346,6 +354,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -445,6 +454,7 @@ phases:
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
           -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -460,7 +470,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - bash: |
-          echo '##vso[task.setvariable variable=DRY_RUN]False'
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
           echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
@@ -488,6 +498,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -587,6 +598,7 @@ phases:
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
           -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
@@ -602,7 +614,7 @@ phases:
       timeoutInMinutes: 120
     steps:
       - bash: |
-          echo '##vso[task.setvariable variable=DRY_RUN]False'
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
           echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
@@ -630,6 +642,7 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=$(UBUNTU_SKU) \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -729,6 +742,7 @@ phases:
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
           -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))

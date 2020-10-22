@@ -31,7 +31,7 @@ az resource create --id $disk_resource_id  --is-full-object --location $LOCATION
     } \
   } \
 }"
-
+# shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/1.0.${CREATE_TIME}.vhd${CLASSIC_SAS_TOKEN}" --recursive=true

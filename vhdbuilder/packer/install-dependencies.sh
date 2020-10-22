@@ -75,9 +75,10 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 VNET_CNI_VERSIONS="
+1.1.8
+1.1.7
 1.1.6
 1.1.3
-1.0.33
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -213,6 +214,7 @@ for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
 done
 
 AZURE_NPM_VERSIONS="
+1.1.8
 1.1.7
 1.1.5
 1.1.4
@@ -300,8 +302,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last released image (ciprod07152020 - hotfix) and current to be released image (ciprod08072020)
-OMS_AGENT_IMAGES="ciprod07152020 ciprod08072020"
+# keeping last released image (ciprod08072020) and current to be released image (ciprod10052020)
+OMS_AGENT_IMAGES="ciprod08072020 ciprod10052020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
@@ -310,8 +312,8 @@ done
 
 # calico images used by AKS
 CALICO_CNI_IMAGES="
-v3.5.0
 v3.8.0
+v3.8.9
 "
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
@@ -320,8 +322,8 @@ for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
 done
 
 CALICO_NODE_IMAGES="
-v3.5.0
 v3.8.0
+v3.8.9
 "
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
@@ -330,8 +332,8 @@ for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
 done
 
 CALICO_TYPHA_IMAGES="
-v3.5.0
 v3.8.0
+v3.8.9
 "
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:${CALICO_TYPHA_IMAGE}"
@@ -339,7 +341,10 @@ for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-CALICO_POD2DAEMON_IMAGES="v3.8.0"
+CALICO_POD2DAEMON_IMAGES="
+v3.8.0
+v3.8.9
+"
 for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:${CALICO_POD2DAEMON_IMAGE}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
@@ -376,6 +381,7 @@ done
 AKS_IP_MASQ_AGENT_VERSIONS="
 2.5.0
 2.5.0.1
+2.5.0.2
 "
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
@@ -404,13 +410,14 @@ done
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.9-hotfix.20200824.1
 # v1.17.11-hotfix.20200901
-# v1.18.6-hotfix.20200723.1
-# v1.18.8
+# v1.17.13
+# v1.18.8-hotfix.20200924
+# v1.18.10
+# v1.19.0
+# v1.19.3
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
-1.15.7-hotfix.20200326
 1.15.10-hotfix.20200408.1
 1.15.11-hotfix.20200824.1
 1.15.12-hotfix.20200824.1
@@ -422,11 +429,14 @@ K8S_VERSIONS="
 1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
+1.17.13
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
-1.18.8
+1.18.8-hotfix.20200924
+1.18.10
 1.19.0
+1.19.3
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
@@ -443,6 +453,7 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   else
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
+      # shellcheck disable=SC2006
       PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
     else
       PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
@@ -459,38 +470,32 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.9-hotfix.20200824.1
 # v1.17.11-hotfix.20200901
-# v1.18.6-hotfix.20200723.1
-# v1.18.8
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP
+# v1.17.13
+# v1.18.8-hotfix.20200924
+# v1.18.10
+# v1.19.0
+# v1.19.3
+# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.15.11-hotfix.20200529.1
 1.15.12-hotfix.20200623.1
-1.15.12-hotfix.20200714.1
 1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200623.1
-1.16.10-hotfix.20200714.1
-1.16.10-hotfix.20200817.1
 1.16.10-hotfix.20200824.1
-1.16.13-hotfix.20200714.1
-1.16.13-hotfix.20200817.1
 1.16.13-hotfix.20200824.1
 1.16.15-hotfix.20200903
 1.17.3-hotfix.20200601.1
-1.17.7-hotfix.20200624
-1.17.7-hotfix.20200714.1
 1.17.7-hotfix.20200714.2
-1.17.9-hotfix.20200714.1
-1.17.9-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
-1.18.4-hotfix.20200624
+1.17.13
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
-1.18.6
 1.18.8
+1.18.8-hotfix.20200924
+1.18.10
 1.19.0
+1.19.3
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
@@ -499,6 +504,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+    # shellcheck disable=SC2181
     if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
@@ -516,6 +522,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
     pullContainerImage "docker" ${CONTAINER_IMAGE}
     docker run --rm --entrypoint "" ${CONTAINER_IMAGE}  /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+    # shellcheck disable=SC2181
     if [[ $? != 0 ]]; then
       echo "Hyperkube contains nf_tables, exiting..."
       exit 99
@@ -526,14 +533,15 @@ done
 
 ADDON_IMAGES="
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0-beta.12
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.1
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
 mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200804.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200901.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200923.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 "
@@ -580,7 +588,8 @@ for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; 
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
+# shellcheck disable=SC2010
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 df -h
 
@@ -596,6 +605,8 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "VSTS Build NUMBER: ${BUILD_NUMBER}"
   echo "VSTS Build ID: ${BUILD_ID}"
   echo "Commit: ${COMMIT}"
+  echo "Ubuntu version: ${UBUNTU_RELEASE}"
+  echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
 } >> ${VHD_LOGS_FILEPATH}
 

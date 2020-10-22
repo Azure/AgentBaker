@@ -6,13 +6,16 @@
         This script is used by packer to produce Windows AKS images.
 #>
 
-param()
+param (
+    $containerRuntime,
+    $windowsSKU
+)
 
 $ErrorActionPreference = "Stop"
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
-$global:containerdPackageUrl = "https://marosset.blob.core.windows.net/pub/containerd/containerd-0.0.87-public.zip"
+$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
 
 function Write-Log($Message) {
     $msg = $message | Timestamp
@@ -38,14 +41,34 @@ function Disable-WindowsUpdates {
 
 function Get-ContainerImages {
     param (
-        $containerRuntime
+        $containerRuntime,
+        $windowsSKU
     )
-    $imagesToPull = @(
-        "mcr.microsoft.com/windows/servercore:ltsc2019",
-        "mcr.microsoft.com/windows/nanoserver:1809",
-        "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
-        "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
-        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+
+    $imagesToPull = @()
+
+    switch ($windowsSKU) {
+        '2019' {
+            $imagesToPull = @(
+                "mcr.microsoft.com/windows/servercore:ltsc2019",
+                "mcr.microsoft.com/windows/nanoserver:1809",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+            Write-Log "Pulling images for windows server 2019"
+        }
+        '2004' {
+            $imagesToPull = @(
+                "mcr.microsoft.com/windows/servercore:2004",
+                "mcr.microsoft.com/windows/nanoserver:2004",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0")
+            Write-Log "Pulling images for windows server core 2004"
+        }
+        default {
+            Write-Log "No valid windows SKU is specified $windowsSKU"
+            exit 1
+        }
+    }
 
     if ($containerRuntime -eq 'containerd') {
         foreach ($image in $imagesToPull) {
@@ -76,7 +99,8 @@ function Get-FilesToCacheOnVHD {
             "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
             "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
             "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.2.zip"
+            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.2.zip",
+            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.3.zip"
         );
         "c:\akse-cache\containerd\"   = @(
             $global:containerdPackageUrl
@@ -103,6 +127,7 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200714/windowszip/v1.16.13-hotfix.20200714-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200817/windowszip/v1.16.13-hotfix.20200817-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200824/windowszip/v1.16.13-hotfix.20200824-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200917/windowszip/v1.16.13-hotfix.20200917-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.14/windowszip/v1.16.14-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.15-hotfix.20200903/windowszip/v1.16.15-hotfix.20200903-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.7-hotfix.20200817/windowszip/v1.17.7-hotfix.20200817-1int.zip",
@@ -113,17 +138,26 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.9-hotfix.20200824/windowszip/v1.17.9-hotfix.20200824-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11/windowszip/v1.17.11-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11-hotfix.20200901/windowszip/v1.17.11-hotfix.20200901-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.17.12/windowszip/v1.17.12-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.17.13/windowszip/v1.17.13-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.4-hotfix.20200626/windowszip/v1.18.4-hotfix.20200626-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.5/windowszip/v1.18.5-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.6/windowszip/v1.18.6-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.6-hotfix.20200723/windowszip/v1.18.6-hotfix.20200723-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.8/windowszip/v1.18.8-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.8-hotfix.20200924/windowszip/v1.18.8-hotfix.20200924-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.9/windowszip/v1.18.9-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.10/windowszip/v1.18.10-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.1/windowszip/v1.19.1-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.2/windowszip/v1.19.2-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.3/windowszip/v1.19.3-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.2.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip"
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.6.zip"
+            "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.1.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.6.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.8.zip"
         )
     }
 
@@ -191,9 +225,7 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    # kb4570333 contains September 8, 2020 cumulative updates for Windows Server 2019
-    # https://www.catalog.update.microsoft.com/Search.aspx?q=kb4570333
-    $patchUrls = @("http://download.windowsupdate.com/d/msdownload/update/software/secu/2020/09/windows10.0-kb4570333-x64_8c3c376b98addc84ef5c6c59de3b59cb33436fee.msu")
+    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/updt/2020/10/windows10.0-kb4580390-x64_743bc31f33bf399c7f15ab020df685780faf4cb5.msu")
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
@@ -283,6 +315,13 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
     exit 1
 }
 
+$windowsSKU = $env:WindowsSKU
+$validSKU = @('2019', '2004')
+if (-not ($validSKU -contains $windowsSKU)) {
+    Write-Host "Unsupported windows image SKU: $windowsSKU"
+    exit 1
+}
+
 switch ($env:ProvisioningPhase) {
     "1" {
         Write-Log "Performing actions for provisioning phase 1"
@@ -302,7 +341,7 @@ switch ($env:ProvisioningPhase) {
         if ($containerRuntime -eq 'containerd') {
             Install-ContainerD
         }
-        Get-ContainerImages -containerRuntime $containerRuntime
+        Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }

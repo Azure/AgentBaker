@@ -8,6 +8,7 @@ required_env_vars=(
     "OFFER_NAME"
     "SKU_NAME"
     "HYPERV_GENERATION"
+    "IMAGE_VERSION"
 )
 
 for v in "${required_env_vars[@]}"
@@ -26,35 +27,16 @@ vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?$sas_token"
 echo "COPY ME ---> ${vhd_url}"
 sku_name=$(echo $SKU_NAME | tr -d '.')
 
-if [ ${OS_NAME} = "Windows" ]; then
-    # Get verion info from release notes
-    RELEASE_NOTES_FILE=release-notes.txt
+cat <<EOF > vhd-publishing-info.json
+{
+    "vhd_url" : "$vhd_url",
+    "os_name" : "$OS_NAME",
+    "sku_name" : "$sku_name",
+    "offer_name" : "$OFFER_NAME",
+    "hyperv_generation": "${HYPERV_GENERATION}",
+    "image_version": "${IMAGE_VERSION}"
+}
+EOF
 
-    if [ ! -f "$RELEASE_NOTES_FILE" ]; then
-        echo "Could not fine release notes file!"
-        exit 1
-    fi
-    # windows_version is used to tag vhd media version
-    windows_version=$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")
-    cat <<EOF > vhd-publishing-info.json
-    {
-        "vhd_url" : "$vhd_url",
-        "os_name" : "$OS_NAME",
-        "sku_name" : "$sku_name",
-        "offer_name" : "$OFFER_NAME",
-        "windows_version" : "$windows_version"
-    }
-EOF
-else
-    cat <<EOF > vhd-publishing-info.json
-    {
-        "vhd_url" : "$vhd_url",
-        "os_name" : "$OS_NAME",
-        "sku_name" : "$sku_name",
-        "offer_name" : "$OFFER_NAME",
-        "hyperv_generation": "${HYPERV_GENERATION}"
-    }
-EOF
-fi
 
 cat vhd-publishing-info.json

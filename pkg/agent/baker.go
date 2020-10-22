@@ -249,9 +249,6 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
 		},
-		"HasCosmosEtcd": func() bool {
-			return cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.HasCosmosEtcd()
-		},
 		"IsPrivateCluster": func() bool {
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
 		},
@@ -267,7 +264,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
 		},
 		"GetWindowsMasterSubnetARMParam": func() string {
-			return getWindowsMasterSubnetARMParam(cs.Properties.MasterProfile)
+			return getWindowsMasterSubnetARMParam()
 		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""

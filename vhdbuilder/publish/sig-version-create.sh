@@ -16,6 +16,9 @@
 
 MANAGED_IMAGE_NAME="MI_${REGION}_${GALLERY_NAME}_${IMAGEDEFINITION_NAME}_${IMAGE_VERSION}"
 
+# TODO(qinhao): change image version pattern of Windows to ${WINDOWS_VERSION}.$(date +"%y%m%d"), e.g. 17763.1457.200909,
+# in which, WINDOWS_VERSION can be obtained from vhd-publishing-info.json in VHD building artifacts
+
 echo "Creating managed image ${MANAGED_IMAGE_NAME} from VHD, inside resource group ${MANAGED_IMAGE_RG_NAME}"
 create_managed_image_command="az image create --resource-group ${MANAGED_IMAGE_RG_NAME} --name ${MANAGED_IMAGE_NAME} --os-type ${OS_NAME} --hyper-v-generation ${HYPERV_GENERATION} --source ${VHD_SOURCE}"
 eval $create_managed_image_command

@@ -1,0 +1,11 @@
+name: check-shell
+on: pull_request
+
+jobs:
+  check-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        make validate-shell
+      name: Verify Shell scripts
