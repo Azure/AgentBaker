@@ -425,20 +425,56 @@ write_files:
     # This is a partial workaround to this upstream Kubernetes issue: */}}
     # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731 */}}
     net.ipv4.tcp_retries2=8
-    net.ipv4.tcp_max_syn_backlog=16384
-    net.core.somaxconn=16384
     net.core.message_burst=80
     net.core.message_cost=40
+{{- if ShouldConfigSysctl}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- if ShouldConfigSysctl}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if ShouldConfigSysctl}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
     net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if ShouldConfigSysctl}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
     net.ipv4.neigh.default.gc_thresh2=8192
-    net.ipv4.neigh.default.gc_thresh3=16384 
+{{- end}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if ShouldConfigSysctl}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
 {{if ShouldConfigSysctl}}
     # The following are sysctl configs passed from API
-    # will override above settings if key is same
 {{- $s:=.CustomLinuxOSConfig.Sysctls}}
-{{- if $s.NetCoreSomaxconn}}
-    net.core.somaxconn={{$s.NetCoreSomaxconn}}
-{{- end}}
 {{- if $s.NetCoreNetdevMaxBacklog}}
     net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
 {{- end}}
@@ -450,9 +486,6 @@ write_files:
 {{- end}}
 {{- if $s.NetCoreOptmemMax}}
     net.core.optmem_max={{$s.NetCoreOptmemMax}}
-{{- end}}
-{{- if $s.NetIpv4TcpMaxSynBacklog}}
-    net.ipv4.tcp_max_syn_backlog={{$s.NetIpv4TcpMaxSynBacklog}}
 {{- end}}
 {{- if $s.NetIpv4TcpMaxTwBuckets}}
     net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
@@ -480,15 +513,6 @@ write_files:
 {{- end}}
 {{- if $s.NetIpv4IpLocalPortRange}}
     net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
-{{- end}}
-{{- if $s.NetIpv4NeighDefaultGcThresh1}}
-    net.ipv4.neigh.default.gc_thresh1={{$s.NetIpv4NeighDefaultGcThresh1}}
-{{- end}}
-{{- if $s.NetIpv4NeighDefaultGcThresh2}}
-    net.ipv4.neigh.default.gc_thresh2={{$s.NetIpv4NeighDefaultGcThresh2}}
-{{- end}}
-{{- if $s.NetIpv4NeighDefaultGcThresh3}}
-    net.ipv4.neigh.default.gc_thresh3={{$s.NetIpv4NeighDefaultGcThresh3}}
 {{- end}}
 {{- if $s.NetNetfilterNfConntrackMax}}
     net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}

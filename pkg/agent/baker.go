@@ -244,9 +244,15 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
 		},
 		"GetTransparentHugePageEnabled": func() string {
+			if profile.CustomLinuxOSConfig == nil {
+				return ""
+			}
 			return profile.CustomLinuxOSConfig.TransparentHugePageEnabled
 		},
 		"GetTransparentHugePageDefrag": func() string {
+			if profile.CustomLinuxOSConfig == nil {
+				return ""
+			}
 			return profile.CustomLinuxOSConfig.TransparentHugePageDefrag
 		},
 		"ShouldConfigSwapFile": func() bool {
