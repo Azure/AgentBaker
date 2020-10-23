@@ -74,7 +74,8 @@ fi
 
 installContainerRuntime
 installCrictl
-cliTool="crictl"
+# If crictl gets installed then use it as the cri cli instead of ctr
+CLI_TOOL="crictl"
 
 
 installNetworkPlugin
