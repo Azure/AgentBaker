@@ -296,6 +296,7 @@ cleanUpKubeProxyImages() {
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export -f retrycmd_if_failure
+    export -f cleanUpAllImages
     export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
     export KUBERNETES_VERSION
