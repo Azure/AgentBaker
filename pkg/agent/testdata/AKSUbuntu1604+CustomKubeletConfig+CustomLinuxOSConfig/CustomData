@@ -180,10 +180,10 @@ write_files:
     net.core.message_burst=80
     net.core.message_cost=40
     net.core.somaxconn=1638499
-    net.ipv4.tcp_max_syn_backlog=16384
-    net.ipv4.neigh.default.gc_thresh1=4096
-    net.ipv4.neigh.default.gc_thresh2=8192
-    net.ipv4.neigh.default.gc_thresh3=16384
+    net.ipv4.tcp_max_syn_backlog=1638498
+    net.ipv4.neigh.default.gc_thresh1=10001
+    net.ipv4.neigh.default.gc_thresh2=10002
+    net.ipv4.neigh.default.gc_thresh3=10003
 
     # The following are sysctl configs passed from API
     net.ipv4.tcp_tw_reuse=1

@@ -230,9 +230,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 				Sysctls: &datamodel.SysctlConfig{
-					NetCoreSomaxconn:        &netCoreSomaxconn,
-					NetIpv4TcpTwReuse:       &netIpv4TcpTwReuse,
-					NetIpv4IpLocalPortRange: "32768 60999",
+					NetCoreSomaxconn:             &netCoreSomaxconn,
+					NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
+					NetIpv4IpLocalPortRange:      "32768 60999",
+					NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
+					NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
+					NetIpv4NeighDefaultGcThresh2: to.Int32Ptr(10002),
+					NetIpv4NeighDefaultGcThresh3: to.Int32Ptr(10003),
 				},
 				TransparentHugePageEnabled: "never",
 				TransparentHugePageDefrag:  "defer+madvise",

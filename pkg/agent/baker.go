@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -239,6 +240,13 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"ShouldConfigSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
+		},
+		"GetSysctlConfigByName": func(fn string) interface{} {
+			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
+				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
+				return v.FieldByName(fn).Interface()
+			}
+			return nil
 		},
 		"ShouldConfigTransparentHugePage": func() bool {
 			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
