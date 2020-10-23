@@ -128,7 +128,7 @@ done
 installImg
 echo "  - img" >> ${VHD_LOGS_FILEPATH}
 
-echo "Docker images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
+echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 DASHBOARD_VERSIONS="1.10.1"
 for DASHBOARD_VERSION in ${DASHBOARD_VERSIONS}; do
