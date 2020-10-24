@@ -238,10 +238,10 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
-		"ShouldConfigSysctl": func() bool {
+		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
 		},
-		"GetSysctlConfigByName": func(fn string) interface{} {
+		"GetCustomSysctlConfigByName": func(fn string) interface{} {
 			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
 				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
 				return v.FieldByName(fn).Interface()

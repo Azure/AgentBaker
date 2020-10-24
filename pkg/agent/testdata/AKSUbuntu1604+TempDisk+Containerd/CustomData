@@ -231,8 +231,8 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    # This is a partial workaround to this upstream Kubernetes issue: */}}
-    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731 */}}
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
     net.ipv4.tcp_retries2=8
     net.core.message_burst=80
     net.core.message_cost=40
