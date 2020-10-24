@@ -134,6 +134,15 @@ ensureDHCPv6
 configPrivateClusterHosts
 {{- end}}
 
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage
+{{- end}}
+
+{{- if ShouldConfigSwapFile}}
+configureSwapFile
+{{- end}}
+
+ensureSysctl
 ensureKubelet
 ensureJournal
 
