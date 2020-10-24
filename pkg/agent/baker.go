@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -220,7 +221,7 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			if profile.KubernetesConfig == nil {
 				return ""
 			}
-			return getDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig)
+			return GetDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"IsDynamicKubeletEnabled": func() bool {
 			return IsDynamicKubeletEnabled(cs, config.EnableDynamicKubelet)
@@ -236,6 +237,39 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 				return ""
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
+		},
+		"ShouldConfigCustomSysctl": func() bool {
+			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
+		},
+		"GetCustomSysctlConfigByName": func(fn string) interface{} {
+			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
+				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
+				return v.FieldByName(fn).Interface()
+			}
+			return nil
+		},
+		"ShouldConfigTransparentHugePage": func() bool {
+			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
+		},
+		"GetTransparentHugePageEnabled": func() string {
+			if profile.CustomLinuxOSConfig == nil {
+				return ""
+			}
+			return profile.CustomLinuxOSConfig.TransparentHugePageEnabled
+		},
+		"GetTransparentHugePageDefrag": func() string {
+			if profile.CustomLinuxOSConfig == nil {
+				return ""
+			}
+			return profile.CustomLinuxOSConfig.TransparentHugePageDefrag
+		},
+		"ShouldConfigSwapFile": func() bool {
+			// only configure swap file when FailSwapOn is true and SwapFileSizeMB is valid
+			return profile.CustomKubeletConfig != nil && profile.CustomKubeletConfig.FailSwapOn != nil && *profile.CustomKubeletConfig.FailSwapOn &&
+				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
+		},
+		"GetSwapFileSizeMB": func() int32 {
+			return *profile.CustomLinuxOSConfig.SwapFileSizeMB
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
@@ -552,6 +586,15 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"CloseBraces": func() string {
 			return "}}"
+		},
+		"BoolPtrToInt": func(p *bool) int {
+			if p == nil {
+				return 0
+			}
+			if v := *p; v {
+				return 1
+			}
+			return 0
 		},
 	}
 }

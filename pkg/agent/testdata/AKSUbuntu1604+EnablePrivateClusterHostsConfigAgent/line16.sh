@@ -95,6 +95,7 @@ configureCNI
 
 configPrivateClusterHosts
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 
