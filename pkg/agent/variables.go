@@ -10,7 +10,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
+func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
@@ -52,7 +52,7 @@ func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
 	return cloudInitFiles
 }
 
-func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
+func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return map[string]interface{}{

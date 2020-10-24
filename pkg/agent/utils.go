@@ -97,8 +97,8 @@ func addValue(m paramsMap, k string, v interface{}) {
 
 func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVersion string) {
 	m[k] = paramsMap{
-		"reference": &KeyVaultRef{
-			KeyVault: KeyVaultID{
+		"reference": &datamodel.KeyVaultRef{
+			KeyVault: datamodel.KeyVaultID{
 				ID: vaultID,
 			},
 			SecretName:    secretName,
@@ -237,7 +237,7 @@ func escapeSingleLine(escapedStr string) string {
 }
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
-func getBase64EncodedGzippedCustomScript(csFilename string, config *NodeBootstrappingConfiguration) string {
+func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
@@ -390,13 +390,13 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 		return ""
 	}
 	// translate simple values
-	kubeletConfig := &AKSKubeletConfiguration{
+	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
 		Kind:          "KubeletConfiguration",
 		Address:       kc["--address"],
 		StaticPodPath: kc["--pod-manifest-path"],
-		Authorization: KubeletAuthorization{
-			Mode: KubeletAuthorizationMode(kc["--authorization-mode"]),
+		Authorization: datamodel.KubeletAuthorization{
+			Mode: datamodel.KubeletAuthorizationMode(kc["--authorization-mode"]),
 		},
 		ClusterDNS:                     strings.Split(kc["--cluster-dns"], ","),
 		CgroupsPerQOS:                  strToBoolPtr(kc["--cgroups-per-qos"]),
@@ -405,13 +405,13 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 		TLSCipherSuites:                strings.Split(kc["--tls-cipher-suites"], ","),
 		ClusterDomain:                  kc["--cluster-domain"],
 		MaxPods:                        strToInt32(kc["--max-pods"]),
-		NodeStatusUpdateFrequency:      Duration(kc["--node-status-update-frequency"]),
+		NodeStatusUpdateFrequency:      datamodel.Duration(kc["--node-status-update-frequency"]),
 		ImageGCHighThresholdPercent:    strToInt32Ptr(kc["--image-gc-high-threshold"]),
 		ImageGCLowThresholdPercent:     strToInt32Ptr(kc["--image-gc-low-threshold"]),
 		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
 		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
-		StreamingConnectionIdleTimeout: Duration(kc["--streaming-connection-idle-timeout"]),
+		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
@@ -419,19 +419,19 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 	}
 
 	// Authentication
-	kubeletConfig.Authentication = KubeletAuthentication{}
+	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
 	if ca := kc["--client-ca-file"]; ca != "" {
-		kubeletConfig.Authentication.X509 = KubeletX509Authentication{
+		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
 			ClientCAFile: ca,
 		}
 	}
 	if aw := kc["--authentication-token-webhook"]; aw != "" {
-		kubeletConfig.Authentication.Webhook = KubeletWebhookAuthentication{
+		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
 			Enabled: strToBool(aw),
 		}
 	}
 	if aa := kc["--anonymous-auth"]; aa != "" {
-		kubeletConfig.Authentication.Anonymous = KubeletAnonymousAuthentication{
+		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
 			Enabled: strToBool(aa),
 		}
 	}
@@ -460,7 +460,7 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 			kubeletConfig.CPUCFSQuota = customKc.CPUCfsQuota
 		}
 		if customKc.CPUCfsQuotaPeriod != "" {
-			kubeletConfig.CPUCFSQuotaPeriod = Duration(customKc.CPUCfsQuotaPeriod)
+			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy

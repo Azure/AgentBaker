@@ -18,7 +18,7 @@ func generateTestData() bool {
 }
 
 var _ = Describe("Assert generated customData and cseCmd", func() {
-	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*NodeBootstrappingConfiguration)) {
+	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration)) {
 		cs := &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -114,13 +114,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &K8sComponents{
+		k8sComponents := &datamodel.K8sComponents{
 			PodInfraContainerImageURL: pauseImage,
 			HyperkubeImageURL:         hyperkubeImage,
 			WindowsPackageURL:         windowsPackage,
 		}
 
-		config := &NodeBootstrappingConfiguration{
+		config := &datamodel.NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
 			K8sComponents:                 k8sComponents,
@@ -165,14 +165,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
-		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					datamodel.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
 		}),
-		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					datamodel.ContainerDataDirKey: "/mnt/containers",
@@ -183,10 +183,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 		}),
-		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
 		}),
-		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
@@ -194,17 +194,17 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
 		}),
-		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuGPU1804
 			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true
 			config.EnableNvidia = true
 		}),
-		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableDynamicKubelet = true
 		}),
-		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: datamodel.Containerd,
@@ -212,7 +212,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
 		}),
-		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableDynamicKubelet = true
 			netIpv4TcpTwReuse := true
 			failSwapOn := true
