@@ -3,13 +3,19 @@ set -eux
 
 WIN_SCRIPT_PATH="vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
+Test_VM_ADMIN_USERNAME="azureuser"
+TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
-# defer function to cleanup resource group
+# defer function to cleanup resource group when VHD debug is not enabled
 function cleanup {
-    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+    if [ "$VHD_DEBUG" == "true" ]; then
+        echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+    else
+        az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+    fi
 }
 trap cleanup EXIT
 
@@ -29,7 +35,7 @@ if [ "$MODE" == "sigMode" ]; then
 		--gallery-name ${SIG_GALLERY_NAME} \
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
-		echo "Creating image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
         exit 1
 	fi
 
@@ -42,9 +48,11 @@ if [ "$MODE" == "sigMode" ]; then
     --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $IMG_DEF \
-    --admin-username azureuser \
-    --admin-password "TestVM@$(date +%s)" \
+    --admin-username $Test_VM_ADMIN_USERNAME \
+    --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
+    echo "VHD test VM username: $Test_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+
 else
     az disk create --resource-group $RESOURCE_GROUP_NAME \
         --name $DISK_NAME \
