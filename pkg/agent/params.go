@@ -14,9 +14,6 @@ import (
 func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	if profile.IsWindows() {
-		profile = nil
-	}
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
@@ -235,9 +232,12 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				// Kubernetes node binaries as packaged by upstream kubernetes
 				// example at https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.11.md#node-binaries-1
 				addValue(parametersMap, "windowsKubeBinariesURL", kubernetesConfig.WindowsNodeBinariesURL)
+				addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
 				addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
 				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
 				addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
+				addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
+
 			}
 		}
 

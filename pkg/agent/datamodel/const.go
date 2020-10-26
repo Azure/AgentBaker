@@ -58,7 +58,14 @@ const (
 	StandardVMType = "standard"
 )
 
+// Azure API Versions
 const (
+	APIVersionNetwork = "2018-08-01"
+)
+
+const (
+	// DefaultEnableCSIProxyWindows determines if CSI proxy should be enabled by default for Windows nodes
+	DefaultEnableCSIProxyWindows = false
 	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
 	DefaultWindowsSSHEnabled = true
 )

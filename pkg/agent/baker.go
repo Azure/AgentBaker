@@ -63,8 +63,8 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	profile := config.AgentPoolProfile
 	//get parameters
 	parameters := getParameters(config, "", "")
-	//get variable cloudInit
-	variables := getCustomDataVariables(config)
+	//get variable custom data
+	variables := getCSECommandVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
 
@@ -85,7 +85,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return t.getWindowsNodeCustomDataJSONObject(config)
+		return t.getWindowsNodeCSECommand(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -106,6 +106,32 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	if e != nil {
 		panic(e)
 	}
+	// NOTE: we break the one-line CSE command into different lines in a file for better management
+	// so we need to combine them into one line here
+	return strings.Replace(str, "\n", " ", -1)
+}
+
+// getWindowsNodeCSECommand returns Windows node custom script extension execution command
+func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
+	//get parameters
+	parameters := getParameters(config, "", "")
+	//get variable
+	variables := getCSECommandVariables(config)
+
+	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+	str, e := t.getSingleLine(
+		kubernetesWindowsAgentCSECommandPS1,
+		config.AgentPoolProfile,
+		t.getBakerFuncMap(config, parameters, variables),
+	)
+
+	if e != nil {
+		panic(e)
+	}
+	// NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in [csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1)
+	// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
+	str = strings.Replace(str, `\"`, `"`, -1)
+
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
 	return strings.Replace(str, "\n", " ", -1)
@@ -246,9 +272,6 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	if profile.IsWindows() {
-		profile = nil
-	}
 	return template.FuncMap{
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
@@ -344,6 +367,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"UseManagedIdentity": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
 		},
+		"UserAssignedIDEnabled": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
+		},
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
 		},
@@ -366,10 +392,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var parts = []string{
 				kubernetesWindowsAgentFunctionsPS1,
 				kubernetesWindowsConfigFunctionsPS1,
+				kubernetesWindowsContainerdFunctionsPS1,
+				kubernetesWindowsCsiProxyFunctionsPS1,
 				kubernetesWindowsKubeletFunctionsPS1,
 				kubernetesWindowsCniFunctionsPS1,
 				kubernetesWindowsAzureCniFunctionsPS1,
-				kubernetesWindowsOpenSSHFunctionPS1}
+				kubernetesWindowsHostsConfigAgentFunctionsPS1,
+				kubernetesWindowsOpenSSHFunctionPS1,
+			}
 
 			// Create a buffer, new zip
 			buf := new(bytes.Buffer)

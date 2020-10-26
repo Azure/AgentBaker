@@ -1066,6 +1066,14 @@ func (l *LinuxProfile) HasCustomNodesDNS() bool {
 	return false
 }
 
+// IsCSIProxyEnabled returns true if csi proxy service should be enable for Windows nodes
+func (w *WindowsProfile) IsCSIProxyEnabled() bool {
+	if w.EnableCSIProxy != nil {
+		return *w.EnableCSIProxy
+	}
+	return DefaultEnableCSIProxyWindows
+}
+
 // HasSecrets returns true if the customer specified secrets to install
 func (w *WindowsProfile) HasSecrets() bool {
 	return len(w.Secrets) > 0
@@ -1103,6 +1111,12 @@ func (w *WindowsProfile) GetWindowsDockerVersion() string {
 		return w.WindowsDockerVersion
 	}
 	return KubernetesWindowsDockerVersion
+}
+
+// IsAlwaysPullWindowsPauseImage returns true if the windows pause image always needs a force pull
+func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
+	alwaysPullWindowsPauseImage := (w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage)
+	return alwaysPullWindowsPauseImage
 }
 
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
@@ -1165,6 +1179,11 @@ func (k *KubernetesConfig) IsRBACEnabled() bool {
 		return to.Bool(k.EnableRbac)
 	}
 	return false
+}
+
+// UserAssignedIDEnabled checks if the user assigned ID is enabled or not.
+func (k *KubernetesConfig) UserAssignedIDEnabled() bool {
+	return k.UseManagedIdentity && k.UserAssignedID != ""
 }
 
 // IsIPMasqAgentDisabled checks if the ip-masq-agent addon is disabled
