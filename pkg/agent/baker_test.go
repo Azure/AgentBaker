@@ -131,7 +131,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			UserAssignedIdentityClientID:  "userAssignedID",
 			ConfigGPUDriverIfNeeded:       true,
 			EnableGPUDevicePluginIfNeeded: false,
-			EnableDynamicKubelet:          false,
+			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
 		}
 
@@ -201,8 +201,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableGPUDevicePluginIfNeeded = true
 			config.EnableNvidia = true
 		}),
-		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.EnableDynamicKubelet = true
+		Entry("AKSUbuntu1604 with KubeletConfigFile", "AKSUbuntu1604+KubeletConfigFile", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+			config.EnableKubeletConfigFile = true
 		}),
 		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -213,9 +213,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableNvidia = true
 		}),
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *NodeBootstrappingConfiguration) {
-			config.EnableDynamicKubelet = true
+			config.EnableKubeletConfigFile = false
 			netIpv4TcpTwReuse := true
-			failSwapOn := true
+			failSwapOn := false
 			var swapFileSizeMB int32 = 1500
 			var netCoreSomaxconn int32 = 1638499
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{

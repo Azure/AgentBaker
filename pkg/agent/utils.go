@@ -351,15 +351,15 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
 	if k.KubeletConfig == nil {
 		return ""
 	}
-	ensureKubeletConfigFlagsValue(k.KubeletConfig, cs, dynamicKubeletToggleEnabled)
+	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
+	ensureKubeletConfigFlagsValue(k.KubeletConfig, kubeletConfigFileEnabled)
 	keys := []string{}
-	dynamicKubeletEnabled := IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled)
 	for key := range k.KubeletConfig {
-		if !dynamicKubeletEnabled || !TranslatedKubeletConfigFlags[key] {
+		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -371,21 +371,23 @@ func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamo
 	return buf.String()
 }
 
-// IsDynamicKubeletEnabled get if dynamic kubelet is supported in AKS and toggle is on
-func IsDynamicKubeletEnabled(cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) bool {
+// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
+func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) bool {
 	// TODO(bowa) remove toggle when backfill
-	return dynamicKubeletToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
+	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
+		kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
 }
 
-func ensureKubeletConfigFlagsValue(kc map[string]string, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) {
+func ensureKubeletConfigFlagsValue(kubeletFlags map[string]string, kubeletConfigFileEnabled bool) {
 	// for now it's only dynamic kubelet, we could add more in future
-	if IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled) && kc["--dynamic-config-dir"] == "" {
-		kc["--dynamic-config-dir"] = DynamicKubeletConfigDir
+	if kubeletConfigFileEnabled && kubeletFlags["--dynamic-config-dir"] == "" {
+		kubeletFlags["--dynamic-config-dir"] = DynamicKubeletConfigDir
 	}
 }
 
-// GetDynamicKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
-func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
+// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
+func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
 	if kc == nil {
 		return ""
 	}
@@ -464,6 +466,8 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
+			// enable TopologyManager feature gate is required for this configuration
+			kubeletConfig.FeatureGates["TopologyManager"] = true
 		}
 		if customKc.ImageGcHighThreshold != nil {
 			kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold
@@ -478,6 +482,9 @@ func GetDynamicKubeletConfigFileContent(kc map[string]string, customKc *datamode
 			kubeletConfig.FailSwapOn = customKc.FailSwapOn
 		}
 	}
+
+	// disable DynamicKubeletConfig feature gate, we should only allow users to configure from API (20201101 and later)
+	kubeletConfig.FeatureGates["DynamicKubeletConfig"] = false
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)

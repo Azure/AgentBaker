@@ -42,7 +42,7 @@ type NodeBootstrappingConfiguration struct {
 	UserAssignedIdentityClientID  string
 	ConfigGPUDriverIfNeeded       bool
 	EnableGPUDevicePluginIfNeeded bool
-	EnableDynamicKubelet          bool
+	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 }
 

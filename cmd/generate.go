@@ -238,7 +238,7 @@ func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig
 		UserAssignedIdentityClientID:  "msiid",
 		ConfigGPUDriverIfNeeded:       true,
 		EnableGPUDevicePluginIfNeeded: false,
-		EnableDynamicKubelet:          false,
+		EnableKubeletConfigFile:       false,
 	}
 
 	customDataStr := templateGenerator.GetNodeBootstrappingPayload(config)
