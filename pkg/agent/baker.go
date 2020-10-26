@@ -399,6 +399,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				kubernetesWindowsAzureCniFunctionsPS1,
 				kubernetesWindowsHostsConfigAgentFunctionsPS1,
 				kubernetesWindowsOpenSSHFunctionPS1,
+				kubernetesWindowsHypervtemplatetoml,
 			}
 
 			// Create a buffer, new zip

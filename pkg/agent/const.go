@@ -75,6 +75,7 @@ const (
 	kubernetesWindowsAzureCniFunctionsPS1         = "windows/windowsazurecnifunc.ps1"
 	kubernetesWindowsHostsConfigAgentFunctionsPS1 = "windows/windowshostsconfigagentfunc.ps1"
 	kubernetesWindowsOpenSSHFunctionPS1           = "windows/windowsinstallopensshfunc.ps1"
+	kubernetesWindowsHypervtemplatetoml           = "windows/containerdtemplate.toml"
 )
 
 // cloud-init (i.e. ARM customData) source file references

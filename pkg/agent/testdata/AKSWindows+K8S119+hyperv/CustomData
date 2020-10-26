@@ -1,4 +1,4 @@
-<#
+[base64(concat('<#
     .SYNOPSIS
         Provisions VM as a Kubernetes agent.
 
@@ -65,9 +65,9 @@ $global:CACertificate = ""
 $global:AgentCertificate = ""
 
 ## Download sources provided by aks-engine
-$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.17.7-hotfix.20200714/windowszip/v1.17.7-hotfix.20200714-1int.zip"
+$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.18.2-hotfix.20200624/windowszip/v1.18.2-hotfix.20200624-1int.zip"
 $global:WindowsKubeBinariesURL = ""
-$global:KubeBinariesVersion = "1.17.7"
+$global:KubeBinariesVersion = "1.18.2"
 $global:ContainerdUrl = ""
 $global:ContainerdSdnPluginUrl = ""
 
@@ -77,7 +77,7 @@ $global:DockerVersion = "19.03.5"
 ## ContainerD Usage
 $global:ContainerRuntime = ""
 $global:DefaultContainerdRuntimeHandler = "process"
-$global:HypervRuntimeHandlers = ""
+$global:HypervRuntimeHandlers = "17763,19041"
 
 # To support newer Windows OS version, we need to support set ContainerRuntime,
 # HypervRuntimeHandlers and DefaultContainerdRuntimeHandler per agent pool but
@@ -111,7 +111,7 @@ $global:KubeClusterCIDR = "10.240.0.0/16"
 $global:KubeServiceCIDR = "10.0.0.0/16"
 $global:VNetCIDR = "10.0.0.0/8"
 
-$global:KubeletNodeLabels = "kubernetes.azure.com/role=agent,agentpool=wpool2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName"
+$global:KubeletNodeLabels = "kubernetes.azure.com/role=agent,agentpool=wpool2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=',variables('labelResourceGroup'),'"
 
 $global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=pods", "--event-qps=0", "--eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%", "--feature-gates=RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--image-pull-progress-deadline=20m", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843M", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--non-masquerade-cidr=0.0.0.0/0", "--pod-infra-container-image=kubletwin/pause", "--pod-manifest-path=/etc/kubernetes/manifests", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
 
@@ -485,3 +485,4 @@ catch
     throw $_
 }
 
+'))]

@@ -76,6 +76,20 @@ $global:DockerVersion = "{{GetParameter "windowsDockerVersion"}}"
 
 ## ContainerD Usage
 $global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
+$global:DefaultContainerdRuntimeHandler = "{{GetParameter "defaultContainerdRuntimeHandler"}}"
+$global:HypervRuntimeHandlers = "{{GetParameter "hypervRuntimeHandlers"}}"
+
+# To support newer Windows OS version, we need to support set ContainerRuntime,
+# HypervRuntimeHandlers and DefaultContainerdRuntimeHandler per agent pool but
+# current code does not support this. Below is a workaround to set contianer
+# runtime variables per Windows OS version.
+#
+# Set default values for container runtime variables for AKS Windows 2004
+if ($([System.Environment]::OSVersion.Version).Build -eq "19041") {
+    $global:ContainerRuntime = "containerd"
+    $global:HypervRuntimeHandlers = "17763,19041"
+    $global:DefaultContainerdRuntimeHandler = "process"
+}
 
 ## VM configuration passed by Azure
 $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
@@ -180,7 +194,7 @@ try
     # to the windows machine, and run the script manually to watch
     # the output.
     if ($true) {
-        Write-Log "Provisioning $global:DockerServiceName... with IP $MasterIP"
+        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
         if ($global:EnableTelemetry) {
             $global:globalTimer = [System.Diagnostics.Stopwatch]::StartNew()

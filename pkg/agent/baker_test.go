@@ -359,6 +359,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSWindows with k8s version 1.18", "AKSWindows+K8S118", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := getFakeContainerService("1.18.2")
 			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]
+		}),
+		Entry("AKSWindows with k8s version 1.19 and hyperv", "AKSWindows+K8S119+hyperv", "1.18.2", func(config *NodeBootstrappingConfiguration) {
+			cs := getFakeContainerService("1.19.0")
+
+			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]
+			config.ContainerService.Properties.WindowsProfile.WindowsRuntimes = &datamodel.WindowsRuntimes{
+				Default: "process",
+				HypervRuntimes: []datamodel.RuntimeHandlers{{
+					BuildNumber: "17763",
+				}, {
+					BuildNumber: "19041",
+				}},
+			}
 		}))
 
 })
