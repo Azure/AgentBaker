@@ -376,7 +376,8 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 	// TODO(bowa) remove toggle when backfill
 	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
-		kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
+			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
 func ensureKubeletConfigFlagsValue(kubeletFlags map[string]string, kubeletConfigFileEnabled bool) {
