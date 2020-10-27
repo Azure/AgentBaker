@@ -579,6 +579,7 @@ type AgentPoolProfile struct {
 	OSDiskSizeGB                        int                  `json:"osDiskSizeGB,omitempty"`
 	DNSPrefix                           string               `json:"dnsPrefix,omitempty"`
 	OSType                              OSType               `json:"osType,omitempty"`
+	KubeletDiskType                     *KubeletDiskType     `json:"kubeletDiskType,omitempty"`
 	Ports                               []int                `json:"ports,omitempty"`
 	ProvisioningState                   ProvisioningState    `json:"provisioningState,omitempty"`
 	AvailabilityProfile                 string               `json:"availabilityProfile"`

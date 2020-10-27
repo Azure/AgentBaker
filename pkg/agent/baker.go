@@ -467,6 +467,18 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()
 		},
+		"HasKubeletDiskType": func() bool {
+			if profile != nil && profile.KubeletDiskType != nil && string(*profile.KubeletDiskType) != "" {
+				return true
+			}
+			return false
+		},
+		"GetKubeletDiskType": func() string {
+			if profile != nil && profile.KubeletDiskType != nil && string(*profile.KubeletDiskType) != "" {
+				return string(*profile.KubeletDiskType)
+			}
+			return ""
+		},
 		"GetHyperkubeImageReference": func() string {
 			return config.K8sComponents.HyperkubeImageURL
 		},

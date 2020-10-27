@@ -220,6 +220,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.sh",
+      "destination": "/home/packer/bind-mount.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.service",
+      "destination": "/home/packer/bind-mount.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
