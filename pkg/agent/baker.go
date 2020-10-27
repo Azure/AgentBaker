@@ -29,7 +29,8 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 // GetNodeBootstrappingPayloadNonARM get node bootstrapping data that's not to be used in an ARM template.
 func (t *TemplateGenerator) GetNodeBootstrappingPayloadNonARM(config *NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObjectNonARM(config))
+		// ToDo: Once Windows CSE is in AgentBaker, make a work for non-ARM template case.
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
 	}
 	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObjectNonARM(config))
 }
@@ -37,7 +38,7 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayloadNonARM(config *NodeBootst
 // GetNodeBootstrappingPayload get node bootstrapping data
 func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObjectARM(config))
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
 	}
 	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObjectARM(config))
 }
@@ -69,7 +70,9 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObjectNonARM(config *NodeB
 	return fmt.Sprintf("{\"customData\": \"%s\"}", base64CustomData)
 }
 
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectCommon(config *NodeBootstrappingConfiguration) string {
+// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
+// { "customData": "[base64(<customData string>)]" }
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
@@ -89,25 +92,14 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectCommon(config *Nod
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
 
-	return strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
-}
-
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectNonARM(config *NodeBootstrappingConfiguration) string {
-	customData := t.getWindowsNodeCustomDataJSONObjectCommon(config)
-	base64CustomData := base64.StdEncoding.EncodeToString([]byte(customData))
-	return fmt.Sprintf("{\"customData\": \"%s\"}", base64CustomData)
-}
-
-// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
-// { "customData": "[base64(<customData string>)]" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectARM(config *NodeBootstrappingConfiguration) string {
-	return fmt.Sprintf("{\"customData\": \"[base64('%s')]\"}", t.getWindowsNodeCustomDataJSONObjectCommon(config))
+	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
+	return fmt.Sprintf("{\"customData\": \"[base64('%s')]\"}", str)
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return t.getWindowsNodeCustomDataJSONObjectARM(config)
+		return t.getWindowsNodeCustomDataJSONObject(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
