@@ -96,6 +96,7 @@ ensureDocker
 
 ensureMonitorService
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 

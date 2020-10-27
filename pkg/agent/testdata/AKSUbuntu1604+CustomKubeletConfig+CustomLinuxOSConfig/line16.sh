@@ -75,20 +75,6 @@ fi
 installContainerRuntime
 
 installNetworkPlugin
-echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-    fi
-    ensureGPUDrivers
-    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        systemctlDisableAndStop nvidia-device-plugin
-    fi
-fi
-echo $(date),$(hostname), "End configuring GPU drivers"
-
 
 installKubeletKubectlAndKubeProxy
 
@@ -109,6 +95,8 @@ ensureDocker
 
 
 ensureMonitorService
+configureTransparentHugePage
+configureSwapFile
 
 ensureSysctl
 ensureKubelet

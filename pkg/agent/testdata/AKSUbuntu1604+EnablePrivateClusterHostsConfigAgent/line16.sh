@@ -97,6 +97,7 @@ ensureDocker
 ensureMonitorService
 configPrivateClusterHosts
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 

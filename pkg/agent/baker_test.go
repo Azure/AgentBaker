@@ -233,7 +233,39 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+		}),
+		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *NodeBootstrappingConfiguration) {
+			config.EnableDynamicKubelet = true
+			netIpv4TcpTwReuse := true
+			failSwapOn := true
+			var swapFileSizeMB int32 = 1500
+			var netCoreSomaxconn int32 = 1638499
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+				CPUManagerPolicy:      "static",
+				CPUCfsQuota:           to.BoolPtr(false),
+				CPUCfsQuotaPeriod:     "200ms",
+				ImageGcHighThreshold:  to.Int32Ptr(90),
+				ImageGcLowThreshold:   to.Int32Ptr(70),
+				TopologyManagerPolicy: "best-effort",
+				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				FailSwapOn:            &failSwapOn,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				Sysctls: &datamodel.SysctlConfig{
+					NetCoreSomaxconn:             &netCoreSomaxconn,
+					NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
+					NetIpv4IpLocalPortRange:      "32768 60999",
+					NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
+					NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
+					NetIpv4NeighDefaultGcThresh2: to.Int32Ptr(10002),
+					NetIpv4NeighDefaultGcThresh3: to.Int32Ptr(10003),
+				},
+				TransparentHugePageEnabled: "never",
+				TransparentHugePageDefrag:  "defer+madvise",
+				SwapFileSizeMB:             &swapFileSizeMB,
+			}
 		}))
+
 })
 
 func backfillCustomData(folder, customData string) {

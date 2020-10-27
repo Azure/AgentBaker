@@ -114,6 +114,7 @@ ensureContainerd
 
 ensureMonitorService
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 

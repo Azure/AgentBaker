@@ -246,6 +246,12 @@ ensureLabelNodes() {
     systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureSysctl() {
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 24 5 25 sysctl --system
+}
+
 ensureJournal() {
     {
         echo "Storage=persistent"

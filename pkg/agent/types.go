@@ -145,7 +145,7 @@ type AKSKubeletConfiguration struct {
 	// event creations.
 	// Default: 5
 	// +optional
-	EventRecordQPS int32 `json:"eventRecordQPS,omitempty"`
+	EventRecordQPS *int32 `json:"eventRecordQPS,omitempty"`
 	// clusterDomain is the DNS domain for this cluster. If set, kubelet will
 	// configure all containers to search this domain in addition to the
 	// host's search domains.
@@ -192,7 +192,7 @@ type AKSKubeletConfiguration struct {
 	// on the node.
 	// Default: 85
 	// +optional
-	ImageGCHighThresholdPercent int32 `json:"imageGCHighThresholdPercent,omitempty"`
+	ImageGCHighThresholdPercent *int32 `json:"imageGCHighThresholdPercent,omitempty"`
 	// imageGCLowThresholdPercent is the percent of disk usage before which
 	// image garbage collection is never run. Lowest disk usage to garbage
 	// collect to. The percent is calculated as this field value out of 100.
@@ -201,7 +201,7 @@ type AKSKubeletConfiguration struct {
 	// on the node.
 	// Default: 80
 	// +optional
-	ImageGCLowThresholdPercent int32 `json:"imageGCLowThresholdPercent,omitempty"`
+	ImageGCLowThresholdPercent *int32 `json:"imageGCLowThresholdPercent,omitempty"`
 	// Enable QoS based Cgroup hierarchy: top level cgroups for QoS Classes
 	// And all Burstable and BestEffort pods are brought up under their
 	// specific top level QoS cgroup.
@@ -209,7 +209,21 @@ type AKSKubeletConfiguration struct {
 	// reboot. It is safest to keep this value the same as the local config.
 	// Default: true
 	// +optional
-	CgroupsPerQOS bool `json:"cgroupsPerQOS,omitempty"`
+	CgroupsPerQOS *bool `json:"cgroupsPerQOS,omitempty"`
+	// CPUManagerPolicy is the name of the policy to use.
+	// Requires the CPUManager feature gate to be enabled.
+	// Dynamic Kubelet Config (beta): This field should not be updated without a full node
+	// reboot. It is safest to keep this value the same as the local config.
+	// Default: "none"
+	// +optional
+	CPUManagerPolicy string `json:"cpuManagerPolicy,omitempty"`
+	// TopologyManagerPolicy is the name of the policy to use.
+	// Policies other than "none" require the TopologyManager feature gate to be enabled.
+	// Dynamic Kubelet Config (beta): This field should not be updated without a full node
+	// reboot. It is safest to keep this value the same as the local config.
+	// Default: "none"
+	// +optional
+	TopologyManagerPolicy string `json:"topologyManagerPolicy,omitempty"`
 	// maxPods is the number of pods that can run on this Kubelet.
 	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
 	// changes may cause Pods to fail admission on Kubelet restart, and may change
@@ -225,7 +239,7 @@ type AKSKubeletConfiguration struct {
 	// lowering it may prevent container processes from forking after the change.
 	// Default: -1
 	// +optional
-	PodPidsLimit int64 `json:"podPidsLimit,omitempty"`
+	PodPidsLimit *int64 `json:"podPidsLimit,omitempty"`
 	// ResolverConfig is the resolver configuration file used as the basis
 	// for the container DNS resolution configuration.
 	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
@@ -234,6 +248,20 @@ type AKSKubeletConfiguration struct {
 	// Default: "/etc/resolv.conf"
 	// +optional
 	ResolverConfig string `json:"resolvConf,omitempty"`
+	// cpuCFSQuota enables CPU CFS quota enforcement for containers that
+	// specify CPU limits.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// disabling it may reduce node stability.
+	// Default: true
+	// +optional
+	CPUCFSQuota *bool `json:"cpuCFSQuota,omitempty"`
+	// CPUCFSQuotaPeriod is the CPU CFS quota period value, cpu.cfs_period_us.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// limits set for containers will result in different cpu.cfs_quota settings. This
+	// will trigger container restarts on the node being reconfigured.
+	// Default: "100ms"
+	// +optional
+	CPUCFSQuotaPeriod Duration `json:"cpuCFSQuotaPeriod,omitempty"`
 	// Map of signal names to quantities that defines hard eviction thresholds. For example: {"memory.available": "300Mi"}.
 	// To explicitly disable, pass a 0% or 100% threshold on an arbitrary resource.
 	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
@@ -265,6 +293,12 @@ type AKSKubeletConfiguration struct {
 	// Default: nil
 	// +optional
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
+	// failSwapOn tells the Kubelet to fail to start if swap is enabled on the node.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// setting it to true will cause the Kubelet to crash-loop if swap is enabled.
+	// Default: true
+	// +optional
+	FailSwapOn *bool `json:"failSwapOn,omitempty"`
 
 	/* the following fields are meant for Node Allocatable */
 
@@ -303,6 +337,12 @@ type AKSKubeletConfiguration struct {
 	// Default: ["pods"]
 	// +optional
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
+	// A comma separated whitelist of unsafe sysctls or sysctl patterns (ending in *).
+	// Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
+	// These sysctls are namespaced but not allowed by default.  For example: "kernel.msg*,net.ipv4.route.min_pmtu"
+	// Default: []
+	// +optional
+	AllowedUnsafeSysctls []string `json:"allowedUnsafeSysctls,omitempty"`
 }
 
 type Duration string
