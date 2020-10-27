@@ -253,12 +253,14 @@ EOF
     },
     "protectKernelDefaults": true,
     "featureGates": {
+        "DynamicKubeletConfig": false,
         "PodPriority": true,
         "RotateKubeletServerCertificate": true,
+        "TopologyManager": true,
         "a": false,
         "x": false
     },
-    "failSwapOn": true,
+    "failSwapOn": false,
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"
