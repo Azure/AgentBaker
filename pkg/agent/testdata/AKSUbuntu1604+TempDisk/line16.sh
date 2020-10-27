@@ -94,6 +94,7 @@ configureCNI
 
 
 
+ensureSysctl
 ensureKubelet
 ensureJournal
 

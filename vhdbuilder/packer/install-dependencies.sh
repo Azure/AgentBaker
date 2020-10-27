@@ -443,8 +443,8 @@ done
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.11-hotfix.20200901
-# v1.17.12
+# v1.17.11-hotfix.20200901.1
+# v1.17.13
 # v1.18.8-hotfix.20200924
 # v1.18.9
 # v1.19.0
@@ -461,8 +461,8 @@ K8S_VERSIONS="
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
-1.17.11-hotfix.20200901
-1.17.12
+1.17.11-hotfix.20200901.1
+1.17.13
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
@@ -507,8 +507,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.11-hotfix.20200901
-# v1.17.12
+# v1.17.11-hotfix.20200901.1
+# v1.17.13
 # v1.18.8-hotfix.20200924
 # v1.18.9
 # v1.19.0
@@ -525,7 +525,8 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901
-1.17.12
+1.17.11-hotfix.20200901.1
+1.17.13
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8
