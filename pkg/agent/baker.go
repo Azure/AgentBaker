@@ -26,17 +26,23 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 	return t
 }
 
+// GetNodeBootstrappingPayloadNonARM get node bootstrapping data that's not to be used in an ARM template.
+func (t *TemplateGenerator) GetNodeBootstrappingPayloadNonARM(config *NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObjectNonARM(config))
+	}
+	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObjectNonARM(config))
+}
+
 // GetNodeBootstrappingPayload get node bootstrapping data
 func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObjectARM(config))
 	}
-	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObjectARM(config))
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
-// { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObjectCommon(config *NodeBootstrappingConfiguration) string {
 	//get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	//get variable cloudInit
@@ -48,12 +54,22 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstr
 		panic(e)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+	return str
 }
 
-// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
-// { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
+// { "customData": "[base64(<customData string>)]" }
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObjectARM(config *NodeBootstrappingConfiguration) string {
+	return fmt.Sprintf("{\"customData\": \"[base64('%s')]\"}", t.getLinuxNodeCustomDataJSONObjectCommon(config))
+}
+
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObjectNonARM(config *NodeBootstrappingConfiguration) string {
+	customData := t.getLinuxNodeCustomDataJSONObjectCommon(config)
+	base64CustomData := base64.StdEncoding.EncodeToString([]byte(customData))
+	return fmt.Sprintf("{\"customData\": \"%s\"}", base64CustomData)
+}
+
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectCommon(config *NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
@@ -73,15 +89,25 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBoots
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
 
-	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
+	return strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
+}
 
-	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectNonARM(config *NodeBootstrappingConfiguration) string {
+	customData := t.getWindowsNodeCustomDataJSONObjectCommon(config)
+	base64CustomData := base64.StdEncoding.EncodeToString([]byte(customData))
+	return fmt.Sprintf("{\"customData\": \"%s\"}", base64CustomData)
+}
+
+// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
+// { "customData": "[base64(<customData string>)]" }
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObjectARM(config *NodeBootstrappingConfiguration) string {
+	return fmt.Sprintf("{\"customData\": \"[base64('%s')]\"}", t.getWindowsNodeCustomDataJSONObjectCommon(config))
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return t.getWindowsNodeCustomDataJSONObject(config)
+		return t.getWindowsNodeCustomDataJSONObjectARM(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -192,6 +218,33 @@ func (t *TemplateGenerator) getBakerFuncMap(config *NodeBootstrappingConfigurati
 	return funcMap
 }
 
+// normalizeResourceGroupNameForLabel normalizes resource group name to be used as a label,
+// similar to what the ARM template used to do.
+//
+// When ARM template was used, the following is used:
+//   variables('labelResourceGroup')
+// which is defined as:
+//   [if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+// the "truncatedResourceGroup" is defined as:
+//   [take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+// This function does the same processing.
+func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
+	truncated := resourceGroupName
+	truncated = strings.ReplaceAll(truncated, "(", "-")
+	truncated = strings.ReplaceAll(truncated, ")", "-")
+	const maxLen = 63
+	if len(truncated) > maxLen {
+		truncated = truncated[0:maxLen]
+	}
+
+	if strings.HasSuffix(truncated, "-") ||
+		strings.HasSuffix(truncated, "_") ||
+		strings.HasSuffix(truncated, ".") {
+		return truncated[0:len(truncated)-1] + "z"
+	}
+	return truncated
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
@@ -211,11 +264,13 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"IsKubernetesVersionLt": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
-		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, false, config.EnableNvidia)
+		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
+			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
+				false, config.EnableNvidia)
 		},
-		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, true, config.EnableNvidia)
+		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
+			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
+				true, config.EnableNvidia)
 		},
 		"GetDynamicKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {

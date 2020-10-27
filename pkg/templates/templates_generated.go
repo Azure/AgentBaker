@@ -3792,9 +3792,9 @@ write_files:
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
 {{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
 {{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
 {{end}}
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
@@ -4222,9 +4222,9 @@ $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
 $global:VNetCIDR = "{{GetParameter "vnetCidr"}}"
 {{if IsKubernetesVersionGe "1.16.0"}}
-$global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}"
+$global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
-$global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}"
+$global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
 

@@ -255,3 +255,30 @@ func backfillCustomData(folder, customData string) {
 	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
 	Expect(err).To(BeNil())
 }
+
+var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
+	It("should return the correct normalized resource group name", func() {
+		Expect(normalizeResourceGroupNameForLabel("hello")).To(Equal("hello"))
+		Expect(normalizeResourceGroupNameForLabel("hel(lo")).To(Equal("hel-lo"))
+		Expect(normalizeResourceGroupNameForLabel("hel)lo")).To(Equal("hel-lo"))
+		var s string
+		for i := 0; i < 63; i++ {
+			s += "0"
+		}
+		Expect(normalizeResourceGroupNameForLabel(s)).To(Equal(s))
+		Expect(normalizeResourceGroupNameForLabel(s + "1")).To(Equal(s))
+
+		s = ""
+		for i := 0; i < 62; i++ {
+			s += "0"
+		}
+		Expect(normalizeResourceGroupNameForLabel(s + "(")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + ")")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + "_")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + ".")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel("")).To(Equal(""))
+		Expect(normalizeResourceGroupNameForLabel("z")).To(Equal("z"))
+		Expect(normalizeResourceGroupNameForLabel("-")).To(Equal("z"))
+	})
+})
