@@ -2,6 +2,8 @@
 // sources:
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/auditd-rules
+// linux/cloud-init/artifacts/bind-mount.service
+// linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/configure_azure0.sh
 // linux/cloud-init/artifacts/containerd.service
@@ -244,6 +246,87 @@ func linuxCloudInitArtifactsAuditdRules() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/auditd-rules", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsBindMountService = []byte(`[Unit]
+Description=Bind mount kubelet data
+[Service]
+Restart=on-failure
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/azure/containers/bind-mount.sh
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsBindMountServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBindMountService, nil
+}
+
+func linuxCloudInitArtifactsBindMountService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBindMountServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsBindMountSh = []byte(`
+#!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# Bind mounts kubelet and container runtime directories to ephemeral
+# disks as appropriate on startup.
+
+{{if eq GetKubeletDisk "Temporary"}}
+MOUNT_POINT="/mnt/aks"
+{{end}}
+
+# {{if IsDockerContainerRuntime}}
+#     echo "setting CONTAINER_RUNTIME to docker"
+#     CONTAINER_RUNTIME="docker"
+# {{end}}
+
+# {{if NeedsContainerd}}
+#     echo "setting CONTAINER_RUNTIME to containerd"
+#     CONTAINER_RUNTIME="containerd"
+# {{end}}
+
+# echo "stopping container runtime: ${CONTAINER_RUNTIME}"
+# systemctl stop "${CONTAINER_RUNTIME}" || true
+
+# echo "unmounting /var/lib/${CONTAINER_RUNTIME}"
+# umount "/var/lib/${CONTAINER_RUNTIME}" || true
+# mkdir -p "/var/lib/${CONTAINER_RUNTIME}"
+
+set -x
+
+KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
+KUBELET_DIR="/var/lib/kubelet"
+mkdir -p "${KUBELET_MOUNT_POINT}"
+mkdir -p "${KUBELET_DIR}"
+mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
+chmod a+w "${KUBELET_DIR}"
+`)
+
+func linuxCloudInitArtifactsBindMountShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBindMountSh, nil
+}
+
+func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBindMountShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2528,6 +2611,10 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
+{{if HasKubeletDisk}}
+Requires=bind-mount.service
+After=bind-mount.service
+{{end}}
 
 [Service]
 Restart=always
@@ -3486,6 +3573,22 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
+
+{{if HasKubeletDisk}}
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+{{end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
@@ -5789,6 +5892,8 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
+	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
+	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/configure_azure0.sh":                       linuxCloudInitArtifactsConfigure_azure0Sh,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
@@ -5888,6 +5993,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
+				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
+				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"configure_azure0.sh":                       &bintree{linuxCloudInitArtifactsConfigure_azure0Sh, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},

@@ -92,3 +92,13 @@ const (
 	// AADPodIdentityAddonName is the name of the aad-pod-identity addon deployment
 	AADPodIdentityAddonName = "aad-pod-identity"
 )
+
+// KubeletDiskType abstracts choices for data disk type: os or temp.
+type KubeletDiskType string
+
+var (
+	// OSDisk indicates data wil be shared with the OS.
+	OSDisk KubeletDiskType = "OS"
+	// TempDisk indicates data wil be placed on the temp disk.
+	TempDisk KubeletDiskType = "Temporary"
+)

@@ -81,6 +81,22 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
 
+{{if HasKubeletDisk}}
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+{{end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
