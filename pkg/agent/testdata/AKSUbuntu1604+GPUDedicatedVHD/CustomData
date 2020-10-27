@@ -1,4 +1,4 @@
-[base64('#cloud-config
+#cloud-config
 
 write_files:
 - path: /opt/azure/containers/provision_source.sh
@@ -213,4 +213,3 @@ runcmd:
 - set -x
 - . /opt/azure/containers/provision_source.sh
 - aptmarkWALinuxAgent hold
-')]

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -140,7 +141,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		// customData
-		customData := baker.GetNodeBootstrappingPayload(config)
+		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
+		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
+		customData := string(customDataBytes)
+		Expect(err).To(BeNil())
+
 		if generateTestData() {
 			backfillCustomData(folder, customData)
 		}
