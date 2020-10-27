@@ -36,8 +36,8 @@ KUBELET_DIR="/var/lib/kubelet"
 mkdir -p "${MOUNT_POINT}"
 
 # only move the kubelet directory to alternate location on first boot.
+SENTINEL_FILE="/opt/azure/containers/bind-sentinel"
 if [ ! -e "$SENTINEL_FILE" ]; then
-    local SENTINEL_FILE="/opt/azure/containers/bind-sentinel"
     mv "$KUBELET_DIR" "$MOUNT_POINT"
     touch "$SENTINEL_FILE"
 fi
