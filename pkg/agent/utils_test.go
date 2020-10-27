@@ -38,7 +38,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--authentication-token-webhook":      "true",
 		"--authorization-mode":                "Webhook",
 		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", // what if you turn off dynamic kubelet using dynamic kubelet?
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=true", // what if you turn off dynamic kubelet using dynamic kubelet?
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
@@ -51,7 +51,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 	}
-	configFileStr := GetDynamicKubeletConfigFileContent(kc, customKc)
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
 	if diff != "" {
 		t.Errorf("Generated config file is different than expected: %s", diff)
@@ -115,7 +115,8 @@ var expectedKubeletJSON string = `{
     "protectKernelDefaults": true,
     "featureGates": {
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true
+        "RotateKubeletServerCertificate": true,
+        "TopologyManager": true
     },
     "systemReserved": {
         "cpu": "2",
