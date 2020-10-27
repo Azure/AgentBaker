@@ -4,7 +4,7 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
-{{if HasKubeletDisk}}
+{{if HasKubeletDiskType}}
 Requires=bind-mount.service
 After=bind-mount.service
 {{end}}

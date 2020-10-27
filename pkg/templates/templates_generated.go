@@ -285,7 +285,7 @@ set -o pipefail
 # Bind mounts kubelet and container runtime directories to ephemeral
 # disks as appropriate on startup.
 
-{{if eq GetKubeletDisk "Temporary"}}
+{{if eq GetKubeletDiskType "Temporary"}}
 MOUNT_POINT="/mnt/aks"
 {{end}}
 
@@ -2621,7 +2621,7 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
-{{if HasKubeletDisk}}
+{{if HasKubeletDiskType}}
 Requires=bind-mount.service
 After=bind-mount.service
 {{end}}
@@ -3584,7 +3584,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
 
-{{if HasKubeletDisk}}
+{{if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip

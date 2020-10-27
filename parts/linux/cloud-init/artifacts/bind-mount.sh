@@ -7,7 +7,7 @@ set -o pipefail
 # Bind mounts kubelet and container runtime directories to ephemeral
 # disks as appropriate on startup.
 
-{{if eq GetKubeletDisk "Temporary"}}
+{{if eq GetKubeletDiskType "Temporary"}}
 MOUNT_POINT="/mnt/aks"
 {{end}}
 

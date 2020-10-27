@@ -81,7 +81,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
 
-{{if HasKubeletDisk}}
+{{if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
