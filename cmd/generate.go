@@ -228,7 +228,7 @@ func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig
 	}
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
-	config := &agent.NodeBootstrappingConfiguration{
+	config := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService:              gc.containerService,
 		CloudSpecConfig:               cloudSpecConfig,
 		AgentPoolProfile:              gc.containerService.Properties.AgentPoolProfiles[0],

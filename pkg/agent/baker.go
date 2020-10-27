@@ -27,7 +27,7 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 }
 
 // GetNodeBootstrappingPayload get node bootstrapping data
-func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
 	}
@@ -36,7 +36,7 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *NodeBootstrappin
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	//get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	//get variable cloudInit
@@ -53,7 +53,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstr
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
@@ -79,7 +79,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBoots
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
-func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCustomDataJSONObject(config)
 	}
@@ -87,7 +87,7 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingCon
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
-func (t *TemplateGenerator) getLinuxNodeCSECommand(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	//get parameters
 	parameters := getParameters(config, "", "")
 	//get variable
@@ -144,7 +144,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(config *NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
@@ -195,7 +195,7 @@ func (t *TemplateGenerator) getBakerFuncMap(config *NodeBootstrappingConfigurati
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
-func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template.FuncMap {
+func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	if profile.IsWindows() {
