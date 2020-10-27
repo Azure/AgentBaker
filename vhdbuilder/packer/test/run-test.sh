@@ -3,27 +3,68 @@ set -eux
 
 WIN_SCRIPT_PATH="vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
+Test_VM_ADMIN_USERNAME="azureuser"
+TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
-# defer function to cleanup resource group
+# defer function to cleanup resource group when VHD debug is not enabled
 function cleanup {
-    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+    if [ "$VHD_DEBUG" == "true" ]; then
+        echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+    else
+        az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+    fi
 }
 trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-az disk create --resource-group $RESOURCE_GROUP_NAME \
-    --name $DISK_NAME \
-    --source "${OS_DISK_URI}"  \
-    --query id
-az vm create --name $VM_NAME \
+
+if [ "$MODE" == "sigMode" ]; then
+	echo "SIG existence checking for $MODE"
+	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
+	if [ -z "$id" ]; then
+		echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+        exit 1
+	fi
+
+	id=$(az sig image-definition show \
+		--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+		--gallery-name ${SIG_GALLERY_NAME} \
+		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
+	if [ -z "$id" ]; then
+		echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+        exit 1
+	fi
+
+    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+
+    # In SIG mode, Windows VM requires admin-username and admin-password to be set,
+    # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
+    # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+    az vm create\
     --resource-group $RESOURCE_GROUP_NAME \
-    --attach-os-disk $DISK_NAME \
-    --os-type $OS_TYPE  \
+    --name $VM_NAME \
+    --image $IMG_DEF \
+    --admin-username $Test_VM_ADMIN_USERNAME \
+    --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
+    echo "VHD test VM username: $Test_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+
+else
+    az disk create --resource-group $RESOURCE_GROUP_NAME \
+        --name $DISK_NAME \
+        --source "${OS_DISK_URI}"  \
+        --query id
+    az vm create --name $VM_NAME \
+        --resource-group $RESOURCE_GROUP_NAME \
+        --attach-os-disk $DISK_NAME \
+        --os-type $OS_TYPE  \
+        --public-ip-address ""
+fi
+
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 
 FULL_PATH=$(realpath $0)

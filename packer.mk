@@ -1,3 +1,5 @@
+SHELL=/bin/bash -o pipefail
+
 build-packer:
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
