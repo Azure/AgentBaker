@@ -997,13 +997,6 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{- if not IsAKSCustomCloud}}
-ensureTimesyncd() {
-    systemctlDisableAndStop chrony
-    systemctlEnableAndStart systemd-timesyncd
-}
-{{- end}}
-
 {{if HasNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
@@ -1988,10 +1981,6 @@ configureTransparentHugePage
 configureSwapFile
 {{- end}}
 
-{{- if not IsAKSCustomCloud}}
-ensureTimesyncd
-{{- end}}
-
 ensureSysctl
 ensureKubelet
 ensureJournal
@@ -2419,10 +2408,12 @@ cloud-init status --wait
 repoDepotEndpoint="{{AKSCustomCloudRepoDepotEndpoint}}"
 sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 
-# Disable systemd-timesyncd and config chrony uses local time source
+# Disable systemd-timesyncd and install chrony and uses local time source
 systemctl stop systemd-timesyncd
 systemctl disable systemd-timesyncd
 
+apt-get update	
+apt-get install chrony -y
 cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usuable directives.

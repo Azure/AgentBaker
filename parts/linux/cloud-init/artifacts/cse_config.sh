@@ -478,13 +478,6 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{- if not IsAKSCustomCloud}}
-ensureTimesyncd() {
-    systemctlDisableAndStop chrony
-    systemctlEnableAndStart systemd-timesyncd
-}
-{{- end}}
-
 {{if HasNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory

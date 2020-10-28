@@ -142,10 +142,6 @@ configureTransparentHugePage
 configureSwapFile
 {{- end}}
 
-{{- if not IsAKSCustomCloud}}
-ensureTimesyncd
-{{- end}}
-
 ensureSysctl
 ensureKubelet
 ensureJournal

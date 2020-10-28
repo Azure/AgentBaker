@@ -95,7 +95,6 @@ configureCNI
 
 configureTransparentHugePage
 configureSwapFile
-ensureTimesyncd
 
 ensureSysctl
 ensureKubelet

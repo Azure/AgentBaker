@@ -94,7 +94,6 @@ configureCNI
 
 
 configPrivateClusterHosts
-ensureTimesyncd
 
 ensureSysctl
 ensureKubelet
