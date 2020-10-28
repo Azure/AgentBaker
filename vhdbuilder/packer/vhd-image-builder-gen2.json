@@ -12,9 +12,7 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
-    "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
-    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
-    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
+    "container_runtime": "{{env `CONTAINER_RUNTIME`}}"
   },
   "builders": [
     {
