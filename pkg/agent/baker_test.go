@@ -284,6 +284,14 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 		Expect(normalizeResourceGroupNameForLabel(s + ".")).To(Equal(s + "z"))
 		Expect(normalizeResourceGroupNameForLabel("")).To(Equal(""))
 		Expect(normalizeResourceGroupNameForLabel("z")).To(Equal("z"))
-		Expect(normalizeResourceGroupNameForLabel("-")).To(Equal("z"))
+
+		// Add z, not replacing ending - with z, if name is short
+		Expect(normalizeResourceGroupNameForLabel("-")).To(Equal("-z"))
+
+		s = ""
+		for i := 0; i < 61; i++ {
+			s += "0"
+		}
+		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
 	})
 })

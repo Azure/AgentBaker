@@ -216,7 +216,12 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	if strings.HasSuffix(truncated, "-") ||
 		strings.HasSuffix(truncated, "_") ||
 		strings.HasSuffix(truncated, ".") {
-		return truncated[0:len(truncated)-1] + "z"
+
+		if len(truncated) > 62 {
+			return truncated[0:len(truncated)-1] + "z"
+		} else {
+			return truncated + "z"
+		}
 	}
 	return truncated
 }
