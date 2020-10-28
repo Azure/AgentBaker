@@ -331,8 +331,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last released image (ciprod08072020) and current to be released image (ciprod10052020)
-OMS_AGENT_IMAGES="ciprod08072020 ciprod10052020"
+# keeping last-->last image (ciprod08072020) as last released (ciprod10052020) is not fully rolledout yet. Added latest (ciprod10272020)
+OMS_AGENT_IMAGES="ciprod08072020 ciprod10052020 ciprod10272020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
