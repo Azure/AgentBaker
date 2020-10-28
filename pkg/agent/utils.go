@@ -382,8 +382,9 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 
 func ensureKubeletConfigFlagsValue(kubeletFlags map[string]string, kubeletConfigFileEnabled bool) {
 	// for now it's only dynamic kubelet, we could add more in future
-	if kubeletConfigFileEnabled && kubeletFlags["--dynamic-config-dir"] == "" {
-		kubeletFlags["--dynamic-config-dir"] = DynamicKubeletConfigDir
+	// if using kubelet config file, then we turned off DynamicKubeletConfig feature gate
+	if kubeletConfigFileEnabled {
+		delete(kubeletFlags, "--dynamic-config-dir")
 	}
 }
 
