@@ -770,14 +770,14 @@ EOF
     set -x
 {{end}}
 
-{{- if IsDynamicKubeletEnabled}}
+{{- if IsKubeletConfigFileEnabled}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
     chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetDynamicKubeletConfigFileContent}}
+{{GetKubeletConfigFileContent}}
 EOF
     set -x
 {{- end}}
@@ -1127,7 +1127,9 @@ ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
 ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
 ERR_IMG_DOWNLOAD_TIMEOUT=33 {{/* Timeout waiting for img download */}}
 ERR_KUBELET_START_FAIL=34 {{/* kubelet could not be started by systemctl */}}
-ERR_CONTAINER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a container image */}}
+ERR_DOCKER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a Docker image */}}
+ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 {{/* Timeout trying to pull a containerd image via cli tool ctr */}}
+ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 {{/* Timeout trying to pull a containerd image via cli tool crictl */}}
 ERR_CNI_DOWNLOAD_TIMEOUT=41 {{/* Timeout waiting for CNI downloads */}}
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 {{/* Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb */}}
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
@@ -1237,7 +1239,6 @@ retrycmd_get_tarball() {
         fi
     done
 }
-
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
@@ -1741,7 +1742,6 @@ pullContainerImage() {
         retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
     fi
 }
-
 
 removeContainerImage() {
     CLI_TOOL=$1
@@ -2603,7 +2603,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsDynamicKubeletEnabled}}
+        {{- if IsKubeletConfigFileEnabled}}
         --config /etc/default/kubeletconfig.json \
         {{- end}}
         $KUBELET_FLAGS \

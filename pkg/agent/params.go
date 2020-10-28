@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getParameters(config *NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	if profile.IsWindows() {
@@ -156,7 +156,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
-	k8sComponents *K8sComponents,
+	k8sComponents *datamodel.K8sComponents,
 	generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 

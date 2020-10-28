@@ -220,6 +220,7 @@ EOF
     },
     "protectKernelDefaults": true,
     "featureGates": {
+        "DynamicKubeletConfig": false,
         "PodPriority": true,
         "RotateKubeletServerCertificate": true,
         "a": false,

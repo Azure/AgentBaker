@@ -246,7 +246,6 @@ pullContainerImage() {
     fi
 }
 
-
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
