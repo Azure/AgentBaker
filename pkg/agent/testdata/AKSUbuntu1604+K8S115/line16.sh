@@ -93,6 +93,7 @@ configureK8s
 configureCNI
 
 
+ensureTimesyncd
 
 ensureSysctl
 ensureKubelet
