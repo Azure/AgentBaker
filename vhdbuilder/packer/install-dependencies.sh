@@ -223,6 +223,7 @@ done
 
 AZURE_CNIIMAGEBASE="mcr.microsoft.com/containernetworking"
 AZURE_CNI_NETWORKMONITOR_VERSIONS="
+1.1.8
 0.0.7
 0.0.6
 "

@@ -23,7 +23,7 @@ const (
 	reschedulerImageReference                         string = "rescheduler:v0.4.0"
 	virtualKubeletImageReference                      string = "virtual-kubelet:latest"
 	omsImageReference                                 string = "oms:ciprod01072020"
-	azureCNINetworkMonitorImageReference              string = "networkmonitor:v0.0.6"
+	azureCNINetworkMonitorImageReference              string = "networkmonitor:v1.1.8"
 	nvidiaDevicePluginImageReference                  string = "k8s-device-plugin:1.11"
 	blobfuseFlexVolumeImageReference                  string = "mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:1.0.8"
 	smbFlexVolumeImageReference                       string = "mcr.microsoft.com/k8s/flexvolume/smb-flexvolume:1.0.2"
