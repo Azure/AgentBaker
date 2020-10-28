@@ -28,14 +28,17 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 
 // GetNodeBootstrappingPayload get node bootstrapping data
 func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+	var customData string
 	if config.AgentPoolProfile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+	} else {
+		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
-	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
-// { "customData": "[base64(concat(<customData string>))]" }
+// { "customData": "<customData string>" }
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	//get parameters
 	parameters := getParameters(config, "baker", "1.0")
@@ -48,11 +51,11 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 		panic(e)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
-// { "customData": "[base64(concat(<customData string>))]" }
+// { "customData": "<customData string>" }
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -74,8 +77,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	}
 
 	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
-
-	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
@@ -192,6 +194,38 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 	return funcMap
 }
 
+// normalizeResourceGroupNameForLabel normalizes resource group name to be used as a label,
+// similar to what the ARM template used to do.
+//
+// When ARM template was used, the following is used:
+//   variables('labelResourceGroup')
+// which is defined as:
+//   [if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+// the "truncatedResourceGroup" is defined as:
+//   [take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+// This function does the same processing.
+func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
+	truncated := resourceGroupName
+	truncated = strings.ReplaceAll(truncated, "(", "-")
+	truncated = strings.ReplaceAll(truncated, ")", "-")
+	const maxLen = 63
+	if len(truncated) > maxLen {
+		truncated = truncated[0:maxLen]
+	}
+
+	if strings.HasSuffix(truncated, "-") ||
+		strings.HasSuffix(truncated, "_") ||
+		strings.HasSuffix(truncated, ".") {
+
+		if len(truncated) > 62 {
+			return truncated[0:len(truncated)-1] + "z"
+		} else {
+			return truncated + "z"
+		}
+	}
+	return truncated
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
@@ -211,11 +245,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubernetesVersionLt": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
-		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, false, config.EnableNvidia)
+		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
+			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
+				false, config.EnableNvidia)
 		},
-		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, true, config.EnableNvidia)
+		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
+			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
+				true, config.EnableNvidia)
 		},
 		"GetKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {

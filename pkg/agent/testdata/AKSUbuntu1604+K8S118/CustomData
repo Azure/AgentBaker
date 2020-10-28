@@ -1,4 +1,4 @@
-[base64(concat('#cloud-config
+#cloud-config
 
 write_files:
 - path: /opt/azure/containers/provision_source.sh
@@ -143,7 +143,7 @@ write_files:
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
 
-    KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=',variables('labelResourceGroup'),'
+    KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName
 
     #EOF
 
@@ -189,4 +189,3 @@ runcmd:
 - set -x
 - . /opt/azure/containers/provision_source.sh
 - aptmarkWALinuxAgent hold
-'))]
