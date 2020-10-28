@@ -233,6 +233,7 @@ for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
 done
 
 AZURE_NPM_VERSIONS="
+1.1.8
 1.1.7
 1.1.5
 1.1.4
@@ -446,9 +447,9 @@ done
 # v1.17.11-hotfix.20200901.1
 # v1.17.13
 # v1.18.8-hotfix.20200924
-# v1.18.9
+# v1.18.10
 # v1.19.0
-# v1.19.1-hotfix.20200923
+# v1.19.3
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
 1.15.10-hotfix.20200408.1
@@ -467,9 +468,9 @@ K8S_VERSIONS="
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
-1.18.9
+1.18.10
 1.19.0
-1.19.1-hotfix.20200923
+1.19.3
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -510,9 +511,9 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.17.11-hotfix.20200901.1
 # v1.17.13
 # v1.18.8-hotfix.20200924
-# v1.18.9
+# v1.18.10
 # v1.19.0
-# v1.19.1-hotfix.20200923
+# v1.19.3
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.15.11-hotfix.20200529.1
@@ -531,9 +532,9 @@ PATCHED_HYPERKUBE_IMAGES="
 1.18.6-hotfix.20200723.1
 1.18.8
 1.18.8-hotfix.20200924
-1.18.9
+1.18.10
 1.19.0
-1.19.1-hotfix.20200923
+1.19.3
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
