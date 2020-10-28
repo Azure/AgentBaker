@@ -271,7 +271,7 @@ cleanUpAllImages() {
             for image in "${images_to_delete[@]}"
             do 
                 
-                removeContainerImage "docker" ${images_to_delete}
+                removeContainerImage "docker" ${image}
                 
             done
         fi

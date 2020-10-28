@@ -320,7 +320,7 @@ cleanUpAllImages() {
             for image in "${images_to_delete[@]}"
             do 
                 
-                removeContainerImage "ctr" ${images_to_delete}
+                removeContainerImage "ctr" ${image}
                 
             done
         fi
