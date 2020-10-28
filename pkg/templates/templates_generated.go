@@ -322,6 +322,7 @@ fi
 
 # on every boot, bind mound the kubelet directory back to the expected
 # location before kubelet itself may start.
+mkdir -p "${KUBELET_DIR}"
 mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
 chmod a+w "${KUBELET_DIR}"
 `)
