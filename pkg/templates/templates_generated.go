@@ -769,14 +769,14 @@ EOF
     set -x
 {{end}}
 
-{{- if IsDynamicKubeletEnabled}}
+{{- if IsKubeletConfigFileEnabled}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
     chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetDynamicKubeletConfigFileContent}}
+{{GetKubeletConfigFileContent}}
 EOF
     set -x
 {{- end}}
@@ -2591,7 +2591,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsDynamicKubeletEnabled}}
+        {{- if IsKubeletConfigFileEnabled}}
         --config /etc/default/kubeletconfig.json \
         {{- end}}
         $KUBELET_FLAGS \
