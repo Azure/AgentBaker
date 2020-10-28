@@ -45,6 +45,10 @@ fi
 
 configureAdminUser
 
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{end}}
+
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -127,14 +131,13 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{end}}
+{{- end}}
 
-{{/* containerd should not be configured until cni has been configured first */}}
 {{- if NeedsContainerd}}
-ensureContainerd
-{{else}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
 ensureDocker
-{{end}}
+{{- end}}
 
 ensureMonitorService
 

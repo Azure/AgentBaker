@@ -213,11 +213,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "networkPlugin", kubernetesConfig.NetworkPlugin)
 			addValue(parametersMap, "networkMode", kubernetesConfig.NetworkMode)
 			addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
-			if kubernetesConfig.ContainerRuntime == "containerd" {
-				addValue(parametersMap, "cliTool", "ctr")
-			} else {
-				addValue(parametersMap, "cliTool", "docker")
-			}
 			addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
 			addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
 			addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))

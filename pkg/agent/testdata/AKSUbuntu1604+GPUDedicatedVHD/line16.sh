@@ -44,6 +44,8 @@ else
 fi
 
 configureAdminUser
+cleanUpContainerd
+
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
@@ -103,10 +105,7 @@ configureK8s
 configureCNI
 
 
-
-
 ensureDocker
-
 
 ensureMonitorService
 

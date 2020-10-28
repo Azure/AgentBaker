@@ -93,10 +93,7 @@ configureK8s
 configureCNI
 
 
-
-
-ensureContainerd
-
+ensureContainerd 
 
 ensureMonitorService
 

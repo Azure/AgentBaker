@@ -1755,9 +1755,9 @@ removeContainerImage() {
     fi
 }
 
-cleanUpAllImages() {
+cleanUpImages() {
     local targetImage=$1
-    function cleanupAllImagesRun() {
+    function cleanupImagesRun() {
         {{if NeedsContainerd}}
         images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
         {{else}}
@@ -1777,26 +1777,26 @@ cleanUpAllImages() {
             done
         fi
     }
-    export -f cleanupAllImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanupAllImagesRun
+    export -f cleanupImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
 }
 
 cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpAllImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
+    echo $(date),$(hostname), cleanUpHyperkubeImages
+    cleanUpImages "hyperkube"
+    echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpAllImages "kube-proxy"
+    cleanUpImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export -f retrycmd_if_failure
-    export -f cleanUpAllImages
+    export -f cleanUpImages
     export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
     export KUBERNETES_VERSION
@@ -1888,6 +1888,10 @@ fi
 
 configureAdminUser
 
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{end}}
+
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -1970,14 +1974,13 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{end}}
+{{- end}}
 
-{{/* containerd should not be configured until cni has been configured first */}}
 {{- if NeedsContainerd}}
-ensureContainerd
-{{else}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
 ensureDocker
-{{end}}
+{{- end}}
 
 ensureMonitorService
 
