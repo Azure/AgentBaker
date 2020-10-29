@@ -1411,7 +1411,7 @@ systemctlEnableAndStart() {
 }
 
 systemctlDisableAndStop() {
-    if [ systemctl list-units --full --all | grep -q "$1.service" ]; then
+    if systemctl list-units --full --all | grep -q "$1.service"; then
         systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
         systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
@@ -1475,7 +1475,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in apache2-utils apt-transport-https blobfuse=1.1.1 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
+    for apt_package in apache2-utils apt-transport-https blobfuse=1.1.1 ca-certificates ceph-common cgroup-lite chrony cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -3855,9 +3855,9 @@ write_files:
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
 {{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
 {{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
 {{end}}
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
@@ -4285,9 +4285,9 @@ $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
 $global:VNetCIDR = "{{GetParameter "vnetCidr"}}"
 {{if IsKubernetesVersionGe "1.16.0"}}
-$global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}"
+$global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
-$global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}"
+$global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
 

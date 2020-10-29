@@ -393,9 +393,9 @@ write_files:
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
 {{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
 {{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
 {{end}}
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
