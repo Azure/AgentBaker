@@ -191,9 +191,3 @@ const (
 	// AppGwIngressAddonName appgw addon
 	AppGwIngressAddonName = "appgw-ingress"
 )
-
-// kubelet config
-const (
-	// DynamicKubeletConfigDir specifies the directory for dynamic kubelet to store configs
-	DynamicKubeletConfigDir = "/var/lib/kubelet"
-)

@@ -356,7 +356,6 @@ func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamo
 		return ""
 	}
 	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
-	ensureKubeletConfigFlagsValue(k.KubeletConfig, kubeletConfigFileEnabled)
 	keys := []string{}
 	for key := range k.KubeletConfig {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
@@ -378,14 +377,6 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
 		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
-}
-
-func ensureKubeletConfigFlagsValue(kubeletFlags map[string]string, kubeletConfigFileEnabled bool) {
-	// for now it's only dynamic kubelet, we could add more in future
-	// if using kubelet config file, then we turned off DynamicKubeletConfig feature gate
-	if kubeletConfigFileEnabled {
-		delete(kubeletFlags, "--dynamic-config-dir")
-	}
 }
 
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
@@ -485,9 +476,6 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 	}
 
-	// disable DynamicKubeletConfig feature gate, we should only allow users to configure from API (20201101 and later)
-	kubeletConfig.FeatureGates["DynamicKubeletConfig"] = false
-
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)
 }
@@ -557,4 +545,18 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 		}
 	}
 	return m
+}
+
+func addFeatureGateString(featureGates string, key string, value bool) string {
+	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	fgMap[key] = value
+	keys := make([]string, 0, len(fgMap))
+	for k := range fgMap {
+		keys = append(keys, k)
+	}
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
+	}
+	return strings.Join(pairs, ",")
 }
