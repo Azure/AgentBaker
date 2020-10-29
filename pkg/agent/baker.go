@@ -40,6 +40,8 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// validate and fix input
+	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	//get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	//get variable cloudInit
@@ -224,6 +226,18 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 		}
 	}
 	return truncated
+}
+
+func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
+	// we should only allow users to configure from API (20201101 and later)
+	if IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
+		if config.AgentPoolProfile.KubernetesConfig != nil && config.AgentPoolProfile.KubernetesConfig.KubeletConfig != nil {
+			kubeletFlags := config.AgentPoolProfile.KubernetesConfig.KubeletConfig
+			delete(kubeletFlags, "--dynamic-config-dir")
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
+	}
 }
 
 // getContainerServiceFuncMap returns all functions used in template generation

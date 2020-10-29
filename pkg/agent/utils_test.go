@@ -38,7 +38,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--authentication-token-webhook":      "true",
 		"--authorization-mode":                "Webhook",
 		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=true", // what if you turn off dynamic kubelet using dynamic kubelet?
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", // what if you turn off dynamic kubelet using dynamic kubelet?
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
