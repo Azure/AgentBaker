@@ -209,7 +209,24 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with KubeletConfigFile", "AKSUbuntu1604+KubeletConfigFile", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableKubeletConfigFile = true
 		}),
+
+		Entry("AKSUbuntu1804 with containerd and private ACR", "AKSUbuntu1804+Containerd+PrivateACR", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			cs := config.ContainerService
+			if cs.Properties.OrchestratorProfile.KubernetesConfig == nil {
+				cs.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{}
+			}
+			cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer = "acr.io/privateacr"
+			cs.Properties.ServicePrincipalProfile = &datamodel.ServicePrincipalProfile{
+				ClientID: "clientID",
+				Secret:   "clientSecret",
+			}
+		}),
 		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: datamodel.Containerd,
@@ -217,6 +234,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
 		}),
+		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+		}),
+
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableKubeletConfigFile = false
 			netIpv4TcpTwReuse := true

@@ -489,6 +489,7 @@ LOAD_BALANCER_SKU={{GetVariable "loadBalancerSku"}}
 EXCLUDE_MASTER_FROM_STANDARD_LB={{GetVariable "excludeMasterFromStandardLB"}}
 MAXIMUM_LOADBALANCER_RULE_COUNT={{GetVariable "maximumLoadBalancerRuleCount"}}
 CONTAINER_RUNTIME={{GetParameter "containerRuntime"}}
+CLI_TOOL={{GetParameter "cliTool"}}
 CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
@@ -807,28 +808,17 @@ configureCNIIPTables() {
     fi
 }
 
-ensureContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-        ensureDocker
-    fi
-    {{if NeedsContainerd}}
-        ensureContainerd
-    {{end}}
-}
-
 {{if NeedsContainerd}}
 ensureContainerd() {
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  {{if IsKubenet }}
   wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  {{end}}
+
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
-
+{{else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -848,7 +838,12 @@ ensureDocker() {
             sleep 1
         fi
     done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+
+}
+{{end}}
+ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -856,7 +851,6 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
 {{if EnableEncryptionWithExternalKms}}
 ensureKMS() {
     systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
@@ -1126,7 +1120,8 @@ ERR_DOCKER_APT_KEY_TIMEOUT=23 {{/* Timeout waiting for docker apt-key */}}
 ERR_DOCKER_START_FAIL=24 {{/* Docker could not be started by systemctl */}}
 ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
-ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby install */}}
+ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
+ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
 ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
 ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
 ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
@@ -1167,6 +1162,9 @@ ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in 
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
 ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
+ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
+ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -1745,7 +1743,6 @@ pullContainerImage() {
     fi
 }
 
-
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
@@ -1758,41 +1755,48 @@ removeContainerImage() {
     fi
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), startCleanUpHyperkubeImages
-    function cleanUpHyperkubeImagesRun() {
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
+cleanUpImages() {
+    local targetImage=$1
+    function cleanupImagesRun() {
+        {{if NeedsContainerd}}
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
+        {{else}}
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage})
+        {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            docker rmi ${images_to_delete[@]}
+            for image in "${images_to_delete[@]}"
+            do 
+                {{if NeedsContainerd}}
+                removeContainerImage "ctr" ${image}
+                {{else}}
+                removeContainerImage "docker" ${image}
+                {{end}}
+            done
         fi
     }
-    export -f cleanUpHyperkubeImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    export -f cleanupImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
+}
+
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), cleanUpHyperkubeImages
+    cleanUpImages "hyperkube"
     echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    function cleanUpKubeProxyImagesRun() {
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
-        local exit_code=$?
-        if [[ $exit_code != 0 ]]; then
-            exit $exit_code
-        elif [[ "${images_to_delete}" != "" ]]; then
-            docker rmi ${images_to_delete[@]}
-        fi
-    }
-    export -f cleanUpKubeProxyImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    cleanUpImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export -f retrycmd_if_failure
+    export -f cleanUpImages
     export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
     export KUBERNETES_VERSION
@@ -1923,6 +1927,11 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+# If crictl gets installed then use it as the cri cli instead of ctr
+CLI_TOOL="crictl"
+{{end}}
 
 installNetworkPlugin
 
@@ -1965,8 +1974,6 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
@@ -1974,7 +1981,15 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{end}}
+{{- end}}
+
+{{- if NeedsContainerd}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
+ensureDocker
+{{- end}}
+
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
@@ -3667,29 +3682,37 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    subreaper = false{{if HasDataDir }}
+    version = 2
+    subreaper = false
+    oom_score = 0{{if HasDataDir }}
     root = "{{GetDataDir}}"{{- end}}
-    oom_score = 0
-    [plugins.cri]
-    sandbox_image = "{{GetPodInfraContainerSpec}}"
-    [plugins.cri.containerd.untrusted_workload_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
-    runtime_engine = "/usr/bin/nvidia-container-runtime"
-    {{- else}}
-    runtime_engine = "/usr/bin/runc"
-    {{- end}}
-    [plugins.cri.containerd.default_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
-    runtime_engine = "/usr/bin/nvidia-container-runtime"
-    {{- else}}
-    runtime_engine = "/usr/bin/runc"
-    {{- end}}
-    {{if IsKubenet }}
-    [plugins.cri.cni]
+    [plugins."io.containerd.grpc.v1.cri"]
+        sandbox_image = "{{GetPodInfraContainerSpec}}"
+        [plugins."io.containerd.grpc.v1.cri".containerd]
+            [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
+                runtime_type = "io.containerd.runtime.v1.linux"
+                {{- if IsNSeriesSKU .}}
+                runtime_engine = "/usr/bin/nvidia-container-runtime"
+                {{- else}}
+                runtime_engine = "/usr/bin/runc"
+                {{- end}}
+            [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
+                runtime_type = "io.containerd.runtime.v1.linux"
+                {{- if IsNSeriesSKU .}}
+                runtime_engine = "/usr/bin/nvidia-container-runtime"
+                {{- else}}
+                runtime_engine = "/usr/bin/runc"
+                {{- end}}
+    {{ if IsKubenet }}
+    [plugins."io.containerd.grpc.v1.cri".cni]
     bin_dir = "/opt/cni/bin"
     conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
-    {{end}}
+    {{ end}}
+    [plugins."io.containerd.grpc.v1.cri".registry.headers]
+      X-Meta-Source-Client = ["azure/aks"]
+    [metrics]
+    address = "127.0.0.1:10257"
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
@@ -3754,15 +3777,14 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-{{if IsKubenet }}
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
   owner: root
   content: |
     net.ipv4.ip_forward = 1
+    net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
-{{end}}
 {{end}}
 
 {{if IsNSeriesSKU .}}

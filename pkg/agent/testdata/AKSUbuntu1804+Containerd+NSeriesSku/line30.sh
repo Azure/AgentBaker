@@ -185,45 +185,18 @@ configureCNIIPTables() {
     fi
 }
 
-ensureContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-        ensureDocker
-    fi
-    
-        ensureContainerd
-    
-}
-
 
 ensureContainerd() {
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  
+  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-
-ensureDocker() {
-    DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    usermod -aG docker ${ADMINUSER}
-    DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    if [[ $OS != $COREOS_OS_NAME ]]; then
-        wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    fi
-    DOCKER_JSON_FILE=/etc/docker/daemon.json
-    for i in $(seq 1 1200); do
-        if [ -s $DOCKER_JSON_FILE ]; then
-            jq '.' < $DOCKER_JSON_FILE && break
-        fi
-        if [ $i -eq 1200 ]; then
-            exit $ERR_FILE_WATCH_TIMEOUT
-        else
-            sleep 1
-        fi
-    done
-    systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+ensureMonitorService() {
     
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -231,7 +204,6 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
 
 
 
