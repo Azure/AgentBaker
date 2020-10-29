@@ -77,6 +77,11 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+# If crictl gets installed then use it as the cri cli instead of ctr
+CLI_TOOL="crictl"
+{{end}}
 
 installNetworkPlugin
 
@@ -119,8 +124,6 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
@@ -128,7 +131,15 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{end}}
+{{- end}}
+
+{{- if NeedsContainerd}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
+ensureDocker
+{{- end}}
+
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts

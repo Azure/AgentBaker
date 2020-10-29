@@ -86,13 +86,14 @@ fi
 
 createKubeManifestDir
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
 
 
+ensureDocker
+
+ensureMonitorService
 
 ensureSysctl
 ensureKubelet

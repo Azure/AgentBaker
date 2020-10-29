@@ -146,6 +146,11 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
+		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
+			addValue(parametersMap, "cliTool", "ctr")
+		} else {
+			addValue(parametersMap, "cliTool", "docker")
+		}
 	}
 }
 
