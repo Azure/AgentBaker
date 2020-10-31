@@ -501,6 +501,7 @@ SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
+TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1 && systemctl --no-pager -l status kubelet 2>&1 | head -n 100"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -814,10 +815,19 @@ ensureContainerd() {
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-
+  {{if TeleportEnabled}}
+  ensureTeleportd
+  {{end}}
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
+{{if TeleportEnabled}}
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 120 5 25 systemctl daemon-reload || exit $ERR_SYSTEMCTL_DAEMON_RELOAD
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{end}}
 {{else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
@@ -1157,6 +1167,7 @@ ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 {{/* Timeout waiting for cloud-in
 ERR_APT_DIST_UPGRADE_TIMEOUT=101 {{/* Timeout waiting for apt-get dist-upgrade to complete */}}
 ERR_APT_PURGE_FAIL=102 {{/* Error purging distro packages */}}
 ERR_SYSCTL_RELOAD=103 {{/* Error reloading sysctl config */}}
+ERR_SYSTEMCTL_DAEMON_RELOAD=104 {{/* Error reloading systemd daemon config */}}
 ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement */}}
 ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
@@ -1176,6 +1187,8 @@ ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address pre
 
 ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+
+ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED=140 {{/* Env variable for teleportd plugin download url not set */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1456,6 +1469,8 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 
 removeMoby() {
     apt-get purge -y moby-engine moby-cli
@@ -1625,6 +1640,25 @@ installCrictl() {
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
+}
+
+downloadTeleportdPlugin() {
+    if [[ -z ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ]]; then
+        exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
+    fi
+    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL}
+}
+
+installTeleportdPlugin() {
+    if [[ $(which teleportd 2>/dev/null) ]]; then
+        echo "teleportd already installed. skipping installTeleportdPlugin."
+    else 
+        downloadTeleportdPlugin
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/telepord"
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/telepord"
+    fi
+    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
 {{end}}
 
@@ -3682,6 +3716,9 @@ write_files:
     [plugins."io.containerd.grpc.v1.cri"]
         sandbox_image = "{{GetPodInfraContainerSpec}}"
         [plugins."io.containerd.grpc.v1.cri".containerd]
+            {{ if TeleportEnabled }}
+            snapshotter = "teleportd"
+            {{ end}}
             [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
                 runtime_type = "io.containerd.runtime.v1.linux"
                 {{- if IsNSeriesSKU .}}
@@ -3706,6 +3743,12 @@ write_files:
       X-Meta-Source-Client = ["azure/aks"]
     [metrics]
     address = "127.0.0.1:10257"
+    {{ if TeleportEnabled }}
+    [proxy_plugins]
+      [proxy_plugins.teleportd]
+        type = "snapshot"
+        address = "/run/teleportd/snapshotter.sock"
+    {{ end}}
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
@@ -3778,6 +3821,28 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
+
+{{if TeleportEnabled}}
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/bin/teleportd --debug --aksconfig /etc/kubernetes/azure.json --namespace k8s.io
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+    #EOF
+{{end}}
 {{end}}
 
 {{if IsNSeriesSKU .}}

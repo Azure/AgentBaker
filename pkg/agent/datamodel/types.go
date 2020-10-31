@@ -497,6 +497,7 @@ type KubernetesConfig struct {
 	ProxyMode                         KubeProxyMode     `json:"kubeProxyMode,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	OutboundRuleIdleTimeoutInMinutes  int32             `json:"outboundRuleIdleTimeoutInMinutes,omitempty"`
+	EnableACRTeleportPlugin           *bool             `json:"enableACRTeleportPlugin,omitempty"`
 }
 
 // CustomFile has source as the full absolute source path to a file and dest
