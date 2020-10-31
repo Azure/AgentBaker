@@ -68,6 +68,9 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   # k8s will use images in the k8s.io namespaces - create it
   ctr namespace create k8s.io
   cliTool="ctr"
+
+  # also pre-download Teleportd plugin for containerd
+  downloadTeleportdPlugin
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.12"

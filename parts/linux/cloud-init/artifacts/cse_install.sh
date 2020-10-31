@@ -10,6 +10,8 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 
 removeMoby() {
     apt-get purge -y moby-engine moby-cli
@@ -179,6 +181,25 @@ installCrictl() {
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
+}
+
+downloadTeleportdPlugin() {
+    if [[ -z ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ]]; then
+        exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
+    fi
+    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL}
+}
+
+installTeleportdPlugin() {
+    if [[ $(which teleportd 2>/dev/null) ]]; then
+        echo "teleportd already installed. skipping installTeleportdPlugin."
+    else 
+        downloadTeleportdPlugin
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/telepord"
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/telepord"
+    fi
+    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
 {{end}}
 

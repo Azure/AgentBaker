@@ -511,6 +511,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
+		"TeleportEnabled": func() bool {
+			return profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.EnableACRTeleportPlugin != nil &&
+				*profile.KubernetesConfig.EnableACRTeleportPlugin
+		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
 		},

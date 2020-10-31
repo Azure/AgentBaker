@@ -53,6 +53,7 @@ ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 {{/* Timeout waiting for cloud-in
 ERR_APT_DIST_UPGRADE_TIMEOUT=101 {{/* Timeout waiting for apt-get dist-upgrade to complete */}}
 ERR_APT_PURGE_FAIL=102 {{/* Error purging distro packages */}}
 ERR_SYSCTL_RELOAD=103 {{/* Error reloading sysctl config */}}
+ERR_SYSTEMCTL_DAEMON_RELOAD=104 {{/* Error reloading systemd daemon config */}}
 ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement */}}
 ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
@@ -72,6 +73,8 @@ ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address pre
 
 ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+
+ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED=140 {{/* Env variable for teleportd plugin download url not set */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"

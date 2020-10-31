@@ -220,6 +220,9 @@ write_files:
     [plugins."io.containerd.grpc.v1.cri"]
         sandbox_image = "{{GetPodInfraContainerSpec}}"
         [plugins."io.containerd.grpc.v1.cri".containerd]
+            {{ if TeleportEnabled }}
+            snapshotter = "teleportd"
+            {{ end}}
             [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
                 runtime_type = "io.containerd.runtime.v1.linux"
                 {{- if IsNSeriesSKU .}}
@@ -244,6 +247,12 @@ write_files:
       X-Meta-Source-Client = ["azure/aks"]
     [metrics]
     address = "127.0.0.1:10257"
+    {{ if TeleportEnabled }}
+    [proxy_plugins]
+      [proxy_plugins.teleportd]
+        type = "snapshot"
+        address = "/run/teleportd/snapshotter.sock"
+    {{ end}}
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
@@ -316,6 +325,28 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
+
+{{if TeleportEnabled}}
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/bin/teleportd --debug --aksconfig /etc/kubernetes/azure.json --namespace k8s.io
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+    #EOF
+{{end}}
 {{end}}
 
 {{if IsNSeriesSKU .}}
