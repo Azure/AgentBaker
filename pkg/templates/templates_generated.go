@@ -1655,8 +1655,8 @@ installTeleportdPlugin() {
         echo "teleportd already installed. skipping installTeleportdPlugin."
     else 
         downloadTeleportdPlugin
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/telepord"
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/telepord"
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
