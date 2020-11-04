@@ -145,6 +145,7 @@ installStandaloneContainerd() {
         removeMoby
         removeContainerd
         downloadContainerd ${CONTAINERD_VERSION}
+        wait_for_apt_locks
         retrycmd_if_failure 10 5 10 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
     fi  
