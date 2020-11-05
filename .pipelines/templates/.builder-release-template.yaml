@@ -137,3 +137,11 @@ steps:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+  - task: UniversalPackages@0
+    displayName: Universal Publish
+    inputs:
+      command: publish
+      publishDirectory: 'vhd-publishing-info.json'
+      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
+      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
+      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
