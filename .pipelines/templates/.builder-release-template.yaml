@@ -107,7 +107,7 @@ steps:
   - bash: |
         echo MODE=$(MODE) && \
         if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-        VHD_NAME="1.0.${create_time}.vhd"; \
+        [ -n "$create_time" ] && VHD_NAME="1.0.${create_time}.vhd"; \
         SKU_NAME="1804gen2"; else \
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
         VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
