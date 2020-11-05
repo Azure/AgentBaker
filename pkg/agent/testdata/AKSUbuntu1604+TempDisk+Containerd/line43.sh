@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # It's only necessary to configure azure0 in Ubuntu 18.04
 lsb_release -i | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -qi "^ubuntu$"
 if [ $? != 0 ]; then
@@ -7,11 +6,6 @@ if [ $? != 0 ]; then
     exit 0
 fi
 
-lsb_release -r | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -q "^18.04$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu 18.04. Skip configuring azure0'
-    exit 0
-fi
 
 # Check if the azure cni config is there... no need to run this script if not
 # Also don't want to run this when not using azure-cni
