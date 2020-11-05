@@ -16,7 +16,6 @@ steps:
         }
         EOF
     displayName: Getting Shared Access Signature URI
-    condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
