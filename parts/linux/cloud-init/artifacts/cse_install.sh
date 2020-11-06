@@ -191,7 +191,7 @@ downloadTeleportdPlugin() {
         exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL}
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL} || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
 installTeleportdPlugin() {
@@ -199,8 +199,8 @@ installTeleportdPlugin() {
         echo "teleportd already installed. skipping installTeleportdPlugin."
     else 
         downloadTeleportdPlugin
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }

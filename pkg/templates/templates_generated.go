@@ -1188,7 +1188,9 @@ ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address pre
 ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
 
-ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED=140 {{/* Env variable for teleportd plugin download url not set */}}
+ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED=150 {{/* Env variable for teleportd plugin download url not set */}}
+ERR_TELEPORTD_DOWNLOAD_ERR=151 {{/* Error downloading teleportd binary */}}
+ERR_TELEPORTD_INSTALL_ERR=152 {{/* Error installing teleportd binary */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1650,7 +1652,7 @@ downloadTeleportdPlugin() {
         exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL}
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL} || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
 installTeleportdPlugin() {
@@ -1658,8 +1660,8 @@ installTeleportdPlugin() {
         echo "teleportd already installed. skipping installTeleportdPlugin."
     else 
         downloadTeleportdPlugin
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
@@ -3721,35 +3723,35 @@ write_files:
     oom_score = 0{{if HasDataDir }}
     root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.grpc.v1.cri"]
-        sandbox_image = "{{GetPodInfraContainerSpec}}"
-        [plugins."io.containerd.grpc.v1.cri".containerd]
-            {{ if TeleportEnabled }}
-            snapshotter = "teleportd"
-            {{ end}}
-            [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-                runtime_type = "io.containerd.runtime.v1.linux"
-                {{- if IsNSeriesSKU .}}
-                runtime_engine = "/usr/bin/nvidia-container-runtime"
-                {{- else}}
-                runtime_engine = "/usr/bin/runc"
-                {{- end}}
-            [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-                runtime_type = "io.containerd.runtime.v1.linux"
-                {{- if IsNSeriesSKU .}}
-                runtime_engine = "/usr/bin/nvidia-container-runtime"
-                {{- else}}
-                runtime_engine = "/usr/bin/runc"
-                {{- end}}
-    {{ if IsKubenet }}
-    [plugins."io.containerd.grpc.v1.cri".cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
-    {{ end}}
-    [plugins."io.containerd.grpc.v1.cri".registry.headers]
-      X-Meta-Source-Client = ["azure/aks"]
+      sandbox_image = "{{GetPodInfraContainerSpec}}"
+      [plugins."io.containerd.grpc.v1.cri".containerd]
+        {{ if TeleportEnabled }}
+        snapshotter = "teleportd"
+        {{ end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU .}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU .}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+      {{ if IsKubenet }}
+      [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        conf_template = "/etc/containerd/kubenet_template.conf"
+      {{ end}}
+      [plugins."io.containerd.grpc.v1.cri".registry.headers]
+        X-Meta-Source-Client = ["azure/aks"]
     [metrics]
-    address = "127.0.0.1:10257"
+      address = "127.0.0.1:10257"
     {{ if TeleportEnabled }}
     [proxy_plugins]
       [proxy_plugins.teleportd]
@@ -3838,7 +3840,7 @@ write_files:
     Description=teleportd teleport runtime
     After=network.target
     [Service]
-    ExecStart=//usr/local/bin/teleportd --metrics --aksconfig /etc/kubernetes/azure.json
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
     Delegate=yes
     KillMode=process
     Restart=always
