@@ -204,6 +204,7 @@ installTeleportdPlugin() {
 }
 
 
+
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.12"

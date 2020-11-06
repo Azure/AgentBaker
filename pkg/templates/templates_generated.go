@@ -1644,7 +1644,7 @@ installCrictl() {
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
-
+{{if TeleportEnabled}}
 downloadTeleportdPlugin() {
     if [[ -z ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ]]; then
         exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
@@ -1663,6 +1663,7 @@ installTeleportdPlugin() {
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
+{{end}}
 {{end}}
 
 installMoby() {
@@ -1961,6 +1962,9 @@ installContainerRuntime
 installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
+{{- if TeleportEnabled}}
+installTeleportdPlugin
+{{end}}
 {{end}}
 
 installNetworkPlugin

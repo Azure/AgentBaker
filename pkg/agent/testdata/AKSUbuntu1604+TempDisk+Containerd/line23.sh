@@ -184,24 +184,6 @@ installCrictl() {
     rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
 
-downloadTeleportdPlugin() {
-    if [[ -z ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ]]; then
-        exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
-    fi
-    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL}
-}
-
-installTeleportdPlugin() {
-    if [[ $(which teleportd 2>/dev/null) ]]; then
-        echo "teleportd already installed. skipping installTeleportdPlugin."
-    else 
-        downloadTeleportdPlugin
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd"
-    fi
-    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
-}
 
 
 installMoby() {

@@ -81,6 +81,9 @@ installContainerRuntime
 installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
+{{- if TeleportEnabled}}
+installTeleportdPlugin
+{{end}}
 {{end}}
 
 installNetworkPlugin
