@@ -13,12 +13,12 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 
 removeMoby() {
     wait_for_apt_locks
-    retrycmd_if_failure 10 5 10 apt-get purge -y moby-engine moby-cli
+    retrycmd_if_failure 10 5 60 apt-get purge -y moby-engine moby-cli
 }
 
 removeContainerd() {
     wait_for_apt_locks
-    retrycmd_if_failure 10 5 10 apt-get purge -y moby-containerd
+    retrycmd_if_failure 10 5 60 apt-get purge -y moby-containerd
 }
 
 cleanupContainerdDlFiles() {
