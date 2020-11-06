@@ -14,11 +14,13 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 
 removeMoby() {
-    apt-get purge -y moby-engine moby-cli
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 10 apt-get purge -y moby-engine moby-cli
 }
 
 removeContainerd() {
-    apt-get purge -y moby-containerd
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 10 apt-get purge -y moby-containerd
 }
 
 cleanupContainerdDlFiles() {
