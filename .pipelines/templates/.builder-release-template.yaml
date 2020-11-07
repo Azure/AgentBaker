@@ -107,7 +107,7 @@ steps:
   - bash: |
         echo MODE=$(MODE) && \
         if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-        VHD_NAME="1.0.${create_time}.vhd"; \
+        [ -n "${create_time}" ] && VHD_NAME="1.0.${create_time}.vhd"; \
         SKU_NAME="1804gen2"; else \
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
         VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
@@ -137,3 +137,12 @@ steps:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+  - task: UniversalPackages@0
+    displayName: Universal Publish
+    inputs:
+      command: publish
+      publishDirectory: 'vhd-publishing-info.json'
+      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
+      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
+      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
+      versionOption: minor
