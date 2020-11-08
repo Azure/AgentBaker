@@ -187,18 +187,21 @@ installCrictl() {
 }
 {{if TeleportEnabled}}
 downloadTeleportdPlugin() {
+    TELEPORTD_VERSION=$1
     if [[ -z ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ]]; then
         exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" ${TELEPORTD_PLUGIN_DOWNLOAD_URL} || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
 installTeleportdPlugin() {
-    if [[ $(which teleportd 2>/dev/null) ]]; then
-        echo "teleportd already installed. skipping installTeleportdPlugin."
+    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
+    local TARGET_VERSION="0.1.0"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
+        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else 
-        downloadTeleportdPlugin
+        downloadTeleportdPlugin ${TARGET_VERSION}
         mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
         chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
     fi
