@@ -70,7 +70,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin
+  downloadTeleportdPlugin "0.1.0"
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.12"
