@@ -6,6 +6,13 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+UBUNTU_RELEASE=$(lsb_release -r -s)
+if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
+    sudo apt-get -y autoremove chrony
+    echo $?
+    sudo systemctl restart systemd-timesyncd
+fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
