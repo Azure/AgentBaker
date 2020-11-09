@@ -56,7 +56,9 @@ function Test-FilesToCacheOnVHD
         "c:\akse-cache\containerd\" = @(
             $global:containerdPackageUrl
         );
-
+        "c:\akse-cache\csi-proxy\"    = @(
+            "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz"
+        );
         "c:\akse-cache\win-k8s\" = @(
             "https://acs-mirror.azureedge.net/kubernetes/v1.15.11-azs/windowszip/v1.15.11-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.15.12-azs/windowszip/v1.15.12-azs-1int.zip",
