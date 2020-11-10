@@ -80,22 +80,12 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+installCrictl
+# If crictl gets installed then use it as the cri cli instead of ctr
+CLI_TOOL="crictl"
+
 
 installNetworkPlugin
-echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-    fi
-    ensureGPUDrivers
-    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        systemctlDisableAndStop nvidia-device-plugin
-    fi
-fi
-echo $(date),$(hostname), "End configuring GPU drivers"
-
 
 installKubeletKubectlAndKubeProxy
 
@@ -105,13 +95,14 @@ fi
 
 createKubeManifestDir
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
 
 
+ensureContainerd 
+
+ensureMonitorService
 
 ensureSysctl
 ensureKubelet
