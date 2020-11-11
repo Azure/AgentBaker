@@ -453,7 +453,7 @@ done
 # v1.17.13
 # v1.18.8-hotfix.20200924
 # v1.18.10
-# v1.19.0
+# v1.19.1
 # v1.19.3
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
@@ -474,7 +474,7 @@ K8S_VERSIONS="
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
 1.18.10
-1.19.0
+1.19.1-hotfix.20200923
 1.19.3
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
@@ -517,7 +517,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.17.13
 # v1.18.8-hotfix.20200924
 # v1.18.10
-# v1.19.0
+# v1.19.1
 # v1.19.3
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
@@ -539,6 +539,7 @@ PATCHED_HYPERKUBE_IMAGES="
 1.18.8-hotfix.20200924
 1.18.10
 1.19.0
+1.19.1-hotfix.20200923
 1.19.3
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
