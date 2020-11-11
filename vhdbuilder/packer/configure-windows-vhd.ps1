@@ -115,8 +115,6 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.9-azs/windowszip/v1.17.9-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11-azs/windowszip/v1.17.11-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.10-hotfix.20200817/windowszip/v1.16.10-hotfix.20200817-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.16.10-hotfix.20200824/windowszip/v1.16.10-hotfix.20200824-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.16.10-hotfix.20200917/windowszip/v1.16.10-hotfix.20200917-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.12/windowszip/v1.16.12-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13/windowszip/v1.16.13-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20200714/windowszip/v1.16.13-hotfix.20200714-1int.zip",
