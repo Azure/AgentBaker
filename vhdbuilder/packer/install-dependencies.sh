@@ -339,8 +339,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last-->last image (ciprod08072020) as last released (ciprod10052020) is not fully rolledout yet. Added latest (ciprod10272020)
-OMS_AGENT_IMAGES="ciprod08072020 ciprod10052020 ciprod10272020"
+# keeping last-->last image (ciprod10052020) as last released (ciprod10272020) is not fully rolledout yet. Added latest (ciprod11092020)
+OMS_AGENT_IMAGES="ciprod10052020 ciprod10272020 ciprod11092020"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -594,6 +594,7 @@ ADDON_IMAGES="
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.1
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.3
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0

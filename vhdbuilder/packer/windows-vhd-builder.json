@@ -1,4 +1,3 @@
-
 {
     "variables": {
         "build_branch": "{{env `GIT_BRANCH`}}",
@@ -97,7 +96,7 @@
         {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
-            "environment_vars" : [
+            "environment_vars": [
                 "BUILD_BRANCH={{user `build_branch`}}",
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
@@ -114,21 +113,10 @@
             "destination": "release-notes.txt"
         },
         {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
             "type": "powershell",
-            "inline": [
-                "& $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit",
-                "Stop-Service WindowsAzureGuestAgent",
-                "Stop-Service WindowsAzureNetAgentSvc",
-                "Stop-Service RdAgent",
-                "Stop-Service WindowsAzureTelemetryService",
-                "& sc.exe delete WindowsAzureGuestAgent",
-                "& sc.exe delete WindowsAzureNetAgentSvc",
-                "& sc.exe delete RdAgent",
-                "& sc.exe delete WindowsAzureTelemetryService",
-                "Get-ChildItem c:\\WindowsAzure -Force | Sort-Object -Property FullName -Descending | ForEach-Object { try { Remove-Item -Path $_.FullName -Force -Recurse -ErrorAction SilentlyContinue; } catch { } }",
-                "while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Output $imageState.ImageState; Start-Sleep -s 10  } else { break } }",
-                "Remove-Item -Path WSMan:\\Localhost\\listener\\listener* -Recurse"
-            ]
+            "script": "vhdbuilder/packer/sysprep.ps1"
         }
     ]
 }
