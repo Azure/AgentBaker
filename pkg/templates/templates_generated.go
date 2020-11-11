@@ -811,9 +811,9 @@ configureCNIIPTables() {
 
 {{- if NeedsContainerd}}
 ensureContainerd() {
-  {{if TeleportEnabled}}
+  {{- if TeleportEnabled}}
   ensureTeleportd
-  {{end}}
+  {{- end}}
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1166,7 +1166,6 @@ ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 {{/* Timeout waiting for cloud-in
 ERR_APT_DIST_UPGRADE_TIMEOUT=101 {{/* Timeout waiting for apt-get dist-upgrade to complete */}}
 ERR_APT_PURGE_FAIL=102 {{/* Error purging distro packages */}}
 ERR_SYSCTL_RELOAD=103 {{/* Error reloading sysctl config */}}
-ERR_SYSTEMCTL_DAEMON_RELOAD=104 {{/* Error reloading systemd daemon config */}}
 ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement */}}
 ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
