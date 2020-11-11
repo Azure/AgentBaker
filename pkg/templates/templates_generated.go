@@ -1187,9 +1187,8 @@ ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address pre
 ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
 
-ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED=150 {{/* Env variable for teleportd plugin download url not set */}}
-ERR_TELEPORTD_DOWNLOAD_ERR=151 {{/* Error downloading teleportd binary */}}
-ERR_TELEPORTD_INSTALL_ERR=152 {{/* Error installing teleportd binary */}}
+ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
+ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
