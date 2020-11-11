@@ -591,6 +591,7 @@ ADDON_IMAGES="
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.1
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.3
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
