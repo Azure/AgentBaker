@@ -288,7 +288,7 @@ configureCNIIPTables() {
     fi
 }
 
-{{if NeedsContainerd}}
+{{- if NeedsContainerd}}
 ensureContainerd() {
   {{if TeleportEnabled}}
   ensureTeleportd
@@ -300,14 +300,13 @@ ensureContainerd() {
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{if TeleportEnabled}}
+{{- if TeleportEnabled}}
 ensureTeleportd() {
     wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
-    retrycmd_if_failure 120 5 25 systemctl daemon-reload || exit $ERR_SYSTEMCTL_DAEMON_RELOAD
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
-{{else}}
+{{- end}}
+{{- else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -331,7 +330,7 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-{{end}}
+{{- end}}
 ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer

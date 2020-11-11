@@ -1323,6 +1323,8 @@ type NodeBootstrappingConfiguration struct {
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
+	EnableACRTeleportPlugin       bool
+	TeleportdPluginURL            string
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set

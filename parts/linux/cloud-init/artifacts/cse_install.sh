@@ -135,7 +135,7 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{if NeedsContainerd}}
+{{- if NeedsContainerd}}
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
@@ -185,14 +185,16 @@ installCrictl() {
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
-{{if TeleportEnabled}}
+{{- if TeleportEnabled}}
 downloadTeleportdPlugin() {
-    TELEPORTD_VERSION=$1
-    if [[ -z ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ]]; then
-        exit $ERR_TELEPORTD_PLUGIN_URL_NOT_SPECIFIED
+    DOWNLOAD_URL=$1
+    TELEPORTD_VERSION=$2
+    if [[ -z ${DOWNLOAD_URL} ]]; then
+        echo "download url parameter for downloadTeleportdPlugin was not given"
+        exit $ERR_TELEPORTD_DOWNLOAD_ERR
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
 installTeleportdPlugin() {
@@ -201,14 +203,14 @@ installTeleportdPlugin() {
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else 
-        downloadTeleportdPlugin ${TARGET_VERSION}
+        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
         mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
         chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)

@@ -184,8 +184,6 @@ configureCNIIPTables() {
         /sbin/ebtables -t nat --list
     fi
 }
-
-
 ensureContainerd() {
   
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
@@ -195,8 +193,6 @@ ensureContainerd() {
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
-
 ensureMonitorService() {
     
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
