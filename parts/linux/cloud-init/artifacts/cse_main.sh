@@ -134,6 +134,12 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
+{{- if NeedsContainerd}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
+ensureDocker
+{{- end}}
+
 configureK8s
 
 configureCNI
@@ -141,12 +147,6 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{- end}}
-
-{{- if NeedsContainerd}}
-ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
-{{- else}}
-ensureDocker
 {{- end}}
 
 ensureMonitorService
