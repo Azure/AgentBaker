@@ -101,11 +101,9 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    {{if NeedsContainerd}}
+    
         installStandaloneContainerd
-    {{else}}
-        installMoby
-    {{end}}
+    
 }
 
 getMobyPkg() {
@@ -135,7 +133,6 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{- if NeedsContainerd}}
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
@@ -185,7 +182,6 @@ installCrictl() {
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
-{{- if TeleportEnabled}}
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
@@ -209,8 +205,6 @@ installTeleportdPlugin() {
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
-{{- end}}
-{{- end}}
 
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
@@ -342,22 +336,18 @@ removeContainerImage() {
 cleanUpImages() {
     local targetImage=$1
     function cleanupImagesRun() {
-        {{if NeedsContainerd}}
+        
         images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage})
-        {{end}}
+        
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             for image in "${images_to_delete[@]}"
             do 
-                {{if NeedsContainerd}}
+                
                 removeContainerImage "ctr" ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                
             done
         fi
     }

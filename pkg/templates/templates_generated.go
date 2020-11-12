@@ -501,6 +501,7 @@ SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
+TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1 && systemctl --no-pager -l status kubelet 2>&1 | head -n 100"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -808,17 +809,25 @@ configureCNIIPTables() {
     fi
 }
 
-{{if NeedsContainerd}}
+{{- if NeedsContainerd}}
 ensureContainerd() {
+  {{- if TeleportEnabled}}
+  ensureTeleportd
+  {{- end}}
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{else}}
+{{- if TeleportEnabled}}
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- end}}
+{{- else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -842,7 +851,7 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-{{end}}
+{{- end}}
 ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
@@ -1177,6 +1186,9 @@ ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address pre
 ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
 ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
 
+ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
+ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 RHEL_OS_NAME="RHEL"
@@ -1456,6 +1468,8 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 
 removeMoby() {
     wait_for_apt_locks
@@ -1579,7 +1593,7 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{if NeedsContainerd}}
+{{- if NeedsContainerd}}
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
@@ -1629,7 +1643,32 @@ installCrictl() {
     fi
     rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
-{{end}}
+{{- if TeleportEnabled}}
+downloadTeleportdPlugin() {
+    DOWNLOAD_URL=$1
+    TELEPORTD_VERSION=$2
+    if [[ -z ${DOWNLOAD_URL} ]]; then
+        echo "download url parameter for downloadTeleportdPlugin was not given"
+        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+    fi
+    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+}
+
+installTeleportdPlugin() {
+    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
+    local TARGET_VERSION="0.2.0"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
+        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
+    else 
+        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+    fi
+    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
+}
+{{- end}}
+{{- end}}
 
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
@@ -1934,6 +1973,9 @@ installContainerRuntime
 installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
+{{- if TeleportEnabled}}
+installTeleportdPlugin
+{{end}}
 {{end}}
 
 installNetworkPlugin
@@ -3690,32 +3732,41 @@ write_files:
     oom_score = 0{{if HasDataDir }}
     root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.grpc.v1.cri"]
-        sandbox_image = "{{GetPodInfraContainerSpec}}"
-        [plugins."io.containerd.grpc.v1.cri".containerd]
-            [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-                runtime_type = "io.containerd.runtime.v1.linux"
-                {{- if IsNSeriesSKU .}}
-                runtime_engine = "/usr/bin/nvidia-container-runtime"
-                {{- else}}
-                runtime_engine = "/usr/bin/runc"
-                {{- end}}
-            [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-                runtime_type = "io.containerd.runtime.v1.linux"
-                {{- if IsNSeriesSKU .}}
-                runtime_engine = "/usr/bin/nvidia-container-runtime"
-                {{- else}}
-                runtime_engine = "/usr/bin/runc"
-                {{- end}}
-    {{ if IsKubenet }}
-    [plugins."io.containerd.grpc.v1.cri".cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
-    {{ end}}
-    [plugins."io.containerd.grpc.v1.cri".registry.headers]
-      X-Meta-Source-Client = ["azure/aks"]
+      sandbox_image = "{{GetPodInfraContainerSpec}}"
+      [plugins."io.containerd.grpc.v1.cri".containerd]
+        {{ if TeleportEnabled }}
+        snapshotter = "teleportd"
+        {{ end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU .}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU .}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+      {{ if IsKubenet }}
+      [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        conf_template = "/etc/containerd/kubenet_template.conf"
+      {{ end}}
+      [plugins."io.containerd.grpc.v1.cri".registry.headers]
+        X-Meta-Source-Client = ["azure/aks"]
     [metrics]
-    address = "127.0.0.1:10257"
+      address = "127.0.0.1:10257"
+    {{ if TeleportEnabled }}
+    [proxy_plugins]
+      [proxy_plugins.teleportd]
+        type = "snapshot"
+        address = "/run/teleportd/snapshotter.sock"
+    {{ end}}
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
@@ -3788,6 +3839,28 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
+
+{{if TeleportEnabled}}
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+    #EOF
+{{end}}
 {{end}}
 
 {{if IsNSeriesSKU .}}

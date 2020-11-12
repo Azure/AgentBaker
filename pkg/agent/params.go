@@ -58,7 +58,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	if properties.OrchestratorProfile.IsKubernetes() {
 		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
 		}
 	}
 
@@ -141,13 +141,16 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
 		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			addValue(parametersMap, "cliTool", "ctr")
+			if config.TeleportdPluginURL != "" {
+				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
+			}
 		} else {
 			addValue(parametersMap, "cliTool", "docker")
 		}

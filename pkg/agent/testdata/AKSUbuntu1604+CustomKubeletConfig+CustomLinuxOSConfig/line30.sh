@@ -301,8 +301,6 @@ configureCNIIPTables() {
         /sbin/ebtables -t nat --list
     fi
 }
-
-
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -326,7 +324,6 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-
 ensureMonitorService() {
     
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
