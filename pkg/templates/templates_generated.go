@@ -3806,6 +3806,7 @@ write_files:
     ExecStart=/usr/bin/containerd
     Delegate=yes
     KillMode=process
+    Restart=always
     OOMScoreAdjust=-999
     LimitNOFILE=1048576
     LimitNPROC=infinity
