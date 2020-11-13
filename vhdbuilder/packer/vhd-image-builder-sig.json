@@ -231,6 +231,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-12.amd64.deb",
+      "destination": "/home/packer/asc-baseline.deb"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
