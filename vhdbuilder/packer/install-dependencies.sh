@@ -23,7 +23,6 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - ca-certificates
   - ceph-common
   - cgroup-lite
-  - chrony
   - cifs-utils
   - conntrack
   - cracklib-runtime
@@ -47,8 +46,6 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - xz-utils
   - zip
 EOF
-
-systemctlDisableAndStop chrony
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
