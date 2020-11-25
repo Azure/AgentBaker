@@ -5,6 +5,7 @@ package datamodel
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -803,6 +804,23 @@ func (p *Properties) AreAgentProfilesCustomVNET() bool {
 // GetCustomEnvironmentJSON return the JSON format string for custom environment
 func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 	var environmentJSON string
+	if p.IsAKSCustomCloud() {
+		// Workaround to set correct name in AzureStackCloud.json
+		oldName := p.CustomCloudEnv.Name
+		p.CustomCloudEnv.Name = AzureStackCloud
+		defer func() {
+			// Restore p.CustomCloudEnv to old value
+			p.CustomCloudEnv.Name = oldName
+		}()
+		bytes, err := json.Marshal(p.CustomCloudEnv)
+		if err != nil {
+			return "", fmt.Errorf("Could not serialize CustomCloudEnv object - %s", err.Error())
+		}
+		environmentJSON = string(bytes)
+		if escape {
+			environmentJSON = strings.Replace(environmentJSON, "\"", "\\\"", -1)
+		}
+	}
 	return environmentJSON, nil
 }
 

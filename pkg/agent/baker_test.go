@@ -28,12 +28,14 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 				OrchestratorType:    datamodel.Kubernetes,
 				OrchestratorVersion: k8sVersion,
 				KubernetesConfig: &datamodel.KubernetesConfig{
-					ClusterSubnet:       "10.240.0.0/16",
-					NetworkPlugin:       "azure",
-					DockerBridgeSubnet:  "172.17.0.1/16",
-					ServiceCIDR:         "10.0.0.0/16",
-					EnableRbac:          to.BoolPtr(true),
-					EnableSecureKubelet: to.BoolPtr(true),
+					WindowsNodeBinariesURL: "http://test/test.tar.gz",
+					LoadBalancerSku:        "Basic",
+					ClusterSubnet:          "10.240.0.0/16",
+					NetworkPlugin:          "azure",
+					DockerBridgeSubnet:     "172.17.0.1/16",
+					ServiceCIDR:            "10.0.0.0/16",
+					EnableRbac:             to.BoolPtr(true),
+					EnableSecureKubelet:    to.BoolPtr(true),
 					KubeletConfig: map[string]string{
 						"--feature-gates": "RotateKubeletServerCertificate=true,a=b, PodPriority=true, x=y",
 					},
@@ -144,6 +146,8 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 			},
 			WindowsProfile: &datamodel.WindowsProfile{
 				ProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.2.zip",
+				CSIProxyURL:                   "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+				WindowsPauseImageURL:          "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 				AdminUsername:                 "azureuser",
 				AdminPassword:                 "replacepassword1234",
 				WindowsPublisher:              "microsoft-aks",
@@ -360,7 +364,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			cs := getFakeContainerService("1.18.2")
 			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]
 		}),
-		Entry("AKSWindows with k8s version 1.19 and hyperv", "AKSWindows+K8S119+hyperv", "1.18.2", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSWindows with k8s version 1.19 and hyperv", "AKSWindows+K8S119+hyperv", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := getFakeContainerService("1.19.0")
 
 			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]

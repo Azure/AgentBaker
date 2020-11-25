@@ -90,6 +90,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	if cs.Properties.HasWindows() {
 		cseCommandVariables["windowsEnableCSIProxy"] = cs.Properties.WindowsProfile.IsCSIProxyEnabled()
+		cseCommandVariables["windowsCSIProxyURL"] = cs.Properties.WindowsProfile.CSIProxyURL
 		cseCommandVariables["windowsProvisioningScriptsPackageURL"] = cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL
 		cseCommandVariables["windowsPauseImageURL"] = cs.Properties.WindowsProfile.WindowsPauseImageURL
 		cseCommandVariables["alwaysPullWindowsPauseImage"] = strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage())

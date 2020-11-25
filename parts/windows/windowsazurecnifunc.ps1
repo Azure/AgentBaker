@@ -123,10 +123,6 @@ Set-AzureCNIConfig
         $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $KubeServiceCIDR
     }
 
-    if ($IsAzureStack) {
-        Add-Member -InputObject $configJson.plugins[0].ipam -MemberType NoteProperty -Name "environment" -Value "mas"
-    }
-
     $aclRule1 = [PSCustomObject]@{
         Type = 'ACL'
         Protocols = '6'

@@ -75,6 +75,8 @@ const (
 const (
 	// AzureChinaCloud is a const string reference identifier for china cloud
 	AzureChinaCloud = "AzureChinaCloud"
+	// AzureStackCloud is a const string reference identifier for Azure Stack cloud
+	AzureStackCloud = "AzureStackCloud"
 )
 
 const (

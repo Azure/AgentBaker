@@ -503,6 +503,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
 		},
+		"GetBase64EncodedEnvironmentJSON": func() string {
+			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
+			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
+		},
 		"GetIdentitySystem": func() string {
 			return datamodel.AzureADIdentitySystem
 		},

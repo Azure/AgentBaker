@@ -343,7 +343,15 @@ try
             -UseInstanceMetadata $global:UseInstanceMetadata `
             -LoadBalancerSku $global:LoadBalancerSku `
             -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-            -TargetEnvironment $TargetEnvironment
+            -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}} 
+
+        # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
+        # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
+        {{if IsAKSCustomCloud}}
+        $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
+        $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
+        [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
+        {{end}}
 
         Write-Log "Write ca root"
         Write-CACert -CACertificate $global:CACertificate `
