@@ -302,11 +302,9 @@ if [[ ${installSGX} == "True" ]]; then
 fi
 
 TUNNELFRONT_VERSIONS="
-v1.9.2-v3.0.17
 v1.9.2-v3.0.18
 v1.9.2-v3.0.19
-v1.9.2-v4.0.15
-v1.9.2-v4.0.16
+v1.9.2-v3.0.20
 "
 for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
