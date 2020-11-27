@@ -360,9 +360,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
 		},
 		"EnableHostsConfigAgent": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
-				to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
+			return cs.Properties.OrchestratorProfile.IsHostsConfigAgentEnabled()
 		},
 		"UseManagedIdentity": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity

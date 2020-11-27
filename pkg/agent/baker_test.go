@@ -177,6 +177,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
+		// NOTE(qinhao): we assume folder names of Windows test cases start with constant "AKSWindows"
+		if strings.HasPrefix(folder, "AKSWindows") {
+			agentPool = cs.Properties.AgentPoolProfiles[1]
+		}
 		baker := InitializeTemplateGenerator()
 
 		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
@@ -356,18 +360,58 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				SwapFileSizeMB:             &swapFileSizeMB,
 			}
 		}),
-		Entry("AKSWindowis with k8s version 1.17", "AKSWindows+K8S117", "1.17.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			cs := getFakeContainerService("1.17.7")
-			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]
+		Entry("AKSWindows with k8s version 1.17", "AKSWindows+K8S117", "1.17.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 		}),
 		Entry("AKSWindows with k8s version 1.18", "AKSWindows+K8S118", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
-			cs := getFakeContainerService("1.18.2")
-			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]
+		}),
+		Entry("AKSWindows with UserAssignedID", "AKSWindows+UserAssignedID", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = "fake-user-assigned-id"
+		}),
+		Entry("AKSWindows with custom cloud", "AKSWindows+CustomCloud", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name:                         "akscustom",
+				McrURL:                       "mcr.microsoft.fakecustomcloud",
+				RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+				ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+				PublishSettingsURL:           "",
+				ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+				ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+				ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+				GalleryEndpoint:              "",
+				KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+				GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+				ServiceBusEndpoint:           "",
+				BatchManagementEndpoint:      "",
+				StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+				SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+				TrafficManagerDNSSuffix:      "",
+				KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+				ServiceBusEndpointSuffix:     "",
+				ServiceManagementVMDNSSuffix: "",
+				ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+				ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+				CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+				TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+				ResourceIdentifiers: datamodel.ResourceIdentifiers{
+					Graph:               "",
+					KeyVault:            "",
+					Datalake:            "",
+					Batch:               "",
+					OperationalInsights: "",
+					Storage:             "",
+				},
+			}
+		}),
+		Entry("AKSWindows EnablePrivateClusterHostsConfigAgent", "AKSWindows+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			cs := config.ContainerService
+			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+			} else {
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
+			}
 		}),
 		Entry("AKSWindows with k8s version 1.19 and hyperv", "AKSWindows+K8S119+hyperv", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			cs := getFakeContainerService("1.19.0")
-
-			config.AgentPoolProfile = cs.Properties.AgentPoolProfiles[1]
 			config.ContainerService.Properties.WindowsProfile.WindowsRuntimes = &datamodel.WindowsRuntimes{
 				Default: "process",
 				HypervRuntimes: []datamodel.RuntimeHandlers{{
