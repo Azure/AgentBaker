@@ -668,3 +668,5 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Feature flags: ${FEATURE_FLAGS}"
   echo "Container runtime: ${CONTAINER_RUNTIME}"
 } >> ${VHD_LOGS_FILEPATH}
+
+installAscBaseline

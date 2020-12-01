@@ -9,6 +9,21 @@ ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default pr
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
 
+installAscBaseline() {
+   echo "Installing ASC Baseline tools..."
+   ASC_BASELINE_TMP=asc-baseline.deb
+   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP
+   sudo cp /opt/microsoft/asc-baseline/baselines/oms_audits.xml /opt/microsoft/asc-baseline/oms_audits.xml
+   cd /opt/microsoft/asc-baseline
+   sudo ./ascbaseline -d .
+   sudo ./ascremediate -d . -m all
+   sudo ./ascbaseline -d . ​| grep -B2 -A6 "FAIL"
+   cd -
+   echo "Check UDF"
+   cat /etc/modprobe.d/*.conf | grep udf
+   echo "Finished Setting up ASC Baseline"
+}
+
 installBcc() {
     echo "Installing BCC tools..."
     IOVISOR_KEY_TMP=/tmp/iovisor-release.key
