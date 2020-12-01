@@ -81,7 +81,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.0.0-12.amd64.deb",
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-35.amd64.deb",
       "destination": "/home/packer/asc-baseline.deb"
     },
     {
