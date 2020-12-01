@@ -19,6 +19,8 @@ installAscBaseline() {
    sudo ./ascremediate -d . -m all
    sudo ./ascbaseline -d . ​| grep -B2 -A6 "FAIL"
    cd -
+   echo "Check UDF"
+   cat /etc/modprobe.d/*.conf | grep udf
    echo "Finished Setting up ASC Baseline"
 }
 
