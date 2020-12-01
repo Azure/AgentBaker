@@ -30,7 +30,7 @@ variables:
 phases:
   - phase: build_vhd
     queue:
-      name: Hosted Ubuntu 1604
+      name: ace-test
       timeoutInMinutes: 120
     steps:
       - bash: |

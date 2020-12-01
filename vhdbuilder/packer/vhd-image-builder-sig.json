@@ -91,11 +91,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.0.0-12.amd64.deb",
-      "destination": "/home/packer/asc-baseline.deb"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },
@@ -233,6 +228,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/nvidia-device-plugin.service",
       "destination": "/home/packer/nvidia-device-plugin.service"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-12.amd64.deb",
+      "destination": "/home/packer/asc-baseline.deb"
     },
     {
       "type": "file",
