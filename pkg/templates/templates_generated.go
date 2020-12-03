@@ -48,6 +48,7 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
+// windows/csecmd.ps1
 // windows/kuberneteswindowsfunctions.ps1
 // windows/kuberneteswindowssetup.ps1
 // windows/windowsazurecnifunc.ps1
@@ -4320,6 +4321,45 @@ func windowsContainerdtemplateToml() (*asset, error) {
 	return a, nil
 }
 
+var _windowsCsecmdPs1 = []byte(`# This csecmd is not used until servicePrincipalClientSecret is encoded,
+# keeping this file for now to further facilicate the future removing ARM Template
+echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
+$arguments = '
+-MasterIP {{ GetKubernetesEndpoint }} 
+-KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }} 
+-MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }} 
+-Location {{ GetVariable "location" }} 
+{{if UserAssignedIDEnabled}}
+-UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }} 
+{{ end }}
+-TargetEnvironment {{ GetTargetEnvironment }} 
+-AgentKey {{ GetParameter "clientPrivateKey" }} 
+-AADClientId {{ GetParameter "servicePrincipalClientId" }} 
+-AADClientSecret ''{{ GetParameter "servicePrincipalClientSecret" }}''
+-NetworkAPIVersion {{ GetVariable "apiVersionNetwork" }} ';
+$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin'; 
+$outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
+Copy-Item $inputFile $outputFile;
+Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
+\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE 
+
+`)
+
+func windowsCsecmdPs1Bytes() ([]byte, error) {
+	return _windowsCsecmdPs1, nil
+}
+
+func windowsCsecmdPs1() (*asset, error) {
+	bytes, err := windowsCsecmdPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/csecmd.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _windowsKuberneteswindowsfunctionsPs1 = []byte(`# This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
 
@@ -6676,6 +6716,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
+	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowsfunctions.ps1":                               windowsKuberneteswindowsfunctionsPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/windowsazurecnifunc.ps1":                                      windowsWindowsazurecnifuncPs1,
@@ -6785,6 +6826,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	}},
 	"windows": &bintree{nil, map[string]*bintree{
 		"containerdtemplate.toml":         &bintree{windowsContainerdtemplateToml, map[string]*bintree{}},
+		"csecmd.ps1":                      &bintree{windowsCsecmdPs1, map[string]*bintree{}},
 		"kuberneteswindowsfunctions.ps1":  &bintree{windowsKuberneteswindowsfunctionsPs1, map[string]*bintree{}},
 		"kuberneteswindowssetup.ps1":      &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"windowsazurecnifunc.ps1":         &bintree{windowsWindowsazurecnifuncPs1, map[string]*bintree{}},
