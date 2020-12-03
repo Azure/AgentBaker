@@ -150,7 +150,7 @@ $global:EnableTelemetry = [System.Convert]::ToBoolean("false");
 $global:TelemetryKey = "";
 
 # CSI Proxy settings
-$global:EnableCsiProxy = [System.Convert]::ToBoolean("false");
+$global:EnableCsiProxy = [System.Convert]::ToBoolean("true");
 $global:CsiProxyUrl = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz";
 
 # Hosts Config Agent settings

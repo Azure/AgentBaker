@@ -378,6 +378,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}),
 		Entry("AKSWindows2019 with k8s version 1.19 + CSI", "AKSWindows2019+K8S119+CSI", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz"
+			config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = to.BoolPtr(true)
 		}),
 		Entry("AKSWindows2019 with CustomVnet", "AKSWindows2019+CustomVnet", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1"
@@ -389,6 +390,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/k8s-agentpool"
 		}),
 		Entry("AKSWindows2019 with custom cloud", "AKSWindows2019+CustomCloud", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name:                         "akscustom",
 				McrURL:                       "mcr.microsoft.fakecustomcloud",

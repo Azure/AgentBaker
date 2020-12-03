@@ -131,15 +131,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 		if properties.WindowsProfile.HasCustomImage() {
 			addValue(parametersMap, "agentWindowsSourceUrl", properties.WindowsProfile.WindowsImageSourceURL)
-		} else if properties.WindowsProfile.HasImageRef() {
-			addValue(parametersMap, "agentWindowsImageResourceGroup", properties.WindowsProfile.ImageRef.ResourceGroup)
-			addValue(parametersMap, "agentWindowsImageName", properties.WindowsProfile.ImageRef.Name)
-		} else {
-			addValue(parametersMap, "agentWindowsPublisher", properties.WindowsProfile.WindowsPublisher)
-			addValue(parametersMap, "agentWindowsOffer", properties.WindowsProfile.WindowsOffer)
-			addValue(parametersMap, "agentWindowsSku", properties.WindowsProfile.GetWindowsSku())
-			addValue(parametersMap, "agentWindowsVersion", properties.WindowsProfile.ImageVersion)
-
 		}
 
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())

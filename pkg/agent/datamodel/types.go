@@ -1172,8 +1172,7 @@ func (w *WindowsProfile) GetWindowsHypervRuntimeHandlers() string {
 
 // IsAlwaysPullWindowsPauseImage returns true if the windows pause image always needs a force pull
 func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
-	alwaysPullWindowsPauseImage := (w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage)
-	return alwaysPullWindowsPauseImage
+	return w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage
 }
 
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
