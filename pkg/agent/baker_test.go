@@ -24,27 +24,35 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 		Location: "southcentralus",
 		Type:     "Microsoft.ContainerService/ManagedClusters",
 		Properties: &datamodel.Properties{
+			TelemetryProfile: &datamodel.TelemetryProfile{
+				ApplicationInsightsKey: "c92d8284-b550-4b06-b7ba-e80fd7178faa",
+			},
 			OrchestratorProfile: &datamodel.OrchestratorProfile{
 				OrchestratorType:    datamodel.Kubernetes,
 				OrchestratorVersion: k8sVersion,
 				KubernetesConfig: &datamodel.KubernetesConfig{
-					WindowsNodeBinariesURL: "http://test/test.tar.gz",
-					LoadBalancerSku:        "Basic",
-					ClusterSubnet:          "10.240.0.0/16",
-					NetworkPlugin:          "azure",
-					DockerBridgeSubnet:     "172.17.0.1/16",
-					ServiceCIDR:            "10.0.0.0/16",
-					EnableRbac:             to.BoolPtr(true),
-					EnableSecureKubelet:    to.BoolPtr(true),
+					ContainerRuntime:     "docker",
+					KubernetesImageBase:  "mcr.microsoft.com/oss/kubernetes/",
+					WindowsContainerdURL: "https://k8swin.blob.core.windows.net/k8s-windows/containerd/containerplat-aks-test-0.0.8.zip",
+					LoadBalancerSku:      "Standard",
+					CustomHyperkubeImage: "mcr.microsoft.com/oss/kubernetes/hyperkube:v1.16.15-hotfix.20200903",
+					ClusterSubnet:        "10.240.0.0/16",
+					NetworkPlugin:        "azure",
+					DockerBridgeSubnet:   "172.17.0.1/16",
+					ServiceCIDR:          "10.0.0.0/16",
+					EnableRbac:           to.BoolPtr(true),
+					EnableSecureKubelet:  to.BoolPtr(true),
 					KubeletConfig: map[string]string{
 						"--feature-gates": "RotateKubeletServerCertificate=true,a=b, PodPriority=true, x=y",
 					},
-					DNSServiceIP: "10.0.0.10",
+					UseInstanceMetadata: to.BoolPtr(true),
+					DNSServiceIP:        "10.0.0.10",
 				},
 			},
 			HostedMasterProfile: &datamodel.HostedMasterProfile{
 				DNSPrefix: "uttestdom",
 				FQDN:      "uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io",
+				Subnet:    "10.240.0.0/16",
 			},
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
@@ -53,7 +61,6 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 					VMSize:              "Standard_DS1_v2",
 					StorageProfile:      "ManagedDisks",
 					OSType:              datamodel.Linux,
-					VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubeletConfig: map[string]string{
@@ -100,13 +107,13 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 					OSType:              datamodel.Windows,
 					VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
+					CustomNodeLabels:    map[string]string{"kubernetes.azure.com/node-image-version": "AKSWindows-2019-17763.1577.201111"},
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubeletConfig: map[string]string{
 							"--address":                           "0.0.0.0",
 							"--anonymous-auth":                    "false",
 							"--authentication-token-webhook":      "true",
 							"--authorization-mode":                "Webhook",
-							"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 							"--cloud-config":                      "c:\\k\\azure.json",
 							"--cgroups-per-qos":                   "false",
 							"--client-ca-file":                    "c:\\k\\ca.crt",
@@ -114,16 +121,16 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 							"--cloud-provider":                    "azure",
 							"--cluster-dns":                       "10.0.0.10",
 							"--cluster-domain":                    "cluster.local",
-							"--enforce-node-allocatable":          "pods",
+							"--enforce-node-allocatable":          "",
 							"--event-qps":                         "0",
-							"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+							"--eviction-hard":                     "",
 							"--feature-gates":                     "RotateKubeletServerCertificate=true",
 							"--hairpin-mode":                      "promiscuous-bridge",
 							"--image-gc-high-threshold":           "85",
 							"--image-gc-low-threshold":            "80",
 							"--image-pull-progress-deadline":      "20m",
 							"--keep-terminated-pod-volumes":       "false",
-							"--kube-reserved":                     "cpu=100m,memory=1843M",
+							"--kube-reserved":                     "cpu=100m,memory=1843Mi",
 							"--kubeconfig":                        "c:\\k\\config",
 							"--max-pods":                          "30",
 							"--network-plugin":                    "cni",
@@ -139,20 +146,21 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 							"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 						},
 					},
+					Distro: datamodel.Distro("aks-windows-2019"),
 				},
 			},
 			LinuxProfile: &datamodel.LinuxProfile{
 				AdminUsername: "azureuser",
 			},
 			WindowsProfile: &datamodel.WindowsProfile{
-				ProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.2.zip",
-				CSIProxyURL:                   "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+				ProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip",
 				WindowsPauseImageURL:          "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 				AdminUsername:                 "azureuser",
 				AdminPassword:                 "replacepassword1234",
 				WindowsPublisher:              "microsoft-aks",
 				WindowsOffer:                  "aks-windows",
-				WindowsSku:                    "17763.1397.2008070242",
+				ImageVersion:                  "17763.1577.201111",
+				WindowsSku:                    "aks-2019-datacenter-core-smalldisk-2011",
 			},
 			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 				ClientID: "ClientID",
@@ -360,15 +368,27 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				SwapFileSizeMB:             &swapFileSizeMB,
 			}
 		}),
-		Entry("AKSWindows with k8s version 1.17", "AKSWindows+K8S117", "1.17.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with k8s version 1.16", "AKSWindows2019+K8S116", "1.16.15", func(config *datamodel.NodeBootstrappingConfiguration) {
 		}),
-		Entry("AKSWindows with k8s version 1.18", "AKSWindows+K8S118", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with k8s version 1.17", "AKSWindows2019+K8S117", "1.17.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 		}),
-		Entry("AKSWindows with UserAssignedID", "AKSWindows+UserAssignedID", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with k8s version 1.18", "AKSWindows2019+K8S118", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		}),
+		Entry("AKSWindows2019 with k8s version 1.19", "AKSWindows2019+K8S119", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+		}),
+		Entry("AKSWindows2019 with k8s version 1.19 + CSI", "AKSWindows2019+K8S119+CSI", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz"
+		}),
+		Entry("AKSWindows2019 with CustomVnet", "AKSWindows2019+CustomVnet", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1"
+			config.ContainerService.Properties.AgentPoolProfiles[1].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1"
+		}),
+		Entry("AKSWindows2019 with Managed Identity", "AKSWindows2019+ManagedIdentity", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.ServicePrincipalProfile = &datamodel.ServicePrincipalProfile{ClientID: "msi"}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = "fake-user-assigned-id"
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/k8s-agentpool"
 		}),
-		Entry("AKSWindows with custom cloud", "AKSWindows+CustomCloud", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with custom cloud", "AKSWindows2019+CustomCloud", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name:                         "akscustom",
 				McrURL:                       "mcr.microsoft.fakecustomcloud",
@@ -403,7 +423,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				},
 			}
 		}),
-		Entry("AKSWindows EnablePrivateClusterHostsConfigAgent", "AKSWindows+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 EnablePrivateClusterHostsConfigAgent", "AKSWindows2019+EnablePrivateClusterHostsConfigAgent", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
@@ -411,14 +431,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
 		}),
-		Entry("AKSWindows with k8s version 1.19 and hyperv", "AKSWindows+K8S119+hyperv", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.WindowsProfile.WindowsRuntimes = &datamodel.WindowsRuntimes{
-				Default: "process",
-				HypervRuntimes: []datamodel.RuntimeHandlers{{
-					BuildNumber: "17763",
-				}, {
-					BuildNumber: "19041",
-				}},
+		Entry("AKSWindows2004 with k8s version 1.19 and hyperv", "AKSWindows2004+K8S119+hyperv", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[1].Distro = datamodel.Distro("aks-windows-2019")
+			config.ContainerService.Properties.AgentPoolProfiles[1].CustomNodeLabels = map[string]string{"kubernetes.azure.com/node-image-version": "AKSWindows-2004-17763.1457.201019"}
+			config.ContainerService.Properties.AgentPoolProfiles[1].ImageRef = &datamodel.ImageReference{
+				Name:           "windows-2004",
+				ResourceGroup:  "akswinvhdbuilderrg",
+				SubscriptionID: "109a5e88-712a-48ae-9078-9ca8b3c81345",
+				Gallery:        "AKSWindows",
+				Version:        "17763.1457.201019",
 			}
 		}))
 

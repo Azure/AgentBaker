@@ -40,7 +40,7 @@ param(
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientSecret,
+    $AADClientSecret, # base64
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -65,17 +65,17 @@ $global:CACertificate = ""
 $global:AgentCertificate = ""
 
 ## Download sources provided by aks-engine
-$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.18.2-hotfix.20200624/windowszip/v1.18.2-hotfix.20200624-1int.zip"
-$global:WindowsKubeBinariesURL = "http://test/test.tar.gz"
-$global:KubeBinariesVersion = "1.18.2"
-$global:ContainerdUrl = ""
+$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip"
+$global:WindowsKubeBinariesURL = ""
+$global:KubeBinariesVersion = "1.19.0"
+$global:ContainerdUrl = "https://k8swin.blob.core.windows.net/k8s-windows/containerd/containerplat-aks-test-0.0.8.zip"
 $global:ContainerdSdnPluginUrl = ""
 
 ## Docker Version
-$global:DockerVersion = "19.03.5"
+$global:DockerVersion = "19.03.11"
 
 ## ContainerD Usage
-$global:ContainerRuntime = ""
+$global:ContainerRuntime = "docker"
 $global:DefaultContainerdRuntimeHandler = "process"
 $global:HypervRuntimeHandlers = ""
 
@@ -99,10 +99,10 @@ $global:TenantId = "tenantID"
 $global:SubscriptionId = "subID"
 $global:ResourceGroup = "resourceGroupName"
 $global:VmType = "vmss"
-$global:SubnetName = "subnet1"
-$global:MasterSubnet = "',parameters('masterSubnet'),'"
+$global:SubnetName = "aks-subnet"
+$global:MasterSubnet = "10.240.0.0/16" 
 $global:SecurityGroupName = "aks-agentpool-36873793-nsg"
-$global:VNetName = "aks-vnet-07752737"
+$global:VNetName = "aks-vnet-36873793"
 $global:RouteTableName = "aks-agentpool-36873793-routetable"
 $global:PrimaryAvailabilitySetName = ""
 $global:PrimaryScaleSetName = "aks-agent2-36873793-vmss"
@@ -111,14 +111,14 @@ $global:KubeClusterCIDR = "10.240.0.0/16"
 $global:KubeServiceCIDR = "10.0.0.0/16"
 $global:VNetCIDR = "10.0.0.0/8"
 
-$global:KubeletNodeLabels = "kubernetes.azure.com/role=agent,agentpool=wpool2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName"
+$global:KubeletNodeLabels = "kubernetes.azure.com/role=agent,agentpool=wpool2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111"
 
-$global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=pods", "--event-qps=0", "--eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%", "--feature-gates=RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--image-pull-progress-deadline=20m", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843M", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--non-masquerade-cidr=0.0.0.0/0", "--pod-infra-container-image=kubletwin/pause", "--pod-manifest-path=/etc/kubernetes/manifests", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
+$global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=", "--event-qps=0", "--eviction-hard=", "--feature-gates=RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--image-pull-progress-deadline=20m", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843Mi", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--non-masquerade-cidr=0.0.0.0/0", "--pod-infra-container-image=kubletwin/pause", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
 
 $global:UseManagedIdentityExtension = "false"
-$global:UseInstanceMetadata = "false"
+$global:UseInstanceMetadata = "true"
 
-$global:LoadBalancerSku = "Basic"
+$global:LoadBalancerSku = "Standard"
 $global:ExcludeMasterFromStandardLB = "true"
 
 
@@ -145,18 +145,18 @@ $global:NetworkPlugin = "azure"
 $global:VNetCNIPluginsURL = "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip"
 $global:IsDualStackEnabled = $false
 
-# Telemetry settingsTelemetryKey
+# Telemetry settings
 $global:EnableTelemetry = [System.Convert]::ToBoolean("false");
 $global:TelemetryKey = "";
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("false");
-$global:CsiProxyUrl = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz";
+$global:CsiProxyUrl = "";
 
 # Hosts Config Agent settings
 $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
 
-$global:ProvisioningScriptsPackageUrl = "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.2.zip";
+$global:ProvisioningScriptsPackageUrl = "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip";
 
 # PauseImage
 $global:WindowsPauseImageURL = "mcr.microsoft.com/oss/kubernetes/pause:1.4.0";
@@ -322,7 +322,7 @@ try
         Write-AzureConfig `
             -KubeDir $global:KubeDir `
             -AADClientId $AADClientId `
-            -AADClientSecret $AADClientSecret `
+            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
             -TenantId $global:TenantId `
             -SubscriptionId $global:SubscriptionId `
             -ResourceGroup $global:ResourceGroup `
@@ -339,10 +339,14 @@ try
             -UseInstanceMetadata $global:UseInstanceMetadata `
             -LoadBalancerSku $global:LoadBalancerSku `
             -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-            -TargetEnvironment $TargetEnvironment 
+            -TargetEnvironment "AzureStackCloud" 
 
         # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
         # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
+        
+        $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
+        $envJSON = "eyJOYW1lIjoiQXp1cmVTdGFja0Nsb3VkIiwibWNyVVJMIjoibWNyLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQiLCJyZXBvRGVwb3RFbmRwb2ludCI6Imh0dHBzOi8vcmVwb2RlcG90LmF6dXJlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvdWJ1bnR1IiwibWFuYWdlbWVudFBvcnRhbFVSTCI6Imh0dHBzOi8vcG9ydGFsLmF6dXJlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwic2VydmljZU1hbmFnZW1lbnRFbmRwb2ludCI6Imh0dHBzOi8vbWFuYWdlbWVudC5jb3JlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwicmVzb3VyY2VNYW5hZ2VyRW5kcG9pbnQiOiJodHRwczovL21hbmFnZW1lbnQuYXp1cmUubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZC8iLCJhY3RpdmVEaXJlY3RvcnlFbmRwb2ludCI6Imh0dHBzOi8vbG9naW4ubWljcm9zb2Z0b25saW5lLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwia2V5VmF1bHRFbmRwb2ludCI6Imh0dHBzOi8vdmF1bHQuY2xvdWRhcGkubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZC8iLCJncmFwaEVuZHBvaW50IjoiaHR0cHM6Ly9ncmFwaC5jbG91ZGFwaS5taWNyb3NvZnQuZmFrZWN1c3RvbWNsb3VkLyIsInN0b3JhZ2VFbmRwb2ludFN1ZmZpeCI6ImNvcmUubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZCIsInNxbERhdGFiYXNlRE5TU3VmZml4IjoiZGF0YWJhc2UuY2xvdWRhcGkubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZCIsImtleVZhdWx0RE5TU3VmZml4IjoidmF1bHQuY2xvdWRhcGkubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZCIsInJlc291cmNlTWFuYWdlclZNRE5TU3VmZml4IjoiY2xvdWRhcHAuYXp1cmUubWljcm9zb2Z0LmZha2VjdXN0b21jbG91ZC8iLCJjb250YWluZXJSZWdpc3RyeUROU1N1ZmZpeCI6Ii5henVyZWNyLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQiLCJjb3Ntb3NEQkROU1N1ZmZpeCI6ImRvY3VtZW50cy5jb3JlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwidG9rZW5BdWRpZW5jZSI6Imh0dHBzOi8vbWFuYWdlbWVudC5jb3JlLm1pY3Jvc29mdC5mYWtlY3VzdG9tY2xvdWQvIiwicmVzb3VyY2VJZGVudGlmaWVycyI6e319"
+        [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
         
 
         Write-Log "Write ca root"

@@ -1,3 +1,5 @@
+# This csecmd is not used until servicePrincipalClientSecret is encoded,
+# keeping this file for now to further facilicate the future removing ARM Template
 echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
 -MasterIP {{ GetKubernetesEndpoint }} 

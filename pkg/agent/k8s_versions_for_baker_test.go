@@ -114,6 +114,8 @@ func getKubeConfigs() map[string]map[string]string {
 
 func getVersionOverrides(v string) map[string]string {
 	switch v {
+	case "1.19.1":
+		return map[string]string{"windowszip": "v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip"}
 	case "1.18.4":
 		return map[string]string{"windowszip": "v1.18.4-hotfix.20200624/windowszip/v1.18.4-hotfix.20200624-1int.zip"}
 	case "1.18.2":

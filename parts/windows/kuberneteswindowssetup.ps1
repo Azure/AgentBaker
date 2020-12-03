@@ -40,7 +40,7 @@ param(
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientSecret,
+    $AADClientSecret, # base64
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -102,7 +102,7 @@ $global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
 $global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
 $global:VmType = "{{GetVariable "vmType"}}"
 $global:SubnetName = "{{GetVariable "subnetName"}}"
-$global:MasterSubnet = "{{GetWindowsMasterSubnetARMParam}}"
+$global:MasterSubnet = "{{GetParameter "masterSubnet"}}" 
 $global:SecurityGroupName = "{{GetVariable "nsgName"}}"
 $global:VNetName = "{{GetVariable "virtualNetworkName"}}"
 $global:RouteTableName = "{{GetVariable "routeTableName"}}"
@@ -149,7 +149,7 @@ $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 
-# Telemetry settingsTelemetryKey
+# Telemetry settings
 $global:EnableTelemetry = [System.Convert]::ToBoolean("{{GetVariable "enableTelemetry" }}");
 $global:TelemetryKey = "{{GetVariable "applicationInsightsKey" }}";
 
@@ -326,7 +326,7 @@ try
         Write-AzureConfig `
             -KubeDir $global:KubeDir `
             -AADClientId $AADClientId `
-            -AADClientSecret $AADClientSecret `
+            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
             -TenantId $global:TenantId `
             -SubscriptionId $global:SubscriptionId `
             -ResourceGroup $global:ResourceGroup `

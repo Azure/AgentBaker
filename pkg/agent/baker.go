@@ -113,28 +113,38 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	//get parameters
-	parameters := getParameters(config, "", "")
-	//get variable
-	variables := getCSECommandVariables(config)
-
-	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
-	str, e := t.getSingleLine(
-		kubernetesWindowsAgentCSECommandPS1,
-		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
-	)
-
-	if e != nil {
-		panic(e)
+	var userAssignedIdentityClientIDParams string
+	isUserAssignedIdentity := config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
+	if isUserAssignedIdentity {
+		userAssignedIdentityClientIDParams = "' -UserAssignedClientID ',reference(variables('userAssignedIDReference'), variables('apiVersionManagedIdentity')).clientId,"
 	}
-	// NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in [csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1)
-	// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
-	str = strings.Replace(str, `\"`, `"`, -1)
+	commandExecStr := fmt.Sprintf("[concat('echo %s && powershell.exe -ExecutionPolicy Unrestricted -command \"', '$arguments = ', variables('singleQuote'),'-MasterIP ',variables('kubernetesAPIServerIP'),' -KubeDnsServiceIp ',parameters('kubeDnsServiceIp'),%s' -MasterFQDNPrefix ',variables('masterFqdnPrefix'),' -Location ',variables('location'),' -TargetEnvironment ',parameters('targetEnvironment'),' -AgentKey ',parameters('clientPrivateKey'),' -AADClientId ',variables('servicePrincipalClientId'),' -AADClientSecret ',variables('singleQuote'),variables('singleQuote'),base64(variables('servicePrincipalClientSecret')),variables('singleQuote'),variables('singleQuote'),' -NetworkAPIVersion ',variables('apiVersionNetwork'),' ',variables('singleQuote'), ' ; ', variables('windowsCustomScriptSuffix'), '\" > %s 2>&1 ; exit $LASTEXITCODE')]", "%DATE%,%TIME%,%COMPUTERNAME%", userAssignedIdentityClientIDParams, "%SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.log")
+	return commandExecStr
+	// TODO(mainred): replace ARM template with go template to generate CSE command string
+	/*
+		//get parameters
+		parameters := getParameters(config, "", "")
+		//get variable
+		variables := getCSECommandVariables(config)
 
-	// NOTE: we break the one-line CSE command into different lines in a file for better management
-	// so we need to combine them into one line here
-	return strings.Replace(str, "\n", " ", -1)
+		//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+		str, e := t.getSingleLine(
+			kubernetesWindowsAgentCSECommandPS1,
+			config.AgentPoolProfile,
+			t.getBakerFuncMap(config, parameters, variables),
+		)
+
+		if e != nil {
+			panic(e)
+		}
+		// NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in [csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1)
+		// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
+		str = strings.Replace(str, `\"`, `"`, -1)
+
+		// NOTE: we break the one-line CSE command into different lines in a file for better management
+		// so we need to combine them into one line here
+		return strings.Replace(str, "\n", " ", -1)
+	*/
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template
@@ -372,7 +382,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
 		},
 		"GetWindowsMasterSubnetARMParam": func() string {
-			// TODO(qinhao): We can just return properties.HostedMasterProfile.Subnet
 			return getWindowsMasterSubnetARMParam()
 		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
