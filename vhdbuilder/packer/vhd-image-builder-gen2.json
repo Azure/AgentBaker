@@ -163,6 +163,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/labels.sh",
+      "destination": "/home/packer/labels.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/labels.service",
+      "destination": "/home/packer/labels.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/label-nodes.sh",
       "destination": "/home/packer/label-nodes.sh"
     },
