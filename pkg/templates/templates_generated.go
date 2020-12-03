@@ -3740,6 +3740,7 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".containerd]
         {{ if TeleportEnabled }}
         snapshotter = "teleportd"
+        disable_snapshot_annotations = false
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
