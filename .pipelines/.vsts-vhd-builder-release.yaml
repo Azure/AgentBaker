@@ -44,7 +44,7 @@ parameters:
   default: false
 
 variables:
-  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
+  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
 
 phases:
   - phase: build_vhd_1604
