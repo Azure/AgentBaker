@@ -58,6 +58,7 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--topology-manager-policy":           true,
 	"--allowed-unsafe-sysctls":            true,
 	"--fail-swap-on":                      true,
+	"--kernel-memcg-notification":         true,
 }
 
 var keyvaultSecretPathRe *regexp.Regexp
@@ -411,6 +412,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
 		ResolverConfig:                 kc["--resolv-conf"],
+		KernelMemcgNotification:        strToBool(kc["--kernel-memcg-notification"]),
 	}
 
 	// Authentication
