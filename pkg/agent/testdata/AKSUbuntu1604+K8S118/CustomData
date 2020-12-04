@@ -78,7 +78,7 @@ write_files:
   content: |
     [Service]
     ExecStart=
-    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip=
+    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip=172.17.0.1/16
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
 
@@ -128,7 +128,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io:443
     users:
     - name: client
       user:
@@ -160,6 +160,8 @@ write_files:
   content: |
     #!/bin/bash
 
+    
+    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d 10.0.0.0/8 -j MASQUERADE
     
 
 
