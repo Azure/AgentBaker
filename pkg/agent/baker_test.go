@@ -381,8 +381,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = to.BoolPtr(true)
 		}),
 		Entry("AKSWindows2019 with CustomVnet", "AKSWindows2019+CustomVnet", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1"
-			config.ContainerService.Properties.AgentPoolProfiles[1].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1"
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "172.17.0.0/24"
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR = "172.17.255.0/24"
+			config.ContainerService.Properties.AgentPoolProfiles[1].VnetCidrs = []string{"172.17.0.0/16"}
+			config.ContainerService.Properties.AgentPoolProfiles[1].Subnet = "172.17.2.0/24"
+			config.ContainerService.Properties.AgentPoolProfiles[1].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet2"
+			config.ContainerService.Properties.AgentPoolProfiles[1].KubernetesConfig.KubeletConfig["--cluster-dns"] = "172.17.255.10"
 		}),
 		Entry("AKSWindows2019 with Managed Identity", "AKSWindows2019+ManagedIdentity", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.ServicePrincipalProfile = &datamodel.ServicePrincipalProfile{ClientID: "msi"}
