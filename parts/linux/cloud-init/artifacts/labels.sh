@@ -4,6 +4,6 @@
 
 set -euo pipefail
 
-# TODO(charliedmcb): replace template <Node Name>. Still trying to find how to access the current node's name. 
-kubectl label --overwrite nodes <Node Name> $KUBELET_NODE_LABELS
+# TODO(charliedmcb): confirm that NODE_NAME and KUBELET_NODE_LABELS are correct, and are accessible here.
+kubectl label --overwrite nodes $NODE_NAME $KUBELET_NODE_LABELS
 #EOF
