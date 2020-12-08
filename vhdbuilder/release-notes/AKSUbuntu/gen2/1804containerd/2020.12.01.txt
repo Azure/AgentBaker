@@ -1,4 +1,4 @@
-Starting build on  Wed Nov 25 20:15:01 UTC 2020
+Starting build on  Tue Dec 1 18:59:47 UTC 2020
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -34,7 +34,6 @@ Components downloaded in this VHD build (some of the below components might get 
   - bpftrace
   - nvidia-docker2 nvidia-container-runtime
   - nvidia-container-runtime=2.0.0+docker18.09.2-1
-  - ensureGPUDrivers
   - bcc-tools
   - libbcc-examples
   - Azure CNI version 1.2.0
@@ -80,15 +79,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v1.0.30
   - docker.io/nvidia/k8s-device-plugin:1.11
   - docker.io/nvidia/k8s-device-plugin:1.10
-  - /var/lib/kubelet/device-plugins
-  - extracted nvidia-device-plugin...
-total 7684
--rwxr-xr-x 1 root root 7868416 Nov 25 20:25 nvidia-device-plugin
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.17
+  - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.18
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.19
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.15
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v4.0.16
+  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.20
   - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.8
   - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.10
   - mcr.microsoft.com/aks/hcp/tunnel-openvpn:1.0.11
@@ -120,9 +114,9 @@ total 7684
 -rwxr-xr-x 1 root root  60381530 Sep 24 01:49 /usr/local/bin/kubectl-1.19.1
 -rwxr-xr-x 1 root root 151219448 Oct 16 21:01 /usr/local/bin/kubelet-1.19.3
 -rwxr-xr-x 1 root root  60381333 Oct 16 21:01 /usr/local/bin/kubectl-1.19.3
--r-xr--r-- 1 root root      2237 Nov 25 20:15 /usr/local/bin/health-monitor.sh
--r-xr--r-- 1 root root      1538 Nov 25 20:15 /usr/local/bin/configure_azure0.sh
--rwxr-xr-x 1 root root  35384960 Nov 25 20:17 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root      2237 Dec  1 18:59 /usr/local/bin/health-monitor.sh
+-r-xr--r-- 1 root root      1538 Dec  1 18:59 /usr/local/bin/configure_azure0.sh
+-rwxr-xr-x 1 root root  35384960 Dec  1 19:03 /usr/local/bin/bpftrace
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.0
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.1-hotfix.20200923
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.3
@@ -149,11 +143,11 @@ total 7684
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1
 Using kernel:
 Linux version 5.4.0-1031-azure (buildd@lcy01-amd64-021) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #32~18.04.1-Ubuntu SMP Tue Oct 6 10:03:22 UTC 2020
-Install completed successfully on  Wed Nov 25 20:37:11 UTC 2020
-VSTS Build NUMBER: 20201125.2_master_37111560
-VSTS Build ID: 37111560
-Commit: 5e73bafe7b026c453c2b7d602f11259f9d38e4ea
+Install completed successfully on  Tue Dec 1 19:20:41 UTC 2020
+VSTS Build NUMBER: 20201201.3_master_37253627
+VSTS Build ID: 37253627
+Commit: 20d879d663566490aeb66f2c10efe7d9281df019
 Ubuntu version: 18.04
-Hyperv generation: V1
-Feature flags: fullgpudaemon
+Hyperv generation: V2
+Feature flags: None
 Container runtime: containerd
