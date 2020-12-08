@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,7 +19,7 @@ func generateTestData() bool {
 }
 
 var _ = Describe("Assert generated customData and cseCmd", func() {
-	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*NodeBootstrappingConfiguration)) {
+	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration)) {
 		cs := &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -114,13 +115,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &K8sComponents{
+		k8sComponents := &datamodel.K8sComponents{
 			PodInfraContainerImageURL: pauseImage,
 			HyperkubeImageURL:         hyperkubeImage,
 			WindowsPackageURL:         windowsPackage,
 		}
 
-		config := &NodeBootstrappingConfiguration{
+		config := &datamodel.NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
 			K8sComponents:                 k8sComponents,
@@ -131,7 +132,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			UserAssignedIdentityClientID:  "userAssignedID",
 			ConfigGPUDriverIfNeeded:       true,
 			EnableGPUDevicePluginIfNeeded: false,
-			EnableDynamicKubelet:          false,
+			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
 		}
 
@@ -140,7 +141,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		// customData
-		customData := baker.GetNodeBootstrappingPayload(config)
+		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
+		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
+		customData := string(customDataBytes)
+		Expect(err).To(BeNil())
+
 		if generateTestData() {
 			backfillCustomData(folder, customData)
 		}
@@ -165,14 +170,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
-		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					datamodel.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
 		}),
-		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					datamodel.ContainerDataDirKey: "/mnt/containers",
@@ -183,17 +188,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 		}),
-		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
 		}),
-		Entry("AKSUbuntu1804 with RawUbuntu and Containerd", "RawUbuntuContainerd", "1.18.0", func(config *NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				KubeletConfig:    map[string]string{},
-				ContainerRuntime: datamodel.Containerd,
-			}
-		}),
-		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
@@ -201,24 +199,90 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
 		}),
-		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuGPU1804
 			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true
 			config.EnableNvidia = true
 		}),
-		Entry("AKSUbuntu1604 with DynamicKubelet", "AKSUbuntu1604+DynamicKubelet", "1.15.7", func(config *NodeBootstrappingConfiguration) {
-			config.EnableDynamicKubelet = true
+		Entry("AKSUbuntu1604 with KubeletConfigFile", "AKSUbuntu1604+KubeletConfigFile", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableKubeletConfigFile = true
 		}),
-		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *NodeBootstrappingConfiguration) {
+
+		Entry("AKSUbuntu1804 with containerd and private ACR", "AKSUbuntu1804+Containerd+PrivateACR", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			cs := config.ContainerService
+			if cs.Properties.OrchestratorProfile.KubernetesConfig == nil {
+				cs.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{}
+			}
+			cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateAzureRegistryServer = "acr.io/privateacr"
+			cs.Properties.ServicePrincipalProfile = &datamodel.ServicePrincipalProfile{
+				ClientID: "clientID",
+				Secret:   "clientSecret",
+			}
+		}),
+		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
+		}),
+		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+		}),
+		Entry("AKSUbuntu1804 with containerd and teleport enabled", "AKSUbuntu1804+Containerd+Teleport", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableACRTeleportPlugin = true
+			config.TeleportdPluginURL = "some url"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+		}),
+
+		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableKubeletConfigFile = false
+			netIpv4TcpTwReuse := true
+			failSwapOn := false
+			var swapFileSizeMB int32 = 1500
+			var netCoreSomaxconn int32 = 1638499
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+				CPUManagerPolicy:      "static",
+				CPUCfsQuota:           to.BoolPtr(false),
+				CPUCfsQuotaPeriod:     "200ms",
+				ImageGcHighThreshold:  to.Int32Ptr(90),
+				ImageGcLowThreshold:   to.Int32Ptr(70),
+				TopologyManagerPolicy: "best-effort",
+				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				FailSwapOn:            &failSwapOn,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				Sysctls: &datamodel.SysctlConfig{
+					NetCoreSomaxconn:             &netCoreSomaxconn,
+					NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
+					NetIpv4IpLocalPortRange:      "32768 60999",
+					NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
+					NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
+					NetIpv4NeighDefaultGcThresh2: to.Int32Ptr(10002),
+					NetIpv4NeighDefaultGcThresh3: to.Int32Ptr(10003),
+				},
+				TransparentHugePageEnabled: "never",
+				TransparentHugePageDefrag:  "defer+madvise",
+				SwapFileSizeMB:             &swapFileSizeMB,
+			}
 		}))
+
 })
 
 func backfillCustomData(folder, customData string) {
@@ -230,3 +294,38 @@ func backfillCustomData(folder, customData string) {
 	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
 	Expect(err).To(BeNil())
 }
+
+var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
+	It("should return the correct normalized resource group name", func() {
+		Expect(normalizeResourceGroupNameForLabel("hello")).To(Equal("hello"))
+		Expect(normalizeResourceGroupNameForLabel("hel(lo")).To(Equal("hel-lo"))
+		Expect(normalizeResourceGroupNameForLabel("hel)lo")).To(Equal("hel-lo"))
+		var s string
+		for i := 0; i < 63; i++ {
+			s += "0"
+		}
+		Expect(normalizeResourceGroupNameForLabel(s)).To(Equal(s))
+		Expect(normalizeResourceGroupNameForLabel(s + "1")).To(Equal(s))
+
+		s = ""
+		for i := 0; i < 62; i++ {
+			s += "0"
+		}
+		Expect(normalizeResourceGroupNameForLabel(s + "(")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + ")")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + "_")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel(s + ".")).To(Equal(s + "z"))
+		Expect(normalizeResourceGroupNameForLabel("")).To(Equal(""))
+		Expect(normalizeResourceGroupNameForLabel("z")).To(Equal("z"))
+
+		// Add z, not replacing ending - with z, if name is short
+		Expect(normalizeResourceGroupNameForLabel("-")).To(Equal("-z"))
+
+		s = ""
+		for i := 0; i < 61; i++ {
+			s += "0"
+		}
+		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
+	})
+})

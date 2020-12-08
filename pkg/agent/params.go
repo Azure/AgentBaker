@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getParameters(config *NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	if profile.IsWindows() {
@@ -58,7 +58,7 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 	if properties.OrchestratorProfile.IsKubernetes() {
 		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
 		}
 	}
 
@@ -141,17 +141,25 @@ func getParameters(config *NodeBootstrappingConfiguration, generatorCode string,
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
+		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
+			addValue(parametersMap, "cliTool", "ctr")
+			if config.TeleportdPluginURL != "" {
+				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
+			}
+		} else {
+			addValue(parametersMap, "cliTool", "docker")
+		}
 	}
 }
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
-	k8sComponents *K8sComponents,
+	k8sComponents *datamodel.K8sComponents,
 	generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 

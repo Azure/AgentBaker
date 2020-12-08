@@ -12,6 +12,7 @@
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
+// linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/docker-monitor.service
 // linux/cloud-init/artifacts/docker-monitor.timer
@@ -484,7 +485,7 @@ func linuxCloudInitArtifactsContainerdService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
@@ -541,6 +542,7 @@ LOAD_BALANCER_SKU={{GetVariable "loadBalancerSku"}}
 EXCLUDE_MASTER_FROM_STANDARD_LB={{GetVariable "excludeMasterFromStandardLB"}}
 MAXIMUM_LOADBALANCER_RULE_COUNT={{GetVariable "maximumLoadBalancerRuleCount"}}
 CONTAINER_RUNTIME={{GetParameter "containerRuntime"}}
+CLI_TOOL={{GetParameter "cliTool"}}
 CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
@@ -552,7 +554,8 @@ SGX_NODE={{GetVariable "sgxNode"}}
 AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1 && systemctl --no-pager -l status kubelet 2>&1 | head -n 100"`)
+TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -661,6 +664,41 @@ ensureAuditD() {
     fi
   fi
 }
+
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage() {
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    THP_ENABLED={{GetTransparentHugePageEnabled}}
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+    fi
+    THP_DEFRAG={{GetTransparentHugePageDefrag}}
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+    fi
+}
+{{- end}}
+
+{{- if ShouldConfigSwapFile}}
+configureSwapFile() {
+    SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    DISK_FREE_KB=$(df /dev/sdb1 | sed 1d | awk '{print $4}')
+    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
+        SWAP_LOCATION=/mnt/swapfile
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        chmod 600 ${SWAP_LOCATION}
+        retrycmd_if_failure 24 5 25 mkswap ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon --show | grep ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
+    else
+        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
+        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
+    fi
+}
+{{- end}}
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -786,14 +824,14 @@ EOF
     set -x
 {{end}}
 
-{{- if IsDynamicKubeletEnabled}}
+{{- if IsKubeletConfigFileEnabled}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
     chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetDynamicKubeletConfigFileContent}}
+{{GetKubeletConfigFileContent}}
 EOF
     set -x
 {{- end}}
@@ -824,23 +862,15 @@ configureCNIIPTables() {
     fi
 }
 
-ensureContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-        ensureDocker
-    fi
-    {{if NeedsContainerd}}
-        ensureContainerd
-    {{end}}
-}
-
-{{if NeedsContainerd}}
+{{- if NeedsContainerd}}
 ensureContainerd() {
+  {{- if TeleportEnabled}}
+  ensureTeleportd
+  {{- end}}
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  {{if IsKubenet }}
   wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  {{end}}
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
   {{/* Delay start of containerd-monitor for 30 mins after booting */}}
@@ -850,8 +880,13 @@ ensureContainerd() {
   wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
   systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
-
+{{- if TeleportEnabled}}
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- end}}
+{{- else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -871,7 +906,12 @@ ensureDocker() {
             sleep 1
         fi
     done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+
+}
+{{- end}}
+ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -879,7 +919,6 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
 {{if EnableEncryptionWithExternalKms}}
 ensureKMS() {
     systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
@@ -926,6 +965,12 @@ ensureLabelNodes() {
     LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
     wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureSysctl() {
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 24 5 25 sysctl --system
 }
 
 ensureJournal() {
@@ -1143,13 +1188,16 @@ ERR_DOCKER_APT_KEY_TIMEOUT=23 {{/* Timeout waiting for docker apt-key */}}
 ERR_DOCKER_START_FAIL=24 {{/* Docker could not be started by systemctl */}}
 ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
-ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby install */}}
+ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
+ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
 ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
 ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
 ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
 ERR_IMG_DOWNLOAD_TIMEOUT=33 {{/* Timeout waiting for img download */}}
 ERR_KUBELET_START_FAIL=34 {{/* kubelet could not be started by systemctl */}}
-ERR_CONTAINER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a container image */}}
+ERR_DOCKER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a Docker image */}}
+ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 {{/* Timeout trying to pull a containerd image via cli tool ctr */}}
+ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 {{/* Timeout trying to pull a containerd image via cli tool crictl */}}
 ERR_CNI_DOWNLOAD_TIMEOUT=41 {{/* Timeout waiting for CNI downloads */}}
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 {{/* Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb */}}
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
@@ -1182,6 +1230,9 @@ ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in 
 ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
 ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
+ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
+ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -1190,6 +1241,12 @@ ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azure Resource Manager */}}
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
+
+ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
+ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+
+ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
+ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1253,16 +1310,15 @@ retrycmd_get_tarball() {
         fi
     done
 }
-retrycmd_get_executable() {
-    retries=$1; wait_sleep=$2; filepath=$3; url=$4; validation_args=$5
-    echo "${retries} retries"
-    for i in $(seq 1 $retries); do
-        $filepath $validation_args && break || \
-        if [ $i -eq $retries ]; then
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    echo "${curl_retries} retries"
+    for i in $(seq 1 $curl_retries); do
+        [[ -f $filepath ]] && break
+        if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout 30 curl -fsSL $url -o $filepath
-            chmod +x $filepath
+            timeout $timeout curl -fsSL $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -1426,7 +1482,7 @@ systemctlEnableAndStart() {
 }
 
 systemctlDisableAndStop() {
-    if [ systemctl list-units --full --all | grep -q "$1.service" ]; then
+    if systemctl list-units --full --all | grep -q "$1.service"; then
         systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
         systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
@@ -1466,16 +1522,22 @@ CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
+CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
+CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 
 removeMoby() {
-    apt-get purge -y moby-engine moby-cli
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 60 apt-get purge -y moby-engine moby-cli
 }
 
 removeContainerd() {
-    apt-get purge -y moby-containerd
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 60 apt-get purge -y moby-containerd
 }
 
 cleanupContainerdDlFiles() {
@@ -1556,46 +1618,12 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-        installMoby
-    fi
     {{if NeedsContainerd}}
-        installContainerd
+        installStandaloneContainerd
+    {{else}}
+        installMoby
     {{end}}
 }
-
-installMoby() {
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.12"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-    else
-        removeMoby
-        getMobyPkg
-        MOBY_CLI=${MOBY_VERSION}
-        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
-            MOBY_CLI="3.0.3"
-        fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-    fi
-}
-
-{{if NeedsContainerd}}
-# CSE+VHD can dicate the containerd version, users don't care as long as it works
-installContainerd() {
-    # azure-built runtimes have a "+azure" prefix in their version strings (i.e 1.3.7+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    # v1.3.7 is our lowest supported version of containerd
-    local BASE_VERSION="1.3.7"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${BASE_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${BASE_VERSION}. skipping installContainerd."
-    else 
-        apt_get_purge 20 30 120 moby-engine || exit $ERR_MOBY_INSTALL_TIMEOUT 
-        retrycmd_if_failure 30 5 3600 apt-get install -y moby-containerd=${BASE_VERSION}* || exit $ERR_MOBY_INSTALL_TIMEOUT
-        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-    fi  
-}
-{{end}}
 
 getMobyPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -1624,12 +1652,101 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-
+{{- if NeedsContainerd}}
+# CSE+VHD can dictate the containerd version, users don't care as long as it works
+installStandaloneContainerd() {
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    # v1.4.1 is our lowest supported version of containerd
+    local CONTAINERD_VERSION="1.4.1"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    else
+        echo "installing containerd version ${CONTAINERD_VERSION}"
+        removeMoby
+        removeContainerd
+        downloadContainerd ${CONTAINERD_VERSION}
+        wait_for_apt_locks
+        retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    fi  
+}
 downloadContainerd() {
-    CONTAINERD_DOWNLOAD_URL="${CONTAINERD_DOWNLOAD_URL_BASE}cri-containerd-${CONTAINERD_VERSION}.linux-amd64.tar.gz"
+    CONTAINERD_VERSION=$1
+    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
+    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION}+azure-1_amd64.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    CONTAINERD_TGZ_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_get_tarball 120 5 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_TGZ_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+}
+
+downloadCrictl() {
+    CRICTL_VERSION=$1
+    mkdir -p $CRICTL_DOWNLOAD_DIR
+    CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
+}
+
+installCrictl() {
+    currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
+    local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
+    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then  
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
+    else
+        downloadCrictl ${CRICTL_VERSION}
+        echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
+        tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chmod 755 $CRICTL_BIN_DIR/crictl
+    fi
+    rm -rf ${CRICTL_DOWNLOAD_DIR}
+}
+{{- if TeleportEnabled}}
+downloadTeleportdPlugin() {
+    DOWNLOAD_URL=$1
+    TELEPORTD_VERSION=$2
+    if [[ -z ${DOWNLOAD_URL} ]]; then
+        echo "download url parameter for downloadTeleportdPlugin was not given"
+        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+    fi
+    if [[ -z ${TELEPORTD_VERSION} ]]; then
+        echo "teleportd version not given"
+        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+    fi
+    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+}
+
+installTeleportdPlugin() {
+    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
+    local TARGET_VERSION="0.5.0"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
+        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
+    else 
+        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+    fi
+    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
+}
+{{- end}}
+{{- end}}
+
+installMoby() {
+    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
+    local MOBY_VERSION="19.03.12"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
+        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
+    else
+        removeMoby
+        getMobyPkg
+        MOBY_CLI=${MOBY_VERSION}
+        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+            MOBY_CLI="3.0.3"
+        fi
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
 }
 
 installCNI() {
@@ -1655,11 +1772,6 @@ installAzureCNI() {
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
 }
 
-installImg() {
-    img_filepath=/usr/local/bin/img
-    retrycmd_get_executable 120 5 $img_filepath "https://acs-mirror.azureedge.net/img/img-linux-amd64-v0.5.6" ls || exit $ERR_IMG_DOWNLOAD_TIMEOUT
-}
-
 extractKubeBinaries() {
     K8S_VERSION=$1
     KUBE_BINARY_URL=$2
@@ -1676,28 +1788,27 @@ extractHyperkube() {
     CLI_TOOL=$1
     path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
     pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
-    if [[ "$CLI_TOOL" == "docker" ]]; then
-        mkdir -p "$path"
-        # Check if we can extract kubelet and kubectl directly from hyperkube's binary folder
+    mkdir -p "$path"
+
+    if [[ "$CLI_TOOL" == "ctr" ]]; then    
+        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
+            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
+            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
+        else
+            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
+        fi 
+    
+    else 
         if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
             mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-            return
         else
             docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
         fi
-    else
-        img unpack -o "$path" ${HYPERKUBE_URL}
     fi
 
-    if [[ $OS == $COREOS_OS_NAME ]]; then
-        cp "$path/hyperkube" "/opt/kubelet"
-        mv "$path/hyperkube" "/opt/kubectl"
-        chmod a+x /opt/kubelet /opt/kubectl
-    else
-        cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-        mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-    fi
+    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
+    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"    
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -1706,11 +1817,10 @@ installKubeletKubectlAndKubeProxy() {
         if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
             extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
         else
-            if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-                extractHyperkube "docker"
+            if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
+                extractHyperkube "ctr"
             else
-                installImg
-                extractHyperkube "img"
+                extractHyperkube "docker"
             fi
         fi
     fi
@@ -1722,57 +1832,83 @@ installKubeletKubectlAndKubeProxy() {
 
     if [ -n "${KUBEPROXY_URL}" ]; then
         #kubeproxy is a system addon that is dictated by control plane so it shouldn't block node provisioning
-        pullContainerImage "docker" ${KUBEPROXY_URL} &
+        pullContainerImage ${CLI_TOOL} ${KUBEPROXY_URL} &
     fi
 }
 
 pullContainerImage() {
     CLI_TOOL=$1
-    DOCKER_IMAGE_URL=$2
-    retrycmd_if_failure 60 1 1200 $CLI_TOOL pull $DOCKER_IMAGE_URL || exit $ERR_CONTAINER_IMG_PULL_TIMEOUT
+    CONTAINER_IMAGE_URL=$2
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then 
+        retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+    else
+        retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+    fi
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), startCleanUpHyperkubeImages
-    function cleanUpHyperkubeImagesRun() {
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'hyperkube')
+removeContainerImage() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE_URL=$2
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then
+        crictl image rm $CONTAINER_IMAGE_URL
+    else
+        docker image rm $CONTAINER_IMAGE_URL 
+    fi
+}
+
+cleanUpImages() {
+    local targetImage=$1
+    function cleanupImagesRun() {
+        {{if NeedsContainerd}}
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
+        {{else}}
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage})
+        {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            docker rmi ${images_to_delete[@]}
+            for image in "${images_to_delete[@]}"
+            do 
+                {{if NeedsContainerd}}
+                removeContainerImage "ctr" ${image}
+                {{else}}
+                removeContainerImage "docker" ${image}
+                {{end}}
+            done
         fi
     }
-    export -f cleanUpHyperkubeImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpHyperkubeImagesRun
+    export -f cleanupImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
+}
+
+cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), cleanUpHyperkubeImages
+    cleanUpImages "hyperkube"
     echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    function cleanUpKubeProxyImagesRun() {
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep 'kube-proxy')
-        local exit_code=$?
-        if [[ $exit_code != 0 ]]; then
-            exit $exit_code
-        elif [[ "${images_to_delete}" != "" ]]; then
-            docker rmi ${images_to_delete[@]}
-        fi
-    }
-    export -f cleanUpKubeProxyImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanUpKubeProxyImagesRun
+    cleanUpImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export -f retrycmd_if_failure
+    export -f cleanUpImages
     export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
     export KUBERNETES_VERSION
     bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
 }
+
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
@@ -1816,6 +1952,13 @@ set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
       exit 0
+fi
+
+UBUNTU_RELEASE=$(lsb_release -r -s)
+if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
+    sudo apt-get -y autoremove chrony
+    echo $?
+    sudo systemctl restart systemd-timesyncd
 fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
@@ -1889,6 +2032,14 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+# If crictl gets installed then use it as the cri cli instead of ctr
+CLI_TOOL="crictl"
+{{- if TeleportEnabled}}
+installTeleportdPlugin
+{{end}}
+{{end}}
 
 installNetworkPlugin
 
@@ -1931,8 +2082,6 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
@@ -1940,12 +2089,29 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{end}}
+{{- end}}
+
+{{- if NeedsContainerd}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
+ensureDocker
+{{- end}}
+
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
 {{- end}}
 
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage
+{{- end}}
+
+{{- if ShouldConfigSwapFile}}
+configureSwapFile
+{{- end}}
+
+ensureSysctl
 ensureKubelet
 ensureJournal
 
@@ -2024,6 +2190,33 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+EXIT_CODE=$?
+systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
+OUTPUT=$(cat /var/log/azure/cluster-provision-cse-output.log | head -n 30)
+JSON_STRING=$( jq -n \
+                  --arg ec "$EXIT_CODE" \
+                  --arg op "$OUTPUT" \
+                  --arg er "" \
+                  '{ExitCode: $ec, Output: $op, Error: $er}' )
+echo $JSON_STRING
+exit $EXIT_CODE`)
+
+func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_startSh, nil
+}
+
+func linuxCloudInitArtifactsCse_startSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_startShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_start.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2549,17 +2742,6 @@ ExecStartPre=/bin/mkdir -p /var/lib/kubelet
 ExecStartPre=/bin/mkdir -p /var/lib/cni
 ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le 0 ] ; then /bin/mount --bind /var/lib/kubelet /var/lib/kubelet ; fi"
 ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
-{{/* This is a partial workaround to this upstream Kubernetes issue: */}}
-{{/* https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731 */}}
-ExecStartPre=/sbin/sysctl -w net.ipv4.tcp_retries2=8
-ExecStartPre=/sbin/sysctl -w net.core.somaxconn=16384
-ExecStartPre=/sbin/sysctl -w net.ipv4.tcp_max_syn_backlog=16384
-ExecStartPre=/sbin/sysctl -w net.core.message_cost=40
-ExecStartPre=/sbin/sysctl -w net.core.message_burst=80
-
-ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh1=4096
-ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh2=8192
-ExecStartPre=/sbin/sysctl -w net.ipv4.neigh.default.gc_thresh3=16384
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
@@ -2572,7 +2754,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsDynamicKubeletEnabled}}
+        {{- if IsKubeletConfigFileEnabled}}
         --config /etc/default/kubeletconfig.json \
         {{- end}}
         $KUBELET_FLAGS \
@@ -3436,6 +3618,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -3656,29 +3845,47 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    subreaper = false{{if HasDataDir }}
+    version = 2
+    subreaper = false
+    oom_score = 0{{if HasDataDir }}
     root = "{{GetDataDir}}"{{- end}}
-    oom_score = 0
-    [plugins.cri]
-    sandbox_image = "{{GetPodInfraContainerSpec}}"
-    [plugins.cri.containerd.untrusted_workload_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
-    runtime_engine = "/usr/bin/nvidia-container-runtime"
-    {{- else}}
-    runtime_engine = "/usr/bin/runc"
-    {{- end}}
-    [plugins.cri.containerd.default_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux" {{if IsNSeriesSKU .}}
-    runtime_engine = "/usr/bin/nvidia-container-runtime"
-    {{- else}}
-    runtime_engine = "/usr/bin/runc"
-    {{- end}}
-    {{if IsKubenet }}
-    [plugins.cri.cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
-    {{end}}
+    [plugins."io.containerd.grpc.v1.cri"]
+      sandbox_image = "{{GetPodInfraContainerSpec}}"
+      [plugins."io.containerd.grpc.v1.cri".containerd]
+        {{ if TeleportEnabled }}
+        snapshotter = "teleportd"
+        disable_snapshot_annotations = false
+        {{ end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU .}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU .}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+      {{ if IsKubenet }}
+      [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        conf_template = "/etc/containerd/kubenet_template.conf"
+      {{ end}}
+      [plugins."io.containerd.grpc.v1.cri".registry.headers]
+        X-Meta-Source-Client = ["azure/aks"]
+    [metrics]
+      address = "127.0.0.1:10257"
+    {{ if TeleportEnabled }}
+    [proxy_plugins]
+      [proxy_plugins.teleportd]
+        type = "snapshot"
+        address = "/run/teleportd/snapshotter.sock"
+    {{ end}}
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
@@ -3718,6 +3925,7 @@ write_files:
     ExecStart=/usr/bin/containerd
     Delegate=yes
     KillMode=process
+    Restart=always
     OOMScoreAdjust=-999
     LimitNOFILE=1048576
     LimitNPROC=infinity
@@ -3743,13 +3951,34 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-{{if IsKubenet }}
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
   owner: root
   content: |
     net.ipv4.ip_forward = 1
+    net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
+    #EOF
+
+{{if TeleportEnabled}}
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
     #EOF
 {{end}}
 {{end}}
@@ -3829,9 +4058,9 @@ write_files:
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
 {{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
 {{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
 {{end}}
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
@@ -3859,6 +4088,115 @@ write_files:
     # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
     # for DNS.
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    #EOF
+
+- path: /etc/sysctl.d/999-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+    net.ipv4.tcp_retries2=8
+    net.core.message_burst=80
+    net.core.message_cost=40
+{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
+    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
+    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
+    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
+    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
+    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if ShouldConfigCustomSysctl}}
+    # The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+    net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+    net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+    net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpRmem}}
+    net.ipv4.tcp_rmem={{$s.NetIpv4TcpRmem}}
+{{- end}}
+{{- if $s.NetIpv4TcpWmem}}
+    net.ipv4.tcp_wmem={{$s.NetIpv4TcpWmem}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+    fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+    fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+    fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+    kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+    vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+    vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
     #EOF
 
 runcmd:
@@ -4150,9 +4488,9 @@ $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
 $global:VNetCIDR = "{{GetParameter "vnetCidr"}}"
 {{if IsKubernetesVersionGe "1.16.0"}}
-$global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}"
+$global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
-$global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}"
+$global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
 
@@ -5727,6 +6065,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
 	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
+	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
@@ -5828,6 +6167,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
 				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},

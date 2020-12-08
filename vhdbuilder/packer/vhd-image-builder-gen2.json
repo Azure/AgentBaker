@@ -11,7 +11,9 @@
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
-    "hyperv_generation": "{{env `HYPERV_GENERATION`}}"
+    "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
+    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}"
   },
   "builders": [
     {
@@ -83,6 +85,11 @@
       "type": "file",
       "source": "vhdbuilder/scripts/linux/tool_installs.sh",
       "destination": "/home/packer/tool_installs.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-35.amd64.deb",
+      "destination": "/home/packer/asc-baseline.deb"
     },
     {
       "type": "file",
@@ -257,7 +264,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} SGX_DEVICE_PLUGIN_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} SGX_DEVICE_PLUGIN_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

@@ -17,12 +17,15 @@ ERR_DOCKER_START_FAIL=24
 ERR_MOBY_APT_LIST_TIMEOUT=25 
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 
 ERR_MOBY_INSTALL_TIMEOUT=27 
+ERR_CONTAINERD_INSTALL_TIMEOUT=28 
 ERR_K8S_RUNNING_TIMEOUT=30 
 ERR_K8S_DOWNLOAD_TIMEOUT=31 
 ERR_KUBECTL_NOT_FOUND=32 
 ERR_IMG_DOWNLOAD_TIMEOUT=33 
 ERR_KUBELET_START_FAIL=34 
-ERR_CONTAINER_IMG_PULL_TIMEOUT=35 
+ERR_DOCKER_IMG_PULL_TIMEOUT=35 
+ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 
+ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 
 ERR_CNI_DOWNLOAD_TIMEOUT=41 
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 
@@ -55,6 +58,9 @@ ERR_CIS_ASSIGN_FILE_PERMISSION=112
 ERR_PACKER_COPY_FILE=113 
 ERR_CIS_APPLY_PASSWORD_CONFIG=115 
 ERR_SYSTEMD_DOCKER_STOP_FAIL=116 
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 
+ERR_CRICTL_OPERATION_ERROR=118 
+ERR_CTR_OPERATION_ERROR=119 
 
 ERR_VHD_FILE_NOT_FOUND=124 
 ERR_VHD_BUILD_ERROR=125 
@@ -63,6 +69,12 @@ ERR_VHD_BUILD_ERROR=125
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 
+
+ERR_SWAP_CREAT_FAIL=130 
+ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 
+
+ERR_TELEPORTD_DOWNLOAD_ERR=150 
+ERR_TELEPORTD_INSTALL_ERR=151 
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -126,16 +138,15 @@ retrycmd_get_tarball() {
         fi
     done
 }
-retrycmd_get_executable() {
-    retries=$1; wait_sleep=$2; filepath=$3; url=$4; validation_args=$5
-    echo "${retries} retries"
-    for i in $(seq 1 $retries); do
-        $filepath $validation_args && break || \
-        if [ $i -eq $retries ]; then
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    echo "${curl_retries} retries"
+    for i in $(seq 1 $curl_retries); do
+        [[ -f $filepath ]] && break
+        if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout 30 curl -fsSL $url -o $filepath
-            chmod +x $filepath
+            timeout $timeout curl -fsSL $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -299,7 +310,7 @@ systemctlEnableAndStart() {
 }
 
 systemctlDisableAndStop() {
-    if [ systemctl list-units --full --all | grep -q "$1.service" ]; then
+    if systemctl list-units --full --all | grep -q "$1.service"; then
         systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
         systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi

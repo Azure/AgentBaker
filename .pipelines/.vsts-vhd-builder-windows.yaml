@@ -93,11 +93,17 @@ jobs:
       -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
       -e TENANT_ID=${BUILD_TENANT_ID} \
       -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e OS_DISK_URI=${OS_DISK_URI} \
       -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
+      -e MODE=$(MODE) \
+      -e VHD_DEBUG=$(VHD_DEBUG) \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
   - task: PublishPipelineArtifact@1

@@ -91,6 +91,41 @@ ensureAuditD() {
   fi
 }
 
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage() {
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    THP_ENABLED={{GetTransparentHugePageEnabled}}
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+    fi
+    THP_DEFRAG={{GetTransparentHugePageDefrag}}
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+    fi
+}
+{{- end}}
+
+{{- if ShouldConfigSwapFile}}
+configureSwapFile() {
+    SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    DISK_FREE_KB=$(df /dev/sdb1 | sed 1d | awk '{print $4}')
+    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
+        SWAP_LOCATION=/mnt/swapfile
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        chmod 600 ${SWAP_LOCATION}
+        retrycmd_if_failure 24 5 25 mkswap ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon --show | grep ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
+    else
+        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
+        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
+    fi
+}
+{{- end}}
+
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -215,14 +250,14 @@ EOF
     set -x
 {{end}}
 
-{{- if IsDynamicKubeletEnabled}}
+{{- if IsKubeletConfigFileEnabled}}
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
     chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetDynamicKubeletConfigFileContent}}
+{{GetKubeletConfigFileContent}}
 EOF
     set -x
 {{- end}}
@@ -253,23 +288,15 @@ configureCNIIPTables() {
     fi
 }
 
-ensureContainerRuntime() {
-    if [[ "$CONTAINER_RUNTIME" == "docker" ]]; then
-        ensureDocker
-    fi
-    {{if NeedsContainerd}}
-        ensureContainerd
-    {{end}}
-}
-
-{{if NeedsContainerd}}
+{{- if NeedsContainerd}}
 ensureContainerd() {
+  {{- if TeleportEnabled}}
+  ensureTeleportd
+  {{- end}}
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  {{if IsKubenet }}
   wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  {{end}}
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
   {{/* Delay start of containerd-monitor for 30 mins after booting */}}
@@ -279,8 +306,13 @@ ensureContainerd() {
   wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
   systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
-
+{{- if TeleportEnabled}}
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- end}}
+{{- else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -300,7 +332,12 @@ ensureDocker() {
             sleep 1
         fi
     done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+
+}
+{{- end}}
+ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -308,7 +345,6 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
 {{if EnableEncryptionWithExternalKms}}
 ensureKMS() {
     systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
@@ -355,6 +391,12 @@ ensureLabelNodes() {
     LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
     wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureSysctl() {
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 24 5 25 sysctl --system
 }
 
 ensureJournal() {

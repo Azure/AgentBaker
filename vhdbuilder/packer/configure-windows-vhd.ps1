@@ -54,7 +54,8 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/windows/nanoserver:1809",
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
-                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64")
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1)
             Write-Log "Pulling images for windows server 2019"
         }
         '2004' {
@@ -100,27 +101,20 @@ function Get-FilesToCacheOnVHD {
             "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
             "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
             "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.2.zip",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.3.zip"
+            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.3.zip",
+            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip"
         );
         "c:\akse-cache\containerd\"   = @(
             $global:containerdPackageUrl
         );
-
+        "c:\akse-cache\csi-proxy\"    = @(
+            "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz"
+        );
         "c:\akse-cache\win-k8s\"      = @(
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.11-azs/windowszip/v1.15.11-azs-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.12-azs/windowszip/v1.15.12-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-azs/windowszip/v1.16.13-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.14-azs/windowszip/v1.16.14-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.9-azs/windowszip/v1.17.9-azs-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11-azs/windowszip/v1.17.11-azs-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.10/windowszip/v1.15.10-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.11/windowszip/v1.15.11-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.11-hotfix.20200714/windowszip/v1.15.11-hotfix.20200714-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.11-hotfix.20200817/windowszip/v1.15.11-hotfix.20200817-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.12/windowszip/v1.15.12-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.12-hotfix.20200714/windowszip/v1.15.12-hotfix.20200714-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.12-hotfix.20200623/windowszip/v1.15.12-hotfix.20200623-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.15.12-hotfix.20200817/windowszip/v1.15.12-hotfix.20200817-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.10-hotfix.20200817/windowszip/v1.16.10-hotfix.20200817-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.12/windowszip/v1.16.12-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13/windowszip/v1.16.13-1int.zip",
@@ -155,9 +149,9 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.3/windowszip/v1.19.3-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.1.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.6.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.8.zip"
+            "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.8.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0.zip"
         )
     }
 
@@ -225,7 +219,8 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/updt/2020/10/windows10.0-kb4580390-x64_743bc31f33bf399c7f15ab020df685780faf4cb5.msu")
+    # 2020-11 Cumulative Update for Windows Server 2019 for x64-based Systems (KB4586793)
+    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2020/11/windows10.0-kb4586793-x64_99d3826119288e28a7d7e0b61c3c112476ddc87a.msu")
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]

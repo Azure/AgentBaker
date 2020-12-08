@@ -22,13 +22,29 @@ parameters:
   displayName: Build 1804 Gen2 GPU
   type: boolean
   default: true
+- name: build1804containerd
+  displayName: Build 1804 containerd
+  type: boolean
+  default: true
+- name: build1804gen2containerd
+  displayName: Build 1804 Gen2 containerd
+  type: boolean
+  default: true
+- name: build1804gpucontainerd
+  displayName: Build 1804 GPU+containerd
+  type: boolean
+  default: true
+- name: build1804gen2gpucontainerd
+  displayName: Build 1804 Gen2 GPU+containerd
+  type: boolean
+  default: true
 - name: dryrun
   displayName: Dry run
   type: boolean
   default: false
 
 variables:
-  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
+  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
 
 phases:
   - phase: build_vhd_1604
@@ -43,138 +59,11 @@ phases:
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
         displayName: Setup Build Variables
-      - bash: |
-          if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-          echo "Set build mode to $m" && \
-          echo "##vso[task.setvariable variable=MODE]$m"
-        displayName: Get Build Mode
-      - bash: |
-          echo MODE=$(MODE) && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          -e AZURE_LOCATION=${AZURE_LOCATION} \
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-          -e GIT_VERSION=$(Build.SourceVersion) \
-          -e BUILD_ID=$(Build.BuildId) \
-          -e BUILD_NUMBER=$(Build.BuildNumber) \
-          -e UBUNTU_SKU=$(UBUNTU_SKU) \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e OS_TYPE="Linux" \
-          -e MODE=$(MODE) \
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk run-packer
-        displayName: Building VHD
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'vhd-release-notes-1604'
-          targetPath: 'release-notes.txt'
-      - bash: |
-          echo MODE=$(MODE) && \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          -e OS_DISK_SAS=${OS_DISK_SAS} \
-          ${CONTAINER_IMAGE} make -f packer.mk az-copy
-        displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e SA_NAME=${SA_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e IMAGE_NAME=${IMAGE_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-        displayName: Clean-up Managed Image
-        condition: ne(variables['MODE'], 'default')
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e CREATE_TIME="${create_time}" \
-          -e LOCATION="${AZURE_LOCATION}" \
-          -e OS_TYPE="Linux" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
-        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-          VHD_NAME="1.0.${create_time}.vhd"; \
-          SKU_NAME="1804gen2"; else \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-          SKU_NAME=$UBUNTU_SKU; fi && \
-          if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-          -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-          -e VHD_NAME=${VHD_NAME} \
-          -e OS_NAME="Linux" \
-          -e SKU_NAME=${SKU_NAME} \
-          -e OFFER_NAME="Ubuntu" \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e IMAGE_VERSION=${IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-        displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
-      - task: PublishPipelineArtifact@1
-        inputs:
-          artifactName: 'publishing-info-1604'
-          targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1604
   - phase: build_vhd_1804
     condition: eq('${{ parameters.build1804 }}', true)
     queue:
@@ -187,138 +76,11 @@ phases:
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
         displayName: Setup Build Variables
-      - bash: |
-          if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-          echo "Set build mode to $m" && \
-          echo "##vso[task.setvariable variable=MODE]$m"
-        displayName: Get Build Mode
-      - bash: |
-          echo MODE=$(MODE) && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          -e AZURE_LOCATION=${AZURE_LOCATION} \
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-          -e GIT_VERSION=$(Build.SourceVersion) \
-          -e BUILD_ID=$(Build.BuildId) \
-          -e BUILD_NUMBER=$(Build.BuildNumber) \
-          -e UBUNTU_SKU=$(UBUNTU_SKU) \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e OS_TYPE="Linux" \
-          -e MODE=$(MODE) \
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk run-packer
-        displayName: Building VHD
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'vhd-release-notes-1804'
-          targetPath: 'release-notes.txt'
-      - bash: |
-          echo MODE=$(MODE) && \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          -e OS_DISK_SAS=${OS_DISK_SAS} \
-          ${CONTAINER_IMAGE} make -f packer.mk az-copy
-        displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e SA_NAME=${SA_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e IMAGE_NAME=${IMAGE_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-        displayName: Clean-up Managed Image
-        condition: ne(variables['MODE'], 'default')
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e CREATE_TIME="${create_time}" \
-          -e LOCATION="${AZURE_LOCATION}" \
-          -e OS_TYPE="Linux" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
-        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-          VHD_NAME="1.0.${create_time}.vhd"; \
-          SKU_NAME="1804gen2"; else \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-          SKU_NAME=$UBUNTU_SKU; fi && \
-          if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-          -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-          -e VHD_NAME=${VHD_NAME} \
-          -e OS_NAME="Linux" \
-          -e SKU_NAME=${SKU_NAME} \
-          -e OFFER_NAME="Ubuntu" \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e IMAGE_VERSION=${IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-        displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
-      - task: PublishPipelineArtifact@1
-        inputs:
-          artifactName: 'publishing-info-1804'
-          targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804
   - phase: build_vhd_1804_gen2
     condition: eq('${{ parameters.build1804gen2 }}', true)
     queue:
@@ -331,138 +93,11 @@ phases:
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
         displayName: Setup Build Variables
-      - bash: |
-          if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-          echo "Set build mode to $m" && \
-          echo "##vso[task.setvariable variable=MODE]$m"
-        displayName: Get Build Mode
-      - bash: |
-          echo MODE=$(MODE) && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          -e AZURE_LOCATION=${AZURE_LOCATION} \
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-          -e GIT_VERSION=$(Build.SourceVersion) \
-          -e BUILD_ID=$(Build.BuildId) \
-          -e BUILD_NUMBER=$(Build.BuildNumber) \
-          -e UBUNTU_SKU=$(UBUNTU_SKU) \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e OS_TYPE="Linux" \
-          -e MODE=$(MODE) \
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk run-packer
-        displayName: Building VHD
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'vhd-release-notes-1804-gen2'
-          targetPath: 'release-notes.txt'
-      - bash: |
-          echo MODE=$(MODE) && \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          -e OS_DISK_SAS=${OS_DISK_SAS} \
-          ${CONTAINER_IMAGE} make -f packer.mk az-copy
-        displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e SA_NAME=${SA_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e IMAGE_NAME=${IMAGE_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-        displayName: Clean-up Managed Image
-        condition: ne(variables['MODE'], 'default')
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e CREATE_TIME="${create_time}" \
-          -e LOCATION="${AZURE_LOCATION}" \
-          -e OS_TYPE="Linux" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
-        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-          VHD_NAME="1.0.${create_time}.vhd"; \
-          SKU_NAME="1804gen2"; else \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-          SKU_NAME=$UBUNTU_SKU; fi && \
-          if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-          -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-          -e VHD_NAME=${VHD_NAME} \
-          -e OS_NAME="Linux" \
-          -e SKU_NAME=${SKU_NAME} \
-          -e OFFER_NAME="Ubuntu" \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e IMAGE_VERSION=${IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-        displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
-      - task: PublishPipelineArtifact@1
-        inputs:
-          artifactName: 'publishing-info-1804-gen2'
-          targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-gen2
   - phase: build_vhd_1804_gpu
     condition: eq('${{ parameters.build1804gpu }}', true)
     queue:
@@ -475,138 +110,11 @@ phases:
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
         displayName: Setup Build Variables
-      - bash: |
-          if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-          echo "Set build mode to $m" && \
-          echo "##vso[task.setvariable variable=MODE]$m"
-        displayName: Get Build Mode
-      - bash: |
-          echo MODE=$(MODE) && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          -e AZURE_LOCATION=${AZURE_LOCATION} \
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-          -e GIT_VERSION=$(Build.SourceVersion) \
-          -e BUILD_ID=$(Build.BuildId) \
-          -e BUILD_NUMBER=$(Build.BuildNumber) \
-          -e UBUNTU_SKU=$(UBUNTU_SKU) \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e OS_TYPE="Linux" \
-          -e MODE=$(MODE) \
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk run-packer
-        displayName: Building VHD
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'vhd-release-notes-1804-gpu'
-          targetPath: 'release-notes.txt'
-      - bash: |
-          echo MODE=$(MODE) && \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          -e OS_DISK_SAS=${OS_DISK_SAS} \
-          ${CONTAINER_IMAGE} make -f packer.mk az-copy
-        displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e SA_NAME=${SA_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e IMAGE_NAME=${IMAGE_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-        displayName: Clean-up Managed Image
-        condition: ne(variables['MODE'], 'default')
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e CREATE_TIME="${create_time}" \
-          -e LOCATION="${AZURE_LOCATION}" \
-          -e OS_TYPE="Linux" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
-        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-          VHD_NAME="1.0.${create_time}.vhd"; \
-          SKU_NAME="1804gen2"; else \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-          SKU_NAME=$UBUNTU_SKU; fi && \
-          if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-          -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-          -e VHD_NAME=${VHD_NAME} \
-          -e OS_NAME="Linux" \
-          -e SKU_NAME=${SKU_NAME} \
-          -e OFFER_NAME="Ubuntu" \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e IMAGE_VERSION=${IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-        displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
-      - task: PublishPipelineArtifact@1
-        inputs:
-          artifactName: 'publishing-info-1804-gpu'
-          targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-gpu
   - phase: build_vhd_1804_gen2_gpu
     condition: eq('${{ parameters.build1804gen2gpu }}', true)
     queue:
@@ -619,135 +127,76 @@ phases:
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
         displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-gen2-gpu
+  - phase: build_vhd_1804_containerd
+    condition: eq('${{ parameters.build1804containerd }}', true)
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
+    steps:
       - bash: |
-          if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-          echo "Set build mode to $m" && \
-          echo "##vso[task.setvariable variable=MODE]$m"
-        displayName: Get Build Mode
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+        displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-containerd
+  - phase: build_vhd_1804_gen2_containerd
+    condition: eq('${{ parameters.build1804gen2containerd }}', true)
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
+    steps:
       - bash: |
-          echo MODE=$(MODE) && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          -e AZURE_LOCATION=${AZURE_LOCATION} \
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-          -e GIT_VERSION=$(Build.SourceVersion) \
-          -e BUILD_ID=$(Build.BuildId) \
-          -e BUILD_NUMBER=$(Build.BuildNumber) \
-          -e UBUNTU_SKU=$(UBUNTU_SKU) \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e OS_TYPE="Linux" \
-          -e MODE=$(MODE) \
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk run-packer
-        displayName: Building VHD
-      - task: PublishPipelineArtifact@0
-        inputs:
-          artifactName: 'vhd-release-notes-1804-gen2-gpu'
-          targetPath: 'release-notes.txt'
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+        displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-gen2-containerd
+  - phase: build_vhd_1804_gpu_containerd
+    condition: eq('${{ parameters.build1804gpucontainerd }}', true)
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
+    steps:
       - bash: |
-          echo MODE=$(MODE) && \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          -e OS_DISK_SAS=${OS_DISK_SAS} \
-          ${CONTAINER_IMAGE} make -f packer.mk az-copy
-        displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+        displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-gpu-containerd
+  - phase: build_vhd_1804_gen2_gpu_containerd
+    condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 120
+    steps:
       - bash: |
-          echo MODE=$(MODE) && \
-          SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e SA_NAME=${SA_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e IMAGE_NAME=${IMAGE_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-        displayName: Clean-up Managed Image
-        condition: ne(variables['MODE'], 'default')
-      - bash: |
-          echo MODE=$(MODE) && \
-          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-          -e CREATE_TIME="${create_time}" \
-          -e LOCATION="${AZURE_LOCATION}" \
-          -e OS_TYPE="Linux" \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
-        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
-      - bash: |
-          echo MODE=$(MODE) && \
-          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-          VHD_NAME="1.0.${create_time}.vhd"; \
-          SKU_NAME="1804gen2"; else \
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-          SKU_NAME=$UBUNTU_SKU; fi && \
-          if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-          -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-          -e VHD_NAME=${VHD_NAME} \
-          -e OS_NAME="Linux" \
-          -e SKU_NAME=${SKU_NAME} \
-          -e OFFER_NAME="Ubuntu" \
-          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-          -e IMAGE_VERSION=${IMAGE_VERSION} \
-          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-        displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
-      - task: PublishPipelineArtifact@1
-        inputs:
-          artifactName: 'publishing-info-1804-gen2-gpu'
-          targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+        displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: 1804-gen2-gpu-containerd

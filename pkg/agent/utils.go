@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if dynamic kubelet is enabled)
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
@@ -51,6 +52,12 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--resolv-conf":                       true,
 	"--system-reserved":                   true,
 	"--kube-reserved":                     true,
+	"--cpu-manager-policy":                true,
+	"--cpu-cfs-quota":                     true,
+	"--cpu-cfs-quota-period":              true,
+	"--topology-manager-policy":           true,
+	"--allowed-unsafe-sysctls":            true,
+	"--fail-swap-on":                      true,
 }
 
 var keyvaultSecretPathRe *regexp.Regexp
@@ -90,8 +97,8 @@ func addValue(m paramsMap, k string, v interface{}) {
 
 func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVersion string) {
 	m[k] = paramsMap{
-		"reference": &KeyVaultRef{
-			KeyVault: KeyVaultID{
+		"reference": &datamodel.KeyVaultRef{
+			KeyVault: datamodel.KeyVaultID{
 				ID: vaultID,
 			},
 			SecretName:    secretName,
@@ -230,7 +237,7 @@ func escapeSingleLine(escapedStr string) string {
 }
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
-func getBase64EncodedGzippedCustomScript(csFilename string, config *NodeBootstrappingConfiguration) string {
+func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
@@ -344,15 +351,14 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
 	if k.KubeletConfig == nil {
 		return ""
 	}
-	ensureKubeletConfigFlagsValue(k.KubeletConfig, cs, dynamicKubeletToggleEnabled)
+	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
 	keys := []string{}
-	dynamicKubeletEnabled := IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled)
 	for key := range k.KubeletConfig {
-		if !dynamicKubeletEnabled || !TranslatedKubeletConfigFlags[key] {
+		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -364,47 +370,43 @@ func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamo
 	return buf.String()
 }
 
-// IsDynamicKubeletEnabled get if dynamic kubelet is supported in AKS
-func IsDynamicKubeletEnabled(cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) bool {
+// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
+func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) bool {
 	// TODO(bowa) remove toggle when backfill
-	return dynamicKubeletToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0")
+	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
+	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
+		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
+			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
-func ensureKubeletConfigFlagsValue(kc map[string]string, cs *datamodel.ContainerService, dynamicKubeletToggleEnabled bool) {
-	// for now it's only dynamic kubelet, we could add more in future
-	if IsDynamicKubeletEnabled(cs, dynamicKubeletToggleEnabled) && kc["--dynamic-config-dir"] == "" {
-		kc["--dynamic-config-dir"] = DynamicKubeletConfigDir
-	}
-}
-
-// convert kubelet flags we set to a file
-func getDynamicKubeletConfigFileContent(kc map[string]string) string {
+// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
+func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
 	if kc == nil {
 		return ""
 	}
 	// translate simple values
-	kubeletConfig := &AKSKubeletConfiguration{
+	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
 		Kind:          "KubeletConfiguration",
 		Address:       kc["--address"],
 		StaticPodPath: kc["--pod-manifest-path"],
-		Authorization: KubeletAuthorization{
-			Mode: KubeletAuthorizationMode(kc["--authorization-mode"]),
+		Authorization: datamodel.KubeletAuthorization{
+			Mode: datamodel.KubeletAuthorizationMode(kc["--authorization-mode"]),
 		},
 		ClusterDNS:                     strings.Split(kc["--cluster-dns"], ","),
-		CgroupsPerQOS:                  strToBool(kc["--cgroups-per-qos"]),
+		CgroupsPerQOS:                  strToBoolPtr(kc["--cgroups-per-qos"]),
 		TLSCertFile:                    kc["--tls-cert-file"],
 		TLSPrivateKeyFile:              kc["--tls-private-key-file"],
 		TLSCipherSuites:                strings.Split(kc["--tls-cipher-suites"], ","),
 		ClusterDomain:                  kc["--cluster-domain"],
 		MaxPods:                        strToInt32(kc["--max-pods"]),
-		NodeStatusUpdateFrequency:      Duration(kc["--node-status-update-frequency"]),
-		ImageGCHighThresholdPercent:    strToInt32(kc["--image-gc-high-threshold"]),
-		ImageGCLowThresholdPercent:     strToInt32(kc["--image-gc-low-threshold"]),
-		EventRecordQPS:                 strToInt32(kc["--event-qps"]),
-		PodPidsLimit:                   strToInt64(kc["--pod-max-pids"]),
+		NodeStatusUpdateFrequency:      datamodel.Duration(kc["--node-status-update-frequency"]),
+		ImageGCHighThresholdPercent:    strToInt32Ptr(kc["--image-gc-high-threshold"]),
+		ImageGCLowThresholdPercent:     strToInt32Ptr(kc["--image-gc-low-threshold"]),
+		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
+		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
-		StreamingConnectionIdleTimeout: Duration(kc["--streaming-connection-idle-timeout"]),
+		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
@@ -412,19 +414,19 @@ func getDynamicKubeletConfigFileContent(kc map[string]string) string {
 	}
 
 	// Authentication
-	kubeletConfig.Authentication = KubeletAuthentication{}
+	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
 	if ca := kc["--client-ca-file"]; ca != "" {
-		kubeletConfig.Authentication.X509 = KubeletX509Authentication{
+		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
 			ClientCAFile: ca,
 		}
 	}
 	if aw := kc["--authentication-token-webhook"]; aw != "" {
-		kubeletConfig.Authentication.Webhook = KubeletWebhookAuthentication{
+		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
 			Enabled: strToBool(aw),
 		}
 	}
 	if aa := kc["--anonymous-auth"]; aa != "" {
-		kubeletConfig.Authentication.Anonymous = KubeletAnonymousAuthentication{
+		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
 			Enabled: strToBool(aa),
 		}
 	}
@@ -444,6 +446,36 @@ func getDynamicKubeletConfigFileContent(kc map[string]string) string {
 	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
 	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
 
+	// settings from customKubeletConfig, only take if it's set
+	if customKc != nil {
+		if customKc.CPUManagerPolicy != "" {
+			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
+		}
+		if customKc.CPUCfsQuota != nil {
+			kubeletConfig.CPUCFSQuota = customKc.CPUCfsQuota
+		}
+		if customKc.CPUCfsQuotaPeriod != "" {
+			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
+		}
+		if customKc.TopologyManagerPolicy != "" {
+			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
+			// enable TopologyManager feature gate is required for this configuration
+			kubeletConfig.FeatureGates["TopologyManager"] = true
+		}
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig.ImageGCLowThresholdPercent = customKc.ImageGcLowThreshold
+		}
+		if customKc.AllowedUnsafeSysctls != nil {
+			kubeletConfig.AllowedUnsafeSysctls = *customKc.AllowedUnsafeSysctls
+		}
+		if customKc.FailSwapOn != nil {
+			kubeletConfig.FailSwapOn = customKc.FailSwapOn
+		}
+	}
+
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)
 }
@@ -453,14 +485,38 @@ func strToBool(str string) bool {
 	return b
 }
 
+func strToBoolPtr(str string) *bool {
+	if str == "" {
+		return nil
+	}
+	b := strToBool(str)
+	return &b
+}
+
 func strToInt32(str string) int32 {
 	i, _ := strconv.ParseInt(str, 10, 32)
 	return int32(i)
 }
 
+func strToInt32Ptr(str string) *int32 {
+	if str == "" {
+		return nil
+	}
+	i := strToInt32(str)
+	return &i
+}
+
 func strToInt64(str string) int64 {
 	i, _ := strconv.ParseInt(str, 10, 64)
 	return i
+}
+
+func strToInt64Ptr(str string) *int64 {
+	if str == "" {
+		return nil
+	}
+	i := strToInt64(str)
+	return &i
 }
 
 func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
@@ -489,4 +545,18 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 		}
 	}
 	return m
+}
+
+func addFeatureGateString(featureGates string, key string, value bool) string {
+	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	fgMap[key] = value
+	keys := make([]string, 0, len(fgMap))
+	for k := range fgMap {
+		keys = append(keys, k)
+	}
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
+	}
+	return strings.Join(pairs, ",")
 }

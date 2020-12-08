@@ -6,6 +6,13 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+UBUNTU_RELEASE=$(lsb_release -r -s)
+if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
+    sudo apt-get -y autoremove chrony
+    echo $?
+    sudo systemctl restart systemd-timesyncd
+fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -77,6 +84,14 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 installContainerRuntime
+{{- if NeedsContainerd}}
+installCrictl
+# If crictl gets installed then use it as the cri cli instead of ctr
+CLI_TOOL="crictl"
+{{- if TeleportEnabled}}
+installTeleportdPlugin
+{{end}}
+{{end}}
 
 installNetworkPlugin
 
@@ -119,8 +134,6 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-ensureContainerRuntime
-
 configureK8s
 
 configureCNI
@@ -128,12 +141,29 @@ configureCNI
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6
-{{end}}
+{{- end}}
+
+{{- if NeedsContainerd}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+{{- else}}
+ensureDocker
+{{- end}}
+
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
 {{- end}}
 
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage
+{{- end}}
+
+{{- if ShouldConfigSwapFile}}
+configureSwapFile
+{{- end}}
+
+ensureSysctl
 ensureKubelet
 ensureJournal
 

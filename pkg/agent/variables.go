@@ -10,10 +10,11 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
+func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
+			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
 			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
 			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
@@ -54,7 +55,7 @@ func getCustomDataVariables(config *NodeBootstrappingConfiguration) paramsMap {
 	return cloudInitFiles
 }
 
-func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
+func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return map[string]interface{}{
@@ -83,7 +84,6 @@ func getCSECommandVariables(config *NodeBootstrappingConfiguration) paramsMap {
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
-		"enableDynamicKubelet":            config.EnableDynamicKubelet,
 	}
 }
 
@@ -129,5 +129,5 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 	if registry == "" {
 		return ""
 	}
-	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 150 1 3 ` + ncBinary + ` -vz ` + registry + ` 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;`
+	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 150 1 3 ` + ncBinary + ` -vz ` + registry + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;`
 }

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 	"text/template"
 
@@ -26,16 +27,21 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 }
 
 // GetNodeBootstrappingPayload get node bootstrapping data
-func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+	var customData string
 	if config.AgentPoolProfile.IsWindows() {
-		return getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+	} else {
+		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
-	return getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
-// { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+// { "customData": "<customData string>" }
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// validate and fix input
+	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	//get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	//get variable cloudInit
@@ -47,12 +53,12 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *NodeBootstr
 		panic(e)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
-// { "customData": "[base64(concat(<customData string>))]" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBootstrappingConfiguration) string {
+// { "customData": "<customData string>" }
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
@@ -73,12 +79,11 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *NodeBoots
 	}
 
 	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
-
-	return fmt.Sprintf("{\"customData\": \"[base64(concat('%s'))]\"}", str)
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
-func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCustomDataJSONObject(config)
 	}
@@ -86,7 +91,7 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *NodeBootstrappingCon
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
-func (t *TemplateGenerator) getLinuxNodeCSECommand(config *NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	//get parameters
 	parameters := getParameters(config, "", "")
 	//get variable
@@ -143,7 +148,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(config *NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
@@ -191,10 +196,54 @@ func (t *TemplateGenerator) getBakerFuncMap(config *NodeBootstrappingConfigurati
 	return funcMap
 }
 
+// normalizeResourceGroupNameForLabel normalizes resource group name to be used as a label,
+// similar to what the ARM template used to do.
+//
+// When ARM template was used, the following is used:
+//   variables('labelResourceGroup')
+// which is defined as:
+//   [if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+// the "truncatedResourceGroup" is defined as:
+//   [take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+// This function does the same processing.
+func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
+	truncated := resourceGroupName
+	truncated = strings.ReplaceAll(truncated, "(", "-")
+	truncated = strings.ReplaceAll(truncated, ")", "-")
+	const maxLen = 63
+	if len(truncated) > maxLen {
+		truncated = truncated[0:maxLen]
+	}
+
+	if strings.HasSuffix(truncated, "-") ||
+		strings.HasSuffix(truncated, "_") ||
+		strings.HasSuffix(truncated, ".") {
+
+		if len(truncated) > 62 {
+			return truncated[0:len(truncated)-1] + "z"
+		} else {
+			return truncated + "z"
+		}
+	}
+	return truncated
+}
+
+func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
+	// we should only allow users to configure from API (20201101 and later)
+	if IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
+		if config.AgentPoolProfile.KubernetesConfig != nil && config.AgentPoolProfile.KubernetesConfig.KubeletConfig != nil {
+			kubeletFlags := config.AgentPoolProfile.KubernetesConfig.KubeletConfig
+			delete(kubeletFlags, "--dynamic-config-dir")
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
+	}
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
-func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template.FuncMap {
+func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	if profile.IsWindows() {
@@ -210,32 +259,67 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		"IsKubernetesVersionLt": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
-		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, false, config.EnableNvidia)
+		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
+			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
+				false, config.EnableNvidia)
 		},
-		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile, rg string) string {
-			return profile.GetKubernetesLabels(rg, true, config.EnableNvidia)
+		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
+			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
+				true, config.EnableNvidia)
 		},
-		"GetDynamicKubeletConfigFileContent": func() string {
+		"GetKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {
 				return ""
 			}
-			return getDynamicKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig)
+			return GetKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig, profile.CustomKubeletConfig)
 		},
-		"IsDynamicKubeletEnabled": func() bool {
-			return IsDynamicKubeletEnabled(cs, config.EnableDynamicKubelet)
+		"IsKubeletConfigFileEnabled": func() bool {
+			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
 		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
-			return GetOrderedKubeletConfigFlagString(kc, cs, config.EnableDynamicKubelet)
+			return GetOrderedKubeletConfigFlagString(kc, cs, profile, config.EnableKubeletConfigFile)
 		},
 		"GetKubeletConfigKeyValsPsh": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
+		},
+		"ShouldConfigCustomSysctl": func() bool {
+			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
+		},
+		"GetCustomSysctlConfigByName": func(fn string) interface{} {
+			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
+				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
+				return v.FieldByName(fn).Interface()
+			}
+			return nil
+		},
+		"ShouldConfigTransparentHugePage": func() bool {
+			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
+		},
+		"GetTransparentHugePageEnabled": func() string {
+			if profile.CustomLinuxOSConfig == nil {
+				return ""
+			}
+			return profile.CustomLinuxOSConfig.TransparentHugePageEnabled
+		},
+		"GetTransparentHugePageDefrag": func() string {
+			if profile.CustomLinuxOSConfig == nil {
+				return ""
+			}
+			return profile.CustomLinuxOSConfig.TransparentHugePageDefrag
+		},
+		"ShouldConfigSwapFile": func() bool {
+			// only configure swap file when FailSwapOn is false and SwapFileSizeMB is valid
+			return profile.CustomKubeletConfig != nil && profile.CustomKubeletConfig.FailSwapOn != nil && !*profile.CustomKubeletConfig.FailSwapOn &&
+				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
+		},
+		"GetSwapFileSizeMB": func() int32 {
+			return *profile.CustomLinuxOSConfig.SwapFileSizeMB
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
@@ -416,10 +500,19 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+				return true
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
 		},
 		"GetDataDir": func() string {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+		},
+		"TeleportEnabled": func() bool {
+			return config.EnableACRTeleportPlugin
 		},
 		"HasNSeriesSKU": func() bool {
 			return cs.Properties.HasNSeriesSKU()
@@ -552,6 +645,15 @@ func getContainerServiceFuncMap(config *NodeBootstrappingConfiguration) template
 		},
 		"CloseBraces": func() string {
 			return "}}"
+		},
+		"BoolPtrToInt": func(p *bool) int {
+			if p == nil {
+				return 0
+			}
+			if v := *p; v {
+				return 1
+			}
+			return 0
 		},
 	}
 }
