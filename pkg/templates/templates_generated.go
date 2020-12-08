@@ -873,12 +873,6 @@ ensureContainerd() {
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
-  {{/* Delay start of containerd-monitor for 30 mins after booting */}}
-  CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-  wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-  CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-  wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-  systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- if TeleportEnabled}}
 ensureTeleportd() {
@@ -2460,7 +2454,7 @@ container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
   local -r crictl="${KUBE_HOME}/bin/crictl"
-  local -r container_runtime_name=$2
+  local -r container_runtime_name=$1
 
   if [[ ${container_runtime_name} == "containerd" ]]; then
     local healthcheck_command="ctr --namespace k8s.io container list"
@@ -2509,7 +2503,7 @@ kubelet_monitoring() {
   done
 }
 
-if [[ "$#" -ne 1 ]]; then
+if [[ "$#" -lt 1 ]]; then
   echo "Usage: health-monitor.sh <container-runtime/kubelet>"
   exit 1
 fi
@@ -2525,6 +2519,10 @@ component=$1
 echo "Start kubernetes health monitoring for ${component}"
 
 if [[ "${component}" == "container-runtime" ]]; then
+  if [[ -z $2 ]]; then
+    echo "Usage: health-monitor.sh container-runtime <docker/containerd>"
+    exit 1
+  fi
   container_runtime=$2
   container_runtime_monitoring ${container_runtime}
 elif [[ "${component}" == "kubelet" ]]; then
