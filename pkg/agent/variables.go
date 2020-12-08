@@ -10,9 +10,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
+// getCustomDataVariables returns cloudinit data used by Linux and customdata used by Windows
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
-	cloudInitFiles := map[string]interface{}{
+	customDataVariables := map[string]interface{}{
 		"cloudInitData": paramsMap{
 			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
@@ -28,9 +29,28 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
 		},
+		// customData defined here is mainly used for Windows
+		"customData": paramsMap{
+			"tenantID":                    config.TenantID,
+			"subscriptionId":              config.SubscriptionID,
+			"resourceGroup":               config.ResourceGroupName,
+			"location":                    cs.Location,
+			"vmType":                      cs.Properties.GetVMType(),
+			"subnetName":                  cs.Properties.GetSubnetName(),
+			"nsgName":                     cs.Properties.GetNSGName(),
+			"virtualNetworkName":          cs.Properties.GetVirtualNetworkName(),
+			"routeTableName":              cs.Properties.GetRouteTableName(),
+			"primaryAvailabilitySetName":  cs.Properties.GetPrimaryAvailabilitySetName(),
+			"primaryScaleSetName":         cs.Properties.GetPrimaryScaleSetName(),
+			"useManagedIdentityExtension": useManagedIdentity(cs),
+			"useInstanceMetadata":         useInstanceMetadata(cs),
+			"loadBalancerSku":             cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+			"excludeMasterFromStandardLB": true,
+			"enableTelemetry":             cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
+		},
 	}
 
-	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
+	cloudInitData := customDataVariables["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
 		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 	}
@@ -52,7 +72,16 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
-	return cloudInitFiles
+	customData := customDataVariables["customData"].(paramsMap)
+	if cs.Properties.HasWindows() {
+		customData["windowsEnableCSIProxy"] = cs.Properties.WindowsProfile.IsCSIProxyEnabled()
+		customData["windowsCSIProxyURL"] = cs.Properties.WindowsProfile.CSIProxyURL
+		customData["windowsProvisioningScriptsPackageURL"] = cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL
+		customData["windowsPauseImageURL"] = cs.Properties.WindowsProfile.WindowsPauseImageURL
+		customData["alwaysPullWindowsPauseImage"] = strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage())
+	}
+
+	return customDataVariables
 }
 
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
@@ -85,15 +114,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
 		"enableTelemetry":                 cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
-		"apiVersionNetwork":               datamodel.APIVersionNetwork,
-	}
-
-	if cs.Properties.HasWindows() {
-		cseCommandVariables["windowsEnableCSIProxy"] = cs.Properties.WindowsProfile.IsCSIProxyEnabled()
-		cseCommandVariables["windowsCSIProxyURL"] = cs.Properties.WindowsProfile.CSIProxyURL
-		cseCommandVariables["windowsProvisioningScriptsPackageURL"] = cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL
-		cseCommandVariables["windowsPauseImageURL"] = cs.Properties.WindowsProfile.WindowsPauseImageURL
-		cseCommandVariables["alwaysPullWindowsPauseImage"] = strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage())
 	}
 
 	return cseCommandVariables

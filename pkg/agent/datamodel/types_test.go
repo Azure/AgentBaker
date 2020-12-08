@@ -2394,60 +2394,6 @@ func TestGetAddonContainersIndexByName(t *testing.T) {
 	}
 }
 
-func TestIsHostsConfigAgentEnabled(t *testing.T) {
-	cases := []struct {
-		p        Properties
-		expected bool
-	}{
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &PrivateCluster{
-							EnableHostsConfigAgent: to.BoolPtr(true),
-						},
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &PrivateCluster{
-							EnableHostsConfigAgent: to.BoolPtr(false),
-						},
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &PrivateCluster{},
-					},
-				},
-			},
-			expected: false,
-		},
-	}
-
-	for _, c := range cases {
-		if c.p.OrchestratorProfile.IsHostsConfigAgentEnabled() != c.expected {
-			t.Fatalf("expected IsHostsConfigAgentEnabled() to return %t but instead got %t", c.expected, c.p.OrchestratorProfile.IsHostsConfigAgentEnabled())
-		}
-	}
-}
-
 func TestKubernetesConfig_UserAssignedIDEnabled(t *testing.T) {
 	k := KubernetesConfig{
 		UseManagedIdentity: true,

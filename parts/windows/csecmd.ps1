@@ -13,7 +13,7 @@ $arguments = '
 -AgentKey {{ GetParameter "clientPrivateKey" }} 
 -AADClientId {{ GetParameter "servicePrincipalClientId" }} 
 -AADClientSecret ''{{ GetParameter "servicePrincipalClientSecret" }}''
--NetworkAPIVersion {{ GetVariable "apiVersionNetwork" }} ';
+-NetworkAPIVersion 2018-08-01;
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin'; 
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 Copy-Item $inputFile $outputFile;

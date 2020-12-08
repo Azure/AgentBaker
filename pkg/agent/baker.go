@@ -64,7 +64,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	//get parameters
 	parameters := getParameters(config, "", "")
 	//get variable custom data
-	variables := getCSECommandVariables(config)
+	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
 
@@ -370,13 +370,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
 		},
 		"EnableHostsConfigAgent": func() bool {
-			return cs.Properties.OrchestratorProfile.IsHostsConfigAgentEnabled()
+			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
+				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
+				to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
 		},
 		"UseManagedIdentity": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
-		},
-		"UserAssignedIDEnabled": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
 		},
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)

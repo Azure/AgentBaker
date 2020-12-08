@@ -1078,11 +1078,6 @@ func (o *OrchestratorProfile) GetAPIServerEtcdAPIVersion() string {
 	return ""
 }
 
-// IsHostsConfigAgentEnabled returns true if hosts config agent is enabled
-func (o *OrchestratorProfile) IsHostsConfigAgentEnabled() bool {
-	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
-}
-
 // IsAzureCNI returns true if Azure CNI network plugin is enabled
 func (o *OrchestratorProfile) IsAzureCNI() bool {
 	if o.KubernetesConfig != nil {
