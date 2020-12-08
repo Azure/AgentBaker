@@ -84,7 +84,6 @@ installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
 
-
 installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -99,7 +98,6 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 echo $(date),$(hostname), "End configuring GPU drivers"
-
 
 installKubeletKubectlAndKubeProxy
 

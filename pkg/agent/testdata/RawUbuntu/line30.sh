@@ -101,9 +101,7 @@ installSGXDrivers() {
 }
 
 installContainerRuntime() {
-    
         installMoby
-    
 }
 
 getMobyPkg() {
@@ -264,18 +262,14 @@ removeContainerImage() {
 cleanUpImages() {
     local targetImage=$1
     function cleanupImagesRun() {
-        
         images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage})
-        
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             for image in "${images_to_delete[@]}"
-            do 
-                
+            do
                 removeContainerImage "docker" ${image}
-                
             done
         fi
     }

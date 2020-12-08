@@ -54,7 +54,7 @@ configureAdminUser
 
 {{- if not NeedsContainerd}}
 cleanUpContainerd
-{{end}}
+{{- end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
@@ -90,8 +90,8 @@ installCrictl
 CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
 installTeleportdPlugin
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 
 installNetworkPlugin
 
@@ -109,11 +109,11 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 echo $(date),$(hostname), "End configuring GPU drivers"
-{{end}}
+{{- end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
-{{end}}
+{{- end}}
 
 installKubeletKubectlAndKubeProxy
 
@@ -127,12 +127,12 @@ createKubeManifestDir
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
     installSGXDrivers
 fi
-{{end}}
+{{- end}}
 
 {{- if HasCustomSearchDomain}}
 wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
-{{end}}
+{{- end}}
 
 configureK8s
 

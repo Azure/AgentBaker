@@ -339,20 +339,20 @@ ensureMonitorService() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{if EnableEncryptionWithExternalKms}}
+{{- if EnableEncryptionWithExternalKms}}
 ensureKMS() {
     systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{end}}
+{{- end}}
 
-{{if IsIPv6DualStackFeatureEnabled}}
+{{- if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
     wait_for_file 3600 1 {{GetDHCPv6ServiceCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 3600 1 {{GetDHCPv6ConfigCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
-{{end}}
+{{- end}}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
@@ -479,7 +479,7 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
+{{- if HasNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
     when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
@@ -525,11 +525,11 @@ configGPUDrivers() {
       cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     )
     rm -rf $GPU_DEST/tmp
-    {{if NeedsContainerd}}
+    {{- if NeedsContainerd}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    {{else}}
+    {{- else}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    {{end}}
+    {{- end}}
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     export -f installGPUDriversRun
@@ -571,5 +571,5 @@ ensureGPUDrivers() {
     fi
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
-{{end}}
+{{- end}}
 #EOF
