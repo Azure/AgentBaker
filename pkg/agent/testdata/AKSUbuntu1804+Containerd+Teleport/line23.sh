@@ -85,8 +85,6 @@ installCrictl
 CLI_TOOL="crictl"
 installTeleportdPlugin
 
-
-
 installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy

@@ -53,7 +53,6 @@ fi
 configureAdminUser
 cleanUpContainerd
 
-
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -97,7 +96,6 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 echo $(date),$(hostname), "End configuring GPU drivers"
-
 
 installKubeletKubectlAndKubeProxy
 
