@@ -8,6 +8,13 @@ write_files:
   content: !!binary |
     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
 
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/5SPTUvzQBSF9/kVhzC8baHzjh+7QuuiBqmLRmwKLoQynV6SaMyNMzelfv13qaIVlKJ3ex7uOY9ZlrVZ2lDAcCPGPraejONabFmTD6bxvC5DyfX/UGA0gllbbyrOP8iqDUJe77CKcxyN/h1GydUkW4zT02SoTqLwEITunFTQumbd2Jw8dIUgVtqA23ZJFclvCrQLpLmVppVdVzrPLubZUHWdlT9/eEZBdgVd4/igF53P0ulill1OpmdD1cXN/Ta4jvDttLY+BznE6lM13kNyg1i9D92HkUf8c955SjaljHlFAyhyfaRvDgMobvpIvGe/DfxLB72IXMFQX2Qi2pSC3dTXAAAA//9qyXjA+QEAAA==
+
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -80,10 +87,10 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".containerd]
         
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+          runtime_type = "io.containerd.runc.v2"
           runtime_engine = "/usr/bin/runc"
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+          runtime_type = "io.containerd.runc.v2"
           runtime_engine = "/usr/bin/runc"
       
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
