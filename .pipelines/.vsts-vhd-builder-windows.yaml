@@ -134,10 +134,10 @@ jobs:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
       -e SA_NAME=${SA_NAME} \
       -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-sa
