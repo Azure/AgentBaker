@@ -8,13 +8,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
-- path: /opt/azure/containers/provision_start.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
-
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -229,17 +222,16 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".containerd]
         {{ if TeleportEnabled }}
         snapshotter = "teleportd"
-        disable_snapshot_annotations = false
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runc.v2"
+          runtime_type = "io.containerd.runtime.v1.linux"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runc.v2"
+          runtime_type = "io.containerd.runtime.v1.linux"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}

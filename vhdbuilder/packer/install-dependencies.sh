@@ -67,7 +67,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.5.0"
+  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.3.0"
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.12"
@@ -236,7 +236,6 @@ for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
 done
 
 AZURE_NPM_VERSIONS="
-1.2.1
 1.1.8
 1.1.7
 1.1.5

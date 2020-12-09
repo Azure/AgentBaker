@@ -10,7 +10,6 @@
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
-// linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/docker-monitor.service
 // linux/cloud-init/artifacts/docker-monitor.timer
@@ -27,8 +26,6 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/label-nodes.service
 // linux/cloud-init/artifacts/label-nodes.sh
-// linux/cloud-init/artifacts/labels.service
-// linux/cloud-init/artifacts/labels.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -435,7 +432,7 @@ func linuxCloudInitArtifactsContainerdService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
@@ -505,7 +502,7 @@ AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1 && systemctl --no-pager -l status kubelet 2>&1 | head -n 100"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -901,14 +898,6 @@ ensureKubelet() {
         sleep 3
     done
     {{end}}
-}
-
-ensureLabels() {
-    LABELS_SCRIPT_FILE=/opt/azure/containers/labels.sh
-    wait_for_file 1200 1 $LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    LABELS_SYSTEMD_FILE=/etc/systemd/system/labels.service
-    wait_for_file 1200 1 $LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureLabelNodes() {
@@ -1672,7 +1661,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.5.0"
+    local TARGET_VERSION="0.3.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else 
@@ -2065,7 +2054,6 @@ configureSwapFile
 
 ensureSysctl
 ensureKubelet
-ensureLabels
 ensureJournal
 
 if $FULL_INSTALL_REQUIRED; then
@@ -2143,33 +2131,6 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_main.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
-EXIT_CODE=$?
-systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
-OUTPUT=$(cat /var/log/azure/cluster-provision-cse-output.log | head -n 30)
-JSON_STRING=$( jq -n \
-                  --arg ec "$EXIT_CODE" \
-                  --arg op "$OUTPUT" \
-                  --arg er "" \
-                  '{ExitCode: $ec, Output: $op, Error: $er}' )
-echo $JSON_STRING
-exit $EXIT_CODE`)
-
-func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsCse_startSh, nil
-}
-
-func linuxCloudInitArtifactsCse_startSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsCse_startShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_start.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2781,57 +2742,6 @@ func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsLabelsService = []byte(`[Unit]
-Description=Update Labels for Kubernetes nodes
-After=kubelet.service
-[Service]
-Restart=always
-RestartSec=60
-ExecStart=/bin/bash /opt/azure/containers/labels.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsLabelsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsLabelsService, nil
-}
-
-func linuxCloudInitArtifactsLabelsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsLabelsServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsLabelsSh = []byte(`#!/usr/bin/env bash
-
-# Update Labels for Kubernetes nodes
-
-set -euo pipefail
-
-# TODO(charliedmcb): confirm that NODE_NAME and KUBELET_NODE_LABELS are correct, and are accessible here.
-kubectl label --overwrite nodes $NODE_NAME $KUBELET_NODE_LABELS
-#EOF
-`)
-
-func linuxCloudInitArtifactsLabelsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsLabelsSh, nil
-}
-
-func linuxCloudInitArtifactsLabelsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsLabelsShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3616,13 +3526,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
-- path: /opt/azure/containers/provision_start.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
-
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -3837,17 +3740,16 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".containerd]
         {{ if TeleportEnabled }}
         snapshotter = "teleportd"
-        disable_snapshot_annotations = false
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runc.v2"
+          runtime_type = "io.containerd.runtime.v1.linux"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runc.v2"
+          runtime_type = "io.containerd.runtime.v1.linux"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
@@ -6046,7 +5948,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
 	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
-	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
@@ -6063,8 +5964,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
 	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
-	"linux/cloud-init/artifacts/labels.service":                            linuxCloudInitArtifactsLabelsService,
-	"linux/cloud-init/artifacts/labels.sh":                                 linuxCloudInitArtifactsLabelsSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -6148,7 +6047,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
 				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
-				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
@@ -6165,8 +6063,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
 				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
-				"labels.service":                            &bintree{linuxCloudInitArtifactsLabelsService, map[string]*bintree{}},
-				"labels.sh":                                 &bintree{linuxCloudInitArtifactsLabelsSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":              &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":                 &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},

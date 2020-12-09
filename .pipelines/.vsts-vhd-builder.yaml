@@ -25,7 +25,7 @@ trigger: none
 #    - (offline)POST a new SKU to azure marketplace
 
 variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
+  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
 
 phases:
   - phase: build_vhd
