@@ -114,9 +114,11 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	var userAssignedIdentityClientIDParams string
-	isUserAssignedIdentity := config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
-	if isUserAssignedIdentity {
-		userAssignedIdentityClientIDParams = "' -UserAssignedClientID ',reference(variables('userAssignedIDReference'), variables('apiVersionManagedIdentity')).clientId,"
+	if config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig != nil {
+		isUserAssignedIdentity := config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
+		if isUserAssignedIdentity {
+			userAssignedIdentityClientIDParams = "' -UserAssignedClientID ',reference(variables('userAssignedIDReference'), variables('apiVersionManagedIdentity')).clientId,"
+		}
 	}
 	commandExecStr := fmt.Sprintf("[concat('echo %s && powershell.exe -ExecutionPolicy Unrestricted -command \"', '$arguments = ', variables('singleQuote'),'-MasterIP ',variables('kubernetesAPIServerIP'),' -KubeDnsServiceIp ',parameters('kubeDnsServiceIp'),%s' -MasterFQDNPrefix ',variables('masterFqdnPrefix'),' -Location ',variables('location'),' -TargetEnvironment ',parameters('targetEnvironment'),' -AgentKey ',parameters('clientPrivateKey'),' -AADClientId ',variables('servicePrincipalClientId'),' -AADClientSecret ',variables('singleQuote'),variables('singleQuote'),base64(variables('servicePrincipalClientSecret')),variables('singleQuote'),variables('singleQuote'),' -NetworkAPIVersion ',variables('apiVersionNetwork'),' ',variables('singleQuote'), ' ; ', variables('windowsCustomScriptSuffix'), '\" > %s 2>&1 ; exit $LASTEXITCODE')]", "%DATE%,%TIME%,%COMPUTERNAME%", userAssignedIdentityClientIDParams, "%SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.log")
 	return commandExecStr
