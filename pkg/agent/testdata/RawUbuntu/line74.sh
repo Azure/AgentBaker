@@ -11,7 +11,7 @@ container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
   local -r crictl="${KUBE_HOME}/bin/crictl"
-  local -r container_runtime_name=$2
+  local -r container_runtime_name=${1:-"docker"}
 
   if [[ ${container_runtime_name} == "containerd" ]]; then
     local healthcheck_command="ctr --namespace k8s.io container list"
@@ -60,7 +60,7 @@ kubelet_monitoring() {
   done
 }
 
-if [[ "$#" -ne 1 ]]; then
+if [[ "$#" -ge 1 ]]; then
   echo "Usage: health-monitor.sh <container-runtime/kubelet>"
   exit 1
 fi
