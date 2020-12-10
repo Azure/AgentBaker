@@ -105,7 +105,7 @@ $global:SecurityGroupName = "aks-agentpool-36873793-nsg"
 $global:VNetName = "aks-vnet-36873793"
 $global:RouteTableName = "aks-agentpool-36873793-routetable"
 $global:PrimaryAvailabilitySetName = ""
-$global:PrimaryScaleSetName = "aks-agent2-36873793-vmss"
+$global:PrimaryScaleSetName = "akswpool2"
 
 $global:KubeClusterCIDR = "10.240.0.0/16"
 $global:KubeServiceCIDR = "10.0.0.0/16"

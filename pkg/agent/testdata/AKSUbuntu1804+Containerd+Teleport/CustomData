@@ -235,7 +235,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io:443
+        server: https://:443
     users:
     - name: client
       user:
@@ -266,6 +266,8 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
+
+    
 
 
     # Disallow container from reaching out to the special IP address 168.63.129.16

@@ -217,7 +217,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io:443
+        server: https://:443
     users:
     - name: client
       user:
@@ -238,7 +238,7 @@ write_files:
     KUBELET_FLAGS=
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
-    KUBELET_IMAGE=mcr.microsoft.com/oss/kubernetes/hyperkube:v1.16.15-hotfix.20200903
+    KUBELET_IMAGE=hyperkube-amd64:v1.15.7
 
 
     KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/cluster=resourceGroupName
@@ -250,6 +250,8 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
+
+    
 
 
     # Disallow container from reaching out to the special IP address 168.63.129.16
