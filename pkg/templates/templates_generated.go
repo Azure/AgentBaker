@@ -2454,7 +2454,6 @@ set -o pipefail
 container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
-  local -r crictl="${KUBE_HOME}/bin/crictl"
   local -r container_runtime_name=$1
 
   if [[ ${container_runtime_name} == "containerd" ]]; then
