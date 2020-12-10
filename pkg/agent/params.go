@@ -82,7 +82,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 			addValue(parametersMap, fmt.Sprintf("%sScaleSetEvictionPolicy", agentProfile.Name), agentProfile.ScaleSetEvictionPolicy)
 		}
 
-		if !isSetVnetCidrs && properties.HostedMasterProfile != nil && len(agentProfile.VnetCidrs) != 0 {
+		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {
 			// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
 			// added into the ExceptionList of Windows nodes. Otherwise, the default value `10.0.0.0/8` will
 			// be added into the ExceptionList and it does not work if users use other ip address ranges.
@@ -94,22 +94,11 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Windows parameters
 	if properties.HasWindows() {
-		addValue(parametersMap, "windowsAdminUsername", properties.WindowsProfile.AdminUsername)
-		addSecret(parametersMap, "windowsAdminPassword", properties.WindowsProfile.AdminPassword, false)
-
 		if properties.WindowsProfile.HasCustomImage() {
 			addValue(parametersMap, "agentWindowsSourceUrl", properties.WindowsProfile.WindowsImageSourceURL)
 		}
 
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
-
-		for i, s := range properties.WindowsProfile.Secrets {
-			addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%d", i), s.SourceVault.ID)
-			for j, c := range s.VaultCertificates {
-				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
-				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateStore%d", i, j), c.CertificateStore)
-			}
-		}
 		addValue(parametersMap, "defaultContainerdRuntimeHandler", properties.WindowsProfile.GetWindowsDefaultRuntimeHandler())
 		addValue(parametersMap, "hypervRuntimeHandlers", properties.WindowsProfile.GetWindowsHypervRuntimeHandlers())
 	}

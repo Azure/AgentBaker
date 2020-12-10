@@ -87,7 +87,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	cseCommandVariables := map[string]interface{}{
+	return map[string]interface{}{
 		"outBoundCmd":                     getOutBoundCmd(cs, config.CloudSpecConfig),
 		"tenantID":                        config.TenantID,
 		"subscriptionId":                  config.SubscriptionID,
@@ -115,8 +115,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
 		"enableTelemetry":                 cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
 	}
-
-	return cseCommandVariables
 }
 
 func useManagedIdentity(cs *datamodel.ContainerService) string {
