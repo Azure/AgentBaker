@@ -110,6 +110,21 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
+{{- if NeedsContainerd}}
+- path: /etc/systemd/system/containerd-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/containerd-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
+{{- else}}
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -123,7 +138,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-
+{{- end}}
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip

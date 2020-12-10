@@ -6,10 +6,12 @@
 set -o nounset
 set -o pipefail
 
+
 container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
-  local -r container_runtime_name=$1
+  local -r crictl="${KUBE_HOME}/bin/crictl"
+  local -r container_runtime_name=$2
 
   if [[ ${container_runtime_name} == "containerd" ]]; then
     local healthcheck_command="ctr --namespace k8s.io container list"
@@ -58,18 +60,9 @@ kubelet_monitoring() {
   done
 }
 
-if [[ "$#" -lt 1 ]]; then
+if [[ "$#" -ne 1 ]]; then
   echo "Usage: health-monitor.sh <container-runtime/kubelet>"
   exit 1
-fi
-
-component=$1
-if [[ "${component}" == "container-runtime" ]]; then
-  if [[ -z $2 ]]; then
-    echo "Usage: health-monitor.sh container-runtime <docker/containerd>"
-    exit 1
-  fi
-  container_runtime=$2
 fi
 
 KUBE_HOME="/usr/local/bin"
@@ -79,10 +72,11 @@ if [[  -e "${KUBE_ENV}" ]]; then
 fi
 
 SLEEP_SECONDS=10
-
+component=$1
 echo "Start kubernetes health monitoring for ${component}"
 
 if [[ "${component}" == "container-runtime" ]]; then
+  container_runtime=$2
   container_runtime_monitoring ${container_runtime}
 elif [[ "${component}" == "kubelet" ]]; then
   kubelet_monitoring

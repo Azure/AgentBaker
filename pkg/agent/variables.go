@@ -45,6 +45,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
 		cloudInitData["dockerMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, config)
 		cloudInitData["dockerMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, config)
+		cloudInitData["containerdMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
+		cloudInitData["containerdMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
 		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
 		cloudInitData["auditdRules"] = getBase64EncodedGzippedCustomScript(auditdRules, config)
 		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
