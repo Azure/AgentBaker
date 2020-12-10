@@ -441,7 +441,8 @@ func linuxCloudInitArtifactsContainerdMonitorService() (*asset, error) {
 var _linuxCloudInitArtifactsContainerdMonitorTimer = []byte(`[Unit]
 Description=a timer that delays containerd-monitor from starting too soon after boot
 [Timer]
-OnBootSec=30min
+Unit=containerd-monitor.service
+OnBootSec=10min
 [Install]
 WantedBy=multi-user.target
 #EOF
@@ -2284,7 +2285,7 @@ var _linuxCloudInitArtifactsDockerMonitorTimer = []byte(`[Unit]
 Description=a timer that delays docker-monitor from starting too soon after boot
 [Timer]
 Unit=docker-monitor.service
-OnBootSec=30min
+OnBootSec=10min
 [Install]
 WantedBy=multi-user.target
 #EOF

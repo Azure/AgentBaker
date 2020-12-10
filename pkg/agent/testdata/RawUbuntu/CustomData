@@ -84,7 +84,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/1TMsUoEQQwG4D5PEbC+Q7Ce5lDB6goVi2WLOJtbgzOJZP4V9u1lSx/g+6Z3N8z0qKOm/cDCizCsazK+BLxok33wEvVb89TDDZF8y+g8IAnzlRHBI8JZbtDkzwjQ9HYcMx19+a/PQ/PXqtLVLxF41Voe7rs5TS8+IK3N9CEOXS576VuDnbaheYbkqqC7p+sz/QUAAP//6GYi1LYAAAA=
+    H4sIAAAAAAAA/1TMMU7EQAwF0N6nsES9KzjANCtAotoCEEWUwky8wWLGRp4fpNwepeQA703vbpjpUUdN+4GFF2FY12R8CXjRJvvgJeq35qmHGyL5ltF5QBLmKyOCR4Sz3KDJnxGg6e04Zjr68l+fh+avVaWrXyLwqrU83Hdzml58QFqb6UMculz20rcGO21D8wzJVUF3T9dn+gsAAP//UL9Br7YAAAA=
 
 - path: /etc/systemd/system/docker-monitor.service
   permissions: "0644"
