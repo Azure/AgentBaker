@@ -1075,55 +1075,6 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 	}
 }
 
-func TestUbuntuVersion(t *testing.T) {
-	cases := []struct {
-		p                 Properties
-		expectedAgent1804 bool
-	}{
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: AKSUbuntu1604,
-						OSType: Linux,
-					},
-				},
-			},
-			expectedAgent1804: false,
-		},
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: AKSUbuntu1604,
-					},
-				},
-			},
-			expectedAgent1804: false,
-		},
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count:  1,
-						Distro: "",
-						OSType: Windows,
-					},
-				},
-			},
-			expectedAgent1804: false,
-		},
-	}
-
-	for _, c := range cases {
-		if c.p.AgentPoolProfiles[0].IsUbuntu1804() != c.expectedAgent1804 {
-			t.Fatalf("expected IsUbuntu1804() for agent to return %t but instead returned %t", c.expectedAgent1804, c.p.AgentPoolProfiles[0].IsUbuntu1804())
-		}
-	}
-}
-
 func TestIsCustomVNET(t *testing.T) {
 	cases := []struct {
 		p             Properties
