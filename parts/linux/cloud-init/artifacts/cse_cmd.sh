@@ -1,4 +1,4 @@
-echo $(date),$(hostname);
+echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
@@ -68,4 +68,4 @@ AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1 && systemctl --no-pager -l status kubelet 2>&1 | head -n 100"
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

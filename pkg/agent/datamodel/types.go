@@ -949,19 +949,6 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return strings.EqualFold(string(a.Distro), string(AKSUbuntu1604)) || strings.EqualFold(string(a.Distro), string(AKSUbuntu1804)) || strings.EqualFold(string(a.Distro), string(Ubuntu1804Gen2)) || strings.EqualFold(string(a.Distro), string(AKSUbuntuGPU1804)) || strings.EqualFold(string(a.Distro), string(AKSUbuntuGPU1804Gen2))
 }
 
-// IsUbuntu1804 returns true if the agent pool profile distro is based on Ubuntu 16.04
-func (a *AgentPoolProfile) IsUbuntu1804() bool {
-	if !strings.EqualFold(string(a.OSType), string(Windows)) {
-		switch a.Distro {
-		case AKSUbuntu1804, Ubuntu1804, Ubuntu1804Gen2, AKSUbuntuGPU1804, AKSUbuntuGPU1804Gen2:
-			return true
-		default:
-			return false
-		}
-	}
-	return false
-}
-
 // HasAvailabilityZones returns true if the agent pool has availability zones
 func (a *AgentPoolProfile) HasAvailabilityZones() bool {
 	return a.AvailabilityZones != nil && len(a.AvailabilityZones) > 0

@@ -55,7 +55,7 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
-                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1)
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1")
             Write-Log "Pulling images for windows server 2019"
         }
         '2004' {
@@ -220,7 +220,7 @@ function Install-WindowsPatches {
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
     # 2020-11 Cumulative Update for Windows Server 2019 for x64-based Systems (KB4586793)
-    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2020/11/windows10.0-kb4586793-x64_99d3826119288e28a7d7e0b61c3c112476ddc87a.msu")
+    $patchUrls = @()
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]

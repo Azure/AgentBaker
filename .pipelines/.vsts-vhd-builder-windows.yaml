@@ -100,7 +100,7 @@ jobs:
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
       -e MODE=$(MODE) \
-      -e VHD_DEBUG=$(VHD_DEBUG) \
+      -e VHD_DEBUG=${VHD_DEBUG} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
@@ -134,10 +134,10 @@ jobs:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
       -e SA_NAME=${SA_NAME} \
       -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-sa

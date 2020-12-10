@@ -8,6 +8,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -103,6 +110,21 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
+{{- if NeedsContainerd}}
+- path: /etc/systemd/system/containerd-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/containerd-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
+{{- else}}
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -116,7 +138,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-
+{{- end}}
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
@@ -222,16 +244,17 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".containerd]
         {{ if TeleportEnabled }}
         snapshotter = "teleportd"
+        disable_snapshot_annotations = false
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+          runtime_type = "io.containerd.runc.v2"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+          runtime_type = "io.containerd.runc.v2"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}

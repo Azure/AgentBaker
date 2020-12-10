@@ -4,12 +4,15 @@
 // linux/cloud-init/artifacts/auditd-rules
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/configure_azure0.sh
+// linux/cloud-init/artifacts/containerd-monitor.service
+// linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
+// linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/docker-monitor.service
 // linux/cloud-init/artifacts/docker-monitor.timer
@@ -409,6 +412,57 @@ func linuxCloudInitArtifactsConfigure_azure0Sh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsContainerdMonitorService = []byte(`[Unit]
+Description=a script that checks containerd health and restarts if needed
+After=containerd.service
+[Service]
+Restart=always
+RestartSec=10
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/health-monitor.sh container-runtime containerd
+#EOF
+`)
+
+func linuxCloudInitArtifactsContainerdMonitorServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdMonitorService, nil
+}
+
+func linuxCloudInitArtifactsContainerdMonitorService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdMonitorServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsContainerdMonitorTimer = []byte(`[Unit]
+Description=a timer that delays containerd-monitor from starting too soon after boot
+[Timer]
+Unit=containerd-monitor.service
+OnBootSec=10min
+[Install]
+WantedBy=multi-user.target
+#EOF
+`)
+
+func linuxCloudInitArtifactsContainerdMonitorTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdMonitorTimer, nil
+}
+
+func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdMonitorTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsContainerdService = []byte(`[Unit]
 Description=containerd daemon
 [Service]
@@ -432,7 +486,7 @@ func linuxCloudInitArtifactsContainerdService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname);
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
@@ -502,7 +556,7 @@ AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1 && systemctl --no-pager -l status kubelet 2>&1 | head -n 100"`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -852,6 +906,16 @@ ensureDocker() {
 
 }
 {{- end}}
+{{- if NeedsContainerd}}
+ensureMonitorService() {
+    {{/* Delay start of containerd-monitor for 30 mins after booting */}}
+    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
+    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
+    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- else}}
 ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
@@ -860,6 +924,7 @@ ensureMonitorService() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
+{{- end}}
 {{if EnableEncryptionWithExternalKms}}
 ensureKMS() {
     systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
@@ -1599,7 +1664,7 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
-    local CONTAINERD_VERSION="1.4.1"
+    local CONTAINERD_VERSION="1.4.3"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
@@ -1661,7 +1726,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.3.0"
+    local TARGET_VERSION="0.5.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else 
@@ -2135,6 +2200,33 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+EXIT_CODE=$?
+systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
+OUTPUT=$(cat /var/log/azure/cluster-provision-cse-output.log | head -n 30)
+JSON_STRING=$( jq -n \
+                  --arg ec "$EXIT_CODE" \
+                  --arg op "$OUTPUT" \
+                  --arg er "" \
+                  '{ExitCode: $ec, Output: $op, Error: $er}' )
+echo $JSON_STRING
+exit $EXIT_CODE`)
+
+func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_startSh, nil
+}
+
+func linuxCloudInitArtifactsCse_startSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_startShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_start.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsDhcpv6Service = []byte(`[Unit]
 Description=enabledhcpv6
 After=network-online.target
@@ -2170,7 +2262,7 @@ After=docker.service
 Restart=always
 RestartSec=10
 RemainAfterExit=yes
-ExecStart=/usr/local/bin/health-monitor.sh container-runtime
+ExecStart=/usr/local/bin/health-monitor.sh container-runtime docker
 #EOF
 `)
 
@@ -2192,7 +2284,8 @@ func linuxCloudInitArtifactsDockerMonitorService() (*asset, error) {
 var _linuxCloudInitArtifactsDockerMonitorTimer = []byte(`[Unit]
 Description=a timer that delays docker-monitor from starting too soon after boot
 [Timer]
-OnBootSec=30min
+Unit=docker-monitor.service
+OnBootSec=10min
 [Install]
 WantedBy=multi-user.target
 #EOF
@@ -2361,11 +2454,12 @@ set -o pipefail
 container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
-  local -r crictl="${KUBE_HOME}/bin/crictl"
-  local -r container_runtime_name="${CONTAINER_RUNTIME_NAME:-docker}"
-  local healthcheck_command="docker ps"
-  if [[ "${CONTAINER_RUNTIME:-docker}" != "docker" ]]; then
-    healthcheck_command="${crictl} pods"
+  local -r container_runtime_name=$1
+
+  if [[ ${container_runtime_name} == "containerd" ]]; then
+    local healthcheck_command="ctr --namespace k8s.io container list"
+  else 
+    local healthcheck_command="docker ps"
   fi
 
   until timeout 60 ${healthcheck_command} > /dev/null; do
@@ -2379,8 +2473,10 @@ container_runtime_monitoring() {
   while true; do
     if ! timeout 60 ${healthcheck_command} > /dev/null; then
       echo "Container runtime ${container_runtime_name} failed!"
-      if [[ "$container_runtime_name" == "docker" ]]; then
-          pkill -SIGUSR1 dockerd
+      if [[ "$container_runtime_name" == "containerd" ]]; then
+        pkill -SIGUSR1 containerd
+      else 
+        pkill -SIGUSR1 dockerd
       fi
       systemctl kill --kill-who=main "${container_runtime_name}"
       sleep 120
@@ -2407,9 +2503,18 @@ kubelet_monitoring() {
   done
 }
 
-if [[ "$#" -ne 1 ]]; then
+if [[ "$#" -lt 1 ]]; then
   echo "Usage: health-monitor.sh <container-runtime/kubelet>"
   exit 1
+fi
+
+component=$1
+if [[ "${component}" == "container-runtime" ]]; then
+  if [[ -z $2 ]]; then
+    echo "Usage: health-monitor.sh container-runtime <docker/containerd>"
+    exit 1
+  fi
+  container_runtime=$2
 fi
 
 KUBE_HOME="/usr/local/bin"
@@ -2419,11 +2524,11 @@ if [[  -e "${KUBE_ENV}" ]]; then
 fi
 
 SLEEP_SECONDS=10
-component=$1
+
 echo "Start kubernetes health monitoring for ${component}"
 
 if [[ "${component}" == "container-runtime" ]]; then
-  container_runtime_monitoring
+  container_runtime_monitoring ${container_runtime}
 elif [[ "${component}" == "kubelet" ]]; then
   kubelet_monitoring
 else
@@ -3526,6 +3631,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -3621,6 +3733,21 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
+{{- if NeedsContainerd}}
+- path: /etc/systemd/system/containerd-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/containerd-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
+{{- else}}
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -3634,7 +3761,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-
+{{- end}}
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
@@ -3740,16 +3867,17 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".containerd]
         {{ if TeleportEnabled }}
         snapshotter = "teleportd"
+        disable_snapshot_annotations = false
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+          runtime_type = "io.containerd.runc.v2"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+          runtime_type = "io.containerd.runc.v2"
           {{- if IsNSeriesSKU .}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
@@ -5942,12 +6070,15 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/configure_azure0.sh":                       linuxCloudInitArtifactsConfigure_azure0Sh,
+	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
+	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
 	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
+	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
@@ -6041,12 +6172,15 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"configure_azure0.sh":                       &bintree{linuxCloudInitArtifactsConfigure_azure0Sh, map[string]*bintree{}},
+				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
+				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
 				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},

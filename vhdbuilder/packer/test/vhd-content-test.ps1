@@ -149,7 +149,7 @@ function Test-FilesToCacheOnVHD
 function Test-PatchInstalled
 {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @("kb4586793")
+    $patchIDs = @()
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID)
@@ -181,7 +181,7 @@ function Test-ImagesPulled
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
-                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1)
+                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1")
             Write-Output "Pulling images for windows server 2019"
         }
         '2004' {
