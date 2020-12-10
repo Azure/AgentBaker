@@ -4770,18 +4770,18 @@ $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
 {{if eq GetIdentitySystem "adfs"}}
 $global:TenantId = "adfs"
 {{else}}
-$global:TenantId = "{{GetVariableProperty "customData" "tenantID"}}"
+$global:TenantId = "{{GetVariable "tenantID"}}"
 {{end}}
-$global:SubscriptionId = "{{GetVariableProperty "customData" "subscriptionId"}}"
-$global:ResourceGroup = "{{GetVariableProperty "customData" "resourceGroup"}}"
-$global:VmType = "{{GetVariableProperty "customData" "vmType"}}"
-$global:SubnetName = "{{GetVariableProperty "customData" "subnetName"}}"
+$global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
+$global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
+$global:VmType = "{{GetVariable "vmType"}}"
+$global:SubnetName = "{{GetVariable "subnetName"}}"
 $global:MasterSubnet = "{{GetParameter "masterSubnet"}}" 
-$global:SecurityGroupName = "{{GetVariableProperty "customData" "nsgName"}}"
-$global:VNetName = "{{GetVariableProperty "customData" "virtualNetworkName"}}"
-$global:RouteTableName = "{{GetVariableProperty "customData" "routeTableName"}}"
-$global:PrimaryAvailabilitySetName = "{{GetVariableProperty "customData" "primaryAvailabilitySetName"}}"
-$global:PrimaryScaleSetName = "{{GetVariableProperty "customData" "primaryScaleSetName"}}"
+$global:SecurityGroupName = "{{GetVariable "nsgName"}}"
+$global:VNetName = "{{GetVariable "virtualNetworkName"}}"
+$global:RouteTableName = "{{GetVariable "routeTableName"}}"
+$global:PrimaryAvailabilitySetName = "{{GetVariable "primaryAvailabilitySetName"}}"
+$global:PrimaryScaleSetName = "{{GetVariable "primaryScaleSetName"}}"
 
 $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
@@ -4793,11 +4793,11 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
 
-$global:UseManagedIdentityExtension = "{{GetVariableProperty "customData" "useManagedIdentityExtension"}}"
-$global:UseInstanceMetadata = "{{GetVariableProperty "customData" "useInstanceMetadata"}}"
+$global:UseManagedIdentityExtension = "{{GetVariable "useManagedIdentityExtension"}}"
+$global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 
-$global:LoadBalancerSku = "{{GetVariableProperty "customData" "loadBalancerSku"}}"
-$global:ExcludeMasterFromStandardLB = "{{GetVariableProperty "customData" "excludeMasterFromStandardLB"}}"
+$global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
+$global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
 
 # Windows defaults, not changed by aks-engine
@@ -4824,21 +4824,21 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 
 # Telemetry settings
-$global:EnableTelemetry = [System.Convert]::ToBoolean("{{GetVariableProperty "customData" "enableTelemetry" }}");
-$global:TelemetryKey = "{{GetVariableProperty "customData" "applicationInsightsKey" }}";
+$global:EnableTelemetry = [System.Convert]::ToBoolean("{{GetVariable "enableTelemetry" }}");
+$global:TelemetryKey = "{{GetVariable "applicationInsightsKey" }}";
 
 # CSI Proxy settings
-$global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariableProperty "customData" "windowsEnableCSIProxy" }}");
-$global:CsiProxyUrl = "{{GetVariableProperty "customData" "windowsCSIProxyURL" }}";
+$global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
+$global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
 
 # Hosts Config Agent settings
 $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConfigAgent }}");
 
-$global:ProvisioningScriptsPackageUrl = "{{GetVariableProperty "customData" "windowsProvisioningScriptsPackageURL" }}";
+$global:ProvisioningScriptsPackageUrl = "{{GetVariable "windowsProvisioningScriptsPackageURL" }}";
 
 # PauseImage
-$global:WindowsPauseImageURL = "{{GetVariableProperty "customData" "windowsPauseImageURL" }}";
-$global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariableProperty "customData" "alwaysPullWindowsPauseImage" }}");
+$global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
+$global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"

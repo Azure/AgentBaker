@@ -10,10 +10,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-// getCustomDataVariables returns cloudinit data used by Linux and customdata used by Windows
+// getCustomDataVariables returns cloudinit data used by Linux
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
-	customDataVariables := map[string]interface{}{
+	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
 			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
@@ -29,28 +29,9 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
 		},
-		// customData defined here is mainly used for Windows
-		"customData": paramsMap{
-			"tenantID":                    config.TenantID,
-			"subscriptionId":              config.SubscriptionID,
-			"resourceGroup":               config.ResourceGroupName,
-			"location":                    cs.Location,
-			"vmType":                      cs.Properties.GetVMType(),
-			"subnetName":                  cs.Properties.GetSubnetName(),
-			"nsgName":                     cs.Properties.GetNSGName(),
-			"virtualNetworkName":          cs.Properties.GetVirtualNetworkName(),
-			"routeTableName":              cs.Properties.GetRouteTableName(),
-			"primaryAvailabilitySetName":  cs.Properties.GetPrimaryAvailabilitySetName(),
-			"primaryScaleSetName":         cs.Properties.GetPrimaryScaleSetName(),
-			"useManagedIdentityExtension": useManagedIdentity(cs),
-			"useInstanceMetadata":         useInstanceMetadata(cs),
-			"loadBalancerSku":             cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
-			"excludeMasterFromStandardLB": true,
-			"enableTelemetry":             cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
-		},
 	}
 
-	cloudInitData := customDataVariables["cloudInitData"].(paramsMap)
+	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
 		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 	}
@@ -72,7 +53,31 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
-	customData := customDataVariables["customData"].(paramsMap)
+	return cloudInitFiles
+}
+
+// getWindowsCustomDataVariables returns custom data for Windows
+func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+	cs := config.ContainerService
+	customData := map[string]interface{}{
+			"tenantID":                    config.TenantID,
+			"subscriptionId":              config.SubscriptionID,
+			"resourceGroup":               config.ResourceGroupName,
+			"location":                    cs.Location,
+			"vmType":                      cs.Properties.GetVMType(),
+			"subnetName":                  cs.Properties.GetSubnetName(),
+			"nsgName":                     cs.Properties.GetNSGName(),
+			"virtualNetworkName":          cs.Properties.GetVirtualNetworkName(),
+			"routeTableName":              cs.Properties.GetRouteTableName(),
+			"primaryAvailabilitySetName":  cs.Properties.GetPrimaryAvailabilitySetName(),
+			"primaryScaleSetName":         cs.Properties.GetPrimaryScaleSetName(),
+			"useManagedIdentityExtension": useManagedIdentity(cs),
+			"useInstanceMetadata":         useInstanceMetadata(cs),
+			"loadBalancerSku":             cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+			"excludeMasterFromStandardLB": true,
+			"enableTelemetry":             cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
+	}
+
 	if cs.Properties.HasWindows() {
 		customData["windowsEnableCSIProxy"] = cs.Properties.WindowsProfile.IsCSIProxyEnabled()
 		customData["windowsCSIProxyURL"] = cs.Properties.WindowsProfile.CSIProxyURL
@@ -81,7 +86,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		customData["alwaysPullWindowsPauseImage"] = strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage())
 	}
 
-	return customDataVariables
+	return customData
 }
 
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
@@ -113,7 +118,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
-		"enableTelemetry":                 cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
 	}
 }
 

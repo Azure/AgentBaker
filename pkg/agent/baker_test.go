@@ -50,9 +50,9 @@ func getFakeContainerService(k8sVersion string) *datamodel.ContainerService {
 				},
 			},
 			HostedMasterProfile: &datamodel.HostedMasterProfile{
-				DNSPrefix: "uttestdom",
-				FQDN:      "uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io",
-				Subnet:    "10.240.0.0/16",
+				DNSPrefix:   "uttestdom",
+				FQDN:        "uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io",
+				Subnet:      "10.240.0.0/16",
 				IPMasqAgent: true,
 			},
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{

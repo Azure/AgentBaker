@@ -64,7 +64,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	//get parameters
 	parameters := getParameters(config, "", "")
 	//get variable custom data
-	variables := getCustomDataVariables(config)
+	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
 
