@@ -25,6 +25,10 @@ copyPackerFiles() {
   PROFILE_D_CIS_SH_DEST=/etc/profile.d/CIS.sh
   AUDITD_RULES_SRC=/home/packer/auditd-rules
   AUDITD_RULES_DEST=/etc/audit/rules.d/CIS.rules
+  LABELS_SRC=/home/packer/labels.sh
+  LABELS_DEST=/opt/azure/containers/labels.sh
+  LABELS_SERVICE_SRC=/home/packer/labels.service
+  LABELS_SERVICE_DEST=/etc/systemd/system/labels.service
   LABEL_NODES_SRC=/home/packer/label-nodes.sh
   LABEL_NODES_DEST=/opt/azure/containers/label-nodes.sh
   LABEL_NODES_SERVICE_SRC=/home/packer/label-nodes.service
@@ -72,6 +76,8 @@ copyPackerFiles() {
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
   cpAndMode $AUDITD_RULES_SRC $AUDITD_RULES_DEST 640
+  cpAndMode $LABELS_SRC $LABELS_DEST 744
+  cpAndMode $LABELS_SERVICE_SRC $LABELS_SERVICE_DEST 644
   cpAndMode $LABEL_NODES_SRC $LABEL_NODES_DEST 744
   cpAndMode $LABEL_NODES_SERVICE_SRC $LABEL_NODES_SERVICE_DEST 644
   cpAndMode $CIS_SRC $CIS_DEST 744
