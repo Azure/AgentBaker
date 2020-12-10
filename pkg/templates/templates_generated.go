@@ -3870,18 +3870,18 @@ write_files:
         disable_snapshot_annotations = false
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runc.v2"
           {{- if IsNSeriesSKU .}}
+          runtime_type = "io.containerd.runtime.v1.linux
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
-          runtime_engine = "/usr/bin/runc"
+          runtime_type = "io.containerd.runc.v2"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runc.v2"
           {{- if IsNSeriesSKU .}}
+          runtime_type = "io.containerd.runtime.v1.linux
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
-          runtime_engine = "/usr/bin/runc"
+          runtime_type = "io.containerd.runc.v2"
           {{- end}}
       {{ if IsKubenet }}
       [plugins."io.containerd.grpc.v1.cri".cni]
