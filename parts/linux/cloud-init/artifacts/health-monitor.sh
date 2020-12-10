@@ -6,7 +6,6 @@
 set -o nounset
 set -o pipefail
 
-
 container_runtime_monitoring() {
   local -r max_attempts=5
   local attempt=1
