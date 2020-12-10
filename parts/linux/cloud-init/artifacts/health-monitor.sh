@@ -65,6 +65,15 @@ if [[ "$#" -lt 1 ]]; then
   exit 1
 fi
 
+component=$1
+if [[ "${component}" == "container-runtime" ]]; then
+  if [[ -z $2 ]]; then
+    echo "Usage: health-monitor.sh container-runtime <docker/containerd>"
+    exit 1
+  fi
+  container_runtime=$2
+fi
+
 KUBE_HOME="/usr/local/bin"
 KUBE_ENV="/etc/default/kube-env"
 if [[  -e "${KUBE_ENV}" ]]; then
@@ -72,15 +81,10 @@ if [[  -e "${KUBE_ENV}" ]]; then
 fi
 
 SLEEP_SECONDS=10
-component=$1
+
 echo "Start kubernetes health monitoring for ${component}"
 
 if [[ "${component}" == "container-runtime" ]]; then
-  if [[ -z $2 ]]; then
-    echo "Usage: health-monitor.sh container-runtime <docker/containerd>"
-    exit 1
-  fi
-  container_runtime=$2
   container_runtime_monitoring ${container_runtime}
 elif [[ "${component}" == "kubelet" ]]; then
   kubelet_monitoring
