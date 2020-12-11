@@ -153,7 +153,7 @@ function Install-Containerd {
     $sandboxIsolation = 1
   }
 
-  $template = Get-Content -Path "c:\AzureData\k8s\containerdtemplate.toml" 
+  $template = Get-Content -Path "c:\AzureData\windows\containerdtemplate.toml" 
   if ($sandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # remove the value hypervisor place holder
     $template = $template | Select-String -Pattern 'hypervisors' -NotMatch | Out-String
