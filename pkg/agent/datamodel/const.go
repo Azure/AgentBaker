@@ -11,9 +11,11 @@ const (
 
 const (
 	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
-	KubernetesWindowsDockerVersion = "19.03.5"
+	KubernetesWindowsDockerVersion = "19.03.11"
 	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
 	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
+	// KubernetesDefaultContainerdWindowsSandboxIsolation is the default containerd handler for windows pods
+	KubernetesDefaultContainerdWindowsSandboxIsolation = "process"
 )
 
 // Availability profiles
@@ -59,6 +61,8 @@ const (
 )
 
 const (
+	// DefaultEnableCSIProxyWindows determines if CSI proxy should be enabled by default for Windows nodes
+	DefaultEnableCSIProxyWindows = false
 	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
 	DefaultWindowsSSHEnabled = true
 )
@@ -66,6 +70,8 @@ const (
 const (
 	// AzureChinaCloud is a const string reference identifier for china cloud
 	AzureChinaCloud = "AzureChinaCloud"
+	// AzureStackCloud is a const string reference identifier for Azure Stack cloud
+	AzureStackCloud = "AzureStackCloud"
 )
 
 const (

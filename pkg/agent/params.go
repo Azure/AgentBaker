@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -14,9 +15,6 @@ import (
 func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	if profile.IsWindows() {
-		profile = nil
-	}
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
@@ -40,7 +38,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
 	}
 	if properties.HostedMasterProfile != nil {
-		addValue(parametersMap, "masterSubnet", properties.HostedMasterProfile.Subnet)
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
 	}
 
@@ -63,6 +60,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	}
 
 	// Agent parameters
+	isSetVnetCidrs := false
 	for _, agentProfile := range properties.AgentPoolProfiles {
 		addValue(parametersMap, fmt.Sprintf("%sCount", agentProfile.Name), agentProfile.Count)
 		addValue(parametersMap, fmt.Sprintf("%sVMSize", agentProfile.Name), agentProfile.VMSize)
@@ -83,47 +81,21 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 			addValue(parametersMap, fmt.Sprintf("%sScaleSetEvictionPolicy", agentProfile.Name), agentProfile.ScaleSetEvictionPolicy)
 		}
 
-		// Unless distro is defined, default distro is configured by defaults#setAgentProfileDefaults
-		//   Ignores Windows OS
-		if !(agentProfile.OSType == datamodel.Windows) {
-			if agentProfile.ImageRef != nil {
-				addValue(parametersMap, fmt.Sprintf("%sosImageName", agentProfile.Name), agentProfile.ImageRef.Name)
-				addValue(parametersMap, fmt.Sprintf("%sosImageResourceGroup", agentProfile.Name), agentProfile.ImageRef.ResourceGroup)
-			}
-			addValue(parametersMap, fmt.Sprintf("%sosImageOffer", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImageOffer)
-			addValue(parametersMap, fmt.Sprintf("%sosImageSKU", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImageSku)
-			addValue(parametersMap, fmt.Sprintf("%sosImagePublisher", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImagePublisher)
-			addValue(parametersMap, fmt.Sprintf("%sosImageVersion", agentProfile.Name), cloudSpecConfig.OSImageConfig[datamodel.Distro(agentProfile.Distro)].ImageVersion)
+		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {
+			// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
+			// added into the ExceptionList of Windows nodes. Otherwise, the default value `10.0.0.0/8` will
+			// be added into the ExceptionList and it does not work if users use other ip address ranges.
+			// All agent pools in the same cluster share a same VnetCidrs so we only need to set the first non-empty VnetCidrs.
+			addValue(parametersMap, "vnetCidr", strings.Join(agentProfile.VnetCidrs, ","))
+			isSetVnetCidrs = true
 		}
 	}
 
 	// Windows parameters
 	if properties.HasWindows() {
-		addValue(parametersMap, "windowsAdminUsername", properties.WindowsProfile.AdminUsername)
-		addSecret(parametersMap, "windowsAdminPassword", properties.WindowsProfile.AdminPassword, false)
-
-		if properties.WindowsProfile.HasCustomImage() {
-			addValue(parametersMap, "agentWindowsSourceUrl", properties.WindowsProfile.WindowsImageSourceURL)
-		} else if properties.WindowsProfile.HasImageRef() {
-			addValue(parametersMap, "agentWindowsImageResourceGroup", properties.WindowsProfile.ImageRef.ResourceGroup)
-			addValue(parametersMap, "agentWindowsImageName", properties.WindowsProfile.ImageRef.Name)
-		} else {
-			addValue(parametersMap, "agentWindowsPublisher", properties.WindowsProfile.WindowsPublisher)
-			addValue(parametersMap, "agentWindowsOffer", properties.WindowsProfile.WindowsOffer)
-			addValue(parametersMap, "agentWindowsSku", properties.WindowsProfile.GetWindowsSku())
-			addValue(parametersMap, "agentWindowsVersion", properties.WindowsProfile.ImageVersion)
-
-		}
-
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
-
-		for i, s := range properties.WindowsProfile.Secrets {
-			addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%d", i), s.SourceVault.ID)
-			for j, c := range s.VaultCertificates {
-				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
-				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateStore%d", i, j), c.CertificateStore)
-			}
-		}
+		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation", properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
+		addValue(parametersMap, "containerdWindowsRuntimeHandlers", properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
 	}
 
 	for _, extension := range properties.ExtensionProfiles {
@@ -235,9 +207,12 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				// Kubernetes node binaries as packaged by upstream kubernetes
 				// example at https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.11.md#node-binaries-1
 				addValue(parametersMap, "windowsKubeBinariesURL", kubernetesConfig.WindowsNodeBinariesURL)
+				addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
 				addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
 				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
 				addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
+				addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
+
 			}
 		}
 

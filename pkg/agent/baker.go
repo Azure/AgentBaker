@@ -63,8 +63,8 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	profile := config.AgentPoolProfile
 	//get parameters
 	parameters := getParameters(config, "", "")
-	//get variable cloudInit
-	variables := getCustomDataVariables(config)
+	//get variable custom data
+	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
 
@@ -85,7 +85,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 // GetNodeBootstrappingCmd get node bootstrapping cmd
 func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return t.getWindowsNodeCustomDataJSONObject(config)
+		return t.getWindowsNodeCSECommand(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -109,6 +109,44 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
 	return strings.Replace(str, "\n", " ", -1)
+}
+
+// getWindowsNodeCSECommand returns Windows node custom script extension execution command
+func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
+	var userAssignedIdentityClientIDParams string
+	if config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig != nil {
+		isUserAssignedIdentity := config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
+		if isUserAssignedIdentity {
+			userAssignedIdentityClientIDParams = "' -UserAssignedClientID ',reference(variables('userAssignedIDReference'), variables('apiVersionManagedIdentity')).clientId,"
+		}
+	}
+	commandExecStr := fmt.Sprintf("[concat('echo %s && powershell.exe -ExecutionPolicy Unrestricted -command \"', '$arguments = ', variables('singleQuote'),'-MasterIP ',variables('kubernetesAPIServerIP'),' -KubeDnsServiceIp ',parameters('kubeDnsServiceIp'),%s' -MasterFQDNPrefix ',variables('masterFqdnPrefix'),' -Location ',variables('location'),' -TargetEnvironment ',parameters('targetEnvironment'),' -AgentKey ',parameters('clientPrivateKey'),' -AADClientId ',variables('servicePrincipalClientId'),' -AADClientSecret ',variables('singleQuote'),variables('singleQuote'),base64(variables('servicePrincipalClientSecret')),variables('singleQuote'),variables('singleQuote'),' -NetworkAPIVersion ',variables('apiVersionNetwork'),' ',variables('singleQuote'), ' ; ', variables('windowsCustomScriptSuffix'), '\" > %s 2>&1 ; exit $LASTEXITCODE')]", "%DATE%,%TIME%,%COMPUTERNAME%", userAssignedIdentityClientIDParams, "%SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.log")
+	return commandExecStr
+	// TODO(mainred): replace ARM template with go template to generate CSE command string
+	/*
+		//get parameters
+		parameters := getParameters(config, "", "")
+		//get variable
+		variables := getCSECommandVariables(config)
+
+		//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+		str, e := t.getSingleLine(
+			kubernetesWindowsAgentCSECommandPS1,
+			config.AgentPoolProfile,
+			t.getBakerFuncMap(config, parameters, variables),
+		)
+
+		if e != nil {
+			panic(e)
+		}
+		// NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in [csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1)
+		// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
+		str = strings.Replace(str, `\"`, `"`, -1)
+
+		// NOTE: we break the one-line CSE command into different lines in a file for better management
+		// so we need to combine them into one line here
+		return strings.Replace(str, "\n", " ", -1)
+	*/
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template
@@ -246,9 +284,6 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	if profile.IsWindows() {
-		profile = nil
-	}
 	return template.FuncMap{
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
@@ -347,9 +382,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
 		},
-		"GetWindowsMasterSubnetARMParam": func() string {
-			return getWindowsMasterSubnetARMParam()
-		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""
 			if profile.PreprovisionExtension != nil {
@@ -366,10 +398,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var parts = []string{
 				kubernetesWindowsAgentFunctionsPS1,
 				kubernetesWindowsConfigFunctionsPS1,
+				kubernetesWindowsContainerdFunctionsPS1,
+				kubernetesWindowsCsiProxyFunctionsPS1,
 				kubernetesWindowsKubeletFunctionsPS1,
 				kubernetesWindowsCniFunctionsPS1,
 				kubernetesWindowsAzureCniFunctionsPS1,
-				kubernetesWindowsOpenSSHFunctionPS1}
+				kubernetesWindowsHostsConfigAgentFunctionsPS1,
+				kubernetesWindowsOpenSSHFunctionPS1,
+				kubernetesWindowsHypervtemplatetoml,
+			}
 
 			// Create a buffer, new zip
 			buf := new(bytes.Buffer)
@@ -471,6 +508,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
+		},
+		"GetBase64EncodedEnvironmentJSON": func() string {
+			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
+			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
 		},
 		"GetIdentitySystem": func() string {
 			return datamodel.AzureADIdentitySystem

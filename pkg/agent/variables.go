@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
+// getCustomDataVariables returns cloudinit data used by Linux
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
@@ -53,6 +54,38 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	}
 
 	return cloudInitFiles
+}
+
+// getWindowsCustomDataVariables returns custom data for Windows
+// TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables from cse command to customdata
+func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+	cs := config.ContainerService
+	// these variables is subet of
+	customData := map[string]interface{}{
+		"tenantID":                             config.TenantID,
+		"subscriptionId":                       config.SubscriptionID,
+		"resourceGroup":                        config.ResourceGroupName,
+		"location":                             cs.Location,
+		"vmType":                               cs.Properties.GetVMType(),
+		"subnetName":                           cs.Properties.GetSubnetName(),
+		"nsgName":                              cs.Properties.GetNSGName(),
+		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
+		"routeTableName":                       cs.Properties.GetRouteTableName(),
+		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
+		"primaryScaleSetName":                  cs.Properties.GetPrimaryScaleSetName(),
+		"useManagedIdentityExtension":          useManagedIdentity(cs),
+		"useInstanceMetadata":                  useInstanceMetadata(cs),
+		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+		"excludeMasterFromStandardLB":          true,
+		"enableTelemetry":                      false,
+		"windowsEnableCSIProxy":                cs.Properties.WindowsProfile.IsCSIProxyEnabled(),
+		"windowsCSIProxyURL":                   cs.Properties.WindowsProfile.CSIProxyURL,
+		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
+		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
+		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
+	}
+
+	return customData
 }
 
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
