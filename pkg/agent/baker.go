@@ -382,9 +382,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
 		},
-		"GetWindowsMasterSubnetARMParam": func() string {
-			return getWindowsMasterSubnetARMParam()
-		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""
 			if profile.PreprovisionExtension != nil {

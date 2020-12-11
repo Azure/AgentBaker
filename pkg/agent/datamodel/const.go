@@ -14,8 +14,8 @@ const (
 	KubernetesWindowsDockerVersion = "19.03.11"
 	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
 	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
-	// KubernetesDefaultWindowsRuntimeHandler is the default containerd handler for windows pods
-	KubernetesDefaultWindowsRuntimeHandler = "process"
+	// KubernetesDefaultContainerdWindowsSandboxIsolation is the default containerd handler for windows pods
+	KubernetesDefaultContainerdWindowsSandboxIsolation = "process"
 )
 
 // Availability profiles

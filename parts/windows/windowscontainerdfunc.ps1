@@ -145,10 +145,10 @@ function Install-Containerd {
   $sandboxIsolation = 0
   $windowsVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId
   $hypervRuntimes = ""
-  $hypervHandlers = $global:HypervRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
+  $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
 
   # configure
-  if ($global:DefaultContainerdRuntimeHandler -eq "hyperv") {
+  if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
     Write-Log "default runtime for containerd set to hyperv"
     $sandboxIsolation = 1
   }

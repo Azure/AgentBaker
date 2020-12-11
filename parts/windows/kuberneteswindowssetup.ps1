@@ -76,19 +76,19 @@ $global:DockerVersion = "{{GetParameter "windowsDockerVersion"}}"
 
 ## ContainerD Usage
 $global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
-$global:DefaultContainerdRuntimeHandler = "{{GetParameter "defaultContainerdRuntimeHandler"}}"
-$global:HypervRuntimeHandlers = "{{GetParameter "hypervRuntimeHandlers"}}"
+$global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultContainerdWindowsSandboxIsolation"}}"
+$global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
 # To support newer Windows OS version, we need to support set ContainerRuntime,
-# HypervRuntimeHandlers and DefaultContainerdRuntimeHandler per agent pool but
+# ContainerdWindowsRuntimeHandlers and DefaultContainerdWindowsSandboxIsolation per agent pool but
 # current code does not support this. Below is a workaround to set contianer
 # runtime variables per Windows OS version.
 #
 # Set default values for container runtime variables for AKS Windows 2004
 if ($([System.Environment]::OSVersion.Version).Build -eq "19041") {
     $global:ContainerRuntime = "containerd"
-    $global:HypervRuntimeHandlers = "17763,19041"
-    $global:DefaultContainerdRuntimeHandler = "process"
+    $global:ContainerdWindowsRuntimeHandlers = "17763,19041"
+    $global:DefaultContainerdWindowsSandboxIsolation = "process"
 }
 
 ## VM configuration passed by Azure
@@ -102,7 +102,9 @@ $global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
 $global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
 $global:VmType = "{{GetVariable "vmType"}}"
 $global:SubnetName = "{{GetVariable "subnetName"}}"
-$global:MasterSubnet = "{{GetParameter "masterSubnet"}}" 
+# NOTE: MasterSubnet is still referenced by `kubeletstart.ps1` and `windowsnodereset.ps1`
+# for case of Kubenet
+$global:MasterSubnet = ""
 $global:SecurityGroupName = "{{GetVariable "nsgName"}}"
 $global:VNetName = "{{GetVariable "virtualNetworkName"}}"
 $global:RouteTableName = "{{GetVariable "routeTableName"}}"
@@ -411,7 +413,6 @@ try
             Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
                 -KubeDnsSearchPath $global:KubeDnsSearchPath `
                 -KubeClusterCIDR $global:KubeClusterCIDR `
-                -MasterSubnet $global:MasterSubnet `
                 -KubeServiceCIDR $global:KubeServiceCIDR `
                 -VNetCIDR $global:VNetCIDR `
                 -IsDualStackEnabled $global:IsDualStackEnabled

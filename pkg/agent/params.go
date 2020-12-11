@@ -38,7 +38,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
 	}
 	if properties.HostedMasterProfile != nil {
-		addValue(parametersMap, "masterSubnet", properties.HostedMasterProfile.Subnet)
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
 	}
 
@@ -95,8 +94,8 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	// Windows parameters
 	if properties.HasWindows() {
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
-		addValue(parametersMap, "defaultContainerdRuntimeHandler", properties.WindowsProfile.GetWindowsDefaultRuntimeHandler())
-		addValue(parametersMap, "hypervRuntimeHandlers", properties.WindowsProfile.GetWindowsHypervRuntimeHandlers())
+		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation", properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
+		addValue(parametersMap, "containerdWindowsRuntimeHandlers", properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
 	}
 
 	for _, extension := range properties.ExtensionProfiles {

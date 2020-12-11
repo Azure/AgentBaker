@@ -63,8 +63,6 @@ Set-AzureCNIConfig
         [Parameter(Mandatory=$true)][string]
         $KubeClusterCIDR,
         [Parameter(Mandatory=$true)][string]
-        $MasterSubnet,
-        [Parameter(Mandatory=$true)][string]
         $KubeServiceCIDR,
         [Parameter(Mandatory=$true)][string]
         $VNetCIDR,
@@ -74,10 +72,10 @@ Set-AzureCNIConfig
     # Fill in DNS information for kubernetes.
     if ($IsDualStackEnabled){
         $subnetToPass = $KubeClusterCIDR -split ","
-        $exceptionAddresses = @($subnetToPass[0], $MasterSubnet)
+        $exceptionAddresses = @($subnetToPass[0])
     }
     else {
-        $exceptionAddresses = @($KubeClusterCIDR, $MasterSubnet)
+        $exceptionAddresses = @($KubeClusterCIDR)
     }
     $vnetCIDRs = $VNetCIDR -split ","
     foreach ($cidr in $vnetCIDRs) {
