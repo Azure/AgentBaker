@@ -94,10 +94,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Windows parameters
 	if properties.HasWindows() {
-		if properties.WindowsProfile.HasCustomImage() {
-			addValue(parametersMap, "agentWindowsSourceUrl", properties.WindowsProfile.WindowsImageSourceURL)
-		}
-
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
 		addValue(parametersMap, "defaultContainerdRuntimeHandler", properties.WindowsProfile.GetWindowsDefaultRuntimeHandler())
 		addValue(parametersMap, "hypervRuntimeHandlers", properties.WindowsProfile.GetWindowsHypervRuntimeHandlers())

@@ -292,9 +292,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
 			Properties: &datamodel.Properties{
-				TelemetryProfile: &datamodel.TelemetryProfile{
-					ApplicationInsightsKey: "c92d8284-b550-4b06-b7ba-e80fd7178faa",
-				},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    datamodel.Kubernetes,
 					OrchestratorVersion: k8sVersion,

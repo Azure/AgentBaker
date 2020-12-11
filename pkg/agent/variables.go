@@ -57,33 +57,32 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 }
 
 // getWindowsCustomDataVariables returns custom data for Windows
+// TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables from cse command to customdata
 func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
+	// these variables is subet of
 	customData := map[string]interface{}{
-			"tenantID":                    config.TenantID,
-			"subscriptionId":              config.SubscriptionID,
-			"resourceGroup":               config.ResourceGroupName,
-			"location":                    cs.Location,
-			"vmType":                      cs.Properties.GetVMType(),
-			"subnetName":                  cs.Properties.GetSubnetName(),
-			"nsgName":                     cs.Properties.GetNSGName(),
-			"virtualNetworkName":          cs.Properties.GetVirtualNetworkName(),
-			"routeTableName":              cs.Properties.GetRouteTableName(),
-			"primaryAvailabilitySetName":  cs.Properties.GetPrimaryAvailabilitySetName(),
-			"primaryScaleSetName":         cs.Properties.GetPrimaryScaleSetName(),
-			"useManagedIdentityExtension": useManagedIdentity(cs),
-			"useInstanceMetadata":         useInstanceMetadata(cs),
-			"loadBalancerSku":             cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
-			"excludeMasterFromStandardLB": true,
-			"enableTelemetry":             cs.Properties.FeatureFlags.IsFeatureEnabled("EnableTelemetry"),
-	}
-
-	if cs.Properties.HasWindows() {
-		customData["windowsEnableCSIProxy"] = cs.Properties.WindowsProfile.IsCSIProxyEnabled()
-		customData["windowsCSIProxyURL"] = cs.Properties.WindowsProfile.CSIProxyURL
-		customData["windowsProvisioningScriptsPackageURL"] = cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL
-		customData["windowsPauseImageURL"] = cs.Properties.WindowsProfile.WindowsPauseImageURL
-		customData["alwaysPullWindowsPauseImage"] = strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage())
+		"tenantID":                             config.TenantID,
+		"subscriptionId":                       config.SubscriptionID,
+		"resourceGroup":                        config.ResourceGroupName,
+		"location":                             cs.Location,
+		"vmType":                               cs.Properties.GetVMType(),
+		"subnetName":                           cs.Properties.GetSubnetName(),
+		"nsgName":                              cs.Properties.GetNSGName(),
+		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
+		"routeTableName":                       cs.Properties.GetRouteTableName(),
+		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
+		"primaryScaleSetName":                  cs.Properties.GetPrimaryScaleSetName(),
+		"useManagedIdentityExtension":          useManagedIdentity(cs),
+		"useInstanceMetadata":                  useInstanceMetadata(cs),
+		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+		"excludeMasterFromStandardLB":          true,
+		"enableTelemetry":                      false,
+		"windowsEnableCSIProxy":                cs.Properties.WindowsProfile.IsCSIProxyEnabled(),
+		"windowsCSIProxyURL":                   cs.Properties.WindowsProfile.CSIProxyURL,
+		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
+		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
+		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
 	}
 
 	return customData
