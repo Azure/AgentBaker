@@ -343,7 +343,7 @@ type WindowsProfile struct {
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
 type ContainerdWindowsRuntimes struct {
 	DefaultSandboxIsolation string            `json:"defaultSandboxIsolation,omitempty"`
-	RuntimeHandlers         []RuntimeHandlers `json:"runtimesHandlers,omitempty"`
+	RuntimeHandlers         []RuntimeHandlers `json:"runtimeHandlers,omitempty"`
 }
 
 // RuntimeHandlers configures the runtime settings in containerd
@@ -1129,18 +1129,12 @@ func (w *WindowsProfile) HasImageRef() bool {
 
 // GetWindowsSku gets the marketplace sku specified (such as Datacenter-Core-1809-with-Containers-smalldisk) or returns default value
 func (w *WindowsProfile) GetWindowsSku() string {
-	if w.WindowsSku != "" {
-		return w.WindowsSku
-	}
-	return KubernetesDefaultWindowsSku
+	return w.WindowsSku
 }
 
 // GetWindowsDockerVersion gets the docker version specified or returns default value
 func (w *WindowsProfile) GetWindowsDockerVersion() string {
-	if w.WindowsDockerVersion != "" {
-		return w.WindowsDockerVersion
-	}
-	return KubernetesWindowsDockerVersion
+	return w.WindowsDockerVersion
 }
 
 // GetDefaultContainerdWindowsSandboxIsolation gets the default containerd runtime handler or return default value
@@ -1148,8 +1142,6 @@ func (w *WindowsProfile) GetDefaultContainerdWindowsSandboxIsolation() string {
 	if w.ContainerdWindowsRuntimes != nil && w.ContainerdWindowsRuntimes.DefaultSandboxIsolation != "" {
 		return w.ContainerdWindowsRuntimes.DefaultSandboxIsolation
 	}
-
-	return KubernetesDefaultContainerdWindowsSandboxIsolation
 }
 
 // GetContainerdWindowsRuntimeHandlers gets comma separated list of runtimehandler names
