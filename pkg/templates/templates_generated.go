@@ -3869,40 +3869,44 @@ write_files:
     [plugins."io.containerd.grpc.v1.cri"]
       sandbox_image = "{{GetPodInfraContainerSpec}}"
       [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{ if TeleportEnabled }}
+        {{- if TeleportEnabled }}
         snapshotter = "teleportd"
         disable_snapshot_annotations = false
-        {{ end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
+        {{- end}}
+        default_runtime_name = "runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
           {{- if IsNSeriesSKU .}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
+          {{- else }}
+          runtime_type = "io.containerd.runc.v2"
+          {{- end }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           {{- if IsNSeriesSKU .}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-      {{ if IsKubenet }}
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- else }}
+          runtime_type = "io.containerd.runc.v2"
+          {{- end }}
+        {{- /* For nvidia-runtime use v1.linux shim */}}
+        {{- if IsNSeriesSKU .}}
+        [plugins."io.containerd.runtime.v1.linux"]
+          runtime = "/usr/bin/nvidia-container-runtime"
+        {{- end}}
+      {{- if IsKubenet }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
-      {{ end}}
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
       address = "127.0.0.1:10257"
-    {{ if TeleportEnabled }}
+    {{- if TeleportEnabled }}
     [proxy_plugins]
       [proxy_plugins.teleportd]
         type = "snapshot"
         address = "/run/teleportd/snapshotter.sock"
-    {{ end}}
+    {{- end}}
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
