@@ -95,6 +95,20 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
+- path: /opt/azure/containers/labels.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "labelsScript"}}
+
+- path: /etc/systemd/system/labels.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "labelsSystemdService"}}
+
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
   permissions: "0544"
