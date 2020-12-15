@@ -60,14 +60,22 @@ const (
 )
 
 const (
-	// Windows custom scripts
-	kubernetesWindowsAgentCustomDataPS1   = "windows/kuberneteswindowssetup.ps1"
-	kubernetesWindowsAgentFunctionsPS1    = "windows/kuberneteswindowsfunctions.ps1"
-	kubernetesWindowsConfigFunctionsPS1   = "windows/windowsconfigfunc.ps1"
-	kubernetesWindowsKubeletFunctionsPS1  = "windows/windowskubeletfunc.ps1"
-	kubernetesWindowsCniFunctionsPS1      = "windows/windowscnifunc.ps1"
-	kubernetesWindowsAzureCniFunctionsPS1 = "windows/windowsazurecnifunc.ps1"
-	kubernetesWindowsOpenSSHFunctionPS1   = "windows/windowsinstallopensshfunc.ps1"
+	// kubernetesWindowsAgentCSECommandPS1 privides the command of Windows CSE
+	kubernetesWindowsAgentCSECommandPS1 = "windows/csecmd.ps1"
+	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
+	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
+	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
+
+	kubernetesWindowsAgentFunctionsPS1            = "windows/kuberneteswindowsfunctions.ps1"
+	kubernetesWindowsConfigFunctionsPS1           = "windows/windowsconfigfunc.ps1"
+	kubernetesWindowsContainerdFunctionsPS1       = "windows/windowscontainerdfunc.ps1"
+	kubernetesWindowsCsiProxyFunctionsPS1         = "windows/windowscsiproxyfunc.ps1"
+	kubernetesWindowsKubeletFunctionsPS1          = "windows/windowskubeletfunc.ps1"
+	kubernetesWindowsCniFunctionsPS1              = "windows/windowscnifunc.ps1"
+	kubernetesWindowsAzureCniFunctionsPS1         = "windows/windowsazurecnifunc.ps1"
+	kubernetesWindowsHostsConfigAgentFunctionsPS1 = "windows/windowshostsconfigagentfunc.ps1"
+	kubernetesWindowsOpenSSHFunctionPS1           = "windows/windowsinstallopensshfunc.ps1"
+	kubernetesWindowsHypervtemplatetoml           = "windows/containerdtemplate.toml"
 )
 
 // cloud-init (i.e. ARM customData) source file references
@@ -83,23 +91,25 @@ const (
 	kubernetesHealthMonitorScript = "linux/cloud-init/artifacts/health-monitor.sh"
 	kubernetesConfigAzure0Script  = "linux/cloud-init/artifacts/configure_azure0.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
-	kubernetesKubeletMonitorSystemdService = "linux/cloud-init/artifacts/kubelet-monitor.service"
-	kubernetesDockerMonitorSystemdTimer    = "linux/cloud-init/artifacts/docker-monitor.timer"
-	kubernetesDockerMonitorSystemdService  = "linux/cloud-init/artifacts/docker-monitor.service"
-	labelsScript                           = "linux/cloud-init/artifacts/labels.sh"      // Note(charliedmcb): I have not completely followed this path. There might be more that has to be added
-	labelsSystemdService                   = "linux/cloud-init/artifacts/labels.service" // Note(charliedmcb): I have not completely followed this path. There might be more that has to be added
-	labelNodesScript                       = "linux/cloud-init/artifacts/label-nodes.sh"
-	labelNodesSystemdService               = "linux/cloud-init/artifacts/label-nodes.service"
-	kubernetesCustomSearchDomainsScript    = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
-	kubeletSystemdService                  = "linux/cloud-init/artifacts/kubelet.service"
-	kmsSystemdService                      = "linux/cloud-init/artifacts/kms.service"
-	aptPreferences                         = "linux/cloud-init/artifacts/apt-preferences"
-	dockerClearMountPropagationFlags       = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"
-	systemdBPFMount                        = "linux/cloud-init/artifacts/sys-fs-bpf.mount"
-	etcdSystemdService                     = "linux/cloud-init/artifacts/etcd.service"
-	auditdRules                            = "linux/cloud-init/artifacts/auditd-rules"
-	reconcilePrivateHostsScript            = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
-	reconcilePrivateHostsService           = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
+	kubernetesKubeletMonitorSystemdService    = "linux/cloud-init/artifacts/kubelet-monitor.service"
+	kubernetesDockerMonitorSystemdTimer       = "linux/cloud-init/artifacts/docker-monitor.timer"
+	kubernetesDockerMonitorSystemdService     = "linux/cloud-init/artifacts/docker-monitor.service"
+	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
+	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
+	labelsScript                              = "linux/cloud-init/artifacts/labels.sh"      // Note(charliedmcb): I have not completely followed this path. There might be more that has to be added
+	labelsSystemdService                      = "linux/cloud-init/artifacts/labels.service" // Note(charliedmcb): I have not completely followed this path. There might be more that has to be added
+	labelNodesScript                          = "linux/cloud-init/artifacts/label-nodes.sh"
+	labelNodesSystemdService                  = "linux/cloud-init/artifacts/label-nodes.service"
+	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
+	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
+	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
+	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"
+	dockerClearMountPropagationFlags          = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"
+	systemdBPFMount                           = "linux/cloud-init/artifacts/sys-fs-bpf.mount"
+	etcdSystemdService                        = "linux/cloud-init/artifacts/etcd.service"
+	auditdRules                               = "linux/cloud-init/artifacts/auditd-rules"
+	reconcilePrivateHostsScript               = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
+	reconcilePrivateHostsService              = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
 
 	// scripts and service for enabling ipv6 dual stack
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"

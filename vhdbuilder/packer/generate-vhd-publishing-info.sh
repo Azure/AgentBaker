@@ -14,8 +14,13 @@ required_env_vars=(
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
-        echo "$v was not set!"
-        exit 1
+        if [ "$v" == "IMAGE_VERSION" ]; then
+           IMAGE_VERSION="date +%Y.%m.%d"
+           echo "$v was not set, set it to ${!v}"
+        else
+            echo "$v was not set!"
+            exit 1
+        fi
     fi
 done
 

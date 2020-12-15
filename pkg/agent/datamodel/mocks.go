@@ -127,6 +127,45 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 	return p
 }
 
+func getMockProperitesWithCustomClouEnv() Properties {
+	properties := Properties{
+		CustomCloudEnv: &CustomCloudEnv{
+			Name:                         "akscustom",
+			McrURL:                       "mcr.microsoft.fakecustomcloud",
+			RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+			ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+			PublishSettingsURL:           "",
+			ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+			ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+			ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+			GalleryEndpoint:              "",
+			KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+			GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+			ServiceBusEndpoint:           "",
+			BatchManagementEndpoint:      "",
+			StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+			SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+			TrafficManagerDNSSuffix:      "",
+			KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+			ServiceBusEndpointSuffix:     "",
+			ServiceManagementVMDNSSuffix: "",
+			ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+			ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+			CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+			TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+			ResourceIdentifiers: ResourceIdentifiers{
+				Graph:               "",
+				KeyVault:            "",
+				Datalake:            "",
+				Batch:               "",
+				OperationalInsights: "",
+				Storage:             "",
+			},
+		},
+	}
+	return properties
+}
+
 func getMockAddon(name string) KubernetesAddon {
 	return KubernetesAddon{
 		Name: name,

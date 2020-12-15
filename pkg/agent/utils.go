@@ -303,10 +303,6 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	return str
 }
 
-func getWindowsMasterSubnetARMParam() string {
-	return fmt.Sprintf("',parameters('masterSubnet'),'")
-}
-
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support
 func IsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
