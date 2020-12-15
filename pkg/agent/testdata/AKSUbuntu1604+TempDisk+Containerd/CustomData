@@ -113,8 +113,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            "ipMasq": true,
-            "promisMode": true,
+            "ipMasq": false,
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
