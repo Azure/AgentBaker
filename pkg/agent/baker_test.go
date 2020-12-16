@@ -250,6 +250,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "10.244.0.0/16,10.0.128.0/24,10.0.0.0/26"
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 		}),
+		Entry("AKSUbuntu1804 with containerd and kubenet cni and ipmasqagent", "AKSUbuntu1804+Containerd+Kubenet+ipmasqagent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "10.244.0.0/16,10.0.128.0/24,10.0.0.0/26"
+			//config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.Addons = []datamodel.KubernetesAddon{{Name: "ip-masq-agent", Enabled: to.BoolPtr(true)}}
+		}),
 		Entry("AKSUbuntu1804 with containerd and teleport enabled", "AKSUbuntu1804+Containerd+Teleport", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableACRTeleportPlugin = true
 			config.TeleportdPluginURL = "some url"
