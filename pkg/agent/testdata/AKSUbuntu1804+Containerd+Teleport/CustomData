@@ -54,7 +54,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4yTT08bMRDF7/sprIhDezCG/rkU+QBloRERRWwQhxBFXu8kGcU73trjEFr63atNCJAQpO5pd/x+783a48ENIQ+zU4g2YMPoSV+kEhxw9t1ThW3lyvA0X2DkqFWKQTlvjVMlkpo9SbNsUECYo4Vhdg2RTWBt3L15iFlOcwyeaiA+QwdaAVtVwdgkx898kayFGPMFcsGGU9SHXz5n+QJs0XpdBdDLvNLEqVC+YWV+pwDKemKDBCGurfbjdAdXzyoMQjZCzU1QDsvn5P/RWsL3epFWdHAsBmLvQ+0TsXgUkwCNuOtsJ911xKO4t0K6j0I6EAdiKI4ET4HEKnaJS1kiVW/afFs4EmPs7Or+yaY2M5BxagK8dcs2OaliS0LJpnQQhWRBpvVwGHmnFJttKaUaAto1tJWwNTXW0xgnKcBoeYoH7Zm9AO/MmLjLxNMjJVCbLyOEOYSNFfIVSGdKcFF39v5c3Jzkvbw/uvx5mo96xyd5r/jb2QDm+pOQ8nmQZEjEWIMOUHsGIdcFGeBXgsiy/fCJ9eHXehcogarGI7FOhItvSqmQ6GVQq1ev+9Hb2WYz3qUaZOPSBElWGFbXpd2CQMAQ1UqxEsRX7N76T896x+fFroXr/Lxb9PPr5V7sKN92+z9G/ePuZb/IskGXIhvnhtmtIYbq5EHXyTHKFCHsswkT4H8BAAD//5yxbXI7BAAA
+    H4sIAAAAAAAA/4yTT0/jPBDG7/kUVsXhfQ/GsH8ui3KAJbAVFYtIEYdSVU4ybUd1xsEzLmWX/e6rtBRoKdLmlIyf3zxP7PHghlCGySlwGbAR9JRexAIcSPLdU4Vt5crKNFsgC6cmcjDOl9aZAsnMnqVJMsghzLGEYXINLDZIat2DfeQkozkGTzWQnKGD1ICUpoKxjU5e+DyWJTBnC5RcrEROD798TrIFlHnb6ypAuvQrLE+V8Y0Y+ysGMKUnsUgQeN1qn6c7uHpWYVC6UWZug3FYvDj/i7Yk/CiLLlUHx2qg9v6rfSRRT2oSoFF3nW2nu456Ug+l0u5/pR2oAzVUR0qmQGplu8S1LpCqdzHfF47UGDu70j+3qe0MNE9tgPfdkk1OG25JKMQWDlhpUWTbHg5Zdkqx2ZZSrCFguYa2HLampvQ0xkkMMFqe4sHmmXmWj4Ha8v0oRAfcQq/UB4Op7hL1/GgN1IbWDGEOYWOFfAXa2QIcp5293xc3J1kv648uf55mo97xSdbL/3Q2gHn6SWn9Mn06RBKsIQ1QewGl1wUd4D4Ci24/fJT08Gu9C9RAVeORJI2Ei2/GmBDpdbqrN6/77MvZZhjvYg26cXGCpCsMqzvWbkEgEGCzUqwE/IbdW//pWe/4PN+1cJ2dd/N+dr3cix3l227/x6h/3L3s50ky6BKLdW6Y3FoSqE4e0zo6QR0Zwr7YMAH5GwAA//9KUYJUcAQAAA==
 
 
 
@@ -182,6 +182,20 @@ write_files:
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
+    #EOF
+- path: /usr/local/bin/configure_masq_rules.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    set -pipefail
+    # we are currently enable ipmasq for kubenet cni with containerd which has the unfortunate
+    # side effect of SNATing all outgoing pod-to-pod traffic to node ip_forward
+    # kubelet does not handle non-masquerade-cidr for containerd so we will have to handle it ourselves headers
+    # this iptable rule allows all traffic heading to the cluster vnets to avoid SNAT
+    # TODO remove this after we transition kubenet clusters to use ip-masq-agents
+    VNET_CIDRS=10.0.0.0/8
+    iptables -t nat -I POSTROUTING 1 -m addrtype ! --dst-type LOCAL -d ${VNET_CIDRS} -j ACCEPT
     #EOF
 
 

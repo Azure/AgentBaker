@@ -20,6 +20,9 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
 {{/* This is a workaround to setup azure0 bridge for CNI */}}
 ExecStartPre=/usr/local/bin/configure_azure0.sh
+{{- if IsKubenet }}{{- if NeedsContainerd}}
+ExecStartPost=/usr/local/bin/configure_masq_rules.sh
+{{- end}}{{- end}}
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \

@@ -2765,6 +2765,9 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
 {{/* This is a workaround to setup azure0 bridge for CNI */}}
 ExecStartPre=/usr/local/bin/configure_azure0.sh
+{{- if IsKubenet }}{{- if NeedsContainerd}}
+ExecStartPost=/usr/local/bin/configure_masq_rules.sh
+{{- end}}{{- end}}
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
@@ -3976,6 +3979,23 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
+
+{{- if IsKubenet }}
+- path: /usr/local/bin/configure_masq_rules.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    set -pipefail
+    # we are currently enable ipmasq for kubenet cni with containerd which has the unfortunate
+    # side effect of SNATing all outgoing pod-to-pod traffic to node ip_forward
+    # kubelet does not handle non-masquerade-cidr for containerd so we will have to handle it ourselves headers
+    # this iptable rule allows all traffic heading to the cluster vnets to avoid SNAT
+    # TODO remove this after we transition kubenet clusters to use ip-masq-agents
+    VNET_CIDRS={{GetParameter "vnetCidr"}}
+    iptables -t nat -I POSTROUTING 1 -m addrtype ! --dst-type LOCAL -d ${VNET_CIDRS} -j ACCEPT
+    #EOF
+{{- end}}
 
 {{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service
