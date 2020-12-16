@@ -2765,9 +2765,9 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
 {{/* This is a workaround to setup azure0 bridge for CNI */}}
 ExecStartPre=/usr/local/bin/configure_azure0.sh
-{{- if IsKubenet }}{{- if NeedsContainerd}}{{- if not IsIPMasqAgentEnabled}}
+{{- if and IsKubenet NeedsContainerd }}{{- if not IsIPMasqAgentEnabled}}
 ExecStartPre=/usr/local/bin/configure_masq_rules.sh
-{{- end}}{{- end}}{{- end}}
+{{- end}}{{- end}}
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
@@ -3980,7 +3980,7 @@ write_files:
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
-{{- if IsKubenet }}{{- if not IsIPMasqAgentEnabled}}
+{{- if and IsKubenet (not IsIPMasqAgentEnabled) }}
 - path: /usr/local/bin/configure_masq_rules.sh
   permissions: "0755"
   owner: root
@@ -3995,7 +3995,7 @@ write_files:
     # TODO error check format?
     iptables -t nat -I POSTROUTING 1 -m addrtype ! --dst-type LOCAL -d {{GetParameter "kubeClusterCidr"}} -j ACCEPT
     #EOF
-{{- end}}{{- end}}
+{{- end}}
 
 {{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service
