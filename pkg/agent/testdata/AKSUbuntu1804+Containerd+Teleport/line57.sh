@@ -18,7 +18,7 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
 
 ExecStartPre=/usr/local/bin/configure_azure0.sh
-ExecStartPost=/usr/local/bin/configure_masq_rules.sh
+ExecStartPre=/usr/local/bin/configure_masq_rules.sh
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
