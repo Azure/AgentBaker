@@ -4,6 +4,14 @@
 
 set -euo pipefail
 
-# TODO(charliedmcb): confirm that NODE_NAME and KUBELET_NODE_LABELS are correct, and are accessible here.
-kubectl label --overwrite nodes $NODE_NAME $KUBELET_NODE_LABELS
+charliedmcb=${CHARLIEDMCB:-"false"}
+if [ $charliedmcb == "true" ]; then
+    echo "HOSTNAME:"
+    echo $HOSTNAME
+    LABELS={{GetAgentKubernetesLabels . }}
+    echo "LABELS:"
+    echo $LABELS
+fi
+
+kubectl label --overwrite nodes $HOSTNAME {{GetAgentKubernetesLabels . }}
 #EOF
