@@ -92,6 +92,11 @@ write_files:
           runtime_type = "io.containerd.runtime.v1.linux"
           runtime_engine = "/usr/bin/runc"
       
+      [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        conf_template = "/etc/containerd/kubenet_template.conf"
+      
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
@@ -233,8 +238,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-
-    
 
 
     # Disallow container from reaching out to the special IP address 168.63.129.16

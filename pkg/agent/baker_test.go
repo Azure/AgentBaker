@@ -256,8 +256,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "10.244.0.0/16,10.0.128.0/24,10.0.0.0/26"
-			//config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.Addons = []datamodel.KubernetesAddon{{Name: "ip-masq-agent", Enabled: to.BoolPtr(true)}}
+			// in our test suites this is not nil - why??
+			config.ContainerService.Properties.HostedMasterProfile.IPMasqAgent = true
 		}),
 		Entry("AKSUbuntu1804 with containerd and teleport enabled", "AKSUbuntu1804+Containerd+Teleport", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableACRTeleportPlugin = true
