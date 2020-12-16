@@ -247,7 +247,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: datamodel.Containerd,
 			}
-			config.ContainerService.Properties.AgentPoolProfiles[0].VnetCidrs = []string{"10.244.0.0/16", "10.0.128.0/24", "10.0.0.0/26"}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "10.244.0.0/16,10.0.128.0/24,10.0.0.0/26"
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 		}),
 		Entry("AKSUbuntu1804 with containerd and teleport enabled", "AKSUbuntu1804+Containerd+Teleport", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
