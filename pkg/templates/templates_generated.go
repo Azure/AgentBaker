@@ -6480,6 +6480,7 @@ Get-KubePackage {
         }
     }
     Expand-Archive -path $zipfile -DestinationPath C:\
+    Remove-Item $zipfile
 }
 
 function
