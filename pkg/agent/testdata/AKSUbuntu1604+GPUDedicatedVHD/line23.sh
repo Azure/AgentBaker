@@ -118,6 +118,7 @@ ensureMonitorService
 
 ensureSysctl
 ensureKubelet
+ensureLabels
 ensureJournal
 
 if $FULL_INSTALL_REQUIRED; then
