@@ -8,10 +8,9 @@ charliedmcb=${CHARLIEDMCB:-"false"}
 if [ $charliedmcb == "true" ]; then
     echo "HOSTNAME:"
     echo $HOSTNAME
-    LABELS={{GetAgentKubernetesLabels . }}
-    echo "LABELS:"
-    echo $LABELS
+    echo "NODE_LABELS:"
+    echo $NODE_LABELS
 fi
 
-kubectl label --overwrite nodes $HOSTNAME {{GetAgentKubernetesLabels . }}
+kubectl label --overwrite nodes $HOSTNAME $NODE_LABELS
 #EOF
