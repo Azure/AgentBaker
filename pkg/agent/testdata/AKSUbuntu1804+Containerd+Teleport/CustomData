@@ -191,7 +191,7 @@ write_files:
     set -x
     # we are currently enabling ipmasq for kubenet cni with containerd which has the unfortunate
     # side effect of SNATing all outgoing pod-to-pod traffic to node ip
-    # kubelet does not handle non-masquerade-cidr for containerd so we will have to handle it ourselves here
+    # kubelet ignores the --non-masquerade-cidr flag for containerd so we will have to handle it ourselves here
     # this iptable rule allows all traffic heading to the cluster vnets to avoid SNAT
     # note this will only run if the cluster does NOT have the ip-masq-agent daemonset addon (currently AKS does not deploy this for kubenet clusters)
     iptables -t nat -I POSTROUTING 1 -m addrtype ! --dst-type LOCAL -d  -j ACCEPT
