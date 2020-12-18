@@ -323,6 +323,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
+		"GetKubeProxyFeatureGatesPsh": func() string {
+			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
+		},
 		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
 		},
