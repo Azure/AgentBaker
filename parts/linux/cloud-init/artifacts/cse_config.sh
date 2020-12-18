@@ -391,6 +391,8 @@ ensureKubelet() {
 }
 
 ensureLabels() {
+    LABELS_DEFAULT_FILE=/etc/default/labels
+    wait_for_file 1200 1 $LABELS_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     LABELS_SCRIPT_FILE=/opt/azure/containers/labels.sh
     wait_for_file 1200 1 $LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     LABELS_SYSTEMD_FILE=/etc/systemd/system/labels.service
