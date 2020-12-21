@@ -95,17 +95,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-- path: /etc/default/labels
-  permissions: "0644"
-  owner: root
-  content: |
-{{if IsKubernetesVersionGe "1.16.0"}}
-    NODE_LABELS={{GetAgentKubernetesLabels . }}
-{{else}}
-    NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
-{{end}}
-    #EOF
-
 - path: /etc/systemd/system/labels.service
   permissions: "0644"
   encoding: gzip
