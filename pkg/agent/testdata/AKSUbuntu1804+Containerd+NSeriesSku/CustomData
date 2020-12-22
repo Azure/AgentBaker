@@ -113,7 +113,7 @@ write_files:
             "addIf": "eth0",
             "isGateway": true,
             "ipMasq": true,
-            "promisMode": true,
+            "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
