@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e -o pipefail
 
+echo "##### debug starts"
+cat /home/packer/provision_installs.sh
+echo "##### debug ends"
 source /home/packer/provision_installs.sh
 source /home/packer/provision_source.sh
 source /home/packer/tool_installs.sh
