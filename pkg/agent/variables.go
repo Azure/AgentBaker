@@ -10,11 +10,11 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-// getCustomDataVariables returns cloudinit data used by Linux
-func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+// GetCustomDataVariables returns cloudinit data used by Linux
+func GetCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) ParamsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
-		"cloudInitData": paramsMap{
+		"cloudInitData": ParamsMap{
 			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
 			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
@@ -31,7 +31,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		},
 	}
 
-	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
+	cloudInitData := cloudInitFiles["cloudInitData"].(ParamsMap)
 	if cs.IsAKSCustomCloud() {
 		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
 	}
@@ -58,7 +58,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 // getWindowsCustomDataVariables returns custom data for Windows
 // TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables from cse command to customdata
-func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) ParamsMap {
 	cs := config.ContainerService
 	// these variables is subet of
 	customData := map[string]interface{}{
@@ -88,7 +88,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 	return customData
 }
 
-func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) ParamsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return map[string]interface{}{

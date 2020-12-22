@@ -12,12 +12,12 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) ParamsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	properties := cs.Properties
 	location := cs.Location
-	parametersMap := paramsMap{}
+	parametersMap := ParamsMap{}
 	cloudSpecConfig := config.CloudSpecConfig
 
 	addValue(parametersMap, "bakerVersion", bakerVersion)
@@ -112,7 +112,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	return parametersMap
 }
 
-func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
+func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap ParamsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
@@ -129,7 +129,7 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 	}
 }
 
-func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
+func assignKubernetesParameters(properties *datamodel.Properties, parametersMap ParamsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
 	generatorCode string) {
@@ -168,7 +168,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				addValue(parametersMap, "kubernetesACIConnectorEnabled", false)
 			}
 			addValue(parametersMap, "kubernetesPodInfraContainerSpec", k8sComponents.PodInfraContainerImageURL)
-			addValue(parametersMap, "cloudproviderConfig", paramsMap{
+			addValue(parametersMap, "cloudproviderConfig", ParamsMap{
 				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
 				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
 				"cloudProviderBackoffRetries":       kubernetesConfig.CloudProviderBackoffRetries,
