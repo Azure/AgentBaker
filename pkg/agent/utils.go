@@ -255,7 +255,11 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
-	templ.Execute(&buffer, config.ContainerService)
+	err = templ.Execute(&buffer, config.ContainerService)
+	if err != nil {
+		// this should never happen and this is a bug
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
 	csStr := buffer.String()
 	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
