@@ -243,6 +243,10 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
+
+	fmt.Printf("#########\n")
+	fmt.Printf("%s", string(b))
+	fmt.Printf("#########\n")
 	// translate the parameters
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
