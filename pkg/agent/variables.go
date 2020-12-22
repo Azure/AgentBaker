@@ -28,7 +28,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
-			"labelsSystemdService": 		getBase64EncodedGzippedCustomScript(labelsSystemdService, config),
+			"labelsSystemdService":         getBase64EncodedGzippedCustomScript(labelsSystemdService, config),
 		},
 	}
 
@@ -41,8 +41,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
 		cloudInitData["labelsScript"] = getBase64EncodedGzippedCustomScript(labelsScript, config)
-		cloudInitData["labelsSystemdService"] = getBase64EncodedGzippedCustomScript(labelsSystemdService, config)
 		cloudInitData["labelNodesScript"] = getBase64EncodedGzippedCustomScript(labelNodesScript, config)
+		cloudInitData["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
 		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
 		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
