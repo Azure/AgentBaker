@@ -61,9 +61,9 @@ const (
 
 const (
 	// kubernetesWindowsAgentCSECommandPS1 privides the command of Windows CSE
-	kubernetesWindowsAgentCSECommandPS1			  = "windows/csecmd.ps1"
+	kubernetesWindowsAgentCSECommandPS1           = "windows/csecmd.ps1"
 	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
-	kubernetesWindowsAgentCustomDataPS1			  = "windows/kuberneteswindowssetup.ps1"
+	kubernetesWindowsAgentCustomDataPS1           = "windows/kuberneteswindowssetup.ps1"
 	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
 
 	kubernetesWindowsAgentFunctionsPS1            = "windows/kuberneteswindowsfunctions.ps1"
