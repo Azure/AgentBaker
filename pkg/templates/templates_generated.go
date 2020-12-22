@@ -29,6 +29,8 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/label-nodes.service
 // linux/cloud-init/artifacts/label-nodes.sh
+// linux/cloud-init/artifacts/labels.service
+// linux/cloud-init/artifacts/labels.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -967,6 +969,16 @@ ensureKubelet() {
         sleep 3
     done
     {{end}}
+}
+
+ensureLabels() {
+    LABELS_DEFAULT_FILE=/etc/default/labels
+    wait_for_file 1200 1 $LABELS_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    LABELS_SCRIPT_FILE=/opt/azure/containers/labels.sh
+    wait_for_file 1200 1 $LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    LABELS_SYSTEMD_FILE=/etc/systemd/system/labels.service
+    wait_for_file 1200 1 $LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureLabelNodes() {
@@ -2123,6 +2135,7 @@ configureSwapFile
 
 ensureSysctl
 ensureKubelet
+ensureLabels
 ensureJournal
 
 if $FULL_INSTALL_REQUIRED; then
@@ -2851,6 +2864,69 @@ func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsLabelsService = []byte(`[Unit]
+Description=Update Labels for Kubernetes nodes
+After=kubelet.service
+[Service]
+Restart=always
+RestartSec=60
+{{if IsKubernetesVersionGe "1.16.0"}}
+Environment="NODE_LABELS={{GetAgentKubernetesLabels2}}"
+{{else}}
+Environment="NODE_LABELS={{GetAgentKubernetesLabelsDeprecated2}}"
+{{end}}
+ExecStart=/bin/bash /opt/azure/containers/labels.sh
+#EOF
+`)
+
+func linuxCloudInitArtifactsLabelsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsLabelsService, nil
+}
+
+func linuxCloudInitArtifactsLabelsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsLabelsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsLabelsSh = []byte(`#!/usr/bin/env bash
+
+# Update Labels for Kubernetes nodes
+
+set -euo pipefail
+
+charliedmcb=${CHARLIEDMCB:-"false"}
+if [ $charliedmcb == "true" ]; then
+    echo "HOSTNAME:"
+    echo $HOSTNAME
+    echo "NODE_LABELS:"
+    echo $NODE_LABELS
+fi
+
+kubectl label --overwrite nodes $HOSTNAME $NODE_LABELS
+#EOF
+`)
+
+func linuxCloudInitArtifactsLabelsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsLabelsSh, nil
+}
+
+func linuxCloudInitArtifactsLabelsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsLabelsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3721,6 +3797,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+- path: /etc/systemd/system/labels.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "labelsSystemdService"}}
 
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
@@ -6696,6 +6779,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
 	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
+	"linux/cloud-init/artifacts/labels.service":                            linuxCloudInitArtifactsLabelsService,
+	"linux/cloud-init/artifacts/labels.sh":                                 linuxCloudInitArtifactsLabelsSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -6802,6 +6887,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
 				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
+				"labels.service":                            &bintree{linuxCloudInitArtifactsLabelsService, map[string]*bintree{}},
+				"labels.sh":                                 &bintree{linuxCloudInitArtifactsLabelsSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":              &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":                 &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},

@@ -222,6 +222,16 @@ ensureKubelet() {
     
 }
 
+ensureLabels() {
+    LABELS_DEFAULT_FILE=/etc/default/labels
+    wait_for_file 1200 1 $LABELS_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    LABELS_SCRIPT_FILE=/opt/azure/containers/labels.sh
+    wait_for_file 1200 1 $LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    LABELS_SYSTEMD_FILE=/etc/systemd/system/labels.service
+    wait_for_file 1200 1 $LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart labels || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureLabelNodes() {
     LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
     wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
