@@ -302,14 +302,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
 				true, config.EnableNvidia)
 		},
-		"GetAgentKubernetesLabels2": func() string {
-			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				false, config.EnableNvidia)
-		},
-		"GetAgentKubernetesLabelsDeprecated2": func() string {
-			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				true, config.EnableNvidia)
-		},
 		"GetKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {
 				return ""

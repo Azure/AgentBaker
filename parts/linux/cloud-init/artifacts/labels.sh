@@ -4,13 +4,5 @@
 
 set -euo pipefail
 
-charliedmcb=${CHARLIEDMCB:-"false"}
-if [ $charliedmcb == "true" ]; then
-    echo "HOSTNAME:"
-    echo $HOSTNAME
-    echo "NODE_LABELS:"
-    echo $NODE_LABELS
-fi
-
-kubectl label --overwrite nodes $HOSTNAME $NODE_LABELS
+kubectl label --overwrite nodes $HOSTNAME KUBELET_NODE_LABELS
 #EOF

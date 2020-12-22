@@ -4,10 +4,6 @@ After=kubelet.service
 [Service]
 Restart=always
 RestartSec=60
-{{if IsKubernetesVersionGe "1.16.0"}}
-Environment="NODE_LABELS={{GetAgentKubernetesLabels2}}"
-{{else}}
-Environment="NODE_LABELS={{GetAgentKubernetesLabelsDeprecated2}}"
-{{end}}
+EnvironmentFile=/etc/default/kubelet
 ExecStart=/bin/bash /opt/azure/containers/labels.sh
 #EOF
