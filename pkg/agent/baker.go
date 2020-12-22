@@ -45,7 +45,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	//get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	//get variable cloudInit
-	variables := GetCustomDataVariables(config)
+	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
 		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
 
@@ -186,11 +186,11 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params ParamsMap, variables ParamsMap) template.FuncMap {
+func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
-		if v, ok := params[s].(ParamsMap); ok && v != nil {
+		if v, ok := params[s].(paramsMap); ok && v != nil {
 			if v["value"] == nil {
 				// return empty string so we don't get <no value> from go template
 				return ""
@@ -202,12 +202,12 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 
 	//TODO: GetParameterPropertyLower
 	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
-		if v, ok := params[s].(ParamsMap); ok && v != nil {
-			if v["value"].(ParamsMap)[p] == nil {
+		if v, ok := params[s].(paramsMap); ok && v != nil {
+			if v["value"].(paramsMap)[p] == nil {
 				// return empty string so we don't get <no value> from go template
 				return ""
 			}
-			return v["value"].(ParamsMap)[p]
+			return v["value"].(paramsMap)[p]
 		}
 		return ""
 	}
@@ -221,7 +221,7 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 	}
 
 	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
-		if v, ok := variables[v].(ParamsMap); ok && v != nil {
+		if v, ok := variables[v].(paramsMap); ok && v != nil {
 			if v[p] == nil {
 				// return empty string so we don't get <no value> from go template
 				return ""

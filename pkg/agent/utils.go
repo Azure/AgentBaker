@@ -66,7 +66,7 @@ func init() {
 	keyvaultSecretPathRe = regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`)
 }
 
-type ParamsMap map[string]interface{}
+type paramsMap map[string]interface{}
 
 // generateConsecutiveIPsList takes a starting IP address and returns a string slice of length "count" of subsequent, consecutive IP addresses
 func generateConsecutiveIPsList(count int, firstAddr string) ([]string, error) {
@@ -89,14 +89,14 @@ func generateConsecutiveIPsList(count int, firstAddr string) ([]string, error) {
 	return ret, nil
 }
 
-func addValue(m ParamsMap, k string, v interface{}) {
-	m[k] = ParamsMap{
+func addValue(m paramsMap, k string, v interface{}) {
+	m[k] = paramsMap{
 		"value": v,
 	}
 }
 
-func addKeyvaultReference(m ParamsMap, k string, vaultID, secretName, secretVersion string) {
-	m[k] = ParamsMap{
+func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVersion string) {
+	m[k] = paramsMap{
 		"reference": &datamodel.KeyVaultRef{
 			KeyVault: datamodel.KeyVaultID{
 				ID: vaultID,
@@ -107,7 +107,7 @@ func addKeyvaultReference(m ParamsMap, k string, vaultID, secretName, secretVers
 	}
 }
 
-func addSecret(m ParamsMap, k string, v interface{}, encode bool) {
+func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	str, ok := v.(string)
 	if !ok {
 		addValue(m, k, v)
@@ -244,11 +244,10 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 
-	// if csFilename == "linux/cloud-init/artifacts/cse_install.sh" {
-	// 	fmt.Printf("#######\n")
-	// 	fmt.Printf("%s", string(b))
-	// 	fmt.Printf("#######\n")
-	// }
+	fmt.Printf("#########\n")
+	fmt.Printf("%s", string(b))
+	fmt.Printf("#########\n")
+	// translate the parameters
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
@@ -256,18 +255,9 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
-	err = templ.Execute(&buffer, config.ContainerService)
-	if err != nil {
-		panic(fmt.Sprintf("BUG: %s", err.Error()))
-	}
+	templ.Execute(&buffer, config.ContainerService)
 	csStr := buffer.String()
-
 	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
-	if csFilename == "linux/cloud-init/artifacts/cse_install.sh" {
-		fmt.Printf("#######\n")
-		fmt.Printf("%s", csStr)
-		fmt.Printf("#######\n")
-	}
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
