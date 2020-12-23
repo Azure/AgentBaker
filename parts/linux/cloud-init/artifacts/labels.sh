@@ -4,5 +4,8 @@
 
 set -euo pipefail
 
-kubectl label --overwrite nodes $HOSTNAME KUBELET_NODE_LABELS
+for kubelet_label in $(echo $KUBELET_NODE_LABELS | sed "s/,/ /g")
+do
+  kubectl label --overwrite nodes $HOSTNAME $kubelet_label
+done
 #EOF
