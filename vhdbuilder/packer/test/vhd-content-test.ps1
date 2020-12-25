@@ -13,25 +13,6 @@ param (
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
 $global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
 
-function Compare-AllowedSecurityProtocols
-{
-
-    $allowedProtocols = @()
-    $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
-
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType]))
-    {
-        if ($insecureProtocols -notcontains $protocol)
-        {
-            $allowedProtocols += $protocol
-        }
-    }
-    if([System.Net.ServicePointManager]::SecurityProtocol -ne $allowedProtocols) {
-        Write-Error "allowedSecurityProtocols '$([System.Net.ServicePointManager]::SecurityProtocol)', expecting '$allowedProtocols'"
-        exit 1
-    }
-}
-
 function Test-FilesToCacheOnVHD
 {
     # TODO(qinhao): share this map variable with `configure-windows-vhd.ps1`
@@ -216,7 +197,6 @@ function Test-ImagesPulled
     }
 }
 
-Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled  -containerRuntime $containerRuntime -WindowsSKU $WindowsSKU
