@@ -313,6 +313,15 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+KONNECTIVITY_AGENT_VERSIONS="
+v0.0.13
+"
+for KONNECTIVITY_AGENT_VERSION in ${KONNECTIVITY_AGENT_VERSIONS}; do
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:${KONNECTIVITY_AGENT_VERSION}"
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
 # 1.0.10 is for the ipv6 fix
 # 1.0.11 is for the cve fix
 OPENVPN_VERSIONS="
