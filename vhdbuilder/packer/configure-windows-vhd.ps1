@@ -219,8 +219,7 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    # 2020-12 Cumulative Update for Windows Server 2019 for x64-based Systems (KB4592440)
-    $patchUrls = @("http://download.windowsupdate.com/d/msdownload/update/software/secu/2020/12/windows10.0-kb4592440-x64_e4897b096fb33c7608a18b54d6e9b0a142536683.msu")
+    $patchUrls = @()
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
