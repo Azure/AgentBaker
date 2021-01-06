@@ -192,13 +192,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
 		}),
-		Entry("AKSUbuntu1604 with RawUbuntuContainerd", "RawUbuntuContainerd", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				KubeletConfig:    map[string]string{},
-				ContainerRuntime: datamodel.Containerd,
-			}
-		}),
 		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
