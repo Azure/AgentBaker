@@ -455,13 +455,10 @@ done
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.11-hotfix.20200901.1
 # v1.17.13
 # v1.17.16
-# v1.18.8-hotfix.20200924
 # v1.18.10
 # v1.18.14
-# v1.19.1
 # v1.19.3
 # v1.19.6
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
@@ -526,13 +523,10 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.11-hotfix.20200901.1
 # v1.17.13
 # v1.17.16
-# v1.18.8-hotfix.20200924
 # v1.18.10
 # v1.18.14
-# v1.19.1
 # v1.19.3
 # v1.19.6
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
