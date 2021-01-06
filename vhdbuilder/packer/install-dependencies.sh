@@ -475,14 +475,24 @@ K8S_VERSIONS="
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901.1
 1.17.13
+1.17.14
+1.17.15
+1.17.16
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
 1.18.10
+1.18.11
+1.18.12
+1.18.13
+1.18.14
 1.19.0
 1.19.1-hotfix.20200923
 1.19.3
+1.19.4
+1.19.5
+1.19.6
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -540,14 +550,24 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.11-hotfix.20200901
 1.17.11-hotfix.20200901.1
 1.17.13
+1.17.14
+1.17.15
+1.17.16
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8
 1.18.8-hotfix.20200924
 1.18.10
+1.18.11
+1.18.12
+1.18.13
+1.18.14
 1.19.0
 1.19.1-hotfix.20200923
 1.19.3
+1.19.4
+1.19.5
+1.19.6
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
