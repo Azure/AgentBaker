@@ -282,6 +282,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TransparentHugePageDefrag:  "defer+madvise",
 				SwapFileSizeMB:             &swapFileSizeMB,
 			}
+		}),
+		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
 		}))
 
 })
