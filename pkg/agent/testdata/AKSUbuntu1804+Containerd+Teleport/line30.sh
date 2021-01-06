@@ -145,10 +145,8 @@ installStandaloneContainerd() {
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeMoby
         removeContainerd
-        downloadContainerd ${CONTAINERD_VERSION}
-        wait_for_apt_locks
-        retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+        getMobyPkg
+        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi  
 }
 downloadContainerd() {
