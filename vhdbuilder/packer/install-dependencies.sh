@@ -70,7 +70,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.5.0"
 else
   CONTAINER_RUNTIME="docker"
-  MOBY_VERSION="19.03.12"
+  MOBY_VERSION="19.03.14"
   installMoby
   echo "VHD will be built with docker as container runtime"
   echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
