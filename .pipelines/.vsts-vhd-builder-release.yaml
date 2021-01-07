@@ -51,7 +51,7 @@ phases:
     condition: eq('${{ parameters.build1604 }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -68,7 +68,7 @@ phases:
     condition: eq('${{ parameters.build1804 }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -85,7 +85,7 @@ phases:
     condition: eq('${{ parameters.build1804gen2 }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -102,7 +102,7 @@ phases:
     condition: eq('${{ parameters.build1804gpu }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -119,7 +119,7 @@ phases:
     condition: eq('${{ parameters.build1804gen2gpu }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -136,7 +136,7 @@ phases:
     condition: eq('${{ parameters.build1804containerd }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -153,7 +153,7 @@ phases:
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -170,7 +170,7 @@ phases:
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -187,7 +187,7 @@ phases:
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
