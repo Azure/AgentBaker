@@ -1,4 +1,4 @@
-Starting build on  Thu Jan 7 03:47:26 UTC 2021
+Starting build on  Thu Jan 7 20:59:29 UTC 2021
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -83,7 +83,7 @@ docker images pre-pulled:
   - /var/lib/kubelet/device-plugins
   - extracted nvidia-device-plugin...
 total 7684
--rwxr-xr-x 1 root root 7868416 Jan  7 03:55 nvidia-device-plugin
+-rwxr-xr-x 1 root root 7868416 Jan  7 21:07 nvidia-device-plugin
   - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.18
   - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v1.9.2-v3.0.19
@@ -145,19 +145,19 @@ total 7684
 -rwxr-xr-x 1 root root  60288196 Dec 18 16:22 /usr/local/bin/kubectl-1.19.6
 -rwxr-xr-x 1 root root 152790792 Dec 18 16:24 /usr/local/bin/kubelet-1.18.14
 -rwxr-xr-x 1 root root  60086227 Dec 18 16:24 /usr/local/bin/kubectl-1.18.14
--r-xr--r-- 1 root root      2462 Jan  7 03:47 /usr/local/bin/health-monitor.sh
--r-xr--r-- 1 root root      1538 Jan  7 03:47 /usr/local/bin/configure_azure0.sh
--rwxr-xr-x 1 root root  35384960 Jan  7 03:51 /usr/local/bin/bpftrace
--rwxr-xr-x 1 root root 250471792 Jan  7 04:00 /usr/local/bin/kubelet-1.15.12
--rwxr-xr-x 1 root root 250471792 Jan  7 04:00 /usr/local/bin/kubectl-1.15.12
--rwxr-xr-x 1 root root 203802912 Jan  7 04:01 /usr/local/bin/kubelet-1.16.9
--rwxr-xr-x 1 root root 203802912 Jan  7 04:01 /usr/local/bin/kubectl-1.16.9
--rwxr-xr-x 1 root root 203833416 Jan  7 04:01 /usr/local/bin/kubelet-1.16.10
--rwxr-xr-x 1 root root 203833416 Jan  7 04:01 /usr/local/bin/kubectl-1.16.10
--rwxr-xr-x 1 root root 203854928 Jan  7 04:02 /usr/local/bin/kubelet-1.16.13
--rwxr-xr-x 1 root root 203854928 Jan  7 04:02 /usr/local/bin/kubectl-1.16.13
--rwxr-xr-x 1 root root 203885576 Jan  7 04:02 /usr/local/bin/kubelet-1.16.15
--rwxr-xr-x 1 root root 203885576 Jan  7 04:02 /usr/local/bin/kubectl-1.16.15
+-r-xr--r-- 1 root root      2462 Jan  7 20:59 /usr/local/bin/health-monitor.sh
+-r-xr--r-- 1 root root      1538 Jan  7 20:59 /usr/local/bin/configure_azure0.sh
+-rwxr-xr-x 1 root root  35384960 Jan  7 21:03 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root 250471792 Jan  7 21:11 /usr/local/bin/kubelet-1.15.12
+-rwxr-xr-x 1 root root 250471792 Jan  7 21:11 /usr/local/bin/kubectl-1.15.12
+-rwxr-xr-x 1 root root 203802912 Jan  7 21:12 /usr/local/bin/kubelet-1.16.9
+-rwxr-xr-x 1 root root 203802912 Jan  7 21:12 /usr/local/bin/kubectl-1.16.9
+-rwxr-xr-x 1 root root 203833416 Jan  7 21:12 /usr/local/bin/kubelet-1.16.10
+-rwxr-xr-x 1 root root 203833416 Jan  7 21:12 /usr/local/bin/kubectl-1.16.10
+-rwxr-xr-x 1 root root 203854928 Jan  7 21:17 /usr/local/bin/kubelet-1.16.13
+-rwxr-xr-x 1 root root 203854928 Jan  7 21:17 /usr/local/bin/kubectl-1.16.13
+-rwxr-xr-x 1 root root 203885576 Jan  7 21:17 /usr/local/bin/kubelet-1.16.15
+-rwxr-xr-x 1 root root 203885576 Jan  7 21:17 /usr/local/bin/kubectl-1.16.15
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.16.9-hotfix.20200529.1
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.16.10-hotfix.20200824.1
   - mcr.microsoft.com/oss/kubernetes/hyperkube:v1.16.13-hotfix.20200824.1
@@ -217,10 +217,10 @@ total 7684
 WARNING: 75% of /dev/sda1 is used
 Using kernel:
 Linux version 5.4.0-1031-azure (buildd@lcy01-amd64-021) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #32~18.04.1-Ubuntu SMP Tue Oct 6 10:03:22 UTC 2020
-Install completed successfully on  Thu Jan 7 04:19:54 UTC 2021
-VSTS Build NUMBER: 20210107.3_master_38213182
-VSTS Build ID: 38213182
-Commit: e3fde29bd3ecad5e8544ce2194128fb9f755f274
+Install completed successfully on  Thu Jan 7 21:40:06 UTC 2021
+VSTS Build NUMBER: 20210107.7_master_38235561
+VSTS Build ID: 38235561
+Commit: 734790000e3250f70c4433725bbdfde626508c35
 Ubuntu version: 18.04
 Hyperv generation: V2
 Feature flags: fullgpudaemon

@@ -1,4 +1,4 @@
-Starting build on  Thu Jan 7 03:47:14 UTC 2021
+Starting build on  Thu Jan 7 20:59:22 UTC 2021
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -117,9 +117,9 @@ containerd images pre-pulled:
 -rwxr-xr-x 1 root root  60381333 Oct 16 21:01 /usr/local/bin/kubectl-1.19.3
 -rwxr-xr-x 1 root root 151022360 Dec 18 16:22 /usr/local/bin/kubelet-1.19.6
 -rwxr-xr-x 1 root root  60288196 Dec 18 16:22 /usr/local/bin/kubectl-1.19.6
--r-xr--r-- 1 root root      2462 Jan  7 03:47 /usr/local/bin/health-monitor.sh
--r-xr--r-- 1 root root      1538 Jan  7 03:47 /usr/local/bin/configure_azure0.sh
--rwxr-xr-x 1 root root  35384960 Jan  7 03:55 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root      2462 Jan  7 20:59 /usr/local/bin/health-monitor.sh
+-r-xr--r-- 1 root root      1538 Jan  7 20:59 /usr/local/bin/configure_azure0.sh
+-rwxr-xr-x 1 root root  35384960 Jan  7 21:07 /usr/local/bin/bpftrace
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.0
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.1-hotfix.20200923
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.3
@@ -148,10 +148,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1
 Using kernel:
 Linux version 5.4.0-1031-azure (buildd@lcy01-amd64-021) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #32~18.04.1-Ubuntu SMP Tue Oct 6 10:03:22 UTC 2020
-Install completed successfully on  Thu Jan 7 04:27:13 UTC 2021
-VSTS Build NUMBER: 20210107.3_master_38213182
-VSTS Build ID: 38213182
-Commit: e3fde29bd3ecad5e8544ce2194128fb9f755f274
+Install completed successfully on  Thu Jan 7 21:41:05 UTC 2021
+VSTS Build NUMBER: 20210107.7_master_38235561
+VSTS Build ID: 38235561
+Commit: 734790000e3250f70c4433725bbdfde626508c35
 Ubuntu version: 18.04
 Hyperv generation: V2
 Feature flags: None
