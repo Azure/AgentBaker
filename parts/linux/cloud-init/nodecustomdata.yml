@@ -397,12 +397,14 @@ write_files:
   content: |
     {{GetParameter "caCertificate"}}
 
+{{if not IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /etc/kubernetes/certs/client.crt
   permissions: "0644"
   encoding: base64
   owner: root
   content: |
     {{GetParameter "clientCertificate"}}
+{{- end}}
 
 {{if HasCustomSearchDomain}}
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
@@ -413,6 +415,30 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{if IsKubeletClientTLSBootstrappingEnabled -}}
+- path: /var/lib/kubelet/bootstrap-kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: kubelet-bootstrap
+      user:
+        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+    contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+    current-context: bootstrap-context
+    #EOF
+{{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
   owner: root
@@ -436,6 +462,7 @@ write_files:
       name: localclustercontext
     current-context: localclustercontext
     #EOF
+{{- end}}
 
 - path: /etc/default/kubelet
   permissions: "0644"
