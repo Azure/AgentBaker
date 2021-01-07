@@ -216,3 +216,31 @@ func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 		}
 	}
 }
+
+func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
+	cases := []struct {
+		profile  *datamodel.AgentPoolProfile
+		expected string
+	}{
+		{
+			profile:  &datamodel.AgentPoolProfile{},
+			expected: "",
+		},
+		{
+			profile: &datamodel.AgentPoolProfile{
+				TLSBootstrapToken: &datamodel.TLSBootstrapToken{
+					TokenID:     "foo",
+					TokenSecret: "bar",
+				},
+			},
+			expected: "foo.bar",
+		},
+	}
+
+	for _, c := range cases {
+		actual := GetTLSBootstrapTokenForKubeConfig(c.profile)
+		if actual != c.expected {
+			t.Errorf("GetTLSBootstrapTokenForKubeConfig: expected=%s, actual=%s", c.expected, actual)
+		}
+	}
+}

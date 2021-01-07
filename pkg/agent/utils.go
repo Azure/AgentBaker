@@ -395,6 +395,20 @@ func IsKubeletClientTLSBootstrappingEnabled(cs *datamodel.ContainerService, prof
 	return true
 }
 
+// GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
+// It returns empty string if TLS bootstrap token is not enabled.
+//
+// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
+func GetTLSBootstrapTokenForKubeConfig(profile *datamodel.AgentPoolProfile) string {
+	t := profile.TLSBootstrapToken
+	if t == nil {
+		// not set
+		return ""
+	}
+
+	return fmt.Sprintf("%s.%s", t.TokenID, t.TokenSecret)
+}
+
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
 func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
 	if kc == nil {

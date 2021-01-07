@@ -314,6 +314,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubeletClientTLSBootstrapEnabled": func() bool {
 			return IsKubeletClientTLSBootstrappingEnabled(cs, profile, config.EnableKubeletClientTLSBootstrapping)
 		},
+		"GetTLSBootstrapTokenForKubeConfig": func() string {
+			return GetTLSBootstrapTokenForKubeConfig(profile)
+		},
 		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
