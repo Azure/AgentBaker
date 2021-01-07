@@ -311,6 +311,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
+		"IsKubeletClientTLSBootstrapEnabled": func() bool {
+			return IsKubeletClientTLSBootstrappingEnabled(cs, profile, config.EnableKubeletClientTLSBootstrapping)
+		},
 		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""

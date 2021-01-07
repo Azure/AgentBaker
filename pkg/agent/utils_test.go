@@ -134,3 +134,85 @@ var expectedKubeletJSON string = `{
         "net.ipv4.route.min_pmtu"
     ]
 }`
+
+func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
+	cases := []struct {
+		cs                                   *datamodel.ContainerService
+		profile                              *datamodel.AgentPoolProfile
+		kubeletClientTLSBootstrappingEnabled bool
+		expected                             bool
+		reason                               string
+	}{
+		{
+			cs: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.18.3",
+					},
+				},
+			},
+			profile:                              &datamodel.AgentPoolProfile{},
+			kubeletClientTLSBootstrappingEnabled: false,
+			expected:                             false,
+			reason:                               "toggle disabled",
+		},
+		{
+			cs: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.18.3",
+					},
+				},
+			},
+			profile: &datamodel.AgentPoolProfile{
+				TLSBootstrapToken: nil,
+			},
+			kubeletClientTLSBootstrappingEnabled: true,
+			expected:                             false,
+			reason:                               "agent pool TLS bootstrap token not set",
+		},
+		{
+			cs: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.3.1",
+					},
+				},
+			},
+			profile: &datamodel.AgentPoolProfile{
+				TLSBootstrapToken: &datamodel.TLSBootstrapToken{
+					TokenID:     "foobar",
+					TokenSecret: "foobar",
+				},
+			},
+			kubeletClientTLSBootstrappingEnabled: true,
+			expected:                             false,
+			reason:                               "kubernetes version prior to 1.4",
+		},
+		{
+			cs: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.18.3",
+					},
+				},
+			},
+			profile: &datamodel.AgentPoolProfile{
+				TLSBootstrapToken: &datamodel.TLSBootstrapToken{
+					TokenID:     "foobar",
+					TokenSecret: "foobar",
+				},
+			},
+			kubeletClientTLSBootstrappingEnabled: true,
+			expected:                             true,
+			reason:                               "supported",
+		},
+	}
+
+	for _, c := range cases {
+		actual := IsKubeletClientTLSBootstrappingEnabled(c.cs, c.profile, c.kubeletClientTLSBootstrappingEnabled)
+		if actual != c.expected {
+			t.Errorf("%s: expected=%t, actual=%t", c.reason, c.expected, actual)
+		}
+	}
+}
