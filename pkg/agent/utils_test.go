@@ -175,24 +175,6 @@ func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 			cs: &datamodel.ContainerService{
 				Properties: &datamodel.Properties{
 					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorVersion: "1.3.1",
-					},
-				},
-			},
-			profile: &datamodel.AgentPoolProfile{
-				TLSBootstrapToken: &datamodel.TLSBootstrapToken{
-					TokenID:     "foobar",
-					TokenSecret: "foobar",
-				},
-			},
-			kubeletClientTLSBootstrappingEnabled: true,
-			expected:                             false,
-			reason:                               "kubernetes version prior to 1.4",
-		},
-		{
-			cs: &datamodel.ContainerService{
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
 						OrchestratorVersion: "1.18.3",
 					},
 				},

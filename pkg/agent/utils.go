@@ -387,11 +387,6 @@ func IsKubeletClientTLSBootstrappingEnabled(cs *datamodel.ContainerService, prof
 		return false
 	}
 
-	if !datamodel.IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.4.0") {
-		// TLS bootstrapping support starts from 1.4
-		return false
-	}
-
 	return true
 }
 
