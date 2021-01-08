@@ -97,8 +97,8 @@ phases:
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          ${DEIS_GO_DEV_IMAGE} make -f packer.mk test-building-vhd
-        displayName: Run VHD cache test
+          ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
+        displayName: Run VHD Tests
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
