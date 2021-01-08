@@ -1,7 +1,8 @@
 #!/bin/bash
 set -eux
 
-WIN_SCRIPT_PATH="vhd-content-test.ps1"
+LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
+WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 Test_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
@@ -77,6 +78,14 @@ if [ "$OS_TYPE" == "Windows" ]; then
         --scripts  @$SCRIPT_PATH \
         --output json \
         --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
+else
+    SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+    ret=$(az vm run-command invoke --command-id RunShellScript \
+        --name $VM_NAME \
+        --resource-group $RESOURCE_GROUP_NAME  \
+        --scripts  @$SCRIPT_PATH \
+        --output json \
+        --parameters "containerRuntime=${CONTAINER_RUNTIME}")
 fi
 # An example of failed run-command output:
 # {
