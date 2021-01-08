@@ -825,16 +825,6 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 	return environmentJSON, nil
 }
 
-// HasNSeriesSKU returns whether or not there is an N series SKU agent pool
-func (p *Properties) HasNSeriesSKU() bool {
-	for _, profile := range p.AgentPoolProfiles {
-		if strings.Contains(profile.VMSize, "Standard_N") {
-			return true
-		}
-	}
-	return false
-}
-
 // HasDCSeriesSKU returns whether or not there is an DC series SKU agent pool
 func (p *Properties) HasDCSeriesSKU() bool {
 	for _, profile := range p.AgentPoolProfiles {

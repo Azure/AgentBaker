@@ -1069,7 +1069,7 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
+{{if IsNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
     when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
@@ -2053,7 +2053,7 @@ installTeleportdPlugin
 
 installNetworkPlugin
 
-{{- if HasNSeriesSKU}}
+{{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
@@ -3836,7 +3836,7 @@ write_files:
       "log-opts":  {
          "max-size": "50m",
          "max-file": "5"
-      }{{if IsNSeriesSKU .}}
+      }{{if IsNSeriesSKU}}
       ,"default-runtime": "nvidia",
       "runtimes": {
          "nvidia": {
@@ -3875,14 +3875,14 @@ write_files:
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
@@ -4000,7 +4000,7 @@ write_files:
 {{end}}
 {{end}}
 
-{{if IsNSeriesSKU .}}
+{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
