@@ -85,10 +85,10 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-          -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           -e OS_DISK_URI=${OS_DISK_URI} \
-          -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+          -e AZURE_LOCATION=${AZURE_LOCATION} \
           -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
           -e OS_TYPE="Linux" \
