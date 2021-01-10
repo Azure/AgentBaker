@@ -85,7 +85,7 @@ else
         --resource-group $RESOURCE_GROUP_NAME  \
         --scripts  @$SCRIPT_PATH \
         --output json \
-        --parameters "containerRuntime=${CONTAINER_RUNTIME}")
+        --parameters ${CONTAINER_RUNTIME})
 fi
 # An example of failed run-command output:
 # {

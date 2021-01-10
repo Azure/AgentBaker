@@ -13,6 +13,8 @@
 ### for ADDON_IMAGE in ${ADDON_IMAGES}; do # easy to convert
 
 testFilesDownloaded() {
+  echo "testFilesDownloaded"
+  exit 1
   PARAMETERS='{
                 "downloadURL":"https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
@@ -34,7 +36,6 @@ testFilesDownloaded() {
                 "versions":"0.5.6"
               }'
 
-  # Transform into line-delimited JSONs
   PARAMETERS=$(echo "${PARAMETERS}" | jq . --monochrome-output --compact-output)
 
   while IFS='' read -r param || [[ -n "${param}" ]]; do
@@ -72,6 +73,8 @@ testFilesDownloaded() {
 }
 
 testImagesPulled() {
+  echo "testImagesPulled" >&2
+  exit 1
   containerRuntime=$1
 
   if [ $containerRuntime == 'containerd' ]; then
@@ -111,4 +114,4 @@ testImagesPulled() {
 }
 
 testFilesDownloaded
-testImagesPulled $containerRuntime
+testImagesPulled $1
