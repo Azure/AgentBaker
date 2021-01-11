@@ -1,3 +1,6 @@
+#!/bin/bash
+set -eux
+
 echo "this is for testing"  >&2
 exit 2
 ##cni plugins +
