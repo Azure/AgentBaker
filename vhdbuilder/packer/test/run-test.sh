@@ -22,7 +22,7 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-
+OS_DISK_URI="https://aksimages1610268313.blob.core.windows.net/system/Microsoft.Compute/Images/aks-vhds/aks-1610268313-osDisk.fe9a225e-612e-4a15-80a3-2976f38104f4.vhd"
 if [ "$MODE" == "sigMode" ]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
