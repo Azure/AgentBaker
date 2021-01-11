@@ -3,7 +3,6 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/auditd-rules
 // linux/cloud-init/artifacts/cis.sh
-// linux/cloud-init/artifacts/configure_azure0.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd.service
@@ -346,73 +345,6 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsConfigure_azure0Sh = []byte(`#!/usr/bin/env bash
-
-# It's only necessary to configure azure0 in Ubuntu 18.04
-lsb_release -i | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -qi "^ubuntu$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu Skip configuring azure0'
-    exit 0
-fi
-
-lsb_release -r | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -q "^18.04$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu 18.04. Skip configuring azure0'
-    exit 0
-fi
-
-# Check if the azure cni config is there... no need to run this script if not
-# Also don't want to run this when not using azure-cni
-[ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
-
-# CNI team mentions that this is not needed for calico network policy to run this script
-echo "Network policy: ${NETWORK_POLICY}"
-if [[ "${NETWORK_POLICY}" == "calico" ]]; then
-    exit 0
-fi
-
-# Check if the azure0 bridge is already configured
-# We don't need to run if so.
-ip link show azure0 && exit 0
-
-run_plugin() {
-    export CNI_COMMAND=$1
-    cat /etc/cni/net.d/10-azure.conflist | jq '.name as $name | .cniVersion as $version | .plugins[]+= {name: $name, cniVersion: $version} | .plugins[0]' | /opt/cni/bin/azure-vnet
-}
-
-export CNI_ARGS='K8S_POD_NAMESPACE=default;K8S_POD_NAME=configureAzureCNI'
-export CNI_CONTAINERID=9999
-export CNI_NETNS=/run/netns/configureazcni
-export CNI_IFNAME=eth9999
-export CNI_PATH=/opt/cni/bin
-
-ip netns add $(basename ${CNI_NETNS})
-run_plugin ADD
-
-if [ $? -gt 0 ]; then
-    ip netns del "$(basename ${CNI_NETNS})"
-    exit 1
-fi
-
-run_plugin DEL
-ip netns del $(basename ${CNI_NETNS})
-`)
-
-func linuxCloudInitArtifactsConfigure_azure0ShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsConfigure_azure0Sh, nil
-}
-
-func linuxCloudInitArtifactsConfigure_azure0Sh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsConfigure_azure0ShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/configure_azure0.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2764,9 +2696,6 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
-{{/* This is a workaround to setup azure0 bridge for CNI */}}
-ExecStartPre=/usr/local/bin/configure_azure0.sh
-
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
@@ -3708,13 +3637,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
-
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
@@ -6774,7 +6696,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
-	"linux/cloud-init/artifacts/configure_azure0.sh":                       linuxCloudInitArtifactsConfigure_azure0Sh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
@@ -6881,7 +6802,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
-				"configure_azure0.sh":                       &bintree{linuxCloudInitArtifactsConfigure_azure0Sh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
