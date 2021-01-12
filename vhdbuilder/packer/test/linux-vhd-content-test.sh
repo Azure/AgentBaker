@@ -16,7 +16,7 @@ set -eux
 ### for ADDON_IMAGE in ${ADDON_IMAGES}; do # easy to convert
 
 testFilesDownloaded() {
-  echo "starting testFilesDownloaded"
+  echo "Starting testFilesDownloaded"
   PARAMETERS='{
                 "downloadURL":"https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
@@ -38,6 +38,10 @@ testFilesDownloaded() {
                 "versions":"0.5.6"
               }'
 
+  ls
+  ls -R "/opt"
+  ls -R "/usr/local/bin"
+
   PARAMETERS=$(echo "${PARAMETERS}" | jq . --monochrome-output --compact-output)
   emptyFiles=()
   missingPaths=()
@@ -47,7 +51,7 @@ testFilesDownloaded() {
     versions=$(echo "${param}" | jq .versions -r)
 
     if [ ! -d downloadLocation ]; then
-      echo "Directory ${downloadLocation} does not exist"
+      err "Directory ${downloadLocation} does not exist"
       missingPaths+=("$downloadLocation")
       continue
     fi
@@ -58,7 +62,7 @@ testFilesDownloaded() {
       dest="$downloadLocation/${fileName}"
 
       if [ ! -s dest ]; then
-        echo "File ${dest} does not exist"
+        err "File ${dest} does not exist"
         emptyFiles+=("$dest")
         continue
       fi
@@ -68,13 +72,12 @@ testFilesDownloaded() {
   done < <(echo "${PARAMETERS}")
 
   if ((${#emptyFiles[@]} > 0)) || ((${#missingPaths[@]} > 0)); then
-    echo "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
-    exit 1
+    err "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
   fi
 }
 
 testImagesPulled() {
-  echo "starting testImagesPulled"
+  echo "Starting testImagesPulled"
   containerRuntime=$1
 
   if [ $containerRuntime == 'containerd' ]; then
@@ -82,8 +85,8 @@ testImagesPulled() {
   elif [ $containerRuntime == 'docker' ]; then
     pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
   else
-    echo "unsupported container runtime $containerRuntime"
-    exit 1
+    err "unsupported container runtime $containerRuntime"
+    return
   fi
 
   imagesNotPulled=()
@@ -99,7 +102,7 @@ testImagesPulled() {
       if [[ $pulledImages =~ $downloadURL ]]; then
         echo "Image ${downloadURL} has been pulled Successfully"
       else
-        echo "Image ${downloadURL} has NOT been pulled"
+        err "Image ${downloadURL} has NOT been pulled"
         imagesNotPulled+=("$downloadURL")
       fi
     done
@@ -107,10 +110,12 @@ testImagesPulled() {
     echo "---"
   done
   if ((${#imagesNotPulled[@]} > 0)); then
-    echo "Some images were not successfully pulled \n $imagesNotPulled"
-    exit 1
+    err "Some images were not successfully pulled \n $imagesNotPulled"
   fi
+}
 
+err(){
+    echo "Error: $*" >>/dev/stderr
 }
 
 testFilesDownloaded
