@@ -118,7 +118,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            "ipMasq": true,
+            "ipMasq": false,
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
