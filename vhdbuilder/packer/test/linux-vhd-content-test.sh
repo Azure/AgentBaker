@@ -16,6 +16,7 @@ set -eux
 ### for ADDON_IMAGE in ${ADDON_IMAGES}; do # easy to convert
 
 testFilesDownloaded() {
+  echo "starting testFilesDownloaded"
   PARAMETERS='{
                 "downloadURL":"https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
@@ -38,15 +39,14 @@ testFilesDownloaded() {
               }'
 
   PARAMETERS=$(echo "${PARAMETERS}" | jq . --monochrome-output --compact-output)
-
+  emptyFiles=()
+  missingPaths=()
   while IFS='' read -r param || [[ -n "${param}" ]]; do
     downloadURL=$(echo "${param}" | jq .downloadURL -r)
     downloadLocation=$(echo "${param}" | jq .downloadLocation -r)
     versions=$(echo "${param}" | jq .versions -r)
-    emptyFiles=()
-    missingPaths=()
 
-    if [ ! -f downloadLocation ]; then
+    if [ ! -d downloadLocation ]; then
       echo "Directory ${downloadLocation} does not exist"
       missingPaths+=("$downloadLocation")
       continue
@@ -74,6 +74,7 @@ testFilesDownloaded() {
 }
 
 testImagesPulled() {
+  echo "starting testImagesPulled"
   containerRuntime=$1
 
   if [ $containerRuntime == 'containerd' ]; then
