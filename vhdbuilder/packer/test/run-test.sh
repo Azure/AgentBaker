@@ -84,7 +84,7 @@ else
     ret=$(az vm run-command invoke --command-id RunShellScript \
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME  \
-        --scripts  @$LINUX_SCRIPT_PATH \
+        --scripts  'echo "printing directory" && pwd && ls' \
         --parameters ${CONTAINER_RUNTIME} \
         --debug)
 fi
