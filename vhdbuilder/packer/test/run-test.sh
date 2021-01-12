@@ -23,7 +23,7 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-OS_DISK_URI="https://aksimages1610268313.blob.core.windows.net/system/Microsoft.Compute/Images/aks-vhds/aks-1610268313-osDisk.fe9a225e-612e-4a15-80a3-2976f38104f4.vhd"
+#OS_DISK_URI="https://aksimages1610268313.blob.core.windows.net/system/Microsoft.Compute/Images/aks-vhds/aks-1610268313-osDisk.fe9a225e-612e-4a15-80a3-2976f38104f4.vhd"
 if [ "$MODE" == "sigMode" ]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -81,11 +81,11 @@ if [ "$OS_TYPE" == "Windows" ]; then
         --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
 else
     SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-    sleep 300
+    sleep 1800
     ret=$(az vm run-command invoke --command-id RunShellScript \
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME  \
-        --scripts  'echo "printing directory" && pwd && ls' \
+        --scripts  @$SCRIPT_PATH \
         --parameters ${CONTAINER_RUNTIME} \
         --debug)
 fi
