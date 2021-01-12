@@ -81,7 +81,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
         --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
 else
     SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-    sleep 3000
+    sleep 300
     ret=$(az vm run-command invoke --command-id RunShellScript \
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME  \
