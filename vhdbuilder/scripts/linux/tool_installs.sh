@@ -26,16 +26,22 @@ installAscBaseline() {
 
 installBcc() {
     echo "Installing BCC tools..."
-    IOVISOR_KEY_TMP=/tmp/iovisor-release.key
-    IOVISOR_URL=https://repo.iovisor.org/GPG-KEY
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL $IOVISOR_URL > $IOVISOR_KEY_TMP || exit $ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 30 5 30 apt-key add $IOVISOR_KEY_TMP || exit $ERR_IOVISOR_APT_KEY_TIMEOUT
-    echo "deb https://repo.iovisor.org/apt/${UBUNTU_CODENAME} ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/iovisor.list
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 120 5 25 bcc-tools libbcc-examples linux-headers-$(uname -r) || exit $ERR_BCC_INSTALL_TIMEOUT
-    apt-key del "$(gpg --with-colons $IOVISOR_KEY_TMP 2>/dev/null | head -n 1 | cut -d':' -f5)"
-    rm -f /etc/apt/sources.list.d/iovisor.list
+    apt_get_install 120 5 300 install bison build-essential cmake flex git libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    mkdir -p /tmp/bcc
+    pushd /tmp/bcc
+    git clone https://github.com/iovisor/bcc.git
+    mkdir bcc/build; cd bcc/build
+    cmake ..
+    make
+    sudo make install
+    cmake -DPYTHON_CMD=python3 .. # build python3 binding
+    pushd src/python/
+    make
+    sudo make install
+    popd
+    popd
 }
 
 installBpftrace() {
