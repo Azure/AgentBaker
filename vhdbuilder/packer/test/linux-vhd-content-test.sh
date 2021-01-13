@@ -20,29 +20,29 @@ testFilesDownloaded() {
   PARAMETERS='{
                 "fileName":"cni-plugins-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
-                "versions":"0.7.6 0.7.5 0.7.1"
+                "versions": ["0.7.6","0.7.5","0.7.1"]
               }
               {
                 "fileName":"cni-plugins-linux-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
-                "versions":"0.8.6"
+                "versions": ["0.8.6"]
               }
               {
                 "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
-                "versions":"1.2.0_hotfix 1.2.0 1.1.8"
+                "versions":["1.2.0_hotfix","1.2.0","1.1.8"]
               }
               {
-                "fileName":"bpftrace-tools.tar",
-                "downloadLocation":"/opt/bpftrace/downloads/v*",
-                "versions":"0.9.4"
+                "fileName":"v*/bpftrace-tools.tar",
+                "downloadLocation":"/opt/bpftrace/downloads".
+                "versions": ["0.9.4"]
               }'
-  echo '------------------- printing ls --------------------'
-  ls
-  echo '------------------- printing ls -R "/opt"--------------------'
-  ls -R "/opt"
-  echo '------------------- printing ls -R "/usr/local/bin"--------------------'
-  ls -R "/usr/local/bin"
+#  echo '------------------- printing ls --------------------'
+#  ls
+#  echo '------------------- printing ls -R "/opt"--------------------'
+#  ls -R "/opt"
+#  echo '------------------- printing ls -R "/usr/local/bin"--------------------'
+#  ls -R "/usr/local/bin"
 
   PARAMETERS=$(echo "${PARAMETERS}" | jq . --monochrome-output --compact-output)
   emptyFiles=()
@@ -50,7 +50,7 @@ testFilesDownloaded() {
   while IFS='' read -r param || [[ -n "${param}" ]]; do
     fileName=$(echo "${param}" | jq .fileName -r)
     downloadLocation=$(echo "${param}" | jq .downloadLocation -r)
-    versions=$(echo "${param}" | jq .versions -r)
+    versions=$(echo "${param}" | jq .versions -r | jq -r ".[]")
 
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
@@ -59,7 +59,6 @@ testFilesDownloaded() {
     fi
 
     for version in ${versions}; do
-      downloadLocation=$(string_replace $downloadLocation $version)
       fileName=$(string_replace $fileName $version)
       dest="$downloadLocation/${fileName}"
 
@@ -74,7 +73,7 @@ testFilesDownloaded() {
   done < <(echo "${PARAMETERS}")
 
   if ((${#emptyFiles[@]} > 0)) || ((${#missingPaths[@]} > 0)); then
-    err $test "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
+    err $test "expected directories ${missingPaths[*]} or(and) files ${emptyFiles[*]} do not exist"
   fi
   echo "$test:Finish"
 }
@@ -85,7 +84,7 @@ testImagesPulled() {
   containerRuntime=$1
   containerImageObjects=$2
   echo '------------------- containerRuntime--------------------'
-  echo '$containerRuntime'
+  echo "$containerRuntime"
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io -q)
   elif [ $containerRuntime == 'docker' ]; then
@@ -98,11 +97,11 @@ testImagesPulled() {
   imagesNotPulled=()
 
   containerImageObjects=$(echo $containerImageObjects | jq -r ".[]" | jq . --monochrome-output --compact-output)
-  echo '------------------- containerImageObjects--------------------'
-  echo "$containerImageObjects"
-  for containerImageObject in $containerImageObjects; do
+  echo '------------------- containerImageObjects after objetification--------------------'
+  echo ${containerImageObjects[*]}
+  for containerImageObject in ${containerImageObjects[*]}; do
     downloadURL=$(echo "${containerImageObject}" | jq .downloadURL -r)
-    versions=$(echo "${containerImageObject}" | jq .versions -r)
+    versions=$(echo "${containerImageObject}" | jq .versions -r | jq -r ".[]")
 
     for version in ${versions}; do
       downloadURL=$(string_replace $downloadURL $version)
@@ -118,13 +117,13 @@ testImagesPulled() {
     echo "---"
   done
   if ((${#imagesNotPulled[@]} > 0)); then
-    err $test "Some images were not successfully pulled \n $imagesNotPulled"
+    err $test "Some images were not successfully pulled \n ${imagesNotPulled[*]}"
   fi
   echo "$test:Finish"
 }
 
 err() {
-  echo "$1 Error: $2" >>/dev/stderr
+  echo "$1:Error: $2" >>/dev/stderr
 }
 
 string_replace() {
@@ -135,157 +134,158 @@ containerImageObjects='
 [
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v*",
-    "versions": "1.10.1"
+    "versions": ["1.10.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:v*",
-    "versions": "2.0.0-beta8 2.0.0-rc3 2.0.0-rc7 2.0.1"
+    "versions": ["2.0.0-beta8","2.0.0-rc3","2.0.0-rc7","2.0.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-scraper:v*",
-    "versions": "1.0.2 1.0.3 1.0.4"
+    "versions": ["1.0.2","1.0.3","1.0.4"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/exechealthz:*",
-    "versions": "1.2"
+    "versions": ["1.2"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
-    "versions": "1.8.5 1.8.4 1.8.1 1.7"
+    "versions": ["1.8.5","1.8.4","1.8.1","1.7"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:v*",
-    "versions": "0.3.6 0.3.5"
+    "versions": ["0.3.6","0.3.5"]
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/core/pause:*",
-    "versions": "1.2.0"
+    "versions": ["1.2.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
-    "versions": "1.2.0 1.3.1 1.4.0"
+    "versions": ["1.2.0","1.3.1","1.4.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
-    "versions": "1.6.6 1.6.5 1.5.0 1.3.1 1.2.6"
+    "versions": ["1.6.6","1.6.5","1.5.0","1.3.1","1.2.6"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/networkmonitor:v*",
-    "versions": "1.1.8 0.0.7 0.0.6"
+    "versions": ["1.1.8","0.0.7","0.0.6"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:v*",
-    "versions": "1.2.1 1.1.8 1.1.7 1.1.5 1.1.4"
+    "versions": ["1.2.1","1.1.8","1.1.7","1.1.5","1.1.4"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v*",
-    "versions": "1.0.30"
+    "versions": ["1.0.30"]
   },
   {
     "downloadURL": "mcr.microsoft.com/aks/acc/sgx-device-plugin:*",
-    "versions": "1.0"
+    "versions": ["1.0"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
-    "versions": "v1.9.2-v3.0.18 v1.9.2-v3.0.19 v1.9.2-v3.0.20"
+    "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v*",
+    "versions": ["1.9.2-v3.0.18","1.9.2-v3.0.19","1.9.2-v3.0.20"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v*",
-    "versions": "0.0.13"
+    "versions": ["0.0.13"]
   },
   {
     "downloadURL": "mcr.microsoft.com/aks/hcp/kube-svc-redirect:v*",
-    "versions": "1.0.7"
+    "versions": ["1.0.7"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-    "versions": "ciprod10052020 ciprod10272020 ciprod11092020"
+    "versions": ["ciprod10052020","ciprod10272020","ciprod11092020"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/cni:v*",
-    "versions": "3.8.9 3.8.9.1"
+    "versions": ["3.8.9","3.8.9.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/node:v*",
-    "versions": "3.8.9 3.8.9.1"
+    "versions": ["3.8.9","3.8.9.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/typha:v*",
-    "versions": "3.8.9 3.8.9.1"
+    "versions": ["3.8.9","3.8.9.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v*",
-    "versions": "3.8.9 3.8.9.1"
+    "versions": ["3.8.9","3.8.9.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-    "versions": "1.3.0_v0.0.5 1.7.1 1.7.1-hotfix.20200403"
+    "versions": ["1.3.0_v0.0.5","1.7.1","1.7.1-hotfix.20200403"]
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:*",
-    "versions": "1.0.15"
+    "versions": ["1.0.15"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v*",
-    "versions": "2.5.0.2 2.5.0.3"
+    "versions": ["2.5.0.2","2.5.0.3"]
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/kms/keyvault:v*",
-    "versions": "0.0.9"
+    "versions": ["0.0.9"]
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/csi/azuredisk-csi:v*",
-    "versions": "0.7.0 0.9.0"
+    "versions": ["0.7.0","0.9.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/csi/azurefile-csi:v*",
-    "versions": "0.7.0 0.9.0"
+    "versions": ["0.7.0","0.9.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v*",
-    "versions": "1.1.0"
+    "versions": ["1.1.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v*",
-    "versions": "1.2.0 2.0.1"
+    "versions": ["1.2.0","2.0.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v*",
-    "versions": "2.0.1 3.1.0 3.1.1 3.1.3"
+    "versions": ["2.0.1","3.1.0","3.1.1","3.1.3"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:v*",
-    "versions": "0.6.0-hotfix-20200228"
+    "versions": ["0.6.0-hotfix-20200228"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/defaultbackend:*",
-    "versions": "1.4"
+    "versions": ["1.4"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
-    "versions": "0.19.0"
+    "versions": ["0.19.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
-    "versions": "1.2.1.1"
+    "versions": ["1.2.1.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
-    "versions": "prod_20200901.1 prod_20200923.1 prod_20201015.1"
+    "versions": ["prod_20200901.1","prod_20200923.1","prod_20201015.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
-    "versions": "prod_20200505.3"
+    "versions": ["prod_20200505.3"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
-    "versions": "1.0.1-rc3"
+    "versions": ["1.0.1-rc3"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v*",
-    "versions": "1.6.3 1.7.2"
+    "versions": ["1.6.3","1.7.2"]
   }
-]'
+]
+'
 
 testFilesDownloaded
-testImagesPulled $1 $containerImageObjects
+testImagesPulled docker "$containerImageObjects"
