@@ -2,6 +2,7 @@
 
 #cni plugins +
 #azure vnet cni +
+#bpftrace +
 #installDeps -
 #overrideNetworkConfig -
 #disableSystemdTimesyncdAndEnableNTP -
@@ -17,24 +18,24 @@ testFilesDownloaded() {
   test="testFilesDownloaded"
   echo "$test:Start"
   PARAMETERS='{
-                "downloadURL":"https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v*.tgz",
+                "fileName":"cni-plugins-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
                 "versions":"0.7.6 0.7.5 0.7.1"
               }
               {
-                "downloadURL":"https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-amd64-v*.tgz",
+                "fileName":"cni-plugins-linux-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
                 "versions":"0.8.6"
               }
               {
-                "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries/azure-vnet-cni-linux-amd64-v*.tgz",
+                "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
                 "versions":"1.2.0_hotfix 1.2.0 1.1.8"
               }
               {
-                "downloadURL":"https://acs-mirror.azureedge.net/img/img-linux-amd64-v*",
-                "downloadLocation":"/usr/local/bin/img",
-                "versions":"0.5.6"
+                "fileName":"bpftrace-tools.tar",
+                "downloadLocation":"/opt/bpftrace/downloads/v*",
+                "versions":"0.9.4"
               }'
   echo '------------------- printing ls --------------------'
   ls
@@ -47,7 +48,7 @@ testFilesDownloaded() {
   emptyFiles=()
   missingPaths=()
   while IFS='' read -r param || [[ -n "${param}" ]]; do
-    downloadURL=$(echo "${param}" | jq .downloadURL -r)
+    fileName=$(echo "${param}" | jq .fileName -r)
     downloadLocation=$(echo "${param}" | jq .downloadLocation -r)
     versions=$(echo "${param}" | jq .versions -r)
 
@@ -58,8 +59,8 @@ testFilesDownloaded() {
     fi
 
     for version in ${versions}; do
-      downloadURL=$(string_replace $downloadURL $version $version)
-      fileName=${downloadURL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+      downloadLocation=$(string_replace $downloadLocation $version)
+      fileName=$(string_replace $fileName $version)
       dest="$downloadLocation/${fileName}"
 
       if [ ! -s $dest ]; then
@@ -127,7 +128,7 @@ err() {
 }
 
 string_replace() {
-  echo $1 | sed "s/\*/$2/" | sed "s/\*/$3/"
+  echo $1 | sed "s/\*/$2/"
 }
 
 containerImageObjects='

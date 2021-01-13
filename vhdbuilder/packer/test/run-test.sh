@@ -86,8 +86,7 @@ else
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME  \
         --scripts  @$SCRIPT_PATH \
-        --parameters ${CONTAINER_RUNTIME} ${CDIR}\
-        --debug)
+        --parameters ${CONTAINER_RUNTIME})
 fi
 # An example of failed run-command output:
 # {
