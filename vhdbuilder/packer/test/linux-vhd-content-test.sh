@@ -281,7 +281,7 @@ containerImageObjects='
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v*",
-    "versions": "1.6.3 1.7.0"
+    "versions": "1.6.3 1.7.2"
   }
 ]'
 
