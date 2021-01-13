@@ -12,7 +12,6 @@
 ### NGINX_VERSIONS -
 ### for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do -
 ### for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-### for ADDON_IMAGE in ${ADDON_IMAGES}; do # easy to convert
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -84,7 +83,8 @@ testImagesPulled() {
   echo "$test:Start"
   containerRuntime=$1
   containerImageObjects=$2
-
+  echo '------------------- containerRuntime--------------------'
+  echo '$containerRuntime'
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io -q)
   elif [ $containerRuntime == 'docker' ]; then
@@ -97,6 +97,8 @@ testImagesPulled() {
   imagesNotPulled=()
 
   containerImageObjects=$(echo $containerImageObjects | jq -r ".[]" | jq . --monochrome-output --compact-output)
+  echo '------------------- containerImageObjects--------------------'
+  echo "$containerImageObjects"
   for containerImageObject in $containerImageObjects; do
     downloadURL=$(echo "${containerImageObject}" | jq .downloadURL -r)
     versions=$(echo "${containerImageObject}" | jq .versions -r)
@@ -120,13 +122,12 @@ testImagesPulled() {
   echo "$test:Finish"
 }
 
-err(){
-    echo "$1 Error: $2" >>/dev/stderr
+err() {
+  echo "$1 Error: $2" >>/dev/stderr
 }
 
-
 string_replace() {
-     echo $1 | sed "s/\*/$2/" | sed "s/\*/$3/"
+  echo $1 | sed "s/\*/$2/" | sed "s/\*/$3/"
 }
 
 containerImageObjects='
