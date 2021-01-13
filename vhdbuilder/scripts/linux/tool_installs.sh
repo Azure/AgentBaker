@@ -28,7 +28,7 @@ installBcc() {
     echo "Installing BCC tools..."
     wait_for_apt_locks
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 120 5 300 bison build-essential cmake flex git libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
+    apt_get_install 120 5 300 bison build-essential cmake flex git libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
     mkdir -p /tmp/bcc
     pushd /tmp/bcc
     git clone https://github.com/iovisor/bcc.git
