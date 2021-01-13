@@ -46,6 +46,10 @@ installBcc() {
     sudo make install
     popd
     popd
+    apt_get_purge 120 5 300 cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    if [ "$VERSION" = "18.04" ]; then
+        apt_get_purge 120 5 25 python3-distutils libfl-dev
+    fi
 }
 
 installBpftrace() {
