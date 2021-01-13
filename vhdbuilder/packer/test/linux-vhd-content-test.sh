@@ -1,5 +1,4 @@
 #!/bin/bash
-set -eux
 
 #cni plugins +
 #azure vnet cni +
@@ -37,9 +36,11 @@ testFilesDownloaded() {
                 "downloadLocation":"/usr/local/bin/img",
                 "versions":"0.5.6"
               }'
-
+  echo '------------------- printing ls --------------------'
   ls
+  echo '------------------- printing ls -R "/opt"--------------------'
   ls -R "/opt"
+  echo '------------------- printing ls -R "/usr/local/bin"--------------------'
   ls -R "/usr/local/bin"
 
   PARAMETERS=$(echo "${PARAMETERS}" | jq . --monochrome-output --compact-output)
