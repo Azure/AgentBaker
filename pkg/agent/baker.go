@@ -688,6 +688,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return 0
 		},
 		"UserAssignedIDEnabled": func() bool {
+			// TODO(qinhao): we need to move this to NodeBootstrappingConfiguration as cs.Properties
+			//               is to be moved away from NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
 		},
 	}
