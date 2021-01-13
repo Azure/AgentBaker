@@ -325,8 +325,4 @@ semverCompare() {
     [[ "${VERSION_A}" == ${sorted[1]} ]] && return 0
     return 1
 }
-
-string_replace() {
-     echo $1 | sed "s/\*/$2/" | sed "s/\*/$3/"
-}
 #HELPERSEOF
