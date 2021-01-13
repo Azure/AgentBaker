@@ -461,9 +461,9 @@ done
 # v1.18.14
 # v1.19.3
 # v1.19.6
+# v1.20.0
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
-1.15.12-hotfix.20200824.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200824.1
 1.16.13-hotfix.20200824.1
@@ -484,6 +484,7 @@ K8S_VERSIONS="
 1.19.1-hotfix.20200923
 1.19.3
 1.19.6
+1.20.0
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -527,6 +528,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.18.14
 # v1.19.3
 # v1.19.6
+# v1.20.0
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.16.9-hotfix.20200529.1
@@ -550,6 +552,7 @@ PATCHED_HYPERKUBE_IMAGES="
 1.19.1-hotfix.20200923
 1.19.3
 1.19.6
+1.20.0
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
