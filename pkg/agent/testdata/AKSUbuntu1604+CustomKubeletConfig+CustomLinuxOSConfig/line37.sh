@@ -242,7 +242,7 @@ EOF
     "cpuManagerPolicy": "static",
     "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
-    "podPidsLimit": -1,
+    "podPidsLimit": 12345,
     "resolvConf": "/etc/resolv.conf",
     "cpuCFSQuota": false,
     "cpuCFSQuotaPeriod": "200ms",
@@ -261,6 +261,8 @@ EOF
         "x": false
     },
     "failSwapOn": false,
+    "containerLogMaxSize": "1000M",
+    "containerLogMaxFiles": 99,
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"

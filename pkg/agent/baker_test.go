@@ -267,10 +267,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TopologyManagerPolicy: "best-effort",
 				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				FailSwapOn:            &failSwapOn,
+				ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+				ContainerLogMaxFiles:  to.Int32Ptr(99),
+				PodMaxPids:            to.Int32Ptr(12345),
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 				Sysctls: &datamodel.SysctlConfig{
 					NetCoreSomaxconn:             &netCoreSomaxconn,
+					NetCoreRmemDefault:           to.Int32Ptr(456000),
+					NetCoreWmemDefault:           to.Int32Ptr(89000),
 					NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
 					NetIpv4IpLocalPortRange:      "32768 60999",
 					NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
