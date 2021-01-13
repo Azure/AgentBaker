@@ -59,7 +59,7 @@ testFilesDownloaded() {
     fi
 
     for version in ${versions}; do
-      downloadURL=$(string_replace $downloadURL version version)
+      downloadURL=$(string_replace $downloadURL $version $version)
       fileName=${downloadURL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
       dest="$downloadLocation/${fileName}"
 
@@ -96,7 +96,7 @@ testImagesPulled() {
 
   imagesNotPulled=()
 
-  containerImageObjects=$(jq -r ".[]" $containerImageObjects | jq . --monochrome-output --compact-output)
+  containerImageObjects=$(echo $containerImageObjects | jq -r ".[]" | jq . --monochrome-output --compact-output)
   for containerImageObject in $containerImageObjects; do
     downloadURL=$(echo "${containerImageObject}" | jq .downloadURL -r)
     versions=$(echo "${containerImageObject}" | jq .versions -r)
@@ -129,7 +129,8 @@ string_replace() {
      echo $1 | sed "s/\*/$2/" | sed "s/\*/$3/"
 }
 
-containerImageObjects='[
+containerImageObjects='
+[
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v*",
     "versions": "1.10.1"
@@ -283,5 +284,6 @@ containerImageObjects='[
     "versions": "1.6.3 1.7.0"
   }
 ]'
+
 testFilesDownloaded
 testImagesPulled $1 $containerImageObjects
