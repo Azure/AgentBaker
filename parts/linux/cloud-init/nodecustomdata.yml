@@ -513,8 +513,14 @@ write_files:
 {{- if $s.NetCoreNetdevMaxBacklog}}
     net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
 {{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
 {{- if $s.NetCoreRmemMax}}
     net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
 {{- end}}
 {{- if $s.NetCoreWmemMax}}
     net.core.wmem_max={{$s.NetCoreWmemMax}}
@@ -536,12 +542,6 @@ write_files:
 {{- end}}
 {{- if $s.NetIpv4TcpkeepaliveIntvl}}
     net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpRmem}}
-    net.ipv4.tcp_rmem={{$s.NetIpv4TcpRmem}}
-{{- end}}
-{{- if $s.NetIpv4TcpWmem}}
-    net.ipv4.tcp_wmem={{$s.NetIpv4TcpWmem}}
 {{- end}}
 {{- if $s.NetIpv4TcpTwReuse}}
     net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
