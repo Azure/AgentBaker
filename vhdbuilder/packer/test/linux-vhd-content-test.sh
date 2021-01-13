@@ -15,7 +15,8 @@
 ### for ADDON_IMAGE in ${ADDON_IMAGES}; do # easy to convert
 
 testFilesDownloaded() {
-  echo "Starting testFilesDownloaded"
+  test="testFilesDownloaded"
+  echo "$test:Start"
   PARAMETERS='{
                 "downloadURL":"https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v*.tgz",
                 "downloadLocation":"/opt/cni/downloads",
@@ -51,8 +52,8 @@ testFilesDownloaded() {
     downloadLocation=$(echo "${param}" | jq .downloadLocation -r)
     versions=$(echo "${param}" | jq .versions -r)
 
-    if [ ! -d downloadLocation ]; then
-      err "Directory ${downloadLocation} does not exist"
+    if [ ! -d $downloadLocation ]; then
+      err $test "Directory ${downloadLocation} does not exist"
       missingPaths+=("$downloadLocation")
       continue
     fi
@@ -62,8 +63,8 @@ testFilesDownloaded() {
       fileName=${downloadURL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
       dest="$downloadLocation/${fileName}"
 
-      if [ ! -s dest ]; then
-        err "File ${dest} does not exist"
+      if [ ! -s $dest ]; then
+        err $test "File ${dest} does not exist"
         emptyFiles+=("$dest")
         continue
       fi
@@ -73,26 +74,29 @@ testFilesDownloaded() {
   done < <(echo "${PARAMETERS}")
 
   if ((${#emptyFiles[@]} > 0)) || ((${#missingPaths[@]} > 0)); then
-    err "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
+    err $test "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
   fi
+  echo "$test:Finish"
 }
 
 testImagesPulled() {
-  echo "Starting testImagesPulled"
+  test="testImagesPulled"
+  echo "$test:Start"
   containerRuntime=$1
+  currentDirectory=$2
 
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io -q)
   elif [ $containerRuntime == 'docker' ]; then
     pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
   else
-    err "unsupported container runtime $containerRuntime"
+    err $test "unsupported container runtime $containerRuntime"
     return
   fi
 
   imagesNotPulled=()
 
-  containerImageObjects=$(jq -r ".[]" container-images.json | jq . --monochrome-output --compact-output)
+  containerImageObjects=$(jq -r ".[]" $currentDirectory/container-images.json | jq . --monochrome-output --compact-output)
   for containerImageObject in $containerImageObjects; do
     downloadURL=$(echo "${containerImageObject}" | jq .downloadURL -r)
     versions=$(echo "${containerImageObject}" | jq .versions -r)
@@ -103,7 +107,7 @@ testImagesPulled() {
       if [[ $pulledImages =~ $downloadURL ]]; then
         echo "Image ${downloadURL} has been pulled Successfully"
       else
-        err "Image ${downloadURL} has NOT been pulled"
+        err $test "Image ${downloadURL} has NOT been pulled"
         imagesNotPulled+=("$downloadURL")
       fi
     done
@@ -111,13 +115,14 @@ testImagesPulled() {
     echo "---"
   done
   if ((${#imagesNotPulled[@]} > 0)); then
-    err "Some images were not successfully pulled \n $imagesNotPulled"
+    err $test "Some images were not successfully pulled \n $imagesNotPulled"
   fi
+  echo "$test:Finish"
 }
 
 err(){
-    echo "Error: $*" >>/dev/stderr
+    echo "$1 Error: $2" >>/dev/stderr
 }
 
 testFilesDownloaded
-testImagesPulled $1
+testImagesPulled $1 $2
