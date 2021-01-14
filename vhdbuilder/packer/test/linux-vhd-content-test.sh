@@ -13,44 +13,20 @@
 ### NGINX_VERSIONS -
 ### for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do -
 ### for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
+### installSGX=${SGX_DEVICE_PLUGIN_INSTALL:-"False"} needs condition -
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
   echo "$test:Start"
-  PARAMETERS='{
-                "fileName":"cni-plugins-amd64-v*.tgz",
-                "downloadLocation":"/opt/cni/downloads",
-                "versions": ["0.7.6","0.7.5","0.7.1"]
-              }
-              {
-                "fileName":"cni-plugins-linux-amd64-v*.tgz",
-                "downloadLocation":"/opt/cni/downloads",
-                "versions": ["0.8.6"]
-              }
-              {
-                "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
-                "downloadLocation":"/opt/cni/downloads",
-                "versions":["1.2.0_hotfix","1.2.0","1.1.8"]
-              }
-              {
-                "fileName":"v*/bpftrace-tools.tar",
-                "downloadLocation":"/opt/bpftrace/downloads".
-                "versions": ["0.9.4"]
-              }'
-#  echo '------------------- printing ls --------------------'
-#  ls
-#  echo '------------------- printing ls -R "/opt"--------------------'
-#  ls -R "/opt"
-#  echo '------------------- printing ls -R "/usr/local/bin"--------------------'
-#  ls -R "/usr/local/bin"
+  filesToDownload=$1
 
-  PARAMETERS=$(echo "${PARAMETERS}" | jq . --monochrome-output --compact-output)
+  filesToDownload=$(echo $filesToDownload | jq -r ".[]" | jq . --monochrome-output --compact-output)
   emptyFiles=()
   missingPaths=()
-  while IFS='' read -r param || [[ -n "${param}" ]]; do
-    fileName=$(echo "${param}" | jq .fileName -r)
-    downloadLocation=$(echo "${param}" | jq .downloadLocation -r)
-    versions=$(echo "${param}" | jq .versions -r | jq -r ".[]")
+  for fileToDownload in ${filesToDownload[*]}; do
+    fileName=$(echo "${fileToDownload}" | jq .fileName -r)
+    downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
+    versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
 
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
@@ -59,8 +35,8 @@ testFilesDownloaded() {
     fi
 
     for version in ${versions}; do
-      fileName=$(string_replace $fileName $version)
-      dest="$downloadLocation/${fileName}"
+      file_Name=$(string_replace $fileName $version)
+      dest="$downloadLocation/${file_Name}"
 
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
@@ -70,11 +46,7 @@ testFilesDownloaded() {
     done
 
     echo "---"
-  done < <(echo "${PARAMETERS}")
-
-  if ((${#emptyFiles[@]} > 0)) || ((${#missingPaths[@]} > 0)); then
-    err $test "expected directories ${missingPaths[*]} or(and) files ${emptyFiles[*]} do not exist"
-  fi
+  done
   echo "$test:Finish"
 }
 
@@ -82,7 +54,7 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  containerImageObjects=$2
+  imagesToBePulled=$2
   echo '------------------- containerRuntime--------------------'
   echo "$containerRuntime"
   if [ $containerRuntime == 'containerd' ]; then
@@ -96,29 +68,24 @@ testImagesPulled() {
 
   imagesNotPulled=()
 
-  containerImageObjects=$(echo $containerImageObjects | jq -r ".[]" | jq . --monochrome-output --compact-output)
-  echo '------------------- containerImageObjects after objetification--------------------'
-  echo ${containerImageObjects[*]}
-  for containerImageObject in ${containerImageObjects[*]}; do
-    downloadURL=$(echo "${containerImageObject}" | jq .downloadURL -r)
-    versions=$(echo "${containerImageObject}" | jq .versions -r | jq -r ".[]")
+  imagesToBePulled=$(echo $imagesToBePulled | jq -r ".[]" | jq . --monochrome-output --compact-output)
+  for imageToBePulled in ${imagesToBePulled[*]}; do
+    downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
+    versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
 
     for version in ${versions}; do
-      downloadURL=$(string_replace $downloadURL $version)
+      download_URL=$(string_replace $downloadURL $version)
 
       if [[ $pulledImages =~ $downloadURL ]]; then
-        echo "Image ${downloadURL} has been pulled Successfully"
+        echo "Image ${download_URL} has been pulled Successfully"
       else
-        err $test "Image ${downloadURL} has NOT been pulled"
-        imagesNotPulled+=("$downloadURL")
+        err $test "Image ${download_URL} has NOT been pulled"
+        imagesNotPulled+=("$download_URL")
       fi
     done
 
     echo "---"
   done
-  if ((${#imagesNotPulled[@]} > 0)); then
-    err $test "Some images were not successfully pulled \n ${imagesNotPulled[*]}"
-  fi
   echo "$test:Finish"
 }
 
@@ -130,7 +97,31 @@ string_replace() {
   echo $1 | sed "s/\*/$2/"
 }
 
-containerImageObjects='
+filesToDownload='
+[
+{
+  "fileName":"cni-plugins-amd64-v*.tgz",
+  "downloadLocation":"/opt/cni/downloads",
+  "versions": ["0.7.6","0.7.5","0.7.1"]
+},
+{
+  "fileName":"cni-plugins-linux-amd64-v*.tgz",
+  "downloadLocation":"/opt/cni/downloads",
+  "versions": ["0.8.6"]
+},
+{
+  "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
+  "downloadLocation":"/opt/cni/downloads",
+  "versions":["1.2.0_hotfix","1.2.0","1.1.8"]
+},
+{
+  "fileName":"v*/bpftrace-tools.tar",
+  "downloadLocation":"/opt/bpftrace/downloads",
+  "versions": ["0.9.4"]
+}
+]
+'
+imagesToBePulled='
 [
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v*",
@@ -287,5 +278,5 @@ containerImageObjects='
 ]
 '
 
-testFilesDownloaded
-testImagesPulled docker "$containerImageObjects"
+testFilesDownloaded "$filesToDownload"
+testImagesPulled docker "$imagesToBePulled"

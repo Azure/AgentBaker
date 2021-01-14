@@ -11,12 +11,12 @@ RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled
-function cleanup {
-    if [ "$VHD_DEBUG" == "true" ]; then
-        echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
-    else
-        az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-    fi
+function cleanup() {
+  if [ "$VHD_DEBUG" == "true" ]; then
+    echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
+  else
+    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+  fi
 }
 trap cleanup EXIT
 
@@ -25,46 +25,46 @@ VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
 #OS_DISK_URI="https://aksimages1610268313.blob.core.windows.net/system/Microsoft.Compute/Images/aks-vhds/aks-1610268313-osDisk.fe9a225e-612e-4a15-80a3-2976f38104f4.vhd"
 if [ "$MODE" == "sigMode" ]; then
-	echo "SIG existence checking for $MODE"
-	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
-	if [ -z "$id" ]; then
-		echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
-        exit 1
-	fi
+  echo "SIG existence checking for $MODE"
+  id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
+  if [ -z "$id" ]; then
+    echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+    exit 1
+  fi
 
-	id=$(az sig image-definition show \
-		--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-		--gallery-name ${SIG_GALLERY_NAME} \
-		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
-	if [ -z "$id" ]; then
-		echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-        exit 1
-	fi
+  id=$(az sig image-definition show \
+    --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+    --gallery-name ${SIG_GALLERY_NAME} \
+    --gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
+  if [ -z "$id" ]; then
+    echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+    exit 1
+  fi
 
-    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+  IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 
-    # In SIG mode, Windows VM requires admin-username and admin-password to be set,
-    # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
-    # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-    az vm create\
+  # In SIG mode, Windows VM requires admin-username and admin-password to be set,
+  # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
+  # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+  az vm create \
     --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $IMG_DEF \
     --admin-username $Test_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
-    echo "VHD test VM username: $Test_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+  echo "VHD test VM username: $Test_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 
 else
-    az disk create --resource-group $RESOURCE_GROUP_NAME \
-        --name $DISK_NAME \
-        --source "${OS_DISK_URI}"  \
-        --query id
-    az vm create --name $VM_NAME \
-        --resource-group $RESOURCE_GROUP_NAME \
-        --attach-os-disk $DISK_NAME \
-        --os-type $OS_TYPE  \
-        --public-ip-address ""
+  az disk create --resource-group $RESOURCE_GROUP_NAME \
+    --name $DISK_NAME \
+    --source "${OS_DISK_URI}" \
+    --query id
+  az vm create --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --attach-os-disk $DISK_NAME \
+    --os-type $OS_TYPE \
+    --public-ip-address ""
 fi
 
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
@@ -72,21 +72,27 @@ time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 if [ "$OS_TYPE" == "Windows" ]; then
-    SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
-    ret=$(az vm run-command invoke --command-id RunPowerShellScript \
-        --name $VM_NAME \
-        --resource-group $RESOURCE_GROUP_NAME  \
-        --scripts  @$SCRIPT_PATH \
-        --output json \
-        --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
+  SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
+  ret=$(az vm run-command invoke --command-id RunPowerShellScript \
+    --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
+    --output json \
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
+  # we have to use `-E` to disable interpretation of backslash escape sequences, for jq cannot process string
+  # with a range of control characters not escaped as shown in the error below:
+  #   Invalid string: control characters from U+0000 through U+001F must be escaped
+  errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
 else
-    SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-    sleep 900
-    ret=$(az vm run-command invoke --command-id RunShellScript \
-        --name $VM_NAME \
-        --resource-group $RESOURCE_GROUP_NAME  \
-        --scripts  @$SCRIPT_PATH \
-        --parameters ${CONTAINER_RUNTIME})
+  SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+  sleep 900
+  ret=$(az vm run-command invoke --command-id RunShellScript \
+    --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
+    --parameters ${CONTAINER_RUNTIME})
+  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
+  echo $errMsg
 fi
 # An example of failed run-command output:
 # {
@@ -117,11 +123,7 @@ fi
 #   ]
 # }
 
-# we have to use `-E` to disable interpretation of backslash escape sequences, for jq cannot process string 
-# with a range of control characters not escaped as shown in the error below:
-#   Invalid string: control characters from U+0000 through U+001F must be escaped
-errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
 # a successful errMsg should be '""' after parsed by `jq`
 if [[ $errMsg != \"\" ]]; then
-    exit 1
+  exit 1
 fi
