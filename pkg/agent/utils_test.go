@@ -6,6 +6,8 @@ package agent
 import (
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -40,14 +42,27 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
-	configFileStr := getDynamicKubeletConfigFileContent(kc)
-	diff := cmp.Diff(expectedJSON, configFileStr)
+	customKc := &datamodel.CustomKubeletConfig{
+		CPUManagerPolicy:      "static",
+		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuotaPeriod:     "200ms",
+		ImageGcHighThreshold:  to.Int32Ptr(90),
+		ImageGcLowThreshold:   to.Int32Ptr(70),
+		TopologyManagerPolicy: "best-effort",
+		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+		FailSwapOn:            to.BoolPtr(false),
+		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+		ContainerLogMaxFiles:  to.Int32Ptr(99),
+		PodMaxPids:            to.Int32Ptr(12345),
+	}
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
 	if diff != "" {
 		t.Errorf("Generated config file is different than expected: %s", diff)
 	}
 }
 
-var expectedJSON string = `{
+var expectedKubeletJSON string = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",
@@ -79,18 +94,23 @@ var expectedJSON string = `{
         "mode": "Webhook",
         "webhook": {}
     },
+    "eventRecordQPS": 0,
     "clusterDomain": "cluster.local",
     "clusterDNS": [
         "10.0.0.10"
     ],
     "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
-    "imageGCHighThresholdPercent": 85,
-    "imageGCLowThresholdPercent": 80,
+    "imageGCHighThresholdPercent": 90,
+    "imageGCLowThresholdPercent": 70,
     "cgroupsPerQOS": true,
+    "cpuManagerPolicy": "static",
+    "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
-    "podPidsLimit": -1,
+    "podPidsLimit": 12345,
     "resolvConf": "/etc/resolv.conf",
+    "cpuCFSQuota": false,
+    "cpuCFSQuotaPeriod": "200ms",
     "evictionHard": {
         "memory.available": "750Mi",
         "nodefs.available": "10%",
@@ -99,8 +119,12 @@ var expectedJSON string = `{
     "protectKernelDefaults": true,
     "featureGates": {
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true
+        "RotateKubeletServerCertificate": true,
+        "TopologyManager": true
     },
+    "failSwapOn": false,
+    "containerLogMaxSize": "1000M",
+    "containerLogMaxFiles": 99,
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"
@@ -111,5 +135,9 @@ var expectedJSON string = `{
     },
     "enforceNodeAllocatable": [
         "pods"
+    ],
+    "allowedUnsafeSysctls": [
+        "kernel.msg*",
+        "net.ipv4.route.min_pmtu"
     ]
 }`

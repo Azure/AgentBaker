@@ -8,6 +8,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
   encoding: gzip
@@ -58,6 +65,22 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
+{{- if EnableHostsConfigAgent}}
+- path: /opt/azure/containers/reconcilePrivateHosts.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsScript"}}
+
+- path: /etc/systemd/system/reconcile-private-hosts.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
+{{- end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -66,11 +89,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 {{if not .IsVHDDistro}}
-    {{if .IsCoreOS}}
-- path: /opt/bin/health-monitor.sh
-    {{else}}
 - path: /usr/local/bin/health-monitor.sh
-    {{end}}
   permissions: "0544"
   encoding: gzip
   owner: root
@@ -84,6 +103,21 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
+{{- if NeedsContainerd}}
+- path: /etc/systemd/system/containerd-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
+
+- path: /etc/systemd/system/containerd-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
+{{- else}}
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -97,7 +131,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-
+{{- end}}
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
@@ -139,15 +173,13 @@ write_files:
 {{end}}
 
 {{if RequiresDocker}}
-    {{if not .IsCoreOS}}
-        {{if not .IsVHDDistro}}
+    {{if not .IsVHDDistro}}
 - path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   permissions: "0644"
   encoding: gzip
   owner: "root"
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
-        {{end}}
     {{end}}
 
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
@@ -170,7 +202,7 @@ write_files:
       "log-opts":  {
          "max-size": "50m",
          "max-file": "5"
-      }{{if IsNSeriesSKU .}}
+      }{{if IsNSeriesSKU}}
       ,"default-runtime": "nvidia",
       "runtimes": {
          "nvidia": {
@@ -196,23 +228,47 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    subreaper = false{{if HasDataDir }}
+    version = 2
+    subreaper = false
+    oom_score = 0{{if HasDataDir }}
     root = "{{GetDataDir}}"{{- end}}
-    oom_score = 0
-    [plugins.cri]
-    sandbox_image = "{{GetPodInfraContainerSpec}}"
-    [plugins.cri.containerd.untrusted_workload_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux"
-    runtime_engine = "/usr/bin/runc"
-    [plugins.cri.containerd.default_runtime]
-    runtime_type = "io.containerd.runtime.v1.linux"
-    runtime_engine = "/usr/bin/runc"
-    {{if IsKubenet }}
-    [plugins.cri.cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
-    {{end}}
+    [plugins."io.containerd.grpc.v1.cri"]
+      sandbox_image = "{{GetPodInfraContainerSpec}}"
+      [plugins."io.containerd.grpc.v1.cri".containerd]
+        {{ if TeleportEnabled }}
+        snapshotter = "teleportd"
+        disable_snapshot_annotations = false
+        {{ end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
+          runtime_type = "io.containerd.runtime.v1.linux"
+          {{- if IsNSeriesSKU}}
+          runtime_engine = "/usr/bin/nvidia-container-runtime"
+          {{- else}}
+          runtime_engine = "/usr/bin/runc"
+          {{- end}}
+      {{ if IsKubenet }}
+      [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        conf_template = "/etc/containerd/kubenet_template.conf"
+      {{ end}}
+      [plugins."io.containerd.grpc.v1.cri".registry.headers]
+        X-Meta-Source-Client = ["azure/aks"]
+    [metrics]
+      address = "127.0.0.1:10257"
+    {{ if TeleportEnabled }}
+    [proxy_plugins]
+      [proxy_plugins.teleportd]
+        type = "snapshot"
+        address = "/run/teleportd/snapshotter.sock"
+    {{ end}}
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf
@@ -229,7 +285,7 @@ write_files:
             "addIf": "eth0",
             "isGateway": true,
             "ipMasq": true,
-            "promisMode": true,
+            "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
@@ -252,6 +308,7 @@ write_files:
     ExecStart=/usr/bin/containerd
     Delegate=yes
     KillMode=process
+    Restart=always
     OOMScoreAdjust=-999
     LimitNOFILE=1048576
     LimitNPROC=infinity
@@ -276,19 +333,40 @@ write_files:
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
-    
-{{if IsKubenet }}
+
 - path: /etc/sysctl.d/11-containerd.conf
   permissions: "0644"
   owner: root
   content: |
     net.ipv4.ip_forward = 1
+    net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
+    #EOF
+
+{{if TeleportEnabled}}
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
     #EOF
 {{end}}
 {{end}}
 
-{{if IsNSeriesSKU .}}
+{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
@@ -338,7 +416,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetParameter "kubernetesEndpoint"}}:443
+        server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: client
       user:
@@ -356,15 +434,16 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig }}
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig}}
     KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
     KUBELET_IMAGE={{GetHyperkubeImageReference}}
 {{end}}
 {{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
 {{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . "',variables('labelResourceGroup'),'"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
 {{end}}
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
@@ -381,6 +460,126 @@ write_files:
     iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
     {{end}}
 {{end}}
+
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    #EOF
+
+- path: /etc/sysctl.d/999-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+    net.ipv4.tcp_retries2=8
+    net.core.message_burst=80
+    net.core.message_cost=40
+{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
+    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
+    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
+    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
+    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
+    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if ShouldConfigCustomSysctl}}
+    # The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+    net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+    net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+    net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+    fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+    fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+    fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+    kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+    vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+    vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
     #EOF
 
 runcmd:

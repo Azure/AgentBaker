@@ -5,18 +5,13 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/Azure/aks-engine/pkg/api"
-	"github.com/Azure/aks-engine/pkg/api/vlabs"
-	"github.com/Azure/aks-engine/pkg/armhelpers"
-	"github.com/Azure/aks-engine/pkg/armhelpers/azurestack"
-	"github.com/Azure/aks-engine/pkg/helpers"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/pkg/aks-engine/api"
+	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -70,8 +65,8 @@ func NewRootCmd() *cobra.Command {
 func writeDefaultModel(out io.Writer) error {
 	meta, p := api.LoadDefaultContainerServiceProperties()
 	type withMeta struct {
-		APIVersion string            `json:"apiVersion"`
-		Properties *vlabs.Properties `json:"properties"`
+		APIVersion string                `json:"apiVersion"`
+		Properties *datamodel.Properties `json:"properties"`
 	}
 
 	b, err := json.MarshalIndent(withMeta{APIVersion: meta.APIVersion, Properties: p}, "", "\t")
@@ -87,7 +82,6 @@ func writeDefaultModel(out io.Writer) error {
 
 type authProvider interface {
 	getAuthArgs() *authArgs
-	getClient() (armhelpers.AKSEngineClient, error)
 }
 
 type authArgs struct {
@@ -120,10 +114,6 @@ func addAuthFlags(authArgs *authArgs, f *flag.FlagSet) {
 //this allows the authArgs to be stubbed behind the authProvider interface, and be its own provider when not in tests.
 func (authArgs *authArgs) getAuthArgs() *authArgs {
 	return authArgs
-}
-
-func (authArgs *authArgs) isAzureStackCloud() bool {
-	return strings.EqualFold(authArgs.RawAzureEnvironment, api.AzureStackCloud)
 }
 
 func (authArgs *authArgs) validateAuthArgs() error {
@@ -196,82 +186,6 @@ func getCloudSubFromAzConfig(cloud string, f *ini.File) (uuid.UUID, error) {
 	return uuid.Parse(sub.String())
 }
 
-func (authArgs *authArgs) getClient() (armhelpers.AKSEngineClient, error) {
-	if authArgs.isAzureStackCloud() {
-		return authArgs.getAzureStackClient()
-	}
-	return authArgs.getAzureClient()
-}
-
-func (authArgs *authArgs) getAzureClient() (armhelpers.AKSEngineClient, error) {
-	var client *armhelpers.AzureClient
-	env, err := azure.EnvironmentFromName(authArgs.RawAzureEnvironment)
-	if err != nil {
-		return nil, err
-	}
-	switch authArgs.AuthMethod {
-	case "cli":
-		client, err = armhelpers.NewAzureClientWithCLI(env, authArgs.SubscriptionID.String())
-	case "device":
-		client, err = armhelpers.NewAzureClientWithDeviceAuth(env, authArgs.SubscriptionID.String())
-	case "client_secret":
-		client, err = armhelpers.NewAzureClientWithClientSecret(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.ClientSecret)
-	case "client_certificate":
-		client, err = armhelpers.NewAzureClientWithClientCertificateFile(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.CertificatePath, authArgs.PrivateKeyPath)
-	default:
-		return nil, errors.Errorf("--auth-method: ERROR: method unsupported. method=%q", authArgs.AuthMethod)
-	}
-	if err != nil {
-		return nil, err
-	}
-	err = client.EnsureProvidersRegistered(authArgs.SubscriptionID.String())
-	if err != nil {
-		return nil, err
-	}
-	client.AddAcceptLanguages([]string{authArgs.language})
-	return client, nil
-}
-
-func (authArgs *authArgs) getAzureStackClient() (armhelpers.AKSEngineClient, error) {
-	var client *azurestack.AzureClient
-	env, err := azure.EnvironmentFromName(authArgs.RawAzureEnvironment)
-	if err != nil {
-		return nil, err
-	}
-	switch authArgs.AuthMethod {
-	case "client_secret":
-		if authArgs.IdentitySystem == "azure_ad" {
-			client, err = azurestack.NewAzureClientWithClientSecret(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.ClientSecret)
-		} else if authArgs.IdentitySystem == "adfs" {
-			// for ADFS environment, it is single tenant environment and the tenant id is aways adfs
-			client, err = azurestack.NewAzureClientWithClientSecretExternalTenant(env, authArgs.SubscriptionID.String(), "adfs", authArgs.ClientID.String(), authArgs.ClientSecret)
-		} else {
-			return nil, errors.Errorf("--auth-method: ERROR: method unsupported. method=%q identitysystem=%q", authArgs.AuthMethod, authArgs.IdentitySystem)
-		}
-	case "client_certificate":
-		if authArgs.IdentitySystem == "azure_ad" {
-			client, err = azurestack.NewAzureClientWithClientCertificateFile(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.CertificatePath, authArgs.PrivateKeyPath)
-			break
-		} else if authArgs.IdentitySystem == "adfs" {
-			// for ADFS environment, it is single tenant environment and the tenant id is aways adfs
-			client, err = azurestack.NewAzureClientWithClientCertificateFileExternalTenant(env, authArgs.SubscriptionID.String(), "adfs", authArgs.ClientID.String(), authArgs.CertificatePath, authArgs.PrivateKeyPath)
-			break
-		}
-		fallthrough
-	default:
-		return nil, errors.Errorf("--auth-method: ERROR: method unsupported. method=%q identitysystem=%q", authArgs.AuthMethod, authArgs.IdentitySystem)
-	}
-	if err != nil {
-		return nil, err
-	}
-	err = client.EnsureProvidersRegistered(authArgs.SubscriptionID.String())
-	if err != nil {
-		return nil, err
-	}
-	client.AddAcceptLanguages([]string{authArgs.language})
-	return client, nil
-}
-
 func getCompletionCmd(root *cobra.Command) *cobra.Command {
 	var completionCmd = &cobra.Command{
 		Use:   "completion",
@@ -290,27 +204,4 @@ func getCompletionCmd(root *cobra.Command) *cobra.Command {
 		},
 	}
 	return completionCmd
-}
-
-func writeCustomCloudProfile(cs *api.ContainerService) error {
-
-	tmpFile, err := ioutil.TempFile("", "azurestackcloud.json")
-	tmpFileName := tmpFile.Name()
-	if err != nil {
-		return err
-	}
-	log.Infoln(fmt.Sprintf("Writing cloud profile to: %s", tmpFileName))
-
-	// Build content for the file
-	content, err := cs.Properties.GetCustomEnvironmentJSON(false)
-	if err != nil {
-		return err
-	}
-	if err = ioutil.WriteFile(tmpFileName, []byte(content), os.ModeAppend); err != nil {
-		return err
-	}
-
-	os.Setenv("AZURE_ENVIRONMENT_FILEPATH", tmpFileName)
-
-	return nil
 }

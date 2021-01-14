@@ -25,7 +25,7 @@ trigger: none
 #    - (offline)POST a new SKU to azure marketplace
 
 variables:
-  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.27.1'
+  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
 
 phases:
   - phase: build_vhd
@@ -38,6 +38,18 @@ phases:
           echo "Set build mode to $m" && \
           echo "##vso[task.setvariable variable=MODE]$m"
         displayName: Get Build Mode
+      - task: UniversalPackages@0
+        displayName: Download Asc Baseline
+        inputs:
+          command: download
+          vstsFeed: ASMPackages
+          vstsFeedPackage: asc-baseline
+          vstsPackageVersion: '1.0.0-35'
+          downloadDirectory: vhdbuilder/packer
+      - bash: |
+          pwd
+          ls -R
+        displayName: show Directory
       - bash: |
           echo MODE=$(MODE) && \
           docker run --rm \
@@ -55,11 +67,14 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
           -e OS_TYPE="Linux" \
+          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
           -e MODE=$(MODE) \
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+          -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
           ${CONTAINER_IMAGE} make -f packer.mk run-packer
         displayName: Building VHD
       - task: PublishPipelineArtifact@0
@@ -153,6 +168,8 @@ phases:
           -e OS_NAME="Linux" \
           -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))

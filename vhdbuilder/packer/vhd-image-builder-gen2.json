@@ -10,7 +10,10 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "ubuntu_sku": "{{env `UBUNTU_SKU`}}"
+    "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
+    "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
+    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}"
   },
   "builders": [
     {
@@ -32,7 +35,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "1804Gen2-{{user `create_time`}}",
       "shared_image_gallery_destination": {
@@ -40,7 +42,9 @@
         "gallery_name": "PackerSigGalleryEastUS",
         "image_name": "1804Gen2",
         "image_version": "1.0.{{user `create_time`}}",
-        "replication_regions": ["{{user `location`}}"]
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
       }
     }
   ],
@@ -81,6 +85,11 @@
       "type": "file",
       "source": "vhdbuilder/scripts/linux/tool_installs.sh",
       "destination": "/home/packer/tool_installs.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/asc-baseline-1.0.0-35.amd64.deb",
+      "destination": "/home/packer/asc-baseline.deb"
     },
     {
       "type": "file",
@@ -194,6 +203,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.service",
+      "destination": "/home/packer/containerd-monitor.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
+      "destination": "/home/packer/containerd-monitor.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/kubelet.service",
       "destination": "/home/packer/kubelet.service"
     },
@@ -240,7 +259,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} SGX_DEVICE_PLUGIN_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} SGX_DEVICE_PLUGIN_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

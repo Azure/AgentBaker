@@ -1,3 +1,5 @@
+SHELL=/bin/bash -o pipefail
+
 build-packer:
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
@@ -11,7 +13,13 @@ else
 endif
 
 build-packer-windows:
+ifeq (${MODE},sigMode)
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
+else
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
+endif
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
@@ -40,3 +48,10 @@ generate-sas: az-login
 
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+
+windows-vhd-publishing-info: az-login
+	@./vhdbuilder/packer/generate-windows-vhd-publishing-info.sh
+
+test-building-vhd: az-login
+	@./vhdbuilder/packer/test/run-test.sh
+

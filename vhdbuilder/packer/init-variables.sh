@@ -23,6 +23,12 @@ elif [ -z "${CLIENT_ID}" ]; then
 	TENANT_ID=$(jq -r .tenant ${SP_JSON})
 fi
 
+rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
+if [ -z "$rg_id" ]; then
+	echo "Creating resource group $AZURE_RESOURCE_GROUP_NAME, location ${AZURE_LOCATION}"
+	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
+fi
+
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
 if $avail ; then
 	echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
@@ -83,6 +89,33 @@ else
 	echo "Skipping SIG check for $MODE"
 fi
 
+# considerations to also add the windows support here instead of an extra script to initialize windows variables:
+# 1. we can demonstrate the whole user defined parameters all at once
+# 2. help us keep in mind that changes of this variables will influence both windows and linux VHD building
+
+# windows image sku and windows image version are recorded in code instead of pipeline variables
+# because a pr gives a better chance to take a review of the version changes.
+WINDOWS_IMAGE_SKU=""
+WINDOWS_IMAGE_VERSION=""
+# shellcheck disable=SC2236
+if [ ! -z "${WINDOWS_SKU}" ]; then
+	source $CDIR/windows-image.env
+	case "${WINDOWS_SKU}" in
+	"2019")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		;;
+	"2004")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2004_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2004_BASE_IMAGE_VERSION
+		;;
+	*)
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
+		exit 1
+		;;
+	esac
+fi
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -93,7 +126,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
-  "create_time": "${CREATE_TIME}"
+  "create_time": "${CREATE_TIME}",
+  "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
+  "windows_image_version": "${WINDOWS_IMAGE_VERSION}"
 }
 EOF
 

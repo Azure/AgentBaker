@@ -26,7 +26,7 @@ ifeq ($(GITTAG),)
 GITTAG := $(VERSION_SHORT)
 endif
 
-DEV_ENV_IMAGE := quay.io/deis/go-dev:v1.25.0
+DEV_ENV_IMAGE := mcr.microsoft.com/oss/azcu/go-dev:v1.28.5
 DEV_ENV_WORK_DIR := /baker
 DEV_ENV_OPTS := --rm -v $(GOPATH)/pkg/mod:/go/pkg/mod -v $(CURDIR):$(DEV_ENV_WORK_DIR) -w $(DEV_ENV_WORK_DIR) $(DEV_ENV_VARS)
 DEV_ENV_CMD := docker run $(DEV_ENV_OPTS) $(DEV_ENV_IMAGE)
@@ -75,8 +75,8 @@ validate-go:
 
 .PHONY: validate-shell
 validate-shell:
-	@./scripts/validate-shell.sh
-
+	@./.pipelines/scripts/verify_shell.sh
+	
 .PHONY: generate
 generate: bootstrap
 	@echo $(GOFLAGS)
@@ -85,6 +85,9 @@ generate: bootstrap
 	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
 	popd \
 	)
+	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	@echo "running validate-shell to make sure generated cse scripts are correct"
+	@$(MAKE) validate-shell
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -157,6 +160,7 @@ ginkgoBuild: generate
 
 test: generate
 	go test ./...
+
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
