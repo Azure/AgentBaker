@@ -172,10 +172,6 @@ imagesToBePulled='
     "versions": ["1.0.30"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/aks/acc/sgx-device-plugin:*",
-    "versions": ["1.0"]
-  },
-  {
     "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:v*",
     "versions": ["1.9.2-v3.0.18","1.9.2-v3.0.19","1.9.2-v3.0.20"]
   },
