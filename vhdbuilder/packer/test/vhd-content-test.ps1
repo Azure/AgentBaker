@@ -76,7 +76,8 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.3/windowszip/v1.19.3-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.6/windowszip/v1.19.6-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.6/windowszip/v1.19.6-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.0/windowszip/v1.20.0-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
             "https://acs-mirror.azureedge.net/azure-cni/v1.1.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.6.zip",
