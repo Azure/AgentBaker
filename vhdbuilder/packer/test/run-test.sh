@@ -83,6 +83,10 @@ if [ "$OS_TYPE" == "Windows" ]; then
   # with a range of control characters not escaped as shown in the error below:
   #   Invalid string: control characters from U+0000 through U+001F must be escaped
   errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
+  # a successful errMsg should be '""' after parsed by `jq`
+  if [[ $errMsg != \"\" ]]; then
+    exit 1
+  fi
 else
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   sleep 900
@@ -93,7 +97,12 @@ else
     --parameters ${CONTAINER_RUNTIME})
   errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
   echo $errMsg
+  if [[ $errMsg != '' ]]; then
+    exit 1
+  fi
 fi
+
+echo "Tests Run Successfully"
 # An example of failed run-command output:
 # {
 #   "value": [
@@ -122,8 +131,3 @@ fi
 #     }
 #   ]
 # }
-
-# a successful errMsg should be '""' after parsed by `jq`
-if [[ $errMsg != \"\" ]]; then
-  exit 1
-fi
