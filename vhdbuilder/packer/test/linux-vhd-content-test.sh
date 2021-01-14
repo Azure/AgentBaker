@@ -1,20 +1,5 @@
 #!/bin/bash
 
-#cni plugins +
-#azure vnet cni +
-#bpftrace +
-#installDeps -
-#overrideNetworkConfig -
-#disableSystemdTimesyncdAndEnableNTP -
-#installImg +
-# pullImage
-### NVIDIA_DEVICE_PLUGIN_VERSION -
-#GPU device plugin  -
-### NGINX_VERSIONS -
-### for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do -
-### for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-### installSGX=${SGX_DEVICE_PLUGIN_INSTALL:-"False"} needs condition -
-
 testFilesDownloaded() {
   test="testFilesDownloaded"
   echo "$test:Start"
@@ -275,4 +260,4 @@ imagesToBePulled='
 '
 
 testFilesDownloaded "$filesToDownload"
-testImagesPulled docker "$imagesToBePulled"
+testImagesPulled $1 "$imagesToBePulled"
