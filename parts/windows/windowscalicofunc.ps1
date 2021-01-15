@@ -62,11 +62,26 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`"vxlan`"" -NewString "CALICO_NETWORKING_BACKEND=`"none`""
     SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `"Calico.*`"" -NewString "KUBE_NETWORK = `"azure.*`""
 
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace "kube-system" -SecretName "calico-windows"
+    $calicoNs = GetCalicoNamespace
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $calicoNs -SecretName "calico-windows"
 
     Write-Log "Install Calico"
 
     pushd $CalicoDir
     .\install-calico.ps1
     popd
+}
+
+function GetCalicoNamespace() {
+    param(
+      [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
+    )
+
+    $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get ns calico-system
+    if ([string]::IsNullOrEmpty($name)) {
+        Write-Log "Calico running in kube-system namespace"
+        return ("kube-system")
+    }
+    Write-Log "Calico running in calico-system namespace"
+    return ("calico-system")
 }
