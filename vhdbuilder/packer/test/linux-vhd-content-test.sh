@@ -40,16 +40,10 @@ testImagesPulled() {
   echo "$test:Start"
   containerRuntime=$1
   imagesToBePulled=$2
-  echo '------------------- containerRuntime--------------------'
-  echo "$containerRuntime"
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
-    echo "pulledImages for containerd"
-    echo "$pulledImages"
   elif [ $containerRuntime == 'docker' ]; then
     pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
-    echo "pulledImages for docker"
-    echo "$pulledImages"
   else
     err $test "unsupported container runtime $containerRuntime"
     return

@@ -70,7 +70,33 @@ time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
-if [ "$OS_TYPE" == "Windows" ]; then
+
+if [ "$OS_TYPE" == "Linux" ]; then
+  SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+  sleep 900
+  ret=$(az vm run-command invoke --command-id RunShellScript \
+    --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
+    --parameters ${CONTAINER_RUNTIME})
+  # The error message for a Linux VM run-command is as follows:
+  #  "value": [
+  #    {
+  #      "code": "ProvisioningState/succeeded",
+  #      "displayStatus": "Provisioning succeeded",
+  #      "level": "Info",
+  #      "message": "Enable succeeded: \n[stdout]\n\n[stderr]\ntestImagesPulled:Error: Image mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1 has NOT been pulled
+  # \n",
+  #      "time": null
+  #    }
+  #  ]
+  #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
+  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
+  echo $errMsg
+  if [[ $errMsg != '' ]]; then
+    exit 1
+  fi
+else
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
@@ -112,19 +138,6 @@ if [ "$OS_TYPE" == "Windows" ]; then
   errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
   if [[ $errMsg != \"\" ]]; then
-    exit 1
-  fi
-else
-  SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-  sleep 900
-  ret=$(az vm run-command invoke --command-id RunShellScript \
-    --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$SCRIPT_PATH \
-    --parameters ${CONTAINER_RUNTIME})
-  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
-  echo $errMsg
-  if [[ $errMsg != '' ]]; then
     exit 1
   fi
 fi
