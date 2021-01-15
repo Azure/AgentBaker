@@ -323,6 +323,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
+		"GetKubeProxyFeatureGatesPsh": func() string {
+			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
+		},
 		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
 		},
@@ -405,6 +408,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				kubernetesWindowsAzureCniFunctionsPS1,
 				kubernetesWindowsHostsConfigAgentFunctionsPS1,
 				kubernetesWindowsOpenSSHFunctionPS1,
+				kubernetesWindowsCalicoFunctionPS1,
 				kubernetesWindowsHypervtemplatetoml,
 			}
 
@@ -435,7 +439,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"AnyAgentIsLinux": func() bool {
 			return cs.Properties.AnyAgentIsLinux()
 		},
-		"IsNSeriesSKU": func(profile *datamodel.AgentPoolProfile) bool {
+		"IsNSeriesSKU": func() bool {
 			return config.EnableNvidia
 		},
 		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
@@ -554,9 +558,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
-		},
-		"HasNSeriesSKU": func() bool {
-			return cs.Properties.HasNSeriesSKU()
 		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()

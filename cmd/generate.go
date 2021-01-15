@@ -239,6 +239,11 @@ func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig
 		ConfigGPUDriverIfNeeded:       true,
 		EnableGPUDevicePluginIfNeeded: false,
 		EnableKubeletConfigFile:       false,
+		K8sComponents: &datamodel.K8sComponents{
+			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:1.3.1",
+			HyperkubeImageURL:         "mcr.microsoft.com/hyperkube-amd64:v1.16.13",
+			WindowsPackageURL:         "https://acs-mirror.azureedge.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip",
+		},
 	}
 
 	customDataStr := templateGenerator.GetNodeBootstrappingPayload(config)

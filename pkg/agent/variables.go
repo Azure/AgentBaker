@@ -27,7 +27,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"systemdBPFMount":              getBase64EncodedGzippedCustomScript(systemdBPFMount, config),
 			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
-			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
 			"labelsSystemdService":         getBase64EncodedGzippedCustomScript(labelsSystemdService, config),
 		},
 	}
@@ -85,6 +84,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
 		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
 		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
+		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
 	}
 
 	return customData

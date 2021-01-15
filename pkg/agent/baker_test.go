@@ -267,10 +267,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TopologyManagerPolicy: "best-effort",
 				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				FailSwapOn:            &failSwapOn,
+				ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+				ContainerLogMaxFiles:  to.Int32Ptr(99),
+				PodMaxPids:            to.Int32Ptr(12345),
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 				Sysctls: &datamodel.SysctlConfig{
 					NetCoreSomaxconn:             &netCoreSomaxconn,
+					NetCoreRmemDefault:           to.Int32Ptr(456000),
+					NetCoreWmemDefault:           to.Int32Ptr(89000),
 					NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
 					NetIpv4IpLocalPortRange:      "32768 60999",
 					NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
@@ -389,6 +394,9 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					ClientID: "ClientID",
 					Secret:   "Secret",
 				},
+				FeatureFlags: &datamodel.FeatureFlags{
+					EnableWinDSR: false,
+				},
 			},
 		}
 		cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
@@ -399,6 +407,11 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		// the default component version for "hyperkube", which is not set since 1.17
 		if IsKubernetesVersionGe(k8sVersion, "1.17.0") {
 			cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage = fmt.Sprintf("k8s.gcr.io/hyperkube-amd64:v%v", k8sVersion)
+		}
+
+		// WinDSR is only supported since 1.19
+		if IsKubernetesVersionGe(k8sVersion, "1.19.0") {
+			cs.Properties.FeatureFlags.EnableWinDSR = true
 		}
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]

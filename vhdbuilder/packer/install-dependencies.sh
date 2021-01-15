@@ -70,7 +70,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.5.0"
 else
   CONTAINER_RUNTIME="docker"
-  MOBY_VERSION="19.03.12"
+  MOBY_VERSION="19.03.14"
   installMoby
   echo "VHD will be built with docker as container runtime"
   echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -313,6 +313,15 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+KONNECTIVITY_AGENT_VERSIONS="
+v0.0.13
+"
+for KONNECTIVITY_AGENT_VERSION in ${KONNECTIVITY_AGENT_VERSIONS}; do
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:${KONNECTIVITY_AGENT_VERSION}"
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
 # 1.0.10 is for the ipv6 fix
 # 1.0.11 is for the cve fix
 OPENVPN_VERSIONS="
@@ -334,8 +343,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last-->last image (ciprod10052020) as last released (ciprod10272020) is not fully rolledout yet. Added latest (ciprod11092020)
-OMS_AGENT_IMAGES="ciprod10052020 ciprod10272020 ciprod11092020"
+# keeping last-->last image (ciprod10272020) as last released (ciprod11092020) is not fully rolledout yet. Added latest (ciprod01112021)
+OMS_AGENT_IMAGES="ciprod10272020 ciprod11092020 ciprod01112021"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -411,9 +420,8 @@ done
 
 # this is the patched images which AKS are using.
 AKS_IP_MASQ_AGENT_VERSIONS="
-2.5.0
-2.5.0.1
 2.5.0.2
+2.5.0.3
 "
 for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
@@ -447,17 +455,15 @@ done
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.11-hotfix.20200901.1
 # v1.17.13
-# v1.18.8-hotfix.20200924
+# v1.17.16
 # v1.18.10
-# v1.19.1
+# v1.18.14
 # v1.19.3
+# v1.19.6
+# v1.20.0
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
-1.15.10-hotfix.20200408.1
-1.15.11-hotfix.20200824.1
-1.15.12-hotfix.20200824.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200824.1
 1.16.13-hotfix.20200824.1
@@ -467,14 +473,18 @@ K8S_VERSIONS="
 1.17.9-hotfix.20200824.1
 1.17.11-hotfix.20200901.1
 1.17.13
+1.17.16
 1.18.2-hotfix.20200624.1
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
 1.18.10
+1.18.14
 1.19.0
 1.19.1-hotfix.20200923
 1.19.3
+1.19.6
+1.20.0
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -512,16 +522,15 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # below are the required to support versions
 # v1.16.13-hotfix.20200824.1
 # v1.16.15-hotfix.20200903
-# v1.17.11-hotfix.20200901.1
 # v1.17.13
-# v1.18.8-hotfix.20200924
+# v1.17.16
 # v1.18.10
-# v1.19.1
+# v1.18.14
 # v1.19.3
+# v1.19.6
+# v1.20.0
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
-1.15.11-hotfix.20200529.1
-1.15.12-hotfix.20200623.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200824.1
 1.16.13-hotfix.20200824.1
@@ -532,14 +541,18 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.11-hotfix.20200901
 1.17.11-hotfix.20200901.1
 1.17.13
+1.17.16
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8
 1.18.8-hotfix.20200924
 1.18.10
+1.18.14
 1.19.0
 1.19.1-hotfix.20200923
 1.19.3
+1.19.6
+1.20.0
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -602,6 +615,7 @@ mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.6.3
+mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage ${cliTool} ${ADDON_IMAGE}
