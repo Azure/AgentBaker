@@ -43,7 +43,7 @@ testImagesPulled() {
   echo '------------------- containerRuntime--------------------'
   echo "$containerRuntime"
   if [ $containerRuntime == 'containerd' ]; then
-    pulledImages=$(ctr -n k8s.io -q)
+    pulledImages=$(ctr -n k8s.io image ls)
     echo "pulledImages for containerd"
     echo "$pulledImages"
   elif [ $containerRuntime == 'docker' ]; then
