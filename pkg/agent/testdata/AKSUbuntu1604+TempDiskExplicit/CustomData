@@ -86,7 +86,7 @@ write_files:
          "max-size": "50m",
          "max-file": "5"
       },
-      "data-root": "/mnt/containers"
+      "data-root": "/mnt/aks/containers"
     }
 
 
