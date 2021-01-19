@@ -28,8 +28,9 @@ phases:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+          echo '##vso[task.setvariable variable=WINDOWS_SKU]2019'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template-windows.yaml
         parameters:
