@@ -44,7 +44,8 @@ function Start-InstallCalico {
     param(
         [parameter(Mandatory=$true)] $RootDir,
         [parameter(Mandatory=$true)] $KubeServiceCIDR,
-        [parameter(Mandatory=$true)] $KubeDnsServiceIp
+        [parameter(Mandatory=$true)] $KubeDnsServiceIp,
+        [parameter(Mandatory=$false)] $CalicoNs = "calico-system"
     )
 
     Write-Log "Download Calico"
@@ -62,7 +63,7 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`"vxlan`"" -NewString "CALICO_NETWORKING_BACKEND=`"none`""
     SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `"Calico.*`"" -NewString "KUBE_NETWORK = `"azure.*`""
 
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace "kube-system" -SecretName "calico-windows"
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs -SecretName "calico-windows"
 
     Write-Log "Install Calico"
 
