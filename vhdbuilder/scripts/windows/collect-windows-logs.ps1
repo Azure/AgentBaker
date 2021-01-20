@@ -1,6 +1,6 @@
 $ProgressPreference = "SilentlyContinue"
 
-$lockedFiles = "kubelet.err.log", "kubelet.log", "kubeproxy.log", "kubeproxy.err.log", "containerd.err.log", "containerd.log", "azure-vnet-telemetry.log", "azure-vnet.log"
+$lockedFiles = "kubelet.err.log", "kubelet.log", "kubeproxy.log", "kubeproxy.err.log", "containerd.err.log", "containerd.log", "azure-vnet-telemetry.log", "azure-vnet.log", "csi-proxy.log", "csi-proxy.err.log"
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
