@@ -85,6 +85,22 @@ else {
   Write-Host "Containerd hyperv logs not avalaible"
 }
 
+Write-Host "Collecting calico logs"
+if (Test-Path "c:\CalicoWindows\logs") {
+  $tempCalico = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+  New-Item -Type Directory $tempCalico
+  Get-ChildItem c:\CalicoWindows\logs\*.log* | Foreach-Object {
+    Write-Host "Copying $_ to temp"
+    $tempfile = Copy-Item $_ $tempCalico -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+else {
+  Write-Host "Calico logs not avalaible"
+}
+
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
 Compress-Archive -LiteralPath $paths -DestinationPath $zipName
