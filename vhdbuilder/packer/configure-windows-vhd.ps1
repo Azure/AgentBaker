@@ -202,6 +202,9 @@ function Install-OpenSSH {
 }
 
 function Install-WindowsPatches {
+
+    Invoke-WebRequest -UseBasicParsing www.baidu.com -OutFile test.html
+
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
