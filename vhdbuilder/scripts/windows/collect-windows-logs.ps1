@@ -23,6 +23,20 @@ $lockedFiles | Foreach-Object {
   }
 }
 
+# azure-cni logs currently end up in system32 when called by containerd so check there for logs too
+$lockedTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+New-Item -Type Directory $lockedTemp
+$lockedFiles | Foreach-Object {
+  Write-Host "Copying $_ to temp"
+  $src = "c:\windows\system32\$_"
+  if (Test-Path $src) {
+    $tempfile = Copy-Item $src $lockedTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
