@@ -90,7 +90,7 @@ function Test-FilesToCacheOnVHD
         )
     }
 
-    $emptyFiles = @()
+    $invalidFiles = @()
     $missingPaths = @()
     foreach ($dir in $map.Keys)
     {
@@ -109,24 +109,24 @@ function Test-FilesToCacheOnVHD
             if(![System.IO.File]::Exists($dest))
             {
                 Write-Error "File $dest does not exist"
-                $emptyFiles = $emptyFiles + $dest
+                $invalidFiles = $invalidFiles + $dest
                 continue
             }
+            $remoteFileSize = (Invoke-WebRequest $URL -UseBasicParsing -Method Head).Headers.'Content-Length'
+            $localFileSize = (Get-Item $dest).length
 
-            # NOTE(qinhao): tried to download all the files and compare file MD5 but as it takes
-            #               too long(hours) for the whole process, so check the file size temporarily
-            #               until we have a better way to validate these cached files
-            if ((Get-Item $dest).length -eq 0kb) {
-                Write-Error "File $dest is with size 0kb"
-                $emptyFiles = $emptyFiles + $dest
+            if ($localFileSize -ne $remoteFileSize) {
+                Write-Error "$dest : Local file size is $localFileSize but remote file size is $remoteFileSize"
+                $invalidFiles = $invalidFiles + $dest
+                continue
             }
 
             Write-Output "$dest is cached as expected"
         }
     }
-    if ($emptyFiles.count -gt 0 -Or $missingPaths.count -gt 0)
+    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0)
     {
-        Write-Error "cache files base paths $missingPaths or(and) cached files $emptyFiles do not exist"
+        Write-Error "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
         exit 1
     }
 
