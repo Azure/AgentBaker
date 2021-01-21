@@ -4505,7 +4505,7 @@ function Register-NodeLabelSyncScriptTask {
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every minute(by `+"`"+`-RepetitionInterval 00:01:00`+"`"+`)
-    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval 00:01:00
+    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:01:00 -RepeatIndefinitely
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
     Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
 }
