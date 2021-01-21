@@ -8,7 +8,7 @@ Test_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
-az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+az group create --name $RESOURCE_GROUP_NAME --location "westus" --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
@@ -63,7 +63,8 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
-    --public-ip-address ""
+    --public-ip-address "" \
+    --location "westus"
 fi
 
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
@@ -73,7 +74,6 @@ CDIR=$(dirname $FULL_PATH)
 
 if [ "$OS_TYPE" == "Linux" ]; then
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-  sleep 900
   ret=$(az vm run-command invoke --command-id RunShellScript \
     --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
