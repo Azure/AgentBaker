@@ -171,12 +171,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
-		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
+		Entry("AKSUbuntu1604 with temp disk (toggle)", "AKSUbuntu1604+TempDiskToggle", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			// this tests prioritization of the new api property vs the old property i'd like to remove.
+			// ContainerRuntimeConfig should take priority until we remove it entirely
+			config.AgentPoolProfile.KubeletDiskType = datamodel.OSDisk
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					datamodel.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
+		}),
+		Entry("AKSUbuntu1604 with temp disk (api field)", "AKSUbuntu1604+TempDiskExplicit", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			// also tests prioritization, but now the API property should take precedence
+			config.AgentPoolProfile.KubeletDiskType = datamodel.TempDisk
+		}),
+		Entry("AKSUbuntu1604 with OS disk", "AKSUbuntu1604+OSKubeletDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			// also tests prioritization, but now the API property should take precedence
+			config.AgentPoolProfile.KubeletDiskType = datamodel.OSDisk
 		}),
 		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{

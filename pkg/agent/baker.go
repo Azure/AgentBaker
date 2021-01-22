@@ -548,11 +548,17 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return true
 			}
+			if profile.KubeletDiskType == datamodel.TempDisk {
+				return true
+			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
 		},
 		"GetDataDir": func() string {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+			}
+			if profile.KubeletDiskType == datamodel.TempDisk {
+				return datamodel.TempDiskContainerDataDir
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
