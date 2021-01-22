@@ -96,8 +96,8 @@ const (
 	kubernetesDockerMonitorSystemdService     = "linux/cloud-init/artifacts/docker-monitor.service"
 	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
 	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
-	labelsScript                              = "linux/cloud-init/artifacts/labels.sh"      // Note(charliedmcb): I have not completely followed this path. There might be more that has to be added
-	labelsSystemdService                      = "linux/cloud-init/artifacts/labels.service" // Note(charliedmcb): I have not completely followed this path. There might be more that has to be added
+	labelsScript                              = "linux/cloud-init/artifacts/labels.sh"
+	labelsSystemdService                      = "linux/cloud-init/artifacts/labels.service"
 	labelNodesScript                          = "linux/cloud-init/artifacts/label-nodes.sh"
 	labelNodesSystemdService                  = "linux/cloud-init/artifacts/label-nodes.service"
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
