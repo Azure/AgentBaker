@@ -29,7 +29,7 @@ installBcc() {
     wait_for_apt_locks
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    apt_get_install 120 5 300 bison build-essential cmake flex git libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    apt_get_install 120 5 300 build-essential git bison cmake flex  libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     if [ "$VERSION" = "18.04" ]; then
         apt_get_install 120 5 300 python3-distutils libfl-dev
     fi
@@ -46,7 +46,10 @@ installBcc() {
     sudo make install
     popd
     popd
-    apt_get_purge 120 5 300 cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    # we explicitly do not remove build-essential or git
+    # these are standard packages we want to keep, they should usually be in the final build anyway.
+    # only ensuring they are installed above.
+    apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     if [ "$VERSION" = "18.04" ]; then
         apt_get_purge 120 5 25 python3-distutils libfl-dev
     fi
