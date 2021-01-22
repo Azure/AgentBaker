@@ -31,7 +31,7 @@ phases:
   - phase: build_vhd
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 360
+      timeoutInMinutes: 180
     steps:
       - bash: |
           if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
