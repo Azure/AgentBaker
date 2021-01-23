@@ -68,10 +68,10 @@ steps:
       -e TENANT_ID=${TENANT_ID} \
       -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
       -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
-      -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+      -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
       -e OS_DISK_SAS=${OS_DISK_SAS} \
       -e VHD_NAME=${VHD_NAME} \
-      ${CONTAINER_IMAGE} make -f packer.mk az-copy
+      ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - bash: |
