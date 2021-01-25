@@ -310,6 +310,21 @@ ensureKubelet() {
     
 }
 
+# The labels.service on startup and every 5 minutes periodically ensures that the customnodelabels 
+# are applied to the node.
+ensureLabels() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    LABELS_SCRIPT_FILE=/opt/azure/containers/labels.sh
+    wait_for_file 1200 1 $LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    LABELS_SYSTEMD_FILE=/etc/systemd/system/labels.service
+    wait_for_file 1200 1 $LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart labels || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+# The label-nodes.service applies missing master and agent labels to Kubernetes nodes that are 
+# required to be present for backward compatibility. It runs are startup and every 1 minute 
+# periodically
 ensureLabelNodes() {
     LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
     wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
