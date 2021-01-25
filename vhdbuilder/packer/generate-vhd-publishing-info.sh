@@ -24,6 +24,12 @@ do
     fi
 done
 
+# generate Windows image version during offical build which will be shared between PIR and SIG
+if [[ ${OS_NAME} == "Windows" ]]; then
+    VERSION_DATE=$(date +"%y%m%d")
+    IMAGE_VERSION="${IMAGE_VERSION}.${VERSION_DATE}"
+fi
+
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
 sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')

@@ -37,4 +37,3 @@ jobs:
       ${DEIS_GO_DEV_IMAGE} make tools-clean
     displayName: cleanup - clean hack/tools/bin
     condition: always()
-
