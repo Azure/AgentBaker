@@ -71,7 +71,7 @@ steps:
       -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
       -e OS_DISK_SAS=${OS_DISK_SAS} \
       -e VHD_NAME=${VHD_NAME} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
+      ${CONTAINER_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - bash: |
