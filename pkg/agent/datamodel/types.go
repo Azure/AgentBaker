@@ -544,6 +544,9 @@ type CustomKubeletConfig struct {
 	TopologyManagerPolicy string    `json:"topologyManagerPolicy,omitempty"`
 	AllowedUnsafeSysctls  *[]string `json:"allowedUnsafeSysctls,omitempty"`
 	FailSwapOn            *bool     `json:"failSwapOn,omitempty"`
+	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
+	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
+	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes
@@ -558,7 +561,9 @@ type CustomLinuxOSConfig struct {
 type SysctlConfig struct {
 	NetCoreSomaxconn               *int32 `json:"netCoreSomaxconn,omitempty"`
 	NetCoreNetdevMaxBacklog        *int32 `json:"netCoreNetdevMaxBacklog,omitempty"`
+	NetCoreRmemDefault             *int32 `json:"netCoreRmemDefault,omitempty"`
 	NetCoreRmemMax                 *int32 `json:"netCoreRmemMax,omitempty"`
+	NetCoreWmemDefault             *int32 `json:"netCoreWmemDefault,omitempty"`
 	NetCoreWmemMax                 *int32 `json:"netCoreWmemMax,omitempty"`
 	NetCoreOptmemMax               *int32 `json:"netCoreOptmemMax,omitempty"`
 	NetIpv4TcpMaxSynBacklog        *int32 `json:"netIpv4TcpMaxSynBacklog,omitempty"`
@@ -567,8 +572,6 @@ type SysctlConfig struct {
 	NetIpv4TcpKeepaliveTime        *int32 `json:"netIpv4TcpKeepaliveTime,omitempty"`
 	NetIpv4TcpKeepaliveProbes      *int32 `json:"netIpv4TcpKeepaliveProbes,omitempty"`
 	NetIpv4TcpkeepaliveIntvl       *int32 `json:"netIpv4TcpkeepaliveIntvl,omitempty"`
-	NetIpv4TcpRmem                 *int32 `json:"netIpv4TcpRmem,omitempty"`
-	NetIpv4TcpWmem                 *int32 `json:"netIpv4TcpWmem,omitempty"`
 	NetIpv4TcpTwReuse              *bool  `json:"netIpv4TcpTwReuse,omitempty"`
 	NetIpv4IpLocalPortRange        string `json:"netIpv4IpLocalPortRange,omitempty"`
 	NetIpv4NeighDefaultGcThresh1   *int32 `json:"netIpv4NeighDefaultGcThresh1,omitempty"`
@@ -1665,6 +1668,19 @@ type AKSKubeletConfiguration struct {
 	// Default: true
 	// +optional
 	FailSwapOn *bool `json:"failSwapOn,omitempty"`
+	// A quantity defines the maximum size of the container log file before it is rotated.
+	// For example: "5Mi" or "256Ki".
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// it may trigger log rotation.
+	// Default: "10Mi"
+	// +optional
+	ContainerLogMaxSize string `json:"containerLogMaxSize,omitempty"`
+	// Maximum number of container log files that can be present for a container.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// lowering it may cause log files to be deleted.
+	// Default: 5
+	// +optional
+	ContainerLogMaxFiles *int32 `json:"containerLogMaxFiles,omitempty"`
 
 	/* the following fields are meant for Node Allocatable */
 
