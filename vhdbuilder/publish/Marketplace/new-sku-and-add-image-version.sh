@@ -82,4 +82,4 @@ echo "published date: $published_date"
 echo "image label: $published_image_label"
 echo "image description: $published_image_description"
 echo ""
-(set -x ; pub versions put corevm -p $PUBLISHER -o $OFFER -s $sku_id --version $image_version --vhd-uri $vhd_url --media-name $media_name --label "AKS Base Image for Windows" --desc "AKS Base Image for Windows" --published-date "$published_date")
+(set -x ; hack/tools/bin/pub versions put corevm -p $PUBLISHER -o $OFFER -s $sku_id --version $image_version --vhd-uri $vhd_url --media-name $media_name --label "AKS Base Image for Windows" --desc "AKS Base Image for Windows" --published-date "$published_date")
