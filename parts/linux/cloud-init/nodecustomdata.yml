@@ -253,7 +253,7 @@ write_files:
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
-      {{ if IsKubenet }}
+      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
