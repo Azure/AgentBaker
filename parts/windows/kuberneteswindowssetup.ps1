@@ -468,6 +468,7 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
 
         if ($global:WindowsCalicoPackageURL) {
