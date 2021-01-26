@@ -62,11 +62,9 @@
                     "Name": "CalicoWindows",
                     "Version": "3.17.1",
                     "DownloadUrl": "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip"
-
                 }
             },
             "DevelopmentDependency": false
         }
     ]
-
 }
