@@ -3853,7 +3853,7 @@ write_files:
           {
             "type": "portmap",
             "capabilities": {"portMappings": true},
-            "snat": false
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 
