@@ -93,12 +93,6 @@
         {
             "type": "file",
             "direction": "upload",
-            "source": "vhdbuilder/scripts/windows/collect-windows-logs.ps1",
-            "destination": "c:\\akse-cache\\collect-windows-logs.ps1"
-        },
-        {
-            "type": "file",
-            "direction": "upload",
             "source": "vhdbuilder/notice_windows.txt",
             "destination": "c:\\NOTICE.txt"
         },

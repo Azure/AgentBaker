@@ -105,6 +105,17 @@ const (
 	Linux   OSType = "Linux"
 )
 
+// KubeletDiskType describes options for placement of the primary kubelet partition,
+// docker images, emptyDir volumes, and pod logs.
+type KubeletDiskType string
+
+const (
+	// OSDisk indicates data wil be shared with the OS.
+	OSDisk KubeletDiskType = "OS"
+	// TempDisk indicates date will be isolated on the temporary disk.
+	TempDisk KubeletDiskType = "Temporary"
+)
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -621,6 +632,7 @@ type AgentPoolProfile struct {
 	Count                               int                  `json:"count"`
 	VMSize                              string               `json:"vmSize"`
 	OSDiskSizeGB                        int                  `json:"osDiskSizeGB,omitempty"`
+	KubeletDiskType                     KubeletDiskType      `json:"kubeletDiskType,omitempty"`
 	DNSPrefix                           string               `json:"dnsPrefix,omitempty"`
 	OSType                              OSType               `json:"osType,omitempty"`
 	Ports                               []int                `json:"ports,omitempty"`
