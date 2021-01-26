@@ -1,0 +1,59 @@
+{
+    "Registrations": [
+        {
+            "Component": {
+                "Type": "other",
+                "Other": {
+                    "Name": "CalicoLinuxNode",
+                    "Version": "3.17.1",
+                    "DownloadUrl": "mcr.microsoft.com/oss/calico/node:v3.17.1"
+                }
+            },
+            "DevelopmentDependency": false
+        },
+        {
+            "Component": {
+                "Type": "other",
+                "Other": {
+                    "Name": "CalicoLinuxTypha",
+                    "Version": "3.17.1",
+                    "DownloadUrl": "mcr.microsoft.com/oss/calico/typha:v3.17.1"
+                }
+            },
+            "DevelopmentDependency": false
+        },
+        {
+            "Component": {
+                "Type": "other",
+                "Other": {
+                    "Name": "CalicoLinuxPod2Daemon",
+                    "Version": "3.17.1",
+                    "DownloadUrl": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v3.17.1"
+                }
+            },
+            "DevelopmentDependency": false
+        },
+        {
+            "Component": {
+                "Type": "other",
+                "Other": {
+                    "Name": "CalicoLinuxKubeControllers",
+                    "Version": "3.17.1",
+                    "DownloadUrl": "mcr.microsoft.com/oss/calico/kube-controllers:v3.17.1"
+                }
+            },
+            "DevelopmentDependency": false
+        },
+        {
+            "Component": {
+                "Type": "other",
+                "Other": {
+                    "Name": "CalicoLinuxTigeraOperator",
+                    "Version": "1.13.1",
+                    "DownloadUrl": "mcr.microsoft.com/oss/tigera/operator:v1.13.1"
+                }
+            },
+            "DevelopmentDependency": false
+        }
+    ]
+}

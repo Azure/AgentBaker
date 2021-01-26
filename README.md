@@ -12,3 +12,13 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+# CGManifest File
+A cgmanifest file is a json file used to register components manually when the component type is not supported by governance. The file name is "cgmanifest.json" and you can have as many as you need and can be anywhere in your repository.
+
+File path: `./vhdbuilder/cgmanifest.json`
+
+Reference: https://docs.opensource.microsoft.com/tools/cg/cgmanifest.html
+
+Package:
+- Calico Linux: https://docs.projectcalico.org/release-notes/
