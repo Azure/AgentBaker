@@ -22,3 +22,4 @@ Reference: https://docs.opensource.microsoft.com/tools/cg/cgmanifest.html
 
 Package:
 - Calico Linux: https://docs.projectcalico.org/release-notes/
+- Calico Windows: https://docs.projectcalico.org/release-notes/
