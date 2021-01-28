@@ -454,6 +454,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return ""
 		},
+		"HasCalicoNetworkPolicy": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyCalico
+		},
 		"HasCiliumNetworkPlugin": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginCilium
 		},
