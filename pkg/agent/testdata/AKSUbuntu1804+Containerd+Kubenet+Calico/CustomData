@@ -215,7 +215,7 @@ write_files:
   content: |
     KUBELET_FLAGS=
     KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY=
+    NETWORK_POLICY=calico
 
     KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName
 
