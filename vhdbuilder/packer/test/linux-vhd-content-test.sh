@@ -6,26 +6,32 @@ testFilesDownloaded() {
   filesToDownload=$1
 
   filesToDownload=$(echo $filesToDownload | jq -r ".[]" | jq . --monochrome-output --compact-output)
-  emptyFiles=()
-  missingPaths=()
+
   for fileToDownload in ${filesToDownload[*]}; do
     fileName=$(echo "${fileToDownload}" | jq .fileName -r)
     downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
     versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
+    download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
 
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
-      missingPaths+=("$downloadLocation")
       continue
     fi
 
     for version in ${versions}; do
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
+      downloadURL=$(string_replace $download_URL $version)/$fileName
 
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
-        emptyFiles+=("$dest")
+        continue
+      fi
+
+      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}')
+      fileSizeDownloaded=$(ls -l $dest | awk '{print $5}')
+      if [[ $fileSizeInRepo != $fileSizeDownloaded ]]; then
+        err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
     done
@@ -85,21 +91,25 @@ filesToDownload='
 {
   "fileName":"cni-plugins-amd64-v*.tgz",
   "downloadLocation":"/opt/cni/downloads",
+  "downloadURL":"https://acs-mirror.azureedge.net/cni",
   "versions": ["0.7.6","0.7.5","0.7.1"]
 },
 {
   "fileName":"cni-plugins-linux-amd64-v*.tgz",
   "downloadLocation":"/opt/cni/downloads",
+  "downloadURL":"https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
   "versions": ["0.8.6"]
 },
 {
   "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
   "downloadLocation":"/opt/cni/downloads",
+  "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
   "versions":["1.2.0_hotfix","1.2.0","1.1.8"]
 },
 {
   "fileName":"v*/bpftrace-tools.tar",
   "downloadLocation":"/opt/bpftrace/downloads",
+  "downloadURL":"https://upstreamartifacts.azureedge.net/bpftrace",
   "versions": ["0.9.4"]
 }
 ]
