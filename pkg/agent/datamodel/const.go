@@ -98,3 +98,9 @@ const (
 	// AADPodIdentityAddonName is the name of the aad-pod-identity addon deployment
 	AADPodIdentityAddonName = "aad-pod-identity"
 )
+
+const (
+	// TempDiskContainerDataDir is the path used to mount docker images, emptyDir volumes, and kubelet data
+	// when KubeletDiskType == TempDisk.
+	TempDiskContainerDataDir = "/mnt/aks/containers"
+)

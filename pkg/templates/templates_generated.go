@@ -3810,7 +3810,7 @@ write_files:
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
-      {{ if IsKubenet }}
+      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
@@ -3841,7 +3841,11 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            {{- if IsIPMasqAgentEnabled}}
+            "ipMasq": false,
+            {{- else}}
             "ipMasq": true,
+            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -3849,6 +3853,11 @@ write_files:
                 "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 
@@ -4244,29 +4253,25 @@ func windowsContainerdtemplateToml() (*asset, error) {
 	return a, nil
 }
 
-var _windowsCsecmdPs1 = []byte(`# This csecmd is not used until servicePrincipalClientSecret is encoded,
-# keeping this file for now to further facilicate the future removing ARM Template
-echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
+var _windowsCsecmdPs1 = []byte(`echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }} 
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }} 
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }} 
--Location {{ GetVariable "location" }} 
+-MasterIP {{ GetKubernetesEndpoint }}
+-KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
+-MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
+-Location {{ GetVariable "location" }}
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }} 
+-UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }} 
--AgentKey {{ GetParameter "clientPrivateKey" }} 
--AADClientId {{ GetParameter "servicePrincipalClientId" }} 
--AADClientSecret ''{{ GetParameter "servicePrincipalClientSecret" }}''
--NetworkAPIVersion 2018-08-01;
-$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin'; 
+-TargetEnvironment {{ GetTargetEnvironment }}
+-AgentKey {{ GetParameter "clientPrivateKey" }}
+-AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
+-NetworkAPIVersion 2018-08-01';
+$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 Copy-Item $inputFile $outputFile;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
-\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE 
-
-`)
+\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE`)
 
 func windowsCsecmdPs1Bytes() ([]byte, error) {
 	return _windowsCsecmdPs1, nil
@@ -4497,6 +4502,17 @@ function Register-NodeResetScriptTask {
     $trigger = New-JobTrigger -AtStartup -RandomDelay 00:00:05
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "k8s-restart-job"
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
+}
+
+function Register-NodeLabelSyncScriptTask {
+    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every minute(by `+"`"+`-RepetitionInterval 00:01:00`+"`"+`)
+    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:01:00 -RepeatIndefinitely
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
+    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
 }
 
 # TODO ksubrmnn parameterize this fully
@@ -5068,6 +5084,7 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
 
         if ($global:WindowsCalicoPackageURL) {
@@ -5585,7 +5602,8 @@ function Start-InstallCalico {
     param(
         [parameter(Mandatory=$true)] $RootDir,
         [parameter(Mandatory=$true)] $KubeServiceCIDR,
-        [parameter(Mandatory=$true)] $KubeDnsServiceIp
+        [parameter(Mandatory=$true)] $KubeDnsServiceIp,
+        [parameter(Mandatory=$false)] $CalicoNs = "calico-system"
     )
 
     Write-Log "Download Calico"
@@ -5603,14 +5621,15 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`+"`"+`"vxlan`+"`"+`"" -NewString "CALICO_NETWORKING_BACKEND=`+"`"+`"none`+"`"+`""
     SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `+"`"+`"Calico.*`+"`"+`"" -NewString "KUBE_NETWORK = `+"`"+`"azure.*`+"`"+`""
 
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace "kube-system" -SecretName "calico-windows"
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs -SecretName "calico-windows"
 
     Write-Log "Install Calico"
 
     pushd $CalicoDir
     .\install-calico.ps1
     popd
-}`)
+}
+`)
 
 func windowsWindowscalicofuncPs1Bytes() ([]byte, error) {
 	return _windowsWindowscalicofuncPs1, nil
