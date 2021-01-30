@@ -22,7 +22,7 @@ testFilesDownloaded() {
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
       downloadURL=$(string_replace $download_URL $version)/$fileName
-      echo $downloadURL
+      echo "downloeadURL is: $downloadURL"
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
@@ -268,4 +268,4 @@ imagesToBePulled='
 '
 
 testFilesDownloaded "$filesToDownload"
-testImagesPulled $1 "$imagesToBePulled"
+#testImagesPulled $1 "$imagesToBePulled"
