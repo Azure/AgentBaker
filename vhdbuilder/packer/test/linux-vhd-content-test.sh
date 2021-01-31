@@ -28,9 +28,9 @@ testFilesDownloaded() {
         continue
       fi
 
-      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}')
-      fileSizeDownloaded=$(ls -l $dest | awk '{print $5}')
-      if [[ $fileSizeInRepo != $fileSizeDownloaded ]]; then
+      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+      fileSizeDownloaded=$(ls -l $dest | awk '{print $5}' | tr -d '\r')
+      if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
         err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
