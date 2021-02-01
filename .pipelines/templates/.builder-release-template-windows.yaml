@@ -57,10 +57,10 @@ steps:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
-  - task: PublishPipelineArtifact@1
+  - task: PublishPipelineArtifact@0
     inputs:
-      artifact: 'vhd-release-notes'
-      path: 'release-notes.txt'
+        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+        targetPath: 'release-notes.txt'
   - script: |
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
