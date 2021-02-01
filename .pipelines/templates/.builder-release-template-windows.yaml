@@ -1,3 +1,8 @@
+parameters:
+    - name: artifactName
+      type: string
+      default: 2019
+
 steps:
   - bash: |
       if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
@@ -129,6 +134,6 @@ steps:
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - task: PublishPipelineArtifact@1
     inputs:
-      artifactName: 'publishing-info'
-      targetPath: 'vhd-publishing-info.json'
+        artifactName: 'publishing-info-${{ parameters.artifactName }}'
+        targetPath: 'vhd-publishing-info.json'
     condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
