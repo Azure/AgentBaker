@@ -27,7 +27,7 @@ phases:
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
           echo '##vso[task.setvariable variable=SKU_PREFIX]aks-2019-datacenter-core-smalldisk'
         displayName: Setup Build Variables
-      - template: ./templates/.builder-marketplace-SKU-And-Image-template.yaml
+      - template: ./templates/.builder-Marketplace-win-template.yaml
         parameters:
           artifactName: 2019
   - phase: create_sku_and_publish_2019_containerd_image
@@ -42,6 +42,6 @@ phases:
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
           echo '##vso[task.setvariable variable=SKU_PREFIX]aks-2019-datacenter-core-smalldisk-crd'
         displayName: Setup Build Variables
-      - template: ./templates/.builder-marketplace-SKU-And-Image-template.yaml
+      - template: ./templates/.builder-Marketplace-win-template.yaml
         parameters:
           artifactName: 2019-containerd
