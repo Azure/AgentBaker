@@ -1546,24 +1546,9 @@ func TestWindowsProfile(t *testing.T) {
 		t.Fatalf("Expected HasSecrets() and HasCustomImage() to return false when WindowsProfile is empty")
 	}
 
-	dv := w.GetWindowsDockerVersion()
-	if dv != KubernetesWindowsDockerVersion {
-		t.Fatalf("Expected GetWindowsDockerVersion() to equal default KubernetesWindowsDockerVersion, got %s", dv)
-	}
-
-	dh := w.GetDefaultContainerdWindowsSandboxIsolation()
-	if dh != KubernetesDefaultContainerdWindowsSandboxIsolation {
-		t.Fatalf("Expected GetWindowsDefaultRuntimeHandler() to equal default KubernetesDefaultContainerdWindowsSandboxIsolation, got %s", dh)
-	}
-
 	rth := w.GetContainerdWindowsRuntimeHandlers()
 	if rth != "" {
 		t.Fatalf("Expected GetContainerdWindowsRuntimeHandlers() to equal default empty, got %s", rth)
-	}
-
-	windowsSku := w.GetWindowsSku()
-	if windowsSku != KubernetesDefaultWindowsSku {
-		t.Fatalf("Expected GetWindowsSku() to equal default KubernetesDefaultWindowsSku, got %s", windowsSku)
 	}
 
 	isCSIProxyEnabled := w.IsCSIProxyEnabled()
@@ -1623,19 +1608,9 @@ func TestWindowsProfile(t *testing.T) {
 		},
 	}
 
-	dv = w.GetWindowsDockerVersion()
-	if dv != "18.03.1-ee-3" {
-		t.Fatalf("Expected GetWindowsDockerVersion() to equal 18.03.1-ee-3, got %s", dv)
-	}
-
 	windowsSku = w.GetWindowsSku()
 	if windowsSku != "Datacenter-Core-1809-with-Containers-smalldisk" {
 		t.Fatalf("Expected GetWindowsSku() to equal Datacenter-Core-1809-with-Containers-smalldisk, got %s", windowsSku)
-	}
-
-	dv = w.GetWindowsDockerVersion()
-	if dv != "18.03.1-ee-3" {
-		t.Fatalf("Expected GetWindowsDockerVersion() to equal 18.03.1-ee-3, got %s", dv)
 	}
 
 	windowsSku = w.GetWindowsSku()

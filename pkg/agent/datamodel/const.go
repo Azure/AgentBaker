@@ -9,15 +9,6 @@ const (
 	Kubernetes string = "Kubernetes"
 )
 
-const (
-	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
-	KubernetesWindowsDockerVersion = "19.03.11"
-	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
-	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
-	// KubernetesDefaultContainerdWindowsSandboxIsolation is the default containerd handler for windows pods
-	KubernetesDefaultContainerdWindowsSandboxIsolation = "process"
-)
-
 // Availability profiles
 const (
 	// AvailabilitySet means that the vms are in an availability set
