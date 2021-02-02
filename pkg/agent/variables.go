@@ -40,8 +40,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	if !cs.Properties.IsVHDDistroForAllNodes() {
 		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
-		cloudInitData["labelNodesScript"] = getBase64EncodedGzippedCustomScript(labelNodesScript, config)
-		cloudInitData["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
 		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
 		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)

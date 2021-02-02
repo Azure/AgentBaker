@@ -29,10 +29,6 @@ copyPackerFiles() {
   LABELS_DEST=/opt/azure/containers/labels.sh
   LABELS_SERVICE_SRC=/home/packer/labels.service
   LABELS_SERVICE_DEST=/etc/systemd/system/labels.service
-  LABEL_NODES_SRC=/home/packer/label-nodes.sh
-  LABEL_NODES_DEST=/opt/azure/containers/label-nodes.sh
-  LABEL_NODES_SERVICE_SRC=/home/packer/label-nodes.service
-  LABEL_NODES_SERVICE_DEST=/etc/systemd/system/label-nodes.service
   CIS_SRC=/home/packer/cis.sh
   CIS_DEST=/opt/azure/containers/provision_cis.sh
   APT_PREFERENCES_SRC=/home/packer/apt-preferences
@@ -80,8 +76,6 @@ copyPackerFiles() {
   cpAndMode $AUDITD_RULES_SRC $AUDITD_RULES_DEST 640
   cpAndMode $LABELS_SRC $LABELS_DEST 744
   cpAndMode $LABELS_SERVICE_SRC $LABELS_SERVICE_DEST 644
-  cpAndMode $LABEL_NODES_SRC $LABEL_NODES_DEST 744
-  cpAndMode $LABEL_NODES_SERVICE_SRC $LABEL_NODES_SERVICE_DEST 644
   cpAndMode $CIS_SRC $CIS_DEST 744
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644

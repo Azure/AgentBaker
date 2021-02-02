@@ -402,17 +402,6 @@ ensureLabels() {
     systemctlEnableAndStart labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-# The label-nodes.service applies missing master and agent labels to Kubernetes nodes that are 
-# required to be present for backward compatibility. It runs are startup and every 1 minute 
-# periodically
-ensureLabelNodes() {
-    LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
-    wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
-    wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
