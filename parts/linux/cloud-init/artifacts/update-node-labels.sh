@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Updates Labels for this Kubernetes node
+# Updates Labels for this Kubernetes node (adds any missing, and updates others to newest values)
 
 set -euo pipefail
 
