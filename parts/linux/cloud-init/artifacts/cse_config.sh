@@ -390,7 +390,7 @@ ensureKubelet() {
     {{end}}
 }
 
-# The labels.service updates the labels for the kubernetes node. Runs once successfully on startup
+# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
 ensureLabels() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT

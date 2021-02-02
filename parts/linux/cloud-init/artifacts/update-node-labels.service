@@ -1,5 +1,5 @@
 [Unit]
-Description=Update Labels for Kubernetes nodes
+Description=Updates Labels for Kubernetes node
 After=kubelet.service
 [Service]
 Restart=on-failure
