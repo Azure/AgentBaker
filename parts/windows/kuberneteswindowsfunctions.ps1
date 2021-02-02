@@ -307,3 +307,32 @@ function Update-DefenderPreferences {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
     }
 }
+
+function Check-APIServerConnectivity {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $false)][int]
+        $RetryInterval = 1,
+        [Parameter(Mandatory = $false)][int]
+        $ConnectTimeout = 3,  #seconds
+        [Parameter(Mandatory = $false)][int]
+        $MaxRetryCount = 100
+    )
+    $retryCount=0
+
+    do {
+        $tcpClient=New-Object Net.Sockets.TcpClient
+        Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+        $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+        if ($tcpClient.Connected) {
+            Write-Log "Retry $retryCount : Connected to API server successfully"
+            return
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to get $SecretName service account"
+        Sleep $RetryInterval
+    } while ($retryCount -lt $MaxRetryCount)
+
+    throw "Failed to connect to API server $MasterIP after $retryCount retries"
+}
