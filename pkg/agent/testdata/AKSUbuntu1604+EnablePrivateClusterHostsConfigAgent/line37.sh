@@ -235,12 +235,15 @@ ensureKubelet() {
     
 }
 
-ensureLabelNodes() {
-    LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
-    wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
-    wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
+ensureLabels() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
