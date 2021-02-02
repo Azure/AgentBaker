@@ -58,7 +58,9 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0")
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
+                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12")
             Write-Log "Pulling images for windows server 2019"
         }
         '2004' {
