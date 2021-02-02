@@ -63,7 +63,7 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`"vxlan`"" -NewString "CALICO_NETWORKING_BACKEND=`"none`""
     SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `"Calico.*`"" -NewString "KUBE_NETWORK = `"azure.*`""
 
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs -SecretName "calico-windows"
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
 
     Write-Log "Install Calico"
 
