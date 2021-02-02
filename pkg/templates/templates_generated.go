@@ -4597,6 +4597,35 @@ function Update-DefenderPreferences {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
     }
 }
+
+function Check-APIServerConnectivity {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $false)][int]
+        $RetryInterval = 1,
+        [Parameter(Mandatory = $false)][int]
+        $ConnectTimeout = 3,  #seconds
+        [Parameter(Mandatory = $false)][int]
+        $MaxRetryCount = 100
+    )
+    $retryCount=0
+
+    do {
+        $tcpClient=New-Object Net.Sockets.TcpClient
+        Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+        $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+        if ($tcpClient.Connected) {
+            Write-Log "Retry $retryCount : Connected to API server successfully"
+            return
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to get $SecretName service account"
+        Sleep $RetryInterval
+    } while ($retryCount -lt $MaxRetryCount)
+
+    throw "Failed to connect to API server $MasterIP after $retryCount retries"
+}
 `)
 
 func windowsKuberneteswindowsfunctionsPs1Bytes() ([]byte, error) {
@@ -5086,6 +5115,8 @@ try
         Register-NodeResetScriptTask
         Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
+
+        Check-APIServerConnectivity -MasterIP $MasterIP
 
         if ($global:WindowsCalicoPackageURL) {
             Write-Log "Start calico installation"
@@ -5585,10 +5616,27 @@ function GetCalicoKubeConfig {
         [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
     )
 
-    $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+    # When creating Windows agent pools with the system Linux agent pool, the service account for calico may not be available in provisioning Windows agent nodes.
+    # So we need to wait here until the service account for calico is available
+    $name=""
+    $retryCount=0
+    $retryInterval=5
+    $maxRetryCount=120 # 10 minutes
+
+    do {
+        $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+        if (![string]::IsNullOrEmpty($name)) {
+            break
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get $SecretName service account"
+        Sleep $retryInterval
+    } while ($retryCount -lt $maxRetryCount)
+
     if ([string]::IsNullOrEmpty($name)) {
         throw "$SecretName service account does not exist."
     }
+
     $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
     $tokenBase64=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.token}' -n $CalicoNamespace
     $token=[System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($tokenBase64))
