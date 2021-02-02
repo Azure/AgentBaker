@@ -188,7 +188,13 @@ function Test-ImagesPulled
         }
     }
     if ($containerRuntime -eq 'containerd') {
-        $pulledImages = ctr.exe -n k8s.io -q
+        # NOTE:
+        # 1. listing images with -q set is expected to return only image names/references, but in practise
+        #    we got additional digest info. The following command works as a workaround to return only image names instad.
+        #    https://github.com/containerd/containerd/blob/master/cmd/ctr/commands/images/images.go#L89
+        # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
+        #    only image reference as a workaround
+        $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
     }
     elseif ($containerRuntime -eq 'docker') {
         $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
