@@ -5,5 +5,5 @@ After=kubelet.service
 Restart=on-failure
 RestartSec=300
 EnvironmentFile=/etc/default/kubelet
-ExecStart=/bin/bash /opt/azure/containers/labels.sh
+ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
 #EOF
