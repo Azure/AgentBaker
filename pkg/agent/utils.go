@@ -18,11 +18,12 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
 	"github.com/pkg/errors"
 )
 
-// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if dynamic kubelet is enabled)
+// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
@@ -58,6 +59,8 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--topology-manager-policy":           true,
 	"--allowed-unsafe-sysctls":            true,
 	"--fail-swap-on":                      true,
+	"--container-log-max-size":            true,
+	"--container-log-max-files":           true,
 }
 
 var keyvaultSecretPathRe *regexp.Regexp
@@ -498,6 +501,15 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 		if customKc.FailSwapOn != nil {
 			kubeletConfig.FailSwapOn = customKc.FailSwapOn
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig.ContainerLogMaxSize = fmt.Sprintf("%dM", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
+		}
+		if customKc.PodMaxPids != nil {
+			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
 	}
 

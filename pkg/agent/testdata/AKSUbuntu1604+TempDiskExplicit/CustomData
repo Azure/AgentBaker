@@ -1,0 +1,194 @@
+#cloud-config
+
+write_files:
+- path: /opt/azure/containers/provision_source.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    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
+
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/5SPTUvzQBSF9/kVhzC8baHzjh+7QuuiBqmLRmwKLoQynV6SaMyNMzelfv13qaIVlKJ3ex7uOY9ZlrVZ2lDAcCPGPraejONabFmTD6bxvC5DyfX/UGA0gllbbyrOP8iqDUJe77CKcxyN/h1GydUkW4zT02SoTqLwEITunFTQumbd2Jw8dIUgVtqA23ZJFclvCrQLpLmVppVdVzrPLubZUHWdlT9/eEZBdgVd4/igF53P0ulill1OpmdD1cXN/Ta4jvDttLY+BznE6lM13kNyg1i9D92HkUf8c955SjaljHlFAyhyfaRvDgMobvpIvGe/DfxLB72IXMFQX2Qi2pSC3dTXAAAA//9qyXjA+QEAAA==
+
+- path: /opt/azure/containers/provision.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    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
+
+- path: /opt/azure/containers/provision_installs.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    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
+
+- path: /opt/azure/containers/provision_configs.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    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
+
+
+
+
+
+
+
+- path: /etc/systemd/system/kubelet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4ySTW8aPRSF9/4VVyMW77tw3K9dNAtoJikKSiOGKAtAyOO5wBUez8i+JqRN/3s1fKQlEKleHp/nnLO44wdHPBVXGIynhql26W0s0CKLr7UrqVXuNS+zDQUOqYrBK1sbbVVBTq32ViHGOfo1GZyKIQbWnlNtn/RzEJlbk69dhY6vyWKqkI0qca6j5Vc+j8ZgCNmGOGfNMaQfv3wW2QZN3mbde0y3fYUOS1B1w0r/iB6VqR1rcujDIeoiLM9w1aokD7IBtdZeWSpem//Faxy9t0UaSGgOY+j8V9XRMbzAwmMDk+Rt0ySBF3gyIO3/IC3CB5jCJfASHexqt7iUBbnyZOapcAlzSs6t38dUeoUyLLXH0zRxzEkVWhIL1oXFAJLB6TbDUuCzVmreWl2s0JM5QH+ody4GJgL2T0p0bZoM6Nfoj35cXaK0ukAb0qTz8/ahlw2y0ezu+1U2G3R72SD/lRwB6/QTHAu1jRXKxsYFOVmS3x1gO8M7ZAxq59gZwl9s59B2Peje5Oc+htlNPx9lw+2eM/Jjf/RtNur270a5EOO+C6ytnYpH7RjL3nNaRcskY0B/wdovkH8HAAD//yMq/TONAwAA
+
+
+
+- path: /etc/apt/apt.conf.d/99periodic
+  permissions: "0644"
+  owner: root
+  content: |
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::AutocleanInterval "0";
+    APT::Periodic::Unattended-Upgrade "0";
+
+
+
+
+    
+
+- path: /etc/systemd/system/docker.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip=
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
+
+- path: /etc/docker/daemon.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {
+      "live-restore": true,
+      "log-driver": "json-file",
+      "log-opts":  {
+         "max-size": "50m",
+         "max-file": "5"
+      },
+      "data-root": "/mnt/aks/containers"
+    }
+
+
+
+
+
+
+
+
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    
+
+- path: /etc/kubernetes/certs/client.crt
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    
+
+
+
+- path: /var/lib/kubelet/kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://:443
+    users:
+    - name: client
+      user:
+        client-certificate: /etc/kubernetes/certs/client.crt
+        client-key: /etc/kubernetes/certs/client.key
+    contexts:
+    - context:
+        cluster: localcluster
+        user: client
+      name: localclustercontext
+    current-context: localclustercontext
+    #EOF
+
+- path: /etc/default/kubelet
+  permissions: "0644"
+  owner: root
+  content: |
+    KUBELET_FLAGS=--address=0.0.0.0 --anonymous-auth=false --authentication-token-webhook=true --authorization-mode=Webhook --azure-container-registry-config=/etc/kubernetes/azure.json --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --enforce-node-allocatable=pods --event-qps=0 --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5% --feature-gates=RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y --image-gc-high-threshold=85 --image-gc-low-threshold=80 --kube-reserved=cpu=100m,memory=1638Mi --max-pods=110 --node-status-update-frequency=10s --pod-manifest-path=/etc/kubernetes/manifests --pod-max-pids=-1 --protect-kernel-defaults=true --read-only-port=10255 --resolv-conf=/etc/resolv.conf --rotate-certificates=true --streaming-connection-idle-timeout=4h0m0s --system-reserved=cpu=2,memory=1Gi --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256 --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key 
+    KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY=
+    KUBELET_IMAGE=hyperkube-amd64:v1.15.7
+
+
+    KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName
+
+    #EOF
+
+- path: /opt/azure/containers/kubelet.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+
+    
+
+
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    #EOF
+
+- path: /etc/sysctl.d/999-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+    net.ipv4.tcp_retries2=8
+    net.core.message_burst=80
+    net.core.message_cost=40
+    net.core.somaxconn=16384
+    net.ipv4.tcp_max_syn_backlog=16384
+    net.ipv4.neigh.default.gc_thresh1=4096
+    net.ipv4.neigh.default.gc_thresh2=8192
+    net.ipv4.neigh.default.gc_thresh3=16384
+
+    #EOF
+
+runcmd:
+- set -x
+- . /opt/azure/containers/provision_source.sh
+- aptmarkWALinuxAgent hold

@@ -37,8 +37,6 @@ copyPackerFiles() {
   KMS_SERVICE_DEST=/etc/systemd/system/kms.service
   HEALTH_MONITOR_SRC=/home/packer/health-monitor.sh
   HEALTH_MONITOR_DEST=/usr/local/bin/health-monitor.sh
-  CONFIGURE_AZURE0_SRC=/home/packer/configure_azure0.sh
-  CONFIGURE_AZURE0_DEST=/usr/local/bin/configure_azure0.sh
   KUBELET_MONITOR_SERVICE_SRC=/home/packer/kubelet-monitor.service
   KUBELET_MONITOR_SERVICE_DEST=/etc/systemd/system/kubelet-monitor.service
   DOCKER_MONITOR_SERVICE_SRC=/home/packer/docker-monitor.service
@@ -82,7 +80,6 @@ copyPackerFiles() {
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
-  cpAndMode $CONFIGURE_AZURE0_SRC $CONFIGURE_AZURE0_DEST 544
   cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
   cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
   cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644

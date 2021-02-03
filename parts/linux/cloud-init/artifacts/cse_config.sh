@@ -495,7 +495,7 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
+{{if IsNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
     when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,

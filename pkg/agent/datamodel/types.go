@@ -105,19 +105,56 @@ const (
 	Linux   OSType = "Linux"
 )
 
+// KubeletDiskType describes options for placement of the primary kubelet partition,
+// docker images, emptyDir volumes, and pod logs.
+type KubeletDiskType string
+
+const (
+	// OSDisk indicates data wil be shared with the OS.
+	OSDisk KubeletDiskType = "OS"
+	// TempDisk indicates date will be isolated on the temporary disk.
+	TempDisk KubeletDiskType = "Temporary"
+)
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
 // Distro string consts
 const (
-	Ubuntu               Distro = "ubuntu"
-	Ubuntu1804           Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2       Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1604        Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804        Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804     Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2 Distro = "aks-ubuntu-gpu-18.04-gen2"
+	Ubuntu                         Distro = "ubuntu"
+	Ubuntu1804                     Distro = "ubuntu-18.04"
+	Ubuntu1804Gen2                 Distro = "ubuntu-18.04-gen2"
+	AKSUbuntu1804Gen2              Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
+	AKSUbuntu1604                  Distro = "aks-ubuntu-16.04"
+	AKSUbuntu1804                  Distro = "aks-ubuntu-18.04"
+	AKSUbuntuGPU1804               Distro = "aks-ubuntu-gpu-18.04"
+	AKSUbuntuGPU1804Gen2           Distro = "aks-ubuntu-gpu-18.04-gen2"
+	AKSUbuntuContainerd1804        Distro = "aks-ubuntu-containerd-18.04"
+	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
+	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
+	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 )
+
+var AKSDistrosAvailableOnVHD []Distro = []Distro{
+	AKSUbuntu1604,
+	AKSUbuntu1804,
+	AKSUbuntu1804Gen2,
+	AKSUbuntuGPU1804,
+	AKSUbuntuGPU1804Gen2,
+	AKSUbuntuContainerd1804,
+	AKSUbuntuContainerd1804Gen2,
+	AKSUbuntuGPUContainerd1804,
+	AKSUbuntuGPUContainerd1804Gen2,
+}
+
+func (d Distro) IsVHDDistro() bool {
+	for _, distro := range AKSDistrosAvailableOnVHD {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
 
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
 // for Service Principal's secret
@@ -339,6 +376,7 @@ type WindowsProfile struct {
 	WindowsPauseImageURL          string                     `json:"windowsPauseImageURL"`
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
+	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -543,6 +581,9 @@ type CustomKubeletConfig struct {
 	TopologyManagerPolicy string    `json:"topologyManagerPolicy,omitempty"`
 	AllowedUnsafeSysctls  *[]string `json:"allowedUnsafeSysctls,omitempty"`
 	FailSwapOn            *bool     `json:"failSwapOn,omitempty"`
+	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
+	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
+	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes
@@ -557,7 +598,9 @@ type CustomLinuxOSConfig struct {
 type SysctlConfig struct {
 	NetCoreSomaxconn               *int32 `json:"netCoreSomaxconn,omitempty"`
 	NetCoreNetdevMaxBacklog        *int32 `json:"netCoreNetdevMaxBacklog,omitempty"`
+	NetCoreRmemDefault             *int32 `json:"netCoreRmemDefault,omitempty"`
 	NetCoreRmemMax                 *int32 `json:"netCoreRmemMax,omitempty"`
+	NetCoreWmemDefault             *int32 `json:"netCoreWmemDefault,omitempty"`
 	NetCoreWmemMax                 *int32 `json:"netCoreWmemMax,omitempty"`
 	NetCoreOptmemMax               *int32 `json:"netCoreOptmemMax,omitempty"`
 	NetIpv4TcpMaxSynBacklog        *int32 `json:"netIpv4TcpMaxSynBacklog,omitempty"`
@@ -566,8 +609,6 @@ type SysctlConfig struct {
 	NetIpv4TcpKeepaliveTime        *int32 `json:"netIpv4TcpKeepaliveTime,omitempty"`
 	NetIpv4TcpKeepaliveProbes      *int32 `json:"netIpv4TcpKeepaliveProbes,omitempty"`
 	NetIpv4TcpkeepaliveIntvl       *int32 `json:"netIpv4TcpkeepaliveIntvl,omitempty"`
-	NetIpv4TcpRmem                 *int32 `json:"netIpv4TcpRmem,omitempty"`
-	NetIpv4TcpWmem                 *int32 `json:"netIpv4TcpWmem,omitempty"`
 	NetIpv4TcpTwReuse              *bool  `json:"netIpv4TcpTwReuse,omitempty"`
 	NetIpv4IpLocalPortRange        string `json:"netIpv4IpLocalPortRange,omitempty"`
 	NetIpv4NeighDefaultGcThresh1   *int32 `json:"netIpv4NeighDefaultGcThresh1,omitempty"`
@@ -597,6 +638,7 @@ type AgentPoolProfile struct {
 	Count                               int                  `json:"count"`
 	VMSize                              string               `json:"vmSize"`
 	OSDiskSizeGB                        int                  `json:"osDiskSizeGB,omitempty"`
+	KubeletDiskType                     KubeletDiskType      `json:"kubeletDiskType,omitempty"`
 	DNSPrefix                           string               `json:"dnsPrefix,omitempty"`
 	OSType                              OSType               `json:"osType,omitempty"`
 	Ports                               []int                `json:"ports,omitempty"`
@@ -832,16 +874,6 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 	return environmentJSON, nil
 }
 
-// HasNSeriesSKU returns whether or not there is an N series SKU agent pool
-func (p *Properties) HasNSeriesSKU() bool {
-	for _, profile := range p.AgentPoolProfiles {
-		if strings.Contains(profile.VMSize, "Standard_N") {
-			return true
-		}
-	}
-	return false
-}
-
 // HasDCSeriesSKU returns whether or not there is an DC series SKU agent pool
 func (p *Properties) HasDCSeriesSKU() bool {
 	for _, profile := range p.AgentPoolProfiles {
@@ -1009,7 +1041,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 
 // IsVHDDistro returns true if the distro uses VHD SKUs
 func (a *AgentPoolProfile) IsVHDDistro() bool {
-	return strings.EqualFold(string(a.Distro), string(AKSUbuntu1604)) || strings.EqualFold(string(a.Distro), string(AKSUbuntu1804)) || strings.EqualFold(string(a.Distro), string(Ubuntu1804Gen2)) || strings.EqualFold(string(a.Distro), string(AKSUbuntuGPU1804)) || strings.EqualFold(string(a.Distro), string(AKSUbuntuGPU1804Gen2))
+	return a.Distro.IsVHDDistro()
 }
 
 // HasAvailabilityZones returns true if the agent pool has availability zones
@@ -1678,6 +1710,19 @@ type AKSKubeletConfiguration struct {
 	// Default: true
 	// +optional
 	FailSwapOn *bool `json:"failSwapOn,omitempty"`
+	// A quantity defines the maximum size of the container log file before it is rotated.
+	// For example: "5Mi" or "256Ki".
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// it may trigger log rotation.
+	// Default: "10Mi"
+	// +optional
+	ContainerLogMaxSize string `json:"containerLogMaxSize,omitempty"`
+	// Maximum number of container log files that can be present for a container.
+	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+	// lowering it may cause log files to be deleted.
+	// Default: 5
+	// +optional
+	ContainerLogMaxFiles *int32 `json:"containerLogMaxFiles,omitempty"`
 
 	/* the following fields are meant for Node Allocatable */
 

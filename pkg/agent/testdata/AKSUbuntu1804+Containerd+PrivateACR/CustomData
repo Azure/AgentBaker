@@ -42,19 +42,12 @@ write_files:
 
 
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/6SU0W/bNhDG3/lXfJGFqsVmyR720CQQBsF2N6ONEsTZiiFwDVqiLM4KqZJUPNf2/z5QchS5W7ZhexN0d9/9+N2RvbOg0ipYchEw8Ygl1TkhPUyNpyFFsYVgCdOaqi2MRCJFxleVYqBfKsUG4AI/LythKgzf+oPvSaGXC8UKRjVDn2MPulmj/8678ODtSsWFgfvdwWv+ezt3GLrDSxwDw4OHPVaKleh/5nA+VbW06xCe4R7uDzgLMcD8EiZnggAAS3IJb2rANYQ0TzCzNS9bWC5WR1yvqfmdGwxIxskprvo/uHA+1Q78B9i6zv/XzD2McpaswTOr3GQhEfxYa8VNzhTzfR9CQjCW2tGpSsDkXEMnipfGlgtpSA9RoSVSKTyDDRXmJHeTM1GjVrol6ieCk3ucoZ8hYCYJEsEDwYyfBsNBv07xLUrBtcEcr149wVvyeArD6AMemDBcCotKTdPraIrlZSkyqZDQgif2BGYj1RqlLHiy/YuzkNpYJz7Ju4C7iyd3H69v3y9urj9MR78emtHcw/lzBGEIp+nnYH4ytL93foCl4umKWXxaKEbT7fMtSUkPH9nR3O4geAYtfcJLFFysoXO5eZLr+KUqsSiLasXF6zfYHWlKqYz1cTG6vrqK4nHoDutIQs0/j2OP3z7D8wV9YKAabv2xh58I/gtTmktR/348fu/hN/31/fybEDubftFUfYvnmou24tAtGczt/QhkaWom+8Q0C/QomCEHQjqHiW5/nIXe+7ezxc31eBFHV5PZTTSahCnLaFWYy24kbP2NrNwonnrkxJf4LprGk9vpODw/Pz/vxuLJXTwLA1UJa5HQQStFv9i17qRO39W9mMm/FrmJ7n4Ku8cidpC1Hmiawn29pJrV1rq7tuvhTWeeiMZj0j4U/ZX56qVo9VJWwHlJ0Hle0GG9oJ0G48kHcqLyItUfAQAA//+8Xj4iAgYAAA==
-
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4yTT08bMRDF7/sprIhDezCG/rkU+QBloRERRWwQhxBFXu8kGcU73trjEFr63atNCJAQpO5pd/x+783a48ENIQ+zU4g2YMPoSV+kEhxw9t1ThW3lyvA0X2DkqFWKQTlvjVMlkpo9SbNsUECYo4Vhdg2RTWBt3L15iFlOcwyeaiA+QwdaAVtVwdgkx898kayFGPMFcsGGU9SHXz5n+QJs0XpdBdDLvNLEqVC+YWV+pwDKemKDBCGurfbjdAdXzyoMQjZCzU1QDsvn5P/RWsL3epFWdHAsBmLvQ+0TsXgUkwCNuOtsJ911xKO4t0K6j0I6EAdiKI4ET4HEKnaJS1kiVW/afFs4EmPs7Or+yaY2M5BxagK8dcs2OaliS0LJpnQQhWRBpvVwGHmnFJttKaUaAto1tJWwNTXW0xgnKcBoeYoH7Zm9AO/MmLjLxNMjJVCbLyOEOYSNFfIVSGdKcFF39v5c3Jzkvbw/uvx5mo96xyd5r/jb2QDm+pOQ8nmQZEjEWIMOUHsGIdcFGeBXgsiy/fCJ9eHXehcogarGI7FOhItvSqmQ6GVQq1ev+9Hb2WYz3qUaZOPSBElWGFbXpd2CQMAQ1UqxEsRX7N76T896x+fFroXr/Lxb9PPr5V7sKN92+z9G/ePuZb/IskGXIhvnhtmtIYbq5EHXyTHKFCHsswkT4H8BAAD//5yxbXI7BAAA
+    H4sIAAAAAAAA/4ySz0/bThDF7/4rRhGH7/ewbOmPS5EPUAyNiCjCQRxChNbrgYyynnV3Z0No6f9emRAgYKT6ZM++z5vn1ZucM8k0O8BoA7VCnvPjVKFDyb55rqmbnBqZFUuKEnOdYtDOW+N0Raznj9Ism5QYFmRxmp1hFBMkN+7W3MWs4AUFzw2yHJLDXKNYXeO1SU6e+DJZizEWS5JSjKSY73z+lBVLtGXndRowf9hXmTgD7VvR5lcKqK1nMcQY4tpqO856uGZeUwDVgl6YoB1VT5v/RWuZ3suiLAzoGiaw9V/jEwvcw03AFi4HrzddDuAebi0o9z8oh/ABprALMkOG1doHXKmKuH4T8+1gF65p0Jf+0aYxc1RxZgK+dcs2OaVjR2IlpnIYQQmw6TwcRemVUvtayqnBQHYNPVPvNAYuM3h8lELu3FTEsMCwccK+RuVMhS7mg63fx+f7xagYX538OCiuRnv7xaj8M9gAFvlHUOqpFiokFmowD9h4QVDrgQr4M2EU1X34JPnOl6YPVMh164klT0zLr1rrkPi5dvWL1+3o7XwzjHepQdW6dEOsagqr8ndXEBgFo14pVoL4gt1a/+nhaO+o7Ds4K46G5bg4e7iLnvHFcPz9arw3PBmXWTYZchTj3DS7MCxY79/lTXJCKkUM22LCDcrfAAAA//8PqjOJCQQAAA==
 
 
 
@@ -120,6 +113,11 @@ write_files:
                 "subnet": "{{.PodCIDR}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 

@@ -343,8 +343,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last-->last image (ciprod10052020) as last released (ciprod10272020) is not fully rolledout yet. Added latest (ciprod11092020)
-OMS_AGENT_IMAGES="ciprod10052020 ciprod10272020 ciprod11092020"
+# keeping last-->last image (ciprod10272020) as last released (ciprod11092020) is not fully rolledout yet. Added latest (ciprod01112021)
+OMS_AGENT_IMAGES="ciprod10272020 ciprod11092020 ciprod01112021"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -453,17 +453,15 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.16.13-hotfix.20200824.1
-# v1.16.15-hotfix.20200903
 # v1.17.13
 # v1.17.16
 # v1.18.10
 # v1.18.14
-# v1.19.3
 # v1.19.6
+# v1.19.7
+# v1.20.2
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
-1.15.12-hotfix.20200824.1
 1.16.9-hotfix.20200529.1
 1.16.10-hotfix.20200824.1
 1.16.13-hotfix.20200824.1
@@ -478,12 +476,14 @@ K8S_VERSIONS="
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
 1.18.8-hotfix.20200924
-1.18.10
-1.18.14
+1.18.10-hotfix.20210118
+1.18.14-hotfix.20210118
 1.19.0
 1.19.1-hotfix.20200923
 1.19.3
-1.19.6
+1.19.6-hotfix.20210118
+1.19.7-hotfix.20210122
+1.20.2
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -519,14 +519,13 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.16.13-hotfix.20200824.1
-# v1.16.15-hotfix.20200903
 # v1.17.13
 # v1.17.16
 # v1.18.10
 # v1.18.14
-# v1.19.3
 # v1.19.6
+# v1.19.7
+# v1.20.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.16.9-hotfix.20200529.1
@@ -542,14 +541,15 @@ PATCHED_HYPERKUBE_IMAGES="
 1.17.16
 1.18.4-hotfix.20200626.1
 1.18.6-hotfix.20200723.1
-1.18.8
 1.18.8-hotfix.20200924
-1.18.10
-1.18.14
+1.18.10-hotfix.20210118
+1.18.14-hotfix.20210118
 1.19.0
 1.19.1-hotfix.20200923
 1.19.3
-1.19.6
+1.19.6-hotfix.20210118
+1.19.7-hotfix.20210122
+1.20.2
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -655,6 +655,17 @@ CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
 for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+AZURE_CLOUD_NODE_MANAGER_VERSIONS="
+0.5.1
+0.6.0
+0.7.0
+"
+for AZURE_CLOUD_NODE_MANAGER_VERSION in ${AZURE_CLOUD_NODE_MANAGER_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:${AZURE_CLOUD_NODE_MANAGER_VERSION}"
+  pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 

@@ -50,6 +50,10 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+		FailSwapOn:            to.BoolPtr(false),
+		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+		ContainerLogMaxFiles:  to.Int32Ptr(99),
+		PodMaxPids:            to.Int32Ptr(12345),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -103,7 +107,7 @@ var expectedKubeletJSON string = `{
     "cpuManagerPolicy": "static",
     "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
-    "podPidsLimit": -1,
+    "podPidsLimit": 12345,
     "resolvConf": "/etc/resolv.conf",
     "cpuCFSQuota": false,
     "cpuCFSQuotaPeriod": "200ms",
@@ -118,6 +122,9 @@ var expectedKubeletJSON string = `{
         "RotateKubeletServerCertificate": true,
         "TopologyManager": true
     },
+    "failSwapOn": false,
+    "containerLogMaxSize": "1000M",
+    "containerLogMaxFiles": 99,
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"

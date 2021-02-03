@@ -3,7 +3,6 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/auditd-rules
 // linux/cloud-init/artifacts/cis.sh
-// linux/cloud-init/artifacts/configure_azure0.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd.service
@@ -53,6 +52,7 @@
 // windows/kuberneteswindowssetup.ps1
 // windows/windowsazurecnifunc.ps1
 // windows/windowsazurecnifunc.tests.ps1
+// windows/windowscalicofunc.ps1
 // windows/windowscnifunc.ps1
 // windows/windowsconfigfunc.ps1
 // windows/windowscontainerdfunc.ps1
@@ -345,73 +345,6 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsConfigure_azure0Sh = []byte(`#!/usr/bin/env bash
-
-# It's only necessary to configure azure0 in Ubuntu 18.04
-lsb_release -i | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -qi "^ubuntu$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu Skip configuring azure0'
-    exit 0
-fi
-
-lsb_release -r | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -q "^18.04$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu 18.04. Skip configuring azure0'
-    exit 0
-fi
-
-# Check if the azure cni config is there... no need to run this script if not
-# Also don't want to run this when not using azure-cni
-[ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
-
-# CNI team mentions that this is not needed for calico network policy to run this script
-echo "Network policy: ${NETWORK_POLICY}"
-if [[ "${NETWORK_POLICY}" == "calico" ]]; then
-    exit 0
-fi
-
-# Check if the azure0 bridge is already configured
-# We don't need to run if so.
-ip link show azure0 && exit 0
-
-run_plugin() {
-    export CNI_COMMAND=$1
-    cat /etc/cni/net.d/10-azure.conflist | jq '.name as $name | .cniVersion as $version | .plugins[]+= {name: $name, cniVersion: $version} | .plugins[0]' | /opt/cni/bin/azure-vnet
-}
-
-export CNI_ARGS='K8S_POD_NAMESPACE=default;K8S_POD_NAME=configureAzureCNI'
-export CNI_CONTAINERID=9999
-export CNI_NETNS=/run/netns/configureazcni
-export CNI_IFNAME=eth9999
-export CNI_PATH=/opt/cni/bin
-
-ip netns add $(basename ${CNI_NETNS})
-run_plugin ADD
-
-if [ $? -gt 0 ]; then
-    ip netns del "$(basename ${CNI_NETNS})"
-    exit 1
-fi
-
-run_plugin DEL
-ip netns del $(basename ${CNI_NETNS})
-`)
-
-func linuxCloudInitArtifactsConfigure_azure0ShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsConfigure_azure0Sh, nil
-}
-
-func linuxCloudInitArtifactsConfigure_azure0Sh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsConfigure_azure0ShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/configure_azure0.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1074,7 +1007,7 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
+{{if IsNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
     when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
@@ -2058,7 +1991,7 @@ installTeleportdPlugin
 
 installNetworkPlugin
 
-{{- if HasNSeriesSKU}}
+{{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
@@ -2767,9 +2700,6 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
-
-{{/* This is a workaround to setup azure0 bridge for CNI */}}
-ExecStartPre=/usr/local/bin/configure_azure0.sh
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
@@ -3717,13 +3647,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
-
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
@@ -3845,7 +3768,7 @@ write_files:
       "log-opts":  {
          "max-size": "50m",
          "max-file": "5"
-      }{{if IsNSeriesSKU .}}
+      }{{if IsNSeriesSKU}}
       ,"default-runtime": "nvidia",
       "runtimes": {
          "nvidia": {
@@ -3884,19 +3807,19 @@ write_files:
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
-      {{ if IsKubenet }}
+      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
@@ -3927,7 +3850,11 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            {{- if IsIPMasqAgentEnabled}}
+            "ipMasq": false,
+            {{- else}}
             "ipMasq": true,
+            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -3935,6 +3862,11 @@ write_files:
                 "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 
@@ -4009,7 +3941,7 @@ write_files:
 {{end}}
 {{end}}
 
-{{if IsNSeriesSKU .}}
+{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
@@ -4183,8 +4115,14 @@ write_files:
 {{- if $s.NetCoreNetdevMaxBacklog}}
     net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
 {{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
 {{- if $s.NetCoreRmemMax}}
     net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
 {{- end}}
 {{- if $s.NetCoreWmemMax}}
     net.core.wmem_max={{$s.NetCoreWmemMax}}
@@ -4206,12 +4144,6 @@ write_files:
 {{- end}}
 {{- if $s.NetIpv4TcpkeepaliveIntvl}}
     net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpRmem}}
-    net.ipv4.tcp_rmem={{$s.NetIpv4TcpRmem}}
-{{- end}}
-{{- if $s.NetIpv4TcpWmem}}
-    net.ipv4.tcp_wmem={{$s.NetIpv4TcpWmem}}
 {{- end}}
 {{- if $s.NetIpv4TcpTwReuse}}
     net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
@@ -4357,29 +4289,25 @@ func windowsContainerdtemplateToml() (*asset, error) {
 	return a, nil
 }
 
-var _windowsCsecmdPs1 = []byte(`# This csecmd is not used until servicePrincipalClientSecret is encoded,
-# keeping this file for now to further facilicate the future removing ARM Template
-echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
+var _windowsCsecmdPs1 = []byte(`echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }} 
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }} 
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }} 
--Location {{ GetVariable "location" }} 
+-MasterIP {{ GetKubernetesEndpoint }}
+-KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
+-MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
+-Location {{ GetVariable "location" }}
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }} 
+-UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }} 
--AgentKey {{ GetParameter "clientPrivateKey" }} 
--AADClientId {{ GetParameter "servicePrincipalClientId" }} 
--AADClientSecret ''{{ GetParameter "servicePrincipalClientSecret" }}''
--NetworkAPIVersion 2018-08-01;
-$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin'; 
+-TargetEnvironment {{ GetTargetEnvironment }}
+-AgentKey {{ GetParameter "clientPrivateKey" }}
+-AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
+-NetworkAPIVersion 2018-08-01';
+$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 Copy-Item $inputFile $outputFile;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
-\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE 
-
-`)
+\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE`)
 
 func windowsCsecmdPs1Bytes() ([]byte, error) {
 	return _windowsCsecmdPs1, nil
@@ -4612,6 +4540,17 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
+function Register-NodeLabelSyncScriptTask {
+    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every 5 minutes(by `+"`"+`-RepetitionInterval 00:05:00`+"`"+`)
+    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
+    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
+}
+
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -4693,6 +4632,35 @@ function Update-DefenderPreferences {
     if ($global:ContainerRuntime -eq 'containerd') {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
     }
+}
+
+function Check-APIServerConnectivity {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $false)][int]
+        $RetryInterval = 1,
+        [Parameter(Mandatory = $false)][int]
+        $ConnectTimeout = 3,  #seconds
+        [Parameter(Mandatory = $false)][int]
+        $MaxRetryCount = 100
+    )
+    $retryCount=0
+
+    do {
+        $tcpClient=New-Object Net.Sockets.TcpClient
+        Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+        $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+        if ($tcpClient.Connected) {
+            Write-Log "Retry $retryCount : Connected to API server successfully"
+            return
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to get $SecretName service account"
+        Sleep $RetryInterval
+    } while ($retryCount -lt $MaxRetryCount)
+
+    throw "Failed to connect to API server $MasterIP after $retryCount retries"
 }
 `)
 
@@ -4883,6 +4851,9 @@ $global:ProvisioningScriptsPackageUrl = "{{GetVariable "windowsProvisioningScrip
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
+# Calico
+$global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -4900,6 +4871,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowsinstallopensshfunc.ps1
 . c:\AzureData\windows\windowscontainerdfunc.ps1
 . c:\AzureData\windows\windowshostsconfigagentfunc.ps1
+. c:\AzureData\windows\windowscalicofunc.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
@@ -5177,7 +5149,15 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
+
+        Check-APIServerConnectivity -MasterIP $MasterIP
+
+        if ($global:WindowsCalicoPackageURL) {
+            Write-Log "Start calico installation"
+            Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+        }
 
         if (Test-Path $CacheDir)
         {
@@ -5639,6 +5619,113 @@ func windowsWindowsazurecnifuncTestsPs1() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _windowsWindowscalicofuncPs1 = []byte(`function Get-CalicoPackage {
+    param(
+        [parameter(Mandatory=$true)] $RootDir
+    )
+
+    Write-Log "Getting Calico package"
+    DownloadFileOverHttp -Url $global:WindowsCalicoPackageURL -DestinationPath 'c:\calicowindows.zip'
+    Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir -Force
+    Remove-Item -Path 'c:\calicowindows.zip' -Force
+}
+
+function SetConfigParameters {
+    param(
+        [parameter(Mandatory=$true)] $RootDir,
+        [parameter(Mandatory=$true)] $OldString,
+        [parameter(Mandatory=$true)] $NewString
+    )
+
+    (Get-Content $RootDir\config.ps1).replace($OldString, $NewString) | Set-Content $RootDir\config.ps1 -Force
+}
+
+function GetCalicoKubeConfig {
+    param(
+        [parameter(Mandatory=$true)] $RootDir,
+        [parameter(Mandatory=$true)] $CalicoNamespace,
+        [parameter(Mandatory=$false)] $SecretName = "calico-node",
+        [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
+    )
+
+    # When creating Windows agent pools with the system Linux agent pool, the service account for calico may not be available in provisioning Windows agent nodes.
+    # So we need to wait here until the service account for calico is available
+    $name=""
+    $retryCount=0
+    $retryInterval=5
+    $maxRetryCount=120 # 10 minutes
+
+    do {
+        $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+        if (![string]::IsNullOrEmpty($name)) {
+            break
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get $SecretName service account"
+        Sleep $retryInterval
+    } while ($retryCount -lt $maxRetryCount)
+
+    if ([string]::IsNullOrEmpty($name)) {
+        throw "$SecretName service account does not exist."
+    }
+
+    $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
+    $tokenBase64=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.token}' -n $CalicoNamespace
+    $token=[System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($tokenBase64))
+
+    $server=findstr https:// $KubeConfigPath
+
+    (Get-Content $RootDir\calico-kube-config.template).replace('<ca>', $ca).replace('<server>', $server.Trim()).replace('<token>', $token) | Set-Content $RootDir\calico-kube-config -Force
+}
+
+function Start-InstallCalico {
+    param(
+        [parameter(Mandatory=$true)] $RootDir,
+        [parameter(Mandatory=$true)] $KubeServiceCIDR,
+        [parameter(Mandatory=$true)] $KubeDnsServiceIp,
+        [parameter(Mandatory=$false)] $CalicoNs = "calico-system"
+    )
+
+    Write-Log "Download Calico"
+    Get-CalicoPackage -RootDir $RootDir
+
+    $CalicoDir = $RootDir + "CalicoWindows"
+
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your datastore type>" -NewString "kubernetes"
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd endpoints>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd key>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd cert>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd ca cert>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your service cidr>" -NewString $KubeServiceCIDR
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your dns server ips>" -NewString $KubeDnsServiceIp
+    SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`+"`"+`"vxlan`+"`"+`"" -NewString "CALICO_NETWORKING_BACKEND=`+"`"+`"none`+"`"+`""
+    SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `+"`"+`"Calico.*`+"`"+`"" -NewString "KUBE_NETWORK = `+"`"+`"azure.*`+"`"+`""
+
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
+
+    Write-Log "Install Calico"
+
+    pushd $CalicoDir
+    .\install-calico.ps1
+    popd
+}
+`)
+
+func windowsWindowscalicofuncPs1Bytes() ([]byte, error) {
+	return _windowsWindowscalicofuncPs1, nil
+}
+
+func windowsWindowscalicofuncPs1() (*asset, error) {
+	bytes, err := windowsWindowscalicofuncPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/windowscalicofunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6712,7 +6799,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
-	"linux/cloud-init/artifacts/configure_azure0.sh":                       linuxCloudInitArtifactsConfigure_azure0Sh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
@@ -6762,6 +6848,7 @@ var _bindata = map[string]func() (*asset, error){
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/windowsazurecnifunc.ps1":                                      windowsWindowsazurecnifuncPs1,
 	"windows/windowsazurecnifunc.tests.ps1":                                windowsWindowsazurecnifuncTestsPs1,
+	"windows/windowscalicofunc.ps1":                                        windowsWindowscalicofuncPs1,
 	"windows/windowscnifunc.ps1":                                           windowsWindowscnifuncPs1,
 	"windows/windowsconfigfunc.ps1":                                        windowsWindowsconfigfuncPs1,
 	"windows/windowscontainerdfunc.ps1":                                    windowsWindowscontainerdfuncPs1,
@@ -6818,7 +6905,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
-				"configure_azure0.sh":                       &bintree{linuxCloudInitArtifactsConfigure_azure0Sh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
@@ -6872,6 +6958,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kuberneteswindowssetup.ps1":      &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"windowsazurecnifunc.ps1":         &bintree{windowsWindowsazurecnifuncPs1, map[string]*bintree{}},
 		"windowsazurecnifunc.tests.ps1":   &bintree{windowsWindowsazurecnifuncTestsPs1, map[string]*bintree{}},
+		"windowscalicofunc.ps1":           &bintree{windowsWindowscalicofuncPs1, map[string]*bintree{}},
 		"windowscnifunc.ps1":              &bintree{windowsWindowscnifuncPs1, map[string]*bintree{}},
 		"windowsconfigfunc.ps1":           &bintree{windowsWindowsconfigfuncPs1, map[string]*bintree{}},
 		"windowscontainerdfunc.ps1":       &bintree{windowsWindowscontainerdfuncPs1, map[string]*bintree{}},
