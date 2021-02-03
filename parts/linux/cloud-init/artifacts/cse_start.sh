@@ -8,7 +8,7 @@ JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
                   --arg op "$OUTPUT" \
                   --arg er "" \
-                  --arg pt "$CSE_EXECUTION_DURATION" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, CSEExecutionDuration: $pt}' )
+                  --arg cet "$CSE_EXECUTION_DURATION" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, CSEExecutionDuration: $cet}' )
 echo $JSON_STRING
 exit $EXIT_CODE
