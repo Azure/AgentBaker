@@ -40,7 +40,7 @@ phases:
           echo '##vso[task.setvariable variable=PUBLISHER]microsoft-aks'
           echo '##vso[task.setvariable variable=OFFER]aks-windows'
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-          echo '##vso[task.setvariable variable=SKU_PREFIX]aks-2019-datacenter-core-smalldisk-crd'
+          echo '##vso[task.setvariable variable=SKU_PREFIX]aks-2019-datacenter-core-ctrd'
         displayName: Setup Build Variables
       - template: ./templates/.builder-Marketplace-win-template.yaml
         parameters:
