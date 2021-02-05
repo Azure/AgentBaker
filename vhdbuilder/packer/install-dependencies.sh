@@ -344,8 +344,8 @@ done
 
 # calico images used by AKS
 CALICO_CNI_IMAGES="
-v3.8.9
 v3.8.9.1
+v3.8.9.2
 "
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
@@ -354,8 +354,8 @@ for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
 done
 
 CALICO_NODE_IMAGES="
-v3.8.9
 v3.8.9.1
+v3.8.9.2
 "
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
