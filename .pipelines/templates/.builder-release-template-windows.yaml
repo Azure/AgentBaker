@@ -8,10 +8,10 @@ steps:
       if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=MODE]$m" && \
-      if [[ "${USE_BRANCH_RELEASE_DATE}" = "False" ]]; then \
+      if [[ "${USE_RELEASE_DATE}" = "False" ]]; then \
         echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d"); \
       else \
-        echo "use branch cut date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
+        echo "use release date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
       fi && \
       echo "Set build date to $BUILD_DATE" && \
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
