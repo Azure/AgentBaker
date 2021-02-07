@@ -7,7 +7,14 @@ steps:
   - bash: |
       if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
       echo "Set build mode to $m" && \
-      echo "##vso[task.setvariable variable=MODE]$m"
+      echo "##vso[task.setvariable variable=MODE]$m" && \
+      if [[ "${USE_BRANCH_RELEASE_DATE}" = "False" ]]; then \
+        echo "use release date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
+      else \
+        echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d"); \
+      fi && \
+      echo "Set build date to $BUILD_DATE" && \
+      echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
   - script: |
       echo MODE=$(MODE) && \
@@ -113,6 +120,7 @@ steps:
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
       WINDOWS_VERSION="$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
+      IMAGE_VERSION=$WINDOWS_VERSION$(BUILD_DATE) && \
       SKU_NAME="windows-$WINDOWS_SKU" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -127,7 +135,7 @@ steps:
       -e OS_NAME="Windows" \
       -e SKU_NAME=${SKU_NAME} \
       -e OFFER_NAME="Windows" \
-      -e IMAGE_VERSION=${WINDOWS_VERSION} \
+      -e IMAGE_VERSION=${IMAGE_VERSION} \
       -e HYPERV_GENERATION="V1" \
       ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
