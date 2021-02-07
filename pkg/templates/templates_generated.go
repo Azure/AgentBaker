@@ -3810,7 +3810,7 @@ write_files:
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
-      {{ if IsKubenet }}
+      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
@@ -3841,7 +3841,11 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            {{- if IsIPMasqAgentEnabled}}
+            "ipMasq": false,
+            {{- else}}
             "ipMasq": true,
+            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -3849,6 +3853,11 @@ write_files:
                 "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 
@@ -4244,29 +4253,25 @@ func windowsContainerdtemplateToml() (*asset, error) {
 	return a, nil
 }
 
-var _windowsCsecmdPs1 = []byte(`# This csecmd is not used until servicePrincipalClientSecret is encoded,
-# keeping this file for now to further facilicate the future removing ARM Template
-echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
+var _windowsCsecmdPs1 = []byte(`echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }} 
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }} 
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }} 
--Location {{ GetVariable "location" }} 
+-MasterIP {{ GetKubernetesEndpoint }}
+-KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
+-MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
+-Location {{ GetVariable "location" }}
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }} 
+-UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }} 
--AgentKey {{ GetParameter "clientPrivateKey" }} 
--AADClientId {{ GetParameter "servicePrincipalClientId" }} 
--AADClientSecret ''{{ GetParameter "servicePrincipalClientSecret" }}''
--NetworkAPIVersion 2018-08-01;
-$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin'; 
+-TargetEnvironment {{ GetTargetEnvironment }}
+-AgentKey {{ GetParameter "clientPrivateKey" }}
+-AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
+-NetworkAPIVersion 2018-08-01';
+$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 Copy-Item $inputFile $outputFile;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
-\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE 
-
-`)
+\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE`)
 
 func windowsCsecmdPs1Bytes() ([]byte, error) {
 	return _windowsCsecmdPs1, nil
@@ -4499,6 +4504,17 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
+function Register-NodeLabelSyncScriptTask {
+    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every 5 minutes(by `+"`"+`-RepetitionInterval 00:05:00`+"`"+`)
+    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
+    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
+}
+
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -4580,6 +4596,35 @@ function Update-DefenderPreferences {
     if ($global:ContainerRuntime -eq 'containerd') {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
     }
+}
+
+function Check-APIServerConnectivity {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $false)][int]
+        $RetryInterval = 1,
+        [Parameter(Mandatory = $false)][int]
+        $ConnectTimeout = 3,  #seconds
+        [Parameter(Mandatory = $false)][int]
+        $MaxRetryCount = 100
+    )
+    $retryCount=0
+
+    do {
+        $tcpClient=New-Object Net.Sockets.TcpClient
+        Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+        $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+        if ($tcpClient.Connected) {
+            Write-Log "Retry $retryCount : Connected to API server successfully"
+            return
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to get $SecretName service account"
+        Sleep $RetryInterval
+    } while ($retryCount -lt $MaxRetryCount)
+
+    throw "Failed to connect to API server $MasterIP after $retryCount retries"
 }
 `)
 
@@ -5068,7 +5113,10 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
+
+        Check-APIServerConnectivity -MasterIP $MasterIP
 
         if ($global:WindowsCalicoPackageURL) {
             Write-Log "Start calico installation"
@@ -5568,10 +5616,27 @@ function GetCalicoKubeConfig {
         [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
     )
 
-    $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+    # When creating Windows agent pools with the system Linux agent pool, the service account for calico may not be available in provisioning Windows agent nodes.
+    # So we need to wait here until the service account for calico is available
+    $name=""
+    $retryCount=0
+    $retryInterval=5
+    $maxRetryCount=120 # 10 minutes
+
+    do {
+        $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+        if (![string]::IsNullOrEmpty($name)) {
+            break
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get $SecretName service account"
+        Sleep $retryInterval
+    } while ($retryCount -lt $maxRetryCount)
+
     if ([string]::IsNullOrEmpty($name)) {
         throw "$SecretName service account does not exist."
     }
+
     $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
     $tokenBase64=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.token}' -n $CalicoNamespace
     $token=[System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($tokenBase64))
@@ -5604,7 +5669,7 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`+"`"+`"vxlan`+"`"+`"" -NewString "CALICO_NETWORKING_BACKEND=`+"`"+`"none`+"`"+`""
     SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `+"`"+`"Calico.*`+"`"+`"" -NewString "KUBE_NETWORK = `+"`"+`"azure.*`+"`"+`""
 
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs -SecretName "calico-windows"
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
 
     Write-Log "Install Calico"
 

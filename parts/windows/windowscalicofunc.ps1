@@ -27,10 +27,27 @@ function GetCalicoKubeConfig {
         [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
     )
 
-    $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+    # When creating Windows agent pools with the system Linux agent pool, the service account for calico may not be available in provisioning Windows agent nodes.
+    # So we need to wait here until the service account for calico is available
+    $name=""
+    $retryCount=0
+    $retryInterval=5
+    $maxRetryCount=120 # 10 minutes
+
+    do {
+        $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+        if (![string]::IsNullOrEmpty($name)) {
+            break
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get $SecretName service account"
+        Sleep $retryInterval
+    } while ($retryCount -lt $maxRetryCount)
+
     if ([string]::IsNullOrEmpty($name)) {
         throw "$SecretName service account does not exist."
     }
+
     $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
     $tokenBase64=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.token}' -n $CalicoNamespace
     $token=[System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($tokenBase64))
@@ -63,7 +80,7 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`"vxlan`"" -NewString "CALICO_NETWORKING_BACKEND=`"none`""
     SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `"Calico.*`"" -NewString "KUBE_NETWORK = `"azure.*`""
 
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs -SecretName "calico-windows"
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
 
     Write-Log "Install Calico"
 

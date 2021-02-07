@@ -468,7 +468,10 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
+
+        Check-APIServerConnectivity -MasterIP $MasterIP
 
         if ($global:WindowsCalicoPackageURL) {
             Write-Log "Start calico installation"
