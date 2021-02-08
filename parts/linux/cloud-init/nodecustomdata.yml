@@ -88,7 +88,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-#{{- if not .IsVHDDistro}}
+{{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"
   encoding: gzip
@@ -102,7 +102,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
-#{{end}}
+{{end}}
 
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
