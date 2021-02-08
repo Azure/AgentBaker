@@ -5,7 +5,7 @@ steps:
       source: 'specific'
       path: artifacts/vhd
       project: 'CloudNativeCompute'
-      pipeline: 172842
+      pipeline: $(VHD_PIPELINE_ID)
       runVersion: 'specific'
       runId: $(VHD_PIPELINE_RUN_ID)
   - script: |
