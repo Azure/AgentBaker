@@ -5,6 +5,8 @@ ERR_IOVISOR_APT_KEY_TIMEOUT=169 {{/* Timeout waiting for IOVisor apt-key */}}
 ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
 ERR_BPFTRACE_BIN_DOWNLOAD_FAIL=171 {{/* Failed to download bpftrace binary */}}
 ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default programs */}}
+ERR_UA_TOOLS_INSTALL_TIMEOUT=173 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
+
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
@@ -131,4 +133,32 @@ disableSystemdTimesyncdAndEnableNTP() {
 
     # enable ntp
     systemctlEnableAndStart ntp || exit $ERR_NTP_START_TIMEOUT
+}
+
+installFIPS() {
+    echo "Installing FIPS..."
+    wait_for_apt_locks
+
+    add-apt-repository -y ppa:ua-client/stable
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+
+    apt_get_install 120 5 300 ubuntu-advantage-tools || exit $ERR_UA_TOOLS_INSTALL_TIMEOUT
+
+    ua auto-attach
+
+    echo y | ua disable livepatch
+    echo y | ua enable fips
+
+    # now the fips packages/kernel are installed, clean up apt settings in the vhd,
+    # the VMs created on customer's subscription don't have access to UA repo at all
+    rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
+    rm -f /etc/apt/sources.list.d/ua-client-ubuntu-stable-bionic.list
+    rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
+    rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
+    rm -f /etc/apt/sources.list.d/ubuntu-fips.list
+    echo y | ua detach
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }

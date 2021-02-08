@@ -1,4 +1,7 @@
 #!/bin/bash
+
+ENABLE_FIPS="True"
+
 source /home/packer/provision_installs.sh
 source /home/packer/provision_source.sh
 source /home/packer/tool_installs.sh
@@ -7,6 +10,10 @@ source /home/packer/packer_source.sh
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
+
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+fi
 
 copyPackerFiles
 
