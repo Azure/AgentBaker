@@ -26,8 +26,6 @@
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
-// linux/cloud-init/artifacts/label-nodes.service
-// linux/cloud-init/artifacts/label-nodes.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -45,6 +43,8 @@
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
+// linux/cloud-init/artifacts/update-node-labels.service
+// linux/cloud-init/artifacts/update-node-labels.sh
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
 // windows/csecmd.ps1
@@ -902,12 +902,15 @@ ensureKubelet() {
     {{end}}
 }
 
-ensureLabelNodes() {
-    LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
-    wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
-    wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
+ensureUpdateNodeLabels() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
@@ -2057,6 +2060,7 @@ configureSwapFile
 ensureSysctl
 ensureKubelet
 ensureJournal
+ensureUpdateNodeLabels
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -2721,66 +2725,6 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsLabelNodesService = []byte(`[Unit]
-Description=Label Kubernetes nodes as masters or agents
-After=kubelet.service
-[Service]
-Restart=always
-RestartSec=60
-ExecStart=/bin/bash /opt/azure/containers/label-nodes.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsLabelNodesServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsLabelNodesService, nil
-}
-
-func linuxCloudInitArtifactsLabelNodesService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsLabelNodesServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsLabelNodesSh = []byte(`#!/usr/bin/env bash
-
-# Applies missing master and agent labels to Kubernetes nodes.
-#
-# Kubelet 1.16+ rejects the `+"`"+`kubernetes.io/role`+"`"+` and `+"`"+`node-role.kubernetes.io`+"`"+`
-# labels in its `+"`"+`--node-labels`+"`"+` argument, but they need to be present for
-# backward compatibility.
-
-set -euo pipefail
-
-MASTER_SELECTOR="kubernetes.azure.com/role!=agent,kubernetes.io/role!=agent"
-MASTER_LABELS="kubernetes.azure.com/role=master kubernetes.io/role=master node-role.kubernetes.io/master="
-AGENT_SELECTOR="kubernetes.azure.com/role!=master,kubernetes.io/role!=master"
-AGENT_LABELS="kubernetes.azure.com/role=agent kubernetes.io/role=agent node-role.kubernetes.io/agent="
-
-kubectl label nodes --overwrite -l $MASTER_SELECTOR $MASTER_LABELS
-kubectl label nodes --overwrite -l $AGENT_SELECTOR $AGENT_LABELS
-#EOF
-`)
-
-func linuxCloudInitArtifactsLabelNodesShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsLabelNodesSh, nil
-}
-
-func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsLabelNodesShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3555,6 +3499,75 @@ func linuxCloudInitArtifactsSysctlD60CisConf() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsUpdateNodeLabelsService = []byte(`[Unit]
+Description=Updates Labels for Kubernetes node
+After=kubelet.service
+[Service]
+Restart=on-failure
+RestartSec=30
+EnvironmentFile=/etc/default/kubelet
+ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
+#EOF
+`)
+
+func linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdateNodeLabelsService, nil
+}
+
+func linuxCloudInitArtifactsUpdateNodeLabelsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdateNodeLabelsSh = []byte(`#!/usr/bin/env bash
+
+# Updates Labels for this Kubernetes node (adds any missing, updates others to newest values, but never removes labels)
+
+set -euo pipefail
+
+NODE_NAME=$(echo $(hostname) | tr "[:upper:]" "[:lower:]")
+
+echo "updating labels for ${NODE_NAME}"
+
+FORMATTED_CURRENT_NODE_LABELS=$(kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --list=true node $NODE_NAME | sort)
+
+echo "current node labels (sorted): ${FORMATTED_CURRENT_NODE_LABELS}"
+
+FORMATTED_NODE_LABELS_TO_UPDATE=$(echo $KUBELET_NODE_LABELS | tr ',' '\n' | sort)
+
+echo "node labels to update (formatted+sorted): ${FORMATTED_NODE_LABELS_TO_UPDATE}"
+
+MISSING_LABELS=$(comm -32 <(echo $FORMATTED_NODE_LABELS_TO_UPDATE | tr ' ' '\n') <(echo $FORMATTED_CURRENT_NODE_LABELS | tr ' ' '\n'))
+
+echo "missing labels: ${MISSING_LABELS}"
+
+if [ ! -z "$MISSING_LABELS" ]; then
+  kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --overwrite node $NODE_NAME $MISSING_LABELS
+fi
+#EOF
+`)
+
+func linuxCloudInitArtifactsUpdateNodeLabelsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdateNodeLabelsSh, nil
+}
+
+func linuxCloudInitArtifactsUpdateNodeLabelsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -3644,6 +3657,20 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+- path: /etc/systemd/system/update-node-labels.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
+
+- path: /opt/azure/containers/update-node-labels.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
 
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
@@ -6721,8 +6748,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
-	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
-	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -6740,6 +6765,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
+	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
+	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
@@ -6827,8 +6854,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
-				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
-				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":              &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":                 &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
@@ -6846,6 +6871,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config_1604":                          &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":                      &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
+				"update-node-labels.service":                &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
+				"update-node-labels.sh":                     &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
