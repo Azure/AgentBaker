@@ -1,22 +1,12 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
-parameters:
-- name: createSkuAndPublish2019Image
-  displayName: Create SKU and Publish 2019 Image
-  type: boolean
-  default: true
-- name: createSkuAndPublish2019ContainerDImage
-  displayName: Create SKU and Publish 2019 containerD image
-  type: boolean
-  default: true
-
 variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
+  CONTAINER_IMAGE: 'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
 
 phases:
   - phase: create_sku_and_publish_2019_image
-    condition: eq('${{ parameters.createSkuAndPublish2019Image }}', true)
+    condition: eq(variables.FOR_2019, 'True')
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 180
@@ -31,7 +21,7 @@ phases:
         parameters:
           artifactName: 2019
   - phase: create_sku_and_publish_2019_containerd_image
-    condition: eq('${{ parameters.createSkuAndPublish2019ContainerDImage }}', true)
+    condition: eq(variables.FOR_2019_CONTAINERD, 'True')
     queue:
       name: Hosted Ubuntu 1604
       timeoutInMinutes: 180

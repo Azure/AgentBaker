@@ -48,7 +48,7 @@ function Get-ContainerImages {
     $imagesToPull = @()
 
     switch ($windowsSKU) {
-        '2019' {
+        { '2019', '2019-containerd'} {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
                 "mcr.microsoft.com/windows/nanoserver:1809",
@@ -303,7 +303,7 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 }
 
 $windowsSKU = $env:WindowsSKU
-$validSKU = @('2019', '2004')
+$validSKU = @('2019', '2019-containerd', '2004')
 if (-not ($validSKU -contains $windowsSKU)) {
     Write-Host "Unsupported windows image SKU: $windowsSKU"
     exit 1

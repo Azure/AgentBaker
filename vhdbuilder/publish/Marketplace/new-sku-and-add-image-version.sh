@@ -1,8 +1,5 @@
 #!/bin/bash -e
 
-cd '/build' || exit
-echo "PWD: $PWD"
-
 required_env_vars=(
     "SKU_PREFIX"
     "SKU_TEMPLATE_FILE"
@@ -13,6 +10,8 @@ required_env_vars=(
     "OFFER"
     "CONTAINER_RUNTIME"
 )
+
+(set -x; ls -lhR artifacts )
 
 for v in "${required_env_vars[@]}"
 do
@@ -28,8 +27,11 @@ if [ ! -f "$SKU_TEMPLATE_FILE" ]; then
 fi
 
 (set -x; ls -lhR artifacts )
-
-VHD_INFO="vhd/publishing-info/vhd-publishing-info.json"
+vhd_artifacts_path="publishing-info-2019"
+if [[ ${CONTAINER_RUNTIME} = "containerd" ]]; then
+    vhd_artifacts_path="publishing-info-2019-containerd"
+fi
+VHD_INFO="artifacts/vhd/${vhd_artifacts_path}/vhd-publishing-info.json"
 if [ ! -f "$VHD_INFO" ]; then
     echo "Could not find VHD info file: ${VHD_INFO}!"
     exit 1
@@ -61,8 +63,7 @@ image_version=$(< $VHD_INFO jq -r ".image_version")
 
 # generate media name
 # Media name must be under 63 characters
-sku_prefix=$(< $SKU_INFO jq -r ".sku_prefix")
-media_name="${sku_prefix}-${image_version}"
+media_name="${SKU_PREFIX}-${image_version}"
 if [ "${#media_name}" -ge 63 ]; then
 	echo "$media_name should be undr 63 characters"
 	exit 1

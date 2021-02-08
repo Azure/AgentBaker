@@ -162,7 +162,7 @@ function Test-ImagesPulled
     )
     $imagesToPull = @()
     switch ($WindowsSKU) {
-        '2019' {
+        {'2019', '2019-containerd'} {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
                 "mcr.microsoft.com/windows/nanoserver:1809",
