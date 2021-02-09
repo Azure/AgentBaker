@@ -81,7 +81,7 @@ phases:
         inputs:
           artifactName: 'vhd-release-notes'
           targetPath: 'release-notes.txt'
-      - task: PublishPipelineArtifact@1
+      - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'packer-output'
           targetPath: 'packer-output'
@@ -177,7 +177,7 @@ phases:
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
         condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
-      - task: PublishPipelineArtifact@2
+      - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
