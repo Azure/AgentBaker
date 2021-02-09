@@ -92,7 +92,7 @@ phases:
           -e TENANT_ID=${TENANT_ID} \
           -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e PKR_RG_NAME=${PKR_RG_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
+          ${CONTAINER_IMAGE} make -f packer.mk cleanup-pkr-rg
         displayName: Clean-up Packer Resource Group
         condition: always()
       - bash: |
