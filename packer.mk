@@ -43,6 +43,9 @@ delete-sa: az-login
 delete-mi: az-login
 	az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
 
+cleanup-pkr-rg: az-login
+	@./vhdbuilder/packer/cleanup-pkr-rg.sh
+
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
