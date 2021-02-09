@@ -94,6 +94,7 @@ phases:
           -e PKR_RG_NAME=${PKR_RG_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk delete-sa
         displayName: Clean-up Packer Resource Group
+        condition: always()
       - bash: |
           echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
