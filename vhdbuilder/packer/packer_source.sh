@@ -47,6 +47,10 @@ copyPackerFiles() {
   CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  BIND_MOUNT_SCRIPT_SRC=/home/packer/bind-mount.sh
+  BIND_MOUNT_SCRIPT_DEST=/opt/azure/containers/bind-mount.sh
+  BIND_MOUNT_SERVICE_SRC=/home/packer/bind-mount.service
+  BIND_MOUNT_SERVICE_DEST=/etc/systemd/system/bind-mount.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
@@ -88,6 +92,9 @@ copyPackerFiles() {
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
   fi
+  cpAndMode $BIND_MOUNT_SCRIPT_SRC $BIND_MOUNT_SCRIPT_DEST 544
+  cpAndMode $BIND_MOUNT_SERVICE_SRC $BIND_MOUNT_SERVICE_DEST 644
+  cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
     cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644

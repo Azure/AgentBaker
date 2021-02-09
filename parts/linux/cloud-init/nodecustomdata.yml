@@ -123,7 +123,23 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
+{{end}}
+
+{{- if HasKubeletDiskType}}
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
