@@ -83,20 +83,6 @@ phases:
           targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
-          PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e PKR_RG_NAME=${PKR_RG_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk cleanup-pkr-rg
-        displayName: Clean-up Packer Resource Group
-        condition: always()
-      - bash: |
-          echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -113,20 +99,8 @@ phases:
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
       - bash: |
           echo MODE=$(MODE) && \
+          PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-          docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e CLIENT_ID=${CLIENT_ID} \
-          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-          -e TENANT_ID=${TENANT_ID} \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e SA_NAME=${SA_NAME} \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
-      - bash: |
-          echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
           docker run --rm \
@@ -136,11 +110,14 @@ phases:
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
           -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-          -e IMAGE_NAME=${IMAGE_NAME} \
+          -e PKR_RG_NAME=${PKR_RG_NAME} \
+          -e MODE=${MODE} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-        displayName: Clean-up Managed Image
-        condition: ne(variables['MODE'], 'default')
+          -e SA_NAME=${SA_NAME} \
+          -e IMAGE_NAME=${IMAGE_NAME} \
+          ${CONTAINER_IMAGE} make -f packer.mk cleanup
+        displayName: Clean Up Remaining Resources
+        condition: always()
       - bash: |
           echo MODE=$(MODE) && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
