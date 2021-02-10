@@ -156,6 +156,7 @@ installFIPS() {
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
+    retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
     apt_get_purge 5 10 120 ubuntu-advantage-tools
     rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
@@ -166,7 +167,6 @@ installFIPS() {
     rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
     rm -f /etc/apt/sources.list.d/ubuntu-fips.list
     rm -f /etc/apt/auth.conf.d/90ubuntu-advantage
-    retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     resolvconf=$(readlink -f /etc/resolv.conf)
