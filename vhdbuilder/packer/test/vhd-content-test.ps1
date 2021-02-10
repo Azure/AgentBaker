@@ -168,13 +168,16 @@ function Test-ImagesPulled
                 "mcr.microsoft.com/windows/nanoserver:1809",
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
-                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12")
+                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
+                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
             Write-Output "Pulling images for windows server 2019"
         }
         '2004' {
