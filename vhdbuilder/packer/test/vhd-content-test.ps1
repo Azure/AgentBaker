@@ -107,7 +107,7 @@ function Test-FilesToCacheOnVHD
     foreach ($dir in $map.Keys)
     {
         $fakeDir = $dir
-        if ($dir.StartsWith("c:\akse-cache\win-k8s\"))
+        if ($dir.StartsWith("c:\akse-cache\win-k8s"))
         {
             $dir = "c:\akse-cache\win-k8s\"
         }
