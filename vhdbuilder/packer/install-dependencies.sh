@@ -294,6 +294,13 @@ fi
 
 installSGX=${SGX_DEVICE_PLUGIN_INSTALL:-"False"}
 if [[ ${installSGX} == "True" ]]; then
+    SGX_DEVICE_PLUGIN_VERSIONS="1.0"
+    for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
+        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
+        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    done
+
     SGX_PLUGIN_VERSIONS="0.1"
     for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
