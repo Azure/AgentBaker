@@ -24,7 +24,7 @@ if [ ! -z "$id" ]; then
 fi
 
 #clean up managed image
-if [[ "$MODE" != 'default' ]]; then
+if [[ "$MODE" != "default" ]]; then
   id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ ! -z "$id" ]; then
     az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
