@@ -89,7 +89,12 @@ function Get-ContainerImages {
 }
 
 function Get-FilesToCacheOnVHD {
-    Write-Log "Caching misc files on VHD"
+
+    param (
+        $containerRuntime
+    )
+
+    Write-Log "Caching misc files on VHD, container runtimne: $containerRuntime"
 
     $map = @{
         "c:\akse-cache\"              = @(
@@ -153,6 +158,18 @@ function Get-FilesToCacheOnVHD {
 
         foreach ($URL in $map[$dir]) {
             $fileName = [IO.Path]::GetFileName($URL)
+
+            if ($dir.StartsWith())
+            # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
+            if ($containerRuntime -eq 'containerd' -And $dir -eq "c:\akse-cache\win-k8s\") {
+                $k8sMajorVersion = $fileName.split(".",3)[0]
+                $k8sMinorVersion = $fileName.split(".",3)[1]
+                if ($k8sMinorVersion -lt "20" -And $k8sMajorVersion -eq "v1") {
+                    Write-Log "Skip to download $url for containerD is supported from Kubernets 1.20"
+                    continue
+                }
+            }
+
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
@@ -329,7 +346,7 @@ switch ($env:ProvisioningPhase) {
             Install-ContainerD
         }
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
-        Get-FilesToCacheOnVHD
+        Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }
     default {
