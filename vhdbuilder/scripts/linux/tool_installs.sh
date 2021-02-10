@@ -155,7 +155,8 @@ installFIPS() {
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips || exit $ERR_UA_ENABLE_FIPS
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
-    # the VMs created on customers' subscription don't have access to UA repo
+    # the VMs created on customers' subscriptions don't have access to UA repo
+    apt_get_purge 5 10 120 ubuntu-advantage-tools
     rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
