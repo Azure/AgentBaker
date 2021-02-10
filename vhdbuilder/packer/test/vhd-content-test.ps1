@@ -137,7 +137,7 @@ function Test-FilesToCacheOnVHD
 function Test-PatchInstalled
 {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @()
+    $patchIDs = @("KB4601345")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID)
