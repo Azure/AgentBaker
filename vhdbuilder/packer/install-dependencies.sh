@@ -1,7 +1,5 @@
 #!/bin/bash
 
-ENABLE_FIPS="True"
-
 source /home/packer/provision_installs.sh
 source /home/packer/provision_source.sh
 source /home/packer/tool_installs.sh
@@ -10,10 +8,6 @@ source /home/packer/packer_source.sh
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-fi
 
 copyPackerFiles
 
@@ -717,3 +711,11 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 } >> ${VHD_LOGS_FILEPATH}
 
 installAscBaseline
+
+if [[ ${UBUNTU_RELEASE} == "16.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on 18.04 only."
+  exit 0
+fi
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+fi
