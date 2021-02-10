@@ -9,8 +9,9 @@ ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default pr
 ERR_UA_TOOLS_INSTALL_TIMEOUT=173 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
 ERR_ADD_UA_APT_REPO=174 {{/* Error to add UA apt repository */}}
 ERR_AUTO_UA_ATTACH=175 {{/* Error to auto UA attach */}}
-ERR_UA_ENABLE_FIPS=176 {{/* Error to enable UA FIPS */}}
-ERR_UA_DETACH=177 {{/* Error to detach UA */}}
+ERR_UA_DISABLE_LIVEPATCH=176 {{/* Error to disable UA livepatch */}}
+ERR_UA_ENABLE_FIPS=177 {{/* Error to enable UA FIPS */}}
+ERR_UA_DETACH=178 {{/* Error to detach UA */}}
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
@@ -143,16 +144,28 @@ installFIPS() {
     echo "Installing FIPS..."
     wait_for_apt_locks
 
+    echo "adding ua repository..."
     retrycmd_if_failure 5 10 120 add-apt-repository -y ppa:ua-client/stable || exit $ERR_ADD_UA_APT_REPO
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
+    echo "installing ua tools..."
     apt_get_install 5 10 120 ubuntu-advantage-tools || exit $ERR_UA_TOOLS_INSTALL_TIMEOUT
+
+    echo "auto attaching ua..."
     retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
+
+    echo "disabling ua livepatch..."
+    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+
+    echo "enabling ua fips..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips || exit $ERR_UA_ENABLE_FIPS
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
+    echo "detaching ua..."
     retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
+
+    echo "removing ua tools..."
     apt_get_purge 5 10 120 ubuntu-advantage-tools
     rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
