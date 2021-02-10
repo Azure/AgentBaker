@@ -83,7 +83,7 @@ phases:
           targetPath: 'release-notes.txt'
       - bash: |
           echo MODE=$(MODE) && \
-          PKR_RG_NAME="$(cat packer-output | grep "Compute ResourceGroupName" | cut -d "'" -f 2)" && \
+          PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
