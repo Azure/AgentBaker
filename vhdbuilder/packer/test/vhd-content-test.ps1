@@ -123,7 +123,7 @@ function Test-FilesToCacheOnVHD
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            if ($containerRuntime -eq 'containerd' -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\")
+            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\")
             {
                 continue
             }

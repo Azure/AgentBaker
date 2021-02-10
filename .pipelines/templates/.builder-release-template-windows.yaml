@@ -120,7 +120,7 @@ steps:
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
       WINDOWS_VERSION="$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
-      IMAGE_VERSION="$WINDOWS_VERSION${BUILD_DATE}" && \
+      IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}" && \
       SKU_NAME="windows-$WINDOWS_SKU" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
