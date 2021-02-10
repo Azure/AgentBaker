@@ -8,5 +8,5 @@ fi
  id=$(az group show --name ${PKR_RG_NAME})
  if [ ! -z "$id" ] ; then
    echo "Deleting packer resource group ${PKR_RG_NAME}"
-   az group delete --name ${PKR_RG_NAME}
+   az group delete --name ${PKR_RG_NAME} --yes
  fi
