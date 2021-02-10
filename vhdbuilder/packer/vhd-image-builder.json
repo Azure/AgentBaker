@@ -162,13 +162,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/label-nodes.sh",
-      "destination": "/home/packer/label-nodes.sh"
+      "source": "parts/linux/cloud-init/artifacts/update-node-labels.sh",
+      "destination": "/home/packer/update-node-labels.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/label-nodes.service",
-      "destination": "/home/packer/label-nodes.service"
+      "source": "parts/linux/cloud-init/artifacts/update-node-labels.service",
+      "destination": "/home/packer/update-node-labels.service"
     },
     {
       "type": "file",

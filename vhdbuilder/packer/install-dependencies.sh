@@ -611,6 +611,8 @@ mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200923.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
+mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
+mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.3.0
 mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.6.3
 mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
 "
@@ -622,6 +624,7 @@ done
 AZUREDISK_CSI_VERSIONS="
 0.7.0
 0.9.0
+1.0.0
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
@@ -632,6 +635,7 @@ done
 AZUREFILE_CSI_VERSIONS="
 0.7.0
 0.9.0
+1.0.0
 "
 for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
@@ -641,6 +645,7 @@ done
 
 CSI_LIVENESSPROBE_VERSIONS="
 1.1.0
+2.2.0
 "
 for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
