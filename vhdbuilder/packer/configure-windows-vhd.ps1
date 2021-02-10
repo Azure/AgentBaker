@@ -159,7 +159,6 @@ function Get-FilesToCacheOnVHD {
         foreach ($URL in $map[$dir]) {
             $fileName = [IO.Path]::GetFileName($URL)
 
-            if ($dir.StartsWith())
             # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
             if ($containerRuntime -eq 'containerd' -And $dir -eq "c:\akse-cache\win-k8s\") {
                 $k8sMajorVersion = $fileName.split(".",3)[0]

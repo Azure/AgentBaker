@@ -107,7 +107,8 @@ function Test-FilesToCacheOnVHD
     foreach ($dir in $map.Keys)
     {
         $fakeDir = $dir
-        if $dir.StartsWith("c:\akse-cache\win-k8s\") {
+        if ($dir.StartsWith("c:\akse-cache\win-k8s\"))
+        {
             $dir = "c:\akse-cache\win-k8s\"
         }
         if(!(Test-Path $dir))
@@ -122,7 +123,8 @@ function Test-FilesToCacheOnVHD
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            if ($containerRuntime -eq 'containerd' -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\") {
+            if ($containerRuntime -eq 'containerd' -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\")
+            {
                 continue
             }
 
