@@ -89,12 +89,18 @@ foreach ($key in $wuRegistryKeys) {
 }
 Log ""
 
-if (Test-Path 'C:\Program Files\Docker\') {
+if ($env:containerRuntime -eq 'docker') {
     Log "Docker Info"
     $dockerVersion = (docker --version) | Out-String
     Log ("Version: {0}" -f $dockerVersion)
     Log "Images:"
     LOG (docker images --format='{{json .}}' | ConvertFrom-Json | Format-Table Repository, Tag, ID)
+} else {
+    Log "ContainerD Info"
+    $containerDVersion = (ctr.exe --version) | Out-String
+    Log ("Version: {0}" -f $containerDVersion)
+    Log "Images:"
+    LOG (ctr.exe -n k8s.io image ls)
 }
 Log ""
 
