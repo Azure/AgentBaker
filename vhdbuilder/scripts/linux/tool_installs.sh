@@ -12,6 +12,7 @@ ERR_AUTO_UA_ATTACH=175 {{/* Error to auto UA attach */}}
 ERR_UA_DISABLE_LIVEPATCH=176 {{/* Error to disable UA livepatch */}}
 ERR_UA_ENABLE_FIPS=177 {{/* Error to enable UA FIPS */}}
 ERR_UA_DETACH=178 {{/* Error to detach UA */}}
+LINUX_HEADER_INSTALL_TIMEOUT=179 {{/* Timeout to install linux header */}}
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
@@ -177,6 +178,14 @@ installFIPS() {
     rm -f /etc/apt/sources.list.d/ubuntu-fips.list
     rm -f /etc/apt/auth.conf.d/90ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+
+    # workaround to make GPU provisioning in CSE work
+    # under /usr/src/linux-headers-4.15.0-1002-azure-fips there are some dangling symlinks to non-existing linux-azure-headers-4.15.0-1002
+    # this causes command '/usr/sbin/dkms build -m nvidia -v 450.51.06 -k 4.15.0-1002-azure-fips' for GPU provisioning in CSE to fail
+    # however linux-headers-4.15.0-1002-azure doesn't exist any more, install 1009 to workaround
+    apt_get_install 5 10 120 linux-headers-4.15.0-1009-azure || exit $LINUX_HEADER_INSTALL_TIMEOUT
+    ln -s /usr/src/linux-azure-headers-4.15.0-1009 /usr/src/linux-azure-headers-4.15.0-1002
+    ln -s /usr/src/linux-azure-headers-4.15.0-1002/Makefile /usr/src/linux-headers-4.15.0-1002-azure-fips/Makefile
 
     resolvconf=$(readlink -f /etc/resolv.conf)
     # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
