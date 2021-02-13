@@ -187,6 +187,12 @@ configureCNIIPTables() {
         /sbin/ebtables -t nat --list
     fi
 }
+
+disable1804SystemdResolved() {
+    ls -ltr /etc/resolv.conf
+    cat /etc/resolv.conf
+    echo "Disable1804SystemdResolved is false. Skipping."
+}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT

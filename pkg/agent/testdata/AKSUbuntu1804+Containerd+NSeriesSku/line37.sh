@@ -184,6 +184,12 @@ configureCNIIPTables() {
         /sbin/ebtables -t nat --list
     fi
 }
+
+disable1804SystemdResolved() {
+    ls -ltr /etc/resolv.conf
+    cat /etc/resolv.conf
+    echo "Disable1804SystemdResolved is false. Skipping."
+}
 ensureContainerd() {
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT

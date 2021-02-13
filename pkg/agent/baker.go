@@ -273,6 +273,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return template.FuncMap{
+		"Disable1804SystemdResolved": func() bool {
+			return config.Disable1804SystemdResolved
+		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
 		},
