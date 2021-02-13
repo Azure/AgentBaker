@@ -1436,6 +1436,7 @@ type NodeBootstrappingConfiguration struct {
 	ResourceGroupName             string
 	UserAssignedIdentityClientID  string
 	ConfigGPUDriverIfNeeded       bool
+	Disable1804SystemdResolved    bool
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
