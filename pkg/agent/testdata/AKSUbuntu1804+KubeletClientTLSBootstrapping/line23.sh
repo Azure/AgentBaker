@@ -6,6 +6,8 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+disable1804SystemdResolved
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -105,6 +107,7 @@ ensureMonitorService
 ensureSysctl
 ensureKubelet
 ensureJournal
+ensureUpdateNodeLabels
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then

@@ -319,6 +319,42 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 
+		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=true", "AKSUbuntu1604+Disable1804SystemdResolved=true", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Docker,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=false", "AKSUbuntu1604+Disable1804SystemdResolved=false", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = false
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Docker,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1804 with Disable1804SystemdResolved=true", "AKSUbuntu1804+Disable1804SystemdResolved=true", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1804 with Disable1804SystemdResolved=false", "AKSUbuntu1804+Disable1804SystemdResolved=false", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = false
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableKubeletClientTLSBootstrapping = true
 			config.ContainerService.Properties.AgentPoolProfiles[0].TLSBootstrapToken = &datamodel.TLSBootstrapToken{
@@ -326,7 +362,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TokenSecret: "f395accd246ae52d",
 			}
 		}))
-
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {

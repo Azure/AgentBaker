@@ -88,6 +88,22 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
+{{- if not .IsVHDDistro}}
+- path: /etc/systemd/system/update-node-labels.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
+
+- path: /opt/azure/containers/update-node-labels.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
+{{end}}
+
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
   permissions: "0544"

@@ -48,17 +48,22 @@ function Get-ContainerImages {
     $imagesToPull = @()
 
     switch ($windowsSKU) {
-        '2019' {
+        { '2019', '2019-containerd'} {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
                 "mcr.microsoft.com/windows/nanoserver:1809",
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0")
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
+                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
+                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
             Write-Log "Pulling images for windows server 2019"
         }
         '2004' {
@@ -87,7 +92,12 @@ function Get-ContainerImages {
 }
 
 function Get-FilesToCacheOnVHD {
-    Write-Log "Caching misc files on VHD"
+
+    param (
+        $containerRuntime
+    )
+
+    Write-Log "Caching misc files on VHD, container runtimne: $containerRuntime"
 
     $map = @{
         "c:\akse-cache\"              = @(
@@ -151,6 +161,17 @@ function Get-FilesToCacheOnVHD {
 
         foreach ($URL in $map[$dir]) {
             $fileName = [IO.Path]::GetFileName($URL)
+
+            # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
+            if ($containerRuntime -eq 'containerd' -And $dir -eq "c:\akse-cache\win-k8s\") {
+                $k8sMajorVersion = $fileName.split(".",3)[0]
+                $k8sMinorVersion = $fileName.split(".",3)[1]
+                if ($k8sMinorVersion -lt "20" -And $k8sMajorVersion -eq "v1") {
+                    Write-Log "Skip to download $url for containerD is supported from Kubernets 1.20"
+                    continue
+                }
+            }
+
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
@@ -190,7 +211,7 @@ function Install-ContainerD {
 }
 
 function Install-Docker {
-    $defaultDockerVersion = "19.03.11"
+    $defaultDockerVersion = "19.03.14"
 
     Write-Log "Attempting to install Docker version $defaultDockerVersion"
     Install-PackageProvider -Name DockerMsftProvider -Force -ForceBootstrap | Out-null
@@ -210,7 +231,7 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    $patchUrls = @()
+    $patchUrls = @("http://download.windowsupdate.com/d/msdownload/update/software/secu/2021/02/windows10.0-kb4601345-x64_6dfee9d6f028678d7988eb35cd5c0867bf96e4c6.msu")
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
@@ -301,7 +322,7 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 }
 
 $windowsSKU = $env:WindowsSKU
-$validSKU = @('2019', '2004')
+$validSKU = @('2019', '2019-containerd', '2004')
 if (-not ($validSKU -contains $windowsSKU)) {
     Write-Host "Unsupported windows image SKU: $windowsSKU"
     exit 1
@@ -327,7 +348,7 @@ switch ($env:ProvisioningPhase) {
             Install-ContainerD
         }
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
-        Get-FilesToCacheOnVHD
+        Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }
     default {
