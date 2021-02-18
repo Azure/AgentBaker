@@ -53,17 +53,17 @@ else
 fi
 
 configureAdminUser
-cleanUpContainerd
+run_and_log_execution_time cleanUpContainerd
 
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    run_and_log_execution_time cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    run_and_log_execution_time cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -74,43 +74,42 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    installDeps
+    run_and_log_execution_time installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    ensureAuditD
+    run_and_log_execution_time ensureAuditD
 fi
 
-installContainerRuntime
+run_and_log_execution_time installContainerRuntime
 
-installNetworkPlugin
+run_and_log_execution_time installNetworkPlugin
 
-installKubeletKubectlAndKubeProxy
+run_and_log_execution_time installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
 fi
 
-createKubeManifestDir
+run_and_log_execution_time createKubeManifestDir
 
-configureK8s
+run_and_log_execution_time configureK8s
 
-configureCNI
+run_and_log_execution_time configureCNI
 
 
-ensureDocker
+run_and_log_execution_time ensureDocker
 
-ensureMonitorService
-configureTransparentHugePage
-configureSwapFile
+run_and_log_execution_time ensureMonitorService
+run_and_log_execution_time configureTransparentHugePage
+run_and_log_execution_time configureSwapFile
 
-ensureSysctl
-ensureKubelet
-ensureJournal
-ensureUpdateNodeLabels
-
+run_and_log_execution_time ensureSysctl
+run_and_log_execution_time ensureKubelet
+run_and_log_execution_time ensureJournal
+run_and_log_execution_time ensureUpdateNodeLabels
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         
@@ -150,12 +149,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        aptmarkWALinuxAgent unhold &
+        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        aptmarkWALinuxAgent unhold &
+        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
     fi
 fi
 
