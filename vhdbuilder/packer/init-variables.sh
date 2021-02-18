@@ -6,7 +6,7 @@ SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
-STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}"
+STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
@@ -101,7 +101,7 @@ WINDOWS_IMAGE_VERSION=""
 if [ ! -z "${WINDOWS_SKU}" ]; then
 	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
-	"2019")
+	"2019"|"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
 		;;

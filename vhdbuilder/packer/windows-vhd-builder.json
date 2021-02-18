@@ -95,7 +95,8 @@
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
                 "BUILD_NUMBER={{user `build_number`}}",
-                "BUILD_REPO={{user `build_repo`}}"
+                "BUILD_REPO={{user `build_repo`}}",
+                "ContainerRuntime={{user `container_runtime`}}"
             ],
             "type": "powershell",
             "script": "vhdbuilder/packer/write-release-notes-windows.ps1"

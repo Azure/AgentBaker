@@ -11,18 +11,15 @@ param (
 )
 
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
-$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
+$global:containerdPackageUrl = "https://mobyartifacts.azureedge.net/moby/moby-containerd/1.4.3+azure/windows/windows_amd64/moby-containerd-1.4.3+azure-1.amd64.zip"
 
-function Compare-AllowedSecurityProtocols
-{
+function Compare-AllowedSecurityProtocols {
 
     $allowedProtocols = @()
     $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
 
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType]))
-    {
-        if ($insecureProtocols -notcontains $protocol)
-        {
+    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
+        if ($insecureProtocols -notcontains $protocol) {
             $allowedProtocols += $protocol
         }
     }
@@ -34,6 +31,10 @@ function Compare-AllowedSecurityProtocols
 
 function Test-FilesToCacheOnVHD
 {
+    param (
+        $containerRuntime
+    )
+
     # TODO(qinhao): share this map variable with `configure-windows-vhd.ps1`
     $map = @{
         "c:\akse-cache\" = @(
@@ -60,7 +61,10 @@ function Test-FilesToCacheOnVHD
         "c:\akse-cache\csi-proxy\"    = @(
             "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz"
         );
-        "c:\akse-cache\win-k8s\" = @(
+        # winzip paths here are not valid, but will be changed to the actual path.
+        # we don't resue the code the validate the winzip used for different container runtimes, but use the real list to
+        # validat the code and winzip downloaded.
+        "c:\akse-cache\win-k8s-docker\" = @(
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.10-hotfix.20200817/windowszip/v1.16.10-hotfix.20200817-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20210118/windowszip/v1.16.13-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.16.15-hotfix.20210118/windowszip/v1.16.15-hotfix.20210118-1int.zip",
@@ -78,7 +82,10 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.3-hotfix.20210118/windowszip/v1.19.3-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.6-hotfix.20210118/windowszip/v1.19.6-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210122/windowszip/v1.19.7-hotfix.20210122-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210122/windowszip/v1.19.7-hotfix.20210122-1int.zip"
+        );
+        # Please add new winzips with Kuberentes version >= 1.20 here
+        "c:\akse-cache\win-k8s-docker-and-containerd\" = @(
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2/windowszip/v1.20.2-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
@@ -94,22 +101,26 @@ function Test-FilesToCacheOnVHD
 
     $invalidFiles = @()
     $missingPaths = @()
-    foreach ($dir in $map.Keys)
-    {
-        if(!(Test-Path $dir))
-        {
+    foreach ($dir in $map.Keys) {
+        $fakeDir = $dir
+        if ($dir.StartsWith("c:\akse-cache\win-k8s")) {
+            $dir = "c:\akse-cache\win-k8s\"
+        }
+        if(!(Test-Path $dir)) {
             Write-Error "Directory $dir does not exit"
             $missingPaths = $missingPaths + $dir
             continue
         }
 
-        foreach ($URL in $map[$dir])
-        {
+        foreach ($URL in $map[$fakeDir]) {
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            if(![System.IO.File]::Exists($dest))
-            {
+            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\") {
+                continue
+            }
+
+            if(![System.IO.File]::Exists($dest)) {
                 Write-Error "File $dest does not exist"
                 $invalidFiles = $invalidFiles + $dest
                 continue
@@ -126,55 +137,53 @@ function Test-FilesToCacheOnVHD
             Write-Output "$dest is cached as expected"
         }
     }
-    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0)
-    {
+    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0) {
         Write-Error "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
         exit 1
     }
 
 }
 
-function Test-PatchInstalled
-{
+function Test-PatchInstalled {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @()
+    $patchIDs = @("KB4601383")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
-    foreach($hotfixID in $hotfix.HotFixID)
-    {
+    foreach($hotfixID in $hotfix.HotFixID) {
         $currenHotfixes += $hotfixID
     }
 
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
-    if($lostPatched.count -ne 0)
-    {
+    if($lostPatched.count -ne 0) {
         Write-Error "$lostPatched is(are) not installed"
         exit 1
     }
     Write-Output "All pathced $patchIDs are installed"
 }
 
-function Test-ImagesPulled
-{
+function Test-ImagesPulled {
     param (
         $containerRuntime,
         $WindowsSKU
     )
     $imagesToPull = @()
     switch ($WindowsSKU) {
-        '2019' {
+        {'2019', '2019-containerd'} {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
                 "mcr.microsoft.com/windows/nanoserver:1809",
                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
+                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
-                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12")
+                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
+                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
             Write-Output "Pulling images for windows server 2019"
         }
         '2004' {
@@ -216,6 +225,6 @@ function Test-ImagesPulled
 }
 
 Compare-AllowedSecurityProtocols
-Test-FilesToCacheOnVHD
+Test-FilesToCacheOnVHD -containerRuntime $containerRuntime
 Test-PatchInstalled
 Test-ImagesPulled  -containerRuntime $containerRuntime -WindowsSKU $WindowsSKU
