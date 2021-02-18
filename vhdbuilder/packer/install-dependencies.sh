@@ -638,6 +638,7 @@ mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.3.0
 mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.6.3
 mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
+mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.4
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage ${cliTool} ${ADDON_IMAGE}
