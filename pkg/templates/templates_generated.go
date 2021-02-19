@@ -40,7 +40,6 @@
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
-// linux/cloud-init/artifacts/sys-fs-bpf.mount
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/update-node-labels.service
 // linux/cloud-init/artifacts/update-node-labels.sh
@@ -642,11 +641,6 @@ configureCNI() {
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
-    {{if HasCiliumNetworkPlugin}}
-    systemctl enable sys-fs-bpf.mount
-    systemctl restart sys-fs-bpf.mount
-    REBOOTREQUIRED=true
-    {{end}}
 }
 
 configureCNIIPTables() {
@@ -3312,36 +3306,6 @@ func linuxCloudInitArtifactsSshd_config_1604() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSysFsBpfMount = []byte(`[Unit]
-Description=Cilium BPF mounts
-Documentation=http://docs.cilium.io/
-DefaultDependencies=no
-Before=local-fs.target umount.target
-After=swap.target
-
-[Mount]
-What=bpffs
-Where=/sys/fs/bpf
-Type=bpf
-
-[Install]
-WantedBy=multi-user.target`)
-
-func linuxCloudInitArtifactsSysFsBpfMountBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsSysFsBpfMount, nil
-}
-
-func linuxCloudInitArtifactsSysFsBpfMount() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsSysFsBpfMountBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sys-fs-bpf.mount", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
@@ -3674,15 +3638,6 @@ write_files:
       }{{end}}{{if HasDataDir}},
       "data-root": "{{GetDataDir}}"{{- end}}
     }
-{{end}}
-
-{{if HasCiliumNetworkPlugin }}
-- path: /etc/systemd/system/sys-fs-bpf.mount
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "systemdBPFMount"}}
 {{end}}
 
 {{if NeedsContainerd}}
@@ -6744,7 +6699,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
-	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
 	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
@@ -6849,7 +6803,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"setup-custom-search-domains.sh":            &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
 				"sshd_config":                               &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                          &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
-				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":                      &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"update-node-labels.service":                &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
 				"update-node-labels.sh":                     &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},

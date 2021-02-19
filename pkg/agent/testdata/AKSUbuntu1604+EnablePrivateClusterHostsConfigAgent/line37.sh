@@ -162,7 +162,6 @@ configureCNI() {
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
-    
 }
 
 configureCNIIPTables() {
