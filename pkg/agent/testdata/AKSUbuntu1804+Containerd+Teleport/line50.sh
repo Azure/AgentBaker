@@ -15,7 +15,7 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
-ExecStartPost=/opt/azure/containers/ensure_no_dup.sh
+ExecStartPost=/bin/bash /opt/azure/containers/ensure_no_dup.sh
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
