@@ -47,7 +47,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySz0/bThDF7/4rRhGH7/ewbOmPS5EPUAyNiCjCQRxChNbrgYyynnV3Z0No6f9emRAgYKT6ZM++z5vn1ZucM8k0O8BoA7VCnvPjVKFDyb55rqmbnBqZFUuKEnOdYtDOW+N0Raznj9Ism5QYFmRxmp1hFBMkN+7W3MWs4AUFzw2yHJLDXKNYXeO1SU6e+DJZizEWS5JSjKSY73z+lBVLtGXndRowf9hXmTgD7VvR5lcKqK1nMcQY4tpqO856uGZeUwDVgl6YoB1VT5v/RWuZ3suiLAzoGiaw9V/jEwvcw03AFi4HrzddDuAebi0o9z8oh/ABprALMkOG1doHXKmKuH4T8+1gF65p0Jf+0aYxc1RxZgK+dcs2OaVjR2IlpnIYQQmw6TwcRemVUvtayqnBQHYNPVPvNAYuM3h8lELu3FTEsMCwccK+RuVMhS7mg63fx+f7xagYX538OCiuRnv7xaj8M9gAFvlHUOqpFiokFmowD9h4QVDrgQr4M2EU1X34JPnOl6YPVMh164klT0zLr1rrkPi5dvWL1+3o7XwzjHepQdW6dEOsagqr8ndXEBgFo14pVoL4gt1a/+nhaO+o7Ds4K46G5bg4e7iLnvHFcPz9arw3PBmXWTYZchTj3DS7MCxY79/lTXJCKkUM22LCDcrfAAAA//8PqjOJCQQAAA==
+    H4sIAAAAAAAA/4yTX0/jOhDF3/MprIqHex+ML/fefVmUB1gCW1GxiBTxUKrKcQY6qjPOesal7LLffRXKv9IgbZ6S8fmdOfbEk0tCmWZHwC5iKxgoP00VeJDsS6Aau8q5lXmxQhbOTeJofHDWmwrJLJ6kWTYpIS7RwTS7ABYbJbf+zt5zVtASY6AGSI7RQ25AnKnhxiYvL3yZnAPmYoVSipXE+d7//2XFClzZeZ1HyB/7VZbnyoRWjP2RIhgXSCwSRH622uV5D9csaoxKt8osbTQeq5fOf6J1hB9l0U4N8EZN1M5fTUgk6kHdRmjV9eB9p+uBelB3Tmn/t9Ie1D9qqvaVzIHUuu0jrnWFVG/F3C7sqxsc9KV/smnsAjTPbYRtt2yT04Y7EiqxlQdWWhTZzsMjS68U2/dSSg1EdNtQYMn7BwbEKcKMwqxObTe2V+qD30xdZ+rp0Rqoi6AZ4hLixgqFGrS3FXjOBzs/Ty8Pi1Exnp19Oypmo4PDYlT+GmwAy/xfpfVLNB0TCTaQR2iCgNLPBR3hewIW3X2EJPnep6YP1EB1G5AkT4Srz8aYmOh16/Wb110ObrEZJvjUgG59ukXSNcb1jemOIBIIsFkr1gJ+w+487/R4dHBS9i1cFCfDclxcPJ5FT/lqOP46Gx8Mz8Zllk2GxGK9n2ZXlgTqw/u8SV5QJ4a4KzbegvwOAAD//8UxQsU+BAAA
 
 
 
@@ -203,6 +203,42 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 
+
+- path: /opt/azure/containers/ensure_no_dup.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    for try in {1..10}; do
+      sleep 10
+      if [[ ! -f /sys/class/net/cbr0/address ]]; then
+        echo "cbr0 bridge not yet up"
+      fi
+      cbr0MAC=$(cat /sys/class/net/cbr0/address)
+      cbr0Addr=$(ip addr show cbr0 | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
+      if [[ -z "${cbr0Addr}" ]]; then
+        echo "cbr0 bridge not yet up"
+        continue
+      fi
+      if [[ ! -f /etc//etc/cni/net.d/10-containerd-net.conflist ]]; then
+        echo "cni has not yet been initiated"
+        continue
+      fi
+
+      # remove this if we are no longer using promiscuous bridge mode for containerd
+      # background: we get duplicated packets from pod to serviceIP if both are on the same node (one from the cbr0 bridge and one from the pod ip itself via kernel due to promiscuous mode being on)
+      # we should filter out the one from pod ip
+      # this is exactly what kubelet does for dockershim+kubenet
+      # https://github.com/kubernetes/kubernetes/pull/28717
+
+      podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
+      ebtables -t filter -N AKS-DEDUP # add new AKS-DEDUP chain
+      ebtables -t filter -A OUTPUT -j AKS-DEDUP # add new rule to OUTPUT chain jump to AKS-DEDUP
+      ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${cbr0Addr} -j ACCEPT
+      ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP
+      break
+    done
+    #EOF
 
 
 
