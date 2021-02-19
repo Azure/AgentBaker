@@ -8,6 +8,7 @@ required_env_vars=(
   "PKR_RG_NAME"
   "MODE"
   "AZURE_RESOURCE_GROUP_NAME"
+  "SA_NAME"
 )
 
 for v in "${required_env_vars[@]}"; do
@@ -16,6 +17,13 @@ for v in "${required_env_vars[@]}"; do
     exit 1
   fi
 done
+
+#clean up the packer generated resource group
+id=$(az group show --name ${PKR_RG_NAME} | jq .id)
+if [ ! -z "$id" ]; then
+  echo "Deleting packer resource group ${PKR_RG_NAME}"
+  az group delete --name ${PKR_RG_NAME} --yes
+fi
 
 #clean up the temporary storage account
 id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
@@ -29,11 +37,4 @@ if [[ "$MODE" != "default" ]]; then
   if [ ! -z "$id" ]; then
     az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
-fi
-
-#clean up the packer generated resource group
-id=$(az group show --name ${PKR_RG_NAME} | jq .id)
-if [ ! -z "$id" ]; then
-  echo "Deleting packer resource group ${PKR_RG_NAME}"
-  az group delete --name ${PKR_RG_NAME} --yes
 fi
