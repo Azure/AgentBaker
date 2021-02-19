@@ -404,6 +404,20 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 {{end}}
+{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
+{{- end}}
 {{end}}
 
 {{if IsNSeriesSKU}}

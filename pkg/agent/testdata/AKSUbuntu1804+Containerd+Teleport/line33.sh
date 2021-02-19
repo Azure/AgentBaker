@@ -114,6 +114,7 @@ ensureSysctl
 ensureKubelet
 ensureJournal
 ensureUpdateNodeLabels
+ensureNoDup
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then

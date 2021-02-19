@@ -116,6 +116,9 @@ const (
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
 	initAKSCustomCloudScript  = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
 	containerdSystemdService  = "linux/cloud-init/artifacts/containerd.service"
+
+	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
+	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 )
 
 // cloud-init destination file references
