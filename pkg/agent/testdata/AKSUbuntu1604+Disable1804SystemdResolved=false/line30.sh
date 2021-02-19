@@ -191,15 +191,15 @@ extractHyperkube() {
     pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
     mkdir -p "$path"
 
-    if [[ "$CLI_TOOL" == "ctr" ]]; then    
+    if [[ "$CLI_TOOL" == "ctr" ]]; then
         if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
             mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
         else
             ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi 
-    
-    else 
+        fi
+
+    else
         if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
             mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
@@ -209,7 +209,7 @@ extractHyperkube() {
     fi
 
     cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"    
+    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -242,7 +242,7 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then 
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then
         retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
     else
         retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
@@ -257,7 +257,7 @@ removeContainerImage() {
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
         crictl image rm $CONTAINER_IMAGE_URL
     else
-        docker image rm $CONTAINER_IMAGE_URL 
+        docker image rm $CONTAINER_IMAGE_URL
     fi
 }
 
@@ -272,7 +272,7 @@ cleanUpImages() {
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             for image in "${images_to_delete[@]}"
-            do 
+            do
                 
                 removeContainerImage "docker" ${image}
                 
@@ -284,15 +284,11 @@ cleanUpImages() {
 }
 
 cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
     cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
@@ -314,6 +310,18 @@ cleanUpGPUDrivers() {
 
 cleanUpContainerd() {
     rm -Rf $CONTAINERD_DOWNLOADS_DIR
+}
+
+configureGPUDrivers() {
+  if $FULL_INSTALL_REQUIRED; then
+        installGPUDrivers
+  fi
+  ensureGPUDrivers
+  if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+      systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+  else
+      systemctlDisableAndStop nvidia-device-plugin
+  fi
 }
 
 overrideNetworkConfig() {
