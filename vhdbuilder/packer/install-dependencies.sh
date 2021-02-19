@@ -377,7 +377,7 @@ for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
 done
 
 CALICO_NODE_IMAGES="
-v3.17.1
+v3.17.2
 v3.8.9.1
 v3.8.9.2
 "
@@ -389,7 +389,7 @@ done
 
 # typha and pod2daemon can't be patched like cni and node can as they use scratch as a base
 CALICO_TYPHA_IMAGES="
-v3.17.1
+v3.17.2
 v3.8.9
 "
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
@@ -399,7 +399,7 @@ for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
 done
 
 CALICO_KUBE_CONTROLLERS_IMAGES="
-v3.17.1
+v3.17.2
 "
 for CALICO_KUBE_CONTROLLERS_IMAGE in ${CALICO_KUBE_CONTROLLERS_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:${CALICO_KUBE_CONTROLLERS_IMAGE}"
@@ -408,7 +408,7 @@ for CALICO_KUBE_CONTROLLERS_IMAGE in ${CALICO_KUBE_CONTROLLERS_IMAGES}; do
 done
 
 TIGERA_OPERATOR_IMAGES="
-v1.13.3
+v1.13.5
 "
 for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:${TIGERA_OPERATOR_IMAGE}"
