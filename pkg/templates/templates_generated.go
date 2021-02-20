@@ -3997,27 +3997,35 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
+
+    # remove this if we are no longer using promiscuous bridge mode for containerd
+    # background: we get duplicated packets from pod to serviceIP if both are on the same node (one from the cbr0 bridge and one from the pod ip itself via kernel due to promiscuous mode being on)
+    # we should filter out the one from pod ip
+    # this is exactly what kubelet does for dockershim+kubenet
+    # https://github.com/kubernetes/kubernetes/pull/28717
     for try in {1..10}; do
-      sleep 10
+      ebtables -t filter -L AKS-DEDUP
+      if [[ $? -eq 0 ]]; then
+        echo "AKS-DEDUP rule already set"
+        exit 0
+      fi
       if [[ ! -f /sys/class/net/cbr0/address ]]; then
-        echo "cbr0 bridge not yet up"
+        echo "cbr0 bridge not up yet...checking again in 5s"
+        sleep 5
+        continue
       fi
       cbr0MAC=$(cat /sys/class/net/cbr0/address)
       cbr0Addr=$(ip addr show cbr0 | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
       if [[ -z "${cbr0Addr}" ]]; then
-        echo "cbr0 bridge not yet up"
+        echo "cbr0 bridge does not have an ipv4 address...checking again in 5s"
+        sleep 5
         continue
       fi
-      if [[ ! -f /etc//etc/cni/net.d/10-containerd-net.conflist ]]; then
-        echo "cni has not yet been initiated"
+      if [[ ! -f /etc/cni/net.d/10-containerd-net.conflist ]]; then
+        echo "cbr0 bridge not up yet...checking again in 5s"
+        sleep 5
         continue
       fi
-
-      # remove this if we are no longer using promiscuous bridge mode for containerd
-      # background: we get duplicated packets from pod to serviceIP if both are on the same node (one from the cbr0 bridge and one from the pod ip itself via kernel due to promiscuous mode being on)
-      # we should filter out the one from pod ip
-      # this is exactly what kubelet does for dockershim+kubenet
-      # https://github.com/kubernetes/kubernetes/pull/28717
 
       podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
       ebtables -t filter -N AKS-DEDUP # add new AKS-DEDUP chain
