@@ -216,7 +216,7 @@ write_files:
     # this is exactly what kubelet does for dockershim+kubenet
     # https://github.com/kubernetes/kubernetes/pull/28717
     for try in {1..10}; do
-      ebtables -t filter -L AKS-DEDUP
+      ebtables -t filter -L AKS-DEDUP 2>/dev/null
       if [[ $? -eq 0 ]]; then
         echo "AKS-DEDUP rule already set"
         exit 0
