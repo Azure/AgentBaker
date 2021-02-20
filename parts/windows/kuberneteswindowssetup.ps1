@@ -508,7 +508,8 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    Write-Error $_
+    # Add timestamp in the logs
+    Write-Log $_
     throw $_
 }
 
