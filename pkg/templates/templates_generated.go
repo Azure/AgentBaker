@@ -489,7 +489,6 @@ API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
-AUDITD_ENABLED={{GetVariable "auditdEnabled"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -591,16 +590,6 @@ configPrivateClusterHosts() {
 ensureRPC() {
     systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
     systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureAuditD() {
-  if [[ "${AUDITD_ENABLED}" == true ]]; then
-    systemctlEnableAndStart auditd || exit $ERR_SYSTEMCTL_START_FAIL
-  else
-    if apt list --installed | grep 'auditd'; then
-      apt_get_purge 20 30 120 auditd &
-    fi
-  fi
 }
 
 {{- if ShouldConfigTransparentHugePage}}
@@ -1525,12 +1514,6 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-    if [[ "${AUDITD_ENABLED}" == true ]]; then
-      if ! apt_get_install 30 1 600 auditd; then
-        journalctl --no-pager -u auditd
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    fi
 }
 
 installGPUDrivers() {
@@ -2004,10 +1987,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     run_and_log_execution_time installDeps
 else
     echo "Golden image; skipping dependencies installation"
-fi
-
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    run_and_log_execution_time ensureAuditD
 fi
 
 run_and_log_execution_time installContainerRuntime
@@ -3641,17 +3620,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionCIS"}}
-{{end}}
-
-{{if not .IsVHDDistro}}
-  {{if .IsAuditDEnabled}}
-- path: /etc/audit/rules.d/CIS.rules
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "auditdRules"}}
-  {{end}}
 {{end}}
 
 {{if IsAKSCustomCloud}}

@@ -39,12 +39,6 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-    if [[ "${AUDITD_ENABLED}" == true ]]; then
-      if ! apt_get_install 30 1 600 auditd; then
-        journalctl --no-pager -u auditd
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    fi
 }
 
 installGPUDrivers() {
