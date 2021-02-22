@@ -64,7 +64,7 @@ mkdir 'c:\k\debug' -ErrorAction Ignore | Out-Null
 
 Write-Host "Collecting networking related logs"
 if (-not (Test-Path 'c:\k\debug\collectlogs.ps1')) {
-  Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1 -OutFile 'c:\k\debug\collectlogs.ps1'
+  curl.exe --retry 5 --retry-delay 0 -L https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1 -o 'c:\k\debug\collectlogs.ps1'
 }
 & 'c:\k\debug\collectlogs.ps1' | write-Host
 $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName | Select-Object -ExpandProperty FullName
