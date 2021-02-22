@@ -4390,7 +4390,7 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        Invoke-WebRequest $Url -UseBasicParsing -OutFile $DestinationPath -Verbose
+        curl.exe --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         $downloadTimer.Stop()
 
         if ($global:AppInsightsClient -ne $null) {
@@ -4669,15 +4669,21 @@ function Check-APIServerConnectivity {
     $retryCount=0
 
     do {
-        $tcpClient=New-Object Net.Sockets.TcpClient
-        Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
-        $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
-        if ($tcpClient.Connected) {
-            Write-Log "Retry $retryCount : Connected to API server successfully"
-            return
+        try {
+            $tcpClient=New-Object Net.Sockets.TcpClient
+            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+            if ($tcpClient.Connected) {
+                $tcpClient.Close()
+                Write-Log "Retry $retryCount : Connected to API server successfully"
+                return
+            }
+            $tcpClient.Close()
+        } catch {
+            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
         }
         $retryCount++
-        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to get $SecretName service account"
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
@@ -5210,7 +5216,8 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    Write-Error $_
+    # Add timestamp in the logs
+    Write-Log $_
     throw $_
 }
 
@@ -5681,12 +5688,17 @@ function GetCalicoKubeConfig {
     $maxRetryCount=120 # 10 minutes
 
     do {
-        $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
-        if (![string]::IsNullOrEmpty($name)) {
-            break
+        try {
+            Write-Log "Retry $retryCount : Trying to get service account $SecretName"
+            $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+            if (![string]::IsNullOrEmpty($name)) {
+                break
+            }
+        } catch {
+            Write-Log "Retry $retryCount : Failed to get service account $SecretName. Error: $_"
         }
         $retryCount++
-        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get $SecretName service account"
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get service account $SecretName"
         Sleep $retryInterval
     } while ($retryCount -lt $maxRetryCount)
 

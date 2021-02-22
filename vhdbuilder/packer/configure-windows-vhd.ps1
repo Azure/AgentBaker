@@ -189,7 +189,7 @@ function Install-ContainerD {
 
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
-    Invoke-WebRequest -UseBasicParsing -Uri $global:containerdPackageUrl -OutFile $zipPath
+    curl.exe --retry 5 --retry-delay 0 -L $global:containerdPackageUrl -o $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $installDir
     Remove-Item -Path $zipPath | Out-null
 
@@ -243,7 +243,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                Invoke-WebRequest -UseBasicParsing $patchUrl -OutFile $fullPath
+                curl.exe --retry 5 --retry-delay 0 -L $patchUrl -o $fullPath
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
