@@ -158,7 +158,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:v*",
-    "versions": ["1.2.1","1.1.8","1.1.7","1.1.5","1.1.4"]
+    "versions": ["1.2.3","1.2.2_hotfix","1.2.1","1.1.8","1.1.7"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v*",
@@ -173,28 +173,48 @@ imagesToBePulled='
     "versions": ["0.0.13"]
   },
   {
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
+    "versions": ["0.5.1","0.6.0","0.7.0"]
+  },
+  {
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v*",
+    "versions": ["0.0.19"]
+  },
+  {
+    "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
+    "versions": ["0.0.12"]
+  },
+  {
     "downloadURL": "mcr.microsoft.com/aks/hcp/kube-svc-redirect:v*",
     "versions": ["1.0.7"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-    "versions": ["ciprod10052020","ciprod10272020","ciprod11092020"]
+    "versions": ["ciprod10272020","ciprod11092020","ciprod01112021"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/cni:v*",
-    "versions": ["3.8.9","3.8.9.1"]
+    "versions": ["3.8.9.1","3.8.9.2"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/node:v*",
-    "versions": ["3.8.9","3.8.9.1"]
+    "versions": ["3.17.2","3.8.9.1","3.8.9.2"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/typha:v*",
-    "versions": ["3.8.9","3.8.9.1"]
+    "versions": ["3.17.2","3.8.9"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v*",
-    "versions": ["3.8.9","3.8.9.1"]
+    "versions": ["3.8.9"]
+  },
+  {
+    "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:v*",
+    "versions": ["3.17.2"]
+  },
+  {
+    "downloadURL": "mcr.microsoft.com/oss/tigera/kube-controllers:v*",
+    "versions": ["1.13.5"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
@@ -214,15 +234,15 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/csi/azuredisk-csi:v*",
-    "versions": ["0.7.0","0.9.0"]
+    "versions": ["0.9.0","1.0.0","1.1.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/k8s/csi/azurefile-csi:v*",
-    "versions": ["0.7.0","0.9.0"]
+    "versions": ["0.9.0","1.0.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v*",
-    "versions": ["1.1.0"]
+    "versions": ["1.1.0","2.2.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v*",
@@ -230,7 +250,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v*",
-    "versions": ["2.0.1","3.1.0","3.1.1","3.1.3"]
+    "versions": ["3.1.3","3.2.3"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:v*",
@@ -250,19 +270,19 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
-    "versions": ["prod_20200901.1","prod_20200923.1","prod_20201015.1"]
+    "versions": ["prod_20201015.1","prod_20210216.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
-    "versions": ["prod_20200505.3"]
+    "versions": ["prod_20200505.3","prod_20210209.1"]
   },
   {
     "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
-    "versions": ["1.0.1-rc3"]
+    "versions": ["1.0.1-rc3","1.2.0","1.3.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v*",
-    "versions": ["1.6.3","1.7.2"]
+    "versions": ["1.7.0","1.7.4"]
   }
 ]
 '
