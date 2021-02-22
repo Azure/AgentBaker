@@ -4,7 +4,7 @@ set -eux
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
-Test_VM_ADMIN_USERNAME="azureuser"
+TEST_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
@@ -49,10 +49,10 @@ if [ "$MODE" == "sigMode" ]; then
     --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $IMG_DEF \
-    --admin-username $Test_VM_ADMIN_USERNAME \
+    --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
-  echo "VHD test VM username: $Test_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+  echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 
 else
   az disk create --resource-group $RESOURCE_GROUP_NAME \
