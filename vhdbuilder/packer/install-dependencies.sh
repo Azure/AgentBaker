@@ -399,19 +399,19 @@ for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
 done
 
 CALICO_KUBE_CONTROLLERS_IMAGES="
-v3.17.2
+3.17.2
 "
 for CALICO_KUBE_CONTROLLERS_IMAGE in ${CALICO_KUBE_CONTROLLERS_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:${CALICO_KUBE_CONTROLLERS_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:v${CALICO_KUBE_CONTROLLERS_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 TIGERA_OPERATOR_IMAGES="
-v1.13.5
+1.13.5
 "
 for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:${TIGERA_OPERATOR_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:v${TIGERA_OPERATOR_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done

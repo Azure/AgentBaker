@@ -173,10 +173,6 @@ imagesToBePulled='
     "versions": ["0.0.13"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
-    "versions": ["0.5.1","0.6.0","0.7.0"]
-  },
-  {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v*",
     "versions": ["0.0.19"]
   },
@@ -211,10 +207,6 @@ imagesToBePulled='
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:v*",
     "versions": ["3.17.2"]
-  },
-  {
-    "downloadURL": "mcr.microsoft.com/oss/tigera/kube-controllers:v*",
-    "versions": ["1.13.5"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
