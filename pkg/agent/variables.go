@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 // getCustomDataVariables returns cloudinit data used by Linux
