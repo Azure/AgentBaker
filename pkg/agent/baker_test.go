@@ -171,12 +171,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
-		Entry("AKSUbuntu1604 with Temp Disk", "AKSUbuntu1604+TempDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
+		Entry("AKSUbuntu1604 with temp disk (toggle)", "AKSUbuntu1604+TempDiskToggle", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			// this tests prioritization of the new api property vs the old property i'd like to remove.
+			// ContainerRuntimeConfig should take priority until we remove it entirely
+			config.AgentPoolProfile.KubeletDiskType = datamodel.OSDisk
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
 					datamodel.ContainerDataDirKey: "/mnt/containers",
 				},
 			}
+		}),
+		Entry("AKSUbuntu1604 with temp disk (api field)", "AKSUbuntu1604+TempDiskExplicit", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			// also tests prioritization, but now the API property should take precedence
+			config.AgentPoolProfile.KubeletDiskType = datamodel.TempDisk
+		}),
+		Entry("AKSUbuntu1604 with OS disk", "AKSUbuntu1604+OSKubeletDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			// also tests prioritization, but now the API property should take precedence
+			config.AgentPoolProfile.KubeletDiskType = datamodel.OSDisk
 		}),
 		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
@@ -242,6 +253,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 		}),
+		Entry("AKSUbuntu1804 with containerd and kubenet cni and calico policy", "AKSUbuntu1804+Containerd+Kubenet+Calico", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = NetworkPolicyCalico
+		}),
 		Entry("AKSUbuntu1804 with containerd and teleport enabled", "AKSUbuntu1804+Containerd+Teleport", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableACRTeleportPlugin = true
 			config.TeleportdPluginURL = "some url"
@@ -250,6 +269,17 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+		}),
+
+		Entry("AKSUbuntu1804 with containerd and ipmasqagent enabled", "AKSUbuntu1804+Containerd+IPMasqAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableACRTeleportPlugin = true
+			config.TeleportdPluginURL = "some url"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+			config.ContainerService.Properties.HostedMasterProfile.IPMasqAgent = true
 		}),
 
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -267,10 +297,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TopologyManagerPolicy: "best-effort",
 				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				FailSwapOn:            &failSwapOn,
+				ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+				ContainerLogMaxFiles:  to.Int32Ptr(99),
+				PodMaxPids:            to.Int32Ptr(12345),
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 				Sysctls: &datamodel.SysctlConfig{
 					NetCoreSomaxconn:             &netCoreSomaxconn,
+					NetCoreRmemDefault:           to.Int32Ptr(456000),
+					NetCoreWmemDefault:           to.Int32Ptr(89000),
 					NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
 					NetIpv4IpLocalPortRange:      "32768 60999",
 					NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
@@ -282,8 +317,43 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TransparentHugePageDefrag:  "defer+madvise",
 				SwapFileSizeMB:             &swapFileSizeMB,
 			}
-		}))
+		}),
 
+		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=true", "AKSUbuntu1604+Disable1804SystemdResolved=true", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Docker,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=false", "AKSUbuntu1604+Disable1804SystemdResolved=false", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = false
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Docker,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1804 with Disable1804SystemdResolved=true", "AKSUbuntu1804+Disable1804SystemdResolved=true", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1804 with Disable1804SystemdResolved=false", "AKSUbuntu1804+Disable1804SystemdResolved=false", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.Disable1804SystemdResolved = false
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}))
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {

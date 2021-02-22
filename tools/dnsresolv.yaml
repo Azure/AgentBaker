@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dnsresolv
+spec:
+  selector:
+    matchLabels:
+      name: dns-resolv
+  template:
+    metadata:
+      labels:
+        name: dns-resolv
+    spec:
+      containers:
+      - command:
+        - nsenter
+        - --target
+        - "1"
+        - --mount
+        - --uts
+        - --ipc
+        - --net
+        - --pid
+        - --
+        - bash
+        - -c
+        - "while true; do ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf; sleep 600; done"
+        image: alpine
+        imagePullPolicy: Always
+        name: nsenter
+        resources: {}
+        securityContext:
+          privileged: true
+        stdin: true
+        stdinOnce: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        tty: true
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      hostPID: true

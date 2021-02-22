@@ -170,6 +170,9 @@ $global:ProvisioningScriptsPackageUrl = "{{GetVariable "windowsProvisioningScrip
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
+# Calico
+$global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -187,6 +190,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowsinstallopensshfunc.ps1
 . c:\AzureData\windows\windowscontainerdfunc.ps1
 . c:\AzureData\windows\windowshostsconfigagentfunc.ps1
+. c:\AzureData\windows\windowscalicofunc.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
@@ -464,7 +468,15 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
+
+        Check-APIServerConnectivity -MasterIP $MasterIP
+
+        if ($global:WindowsCalicoPackageURL) {
+            Write-Log "Start calico installation"
+            Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+        }
 
         if (Test-Path $CacheDir)
         {
@@ -496,7 +508,8 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    Write-Error $_
+    # Add timestamp in the logs
+    Write-Log $_
     throw $_
 }
 

@@ -3,7 +3,6 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/auditd-rules
 // linux/cloud-init/artifacts/cis.sh
-// linux/cloud-init/artifacts/configure_azure0.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd.service
@@ -27,8 +26,6 @@
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
-// linux/cloud-init/artifacts/label-nodes.service
-// linux/cloud-init/artifacts/label-nodes.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -46,6 +43,8 @@
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sys-fs-bpf.mount
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
+// linux/cloud-init/artifacts/update-node-labels.service
+// linux/cloud-init/artifacts/update-node-labels.sh
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
 // windows/csecmd.ps1
@@ -53,6 +52,7 @@
 // windows/kuberneteswindowssetup.ps1
 // windows/windowsazurecnifunc.ps1
 // windows/windowsazurecnifunc.tests.ps1
+// windows/windowscalicofunc.ps1
 // windows/windowscnifunc.ps1
 // windows/windowsconfigfunc.ps1
 // windows/windowscontainerdfunc.ps1
@@ -345,73 +345,6 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cis.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsConfigure_azure0Sh = []byte(`#!/usr/bin/env bash
-
-# It's only necessary to configure azure0 in Ubuntu 18.04
-lsb_release -i | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -qi "^ubuntu$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu Skip configuring azure0'
-    exit 0
-fi
-
-lsb_release -r | awk -F':' '{print $2}'| awk '{$1=$1; print $1}' | grep -q "^18.04$"
-if [ $? != 0 ]; then
-    echo 'It is not Ubuntu 18.04. Skip configuring azure0'
-    exit 0
-fi
-
-# Check if the azure cni config is there... no need to run this script if not
-# Also don't want to run this when not using azure-cni
-[ ! -f /etc/cni/net.d/10-azure.conflist ] && exit 0
-
-# CNI team mentions that this is not needed for calico network policy to run this script
-echo "Network policy: ${NETWORK_POLICY}"
-if [[ "${NETWORK_POLICY}" == "calico" ]]; then
-    exit 0
-fi
-
-# Check if the azure0 bridge is already configured
-# We don't need to run if so.
-ip link show azure0 && exit 0
-
-run_plugin() {
-    export CNI_COMMAND=$1
-    cat /etc/cni/net.d/10-azure.conflist | jq '.name as $name | .cniVersion as $version | .plugins[]+= {name: $name, cniVersion: $version} | .plugins[0]' | /opt/cni/bin/azure-vnet
-}
-
-export CNI_ARGS='K8S_POD_NAMESPACE=default;K8S_POD_NAME=configureAzureCNI'
-export CNI_CONTAINERID=9999
-export CNI_NETNS=/run/netns/configureazcni
-export CNI_IFNAME=eth9999
-export CNI_PATH=/opt/cni/bin
-
-ip netns add $(basename ${CNI_NETNS})
-run_plugin ADD
-
-if [ $? -gt 0 ]; then
-    ip netns del "$(basename ${CNI_NETNS})"
-    exit 1
-fi
-
-run_plugin DEL
-ip netns del $(basename ${CNI_NETNS})
-`)
-
-func linuxCloudInitArtifactsConfigure_azure0ShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsConfigure_azure0Sh, nil
-}
-
-func linuxCloudInitArtifactsConfigure_azure0Sh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsConfigure_azure0ShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/configure_azure0.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -867,6 +800,23 @@ configureCNIIPTables() {
     fi
 }
 
+disable1804SystemdResolved() {
+    ls -ltr /etc/resolv.conf
+    cat /etc/resolv.conf
+    {{- if Disable1804SystemdResolved}}
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+        echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
+        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        ls -ltr /etc/resolv.conf
+        cat /etc/resolv.conf
+    fi
+    {{- else}}
+    echo "Disable1804SystemdResolved is false. Skipping."
+    {{- end}}
+}
+
 {{- if NeedsContainerd}}
 ensureContainerd() {
   {{- if TeleportEnabled}}
@@ -969,12 +919,15 @@ ensureKubelet() {
     {{end}}
 }
 
-ensureLabelNodes() {
-    LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
-    wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
-    wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
+ensureUpdateNodeLabels() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
@@ -1069,7 +1022,7 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
+{{if IsNSeriesSKU}}
 installGPUDriversRun() {
     {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
     when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
@@ -1271,8 +1224,15 @@ DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
 NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
+run_and_log_execution_time() {
+  func=$1
+  start_time=$(date +%s)
+  eval $func
+  end_time=$(date +%s)
+  echo "$func:$(($end_time - $start_time)) seconds" >> /var/log/azure/cluster-provision-execution-durations.log  2>&1
+}
+
 aptmarkWALinuxAgent() {
-    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [[ "$1" == "hold" ]]; then
@@ -1280,7 +1240,6 @@ aptmarkWALinuxAgent() {
     elif [[ "$1" == "unhold" ]]; then
         exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
-    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
 
 retrycmd_if_failure() {
@@ -1679,7 +1638,7 @@ installStandaloneContainerd() {
         wait_for_apt_locks
         retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-    fi  
+    fi
 }
 downloadContainerd() {
     CONTAINERD_VERSION=$1
@@ -1702,7 +1661,7 @@ downloadCrictl() {
 installCrictl() {
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
-    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then  
+    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
     else
         downloadCrictl ${CRICTL_VERSION}
@@ -1730,10 +1689,10 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.5.0"
+    local TARGET_VERSION="0.6.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
-    else 
+    else
         downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
         mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
         chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
@@ -1745,7 +1704,7 @@ installTeleportdPlugin() {
 
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.12"
+    local MOBY_VERSION="19.03.14"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
@@ -1800,15 +1759,15 @@ extractHyperkube() {
     pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
     mkdir -p "$path"
 
-    if [[ "$CLI_TOOL" == "ctr" ]]; then    
+    if [[ "$CLI_TOOL" == "ctr" ]]; then
         if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
             mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
         else
             ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi 
-    
-    else 
+        fi
+
+    else
         if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
             mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
@@ -1818,7 +1777,7 @@ extractHyperkube() {
     fi
 
     cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"    
+    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -1851,7 +1810,7 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then 
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then
         retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
     else
         retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
@@ -1866,7 +1825,7 @@ removeContainerImage() {
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
         crictl image rm $CONTAINER_IMAGE_URL
     else
-        docker image rm $CONTAINER_IMAGE_URL 
+        docker image rm $CONTAINER_IMAGE_URL
     fi
 }
 
@@ -1883,7 +1842,7 @@ cleanUpImages() {
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             for image in "${images_to_delete[@]}"
-            do 
+            do
                 {{if NeedsContainerd}}
                 removeContainerImage "ctr" ${image}
                 {{else}}
@@ -1897,15 +1856,11 @@ cleanUpImages() {
 }
 
 cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
     cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
@@ -1927,6 +1882,18 @@ cleanUpGPUDrivers() {
 
 cleanUpContainerd() {
     rm -Rf $CONTAINERD_DOWNLOADS_DIR
+}
+
+configureGPUDrivers() {
+  if $FULL_INSTALL_REQUIRED; then
+        installGPUDrivers
+  fi
+  ensureGPUDrivers
+  if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+      systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+  else
+      systemctlDisableAndStop nvidia-device-plugin
+  fi
 }
 
 overrideNetworkConfig() {
@@ -1992,6 +1959,8 @@ source {{GetCSEInstallScriptFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+disable1804SystemdResolved
+
 set +x
 ETCD_PEER_CERT=$(echo ${ETCD_PEER_CERTIFICATES} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
 ETCD_PEER_KEY=$(echo ${ETCD_PEER_PRIVATE_KEYS} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
@@ -2011,17 +1980,17 @@ fi
 configureAdminUser
 
 {{- if not NeedsContainerd}}
-cleanUpContainerd
+run_and_log_execution_time cleanUpContainerd
 {{end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    run_and_log_execution_time cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    run_and_log_execution_time cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -2032,58 +2001,48 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    installDeps
+    run_and_log_execution_time installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    ensureAuditD
+    run_and_log_execution_time ensureAuditD
 fi
 
-installContainerRuntime
+run_and_log_execution_time installContainerRuntime
 {{- if NeedsContainerd}}
-installCrictl
+run_and_log_execution_time installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
-installTeleportdPlugin
+run_and_log_execution_time installTeleportdPlugin
 {{end}}
 {{end}}
 
-installNetworkPlugin
+run_and_log_execution_time installNetworkPlugin
 
-{{- if HasNSeriesSKU}}
-echo $(date),$(hostname), "Start configuring GPU drivers"
+{{- if IsNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-    fi
-    ensureGPUDrivers
-    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        systemctlDisableAndStop nvidia-device-plugin
-    fi
+  run_and_log_execution_time configureGPUDrivers
 fi
-echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 {{end}}
 
-installKubeletKubectlAndKubeProxy
+run_and_log_execution_time installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
 fi
 
-createKubeManifestDir
+run_and_log_execution_time createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    installSGXDrivers
+    run_and_log_execution_time installSGXDrivers
 fi
 {{end}}
 
@@ -2092,39 +2051,39 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-configureK8s
+run_and_log_execution_time configureK8s
 
-configureCNI
+run_and_log_execution_time configureCNI
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-ensureDHCPv6
+run_and_log_execution_time ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
-ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+run_and_log_execution_time ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
-ensureDocker
+run_and_log_execution_time ensureDocker
 {{- end}}
 
-ensureMonitorService
+run_and_log_execution_time ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
-configPrivateClusterHosts
+run_and_log_execution_time configPrivateClusterHosts
 {{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
-configureTransparentHugePage
+run_and_log_execution_time configureTransparentHugePage
 {{- end}}
 
 {{- if ShouldConfigSwapFile}}
-configureSwapFile
+run_and_log_execution_time configureSwapFile
 {{- end}}
 
-ensureSysctl
-ensureKubelet
-ensureJournal
-
+run_and_log_execution_time ensureSysctl
+run_and_log_execution_time ensureKubelet
+run_and_log_execution_time ensureJournal
+run_and_log_execution_time ensureUpdateNodeLabels
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
@@ -2170,12 +2129,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        aptmarkWALinuxAgent unhold &
+        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        aptmarkWALinuxAgent unhold &
+        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
     fi
 fi
 
@@ -2208,11 +2167,17 @@ var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/container
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(cat /var/log/azure/cluster-provision-cse-output.log | head -n 30)
+START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
+CSE_EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
+echo "CSE Total Execution Duration:$CSE_EXECUTION_DURATION  seconds" >> /var/log/azure/cluster-provision-execution-durations.log 2>&1
+EXECUTION_DURATIONS=$(cat /var/log/azure/cluster-provision-execution-durations.log)
+
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
                   --arg op "$OUTPUT" \
                   --arg er "" \
-                  '{ExitCode: $ec, Output: $op, Error: $er}' )
+                  --arg ed "$EXECUTION_DURATIONS" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, CSEExecutionDurations: $ed}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 
@@ -2763,9 +2728,6 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
-{{/* This is a workaround to setup azure0 bridge for CNI */}}
-ExecStartPre=/usr/local/bin/configure_azure0.sh
-
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
@@ -2791,66 +2753,6 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsLabelNodesService = []byte(`[Unit]
-Description=Label Kubernetes nodes as masters or agents
-After=kubelet.service
-[Service]
-Restart=always
-RestartSec=60
-ExecStart=/bin/bash /opt/azure/containers/label-nodes.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsLabelNodesServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsLabelNodesService, nil
-}
-
-func linuxCloudInitArtifactsLabelNodesService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsLabelNodesServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsLabelNodesSh = []byte(`#!/usr/bin/env bash
-
-# Applies missing master and agent labels to Kubernetes nodes.
-#
-# Kubelet 1.16+ rejects the `+"`"+`kubernetes.io/role`+"`"+` and `+"`"+`node-role.kubernetes.io`+"`"+`
-# labels in its `+"`"+`--node-labels`+"`"+` argument, but they need to be present for
-# backward compatibility.
-
-set -euo pipefail
-
-MASTER_SELECTOR="kubernetes.azure.com/role!=agent,kubernetes.io/role!=agent"
-MASTER_LABELS="kubernetes.azure.com/role=master kubernetes.io/role=master node-role.kubernetes.io/master="
-AGENT_SELECTOR="kubernetes.azure.com/role!=master,kubernetes.io/role!=master"
-AGENT_LABELS="kubernetes.azure.com/role=agent kubernetes.io/role=agent node-role.kubernetes.io/agent="
-
-kubectl label nodes --overwrite -l $MASTER_SELECTOR $MASTER_LABELS
-kubectl label nodes --overwrite -l $AGENT_SELECTOR $AGENT_LABELS
-#EOF
-`)
-
-func linuxCloudInitArtifactsLabelNodesShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsLabelNodesSh, nil
-}
-
-func linuxCloudInitArtifactsLabelNodesSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsLabelNodesShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/label-nodes.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3625,6 +3527,75 @@ func linuxCloudInitArtifactsSysctlD60CisConf() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsUpdateNodeLabelsService = []byte(`[Unit]
+Description=Updates Labels for Kubernetes node
+After=kubelet.service
+[Service]
+Restart=on-failure
+RestartSec=30
+EnvironmentFile=/etc/default/kubelet
+ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
+#EOF
+`)
+
+func linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdateNodeLabelsService, nil
+}
+
+func linuxCloudInitArtifactsUpdateNodeLabelsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdateNodeLabelsSh = []byte(`#!/usr/bin/env bash
+
+# Updates Labels for this Kubernetes node (adds any missing, updates others to newest values, but never removes labels)
+
+set -euo pipefail
+
+NODE_NAME=$(echo $(hostname) | tr "[:upper:]" "[:lower:]")
+
+echo "updating labels for ${NODE_NAME}"
+
+FORMATTED_CURRENT_NODE_LABELS=$(kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --list=true node $NODE_NAME | sort)
+
+echo "current node labels (sorted): ${FORMATTED_CURRENT_NODE_LABELS}"
+
+FORMATTED_NODE_LABELS_TO_UPDATE=$(echo $KUBELET_NODE_LABELS | tr ',' '\n' | sort)
+
+echo "node labels to update (formatted+sorted): ${FORMATTED_NODE_LABELS_TO_UPDATE}"
+
+MISSING_LABELS=$(comm -32 <(echo $FORMATTED_NODE_LABELS_TO_UPDATE | tr ' ' '\n') <(echo $FORMATTED_CURRENT_NODE_LABELS | tr ' ' '\n') | tr '\n' ' ')
+
+echo "missing labels: ${MISSING_LABELS}"
+
+if [ ! -z "$MISSING_LABELS" ]; then
+  kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --overwrite node $NODE_NAME $MISSING_LABELS
+fi
+#EOF
+`)
+
+func linuxCloudInitArtifactsUpdateNodeLabelsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdateNodeLabelsSh, nil
+}
+
+func linuxCloudInitArtifactsUpdateNodeLabelsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -3708,19 +3679,28 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
-
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{- if not .IsVHDDistro}}
+- path: /etc/systemd/system/update-node-labels.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
+
+- path: /opt/azure/containers/update-node-labels.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
+{{end}}
 
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
@@ -3836,7 +3816,7 @@ write_files:
       "log-opts":  {
          "max-size": "50m",
          "max-file": "5"
-      }{{if IsNSeriesSKU .}}
+      }{{if IsNSeriesSKU}}
       ,"default-runtime": "nvidia",
       "runtimes": {
          "nvidia": {
@@ -3875,19 +3855,19 @@ write_files:
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
-      {{ if IsKubenet }}
+      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
@@ -3918,7 +3898,11 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            {{- if IsIPMasqAgentEnabled}}
+            "ipMasq": false,
+            {{- else}}
             "ipMasq": true,
+            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -3926,6 +3910,11 @@ write_files:
                 "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 
@@ -4000,7 +3989,7 @@ write_files:
 {{end}}
 {{end}}
 
-{{if IsNSeriesSKU .}}
+{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
@@ -4147,8 +4136,14 @@ write_files:
 {{- if $s.NetCoreNetdevMaxBacklog}}
     net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
 {{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
 {{- if $s.NetCoreRmemMax}}
     net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
 {{- end}}
 {{- if $s.NetCoreWmemMax}}
     net.core.wmem_max={{$s.NetCoreWmemMax}}
@@ -4170,12 +4165,6 @@ write_files:
 {{- end}}
 {{- if $s.NetIpv4TcpkeepaliveIntvl}}
     net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpRmem}}
-    net.ipv4.tcp_rmem={{$s.NetIpv4TcpRmem}}
-{{- end}}
-{{- if $s.NetIpv4TcpWmem}}
-    net.ipv4.tcp_wmem={{$s.NetIpv4TcpWmem}}
 {{- end}}
 {{- if $s.NetIpv4TcpTwReuse}}
     net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
@@ -4321,29 +4310,25 @@ func windowsContainerdtemplateToml() (*asset, error) {
 	return a, nil
 }
 
-var _windowsCsecmdPs1 = []byte(`# This csecmd is not used until servicePrincipalClientSecret is encoded,
-# keeping this file for now to further facilicate the future removing ARM Template
-echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
+var _windowsCsecmdPs1 = []byte(`echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }} 
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }} 
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }} 
--Location {{ GetVariable "location" }} 
+-MasterIP {{ GetKubernetesEndpoint }}
+-KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
+-MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
+-Location {{ GetVariable "location" }}
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }} 
+-UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }} 
--AgentKey {{ GetParameter "clientPrivateKey" }} 
--AADClientId {{ GetParameter "servicePrincipalClientId" }} 
--AADClientSecret ''{{ GetParameter "servicePrincipalClientSecret" }}''
--NetworkAPIVersion 2018-08-01;
-$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin'; 
+-TargetEnvironment {{ GetTargetEnvironment }}
+-AgentKey {{ GetParameter "clientPrivateKey" }}
+-AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
+-NetworkAPIVersion 2018-08-01';
+$inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 Copy-Item $inputFile $outputFile;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
-\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE 
-
-`)
+\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE`)
 
 func windowsCsecmdPs1Bytes() ([]byte, error) {
 	return _windowsCsecmdPs1, nil
@@ -4405,7 +4390,7 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        Invoke-WebRequest $Url -UseBasicParsing -OutFile $DestinationPath -Verbose
+        curl.exe --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         $downloadTimer.Stop()
 
         if ($global:AppInsightsClient -ne $null) {
@@ -4576,6 +4561,17 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
+function Register-NodeLabelSyncScriptTask {
+    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every 5 minutes(by `+"`"+`-RepetitionInterval 00:05:00`+"`"+`)
+    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
+    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
+}
+
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -4657,6 +4653,41 @@ function Update-DefenderPreferences {
     if ($global:ContainerRuntime -eq 'containerd') {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
     }
+}
+
+function Check-APIServerConnectivity {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $false)][int]
+        $RetryInterval = 1,
+        [Parameter(Mandatory = $false)][int]
+        $ConnectTimeout = 3,  #seconds
+        [Parameter(Mandatory = $false)][int]
+        $MaxRetryCount = 100
+    )
+    $retryCount=0
+
+    do {
+        try {
+            $tcpClient=New-Object Net.Sockets.TcpClient
+            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+            if ($tcpClient.Connected) {
+                $tcpClient.Close()
+                Write-Log "Retry $retryCount : Connected to API server successfully"
+                return
+            }
+            $tcpClient.Close()
+        } catch {
+            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
+        Sleep $RetryInterval
+    } while ($retryCount -lt $MaxRetryCount)
+
+    throw "Failed to connect to API server $MasterIP after $retryCount retries"
 }
 `)
 
@@ -4847,6 +4878,9 @@ $global:ProvisioningScriptsPackageUrl = "{{GetVariable "windowsProvisioningScrip
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
+# Calico
+$global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -4864,6 +4898,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowsinstallopensshfunc.ps1
 . c:\AzureData\windows\windowscontainerdfunc.ps1
 . c:\AzureData\windows\windowshostsconfigagentfunc.ps1
+. c:\AzureData\windows\windowscalicofunc.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
@@ -5141,7 +5176,15 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
+        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
+
+        Check-APIServerConnectivity -MasterIP $MasterIP
+
+        if ($global:WindowsCalicoPackageURL) {
+            Write-Log "Start calico installation"
+            Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+        }
 
         if (Test-Path $CacheDir)
         {
@@ -5173,7 +5216,8 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    Write-Error $_
+    # Add timestamp in the logs
+    Write-Log $_
     throw $_
 }
 
@@ -5603,6 +5647,118 @@ func windowsWindowsazurecnifuncTestsPs1() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _windowsWindowscalicofuncPs1 = []byte(`function Get-CalicoPackage {
+    param(
+        [parameter(Mandatory=$true)] $RootDir
+    )
+
+    Write-Log "Getting Calico package"
+    DownloadFileOverHttp -Url $global:WindowsCalicoPackageURL -DestinationPath 'c:\calicowindows.zip'
+    Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir -Force
+    Remove-Item -Path 'c:\calicowindows.zip' -Force
+}
+
+function SetConfigParameters {
+    param(
+        [parameter(Mandatory=$true)] $RootDir,
+        [parameter(Mandatory=$true)] $OldString,
+        [parameter(Mandatory=$true)] $NewString
+    )
+
+    (Get-Content $RootDir\config.ps1).replace($OldString, $NewString) | Set-Content $RootDir\config.ps1 -Force
+}
+
+function GetCalicoKubeConfig {
+    param(
+        [parameter(Mandatory=$true)] $RootDir,
+        [parameter(Mandatory=$true)] $CalicoNamespace,
+        [parameter(Mandatory=$false)] $SecretName = "calico-node",
+        [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
+    )
+
+    # When creating Windows agent pools with the system Linux agent pool, the service account for calico may not be available in provisioning Windows agent nodes.
+    # So we need to wait here until the service account for calico is available
+    $name=""
+    $retryCount=0
+    $retryInterval=5
+    $maxRetryCount=120 # 10 minutes
+
+    do {
+        try {
+            Write-Log "Retry $retryCount : Trying to get service account $SecretName"
+            $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+            if (![string]::IsNullOrEmpty($name)) {
+                break
+            }
+        } catch {
+            Write-Log "Retry $retryCount : Failed to get service account $SecretName. Error: $_"
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get service account $SecretName"
+        Sleep $retryInterval
+    } while ($retryCount -lt $maxRetryCount)
+
+    if ([string]::IsNullOrEmpty($name)) {
+        throw "$SecretName service account does not exist."
+    }
+
+    $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
+    $tokenBase64=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.token}' -n $CalicoNamespace
+    $token=[System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($tokenBase64))
+
+    $server=findstr https:// $KubeConfigPath
+
+    (Get-Content $RootDir\calico-kube-config.template).replace('<ca>', $ca).replace('<server>', $server.Trim()).replace('<token>', $token) | Set-Content $RootDir\calico-kube-config -Force
+}
+
+function Start-InstallCalico {
+    param(
+        [parameter(Mandatory=$true)] $RootDir,
+        [parameter(Mandatory=$true)] $KubeServiceCIDR,
+        [parameter(Mandatory=$true)] $KubeDnsServiceIp,
+        [parameter(Mandatory=$false)] $CalicoNs = "calico-system"
+    )
+
+    Write-Log "Download Calico"
+    Get-CalicoPackage -RootDir $RootDir
+
+    $CalicoDir = $RootDir + "CalicoWindows"
+
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your datastore type>" -NewString "kubernetes"
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd endpoints>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd key>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd cert>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd ca cert>" -NewString ""
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your service cidr>" -NewString $KubeServiceCIDR
+    SetConfigParameters -RootDir $CalicoDir -OldString "<your dns server ips>" -NewString $KubeDnsServiceIp
+    SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`+"`"+`"vxlan`+"`"+`"" -NewString "CALICO_NETWORKING_BACKEND=`+"`"+`"none`+"`"+`""
+    SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `+"`"+`"Calico.*`+"`"+`"" -NewString "KUBE_NETWORK = `+"`"+`"azure.*`+"`"+`""
+
+    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
+
+    Write-Log "Install Calico"
+
+    pushd $CalicoDir
+    .\install-calico.ps1
+    popd
+}
+`)
+
+func windowsWindowscalicofuncPs1Bytes() ([]byte, error) {
+	return _windowsWindowscalicofuncPs1, nil
+}
+
+func windowsWindowscalicofuncPs1() (*asset, error) {
+	bytes, err := windowsWindowscalicofuncPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/windowscalicofunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6676,7 +6832,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/auditd-rules":                              linuxCloudInitArtifactsAuditdRules,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
-	"linux/cloud-init/artifacts/configure_azure0.sh":                       linuxCloudInitArtifactsConfigure_azure0Sh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
@@ -6700,8 +6855,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
-	"linux/cloud-init/artifacts/label-nodes.service":                       linuxCloudInitArtifactsLabelNodesService,
-	"linux/cloud-init/artifacts/label-nodes.sh":                            linuxCloudInitArtifactsLabelNodesSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -6719,6 +6872,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sys-fs-bpf.mount":                          linuxCloudInitArtifactsSysFsBpfMount,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
+	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
+	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
@@ -6726,6 +6881,7 @@ var _bindata = map[string]func() (*asset, error){
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/windowsazurecnifunc.ps1":                                      windowsWindowsazurecnifuncPs1,
 	"windows/windowsazurecnifunc.tests.ps1":                                windowsWindowsazurecnifuncTestsPs1,
+	"windows/windowscalicofunc.ps1":                                        windowsWindowscalicofuncPs1,
 	"windows/windowscnifunc.ps1":                                           windowsWindowscnifuncPs1,
 	"windows/windowsconfigfunc.ps1":                                        windowsWindowsconfigfuncPs1,
 	"windows/windowscontainerdfunc.ps1":                                    windowsWindowscontainerdfuncPs1,
@@ -6782,7 +6938,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"auditd-rules":                              &bintree{linuxCloudInitArtifactsAuditdRules, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
-				"configure_azure0.sh":                       &bintree{linuxCloudInitArtifactsConfigure_azure0Sh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
@@ -6806,8 +6961,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
-				"label-nodes.service":                       &bintree{linuxCloudInitArtifactsLabelNodesService, map[string]*bintree{}},
-				"label-nodes.sh":                            &bintree{linuxCloudInitArtifactsLabelNodesSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":                         &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":              &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":                 &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
@@ -6825,6 +6978,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config_1604":                          &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sys-fs-bpf.mount":                          &bintree{linuxCloudInitArtifactsSysFsBpfMount, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":                      &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
+				"update-node-labels.service":                &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
+				"update-node-labels.sh":                     &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
@@ -6836,6 +6991,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kuberneteswindowssetup.ps1":      &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"windowsazurecnifunc.ps1":         &bintree{windowsWindowsazurecnifuncPs1, map[string]*bintree{}},
 		"windowsazurecnifunc.tests.ps1":   &bintree{windowsWindowsazurecnifuncTestsPs1, map[string]*bintree{}},
+		"windowscalicofunc.ps1":           &bintree{windowsWindowscalicofuncPs1, map[string]*bintree{}},
 		"windowscnifunc.ps1":              &bintree{windowsWindowscnifuncPs1, map[string]*bintree{}},
 		"windowsconfigfunc.ps1":           &bintree{windowsWindowsconfigfuncPs1, map[string]*bintree{}},
 		"windowscontainerdfunc.ps1":       &bintree{windowsWindowscontainerdfuncPs1, map[string]*bintree{}},

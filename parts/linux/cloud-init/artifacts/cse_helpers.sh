@@ -89,8 +89,15 @@ DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
 NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
+run_and_log_execution_time() {
+  func=$1
+  start_time=$(date +%s)
+  eval $func
+  end_time=$(date +%s)
+  echo "$func:$(($end_time - $start_time)) seconds" >> /var/log/azure/cluster-provision-execution-durations.log  2>&1
+}
+
 aptmarkWALinuxAgent() {
-    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [[ "$1" == "hold" ]]; then
@@ -98,7 +105,6 @@ aptmarkWALinuxAgent() {
     elif [[ "$1" == "unhold" ]]; then
         exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
-    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
 
 retrycmd_if_failure() {

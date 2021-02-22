@@ -81,19 +81,28 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
-- path: /usr/local/bin/configure_azure0.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "configureAzure0Script"}}
-
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{- if not .IsVHDDistro}}
+- path: /etc/systemd/system/update-node-labels.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
+
+- path: /opt/azure/containers/update-node-labels.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
+{{end}}
 
 {{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
@@ -209,7 +218,7 @@ write_files:
       "log-opts":  {
          "max-size": "50m",
          "max-file": "5"
-      }{{if IsNSeriesSKU .}}
+      }{{if IsNSeriesSKU}}
       ,"default-runtime": "nvidia",
       "runtimes": {
          "nvidia": {
@@ -248,19 +257,19 @@ write_files:
         {{ end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
           runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU .}}
+          {{- if IsNSeriesSKU}}
           runtime_engine = "/usr/bin/nvidia-container-runtime"
           {{- else}}
           runtime_engine = "/usr/bin/runc"
           {{- end}}
-      {{ if IsKubenet }}
+      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
         conf_dir = "/etc/cni/net.d"
@@ -291,7 +300,11 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            {{- if IsIPMasqAgentEnabled}}
+            "ipMasq": false,
+            {{- else}}
             "ipMasq": true,
+            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -299,6 +312,11 @@ write_files:
                 "subnet": "{{`{{.PodCIDR}}`}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "externalSetMarkChain": "KUBE-MARK-MASQ"
           }]
       }
 
@@ -373,7 +391,7 @@ write_files:
 {{end}}
 {{end}}
 
-{{if IsNSeriesSKU .}}
+{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
@@ -520,8 +538,14 @@ write_files:
 {{- if $s.NetCoreNetdevMaxBacklog}}
     net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
 {{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
 {{- if $s.NetCoreRmemMax}}
     net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
 {{- end}}
 {{- if $s.NetCoreWmemMax}}
     net.core.wmem_max={{$s.NetCoreWmemMax}}
@@ -543,12 +567,6 @@ write_files:
 {{- end}}
 {{- if $s.NetIpv4TcpkeepaliveIntvl}}
     net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpRmem}}
-    net.ipv4.tcp_rmem={{$s.NetIpv4TcpRmem}}
-{{- end}}
-{{- if $s.NetIpv4TcpWmem}}
-    net.ipv4.tcp_wmem={{$s.NetIpv4TcpWmem}}
 {{- end}}
 {{- if $s.NetIpv4TcpTwReuse}}
     net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
