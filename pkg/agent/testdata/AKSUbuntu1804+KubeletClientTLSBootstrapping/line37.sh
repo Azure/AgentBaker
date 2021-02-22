@@ -224,7 +224,6 @@ ensureKubelet() {
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     
     
-    
 }
 
 # The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
