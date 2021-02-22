@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -703,4 +704,26 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
 		},
 	}
+}
+
+// ParseVMSSCSEMessage parses the raw VMSS CSE output
+func (t *TemplateGenerator) ParseVMSSCSEMessage(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
+	var cseStatus datamodel.VMSSInstanceViewCSEStatus
+	var rerr error
+	start := strings.Index(message, "[stdout]") + len("[stdout]")
+	end := strings.Index(message, "[stderr]")
+	if end > start {
+		rawInstanceViewInfo := message[start:end]
+		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
+		if err != nil || cseStatus.ExitCode == "" {
+			// RP needs regex "vmssInstanceErrorCode=" to parse the error
+			rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+		} else {
+			cseStatus.ExitCode = strings.Trim(cseStatus.ExitCode, "\"")
+		}
+	} else {
+		// RP needs regex "vmssInstanceErrorCode=" to parse the error
+		rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+	}
+	return cseStatus, rerr
 }
