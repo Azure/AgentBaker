@@ -4024,7 +4024,7 @@ write_files:
       cbr0MAC=$(cat /sys/class/net/cbr0/address)
 
       cbr0IP=$(ip addr show cbr0 | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
-      if [[ -z "${cbr0Addr}" ]]; then
+      if [[ -z "${cbr0IP}" ]]; then
         echo "cbr0 bridge does not have an ipv4 address...checking again in 5s"
         sleep 5
         continue
