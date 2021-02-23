@@ -339,6 +339,8 @@ removeContainerImage() {
 
 cleanUpImages() {
     local targetImage=$1
+    export targetImage
+    export -f removeContainerImage
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
         images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
@@ -373,11 +375,11 @@ cleanUpKubeProxyImages() {
 
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
+    export KUBERNETES_VERSION
     export -f retrycmd_if_failure
     export -f cleanUpImages
     export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
-    export KUBERNETES_VERSION
     bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
 }
