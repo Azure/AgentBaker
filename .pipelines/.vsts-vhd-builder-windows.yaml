@@ -1,188 +1,34 @@
-# Required pipeline variables:
-# - WINDOWS_SKU - SKU of the image offer to use for your base image 
-#   - Valid values are '2019' for '2019-Datacenter-Core-smalldisk' or '2004' for 'datacenter-core-2004-with-containers-smalldisk'
-# - DRY_RUN - Set to 'False' if VHD should be copied to classic storage account in preparation for publishing
-# - CONTAINER_RUNTIME - Container runtime to in for VHD - Valid values are 'containerd' or 'docker'
-#
-# Two sets of credentials are used to resolve timeout issue when building windows in specific tenants but recommended for classic storage account
-# We can share the same credentials when no such timeout issue reported
-# variables to build Windows VHD
-# - BUILD_AZURE_LOCATION - Azure region to create resources in
-# - BUILD_CLIENT_ID - Service principal ID
-# - BUILD_CLIENT_SECRET - Service principal secret
-# - BUILD_AZURE_RESOURCE_GROUP_NAME - Resource group to create temporary resources in
-# - BUILD_TENANT_ID - Tenant Id used for service principal login
-# - BUILD_SUBSCRIPTION_ID - Subscription ID used by the pipeline
-# variables to publish the VHD blob built by packer to the destination storage account
-# - CLIENT_ID - Service principal ID
-# - CLIENT_SECRET - Service principal secret for copy image
-# - STORAGE_ACCT_BLOB_URL - Url to blob storage container used to copy image to in preparation for publishing
-# - STORAGE_ACCT_SAS_TOKEN - SAS token with permission to write to CLASSIC_BLOB container
-# - SUBSCRIPTION_ID - Subscription ID used by the pipeline
-# - TENANT_ID - Tenant Id used for service principal login
-#
-# - DEIS_GO_DEV_IMAGE - Dev container image ID
-# - BUILD_POOL - Azure DevOps build pool to use
-# - PACKER_VM_SIZE - VM Size to be used during packer build operation
-
-# Two modes in prioritized order
-# sigMode: Shared Image Gallery mode
-#    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
-#    It is similar to mode 1 except it will create a gen1 image and the SIG destination is specified by the provided env var.
-#    This is good for quick testing purpose as you can use the SIG image as soon as the build is completed.
-#    steps:
-#    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION
-#
-# default mode: Hyper-Generation V1 +VHD
-#    This default mode generates VHD and store it in a classic storage account. This is mainly for publishing a new VM image to Platform Image Repository(PIR) and Share Image Gallery.
-#    steps:
-#    - create an VHD in Packer to normal storage account
-#    - copy from Packer storage account to classic storage account using AzCopy
-#    - generate SAS link from azure CLI
-#    - (offline)POST a new SKU to azure marketplace
-
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(WINDOWS_SKU)_$(CONTAINER_RUNTIME)_$(Build.SourceBranchName)
 trigger: none
 pr: none
 
-jobs:
-- job: build_vhd_windows
-  timeoutInMinutes: 150
-  strategy:
-    maxParallel: 0
-  pool:
-    name: $(BUILD_POOL)
-  steps:
-  - bash: |
-      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-      echo "Set build mode to $m" && \
-      echo "##vso[task.setvariable variable=MODE]$m"
-    displayName: Get Build Mode
-  - script: |
-      echo MODE=$(MODE) && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
-      -e AZURE_VM_SIZE=${PACKER_VM_SIZE} \
-      -e GIT_BRANCH=$(Build.SourceBranchName) \
-      -e GIT_REPO=$(Build.Repository.Uri) \
-      -e GIT_VERSION=$(Build.SourceVersion) \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e BUILD_NUMBER=$(Build.BuildNumber) \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
-      -e WINDOWS_SKU=$(WINDOWS_SKU) \
-      -e OS_TYPE="Windows" \
-      -e MODE=$(MODE) \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk run-packer-windows
-    displayName: Building windows VHD
-  - script: |
-      OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      -e OS_DISK_URI=${OS_DISK_URI} \
-      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
-      -e WINDOWS_SKU=$(WINDOWS_SKU) \
-      -e OS_TYPE="Windows" \
-      -e MODE=$(MODE) \
-      -e VHD_DEBUG=${VHD_DEBUG} \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk test-building-vhd
-    displayName: Run VHD cache test
-  - task: PublishPipelineArtifact@1
-    inputs:
-      artifact: 'vhd-release-notes'
-      path: 'release-notes.txt'
-  - script: |
-      echo MODE=$(MODE) && \
-      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
-      -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
-      -e OS_DISK_SAS=${OS_DISK_SAS} \
-      -e VHD_NAME=${VHD_NAME} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk az-copy
-    displayName: Copying resource to Classic Storage Account
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-  - bash: |
-      echo MODE=$(MODE) && \
-      SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-      -e SA_NAME=${SA_NAME} \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-sa
-    displayName: Clean-up Storage Account
-  - bash: |
-      echo MODE=$(MODE) && \
-      IMAGE_NAME=$SIG_IMAGE_NAME && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e IMAGE_NAME=${IMAGE_NAME} \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk delete-mi
-    displayName: Clean-up Managed Image
-    condition: ne(variables['MODE'], 'default')
-  - bash: |
-      echo MODE=$(MODE) && \
-      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
-      WINDOWS_VERSION="$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
-      SKU_NAME="windows-$WINDOWS_SKU" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-      -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
-      -e VHD_NAME=${VHD_NAME} \
-      -e OS_NAME="Windows" \
-      -e SKU_NAME=${SKU_NAME} \
-      -e OFFER_NAME="Windows" \
-      -e IMAGE_VERSION=${WINDOWS_VERSION} \
-      -e HYPERV_GENERATION="V1" \
-      ${DEIS_GO_DEV_IMAGE} make -f packer.mk generate-sas
-    displayName: Getting Shared Access Signature URI
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-  - task: PublishPipelineArtifact@1
-    inputs:
-      artifactName: 'publishing-info'
-      targetPath: 'vhd-publishing-info.json'
-    condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+parameters:
+- name: build2019
+  displayName: Build 2019
+  type: boolean
+  default: true
+- name: dryrun
+  displayName: Dry run
+  type: boolean
+  default: true
+
+variables:
+  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
+
+phases:
+  - phase: build_vhd_2019
+    condition: eq('${{ parameters.build2019 }}', true)
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 180
+    steps:
+      - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+          echo '##vso[task.setvariable variable=WINDOWS_SKU]2019'
+        displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template-windows.yaml
+        parameters:
+          artifactName: 2019
