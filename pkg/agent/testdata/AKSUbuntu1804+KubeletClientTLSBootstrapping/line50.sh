@@ -1,9 +1,7 @@
 [Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-{{if EnableEncryptionWithExternalKms}}
-Requires=kms.service
-{{end}}
+
 
 [Service]
 Restart=always
@@ -21,15 +19,10 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
+        --v=2  \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsKubeletConfigFileEnabled}}
-        --config /etc/default/kubeletconfig.json \
-        {{- end}}
-        {{- if IsKubeletClientTLSBootstrappingEnabled}}
         --kubeconfig /var/lib/kubelet/kubeconfig \
         --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
-        {{- end}}
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 

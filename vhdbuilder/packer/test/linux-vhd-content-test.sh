@@ -29,7 +29,7 @@ testFilesDownloaded() {
       fi
 
       fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
-      fileSizeDownloaded=$(wc -c $dest | awk '{print $5}' | tr -d '\r')
+      fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
         err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
@@ -83,7 +83,7 @@ err() {
 }
 
 string_replace() {
-  echo ${1//"*"/$2}
+  echo ${1//\*/$2}
 }
 
 filesToDownload='
