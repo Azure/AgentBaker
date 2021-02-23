@@ -362,6 +362,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableKubeletClientTLSBootstrapping = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].TLSBootstrapToken = &datamodel.TLSBootstrapToken{
+				TokenID:     "07401b",
+				TokenSecret: "f395accd246ae52d",
+			}
 		}))
 })
 

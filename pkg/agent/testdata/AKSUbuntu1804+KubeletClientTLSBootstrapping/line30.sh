@@ -102,7 +102,7 @@ installSGXDrivers() {
 
 installContainerRuntime() {
     
-        installStandaloneContainerd
+        installMoby
     
 }
 
@@ -132,55 +132,6 @@ downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-}
-# CSE+VHD can dictate the containerd version, users don't care as long as it works
-installStandaloneContainerd() {
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    # v1.4.1 is our lowest supported version of containerd
-    local CONTAINERD_VERSION="1.4.3"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
-        removeMoby
-        removeContainerd
-        downloadContainerd ${CONTAINERD_VERSION}
-        wait_for_apt_locks
-        retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-    fi
-}
-downloadContainerd() {
-    CONTAINERD_VERSION=$1
-    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION}+azure-1_amd64.deb"
-    mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
-    CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
-}
-
-downloadCrictl() {
-    CRICTL_VERSION=$1
-    mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
-    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
-}
-
-installCrictl() {
-    currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
-    local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
-    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
-        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
-    else
-        downloadCrictl ${CRICTL_VERSION}
-        echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
-        tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
-        chmod 755 $CRICTL_BIN_DIR/crictl
-    fi
-    rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
 
 installMoby() {
@@ -316,7 +267,7 @@ cleanUpImages() {
     export -f removeContainerImage
     function cleanupImagesRun() {
         
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
+        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage})
         
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
@@ -325,7 +276,7 @@ cleanUpImages() {
             for image in "${images_to_delete[@]}"
             do
                 
-                removeContainerImage "ctr" ${image}
+                removeContainerImage "docker" ${image}
                 
             done
         fi

@@ -378,6 +378,35 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
+// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
+func IsKubeletClientTLSBootstrappingEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletClientTLSBootstrappingEnabled bool) bool {
+	if !kubeletClientTLSBootstrappingEnabled {
+		// toggle is off, we don't enable it
+		return false
+	}
+
+	if profile.TLSBootstrapToken == nil {
+		// agent node's TLS bootstrap token is not set
+		return false
+	}
+
+	return true
+}
+
+// GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
+// It returns empty string if TLS bootstrap token is not enabled.
+//
+// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
+func GetTLSBootstrapTokenForKubeConfig(profile *datamodel.AgentPoolProfile) string {
+	t := profile.TLSBootstrapToken
+	if t == nil {
+		// not set
+		return ""
+	}
+
+	return fmt.Sprintf("%s.%s", t.TokenID, t.TokenSecret)
+}
+
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
 func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
 	if kc == nil {

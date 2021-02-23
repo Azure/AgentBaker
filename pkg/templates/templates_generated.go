@@ -897,8 +897,13 @@ ensureDHCPv6() {
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{if IsKubeletClientTLSBootstrappingEnabled -}}
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+    wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- else -}}
     KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
     wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{end -}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
@@ -2738,6 +2743,10 @@ ExecStart=/usr/local/bin/kubelet \
         {{- if IsKubeletConfigFileEnabled}}
         --config /etc/default/kubeletconfig.json \
         {{- end}}
+        {{- if IsKubeletClientTLSBootstrappingEnabled}}
+        --kubeconfig /var/lib/kubelet/kubeconfig \
+        --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+        {{- end}}
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
@@ -4015,12 +4024,14 @@ write_files:
   content: |
     {{GetParameter "caCertificate"}}
 
+{{if not IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /etc/kubernetes/certs/client.crt
   permissions: "0644"
   encoding: base64
   owner: root
   content: |
     {{GetParameter "clientCertificate"}}
+{{- end}}
 
 {{if HasCustomSearchDomain}}
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
@@ -4031,6 +4042,30 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{if IsKubeletClientTLSBootstrappingEnabled -}}
+- path: /var/lib/kubelet/bootstrap-kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: kubelet-bootstrap
+      user:
+        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+    contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+    current-context: bootstrap-context
+    #EOF
+{{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
   owner: root
@@ -4054,6 +4089,7 @@ write_files:
       name: localclustercontext
     current-context: localclustercontext
     #EOF
+{{- end}}
 
 - path: /etc/default/kubelet
   permissions: "0644"
