@@ -18,11 +18,12 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
 	"github.com/pkg/errors"
 )
 
-// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if dynamic kubelet is enabled)
+// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
@@ -58,6 +59,8 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--topology-manager-policy":           true,
 	"--allowed-unsafe-sysctls":            true,
 	"--fail-swap-on":                      true,
+	"--container-log-max-size":            true,
+	"--container-log-max-files":           true,
 }
 
 var keyvaultSecretPathRe *regexp.Regexp
@@ -170,7 +173,7 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; Invoke-WebRequest -Uri \"%s\" -OutFile \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
 func getVNETSubnetDependencies(properties *datamodel.Properties) string {
@@ -469,6 +472,15 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 		if customKc.FailSwapOn != nil {
 			kubeletConfig.FailSwapOn = customKc.FailSwapOn
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig.ContainerLogMaxSize = fmt.Sprintf("%dM", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
+		}
+		if customKc.PodMaxPids != nil {
+			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
 	}
 

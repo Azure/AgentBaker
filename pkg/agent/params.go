@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -220,15 +221,11 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		if servicePrincipalProfile != nil {
 			addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
-			keyVaultSecretRef := servicePrincipalProfile.KeyvaultSecretRef
-			if keyVaultSecretRef != nil {
-				addKeyvaultReference(parametersMap, "servicePrincipalClientSecret",
-					keyVaultSecretRef.VaultID,
-					keyVaultSecretRef.SecretName,
-					keyVaultSecretRef.SecretVersion)
-			} else {
-				addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
-			}
+			encodedServicePrincipalClientSecret := base64.StdEncoding.EncodeToString([]byte(servicePrincipalProfile.Secret))
+			addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+			// base64 encoding is to escape special characters like quotes in service principal
+			// reference: https://github.com/Azure/aks-engine/pull/1174
+			addValue(parametersMap, "encodedServicePrincipalClientSecret", encodedServicePrincipalClientSecret)
 
 			if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
 				if kubernetesConfig.KeyVaultSku != "" {

@@ -43,7 +43,7 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        Invoke-WebRequest $Url -UseBasicParsing -OutFile $DestinationPath -Verbose
+        curl.exe --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         $downloadTimer.Stop()
 
         if ($global:AppInsightsClient -ne $null) {
@@ -214,6 +214,17 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
+function Register-NodeLabelSyncScriptTask {
+    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\windowsnodelabelsync.ps1`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once(by `-Once) at the time being scheduled(by `-At (Get-Date).Date`) every 5 minutes(by `-RepetitionInterval 00:05:00`)
+    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
+    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
+}
+
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -295,4 +306,39 @@ function Update-DefenderPreferences {
     if ($global:ContainerRuntime -eq 'containerd') {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
     }
+}
+
+function Check-APIServerConnectivity {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $false)][int]
+        $RetryInterval = 1,
+        [Parameter(Mandatory = $false)][int]
+        $ConnectTimeout = 3,  #seconds
+        [Parameter(Mandatory = $false)][int]
+        $MaxRetryCount = 100
+    )
+    $retryCount=0
+
+    do {
+        try {
+            $tcpClient=New-Object Net.Sockets.TcpClient
+            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+            if ($tcpClient.Connected) {
+                $tcpClient.Close()
+                Write-Log "Retry $retryCount : Connected to API server successfully"
+                return
+            }
+            $tcpClient.Close()
+        } catch {
+            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
+        }
+        $retryCount++
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
+        Sleep $RetryInterval
+    } while ($retryCount -lt $MaxRetryCount)
+
+    throw "Failed to connect to API server $MasterIP after $retryCount retries"
 }

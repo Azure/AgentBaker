@@ -1,6 +1,6 @@
 $ProgressPreference = "SilentlyContinue"
 
-$lockedFiles = "kubelet.err.log", "kubelet.log", "kubeproxy.log", "kubeproxy.err.log", "containerd.err.log", "containerd.log", "azure-vnet-telemetry.log", "azure-vnet.log"
+$lockedFiles = "kubelet.err.log", "kubelet.log", "kubeproxy.log", "kubeproxy.err.log", "azure-vnet-telemetry.log", "azure-vnet.log", "csi-proxy.log", "csi-proxy.err.log"
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
@@ -23,6 +23,29 @@ $lockedFiles | Foreach-Object {
   }
 }
 
+# azure-cni logs currently end up in system32 when called by containerd so check there for logs too
+$lockedTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+New-Item -Type Directory $lockedTemp
+$lockedFiles | Foreach-Object {
+  Write-Host "Copying $_ to temp"
+  $src = "c:\windows\system32\$_"
+  if (Test-Path $src) {
+    $tempfile = Copy-Item $src $lockedTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+
+# Containerd log is outside the c:\k folder
+$containerd = "C:\ProgramData\containerd\root\panic.log"
+if (Test-Path $containerd) {
+  $tempfile = Copy-Item $containerd $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
+}
+
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
@@ -41,12 +64,42 @@ mkdir 'c:\k\debug' -ErrorAction Ignore | Out-Null
 
 Write-Host "Collecting networking related logs"
 if (-not (Test-Path 'c:\k\debug\collectlogs.ps1')) {
-  Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1 -OutFile 'c:\k\debug\collectlogs.ps1'
+  curl.exe --retry 5 --retry-delay 0 -L https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1 -o 'c:\k\debug\collectlogs.ps1'
 }
 & 'c:\k\debug\collectlogs.ps1' | write-Host
 $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName | Select-Object -ExpandProperty FullName
 $paths += $netLogs
 $paths += "c:\AzureData\CustomDataSetupScript.log"
+
+Write-Host "Collecting containerd hyperv logs"
+if ((Test-Path "$Env:ProgramFiles\containerd\diag.ps1") -And (Test-Path "$Env:ProgramFiles\containerd\ContainerPlatform.wprp")) {
+  $tempHyperv = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+  New-Item -Type Directory $tempHyperv
+  $persistedLogs = "c:\logs"
+  # there will either be an error collecting "bootlogs" or "trace profiles" as only one will be active at time. This will be fixed in future release of the script
+  & $Env:ProgramFiles\containerd\diag.ps1 -Snap -ProfilePath "$Env:ProgramFiles\containerd\ContainerPlatform.wprp!ContainerPlatformPersistent" -TraceDirPath "$tempHyperv" -TempPath $persistedLogs
+  $hypervlogs = (Get-ChildItem -Path $tempHyperv | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+  $paths += $hypervlogs
+}
+else {
+  Write-Host "Containerd hyperv logs not avalaible"
+}
+
+Write-Host "Collecting calico logs"
+if (Test-Path "c:\CalicoWindows\logs") {
+  $tempCalico = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+  New-Item -Type Directory $tempCalico
+  Get-ChildItem c:\CalicoWindows\logs\*.log* | Foreach-Object {
+    Write-Host "Copying $_ to temp"
+    $tempfile = Copy-Item $_ $tempCalico -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+else {
+  Write-Host "Calico logs not avalaible"
+}
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize

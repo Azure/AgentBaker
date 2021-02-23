@@ -15,19 +15,20 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
-			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
-			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
-			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
-			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
-			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
-			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
-			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"systemdBPFMount":              getBase64EncodedGzippedCustomScript(systemdBPFMount, config),
-			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
-			"configureAzure0Script":        getBase64EncodedGzippedCustomScript(kubernetesConfigAzure0Script, config),
+			"provisionStartScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
+			"provisionScript":                getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionInstalls":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
+			"provisionConfigs":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"customSearchDomainsScript":      getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":           getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":      getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":          getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"systemdBPFMount":                getBase64EncodedGzippedCustomScript(systemdBPFMount, config),
+			"reconcilePrivateHostsScript":    getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService":   getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
+			"updateNodeLabelsSystemdService": getBase64EncodedGzippedCustomScript(updateNodeLabelsSystemdService, config),
+			"updateNodeLabelsScript":         getBase64EncodedGzippedCustomScript(updateNodeLabelsScript, config),
 		},
 	}
 
@@ -39,8 +40,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	if !cs.Properties.IsVHDDistroForAllNodes() {
 		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
-		cloudInitData["labelNodesScript"] = getBase64EncodedGzippedCustomScript(labelNodesScript, config)
-		cloudInitData["labelNodesSystemdService"] = getBase64EncodedGzippedCustomScript(labelNodesSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
 		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
 		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
@@ -83,6 +82,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
 		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
 		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
+		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
 	}
 
 	return customData

@@ -61,9 +61,9 @@ const (
 
 const (
 	// kubernetesWindowsAgentCSECommandPS1 privides the command of Windows CSE
-	kubernetesWindowsAgentCSECommandPS1           = "windows/csecmd.ps1"
+	kubernetesWindowsAgentCSECommandPS1 = "windows/csecmd.ps1"
 	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
-	kubernetesWindowsAgentCustomDataPS1           = "windows/kuberneteswindowssetup.ps1"
+	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
 	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
 
 	kubernetesWindowsAgentFunctionsPS1            = "windows/kuberneteswindowsfunctions.ps1"
@@ -75,6 +75,7 @@ const (
 	kubernetesWindowsAzureCniFunctionsPS1         = "windows/windowsazurecnifunc.ps1"
 	kubernetesWindowsHostsConfigAgentFunctionsPS1 = "windows/windowshostsconfigagentfunc.ps1"
 	kubernetesWindowsOpenSSHFunctionPS1           = "windows/windowsinstallopensshfunc.ps1"
+	kubernetesWindowsCalicoFunctionPS1            = "windows/windowscalicofunc.ps1"
 	kubernetesWindowsHypervtemplatetoml           = "windows/containerdtemplate.toml"
 )
 
@@ -89,15 +90,14 @@ const (
 	kubernetesCSEConfig           = "linux/cloud-init/artifacts/cse_config.sh"
 	kubernetesCISScript           = "linux/cloud-init/artifacts/cis.sh"
 	kubernetesHealthMonitorScript = "linux/cloud-init/artifacts/health-monitor.sh"
-	kubernetesConfigAzure0Script  = "linux/cloud-init/artifacts/configure_azure0.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
 	kubernetesKubeletMonitorSystemdService    = "linux/cloud-init/artifacts/kubelet-monitor.service"
 	kubernetesDockerMonitorSystemdTimer       = "linux/cloud-init/artifacts/docker-monitor.timer"
 	kubernetesDockerMonitorSystemdService     = "linux/cloud-init/artifacts/docker-monitor.service"
 	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
 	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
-	labelNodesScript                          = "linux/cloud-init/artifacts/label-nodes.sh"
-	labelNodesSystemdService                  = "linux/cloud-init/artifacts/label-nodes.service"
+	updateNodeLabelsScript                    = "linux/cloud-init/artifacts/update-node-labels.sh"
+	updateNodeLabelsSystemdService            = "linux/cloud-init/artifacts/update-node-labels.service"
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
