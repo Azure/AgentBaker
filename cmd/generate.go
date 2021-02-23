@@ -92,7 +92,7 @@ func newGenerateCmd() *cobra.Command {
 					ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 					CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
 					WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
-					WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+					WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.1",
 					AlwaysPullWindowsPauseImage:          false,
 				},
 
