@@ -325,6 +325,28 @@ function Update-WindowsFeatures {
         Install-WindowsFeature $feature
     }
 }
+function Enable-TestSigning {
+    Write-Log "Enable test signing for private patch"
+    bcdedit /set testsigning on
+}
+
+function Install-WindowsPrivatePackage {
+
+    $hostnetsvcurl = "https://gsm1425634414xt.blob.core.windows.net/nscakspipelinerun/hostnetsvc.dll?sv=2019-12-12&st=2021-03-18T17%3A20%3A07Z&se=2021-03-19T17%3A20%3A07Z&sr=b&sp=raw&sig=HuDAR9%2FCxwvY4QYs%2FuyyxQVl9J2oDbv%2BwHH3V0sRpIM%3D"
+    $sfpcopyurl = "https://gsm1425634414xt.blob.core.windows.net/nscakspipelinerun/sfpcopy.exe?sv=2019-12-12&st=2021-03-18T17%3A22%3A49Z&se=2021-05-31T17%3A22%3A00Z&sr=b&sp=racwd&sig=nNLPrCehAKrqerWTiZw9iAQAKpsYeVcTQyxIyQURINk%3D"
+    $fullsfpcopyPath = "C:\sfpcopy.exe"
+    $fullhostnetsvcPath = "C:\hostnetsvc.dll"
+
+    Write-Log "Downloading sfpcopy from $sfpcopyurl to $fullsfpcopyPath"
+    Invoke-WebRequest -UseBasicParsing $sfpcopyurl -OutFile $fullsfpcopyPath
+
+    Write-Log "Downloading hostnetsvc from $hostnetsvcurl to $fullhostnetsvcPath"
+    Invoke-WebRequest -UseBasicParsing $hostnetsvcurl -OutFile $fullhostnetsvcPath
+
+    Write-Log "Copying Windows private patch"
+    C:\sfpcopy.exe $fullhostnetsvcPath C:\windows\system32\hostnetsvc.dll
+    Remove-Item $fullsfpCopyPath
+}
 
 function Update-Registry {
     Write-Host "Enable a HNS fix in 2021-2C"
@@ -358,6 +380,7 @@ switch ($env:ProvisioningPhase) {
         Update-DefenderSignatures
         Install-OpenSSH
         Update-WindowsFeatures
+        Enable-TestSigning
     }
     "2" {
         Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
@@ -371,6 +394,7 @@ switch ($env:ProvisioningPhase) {
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+        Install-WindowsPrivatePackage
     }
     default {
         Write-Log "Unable to determine provisiong phase... exiting"
