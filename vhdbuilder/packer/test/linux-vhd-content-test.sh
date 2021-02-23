@@ -78,6 +78,18 @@ testImagesPulled() {
   echo "$test:Finish"
 }
 
+testAuditDNotPresent() {
+  test="testAuditDNotPresent"
+  echo "$test:Start"
+  status=$(systemctl show -p SubState --value auditd.service)
+  if [ $status == 'dead' ]; then
+    echo "AuditD is not present, as expected"
+  else
+    err $test "AuditD is active with status ${status}"
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -281,3 +293,4 @@ imagesToBePulled='
 
 testFilesDownloaded "$filesToDownload"
 testImagesPulled $1 "$imagesToBePulled"
+testAuditDNotPresent
