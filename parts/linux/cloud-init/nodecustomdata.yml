@@ -45,17 +45,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionCIS"}}
 {{end}}
 
-{{if not .IsVHDDistro}}
-  {{if .IsAuditDEnabled}}
-- path: /etc/audit/rules.d/CIS.rules
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "auditdRules"}}
-  {{end}}
-{{end}}
-
 {{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"

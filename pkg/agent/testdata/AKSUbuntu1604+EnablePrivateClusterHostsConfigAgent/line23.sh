@@ -79,10 +79,6 @@ else
     echo "Golden image; skipping dependencies installation"
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    run_and_log_execution_time ensureAuditD
-fi
-
 run_and_log_execution_time installContainerRuntime
 
 run_and_log_execution_time installNetworkPlugin
