@@ -198,7 +198,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-    "versions": ["ciprod10272020","ciprod11092020","ciprod01112021"]
+    "versions": ["ciprod11092020","ciprod01112021","ciprod02232021"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/cni:v*",
