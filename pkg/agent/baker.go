@@ -707,7 +707,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 }
 
 // ParseVMSSCSEMessage parses the raw VMSS CSE output
-func (t *TemplateGenerator) ParseVMSSCSEMessage(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
+func ParseVMSSCSEMessage(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
 	var cseStatus datamodel.VMSSInstanceViewCSEStatus
 	var rerr error
 	start := strings.Index(message, "[stdout]") + len("[stdout]")
