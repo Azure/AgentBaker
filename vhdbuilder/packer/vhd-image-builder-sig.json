@@ -167,11 +167,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/auditd-rules",
-      "destination": "/home/packer/auditd-rules"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/update-node-labels.sh",
       "destination": "/home/packer/update-node-labels.sh"
     },

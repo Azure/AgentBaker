@@ -23,8 +23,6 @@ copyPackerFiles() {
   PAM_D_SU_DEST=/etc/pam.d/su
   PROFILE_D_CIS_SH_SRC=/home/packer/profile-d-cis.sh
   PROFILE_D_CIS_SH_DEST=/etc/profile.d/CIS.sh
-  AUDITD_RULES_SRC=/home/packer/auditd-rules
-  AUDITD_RULES_DEST=/etc/audit/rules.d/CIS.rules
   UPDATE_NODE_LABELS_SRC=/home/packer/update-node-labels.sh
   UPDATE_NODE_LABELS_DEST=/opt/azure/containers/update-node-labels.sh
   UPDATE_NODE_LABELS_SERVICE_SRC=/home/packer/update-node-labels.service
@@ -75,7 +73,6 @@ copyPackerFiles() {
   cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
-  cpAndMode $AUDITD_RULES_SRC $AUDITD_RULES_DEST 640
   cpAndMode $UPDATE_NODE_LABELS_SRC $UPDATE_NODE_LABELS_DEST 744
   cpAndMode $UPDATE_NODE_LABELS_SERVICE_SRC $UPDATE_NODE_LABELS_SERVICE_DEST 644
   cpAndMode $CIS_SRC $CIS_DEST 744

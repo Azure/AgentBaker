@@ -37,11 +37,9 @@ run-packer-windows: az-login
 az-copy: az-login
 	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
 
-delete-sa: az-login
-	az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
 
-delete-mi: az-login
-	az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+cleanup: az-login
+	@./vhdbuilder/packer/cleanup.sh
 
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh

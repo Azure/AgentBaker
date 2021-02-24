@@ -11,18 +11,15 @@ param (
 )
 
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
-$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/ms/0.0.11-1/binaries/containerd-windows-0.0.11-1.zip"
+$global:containerdPackageUrl = "https://mobyartifacts.azureedge.net/moby/moby-containerd/1.4.3+azure/windows/windows_amd64/moby-containerd-1.4.3+azure-1.amd64.zip"
 
-function Compare-AllowedSecurityProtocols
-{
+function Compare-AllowedSecurityProtocols {
 
     $allowedProtocols = @()
     $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
 
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType]))
-    {
-        if ($insecureProtocols -notcontains $protocol)
-        {
+    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
+        if ($insecureProtocols -notcontains $protocol) {
             $allowedProtocols += $protocol
         }
     }
@@ -104,32 +101,26 @@ function Test-FilesToCacheOnVHD
 
     $invalidFiles = @()
     $missingPaths = @()
-    foreach ($dir in $map.Keys)
-    {
+    foreach ($dir in $map.Keys) {
         $fakeDir = $dir
-        if ($dir.StartsWith("c:\akse-cache\win-k8s"))
-        {
+        if ($dir.StartsWith("c:\akse-cache\win-k8s")) {
             $dir = "c:\akse-cache\win-k8s\"
         }
-        if(!(Test-Path $dir))
-        {
+        if(!(Test-Path $dir)) {
             Write-Error "Directory $dir does not exit"
             $missingPaths = $missingPaths + $dir
             continue
         }
 
-        foreach ($URL in $map[$fakeDir])
-        {
+        foreach ($URL in $map[$fakeDir]) {
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\")
-            {
+            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\") {
                 continue
             }
 
-            if(![System.IO.File]::Exists($dest))
-            {
+            if(![System.IO.File]::Exists($dest)) {
                 Write-Error "File $dest does not exist"
                 $invalidFiles = $invalidFiles + $dest
                 continue
@@ -146,36 +137,31 @@ function Test-FilesToCacheOnVHD
             Write-Output "$dest is cached as expected"
         }
     }
-    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0)
-    {
+    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0) {
         Write-Error "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
         exit 1
     }
 
 }
 
-function Test-PatchInstalled
-{
+function Test-PatchInstalled {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @("KB4601345")
+    $patchIDs = @("KB4601383")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
-    foreach($hotfixID in $hotfix.HotFixID)
-    {
+    foreach($hotfixID in $hotfix.HotFixID) {
         $currenHotfixes += $hotfixID
     }
 
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
-    if($lostPatched.count -ne 0)
-    {
+    if($lostPatched.count -ne 0) {
         Write-Error "$lostPatched is(are) not installed"
         exit 1
     }
     Write-Output "All pathced $patchIDs are installed"
 }
 
-function Test-ImagesPulled
-{
+function Test-ImagesPulled {
     param (
         $containerRuntime,
         $WindowsSKU
@@ -186,7 +172,7 @@ function Test-ImagesPulled
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
                 "mcr.microsoft.com/windows/nanoserver:1809",
-                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.1",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
@@ -197,6 +183,7 @@ function Test-ImagesPulled
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
                 "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.0",
                 "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
             Write-Output "Pulling images for windows server 2019"
         }
@@ -204,7 +191,7 @@ function Test-ImagesPulled
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:2004",
                 "mcr.microsoft.com/windows/nanoserver:2004",
-                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0-windows-2004-amd64")
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.1")
             Write-Output "Pulling images for windows server core 2004"
         }
         default {

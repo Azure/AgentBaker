@@ -14,12 +14,10 @@ copyPackerFiles
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
-AUDITD_ENABLED=true
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
-  - auditd
   - blobfuse=1.3.5
   - ca-certificates
   - ceph-common
@@ -68,7 +66,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.5.0"
+  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.6.0"
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.14"
@@ -329,10 +327,10 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
 done
 
 KONNECTIVITY_AGENT_VERSIONS="
-v0.0.13
+0.0.13
 "
 for KONNECTIVITY_AGENT_VERSION in ${KONNECTIVITY_AGENT_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:${KONNECTIVITY_AGENT_VERSION}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v${KONNECTIVITY_AGENT_VERSION}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -368,40 +366,60 @@ done
 
 # calico images used by AKS
 CALICO_CNI_IMAGES="
-v3.8.9.1
-v3.8.9.2
+3.8.9.1
+3.8.9.2
 "
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:v${CALICO_CNI_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CALICO_NODE_IMAGES="
-v3.8.9.1
-v3.8.9.2
+3.17.2
+3.8.9.1
+3.8.9.2
 "
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:v${CALICO_NODE_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # typha and pod2daemon can't be patched like cni and node can as they use scratch as a base
 CALICO_TYPHA_IMAGES="
-v3.8.9
+3.17.2
+3.8.9
 "
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:${CALICO_TYPHA_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:v${CALICO_TYPHA_IMAGE}"
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CALICO_KUBE_CONTROLLERS_IMAGES="
+3.17.2
+"
+for CALICO_KUBE_CONTROLLERS_IMAGE in ${CALICO_KUBE_CONTROLLERS_IMAGES}; do
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:v${CALICO_KUBE_CONTROLLERS_IMAGE}"
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+TIGERA_OPERATOR_IMAGES="
+1.13.5
+"
+for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:v${TIGERA_OPERATOR_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CALICO_POD2DAEMON_IMAGES="
-v3.8.9
+3.8.9
 "
 for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:${CALICO_POD2DAEMON_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v${CALICO_POD2DAEMON_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -476,10 +494,6 @@ done
 # v1.20.2
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 K8S_VERSIONS="
-1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200824.1
-1.16.13-hotfix.20200824.1
-1.16.15-hotfix.20200903
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200817.1
 1.17.9-hotfix.20200824.1
@@ -542,10 +556,6 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # v1.20.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
-1.16.9-hotfix.20200529.1
-1.16.10-hotfix.20200824.1
-1.16.13-hotfix.20200824.1
-1.16.15-hotfix.20200903
 1.17.3-hotfix.20200601.1
 1.17.7-hotfix.20200714.2
 1.17.9-hotfix.20200824.1
@@ -612,23 +622,21 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
 done
 
 ADDON_IMAGES="
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v2.0.1
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.0
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.1
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.3
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.2.3
 mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
 mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
 mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200901.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20200923.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20210216.1
 mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
+mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20210209.1
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
 mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.3.0
-mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.6.3
 mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
+mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.4
 "
 for ADDON_IMAGE in ${ADDON_IMAGES}; do
   pullContainerImage ${cliTool} ${ADDON_IMAGE}
@@ -636,9 +644,9 @@ for ADDON_IMAGE in ${ADDON_IMAGES}; do
 done
 
 AZUREDISK_CSI_VERSIONS="
-0.7.0
 0.9.0
 1.0.0
+1.1.0
 "
 for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
@@ -647,7 +655,6 @@ for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
 done
 
 AZUREFILE_CSI_VERSIONS="
-0.7.0
 0.9.0
 1.0.0
 "

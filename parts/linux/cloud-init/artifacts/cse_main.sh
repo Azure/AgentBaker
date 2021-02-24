@@ -34,6 +34,8 @@ source {{GetCSEInstallScriptFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+disable1804SystemdResolved
+
 set +x
 ETCD_PEER_CERT=$(echo ${ETCD_PEER_CERTIFICATES} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
 ETCD_PEER_KEY=$(echo ${ETCD_PEER_PRIVATE_KEYS} | cut -d'[' -f 2 | cut -d']' -f 1 | cut -d',' -f $((${NODE_INDEX}+1)))
@@ -53,17 +55,17 @@ fi
 configureAdminUser
 
 {{- if not NeedsContainerd}}
-cleanUpContainerd
+run_and_log_execution_time cleanUpContainerd
 {{end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    run_and_log_execution_time cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    run_and_log_execution_time cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -74,58 +76,44 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    installDeps
+    run_and_log_execution_time installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    ensureAuditD
-fi
-
-installContainerRuntime
+run_and_log_execution_time installContainerRuntime
 {{- if NeedsContainerd}}
-installCrictl
+run_and_log_execution_time installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
-installTeleportdPlugin
+run_and_log_execution_time installTeleportdPlugin
 {{end}}
 {{end}}
 
-installNetworkPlugin
+run_and_log_execution_time installNetworkPlugin
 
 {{- if IsNSeriesSKU}}
-echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-    fi
-    ensureGPUDrivers
-    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        systemctlDisableAndStop nvidia-device-plugin
-    fi
+  run_and_log_execution_time configureGPUDrivers
 fi
-echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 {{end}}
 
-installKubeletKubectlAndKubeProxy
+run_and_log_execution_time installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
 fi
 
-createKubeManifestDir
+run_and_log_execution_time createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    installSGXDrivers
+    run_and_log_execution_time installSGXDrivers
 fi
 {{end}}
 
@@ -134,40 +122,39 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-configureK8s
+run_and_log_execution_time configureK8s
 
-configureCNI
+run_and_log_execution_time configureCNI
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-ensureDHCPv6
+run_and_log_execution_time ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
-ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+run_and_log_execution_time ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
-ensureDocker
+run_and_log_execution_time ensureDocker
 {{- end}}
 
-ensureMonitorService
+run_and_log_execution_time ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
-configPrivateClusterHosts
+run_and_log_execution_time configPrivateClusterHosts
 {{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
-configureTransparentHugePage
+run_and_log_execution_time configureTransparentHugePage
 {{- end}}
 
 {{- if ShouldConfigSwapFile}}
-configureSwapFile
+run_and_log_execution_time configureSwapFile
 {{- end}}
 
-ensureSysctl
-ensureKubelet
-ensureJournal
-ensureUpdateNodeLabels
-
+run_and_log_execution_time ensureSysctl
+run_and_log_execution_time ensureKubelet
+run_and_log_execution_time ensureJournal
+run_and_log_execution_time ensureUpdateNodeLabels
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
@@ -213,12 +200,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        aptmarkWALinuxAgent unhold &
+        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        aptmarkWALinuxAgent unhold &
+        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
     fi
 fi
 

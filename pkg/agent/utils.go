@@ -173,7 +173,7 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; Invoke-WebRequest -Uri \"%s\" -OutFile \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
 func getVNETSubnetDependencies(properties *datamodel.Properties) string {
@@ -376,6 +376,35 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
 		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
+}
+
+// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
+func IsKubeletClientTLSBootstrappingEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletClientTLSBootstrappingEnabled bool) bool {
+	if !kubeletClientTLSBootstrappingEnabled {
+		// toggle is off, we don't enable it
+		return false
+	}
+
+	if profile.TLSBootstrapToken == nil {
+		// agent node's TLS bootstrap token is not set
+		return false
+	}
+
+	return true
+}
+
+// GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
+// It returns empty string if TLS bootstrap token is not enabled.
+//
+// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
+func GetTLSBootstrapTokenForKubeConfig(profile *datamodel.AgentPoolProfile) string {
+	t := profile.TLSBootstrapToken
+	if t == nil {
+		// not set
+		return ""
+	}
+
+	return fmt.Sprintf("%s.%s", t.TokenID, t.TokenSecret)
 }
 
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content

@@ -81,16 +81,6 @@ ensureRPC() {
     systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-ensureAuditD() {
-  if [[ "${AUDITD_ENABLED}" == true ]]; then
-    systemctlEnableAndStart auditd || exit $ERR_SYSTEMCTL_START_FAIL
-  else
-    if apt list --installed | grep 'auditd'; then
-      apt_get_purge 20 30 120 auditd &
-    fi
-  fi
-}
-
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -288,6 +278,23 @@ configureCNIIPTables() {
     fi
 }
 
+disable1804SystemdResolved() {
+    ls -ltr /etc/resolv.conf
+    cat /etc/resolv.conf
+    {{- if Disable1804SystemdResolved}}
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+        echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
+        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        ls -ltr /etc/resolv.conf
+        cat /etc/resolv.conf
+    fi
+    {{- else}}
+    echo "Disable1804SystemdResolved is false. Skipping."
+    {{- end}}
+}
+
 {{- if NeedsContainerd}}
 ensureContainerd() {
   {{- if TeleportEnabled}}
@@ -368,8 +375,13 @@ ensureDHCPv6() {
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{if IsKubeletClientTLSBootstrappingEnabled -}}
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+    wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- else -}}
     KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
     wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{end -}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL

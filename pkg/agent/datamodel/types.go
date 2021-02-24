@@ -634,6 +634,12 @@ type SysctlConfig struct {
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
 }
 
+// TLSBootstrapToken defines the agent node TLS bootstrap token to use.
+type TLSBootstrapToken struct {
+	TokenID     string `json:"tokenId"`
+	TokenSecret string `json:"tokenSecret"`
+}
+
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
 	Name                                string               `json:"name"`
@@ -678,7 +684,6 @@ type AgentPoolProfile struct {
 	WindowsNameVersion                  string               `json:"windowsNameVersion,omitempty"`
 	EnableVMSSNodePublicIP              *bool                `json:"enableVMSSNodePublicIP,omitempty"`
 	LoadBalancerBackendAddressPoolIDs   []string             `json:"loadBalancerBackendAddressPoolIDs,omitempty"`
-	AuditDEnabled                       *bool                `json:"auditDEnabled,omitempty"`
 	CustomVMTags                        map[string]string    `json:"customVMTags,omitempty"`
 	DiskEncryptionSetID                 string               `json:"diskEncryptionSetID,omitempty"`
 	UltraSSDEnabled                     *bool                `json:"ultraSSDEnabled,omitempty"`
@@ -686,6 +691,7 @@ type AgentPoolProfile struct {
 	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
 	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig                 *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	TLSBootstrapToken                   *TLSBootstrapToken   `json:"tlsBootstrapToken,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1114,11 +1120,6 @@ func (a *AgentPoolProfile) HasDisks() bool {
 	return len(a.DiskSizesGB) > 0
 }
 
-// IsAuditDEnabled returns true if the master profile is configured for auditd
-func (a *AgentPoolProfile) IsAuditDEnabled() bool {
-	return to.Bool(a.AuditDEnabled)
-}
-
 // HasSecrets returns true if the customer specified secrets to install
 func (l *LinuxProfile) HasSecrets() bool {
 	return len(l.Secrets) > 0
@@ -1444,11 +1445,19 @@ type NodeBootstrappingConfiguration struct {
 	ResourceGroupName             string
 	UserAssignedIdentityClientID  string
 	ConfigGPUDriverIfNeeded       bool
+	Disable1804SystemdResolved    bool
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
+
+	// EnableKubeletClientTLSBootstrapping - feature flag for enabling kubelet client TLS bootstrapping.
+	//
+	// When this feature flag is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
+	//
+	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
+	EnableKubeletClientTLSBootstrapping bool
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
