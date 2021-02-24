@@ -221,6 +221,10 @@ imagesToBePulled='
     "versions": ["3.17.2"]
   },
   {
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v*",
+    "versions": ["0.5.1","0.6.0","0.7.0"]
+  },
+  {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
     "versions": ["1.3.0_v0.0.5","1.7.1","1.7.1-hotfix.20200403"]
   },
