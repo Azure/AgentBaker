@@ -205,7 +205,7 @@ const (
 
 const (
 	// VMSSInstanceErrorCode is used to parse vmss instance error code
-	VMSSInstanceErrorCode = "vmssInstanceErrorCode="
+	VMSSInstanceErrorCode = "vmssInstanceErrorCode"
 	// InvalidCSEMessage is the error code for vmss cse invalid message
 	InvalidCSEMessage = "InvalidCSEMessage"
 )

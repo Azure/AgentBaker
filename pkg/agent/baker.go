@@ -716,14 +716,14 @@ func ParseVMSSCSEMessage(message string) (datamodel.VMSSInstanceViewCSEStatus, e
 		rawInstanceViewInfo := message[start:end]
 		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
 		if err != nil || cseStatus.ExitCode == "" {
-			// RP needs regex "vmssInstanceErrorCode=" to parse the error
-			rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+			// RP needs regex "vmssInstanceErrorCode=" to parse the error, please inform RP if you would like to change the regex.
+			rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
 		} else {
 			cseStatus.ExitCode = strings.Trim(cseStatus.ExitCode, "\"")
 		}
 	} else {
-		// RP needs regex "vmssInstanceErrorCode=" to parse the error
-		rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+		// RP needs regex "vmssInstanceErrorCode=" to parse the error, please inform RP if you would like to change the regex.
+		rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
 	}
 	return cseStatus, rerr
 }
