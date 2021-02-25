@@ -356,8 +356,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last-->last image (ciprod10272020) as last released (ciprod11092020) is not fully rolledout yet. Added latest (ciprod01112021)
-OMS_AGENT_IMAGES="ciprod10272020 ciprod11092020 ciprod01112021"
+# keeping last-->last image (ciprod11092020) as last released (ciprod01112021) is not fully rolledout to all clouds yet. Also added latest (ciprod02232021)
+OMS_AGENT_IMAGES="ciprod11092020 ciprod01112021 ciprod02232021"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -410,7 +410,7 @@ TIGERA_OPERATOR_IMAGES="
 1.13.5
 "
 for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:v${TIGERA_OPERATOR_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/operator:v${TIGERA_OPERATOR_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
