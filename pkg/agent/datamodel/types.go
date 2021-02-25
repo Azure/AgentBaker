@@ -133,6 +133,8 @@ const (
 	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
 	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSMarinerV1                   Distro = "aks-mariner-v1"
+	AKSMarinerGPUV1                Distro = "aks-mariner-gpu-v1"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -145,6 +147,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuContainerd1804Gen2,
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
+	AKSMarinerV1,
+	AKSMarinerGPUV1,
 }
 
 func (d Distro) IsVHDDistro() bool {
@@ -1036,6 +1040,10 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
+}
+
+func (a *AgentPoolProfile) IsMariner() bool {
+	return strings.EqualFold(string(a.Distro), string(AKSMarinerV1))
 }
 
 // IsVHDDistro returns true if the distro uses VHD SKUs
