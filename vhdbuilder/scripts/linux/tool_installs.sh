@@ -172,15 +172,15 @@ installFIPS() {
     # this causes command '/usr/sbin/dkms build -m nvidia -v 450.51.06 -k 4.15.0-1002-azure-fips' for GPU provisioning in CSE to fail
     # however linux-headers-4.15.0-1002-azure doesn't exist any more, install closest 1011 to workaround
     if [[ ! -d /usr/src/linux-azure-headers-4.15.0-1002 ]]; then
-        echo "installing linux-headers-fips..."
-        apt_get_install 5 10 120 linux-headers-fips || exit $LINUX_HEADER_INSTALL_TIMEOUT
+        echo "installing linux-fips-headers-4.15.0-1011..."
+        apt_get_install 5 10 120 linux-fips-headers-4.15.0-1011 || exit $LINUX_HEADER_INSTALL_TIMEOUT
         ln -s /usr/src/linux-fips-headers-4.15.0-1011 /usr/src/linux-azure-headers-4.15.0-1002
     fi
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
+    #echo "detaching ua..."
+    #retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
 
     echo "removing ua tools..."
     apt_get_purge 5 10 120 ubuntu-advantage-tools
