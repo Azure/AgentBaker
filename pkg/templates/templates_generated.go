@@ -69,7 +69,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -2792,7 +2791,7 @@ var _linuxCloudInitArtifactsPamDCommonPassword = []byte(`#
 # The "sha512" option enables salted SHA512 passwords.  Without this option,
 # the default is Unix crypt.  Prior releases used the option "md5".
 #
-# The "obscure" option replaces the old ` + "`" + `OBSCURE_CHECKS_ENAB' option in
+# The "obscure" option replaces the old `+"`"+`OBSCURE_CHECKS_ENAB' option in
 # login.defs.
 #
 # See the pam_unix manpage for other options.
@@ -2836,19 +2835,19 @@ func linuxCloudInitArtifactsPamDCommonPassword() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsPamDSu = []byte(`#
-# The PAM configuration file for the Shadow ` + "`" + `su' service
+# The PAM configuration file for the Shadow `+"`"+`su' service
 #
 
 # This allows root to su without passwords (normal operation)
 auth       sufficient pam_rootok.so
 
 # Uncomment this to force users to be a member of group root
-# before they can use ` + "`" + `su'. You can also add "group=foo"
+# before they can use `+"`"+`su'. You can also add "group=foo"
 # to the end of this line if you want to use a group other
 # than the default "root" (but this may have side effect of
 # denying "root" user, unless she's a member of "foo" or explicitly
 # permitted earlier by e.g. "sufficient pam_rootok.so").
-# (Replaces the ` + "`" + `SU_WHEEL_ONLY' option from login.defs)
+# (Replaces the `+"`"+`SU_WHEEL_ONLY' option from login.defs)
 
 # 5.6 Ensure access to the su command is restricted
 auth required pam_wheel.so use_uid
@@ -2863,7 +2862,7 @@ auth required pam_wheel.so use_uid
 
 # Uncomment and edit /etc/security/time.conf if you need to set
 # time restrainst on su usage.
-# (Replaces the ` + "`" + `PORTTIME_CHECKS_ENAB' option from login.defs
+# (Replaces the `+"`"+`PORTTIME_CHECKS_ENAB' option from login.defs
 # as well as /etc/porttime)
 # account    requisite  pam_time.so
 
@@ -3902,7 +3901,7 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "subnet": "{{` + "`" + `{{.PodCIDR}}` + "`" + `}}",
+                "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
                 "routes": [{ "dst": "0.0.0.0/0" }]
             }
           },
@@ -4443,7 +4442,7 @@ function Get-WindowsVersion {
 function Get-CniVersion {
     switch ($global:NetworkPlugin) {
         "azure" {
-            if ($global:VNetCNIPluginsURL -match "(v[0-9` + "`" + `.]+).(zip|tar)") {
+            if ($global:VNetCNIPluginsURL -match "(v[0-9`+"`"+`.]+).(zip|tar)") {
                 return $matches[1]
             }
             else {
@@ -4566,7 +4565,7 @@ function Get-LogCollectionScripts {
 function Register-LogsCleanupScriptTask {
     Write-Log "Creating a scheduled task to run windowslogscleanup.ps1"
 
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File ` + "`" + `"c:\k\windowslogscleanup.ps1` + "`" + `""
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowslogscleanup.ps1`+"`"+`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     $trigger = New-JobTrigger -Daily -At "00:00" -DaysInterval 1
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "log-cleanup-task"
@@ -4576,7 +4575,7 @@ function Register-LogsCleanupScriptTask {
 function Register-NodeResetScriptTask {
     Write-Log "Creating a startup task to run windowsnodereset.ps1"
 
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File ` + "`" + `"c:\k\windowsnodereset.ps1` + "`" + `""
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodereset.ps1`+"`"+`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     $trigger = New-JobTrigger -AtStartup -RandomDelay 00:00:05
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "k8s-restart-job"
@@ -4586,9 +4585,9 @@ function Register-NodeResetScriptTask {
 function Register-NodeLabelSyncScriptTask {
     Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
 
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File ` + "`" + `"c:\k\windowsnodelabelsync.ps1` + "`" + `""
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    # trigger this task once(by ` + "`" + `-Once) at the time being scheduled(by ` + "`" + `-At (Get-Date).Date` + "`" + `) every 5 minutes(by ` + "`" + `-RepetitionInterval 00:05:00` + "`" + `)
+    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every 5 minutes(by `+"`"+`-RepetitionInterval 00:05:00`+"`"+`)
     $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
     Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
@@ -4832,7 +4831,7 @@ $global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
 $global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
 $global:VmType = "{{GetVariable "vmType"}}"
 $global:SubnetName = "{{GetVariable "subnetName"}}"
-# NOTE: MasterSubnet is still referenced by ` + "`" + `kubeletstart.ps1` + "`" + ` and ` + "`" + `windowsnodereset.ps1` + "`" + `
+# NOTE: MasterSubnet is still referenced by `+"`"+`kubeletstart.ps1`+"`"+` and `+"`"+`windowsnodereset.ps1`+"`"+`
 # for case of Kubenet
 $global:MasterSubnet = ""
 $global:SecurityGroupName = "{{GetVariable "nsgName"}}"
@@ -4869,7 +4868,7 @@ $global:KubeDnsSearchPath = "svc.cluster.local"
 
 $global:CNIPath = [Io.path]::Combine("$global:KubeDir", "cni")
 $global:NetworkMode = "L2Bridge"
-$global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "` + "`" + `$global:NetworkMode.conf")
+$global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "`+"`"+`$global:NetworkMode.conf")
 $global:CNIConfigPath = [Io.path]::Combine("$global:CNIPath", "config")
 
 
@@ -5061,26 +5060,26 @@ try
 
         # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
         Write-Log "Write Azure cloud provider config"
-        Write-AzureConfig ` + "`" + `
-            -KubeDir $global:KubeDir ` + "`" + `
-            -AADClientId $AADClientId ` + "`" + `
-            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) ` + "`" + `
-            -TenantId $global:TenantId ` + "`" + `
-            -SubscriptionId $global:SubscriptionId ` + "`" + `
-            -ResourceGroup $global:ResourceGroup ` + "`" + `
-            -Location $Location ` + "`" + `
-            -VmType $global:VmType ` + "`" + `
-            -SubnetName $global:SubnetName ` + "`" + `
-            -SecurityGroupName $global:SecurityGroupName ` + "`" + `
-            -VNetName $global:VNetName ` + "`" + `
-            -RouteTableName $global:RouteTableName ` + "`" + `
-            -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName ` + "`" + `
-            -PrimaryScaleSetName $global:PrimaryScaleSetName ` + "`" + `
-            -UseManagedIdentityExtension $global:UseManagedIdentityExtension ` + "`" + `
-            -UserAssignedClientID $UserAssignedClientID ` + "`" + `
-            -UseInstanceMetadata $global:UseInstanceMetadata ` + "`" + `
-            -LoadBalancerSku $global:LoadBalancerSku ` + "`" + `
-            -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB ` + "`" + `
+        Write-AzureConfig `+"`"+`
+            -KubeDir $global:KubeDir `+"`"+`
+            -AADClientId $AADClientId `+"`"+`
+            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
+            -TenantId $global:TenantId `+"`"+`
+            -SubscriptionId $global:SubscriptionId `+"`"+`
+            -ResourceGroup $global:ResourceGroup `+"`"+`
+            -Location $Location `+"`"+`
+            -VmType $global:VmType `+"`"+`
+            -SubnetName $global:SubnetName `+"`"+`
+            -SecurityGroupName $global:SecurityGroupName `+"`"+`
+            -VNetName $global:VNetName `+"`"+`
+            -RouteTableName $global:RouteTableName `+"`"+`
+            -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `+"`"+`
+            -PrimaryScaleSetName $global:PrimaryScaleSetName `+"`"+`
+            -UseManagedIdentityExtension $global:UseManagedIdentityExtension `+"`"+`
+            -UserAssignedClientID $UserAssignedClientID `+"`"+`
+            -UseInstanceMetadata $global:UseInstanceMetadata `+"`"+`
+            -LoadBalancerSku $global:LoadBalancerSku `+"`"+`
+            -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `+"`"+`
             -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}} 
 
         # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
@@ -5092,7 +5091,7 @@ try
         {{end}}
 
         Write-Log "Write ca root"
-        Write-CACert -CACertificate $global:CACertificate ` + "`" + `
+        Write-CACert -CACertificate $global:CACertificate `+"`"+`
             -KubeDir $global:KubeDir
 
         if ($global:EnableCsiProxy) {
@@ -5100,11 +5099,11 @@ try
         }
 
         Write-Log "Write kube config"
-        Write-KubeConfig -CACertificate $global:CACertificate ` + "`" + `
-            -KubeDir $global:KubeDir ` + "`" + `
-            -MasterFQDNPrefix $MasterFQDNPrefix ` + "`" + `
-            -MasterIP $MasterIP ` + "`" + `
-            -AgentKey $AgentKey ` + "`" + `
+        Write-KubeConfig -CACertificate $global:CACertificate `+"`"+`
+            -KubeDir $global:KubeDir `+"`"+`
+            -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
+            -MasterIP $MasterIP `+"`"+`
+            -AgentKey $AgentKey `+"`"+`
             -AgentCertificate $global:AgentCertificate
 
         if ($global:EnableHostsConfigAgent) {
@@ -5142,27 +5141,27 @@ try
 
         if ($global:NetworkPlugin -eq "azure") {
             Write-Log "Installing Azure VNet plugins"
-            Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir ` + "`" + `
-                -AzureCNIBinDir $global:AzureCNIBinDir ` + "`" + `
+            Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
+                -AzureCNIBinDir $global:AzureCNIBinDir `+"`"+`
                 -VNetCNIPluginsURL $global:VNetCNIPluginsURL
 
-            Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir ` + "`" + `
-                -KubeDnsSearchPath $global:KubeDnsSearchPath ` + "`" + `
-                -KubeClusterCIDR $global:KubeClusterCIDR ` + "`" + `
-                -KubeServiceCIDR $global:KubeServiceCIDR ` + "`" + `
-                -VNetCIDR $global:VNetCIDR ` + "`" + `
+            Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
+                -KubeDnsSearchPath $global:KubeDnsSearchPath `+"`"+`
+                -KubeClusterCIDR $global:KubeClusterCIDR `+"`"+`
+                -KubeServiceCIDR $global:KubeServiceCIDR `+"`"+`
+                -VNetCIDR $global:VNetCIDR `+"`"+`
                 -IsDualStackEnabled $global:IsDualStackEnabled
 
             if ($TargetEnvironment -ieq "AzureStackCloud") {
-                GenerateAzureStackCNIConfig ` + "`" + `
-                    -TenantId $global:TenantId ` + "`" + `
-                    -SubscriptionId $global:SubscriptionId ` + "`" + `
-                    -ResourceGroup $global:ResourceGroup ` + "`" + `
-                    -AADClientId $AADClientId ` + "`" + `
-                    -KubeDir $global:KubeDir ` + "`" + `
-                    -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) ` + "`" + `
-                    -NetworkAPIVersion $NetworkAPIVersion ` + "`" + `
-                    -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) ` + "`" + `
+                GenerateAzureStackCNIConfig `+"`"+`
+                    -TenantId $global:TenantId `+"`"+`
+                    -SubscriptionId $global:SubscriptionId `+"`"+`
+                    -ResourceGroup $global:ResourceGroup `+"`"+`
+                    -AADClientId $AADClientId `+"`"+`
+                    -KubeDir $global:KubeDir `+"`"+`
+                    -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
+                    -NetworkAPIVersion $NetworkAPIVersion `+"`"+`
+                    -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `+"`"+`
                     -IdentitySystem "{{ GetIdentitySystem }}"
             }
         }
@@ -5178,7 +5177,7 @@ try
 
         New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
-        Install-KubernetesServices ` + "`" + `
+        Install-KubernetesServices `+"`"+`
             -KubeDir $global:KubeDir
 
         Get-LogCollectionScripts
@@ -5274,7 +5273,7 @@ Set-VnetPluginMode()
     )
     # Sets Azure VNET CNI plugin operational mode.
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
-    (Get-Content $fileName) | %{$_ -replace "` + "`" + `"mode` + "`" + `":.*", "` + "`" + `"mode` + "`" + `": ` + "`" + `"$Mode` + "`" + `","} | Out-File -encoding ASCII -filepath $fileName
+    (Get-Content $fileName) | %{$_ -replace "`+"`"+`"mode`+"`"+`":.*", "`+"`"+`"mode`+"`"+`": `+"`"+`"$Mode`+"`"+`","} | Out-File -encoding ASCII -filepath $fileName
 }
 
 
@@ -5548,10 +5547,10 @@ function GenerateAzureStackCNIConfig
 
     $localNics = Get-NetAdapter | Select-Object -ExpandProperty MacAddress | ForEach-Object {$_ -replace "-",""}
 
-    $sdnNics = Get-Content $networkInterfacesFile ` + "`" + `
-        | ConvertFrom-Json ` + "`" + `
-        | Select-Object -ExpandProperty value ` + "`" + `
-        | Where-Object { $localNics.Contains($_.properties.macAddress) } ` + "`" + `
+    $sdnNics = Get-Content $networkInterfacesFile `+"`"+`
+        | ConvertFrom-Json `+"`"+`
+        | Select-Object -ExpandProperty value `+"`"+`
+        | Where-Object { $localNics.Contains($_.properties.macAddress) } `+"`"+`
         | Where-Object { $_.properties.ipConfigurations.Count -gt 0}
 
     $interfaces = @{
@@ -5559,10 +5558,10 @@ function GenerateAzureStackCNIConfig
             MacAddress = $_.properties.macAddress
             IsPrimary = $_.properties.primary
             IPSubnets = @(@{
-                Prefix = GetSubnetPrefix ` + "`" + `
-                            -Token $token ` + "`" + `
-                            -SubnetId $_.properties.ipConfigurations[0].properties.subnet.id ` + "`" + `
-                            -NetworkAPIVersion $NetworkAPIVersion ` + "`" + `
+                Prefix = GetSubnetPrefix `+"`"+`
+                            -Token $token `+"`"+`
+                            -SubnetId $_.properties.ipConfigurations[0].properties.subnet.id `+"`"+`
+                            -NetworkAPIVersion $NetworkAPIVersion `+"`"+`
                             -ResourceManagerEndpoint $($azureEnvironment.resourceManagerEndpoint)
                 IPAddresses = $_.properties.ipConfigurations | ForEach-Object { @{
                     Address = $_.properties.privateIPAddress
@@ -5584,7 +5583,7 @@ function New-ExternalHnsNetwork
         $IsDualStackEnabled
     )
 
-    Write-Log "Creating new HNS network ` + "`" + `"ext` + "`" + `""
+    Write-Log "Creating new HNS network `+"`"+`"ext`+"`"+`""
     $externalNetwork = "ext"
     $na = @(Get-NetAdapter -Physical)
 
@@ -5757,8 +5756,8 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd ca cert>" -NewString ""
     SetConfigParameters -RootDir $CalicoDir -OldString "<your service cidr>" -NewString $KubeServiceCIDR
     SetConfigParameters -RootDir $CalicoDir -OldString "<your dns server ips>" -NewString $KubeDnsServiceIp
-    SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=` + "`" + `"vxlan` + "`" + `"" -NewString "CALICO_NETWORKING_BACKEND=` + "`" + `"none` + "`" + `""
-    SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = ` + "`" + `"Calico.*` + "`" + `"" -NewString "KUBE_NETWORK = ` + "`" + `"azure.*` + "`" + `""
+    SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`+"`"+`"vxlan`+"`"+`"" -NewString "CALICO_NETWORKING_BACKEND=`+"`"+`"none`+"`"+`""
+    SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `+"`"+`"Calico.*`+"`"+`"" -NewString "KUBE_NETWORK = `+"`"+`"azure.*`+"`"+`""
 
     GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
 
@@ -6101,7 +6100,7 @@ function CreateHypervisorRuntimes {
       $hypervRuntimes = $runtime
     }
     else {
-      $hypervRuntimes = $hypervRuntimes + "` + "`" + `r` + "`" + `n" + $runtime
+      $hypervRuntimes = $hypervRuntimes + "`+"`"+`r`+"`"+`n" + $runtime
     }
   }
 
@@ -6207,7 +6206,7 @@ function Install-Containerd {
   Replace('{{hypervisors}}', $hypervRuntimes).
   Replace('{{cnibin}}', $formatedbin).
   Replace('{{cniconf}}', $formatedconf).
-  Replace('{{currentversion}}', $windowsVersion) | ` + "`" + `
+  Replace('{{currentversion}}', $windowsVersion) | `+"`"+`
     Out-File -FilePath "$configFile" -Encoding ascii
 
   RegisterContainerDService
@@ -6361,8 +6360,8 @@ Install-OpenSSH {
     Write-Log "Setting required permissions..."
     icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
     icacls $adminpath\$adminfile /inheritance:r
-    icacls $adminpath\$adminfile /grant SYSTEM:` + "`" + `(F` + "`" + `)
-    icacls $adminpath\$adminfile /grant BUILTIN\Administrators:` + "`" + `(F` + "`" + `)
+    icacls $adminpath\$adminfile /grant SYSTEM:`+"`"+`(F`+"`"+`)
+    icacls $adminpath\$adminfile /grant BUILTIN\Administrators:`+"`"+`(F`+"`"+`)
 
     Write-Log "Restarting sshd service..."
     Restart-Service sshd
@@ -6778,8 +6777,8 @@ Install-KubernetesServices {
     $KubeletStartFile = [io.path]::Combine($KubeDir, "kubeletstart.ps1")
     $KubeProxyStartFile = [io.path]::Combine($KubeDir, "kubeproxystart.ps1")
 
-    New-NSSMService -KubeDir $KubeDir ` + "`" + `
-        -KubeletStartFile $KubeletStartFile ` + "`" + `
+    New-NSSMService -KubeDir $KubeDir `+"`"+`
+        -KubeletStartFile $KubeletStartFile `+"`"+`
         -KubeProxyStartFile $KubeProxyStartFile
 }
 `)
@@ -6957,20 +6956,20 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
-				"apt-preferences":            &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
-				"cis.sh":                     &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
-				"containerd-monitor.service": &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
-				"containerd-monitor.timer":   &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
-				"containerd.service":         &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
-				"cse_cmd.sh":                 &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
-				"cse_config.sh":              &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
-				"cse_helpers.sh":             &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
-				"cse_install.sh":             &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
-				"cse_main.sh":                &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
-				"cse_start.sh":               &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
-				"dhcpv6.service":             &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
-				"docker-monitor.service":     &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
-				"docker-monitor.timer":       &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
+				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
+				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
+				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
+				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
+				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
+				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
+				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
+				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
+				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
+				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
+				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
+				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
 				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
