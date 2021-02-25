@@ -409,7 +409,7 @@ TIGERA_OPERATOR_IMAGES="
 1.13.5
 "
 for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:v${TIGERA_OPERATOR_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/operator:v${TIGERA_OPERATOR_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
