@@ -162,8 +162,6 @@ installFIPS() {
     echo "enabling ua fips..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips || exit $ERR_UA_ENABLE_FIPS
 
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-
     echo "installing strongswan..."
     apt_get_install 5 10 120 strongswan=5.6.2-1ubuntu2.fips.2.4.2 || exit $ERR_STRONGSWAN_INSTALL_TIMEOUT
 
@@ -172,8 +170,8 @@ installFIPS() {
     # this causes command '/usr/sbin/dkms build -m nvidia -v 450.51.06 -k 4.15.0-1002-azure-fips' for GPU provisioning in CSE to fail
     # however linux-headers-4.15.0-1002-azure doesn't exist any more, install closest 1011 to workaround
     if [[ ! -d /usr/src/linux-azure-headers-4.15.0-1002 ]]; then
-        echo "installing linux-fips-headers-4.15.0-1011..."
-        apt_get_install 5 10 120 linux-headers-fips=4.15.0.1011.14 || exit $LINUX_HEADER_INSTALL_TIMEOUT
+        echo "installing linux-headers-fips..."
+        apt_get_install 5 10 120 linux-headers-fips || exit $LINUX_HEADER_INSTALL_TIMEOUT
         ln -s /usr/src/linux-fips-headers-4.15.0-1011 /usr/src/linux-azure-headers-4.15.0-1002
     fi
 
