@@ -165,7 +165,7 @@ installFIPS() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     echo "installing strongswan..."
-    apt_get_install 5 10 120 strongswan || exit $ERR_STRONGSWAN_INSTALL_TIMEOUT
+    apt_get_install 5 10 120 strongswan=5.6.2-1ubuntu2.fips.2.4.2 || exit $ERR_STRONGSWAN_INSTALL_TIMEOUT
 
     # workaround to make GPU provisioning in CSE work
     # under /usr/src/linux-headers-4.15.0-1002-azure-fips there are some dangling symlinks to non-existing linux-azure-headers-4.15.0-1002
@@ -173,14 +173,14 @@ installFIPS() {
     # however linux-headers-4.15.0-1002-azure doesn't exist any more, install closest 1011 to workaround
     if [[ ! -d /usr/src/linux-azure-headers-4.15.0-1002 ]]; then
         echo "installing linux-fips-headers-4.15.0-1011..."
-        apt_get_install 5 10 120 linux-fips-headers-4.15.0-1011 || exit $LINUX_HEADER_INSTALL_TIMEOUT
+        apt_get_install 5 10 120 linux-headers-fips=4.15.0.1011.14 || exit $LINUX_HEADER_INSTALL_TIMEOUT
         ln -s /usr/src/linux-fips-headers-4.15.0-1011 /usr/src/linux-azure-headers-4.15.0-1002
     fi
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
-    #echo "detaching ua..."
-    #retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
+    echo "detaching ua..."
+    retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
 
     echo "removing ua tools..."
     apt_get_purge 5 10 120 ubuntu-advantage-tools
