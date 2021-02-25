@@ -221,6 +221,10 @@ imagesToBePulled='
     "versions": ["3.17.2"]
   },
   {
+    "downloadURL": "mcr.microsoft.com/oss/tigera/operator:v*",
+    "versions": ["1.13.5"]
+  },
+  {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v*",
     "versions": ["0.5.1","0.6.0","0.7.0"]
   },
