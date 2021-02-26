@@ -201,3 +201,10 @@ const (
 	// AppGwIngressAddonName appgw addon
 	AppGwIngressAddonName = "appgw-ingress"
 )
+
+const (
+	// VMSSInstanceErrorCode is used to parse vmss instance error code
+	VMSSInstanceErrorCode = "vmssInstanceErrorCode"
+	// InvalidCSEMessage is the error code for vmss cse invalid message
+	InvalidCSEMessage = "InvalidCSEMessage"
+)
