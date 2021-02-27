@@ -280,11 +280,15 @@ cleanUpImages() {
 }
 
 cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), cleanUpHyperkubeImages
     cleanUpImages "hyperkube"
+    echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
@@ -307,18 +311,6 @@ cleanUpGPUDrivers() {
 
 cleanUpContainerd() {
     rm -Rf $CONTAINERD_DOWNLOADS_DIR
-}
-
-configureGPUDrivers() {
-  if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-  fi
-  ensureGPUDrivers
-  if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-      systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-  else
-      systemctlDisableAndStop nvidia-device-plugin
-  fi
 }
 
 overrideNetworkConfig() {
