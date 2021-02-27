@@ -105,6 +105,7 @@ ensureSysctl
 ensureKubelet
 ensureJournal
 ensureUpdateNodeLabels
+
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         
@@ -143,12 +144,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        "aptmarkWALinuxAgent unhold" &
+        aptmarkWALinuxAgent unhold &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        "aptmarkWALinuxAgent unhold" &
+        aptmarkWALinuxAgent unhold &
     fi
 fi
 
