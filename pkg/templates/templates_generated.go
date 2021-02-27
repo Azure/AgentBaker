@@ -1091,15 +1091,8 @@ DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
 NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
 
-run_and_log_execution_time() {
-  func=$1
-  start_time=$(date +%s)
-  eval $func
-  end_time=$(date +%s)
-  echo "$func:$(($end_time - $start_time)) seconds" >> /var/log/azure/cluster-provision-execution-durations.log  2>&1
-}
-
 aptmarkWALinuxAgent() {
+    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [[ "$1" == "hold" ]]; then
@@ -1107,6 +1100,7 @@ aptmarkWALinuxAgent() {
     elif [[ "$1" == "unhold" ]]; then
         exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
+    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
 
 retrycmd_if_failure() {
@@ -1719,11 +1713,15 @@ cleanUpImages() {
 }
 
 cleanUpHyperkubeImages() {
+    echo $(date),$(hostname), cleanUpHyperkubeImages
     cleanUpImages "hyperkube"
+    echo $(date),$(hostname), endCleanUpHyperkubeImages
 }
 
 cleanUpKubeProxyImages() {
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanUpContainerImages() {
@@ -1746,18 +1744,6 @@ cleanUpGPUDrivers() {
 
 cleanUpContainerd() {
     rm -Rf $CONTAINERD_DOWNLOADS_DIR
-}
-
-configureGPUDrivers() {
-  if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-  fi
-  ensureGPUDrivers
-  if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-      systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-  else
-      systemctlDisableAndStop nvidia-device-plugin
-  fi
 }
 
 overrideNetworkConfig() {
@@ -1844,17 +1830,17 @@ fi
 configureAdminUser
 
 {{- if not NeedsContainerd}}
-run_and_log_execution_time cleanUpContainerd
+cleanUpContainerd
 {{end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    run_and_log_execution_time cleanUpGPUDrivers
+    cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    run_and_log_execution_time cleanUpContainerImages
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -1865,26 +1851,42 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    run_and_log_execution_time installDeps
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-run_and_log_execution_time installContainerRuntime
+installContainerRuntime
 {{- if NeedsContainerd}}
-run_and_log_execution_time installCrictl
+installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
-run_and_log_execution_time installTeleportdPlugin
+installTeleportdPlugin
 {{end}}
 {{end}}
 
-run_and_log_execution_time installNetworkPlugin
+installNetworkPlugin
+
+{{- if IsNSeriesSKU}}
+echo $(date),$(hostname), "Start configuring GPU drivers"
+if [[ "${GPU_NODE}" = true ]]; then
+    if $FULL_INSTALL_REQUIRED; then
+        installGPUDrivers	
+    fi
+    ensureGPUDrivers
+    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    else
+        systemctlDisableAndStop nvidia-device-plugin
+    fi
+fi
+echo $(date),$(hostname), "End configuring GPU drivers"
+{{end}}
 
 {{- if IsNSeriesSKU}}
 if [[ "${GPU_NODE}" = true ]]; then
-  run_and_log_execution_time configureGPUDrivers
+  configureGPUDrivers
 fi
 {{end}}
 
@@ -1892,17 +1894,17 @@ fi
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 {{end}}
 
-run_and_log_execution_time installKubeletKubectlAndKubeProxy
+installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
 fi
 
-run_and_log_execution_time createKubeManifestDir
+createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    run_and_log_execution_time installSGXDrivers
+    installSGXDrivers
 fi
 {{end}}
 
@@ -1911,39 +1913,39 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-run_and_log_execution_time configureK8s
+configureK8s
 
-run_and_log_execution_time configureCNI
+configureCNI
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-run_and_log_execution_time ensureDHCPv6
+ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
-run_and_log_execution_time ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
-run_and_log_execution_time ensureDocker
+ensureDocker
 {{- end}}
 
-run_and_log_execution_time ensureMonitorService
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
-run_and_log_execution_time configPrivateClusterHosts
+configPrivateClusterHosts
 {{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
-run_and_log_execution_time configureTransparentHugePage
+configureTransparentHugePage
 {{- end}}
 
 {{- if ShouldConfigSwapFile}}
-run_and_log_execution_time configureSwapFile
+configureSwapFile
 {{- end}}
 
-run_and_log_execution_time ensureSysctl
-run_and_log_execution_time ensureKubelet
-run_and_log_execution_time ensureJournal
-run_and_log_execution_time ensureUpdateNodeLabels
+ensureSysctl
+ensureKubelet
+ensureJournal
+ensureUpdateNodeLabels
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
@@ -1989,12 +1991,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
+        "aptmarkWALinuxAgent unhold" &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
+        "aptmarkWALinuxAgent unhold" &
     fi
 fi
 
@@ -2028,16 +2030,14 @@ EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(cat /var/log/azure/cluster-provision-cse-output.log | head -n 30)
 START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
-CSE_EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
-echo "CSE Total Execution Duration:$CSE_EXECUTION_DURATION  seconds" >> /var/log/azure/cluster-provision-execution-durations.log 2>&1
-EXECUTION_DURATIONS=$(cat /var/log/azure/cluster-provision-execution-durations.log)
+EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
 
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
                   --arg op "$OUTPUT" \
                   --arg er "" \
-                  --arg ed "$EXECUTION_DURATIONS" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, CSEExecutionDurations: $ed}' )
+                  --arg ed "$EXECUTION_DURATION" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 

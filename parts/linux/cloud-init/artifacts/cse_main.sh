@@ -55,17 +55,17 @@ fi
 configureAdminUser
 
 {{- if not NeedsContainerd}}
-run_and_log_execution_time cleanUpContainerd
+cleanUpContainerd
 {{end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    run_and_log_execution_time cleanUpGPUDrivers
+    cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    run_and_log_execution_time cleanUpContainerImages
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -76,44 +76,54 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    run_and_log_execution_time installDeps
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-run_and_log_execution_time installContainerRuntime
+installContainerRuntime
 {{- if NeedsContainerd}}
-run_and_log_execution_time installCrictl
+installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
-run_and_log_execution_time installTeleportdPlugin
+installTeleportdPlugin
 {{end}}
 {{end}}
 
-run_and_log_execution_time installNetworkPlugin
+installNetworkPlugin
 
 {{- if IsNSeriesSKU}}
+echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-  run_and_log_execution_time configureGPUDrivers
+    if $FULL_INSTALL_REQUIRED; then
+        installGPUDrivers	
+    fi
+    ensureGPUDrivers
+    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    else
+        systemctlDisableAndStop nvidia-device-plugin
+    fi
 fi
+echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 {{end}}
 
-run_and_log_execution_time installKubeletKubectlAndKubeProxy
+installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
 fi
 
-run_and_log_execution_time createKubeManifestDir
+createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    run_and_log_execution_time installSGXDrivers
+    installSGXDrivers
 fi
 {{end}}
 
@@ -122,39 +132,39 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-run_and_log_execution_time configureK8s
+configureK8s
 
-run_and_log_execution_time configureCNI
+configureCNI
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-run_and_log_execution_time ensureDHCPv6
+ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
-run_and_log_execution_time ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
-run_and_log_execution_time ensureDocker
+ensureDocker
 {{- end}}
 
-run_and_log_execution_time ensureMonitorService
+ensureMonitorService
 
 {{- if EnableHostsConfigAgent}}
-run_and_log_execution_time configPrivateClusterHosts
+configPrivateClusterHosts
 {{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
-run_and_log_execution_time configureTransparentHugePage
+configureTransparentHugePage
 {{- end}}
 
 {{- if ShouldConfigSwapFile}}
-run_and_log_execution_time configureSwapFile
+configureSwapFile
 {{- end}}
 
-run_and_log_execution_time ensureSysctl
-run_and_log_execution_time ensureKubelet
-run_and_log_execution_time ensureJournal
-run_and_log_execution_time ensureUpdateNodeLabels
+ensureSysctl
+ensureKubelet
+ensureJournal
+ensureUpdateNodeLabels
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
@@ -200,12 +210,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
+        "aptmarkWALinuxAgent unhold" &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
+        "aptmarkWALinuxAgent unhold" &
     fi
 fi
 

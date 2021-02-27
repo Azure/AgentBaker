@@ -55,13 +55,13 @@ fi
 configureAdminUser
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    run_and_log_execution_time cleanUpGPUDrivers
+    cleanUpGPUDrivers
 fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    run_and_log_execution_time cleanUpContainerImages
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -72,44 +72,58 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    run_and_log_execution_time installDeps
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-run_and_log_execution_time installContainerRuntime
-run_and_log_execution_time installCrictl
+installContainerRuntime
+installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
 CLI_TOOL="crictl"
 
 
-run_and_log_execution_time installNetworkPlugin
+installNetworkPlugin
+echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-  run_and_log_execution_time configureGPUDrivers
+    if $FULL_INSTALL_REQUIRED; then
+        installGPUDrivers	
+    fi
+    ensureGPUDrivers
+    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    else
+        systemctlDisableAndStop nvidia-device-plugin
+    fi
+fi
+echo $(date),$(hostname), "End configuring GPU drivers"
+
+if [[ "${GPU_NODE}" = true ]]; then
+  configureGPUDrivers
 fi
 
 
-run_and_log_execution_time installKubeletKubectlAndKubeProxy
+installKubeletKubectlAndKubeProxy
 
 if [[ $OS != $COREOS_OS_NAME ]]; then
     ensureRPC
 fi
 
-run_and_log_execution_time createKubeManifestDir
+createKubeManifestDir
 
-run_and_log_execution_time configureK8s
+configureK8s
 
-run_and_log_execution_time configureCNI
+configureCNI
 
 
-run_and_log_execution_time ensureContainerd 
+ensureContainerd 
 
-run_and_log_execution_time ensureMonitorService
+ensureMonitorService
 
-run_and_log_execution_time ensureSysctl
-run_and_log_execution_time ensureKubelet
-run_and_log_execution_time ensureJournal
-run_and_log_execution_time ensureUpdateNodeLabels
+ensureSysctl
+ensureKubelet
+ensureJournal
+ensureUpdateNodeLabels
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         
@@ -149,12 +163,12 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
+        "aptmarkWALinuxAgent unhold" &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         /usr/lib/apt/apt.systemd.daily &
-        run_and_log_execution_time "aptmarkWALinuxAgent unhold" &
+        "aptmarkWALinuxAgent unhold" &
     fi
 fi
 
