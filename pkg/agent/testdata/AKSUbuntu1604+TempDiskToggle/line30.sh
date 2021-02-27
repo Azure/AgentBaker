@@ -266,7 +266,7 @@ cleanUpImages() {
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            images=$(${images_to_delete}) #alternatively use IFS+read but we are using bash anyways so this works too
+            images=(${images_to_delete}) #alternatively use IFS+read but we are using bash anyways so this works too
             for image in "${images[@]}"
             do
                 
