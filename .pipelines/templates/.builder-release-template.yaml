@@ -87,7 +87,7 @@ steps:
       -e SA_NAME=${SA_NAME} \
       -e IMAGE_NAME=${IMAGE_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
-    displayName: Clean Up Remaining Resources
+    displayName: Clean Up Packer Generated Resources
     condition: always()
   - bash: |
         echo MODE=$(MODE) && \
