@@ -96,10 +96,6 @@ if [[ "${GPU_NODE}" = true ]]; then
 fi
 echo $(date),$(hostname), "End configuring GPU drivers"
 
-if [[ "${GPU_NODE}" = true ]]; then
-  configureGPUDrivers
-fi
-
 
 installKubeletKubectlAndKubeProxy
 
