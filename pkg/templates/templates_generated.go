@@ -1884,12 +1884,6 @@ fi
 echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
-{{- if IsNSeriesSKU}}
-if [[ "${GPU_NODE}" = true ]]; then
-  configureGPUDrivers
-fi
-{{end}}
-
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 {{end}}
