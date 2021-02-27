@@ -98,6 +98,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/components.json",
+      "destination": "/home/packer/components.json"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
     },
