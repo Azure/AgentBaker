@@ -90,7 +90,7 @@ testAuditDNotPresent() {
   echo "$test:Finish"
 }
 
-testFipsKernel() {
+testFips() {
   test="testFipsKernel"
   echo "$test:Start"
   ubuntu_sku=$1
@@ -98,10 +98,10 @@ testFipsKernel() {
 
   if [[ ${ubuntu_sku} == "18.04" && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
-    if [[ "$kernel" == *"fips"* ]]; then
-        echo "${kernel} is fips kernel."
+    if [[ -f /proc/sys/crypto/fips_enabled ]]; then
+        echo "FIPS is enabled."
     else
-        err $test "${kernel} is not fips kernel."
+        err $test "FIPS is not enabled."
     fi
 
     if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
@@ -326,4 +326,4 @@ imagesToBePulled='
 testFilesDownloaded "$filesToDownload"
 testImagesPulled $1 "$imagesToBePulled"
 testAuditDNotPresent
-testFipsKernel $2 $3
+testFips $2 $3
