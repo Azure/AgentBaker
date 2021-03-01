@@ -9,10 +9,10 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
-if [[ ${UBUNTU_RELEASE} == "16.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+if [[ ${UBUNTU_SKU} == "16.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   echo "AKS enables FIPS on 18.04 only, exiting..."
   exit 1
-elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+elif [[ ${UBUNTU_SKU} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
 fi
 

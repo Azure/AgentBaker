@@ -90,6 +90,30 @@ testAuditDNotPresent() {
   echo "$test:Finish"
 }
 
+testFipsKernel() {
+  test="testFipsKernel"
+  echo "$test:Start"
+  ubuntu_sku=$1
+  enable_fips=$2
+
+  if [[ ${ubuntu_sku} == "18.04" && ${enable_fips,,} == "true" ]]; then
+    kernel=$(uname -r)
+    if [[ "$kernel" == *"fips"* ]]; then
+        echo "${kernel} is fips kernel."
+    else
+        err $test "${kernel} is not fips kernel."
+    fi
+
+    if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+        echo "fips header files exist."
+    else
+        err $test "fips header files don't exist."
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -302,3 +326,4 @@ imagesToBePulled='
 testFilesDownloaded "$filesToDownload"
 testImagesPulled $1 "$imagesToBePulled"
 testAuditDNotPresent
+testFipsKernel $2 $3
