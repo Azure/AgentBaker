@@ -45,6 +45,7 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
+  imagesToBePulled=$2
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
   elif [ $containerRuntime == 'docker' ]; then
@@ -56,7 +57,7 @@ testImagesPulled() {
 
   imagesNotPulled=()
 
-  imagesToBePulled=$(jq ".ContainerImages" vhdbuilder/packer/components.json | jq .[] --monochrome-output --compact-output)
+  imagesToBePulled=$(echo $imagesToBePulled | jq ".ContainerImages" | jq .[] --monochrome-output --compact-output)
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
@@ -127,5 +128,5 @@ filesToDownload='
 '
 
 testFilesDownloaded "$filesToDownload"
-testImagesPulled $1
+testImagesPulled $1 $2
 testAuditDNotPresent
