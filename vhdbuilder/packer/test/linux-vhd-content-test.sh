@@ -198,7 +198,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-    "versions": ["ciprod10272020","ciprod11092020","ciprod01112021"]
+    "versions": ["ciprod11092020","ciprod01112021","ciprod02232021"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/cni:v*",
@@ -219,6 +219,14 @@ imagesToBePulled='
   {
     "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:v*",
     "versions": ["3.17.2"]
+  },
+  {
+    "downloadURL": "mcr.microsoft.com/oss/tigera/operator:v*",
+    "versions": ["1.13.5"]
+  },
+  {
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v*",
+    "versions": ["0.5.1","0.6.0","0.7.0"]
   },
   {
     "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
