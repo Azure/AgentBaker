@@ -94,6 +94,7 @@ phases:
           -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+          -e ENABLE_FIPS=${ENABLE_FIPS} \
           ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
         displayName: Run VHD Tests
       - task: PublishPipelineArtifact@0
@@ -164,6 +165,7 @@ phases:
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
           VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
           SKU_NAME=$UBUNTU_SKU; fi && \
+          if [[ ${UBUNTU_SKU} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
           if [[ "${FEATURE_FLAGS}" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
