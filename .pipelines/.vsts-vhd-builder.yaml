@@ -117,6 +117,7 @@ phases:
         displayName: Copying resource to Classic Storage Account
         condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
       - bash: |
+          echo MODE=$(MODE) && \
           PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
           create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -134,7 +135,7 @@ phases:
           -e SA_NAME=${SA_NAME} \
           -e IMAGE_NAME=${IMAGE_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk cleanup
-        displayName: Clean Up Remaining Resources
+        displayName: Clean Up Packer Generated Resources
         condition: always()
       - bash: |
           echo MODE=$(MODE) && \

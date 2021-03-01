@@ -697,7 +697,7 @@ AZURE_CLOUD_NODE_MANAGER_VERSIONS="
 0.7.0
 "
 for AZURE_CLOUD_NODE_MANAGER_VERSION in ${AZURE_CLOUD_NODE_MANAGER_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:${AZURE_CLOUD_NODE_MANAGER_VERSION}"
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v${AZURE_CLOUD_NODE_MANAGER_VERSION}"
   pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
   echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
