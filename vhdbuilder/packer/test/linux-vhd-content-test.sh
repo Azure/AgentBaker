@@ -46,6 +46,7 @@ testImagesPulled() {
   echo "$test:Start"
   containerRuntime=$1
   imagesToBePulled=$2
+  echo $imagesToBePulled
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
   elif [ $containerRuntime == 'docker' ]; then
@@ -58,10 +59,11 @@ testImagesPulled() {
   imagesNotPulled=()
 
   imagesToBePulled=$(echo $imagesToBePulled | jq ".ContainerImages" | jq .[] --monochrome-output --compact-output)
+  echo $imagesToBePulled
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
-
+    echo "$downloadURL $versions"
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
