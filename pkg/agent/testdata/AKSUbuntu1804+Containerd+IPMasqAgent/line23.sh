@@ -11,6 +11,8 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
     echo $?
     sudo systemctl restart systemd-timesyncd
+else
+    disableNtpAndTimesyncdInstallChrony
 fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
