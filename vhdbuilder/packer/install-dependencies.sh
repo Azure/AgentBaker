@@ -1,7 +1,15 @@
 #!/bin/bash
+
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
+
 source /home/packer/provision_installs.sh
+source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
+source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
+source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -78,6 +86,7 @@ fi
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
 installGPUDrivers
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
@@ -86,6 +95,7 @@ echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
     ensureGPUDrivers
+fi
 fi
 
 installBcc
@@ -255,6 +265,8 @@ for AZURE_VNET_TELEMETRY_VERSION in ${AZURE_VNET_TELEMETRY_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 1.11
 1.10
@@ -312,6 +324,7 @@ if [[ ${installSGX} == "True" ]]; then
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
+fi
 fi
 
 TUNNELFRONT_VERSIONS="

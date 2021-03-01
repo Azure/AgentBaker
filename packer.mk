@@ -12,6 +12,16 @@ else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
 
+build-packer-mariner:
+ifeq (${MODE},gen2Mode)
+	$(error gen2Mode not supported yet)
+else ifeq (${MODE},sigMode)
+	$(error sigMode not supported yet)
+else
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
+
 build-packer-windows:
 ifeq (${MODE},sigMode)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"

@@ -5,3 +5,4 @@ rm -f /root/.ssh/authorized_keys
 rm -f /home/packer/.ssh/authorized_keys
 rm -f /etc/machine-id
 touch /etc/machine-id
+chmod 644 /etc/machine-id
