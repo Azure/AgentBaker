@@ -136,7 +136,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-ContainerImages=$(jq ".ContainerImages" components.json | jq .[] --monochrome-output --compact-output)
+ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")

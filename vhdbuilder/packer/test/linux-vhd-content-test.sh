@@ -45,7 +45,8 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  imagesToBePulled=$(cat /opt/azure/components.json)
+  components_filepath=/opt/azure/components.json
+  imagesToBePulled=$(cat $components_filepath)
   echo $imagesToBePulled
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
@@ -63,7 +64,6 @@ testImagesPulled() {
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
-    echo "$downloadURL $versions"
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
