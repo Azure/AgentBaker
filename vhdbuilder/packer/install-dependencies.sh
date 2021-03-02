@@ -5,7 +5,9 @@ source /home/packer/tool_installs.sh
 source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-
+COMPONENTS_FILEPATH=/opt/azure/components.json
+#this is used by post build test to check whether the compoenents do indeed exist
+cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 copyPackerFiles

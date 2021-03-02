@@ -45,7 +45,7 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  imagesToBePulled=$2
+  imagesToBePulled=$(cat /opt/azure/components.json)
   echo $imagesToBePulled
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
@@ -130,5 +130,5 @@ filesToDownload='
 '
 
 testFilesDownloaded "$filesToDownload"
-testImagesPulled $1 $2
+testImagesPulled $1
 testAuditDNotPresent

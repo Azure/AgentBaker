@@ -73,13 +73,12 @@ CDIR=$(dirname $FULL_PATH)
 
 if [ "$OS_TYPE" == "Linux" ]; then
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-  containerImages=$(cat vhdbuilder/packer/components.json)
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${containerImages}) && break
+      --parameters ${CONTAINER_RUNTIME}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
