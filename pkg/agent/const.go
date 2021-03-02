@@ -103,7 +103,6 @@ const (
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
 	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"
 	dockerClearMountPropagationFlags          = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"
-	systemdBPFMount                           = "linux/cloud-init/artifacts/sys-fs-bpf.mount"
 	etcdSystemdService                        = "linux/cloud-init/artifacts/etcd.service"
 	reconcilePrivateHostsScript               = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
 	reconcilePrivateHostsService              = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
