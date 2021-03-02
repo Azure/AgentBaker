@@ -709,14 +709,15 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
     extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
   fi
 done
-{ echo "kubelet/kubectl downloaded:" } >> ${VHD_LOGS_FILEPATH}
+
+echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
-{ echo "Disk usage:" } >> ${VHD_LOGS_FILEPATH}
-{ df -h } >> ${VHD_LOGS_FILEPATH}
+echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
+df -h >> ${VHD_LOGS_FILEPATH}
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken
