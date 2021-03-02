@@ -144,54 +144,25 @@ var expectedKubeletJSON string = `{
 
 func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 	cases := []struct {
-		cs                                   *datamodel.ContainerService
-		profile                              *datamodel.AgentPoolProfile
+		tlsBootstrapToken                    *string
 		kubeletClientTLSBootstrappingEnabled bool
 		expected                             bool
 		reason                               string
 	}{
 		{
-			cs: &datamodel.ContainerService{
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorVersion: "1.18.3",
-					},
-				},
-			},
-			profile:                              &datamodel.AgentPoolProfile{},
+			tlsBootstrapToken:                    nil,
 			kubeletClientTLSBootstrappingEnabled: false,
 			expected:                             false,
 			reason:                               "toggle disabled",
 		},
 		{
-			cs: &datamodel.ContainerService{
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorVersion: "1.18.3",
-					},
-				},
-			},
-			profile: &datamodel.AgentPoolProfile{
-				TLSBootstrapToken: nil,
-			},
+			tlsBootstrapToken:                    nil,
 			kubeletClientTLSBootstrappingEnabled: true,
 			expected:                             false,
 			reason:                               "agent pool TLS bootstrap token not set",
 		},
 		{
-			cs: &datamodel.ContainerService{
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorVersion: "1.18.3",
-					},
-				},
-			},
-			profile: &datamodel.AgentPoolProfile{
-				TLSBootstrapToken: &datamodel.TLSBootstrapToken{
-					TokenID:     "foobar",
-					TokenSecret: "foobar",
-				},
-			},
+			tlsBootstrapToken:                    to.StringPtr("foobar.foobar"),
 			kubeletClientTLSBootstrappingEnabled: true,
 			expected:                             true,
 			reason:                               "supported",
@@ -199,7 +170,7 @@ func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		actual := IsKubeletClientTLSBootstrappingEnabled(c.cs, c.profile, c.kubeletClientTLSBootstrappingEnabled)
+		actual := IsKubeletClientTLSBootstrappingEnabled(c.tlsBootstrapToken, c.kubeletClientTLSBootstrappingEnabled)
 		if actual != c.expected {
 			t.Errorf("%s: expected=%t, actual=%t", c.reason, c.expected, actual)
 		}
@@ -208,26 +179,21 @@ func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 
 func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 	cases := []struct {
-		profile  *datamodel.AgentPoolProfile
+		token    *string
 		expected string
 	}{
 		{
-			profile:  &datamodel.AgentPoolProfile{},
+			token:    nil,
 			expected: "",
 		},
 		{
-			profile: &datamodel.AgentPoolProfile{
-				TLSBootstrapToken: &datamodel.TLSBootstrapToken{
-					TokenID:     "foo",
-					TokenSecret: "bar",
-				},
-			},
+			token:    to.StringPtr("foo.bar"),
 			expected: "foo.bar",
 		},
 	}
 
 	for _, c := range cases {
-		actual := GetTLSBootstrapTokenForKubeConfig(c.profile)
+		actual := GetTLSBootstrapTokenForKubeConfig(c.token)
 		if actual != c.expected {
 			t.Errorf("GetTLSBootstrapTokenForKubeConfig: expected=%s, actual=%s", c.expected, actual)
 		}

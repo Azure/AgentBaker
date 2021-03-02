@@ -327,7 +327,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 
-
 		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=true", "AKSUbuntu1604+Disable1804SystemdResolved=true", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.Disable1804SystemdResolved = true
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -366,10 +365,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableKubeletClientTLSBootstrapping = true
-			config.ContainerService.Properties.AgentPoolProfiles[0].TLSBootstrapToken = &datamodel.TLSBootstrapToken{
-				TokenID:     "07401b",
-				TokenSecret: "f395accd246ae52d",
-			}
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}))
 })
 
