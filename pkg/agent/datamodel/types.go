@@ -1438,8 +1438,7 @@ type NodeBootstrappingConfiguration struct {
 	TeleportdPluginURL            string
 
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
-	// When this feature flag is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
-	//
+	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
 	KubeletClientTLSBootstrapToken *string
 }
