@@ -313,6 +313,11 @@ function Update-WindowsFeatures {
     }
 }
 
+function Update-Registry {
+    Write-Host "Enable a HNS fix in 2021-2C"
+    reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\hns\State /v HNSControlFlag /t REG_DWORD /d 1
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -349,6 +354,7 @@ switch ($env:ProvisioningPhase) {
         if ($containerRuntime -eq 'containerd') {
             Install-ContainerD
         }
+        Update-Registry
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
