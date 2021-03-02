@@ -4195,7 +4195,11 @@ $arguments = '
 -UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
 {{ end }}
 -TargetEnvironment {{ GetTargetEnvironment }}
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+-TLSBootstrapToken {{ GetTLSBootstrapTokenForKubeConfig }}
+{{- else }}
 -AgentKey {{ GetParameter "clientPrivateKey" }}
+{{- end }}
 -AADClientId {{ GetParameter "servicePrincipalClientId" }}
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01';
@@ -4612,10 +4616,17 @@ param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $Location,
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $TLSBootstrapToken,
+{{- else}}
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $AgentKey,
+{{- end}}
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -4951,6 +4962,15 @@ try
         if ($global:EnableCsiProxy) {
             New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
         }
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+
+        Write-Log "Write TLS bootstrap kubeconfig"
+        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
+            -KubeDir $global:KubeDir `+"`"+`
+            -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
+            -MasterIP $MasterIP `+"`"+`
+            -TLSBootstrapToken $TLSBootstrapToken
+{{- else}}
 
         Write-Log "Write kube config"
         Write-KubeConfig -CACertificate $global:CACertificate `+"`"+`
@@ -4959,6 +4979,7 @@ try
             -MasterIP $MasterIP `+"`"+`
             -AgentKey $AgentKey `+"`"+`
             -AgentCertificate $global:AgentCertificate
+{{- end}}
 
         if ($global:EnableHostsConfigAgent) {
              Write-Log "Starting hosts config agent"
@@ -6382,6 +6403,46 @@ users:
 "@
 
     $kubeConfig | Out-File -encoding ASCII -filepath "$kubeConfigFile"
+}
+
+function
+Write-BootstrapKubeConfig {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $CACertificate,
+        [Parameter(Mandatory = $true)][string]
+        $MasterFQDNPrefix,
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $true)][string]
+        $TLSBootstrapToken,
+        [Parameter(Mandatory = $true)][string]
+        $KubeDir
+    )
+    $bootstrapKubeConfigFile = [io.path]::Combine($KubeDir, "bootstrap-config")
+
+    $bootstrapKubeConfig = @"
+---
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: "$CACertificate"
+    server: https://${MasterIP}:443
+  name: "$MasterFQDNPrefix"
+contexts:
+- context:
+    cluster: "$MasterFQDNPrefix"
+    user: "kubelet-bootstrap"
+  name: "$MasterFQDNPrefix"
+current-context: "$MasterFQDNPrefix"
+kind: Config
+users:
+- name: "kubelet-bootstrap"
+  user:
+    token: "$TLSBootstrapToken"
+"@
+
+    $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
 }
 
 function

@@ -8,7 +8,11 @@ $arguments = '
 -UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
 {{ end }}
 -TargetEnvironment {{ GetTargetEnvironment }}
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+-TLSBootstrapToken {{ GetTLSBootstrapTokenForKubeConfig }}
+{{- else }}
 -AgentKey {{ GetParameter "clientPrivateKey" }}
+{{- end }}
 -AADClientId {{ GetParameter "servicePrincipalClientId" }}
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01';

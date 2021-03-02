@@ -29,10 +29,17 @@ param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $Location,
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $TLSBootstrapToken,
+{{- else}}
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $AgentKey,
+{{- end}}
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -368,6 +375,15 @@ try
         if ($global:EnableCsiProxy) {
             New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
         }
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+
+        Write-Log "Write TLS bootstrap kubeconfig"
+        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
+            -KubeDir $global:KubeDir `
+            -MasterFQDNPrefix $MasterFQDNPrefix `
+            -MasterIP $MasterIP `
+            -TLSBootstrapToken $TLSBootstrapToken
+{{- else}}
 
         Write-Log "Write kube config"
         Write-KubeConfig -CACertificate $global:CACertificate `
@@ -376,6 +392,7 @@ try
             -MasterIP $MasterIP `
             -AgentKey $AgentKey `
             -AgentCertificate $global:AgentCertificate
+{{- end}}
 
         if ($global:EnableHostsConfigAgent) {
              Write-Log "Starting hosts config agent"
