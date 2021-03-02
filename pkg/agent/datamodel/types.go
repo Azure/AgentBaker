@@ -1444,13 +1444,10 @@ type NodeBootstrappingConfiguration struct {
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
 
-	// EnableKubeletClientTLSBootstrapping - feature flag for enabling kubelet client TLS bootstrapping.
-	//
+	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	// When this feature flag is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	//
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
-	EnableKubeletClientTLSBootstrapping bool
-	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	KubeletClientTLSBootstrapToken *string
 }
 

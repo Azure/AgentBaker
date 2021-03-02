@@ -364,7 +364,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}),
 
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.EnableKubeletClientTLSBootstrapping = true
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}))
 })

@@ -379,18 +379,8 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 }
 
 // IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
-func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string, kubeletClientTLSBootstrappingEnabled bool) bool {
-	if !kubeletClientTLSBootstrappingEnabled {
-		// toggle is off, we don't enable it
-		return false
-	}
-
-	if tlsBootstrapToken == nil {
-		// agent node's TLS bootstrap token is not set
-		return false
-	}
-
-	return true
+func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
+	return tlsBootstrapToken != nil
 }
 
 // GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.

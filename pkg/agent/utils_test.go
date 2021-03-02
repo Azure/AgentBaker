@@ -144,33 +144,24 @@ var expectedKubeletJSON string = `{
 
 func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 	cases := []struct {
-		tlsBootstrapToken                    *string
-		kubeletClientTLSBootstrappingEnabled bool
-		expected                             bool
-		reason                               string
+		tlsBootstrapToken *string
+		expected          bool
+		reason            string
 	}{
 		{
-			tlsBootstrapToken:                    nil,
-			kubeletClientTLSBootstrappingEnabled: false,
-			expected:                             false,
-			reason:                               "toggle disabled",
+			tlsBootstrapToken: nil,
+			expected:          false,
+			reason:            "agent pool TLS bootstrap token not set",
 		},
 		{
-			tlsBootstrapToken:                    nil,
-			kubeletClientTLSBootstrappingEnabled: true,
-			expected:                             false,
-			reason:                               "agent pool TLS bootstrap token not set",
-		},
-		{
-			tlsBootstrapToken:                    to.StringPtr("foobar.foobar"),
-			kubeletClientTLSBootstrappingEnabled: true,
-			expected:                             true,
-			reason:                               "supported",
+			tlsBootstrapToken: to.StringPtr("foobar.foobar"),
+			expected:          true,
+			reason:            "supported",
 		},
 	}
 
 	for _, c := range cases {
-		actual := IsKubeletClientTLSBootstrappingEnabled(c.tlsBootstrapToken, c.kubeletClientTLSBootstrappingEnabled)
+		actual := IsKubeletClientTLSBootstrappingEnabled(c.tlsBootstrapToken)
 		if actual != c.expected {
 			t.Errorf("%s: expected=%t, actual=%t", c.reason, c.expected, actual)
 		}
