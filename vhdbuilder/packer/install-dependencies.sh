@@ -741,6 +741,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
   echo "Container runtime: ${CONTAINER_RUNTIME}"
+  echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
 installAscBaseline

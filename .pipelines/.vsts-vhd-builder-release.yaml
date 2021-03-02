@@ -41,19 +41,19 @@ parameters:
 - name: build1804fipscontainerd
   displayName: Build 1804 FIPS containerd
   type: boolean
-  default: true
+  default: false
 - name: build1804fipsgen2containerd
   displayName: Build 1804 FIPS Gen2 containerd
   type: boolean
-  default: true
+  default: false
 - name: build1804fipsgpucontainerd
   displayName: Build 1804 FIPS GPU+containerd
   type: boolean
-  default: true
+  default: false
 - name: build1804fipsgen2gpucontainerd
   displayName: Build 1804 FIPS Gen2 GPU+containerd
   type: boolean
-  default: true
+  default: false
 - name: dryrun
   displayName: Dry run
   type: boolean

@@ -91,7 +91,7 @@ testAuditDNotPresent() {
 }
 
 testFips() {
-  test="testFipsKernel"
+  test="testFips"
   echo "$test:Start"
   ubuntu_sku=$1
   enable_fips=$2
