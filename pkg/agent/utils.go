@@ -586,3 +586,25 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 	}
 	return strings.Join(pairs, ",")
 }
+
+// ParseCSEMessage parses the raw VMSS CSE output
+func ParseCSE(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
+	var cseStatus datamodel.VMSSInstanceViewCSEStatus
+	var rerr error
+	start := strings.Index(message, "[stdout]") + len("[stdout]")
+	end := strings.Index(message, "[stderr]")
+	if end > start {
+		rawInstanceViewInfo := message[start:end]
+		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
+		if err != nil || cseStatus.ExitCode == "" {
+			// Regex "vmssInstanceErrorCode=" is part of contract to parse the error, please inform clients who are relying on it before change the regex.
+			rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+		} else {
+			cseStatus.ExitCode = strings.Trim(cseStatus.ExitCode, "\"")
+		}
+	} else {
+		// Regex "vmssInstanceErrorCode=" is part of contract to parse the error, please inform clients who are relying on it before change the regex.
+		rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+	}
+	return cseStatus, rerr
+}
