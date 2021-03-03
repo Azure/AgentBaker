@@ -105,12 +105,14 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 VNET_CNI_VERSIONS="
+1.2.6
 1.2.0_hotfix
 1.2.0
-1.1.8
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -231,6 +233,7 @@ for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+#this needs to be removed sometime after this is in https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp/pullrequest/3947551
 AZURE_CNIIMAGEBASE="mcr.microsoft.com/containernetworking"
 AZURE_CNI_NETWORKMONITOR_VERSIONS="
 1.1.8
@@ -244,11 +247,10 @@ for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
 done
 
 AZURE_NPM_VERSIONS="
+1.2.6
 1.2.3
 1.2.2_hotfix
 1.2.1
-1.1.8
-1.1.7
 "
 for AZURE_NPM_VERSION in ${AZURE_NPM_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-npm:v${AZURE_NPM_VERSION}"
