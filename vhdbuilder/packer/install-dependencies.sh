@@ -112,9 +112,18 @@ VNET_CNI_VERSIONS="
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
+    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+# merge with above after two more version releases
+SWIFT_CNI_VERSIONS="
+1.2.6
+"
+
+for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
-    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+    echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CNI_PLUGIN_VERSIONS="
