@@ -587,7 +587,7 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 	return strings.Join(pairs, ",")
 }
 
-// ParseCSEMessage parses the raw VMSS CSE output
+// ParseCSE parses the raw VMSS CSE output
 func ParseCSE(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
 	var cseStatus datamodel.VMSSInstanceViewCSEStatus
 	var rerr error
