@@ -710,6 +710,7 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   fi
 done
 
+# shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
