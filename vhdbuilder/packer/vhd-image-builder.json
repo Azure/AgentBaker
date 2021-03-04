@@ -67,8 +67,18 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh",
+      "destination": "/home/packer/provision_installs_distro.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
       "destination": "/home/packer/provision_source.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh",
+      "destination": "/home/packer/provision_source_distro.sh"
     },
     {
       "type": "file",
@@ -79,6 +89,11 @@
       "type": "file",
       "source": "vhdbuilder/scripts/linux/tool_installs.sh",
       "destination": "/home/packer/tool_installs.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh",
+      "destination": "/home/packer/tool_installs_distro.sh"
     },
     {
       "type": "file",

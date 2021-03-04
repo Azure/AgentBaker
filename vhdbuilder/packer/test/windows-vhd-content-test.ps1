@@ -89,10 +89,10 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2/windowszip/v1.20.2-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.8.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.0_hotfix/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0_hotfix.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip"
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip"
         );
         "c:\akse-cache\calico\" = @(
             "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip",
@@ -226,7 +226,19 @@ function Test-ImagesPulled {
     }
 }
 
+function Test-RegistryAdded {
+    Write-Output "Get the registry for the HNS fix in 2021-2C"
+    $result=(Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Services\hns\State -Name HNSControlFlag)
+    if ($result.HNSControlFlag -eq 1) {
+        Write-Output "The registry for the HNS fix is added"
+    } else {
+        Write-Error "The registry for the HNS fix is not added"
+        exit 1
+    }
+}
+
 Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD -containerRuntime $containerRuntime
 Test-PatchInstalled
 Test-ImagesPulled  -containerRuntime $containerRuntime -WindowsSKU $WindowsSKU
+Test-RegistryAdded
