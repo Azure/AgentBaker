@@ -295,22 +295,6 @@ imagesToBePulled='
   {
     "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v*",
     "versions": ["1.7.0","1.7.4"]
-  },
-  {
-    "downloadURL": "mcr.microsoft.com/aks/acc/sgx-device-plugin:*",
-    "versions": ["1.0"]
-  },
-  {
-    "downloadURL": "mcr.microsoft.com/aks/acc/sgx-plugin:*",
-    "versions": ["0.1"]
-  },
-  {
-    "downloadURL": "mcr.microsoft.com/aks/acc/sgx-webhook:*",
-    "versions": ["0.1"]
-  },
-  {
-    "downloadURL": "mcr.microsoft.com/aks/acc/sgx-attestation:*",
-    "versions": ["1.0"]
   }
 ]
 '
