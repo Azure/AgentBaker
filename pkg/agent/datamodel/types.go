@@ -1818,11 +1818,11 @@ type KubeletWebhookAuthorization struct {
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
 
-type VMSSInstanceViewCSEStatus struct {
-	// ExitCode stores the exitCode from VMSS CSE output.
+type InstanceViewCSEStatus struct {
+	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
-	// Output stores the output from VMSS CSE output.
+	// Output stores the output from CSE output.
 	Output string `json:"output,omitempty"`
-	// Error stores the error from VMSS CSE output.
+	// Error stores the error from CSE output.
 	Error string `json:"error,omitempty"`
 }
