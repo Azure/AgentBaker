@@ -133,6 +133,7 @@ const (
 	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
 	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSMarinerV1                   Distro = "aks-mariner-v1"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -145,6 +146,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuContainerd1804Gen2,
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
+	AKSMarinerV1,
 }
 
 func (d Distro) IsVHDDistro() bool {
@@ -626,12 +628,6 @@ type SysctlConfig struct {
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
 }
 
-// TLSBootstrapToken defines the agent node TLS bootstrap token to use.
-type TLSBootstrapToken struct {
-	TokenID     string `json:"tokenId"`
-	TokenSecret string `json:"tokenSecret"`
-}
-
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
 	Name                                string               `json:"name"`
@@ -683,7 +679,6 @@ type AgentPoolProfile struct {
 	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
 	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig                 *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
-	TLSBootstrapToken                   *TLSBootstrapToken   `json:"tlsBootstrapToken,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1036,6 +1031,10 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
+}
+
+func (a *AgentPoolProfile) IsMariner() bool {
+	return strings.EqualFold(string(a.Distro), string(AKSMarinerV1))
 }
 
 // IsVHDDistro returns true if the distro uses VHD SKUs
@@ -1444,12 +1443,10 @@ type NodeBootstrappingConfiguration struct {
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
 
-	// EnableKubeletClientTLSBootstrapping - feature flag for enabling kubelet client TLS bootstrapping.
-	//
-	// When this feature flag is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
-	//
+	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
+	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
-	EnableKubeletClientTLSBootstrapping bool
+	KubeletClientTLSBootstrapToken *string
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
