@@ -8,6 +8,23 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
+
+{{if .IsMariner}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
+{{- else}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
+{{end}}
+
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
   encoding: gzip
@@ -29,6 +46,22 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
+{{if .IsMariner}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
+{{- else}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
+{{end}}
+
 - path: {{GetCSEConfigScriptFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -43,17 +76,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionCIS"}}
-{{end}}
-
-{{if not .IsVHDDistro}}
-  {{if .IsAuditDEnabled}}
-- path: /etc/audit/rules.d/CIS.rules
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "auditdRules"}}
-  {{end}}
 {{end}}
 
 {{if IsAKSCustomCloud}}
@@ -163,6 +185,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
+{{if not .IsMariner}}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root
@@ -171,6 +194,7 @@ write_files:
     APT::Periodic::Download-Upgradeable-Packages "0";
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
+{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -228,15 +252,6 @@ write_files:
       }{{end}}{{if HasDataDir}},
       "data-root": "{{GetDataDir}}"{{- end}}
     }
-{{end}}
-
-{{if HasCiliumNetworkPlugin }}
-- path: /etc/systemd/system/sys-fs-bpf.mount
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "systemdBPFMount"}}
 {{end}}
 
 {{if NeedsContainerd}}
@@ -421,12 +436,14 @@ write_files:
   content: |
     {{GetParameter "caCertificate"}}
 
+{{if not IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /etc/kubernetes/certs/client.crt
   permissions: "0644"
   encoding: base64
   owner: root
   content: |
     {{GetParameter "clientCertificate"}}
+{{- end}}
 
 {{if HasCustomSearchDomain}}
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
@@ -437,6 +454,30 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{if IsKubeletClientTLSBootstrappingEnabled -}}
+- path: /var/lib/kubelet/bootstrap-kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: kubelet-bootstrap
+      user:
+        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+    contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+    current-context: bootstrap-context
+    #EOF
+{{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
   owner: root
@@ -460,6 +501,7 @@ write_files:
       name: localclustercontext
     current-context: localclustercontext
     #EOF
+{{- end}}
 
 - path: /etc/default/kubelet
   permissions: "0644"
@@ -616,4 +658,5 @@ write_files:
 runcmd:
 - set -x
 - . {{GetCSEHelpersScriptFilepath}}
+- . {{GetCSEHelpersScriptDistroFilepath}}
 - aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}

@@ -35,12 +35,17 @@ function GetCalicoKubeConfig {
     $maxRetryCount=120 # 10 minutes
 
     do {
-        $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
-        if (![string]::IsNullOrEmpty($name)) {
-            break
+        try {
+            Write-Log "Retry $retryCount : Trying to get service account $SecretName"
+            $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
+            if (![string]::IsNullOrEmpty($name)) {
+                break
+            }
+        } catch {
+            Write-Log "Retry $retryCount : Failed to get service account $SecretName. Error: $_"
         }
         $retryCount++
-        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get $SecretName service account"
+        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get service account $SecretName"
         Sleep $retryInterval
     } while ($retryCount -lt $maxRetryCount)
 

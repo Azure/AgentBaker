@@ -141,3 +141,52 @@ var expectedKubeletJSON string = `{
         "net.ipv4.route.min_pmtu"
     ]
 }`
+
+func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
+	cases := []struct {
+		tlsBootstrapToken *string
+		expected          bool
+		reason            string
+	}{
+		{
+			tlsBootstrapToken: nil,
+			expected:          false,
+			reason:            "agent pool TLS bootstrap token not set",
+		},
+		{
+			tlsBootstrapToken: to.StringPtr("foobar.foobar"),
+			expected:          true,
+			reason:            "supported",
+		},
+	}
+
+	for _, c := range cases {
+		actual := IsKubeletClientTLSBootstrappingEnabled(c.tlsBootstrapToken)
+		if actual != c.expected {
+			t.Errorf("%s: expected=%t, actual=%t", c.reason, c.expected, actual)
+		}
+	}
+}
+
+func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
+	cases := []struct {
+		token    *string
+		expected string
+	}{
+		{
+			token:    nil,
+			expected: "",
+		},
+		{
+			token:    to.StringPtr("foo.bar"),
+			expected: "foo.bar",
+		},
+	}
+
+	for _, c := range cases {
+		actual := GetTLSBootstrapTokenForKubeConfig(c.token)
+		if actual != c.expected {
+			t.Errorf("GetTLSBootstrapTokenForKubeConfig: expected=%s, actual=%s", c.expected, actual)
+		}
+	}
+}

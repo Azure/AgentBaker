@@ -81,15 +81,19 @@ const (
 
 // cloud-init (i.e. ARM customData) source file references
 const (
-	kubernetesNodeCustomDataYaml  = "linux/cloud-init/nodecustomdata.yml"
-	kubernetesCSECommandString    = "linux/cloud-init/artifacts/cse_cmd.sh"
-	kubernetesCSEStartScript      = "linux/cloud-init/artifacts/cse_start.sh"
-	kubernetesCSEMainScript       = "linux/cloud-init/artifacts/cse_main.sh"
-	kubernetesCSEHelpersScript    = "linux/cloud-init/artifacts/cse_helpers.sh"
-	kubernetesCSEInstall          = "linux/cloud-init/artifacts/cse_install.sh"
-	kubernetesCSEConfig           = "linux/cloud-init/artifacts/cse_config.sh"
-	kubernetesCISScript           = "linux/cloud-init/artifacts/cis.sh"
-	kubernetesHealthMonitorScript = "linux/cloud-init/artifacts/health-monitor.sh"
+	kubernetesNodeCustomDataYaml      = "linux/cloud-init/nodecustomdata.yml"
+	kubernetesCSECommandString        = "linux/cloud-init/artifacts/cse_cmd.sh"
+	kubernetesCSEStartScript          = "linux/cloud-init/artifacts/cse_start.sh"
+	kubernetesCSEMainScript           = "linux/cloud-init/artifacts/cse_main.sh"
+	kubernetesCSEHelpersScript        = "linux/cloud-init/artifacts/cse_helpers.sh"
+	kubernetesCSEHelpersScriptUbuntu  = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+	kubernetesCSEHelpersScriptMariner = "linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+	kubernetesCSEInstall              = "linux/cloud-init/artifacts/cse_install.sh"
+	kubernetesCSEInstallUbuntu        = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+	kubernetesCSEInstallMariner       = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+	kubernetesCSEConfig               = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCISScript               = "linux/cloud-init/artifacts/cis.sh"
+	kubernetesHealthMonitorScript     = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
 	kubernetesKubeletMonitorSystemdService    = "linux/cloud-init/artifacts/kubelet-monitor.service"
 	kubernetesDockerMonitorSystemdTimer       = "linux/cloud-init/artifacts/docker-monitor.timer"
@@ -103,9 +107,7 @@ const (
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
 	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"
 	dockerClearMountPropagationFlags          = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"
-	systemdBPFMount                           = "linux/cloud-init/artifacts/sys-fs-bpf.mount"
 	etcdSystemdService                        = "linux/cloud-init/artifacts/etcd.service"
-	auditdRules                               = "linux/cloud-init/artifacts/auditd-rules"
 	reconcilePrivateHostsScript               = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
 	reconcilePrivateHostsService              = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
 
@@ -122,7 +124,9 @@ const (
 const (
 	customCloudConfigCSEScriptFilepath   = "/opt/azure/containers/provision_configs_custom_cloud.sh"
 	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
+	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
+	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
 	cseConfigScriptFilepath              = "/opt/azure/containers/provision_configs.sh"
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
@@ -203,4 +207,11 @@ const (
 	ACIConnectorAddonName = "aci-connector"
 	// AppGwIngressAddonName appgw addon
 	AppGwIngressAddonName = "appgw-ingress"
+)
+
+const (
+	// VMSSInstanceErrorCode is used to parse vmss instance error code
+	VMSSInstanceErrorCode = "vmssInstanceErrorCode"
+	// InvalidCSEMessage is the error code for vmss cse invalid message
+	InvalidCSEMessage = "InvalidCSEMessage"
 )

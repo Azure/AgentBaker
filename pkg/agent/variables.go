@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 // getCustomDataVariables returns cloudinit data used by Linux
@@ -18,13 +17,16 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionStartScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":                getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
 			"provisionSource":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionSourceUbuntu":          getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
+			"provisionSourceMariner":         getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
 			"provisionInstalls":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
+			"provisionInstallsUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
+			"provisionInstallsMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
 			"provisionConfigs":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
 			"customSearchDomainsScript":      getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
 			"dhcpv6SystemdService":           getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":      getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
 			"kubeletSystemdService":          getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"systemdBPFMount":                getBase64EncodedGzippedCustomScript(systemdBPFMount, config),
 			"reconcilePrivateHostsScript":    getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService":   getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"updateNodeLabelsSystemdService": getBase64EncodedGzippedCustomScript(updateNodeLabelsSystemdService, config),
@@ -49,7 +51,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["containerdMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
 		cloudInitData["containerdMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
 		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
-		cloudInitData["auditdRules"] = getBase64EncodedGzippedCustomScript(auditdRules, config)
 		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
@@ -115,7 +116,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"isVHD":                           isVHD(profile),
 		"gpuNode":                         strconv.FormatBool(config.EnableNvidia),
 		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
-		"auditdEnabled":                   strconv.FormatBool(to.Bool(profile.AuditDEnabled)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
 	}

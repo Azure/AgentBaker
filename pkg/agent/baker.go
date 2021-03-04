@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -302,6 +303,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
+		"IsKubeletClientTLSBootstrappingEnabled": func() bool {
+			return IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken)
+		},
+		"GetTLSBootstrapTokenForKubeConfig": func() string {
+			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
+		},
 		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
@@ -459,12 +466,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"HasCalicoNetworkPolicy": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyCalico
-		},
-		"HasCiliumNetworkPlugin": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginCilium
-		},
-		"HasCiliumNetworkPolicy": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyCilium
 		},
 		"HasAntreaNetworkPolicy": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyAntrea
@@ -661,8 +662,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetCSEHelpersScriptFilepath": func() string {
 			return cseHelpersScriptFilepath
 		},
+		"GetCSEHelpersScriptDistroFilepath": func() string {
+			return cseHelpersScriptDistroFilepath
+		},
 		"GetCSEInstallScriptFilepath": func() string {
 			return cseInstallScriptFilepath
+		},
+		"GetCSEInstallScriptDistroFilepath": func() string {
+			return cseInstallScriptDistroFilepath
 		},
 		"GetCSEConfigScriptFilepath": func() string {
 			return cseConfigScriptFilepath
@@ -703,4 +710,26 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
 		},
 	}
+}
+
+// ParseVMSSCSEMessage parses the raw VMSS CSE output
+func ParseVMSSCSEMessage(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
+	var cseStatus datamodel.VMSSInstanceViewCSEStatus
+	var rerr error
+	start := strings.Index(message, "[stdout]") + len("[stdout]")
+	end := strings.Index(message, "[stderr]")
+	if end > start {
+		rawInstanceViewInfo := message[start:end]
+		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
+		if err != nil || cseStatus.ExitCode == "" {
+			// Regex "vmssInstanceErrorCode=" is part of contract to parse the error, please inform clients who are relying on it before change the regex.
+			rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+		} else {
+			cseStatus.ExitCode = strings.Trim(cseStatus.ExitCode, "\"")
+		}
+	} else {
+		// Regex "vmssInstanceErrorCode=" is part of contract to parse the error, please inform clients who are relying on it before change the regex.
+		rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
+	}
+	return cseStatus, rerr
 }

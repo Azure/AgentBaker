@@ -1,7 +1,15 @@
 #!/bin/bash
+
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
+
 source /home/packer/provision_installs.sh
+source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
+source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
+source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -13,12 +21,10 @@ copyPackerFiles
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
-AUDITD_ENABLED=true
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
-  - auditd
   - blobfuse=1.3.5
   - ca-certificates
   - ceph-common
@@ -80,6 +86,7 @@ fi
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
 installGPUDrivers
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
@@ -89,6 +96,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
     ensureGPUDrivers
 fi
+fi
 
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
@@ -97,14 +105,25 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 VNET_CNI_VERSIONS="
+1.2.6
 1.2.0_hotfix
 1.2.0
-1.1.8
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+# merge with above after two more version releases
+SWIFT_CNI_VERSIONS="
+1.2.6
+"
+
+for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CNI_PLUGIN_VERSIONS="
@@ -223,6 +242,7 @@ for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+#this needs to be removed sometime after this is in https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp/pullrequest/3947551
 AZURE_CNIIMAGEBASE="mcr.microsoft.com/containernetworking"
 AZURE_CNI_NETWORKMONITOR_VERSIONS="
 1.1.8
@@ -240,7 +260,6 @@ AZURE_NPM_VERSIONS="
 1.2.2_hotfix
 1.2.1
 1.1.8
-1.1.7
 "
 for AZURE_NPM_VERSION in ${AZURE_NPM_VERSIONS}; do
     CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-npm:v${AZURE_NPM_VERSION}"
@@ -257,6 +276,8 @@ for AZURE_VNET_TELEMETRY_VERSION in ${AZURE_VNET_TELEMETRY_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 1.11
 1.10
@@ -315,6 +336,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 fi
+fi
 
 TUNNELFRONT_VERSIONS="
 v1.9.2-v3.0.18
@@ -328,10 +350,10 @@ for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
 done
 
 KONNECTIVITY_AGENT_VERSIONS="
-v0.0.13
+0.0.13
 "
 for KONNECTIVITY_AGENT_VERSION in ${KONNECTIVITY_AGENT_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:${KONNECTIVITY_AGENT_VERSION}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v${KONNECTIVITY_AGENT_VERSION}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -357,8 +379,8 @@ for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
 done
 
 # oms agent used by AKS
-# keeping last-->last image (ciprod10272020) as last released (ciprod11092020) is not fully rolledout yet. Added latest (ciprod01112021)
-OMS_AGENT_IMAGES="ciprod10272020 ciprod11092020 ciprod01112021"
+# keeping last-->last image (ciprod11092020) as last released (ciprod01112021) is not fully rolledout to all clouds yet. Also added latest (ciprod02232021)
+OMS_AGENT_IMAGES="ciprod11092020 ciprod01112021 ciprod02232021"
 for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
     CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -367,60 +389,60 @@ done
 
 # calico images used by AKS
 CALICO_CNI_IMAGES="
-v3.8.9.1
-v3.8.9.2
+3.8.9.1
+3.8.9.2
 "
 for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:${CALICO_CNI_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:v${CALICO_CNI_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CALICO_NODE_IMAGES="
-v3.17.2
-v3.8.9.1
-v3.8.9.2
+3.17.2
+3.8.9.1
+3.8.9.2
 "
 for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:${CALICO_NODE_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:v${CALICO_NODE_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # typha and pod2daemon can't be patched like cni and node can as they use scratch as a base
 CALICO_TYPHA_IMAGES="
-v3.17.2
-v3.8.9
+3.17.2
+3.8.9
 "
 for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:${CALICO_TYPHA_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:v${CALICO_TYPHA_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CALICO_KUBE_CONTROLLERS_IMAGES="
-v3.17.2
+3.17.2
 "
 for CALICO_KUBE_CONTROLLERS_IMAGE in ${CALICO_KUBE_CONTROLLERS_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:${CALICO_KUBE_CONTROLLERS_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:v${CALICO_KUBE_CONTROLLERS_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 TIGERA_OPERATOR_IMAGES="
-v1.13.5
+1.13.5
 "
 for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/kube-controllers:${TIGERA_OPERATOR_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/operator:v${TIGERA_OPERATOR_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 CALICO_POD2DAEMON_IMAGES="
-v3.8.9
+3.8.9
 "
 for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:${CALICO_POD2DAEMON_IMAGE}"
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v${CALICO_POD2DAEMON_IMAGE}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -481,68 +503,97 @@ for KMS_PLUGIN_VERSION in ${KMS_PLUGIN_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-
-# kubelet and kubectl
-# need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# below are the required to support versions
-# v1.17.13
-# v1.17.16
-# v1.18.10
-# v1.18.14
-# v1.19.6
-# v1.19.7
-# v1.20.2
-# NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-K8S_VERSIONS="
-1.17.3-hotfix.20200601.1
-1.17.7-hotfix.20200817.1
-1.17.9-hotfix.20200824.1
-1.17.11-hotfix.20200901.1
-1.17.13
-1.17.16
-1.18.2-hotfix.20200624.1
-1.18.4-hotfix.20200626.1
-1.18.6-hotfix.20200723.1
-1.18.8-hotfix.20200924
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210118
-1.19.0
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210122
-1.20.2
+ADDON_IMAGES="
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.3
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.2.3
+mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
+mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
+mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
+mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20210216.1
+mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
+mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20210209.1
+mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
+mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
+mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.3.0
+mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
+mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.4
 "
-for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
-  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    continue
-  fi
-  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
-    HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
-    # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
-    # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
-    # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
-    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-    # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
-    # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
-    extractHyperkube ${cliTool}
-    # remove hyperkube here as the one that we really need is pulled later
-    removeContainerImage ${cliTool} $HYPERKUBE_URL
-  else
-    # strip the last .1 as that is for base image patch for hyperkube
-    if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
-      # shellcheck disable=SC2006
-      PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-    else
-      PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-    fi
-    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-    extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
-  fi
+for ADDON_IMAGE in ${ADDON_IMAGES}; do
+  pullContainerImage ${cliTool} ${ADDON_IMAGE}
+  echo "  - ${ADDON_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
-ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
+
+AZUREDISK_CSI_VERSIONS="
+0.9.0
+1.0.0
+1.1.0
+"
+for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+AZUREFILE_CSI_VERSIONS="
+0.9.0
+1.0.0
+"
+for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CSI_LIVENESSPROBE_VERSIONS="
+1.1.0
+2.2.0
+"
+for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
+1.2.0
+2.0.1
+"
+for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+AZURE_CLOUD_NODE_MANAGER_VERSIONS="
+0.5.1
+0.6.0
+0.7.0
+"
+for AZURE_CLOUD_NODE_MANAGER_VERSION in ${AZURE_CLOUD_NODE_MANAGER_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v${AZURE_CLOUD_NODE_MANAGER_VERSION}"
+  pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+SECRETS_STORE_CSI_DRIVER_VERSIONS="
+0.0.19
+"
+for SECRETS_STORE_CSI_DRIVER_VERSION in ${SECRETS_STORE_CSI_DRIVER_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v${SECRETS_STORE_CSI_DRIVER_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
+
+SECRETS_STORE_PROVIDER_AZURE_VERSIONS="
+0.0.12
+"
+for SECRETS_STORE_PROVIDER_AZURE_VERSION in ${SECRETS_STORE_PROVIDER_AZURE_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/azure/secrets-store/provider-azure:${SECRETS_STORE_PROVIDER_AZURE_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+done
 
 # pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
@@ -622,103 +673,76 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   fi
 done
 
-ADDON_IMAGES="
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.3
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.2.3
-mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
-mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
-mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
-mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20210216.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
-mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20210209.1
-mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
-mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
-mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.3.0
-mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
-mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.4
+# kubelet and kubectl
+# need to cover previously supported version for VMAS scale up scenario
+# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+# below are the required to support versions
+# v1.17.13
+# v1.17.16
+# v1.18.10
+# v1.18.14
+# v1.19.6
+# v1.19.7
+# v1.20.2
+# NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+K8S_VERSIONS="
+1.17.3-hotfix.20200601.1
+1.17.7-hotfix.20200817.1
+1.17.9-hotfix.20200824.1
+1.17.11-hotfix.20200901.1
+1.17.13
+1.17.16
+1.18.2-hotfix.20200624.1
+1.18.4-hotfix.20200626.1
+1.18.6-hotfix.20200723.1
+1.18.8-hotfix.20200924
+1.18.10-hotfix.20210118
+1.18.14-hotfix.20210118
+1.19.0
+1.19.1-hotfix.20200923
+1.19.3
+1.19.6-hotfix.20210118
+1.19.7-hotfix.20210122
+1.20.2
 "
-for ADDON_IMAGE in ${ADDON_IMAGES}; do
-  pullContainerImage ${cliTool} ${ADDON_IMAGE}
-  echo "  - ${ADDON_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
+  # Only need to store k8s components >= 1.19 for containerd VHDs
+  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    continue
+  fi
+  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
+    HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
+    # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
+    # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
+    # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
+    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
+    # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
+    extractHyperkube ${cliTool}
+    # remove hyperkube here as the one that we really need is pulled later
+    removeContainerImage ${cliTool} $HYPERKUBE_URL
+  else
+    # strip the last .1 as that is for base image patch for hyperkube
+    if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
+      # shellcheck disable=SC2006
+      PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
+    else
+      PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
+    fi
+    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+  fi
 done
 
-AZUREDISK_CSI_VERSIONS="
-0.9.0
-1.0.0
-1.1.0
-"
-for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZUREFILE_CSI_VERSIONS="
-0.9.0
-1.0.0
-"
-for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/k8s/csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_LIVENESSPROBE_VERSIONS="
-1.1.0
-2.2.0
-"
-for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
-1.2.0
-2.0.1
-"
-for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZURE_CLOUD_NODE_MANAGER_VERSIONS="
-0.5.1
-0.6.0
-0.7.0
-"
-for AZURE_CLOUD_NODE_MANAGER_VERSION in ${AZURE_CLOUD_NODE_MANAGER_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:${AZURE_CLOUD_NODE_MANAGER_VERSION}"
-  pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-SECRETS_STORE_CSI_DRIVER_VERSIONS="
-0.0.19
-"
-for SECRETS_STORE_CSI_DRIVER_VERSION in ${SECRETS_STORE_CSI_DRIVER_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v${SECRETS_STORE_CSI_DRIVER_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-SECRETS_STORE_PROVIDER_AZURE_VERSIONS="
-0.0.12
-"
-for SECRETS_STORE_PROVIDER_AZURE_VERSION in ${SECRETS_STORE_PROVIDER_AZURE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/azure/secrets-store/provider-azure:${SECRETS_STORE_PROVIDER_AZURE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
+# shellcheck disable=SC2129
+echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
+ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
-df -h
-
+echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
+df -h >> ${VHD_LOGS_FILEPATH}
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken

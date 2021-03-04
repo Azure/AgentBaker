@@ -319,6 +319,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 
+		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}),
+
 		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=true", "AKSUbuntu1604+Disable1804SystemdResolved=true", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.Disable1804SystemdResolved = true
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -353,6 +361,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+		}),
+
+		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}))
 })
 
@@ -625,6 +637,29 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			}
 		}))
 
+})
+
+var _ = Describe("Assert ParseVMSSCSEMessage", func() {
+	It("when cse output format is correct", func() {
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
+		res, err := ParseVMSSCSEMessage(testMessage)
+		Expect(err).To(BeNil())
+		Expect(res.ExitCode).To(Equal("51"))
+	})
+
+	It("when cse output format is incorrect", func() {
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n"
+		_, err := ParseVMSSCSEMessage(testMessage)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("vmssInstanceErrorCode=InvalidCSEMessage"))
+	})
+
+	It("when cse output exitcode is empty", func() {
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
+		_, err := ParseVMSSCSEMessage(testMessage)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("vmssInstanceErrorCode=InvalidCSEMessage"))
+	})
 })
 
 func backfillCustomData(folder, customData string) {

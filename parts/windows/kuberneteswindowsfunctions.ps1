@@ -43,7 +43,7 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        Invoke-WebRequest $Url -UseBasicParsing -OutFile $DestinationPath -Verbose
+        curl.exe --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         $downloadTimer.Stop()
 
         if ($global:AppInsightsClient -ne $null) {
@@ -239,7 +239,7 @@ function Write-KubeClusterConfig {
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Cri -Value @{
         Name   = $global:ContainerRuntime;
         Images = @{
-            # e.g. "mcr.microsoft.com/oss/kubernetes/pause:1.4.0"
+            # e.g. "mcr.microsoft.com/oss/kubernetes/pause:1.4.1"
             "Pause" = $global:WindowsPauseImageURL
         }
     }
@@ -322,15 +322,21 @@ function Check-APIServerConnectivity {
     $retryCount=0
 
     do {
-        $tcpClient=New-Object Net.Sockets.TcpClient
-        Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
-        $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
-        if ($tcpClient.Connected) {
-            Write-Log "Retry $retryCount : Connected to API server successfully"
-            return
+        try {
+            $tcpClient=New-Object Net.Sockets.TcpClient
+            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
+            if ($tcpClient.Connected) {
+                $tcpClient.Close()
+                Write-Log "Retry $retryCount : Connected to API server successfully"
+                return
+            }
+            $tcpClient.Close()
+        } catch {
+            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
         }
         $retryCount++
-        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to get $SecretName service account"
+        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 

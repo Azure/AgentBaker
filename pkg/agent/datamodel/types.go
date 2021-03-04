@@ -133,6 +133,7 @@ const (
 	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
 	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSMarinerV1                   Distro = "aks-mariner-v1"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -145,6 +146,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuContainerd1804Gen2,
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
+	AKSMarinerV1,
 }
 
 func (d Distro) IsVHDDistro() bool {
@@ -670,7 +672,6 @@ type AgentPoolProfile struct {
 	WindowsNameVersion                  string               `json:"windowsNameVersion,omitempty"`
 	EnableVMSSNodePublicIP              *bool                `json:"enableVMSSNodePublicIP,omitempty"`
 	LoadBalancerBackendAddressPoolIDs   []string             `json:"loadBalancerBackendAddressPoolIDs,omitempty"`
-	AuditDEnabled                       *bool                `json:"auditDEnabled,omitempty"`
 	CustomVMTags                        map[string]string    `json:"customVMTags,omitempty"`
 	DiskEncryptionSetID                 string               `json:"diskEncryptionSetID,omitempty"`
 	UltraSSDEnabled                     *bool                `json:"ultraSSDEnabled,omitempty"`
@@ -1032,6 +1033,10 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
+func (a *AgentPoolProfile) IsMariner() bool {
+	return strings.EqualFold(string(a.Distro), string(AKSMarinerV1))
+}
+
 // IsVHDDistro returns true if the distro uses VHD SKUs
 func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
@@ -1104,11 +1109,6 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 // HasDisks returns true if the customer specified disks
 func (a *AgentPoolProfile) HasDisks() bool {
 	return len(a.DiskSizesGB) > 0
-}
-
-// IsAuditDEnabled returns true if the master profile is configured for auditd
-func (a *AgentPoolProfile) IsAuditDEnabled() bool {
-	return to.Bool(a.AuditDEnabled)
 }
 
 // HasSecrets returns true if the customer specified secrets to install
@@ -1442,6 +1442,11 @@ type NodeBootstrappingConfiguration struct {
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
+
+	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
+	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
+	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
+	KubeletClientTLSBootstrapToken *string
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
@@ -1817,4 +1822,13 @@ type KubeletWebhookAuthorization struct {
 	// cacheUnauthorizedTTL is the duration to cache 'unauthorized' responses from the webhook authorizer.
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
+}
+
+type VMSSInstanceViewCSEStatus struct {
+	// ExitCode stores the exitCode from VMSS CSE output.
+	ExitCode string `json:"exitCode,omitempty"`
+	// Output stores the output from VMSS CSE output.
+	Output string `json:"output,omitempty"`
+	// Error stores the error from VMSS CSE output.
+	Error string `json:"error,omitempty"`
 }

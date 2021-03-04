@@ -88,6 +88,7 @@ steps:
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - bash: |
       echo MODE=$(MODE) && \
+      PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -98,23 +99,12 @@ steps:
       -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
       -e SA_NAME=${SA_NAME} \
       -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-    displayName: Clean-up Storage Account
-  - bash: |
-      echo MODE=$(MODE) && \
-      IMAGE_NAME=$SIG_IMAGE_NAME && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e IMAGE_NAME=${IMAGE_NAME} \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      ${CONTAINER_IMAGE} make -f packer.mk delete-mi
-    displayName: Clean-up Managed Image
-    condition: ne(variables['MODE'], 'default')
+      -e PKR_RG_NAME=${PKR_RG_NAME} \
+      -e MODE=${MODE} \
+      -e IMAGE_NAME=${SIG_IMAGE_NAME} \
+      ${CONTAINER_IMAGE} make -f packer.mk cleanup
+    displayName: Clean Up Packer Generated Resources
+    condition: always()
   - bash: |
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \

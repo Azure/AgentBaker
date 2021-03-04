@@ -52,7 +52,7 @@ function Get-ContainerImages {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:ltsc2019",
                 "mcr.microsoft.com/windows/nanoserver:1809",
-                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.1",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.0.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
@@ -71,7 +71,7 @@ function Get-ContainerImages {
             $imagesToPull = @(
                 "mcr.microsoft.com/windows/servercore:2004",
                 "mcr.microsoft.com/windows/nanoserver:2004",
-                "mcr.microsoft.com/oss/kubernetes/pause:1.4.0")
+                "mcr.microsoft.com/oss/kubernetes/pause:1.4.1")
             Write-Log "Pulling images for windows server core 2004"
         }
         default {
@@ -147,13 +147,14 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2/windowszip/v1.20.2-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.8.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.0_hotfix/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0_hotfix.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip"
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip"
         );
-        "c:\akse-cache\calico\" = @(,
-            "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip"
+        "c:\akse-cache\calico\" = @(
+            "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip",
+            "https://acs-mirror.azureedge.net/calico-node/v3.17.2/binaries/calico-windows-v3.17.2.zip"
         )
     }
 
@@ -189,7 +190,7 @@ function Install-ContainerD {
 
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
-    Invoke-WebRequest -UseBasicParsing -Uri $global:containerdPackageUrl -OutFile $zipPath
+    curl.exe --retry 5 --retry-delay 0 -L $global:containerdPackageUrl -o $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $installDir
     Remove-Item -Path $zipPath | Out-null
 
@@ -243,7 +244,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                Invoke-WebRequest -UseBasicParsing $patchUrl -OutFile $fullPath
+                curl.exe --retry 5 --retry-delay 0 -L $patchUrl -o $fullPath
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
@@ -312,6 +313,11 @@ function Update-WindowsFeatures {
     }
 }
 
+function Update-Registry {
+    Write-Host "Enable a HNS fix in 2021-2C"
+    reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\hns\State /v HNSControlFlag /t REG_DWORD /d 1
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -348,6 +354,7 @@ switch ($env:ProvisioningPhase) {
         if ($containerRuntime -eq 'containerd') {
             Install-ContainerD
         }
+        Update-Registry
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'

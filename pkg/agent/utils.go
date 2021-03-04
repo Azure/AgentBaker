@@ -173,7 +173,7 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; Invoke-WebRequest -Uri \"%s\" -OutFile \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
 func getVNETSubnetDependencies(properties *datamodel.Properties) string {
@@ -376,6 +376,24 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
 		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
+}
+
+// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
+func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
+	return tlsBootstrapToken != nil
+}
+
+// GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
+// It returns empty string if TLS bootstrap token is not enabled.
+//
+// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
+func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
+	if tlsBootstrapToken == nil {
+		// not set
+		return ""
+	}
+
+	return *tlsBootstrapToken
 }
 
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content

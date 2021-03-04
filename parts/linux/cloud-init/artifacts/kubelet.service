@@ -30,6 +30,10 @@ ExecStart=/usr/local/bin/kubelet \
         {{- if IsKubeletConfigFileEnabled}}
         --config /etc/default/kubeletconfig.json \
         {{- end}}
+        {{- if IsKubeletClientTLSBootstrappingEnabled}}
+        --kubeconfig /var/lib/kubelet/kubeconfig \
+        --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+        {{- end}}
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
