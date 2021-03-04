@@ -254,15 +254,6 @@ write_files:
     }
 {{end}}
 
-{{if HasCiliumNetworkPlugin }}
-- path: /etc/systemd/system/sys-fs-bpf.mount
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "systemdBPFMount"}}
-{{end}}
-
 {{if NeedsContainerd}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
