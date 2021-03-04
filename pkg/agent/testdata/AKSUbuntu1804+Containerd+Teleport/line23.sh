@@ -6,15 +6,6 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
-UBUNTU_RELEASE=$(lsb_release -r -s)
-if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
-    sudo apt-get -y autoremove chrony
-    echo $?
-    sudo systemctl restart systemd-timesyncd
-else
-    disableNtpAndTimesyncdInstallChrony
-fi
-
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -35,6 +26,15 @@ source /opt/azure/containers/provision_installs.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
+
+UBUNTU_RELEASE=$(lsb_release -r -s)
+if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
+    sudo apt-get -y autoremove chrony
+    echo $?
+    sudo systemctl restart systemd-timesyncd
+else
+    disableNtpAndTimesyncdInstallChrony
+fi
 
 disable1804SystemdResolved
 

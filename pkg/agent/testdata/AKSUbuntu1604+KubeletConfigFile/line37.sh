@@ -254,7 +254,7 @@ configureCNIIPTables() {
 }
 
 disableNtpAndTimesyncdInstallChrony() {
-      # Disable systemd-timesyncd
+    # Disable systemd-timesyncd
     sudo systemctl stop systemd-timesyncd
     sudo systemctl disable systemd-timesyncd
     # Disable ntp
@@ -313,7 +313,7 @@ makestep 1.0 -1
 EOF
 
     systemctl restart chrony
-}}
+}
 
 disable1804SystemdResolved() {
     ls -ltr /etc/resolv.conf

@@ -663,7 +663,7 @@ configureCNIIPTables() {
 }
 
 disableNtpAndTimesyncdInstallChrony() {
-      # Disable systemd-timesyncd
+    # Disable systemd-timesyncd
     sudo systemctl stop systemd-timesyncd
     sudo systemctl disable systemd-timesyncd
     # Disable ntp
@@ -722,7 +722,7 @@ makestep 1.0 -1
 EOF
 
     systemctl restart chrony
-}}
+}
 
 disable1804SystemdResolved() {
     ls -ltr /etc/resolv.conf
@@ -1843,15 +1843,6 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
-UBUNTU_RELEASE=$(lsb_release -r -s)
-if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
-    sudo apt-get -y autoremove chrony
-    echo $?
-    sudo systemctl restart systemd-timesyncd
-else
-    disableNtpAndTimesyncdInstallChrony
-fi
-
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -1872,6 +1863,15 @@ source {{GetCSEInstallScriptFilepath}}
 
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
+
+UBUNTU_RELEASE=$(lsb_release -r -s)
+if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
+    sudo apt-get -y autoremove chrony
+    echo $?
+    sudo systemctl restart systemd-timesyncd
+else
+    disableNtpAndTimesyncdInstallChrony
+fi
 
 disable1804SystemdResolved
 
