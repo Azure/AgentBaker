@@ -1,9 +1,10 @@
 #!/bin/bash
+COMPONENTS_FILEPATH=/opt/azure/components.json
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
   echo "$test:Start"
-  filesToDownload=$1
+  filesToDownload=$(cat $COMPONENTS_FILEPATH)
 
   filesToDownload=$(echo $filesToDownload | jq -r ".[]" | jq . --monochrome-output --compact-output)
 
@@ -45,8 +46,7 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  components_filepath=/opt/azure/components.json
-  imagesToBePulled=$(cat $components_filepath)
+  imagesToBePulled=$(cat $COMPONENTS_FILEPATH)
 
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
@@ -100,35 +100,6 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-filesToDownload='
-[
-{
-  "fileName":"cni-plugins-amd64-v*.tgz",
-  "downloadLocation":"/opt/cni/downloads",
-  "downloadURL":"https://acs-mirror.azureedge.net/cni",
-  "versions": ["0.7.6","0.7.5","0.7.1"]
-},
-{
-  "fileName":"cni-plugins-linux-amd64-v*.tgz",
-  "downloadLocation":"/opt/cni/downloads",
-  "downloadURL":"https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
-  "versions": ["0.8.6"]
-},
-{
-  "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
-  "downloadLocation":"/opt/cni/downloads",
-  "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-  "versions":["1.2.0_hotfix","1.2.0","1.1.8"]
-},
-{
-  "fileName":"v*/bpftrace-tools.tar",
-  "downloadLocation":"/opt/bpftrace/downloads",
-  "downloadURL":"https://upstreamartifacts.azureedge.net/bpftrace",
-  "versions": ["0.9.4"]
-}
-]
-'
-
-testFilesDownloaded "$filesToDownload"
+testFilesDownloaded
 testImagesPulled $1
 testAuditDNotPresent

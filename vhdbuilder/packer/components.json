@@ -311,5 +311,43 @@
         "1.7.4"
       ]
     }
+  ],
+  "DownloadFiles": [
+    {
+      "fileName": "cni-plugins-amd64-v*.tgz",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURL": "https://acs-mirror.azureedge.net/cni",
+      "versions": [
+        "0.7.6",
+        "0.7.5",
+        "0.7.1"
+      ]
+    },
+    {
+      "fileName": "cni-plugins-linux-amd64-v*.tgz",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+      "versions": [
+        "0.8.6"
+      ]
+    },
+    {
+      "fileName": "azure-vnet-cni-linux-amd64-v*.tgz",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
+      "versions": [
+        "1.2.6",
+        "1.2.0_hotfix",
+        "1.2.0"
+      ]
+    },
+    {
+      "fileName": "azure-vnet-cni-swift-linux-amd64-v*.tgz",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
+      "versions": [
+        "1.2.6"
+      ]
+    }
   ]
 }
