@@ -123,6 +123,7 @@ for fileToDownload in ${DownloadFiles[*]}; do
   downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
   versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
   download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
+  mkdir -p $downloadLocation
 
   for version in ${versions}; do
     file_Name=$(string_replace $fileName $version)
