@@ -286,68 +286,6 @@ configureCNIIPTables() {
     fi
 }
 
-disableNtpAndTimesyncdInstallChrony() {
-    # Disable systemd-timesyncd
-    sudo systemctl stop systemd-timesyncd
-    sudo systemctl disable systemd-timesyncd
-    # Disable ntp
-    sudo systemctl stop ntp
-    sudo systemctl disable ntp
-
-    # Install chrony
-    apt-get update
-    apt-get install chrony -y
-    cat > /etc/chrony/chrony.conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    systemctl restart chrony
-}
-
 disable1804SystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
