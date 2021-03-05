@@ -16,6 +16,7 @@
 // linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
+// linux/cloud-init/artifacts/ensure_no_dup.sh
 // linux/cloud-init/artifacts/etc-issue
 // linux/cloud-init/artifacts/etc-issue.net
 // linux/cloud-init/artifacts/etcd.service
@@ -2030,6 +2031,63 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsEnsure_no_dupSh = []byte(`#!/bin/bash
+
+# remove this if we are no longer using promiscuous bridge mode for containerd
+# background: we get duplicated packets from pod to serviceIP if both are on the same node (one from the cbr0 bridge and one from the pod ip itself via kernel due to promiscuous mode being on)
+# we should filter out the one from pod ip
+# this is exactly what kubelet does for dockershim+kubenet
+# https://github.com/kubernetes/kubernetes/pull/28717
+for try in {1..10}; do
+    ebtables -t filter -L AKS-DEDUP 2>/dev/null
+    if [[ $? -eq 0 ]]; then
+        echo "AKS-DEDUP rule already set"
+        exit 0
+    fi
+    if [[ ! -f /etc/cni/net.d/10-containerd-net.conflist ]]; then
+        echo "cni config not up yet...checking again in 5s"
+        sleep 5
+        continue
+    fi
+    podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
+
+    if [[ ! -f /sys/class/net/cbr0/address ]]; then
+        echo "cbr0 bridge not up yet...checking again in 5s"
+        sleep 5
+        continue
+    fi
+    cbr0MAC=$(cat /sys/class/net/cbr0/address)
+
+    cbr0IP=$(ip addr show cbr0 | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
+    if [[ -z "${cbr0IP}" ]]; then
+        echo "cbr0 bridge does not have an ipv4 address...checking again in 5s"
+        sleep 5
+        continue
+    fi
+
+    ebtables -t filter -N AKS-DEDUP # add new AKS-DEDUP chain
+    ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${cbr0IP} -j ACCEPT
+    ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP
+    ebtables -t filter -A OUTPUT -j AKS-DEDUP # add new rule to OUTPUT chain jump to AKS-DEDUP
+    exit 0
+done
+exit 1`)
+
+func linuxCloudInitArtifactsEnsure_no_dupShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsEnsure_no_dupSh, nil
+}
+
+func linuxCloudInitArtifactsEnsure_no_dupSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsEnsure_no_dupShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ensure_no_dup.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsEtcIssue = []byte(`
 Authorized uses only. All activity may be monitored and reported.
 `)
@@ -2418,6 +2476,10 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
+
+{{- if and NeedsContainerd IsKubenet }}{{- if not HasCalicoNetworkPolicy}}
+ExecStartPost=/bin/bash /opt/azure/containers/ensure_no_dup.sh
+{{- end}}{{- end}}
 
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
@@ -4086,6 +4148,12 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 {{end}}
+
+- path: /opt/azure/containers/ensure_no_dup.sh
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 {{end}}
 
 {{if IsNSeriesSKU}}
@@ -6972,6 +7040,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
 	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
+	"linux/cloud-init/artifacts/ensure_no_dup.sh":                          linuxCloudInitArtifactsEnsure_no_dupSh,
 	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
 	"linux/cloud-init/artifacts/etcd.service":                              linuxCloudInitArtifactsEtcdService,
@@ -7080,6 +7149,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
 				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
+				"ensure_no_dup.sh":                          &bintree{linuxCloudInitArtifactsEnsure_no_dupSh, map[string]*bintree{}},
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
 				"etcd.service":                              &bintree{linuxCloudInitArtifactsEtcdService, map[string]*bintree{}},
