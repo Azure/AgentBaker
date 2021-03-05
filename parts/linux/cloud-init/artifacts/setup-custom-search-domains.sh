@@ -1,6 +1,8 @@
 #!/bin/bash
 set -x
 source {{GetCSEHelpersScriptFilepath}}
+source {{GetCSEHelpersScriptDistroFilepath}}
+
 
 echo "  dns-search {{GetSearchDomainName}}" | tee -a /etc/network/interfaces.d/50-cloud-init.cfg
 systemctl_restart 20 5 10 networking

@@ -1,7 +1,15 @@
 #!/bin/bash
+
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
+
 source /home/packer/provision_installs.sh
+source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
+source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
+source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -80,6 +88,7 @@ fi
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
 installGPUDrivers
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
@@ -88,6 +97,7 @@ echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
     ensureGPUDrivers
+fi
 fi
 
 installBcc
@@ -133,6 +143,7 @@ for fileToDownload in ${DownloadFiles[*]}; do
   done
 done
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 1.11
 1.10
@@ -191,6 +202,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 fi
+fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
@@ -204,6 +216,83 @@ for NGINX_VERSION in ${NGINX_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# pull patched hyperkube image for AKS
+# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
+# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+# below are the required to support versions
+# v1.17.13
+# v1.17.16
+# v1.18.10
+# v1.18.14
+# v1.19.6
+# v1.19.7
+# v1.20.2
+# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
+PATCHED_HYPERKUBE_IMAGES="
+1.17.3-hotfix.20200601.1
+1.17.7-hotfix.20200714.2
+1.17.9-hotfix.20200824.1
+1.17.11-hotfix.20200901
+1.17.11-hotfix.20200901.1
+1.17.13
+1.17.16
+1.18.4-hotfix.20200626.1
+1.18.6-hotfix.20200723.1
+1.18.8-hotfix.20200924
+1.18.10-hotfix.20210118
+1.18.14-hotfix.20210118
+1.19.0
+1.19.1-hotfix.20200923
+1.19.3
+1.19.6-hotfix.20210118
+1.19.7-hotfix.20210122
+1.20.2
+"
+for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
+  # Only need to store k8s components >= 1.19 for containerd VHDs
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    continue
+  fi
+  # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)); then
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
+      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+      if [[ ${cliTool} == "docker" ]]; then
+          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+      else
+          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+      fi
+      # shellcheck disable=SC2181
+      if [[ $? != 0 ]]; then
+      echo "Hyperkube contains nf_tables, exiting..."
+      exit 99
+      fi
+  fi
+
+  # from 1.17 onwards start using kube-proxy as well
+  # strip the last .1 as that is for base image patch for hyperkube
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
+      if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
+      KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
+      else
+      KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
+      fi
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+      if [[ ${cliTool} == "docker" ]]; then
+          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+      else
+          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+      fi
+      # shellcheck disable=SC2181
+      if [[ $? != 0 ]]; then
+      echo "Hyperkube contains nf_tables, exiting..."
+      exit 99
+      fi
+      echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
+  fi
+done
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
@@ -265,91 +354,16 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
     extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
   fi
 done
+
+# shellcheck disable=SC2129
+echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
-
-# pull patched hyperkube image for AKS
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# below are the required to support versions
-# v1.17.13
-# v1.17.16
-# v1.18.10
-# v1.18.14
-# v1.19.6
-# v1.19.7
-# v1.20.2
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-PATCHED_HYPERKUBE_IMAGES="
-1.17.3-hotfix.20200601.1
-1.17.7-hotfix.20200714.2
-1.17.9-hotfix.20200824.1
-1.17.11-hotfix.20200901
-1.17.11-hotfix.20200901.1
-1.17.13
-1.17.16
-1.18.4-hotfix.20200626.1
-1.18.6-hotfix.20200723.1
-1.18.8-hotfix.20200924
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210118
-1.19.0
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210122
-1.20.2
-"
-for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    continue
-  fi
-  # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)); then
-      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-      if [[ ${cliTool} == "docker" ]]; then
-          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      else 
-          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      fi
-      # shellcheck disable=SC2181
-      if [[ $? != 0 ]]; then
-      echo "Hyperkube contains nf_tables, exiting..."
-      exit 99
-      fi
-  fi
-
-  # from 1.17 onwards start using kube-proxy as well
-  # strip the last .1 as that is for base image patch for hyperkube
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
-      if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
-      KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-      else
-      KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-      fi
-      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
-      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-      if [[ ${cliTool} == "docker" ]]; then
-          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-      else
-          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-      fi
-      # shellcheck disable=SC2181
-      if [[ $? != 0 ]]; then
-      echo "Hyperkube contains nf_tables, exiting..."
-      exit 99
-      fi
-      echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-  fi
-done
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
-df -h
-
+echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
+df -h >> ${VHD_LOGS_FILEPATH}
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken

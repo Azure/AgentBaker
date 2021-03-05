@@ -144,7 +144,7 @@ jobs:
       -e MODE=${MODE} \
       -e IMAGE_NAME=${SIG_IMAGE_NAME} \
       ${DEIS_GO_DEV_IMAGE} make -f packer.mk cleanup
-    displayName: Clean Up Remaining Resources
+    displayName: Clean Up Packer Generated Resources
     condition: always()
   - bash: |
       echo MODE=$(MODE) && \

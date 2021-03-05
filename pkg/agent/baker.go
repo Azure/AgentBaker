@@ -304,10 +304,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
 		"IsKubeletClientTLSBootstrappingEnabled": func() bool {
-			return IsKubeletClientTLSBootstrappingEnabled(cs, profile, config.EnableKubeletClientTLSBootstrapping)
+			return IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken)
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
-			return GetTLSBootstrapTokenForKubeConfig(profile)
+			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
 		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
@@ -466,12 +466,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"HasCalicoNetworkPolicy": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyCalico
-		},
-		"HasCiliumNetworkPlugin": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginCilium
-		},
-		"HasCiliumNetworkPolicy": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyCilium
 		},
 		"HasAntreaNetworkPolicy": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy == NetworkPolicyAntrea
@@ -668,8 +662,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetCSEHelpersScriptFilepath": func() string {
 			return cseHelpersScriptFilepath
 		},
+		"GetCSEHelpersScriptDistroFilepath": func() string {
+			return cseHelpersScriptDistroFilepath
+		},
 		"GetCSEInstallScriptFilepath": func() string {
 			return cseInstallScriptFilepath
+		},
+		"GetCSEInstallScriptDistroFilepath": func() string {
+			return cseInstallScriptDistroFilepath
 		},
 		"GetCSEConfigScriptFilepath": func() string {
 			return cseConfigScriptFilepath
