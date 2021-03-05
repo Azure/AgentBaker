@@ -5,8 +5,7 @@ testFilesDownloaded() {
   test="testFilesDownloaded"
   echo "$test:Start"
   filesToDownload=$(cat $COMPONENTS_FILEPATH)
-
-  filesToDownload=$(echo $filesToDownload | jq -r ".[]" | jq . --monochrome-output --compact-output)
+  filesToDownload=$(echo $filesToDownload | jq ".DownloadFiles" | jq .[] --monochrome-output --compact-output)
 
   for fileToDownload in ${filesToDownload[*]}; do
     fileName=$(echo "${fileToDownload}" | jq .fileName -r)
@@ -57,8 +56,6 @@ testImagesPulled() {
     return
   fi
 
-  imagesNotPulled=()
-
   imagesToBePulled=$(echo $imagesToBePulled | jq ".ContainerImages" | jq .[] --monochrome-output --compact-output)
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
@@ -71,7 +68,6 @@ testImagesPulled() {
         echo "Image ${download_URL} has been pulled Successfully"
       else
         err $test "Image ${download_URL} has NOT been pulled"
-        imagesNotPulled+=("$download_URL")
       fi
     done
 
