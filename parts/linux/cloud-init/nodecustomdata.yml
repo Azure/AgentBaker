@@ -413,6 +413,12 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 {{end}}
+
+- path: /opt/azure/containers/ensure_no_dup.sh
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 {{end}}
 
 {{if IsNSeriesSKU}}
