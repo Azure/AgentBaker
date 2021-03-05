@@ -12,6 +12,7 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     echo $?
     sudo systemctl restart systemd-timesyncd
 fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
