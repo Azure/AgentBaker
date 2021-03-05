@@ -587,7 +587,7 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 	return strings.Join(pairs, ",")
 }
 
-// ParseCSEMessage parses the raw VMSS CSE output
+// ParseCSEMessage parses the raw CSE output
 func ParseCSEMessage(message string) (*datamodel.InstanceViewCSEStatus, error) {
 	var cseStatus datamodel.InstanceViewCSEStatus
 	start := strings.Index(message, "[stdout]") + len("[stdout]")
@@ -603,7 +603,6 @@ func ParseCSEMessage(message string) (*datamodel.InstanceViewCSEStatus, error) {
 			// Regex "InstanceErrorCode=" is used to parse the error.
 			return nil, fmt.Errorf("CSE has invalid message=%s, %s=%s", message, InstanceErrorCode, CSEMessageExitCodeEmptyError)
 		}
-		cseStatus.ExitCode = strings.Trim(cseStatus.ExitCode, "\"")
 		return &cseStatus, nil
 	}
 	// Regex "InstanceErrorCode=" is used to parse the error.
