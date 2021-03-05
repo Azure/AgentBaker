@@ -3398,7 +3398,7 @@ ClientAliveInterval 120
 `)
 
 func linuxCloudInitArtifactsSshd_config_1804_fipsBytes() ([]byte, error) {
-	return __linuxCloudInitArtifactsSshd_config_1804_fips, nil
+	return _linuxCloudInitArtifactsSshd_config_1804_fips, nil
 }
 
 func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {

@@ -72,7 +72,7 @@ FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [[ -z `echo ${ENABLE_FIPS}` ]]; then
+  if [[ -z "${ENABLE_FIPS// }" ]]; then
     ENABLE_FIPS="false"
   fi
 
