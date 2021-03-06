@@ -4158,6 +4158,7 @@ write_files:
 - path: /opt/azure/containers/ensure_no_dup.sh
   permissions: "0755"
   owner: root
+  encoding: gzip
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 {{end}}
