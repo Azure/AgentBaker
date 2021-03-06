@@ -440,6 +440,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsNSeriesSKU": func() bool {
 			return config.EnableNvidia
 		},
+		"EnableChronyFor1804": func() bool {
+			return config.EnableChronyFor1804
+		},
 		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
 			return profile.HasAvailabilityZones()
 		},
