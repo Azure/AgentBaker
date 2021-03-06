@@ -12,6 +12,7 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     echo $?
     sudo systemctl restart systemd-timesyncd
 fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -38,10 +39,6 @@ source /opt/azure/containers/provision_installs_distro.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
-
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    disableNtpAndTimesyncdInstallChrony
-fi
 
 disable1804SystemdResolved
 
