@@ -1441,6 +1441,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
+	Enable1804Chrony              bool
 	TeleportdPluginURL            string
 
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
