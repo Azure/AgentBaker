@@ -1554,6 +1554,7 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     echo $?
     sudo systemctl restart systemd-timesyncd
 fi
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
@@ -1581,9 +1582,11 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+{{- if EnableChronyFor1804}}
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
     disableNtpAndTimesyncdInstallChrony
 fi
+{{end}}
 
 disable1804SystemdResolved
 
