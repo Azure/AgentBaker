@@ -39,3 +39,4 @@ for try in {1..10}; do
     exit 0
 done
 exit 1
+#EOF

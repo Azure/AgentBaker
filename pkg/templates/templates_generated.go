@@ -2013,7 +2013,8 @@ for try in {1..10}; do
     ebtables -t filter -A OUTPUT -j AKS-DEDUP # add new rule to OUTPUT chain jump to AKS-DEDUP
     exit 0
 done
-exit 1`)
+exit 1
+#EOF`)
 
 func linuxCloudInitArtifactsEnsure_no_dupShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsEnsure_no_dupSh, nil
