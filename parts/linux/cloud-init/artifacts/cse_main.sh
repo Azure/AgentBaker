@@ -28,11 +28,23 @@ done
 sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
 source {{GetCSEHelpersScriptFilepath}}
 
+wait_for_file 3600 1 {{GetCSEHelpersScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
+source {{GetCSEHelpersScriptDistroFilepath}}
+
 wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEInstallScriptFilepath}}
 
+wait_for_file 3600 1 {{GetCSEInstallScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
+source {{GetCSEInstallScriptDistroFilepath}}
+
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
+
+{{- if EnableChronyFor1804}}
+if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+    disableNtpAndTimesyncdInstallChrony
+fi
+{{end}}
 
 disable1804SystemdResolved
 

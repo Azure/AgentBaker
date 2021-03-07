@@ -116,7 +116,13 @@ filesToDownload='
   "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
   "downloadLocation":"/opt/cni/downloads",
   "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-  "versions":["1.2.0_hotfix","1.2.0","1.1.8"]
+  "versions":["1.2.6", "1.2.0_hotfix","1.2.0"]
+},
+{
+  "fileName":"azure-vnet-cni-swift-linux-amd64-v*.tgz",
+  "downloadLocation":"/opt/cni/downloads",
+  "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
+  "versions":["1.2.6"]
 },
 {
   "fileName":"v*/bpftrace-tools.tar",
