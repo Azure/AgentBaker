@@ -10,7 +10,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
+    "os_sku": "{{env `OS_SKU`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}"
@@ -30,7 +30,7 @@
       "os_disk_size_gb": 30,
       "image_publisher": "Canonical",
       "image_offer": "UbuntuServer",
-      "image_sku": "{{user `ubuntu_sku`}}-LTS",
+      "image_sku": "{{user `os_sku`}}-LTS",
       "image_version": "latest",
       "azure_tags": {
         "os": "Linux",

@@ -16,6 +16,12 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
+if [[ $OS == $MARINER_OS_NAME ]]; then
+  chmod 755 /opt
+  chmod 755 /opt/azure
+  chmod 644 ${VHD_LOGS_FILEPATH}
+fi
+
 copyPackerFiles
 
 echo ""
