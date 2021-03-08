@@ -203,8 +203,6 @@ const (
 )
 
 const (
-	// InstanceErrorCode is used to parse instance error code for vmss or vmas
-	InstanceErrorCode = "InstanceErrorCode"
 	// InvalidCSEMessage is the error code for cse invalid message
 	InvalidCSEMessage = "InvalidCSEMessage"
 	// CSEMessageUnmarshalError is the error for unmarshal cse message

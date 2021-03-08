@@ -1818,11 +1818,26 @@ type KubeletWebhookAuthorization struct {
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
 
-type InstanceViewCSEStatus struct {
+type CSEStatus struct {
 	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
 	// Output stores the output from CSE output.
 	Output string `json:"output,omitempty"`
 	// Error stores the error from CSE output.
 	Error string `json:"error,omitempty"`
+	// ExecDuration stores the execDuration from CSE output.
+	ExecDuration int `json:"execDuration,omitempty"`
+}
+
+type Error struct {
+	Code    string
+	Message string
+}
+
+func NewError(code, message string) *Error {
+	return &Error{Code: code, Message: message}
+}
+
+func (err *Error) Error() string {
+	return fmt.Sprintf("CSE has invalid message=%s, %s=%s", err.Message, InstanceErrorCode, err.Code)
 }

@@ -104,3 +104,7 @@ const (
 	// when KubeletDiskType == TempDisk.
 	TempDiskContainerDataDir = "/mnt/aks/containers"
 )
+const (
+	// InstanceErrorCode is used to parse instance error code for vmss or vmas
+	InstanceErrorCode = "InstanceErrorCode"
+)

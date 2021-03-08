@@ -588,23 +588,20 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 }
 
 // ParseCSEMessage parses the raw CSE output
-func ParseCSEMessage(message string) (*datamodel.InstanceViewCSEStatus, error) {
-	var cseStatus datamodel.InstanceViewCSEStatus
+func ParseCSEMessage(message string) (*datamodel.CSEStatus, error) {
+	var cseStatus datamodel.CSEStatus
 	start := strings.Index(message, "[stdout]") + len("[stdout]")
 	end := strings.Index(message, "[stderr]")
 	if end > start {
 		rawInstanceViewInfo := message[start:end]
 		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
 		if err != nil {
-			// Regex "InstanceErrorCode=" is used to parse the error.
-			return nil, fmt.Errorf("CSE has invalid message=%s, %s=%s", message, InstanceErrorCode, CSEMessageUnmarshalError)
+			return nil, datamodel.NewError(CSEMessageUnmarshalError, message)
 		}
 		if cseStatus.ExitCode == "" {
-			// Regex "InstanceErrorCode=" is used to parse the error.
-			return nil, fmt.Errorf("CSE has invalid message=%s, %s=%s", message, InstanceErrorCode, CSEMessageExitCodeEmptyError)
+			return nil, datamodel.NewError(CSEMessageExitCodeEmptyError, message)
 		}
 		return &cseStatus, nil
 	}
-	// Regex "InstanceErrorCode=" is used to parse the error.
-	return nil, fmt.Errorf("CSE has invalid message=%s, %s=%s", message, InstanceErrorCode, InvalidCSEMessage)
+	return nil, datamodel.NewError(InvalidCSEMessage, message)
 }
