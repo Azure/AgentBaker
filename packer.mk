@@ -63,3 +63,5 @@ windows-vhd-publishing-info: az-login
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
 
+pretest-building-vhd: az-login
+	@./vhdbuilder/packer/test/run-pretest.sh

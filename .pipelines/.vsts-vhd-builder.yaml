@@ -46,6 +46,26 @@ phases:
           vstsFeedPackage: asc-baseline
           vstsPackageVersion: '1.0.0-35'
           downloadDirectory: vhdbuilder/packer
+      - script: |
+          docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e CLIENT_ID=${CLIENT_ID} \
+          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+          -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+          -e AZURE_LOCATION=${AZURE_LOCATION} \
+          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
+          -e UBUNTU_SKU=${UBUNTU_SKU} \
+          -e OS_TYPE="Linux" \
+          -e MODE=$(MODE) \
+          -e VHD_DEBUG=${VHD_DEBUG} \
+          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+          ${CONTAINER_IMAGE} make -f packer.mk pretest-building-vhd
+        displayName: Run VHD Pre-Tests
       - bash: |
           echo MODE=$(MODE) && \
           docker run --rm \
