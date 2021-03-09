@@ -319,6 +319,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if kc == nil {
 				return ""
 			}
+
+			// FIXME: hack
+			if config.KubeletClientTLSBootstrapToken != nil {
+				kc.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
+				kc.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
+			}
+
 			return kc.GetOrderedKubeletConfigStringForPowershell()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
