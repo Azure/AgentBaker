@@ -176,7 +176,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:v*",
-    "versions": ["1.2.3","1.2.2_hotfix","1.2.1","1.1.8","1.1.7"]
+    "versions": ["1.2.7","1.2.2_hotfix","1.2.1","1.1.8"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v*",
