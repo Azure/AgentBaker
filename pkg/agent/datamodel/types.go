@@ -1817,7 +1817,6 @@ type KubeletWebhookAuthorization struct {
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
-
 type CSEStatus struct {
 	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
@@ -1829,15 +1828,26 @@ type CSEStatus struct {
 	ExecDuration int `json:"execDuration,omitempty"`
 }
 
-type Error struct {
-	Code    string
+type CSEStatusParsingErrorCode string
+
+const (
+	// CSEMessageUnmarshalError is the error code for unmarshal cse message
+	CSEMessageUnmarshalError CSEStatusParsingErrorCode = "CSEMessageUnmarshalError"
+	// CSEMessageExitCodeEmptyError is the error code for empty cse message exit code
+	CSEMessageExitCodeEmptyError CSEStatusParsingErrorCode = "CSEMessageExitCodeEmptyError"
+	// InvalidCSEMessage is the error code for cse invalid message
+	InvalidCSEMessage CSEStatusParsingErrorCode = "InvalidCSEMessage"
+)
+
+type CSEStatusParsingError struct {
+	Code    CSEStatusParsingErrorCode
 	Message string
 }
 
-func NewError(code, message string) *Error {
-	return &Error{Code: code, Message: message}
+func NewError(code CSEStatusParsingErrorCode, message string) *CSEStatusParsingError {
+	return &CSEStatusParsingError{Code: code, Message: message}
 }
 
-func (err *Error) Error() string {
-	return fmt.Sprintf("CSE has invalid message=%s, %s=%s", err.Message, InstanceErrorCode, err.Code)
+func (err *CSEStatusParsingError) Error() string {
+	return fmt.Sprintf("CSE has invalid message=%q, InstanceErrorCode=%s", err.Message, err.Code)
 }

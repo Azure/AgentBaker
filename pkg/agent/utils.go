@@ -588,7 +588,7 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 }
 
 // ParseCSEMessage parses the raw CSE output
-func ParseCSEMessage(message string) (*datamodel.CSEStatus, error) {
+func ParseCSEMessage(message string) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
 	var cseStatus datamodel.CSEStatus
 	start := strings.Index(message, "[stdout]") + len("[stdout]")
 	end := strings.Index(message, "[stderr]")
@@ -596,12 +596,12 @@ func ParseCSEMessage(message string) (*datamodel.CSEStatus, error) {
 		rawInstanceViewInfo := message[start:end]
 		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
 		if err != nil {
-			return nil, datamodel.NewError(CSEMessageUnmarshalError, message)
+			return nil, datamodel.NewError(datamodel.CSEMessageUnmarshalError, message)
 		}
 		if cseStatus.ExitCode == "" {
-			return nil, datamodel.NewError(CSEMessageExitCodeEmptyError, message)
+			return nil, datamodel.NewError(datamodel.CSEMessageExitCodeEmptyError, message)
 		}
 		return &cseStatus, nil
 	}
-	return nil, datamodel.NewError(InvalidCSEMessage, message)
+	return nil, datamodel.NewError(datamodel.InvalidCSEMessage, message)
 }
