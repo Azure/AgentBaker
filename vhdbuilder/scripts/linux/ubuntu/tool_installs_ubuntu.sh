@@ -143,4 +143,11 @@ installFIPS() {
     rm -f /etc/apt/sources.list.d/ubuntu-fips.list
     rm -f /etc/apt/auth.conf.d/90ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+
+    resolvconf=$(readlink -f /etc/resolv.conf)
+    # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
+    if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
+        unlink /etc/resolv.conf
+        ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+    fi
 }
