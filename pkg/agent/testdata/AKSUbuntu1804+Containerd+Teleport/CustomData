@@ -128,16 +128,16 @@ write_files:
   content: |
       {
           "cniVersion": "0.3.1",
-          "name": "kubenet",
+          "name": "aks-kubenet",
           "plugins": [{
             "type": "bridge",
             "bridge": "cbr0",
-            "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            "ipMasq": true,
             "promiscMode": true,
             "hairpinMode": false,
+            "mtu": 1500,
+            "ipMasq": true,
             "ipam": {
                 "type": "host-local",
                 "subnet": "{{.PodCIDR}}",
@@ -196,7 +196,6 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
-    net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
 

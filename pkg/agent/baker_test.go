@@ -402,6 +402,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.RuncVersion = "1.0.0-rc96"
+		}),
+
+		Entry("AKSUbuntu1804 with containerd+gpu and runcshimv2", "AKSUbuntu1804+Containerd++GPU+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.AgentPoolProfile.VMSize = "Standard_NC6"
+			config.EnableNvidia = true
+			config.EnableRuncShimV2 = true
+		}),
+		Entry("AKSUbuntu1804 with containerd+kubenet_ptp", "AKSUbuntu1804+Containerd+kubenet_ptp", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.EnablePTPKubenet = true
 		}))
 })
 

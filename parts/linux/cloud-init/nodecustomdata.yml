@@ -363,20 +363,24 @@ write_files:
   content: |
       {
           "cniVersion": "0.3.1",
-          "name": "kubenet",
+          "name": "aks-kubenet",
           "plugins": [{
+            {{- if UsePtpKubenet}}
+            "type": "ptp",
+            {{- else}}
             "type": "bridge",
             "bridge": "cbr0",
-            "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            "promiscMode": true,
+            "hairpinMode": false,
+            {{- end}}
+            "mtu": 1500,
             {{- if IsIPMasqAgentEnabled}}
             "ipMasq": false,
             {{- else}}
             "ipMasq": true,
             {{- end}}
-            "promiscMode": true,
-            "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
                 "subnet": "{{`{{.PodCIDR}}`}}",
@@ -435,7 +439,6 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
-    net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
 {{if TeleportEnabled}}

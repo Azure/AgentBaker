@@ -117,12 +117,7 @@ write_files:
           "cniVersion": "0.3.1",
           "name": "aks-kubenet",
           "plugins": [{
-            "type": "bridge",
-            "bridge": "cbr0",
-            "addIf": "eth0",
-            "isGateway": true,
-            "promiscMode": true,
-            "hairpinMode": false,
+            "type": "ptp",
             "mtu": 1500,
             "ipMasq": true,
             "ipam": {
