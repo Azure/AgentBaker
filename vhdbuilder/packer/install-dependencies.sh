@@ -60,7 +60,7 @@ fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  CONTAINERD_VERSION="1.4.3"
+  CONTAINERD_VERSION="1.4.4"
   installStandaloneContainerd
   echo "  - containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
   CRICTL_VERSIONS="1.19.0"
