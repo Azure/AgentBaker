@@ -15,16 +15,18 @@ copyPackerFiles() {
   MODPROBE_CIS_DEST=/etc/modprobe.d/CIS.conf
   PWQUALITY_CONF_SRC=/home/packer/pwquality-CIS.conf
   PWQUALITY_CONF_DEST=/etc/security/pwquality.conf
+  PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth
+  PAM_D_COMMON_AUTH_DEST=/etc/pam.d/common-auth
+  PAM_D_COMMON_PASSWORD_SRC=/home/packer/pam-d-common-password
+  PAM_D_COMMON_PASSWORD_DEST=/etc/pam.d/common-password
   PAM_D_SU_SRC=/home/packer/pam-d-su
   PAM_D_SU_DEST=/etc/pam.d/su
   PROFILE_D_CIS_SH_SRC=/home/packer/profile-d-cis.sh
   PROFILE_D_CIS_SH_DEST=/etc/profile.d/CIS.sh
-  AUDITD_RULES_SRC=/home/packer/auditd-rules
-  AUDITD_RULES_DEST=/etc/audit/rules.d/CIS.rules
-  LABEL_NODES_SRC=/home/packer/label-nodes.sh
-  LABEL_NODES_DEST=/opt/azure/containers/label-nodes.sh
-  LABEL_NODES_SERVICE_SRC=/home/packer/label-nodes.service
-  LABEL_NODES_SERVICE_DEST=/etc/systemd/system/label-nodes.service
+  UPDATE_NODE_LABELS_SRC=/home/packer/update-node-labels.sh
+  UPDATE_NODE_LABELS_DEST=/opt/azure/containers/update-node-labels.sh
+  UPDATE_NODE_LABELS_SERVICE_SRC=/home/packer/update-node-labels.service
+  UPDATE_NODE_LABELS_SERVICE_DEST=/etc/systemd/system/update-node-labels.service
   CIS_SRC=/home/packer/cis.sh
   CIS_DEST=/opt/azure/containers/provision_cis.sh
   APT_PREFERENCES_SRC=/home/packer/apt-preferences
@@ -39,10 +41,20 @@ copyPackerFiles() {
   DOCKER_MONITOR_SERVICE_DEST=/etc/systemd/system/docker-monitor.service
   DOCKER_MONITOR_TIMER_SRC=/home/packer/docker-monitor.timer
   DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
+  CONTAINERD_MONITOR_SERVICE_SRC=/home/packer/containerd-monitor.service
+  CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
+  CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
+  CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
+  NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
+  NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
+  NVIDIA_DOCKER_DAEMON_DEST=/etc/systemd/system/nvidia-docker-daemon.json
+  NVIDIA_DEVICE_PLUGIN_SERVICE_SRC=/home/packer/nvidia-device-plugin.service
+  NVIDIA_DEVICE_PLUGIN_SERVICE_DEST=/etc/systemd/system/nvidia-device-plugin.service
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
@@ -55,20 +67,33 @@ copyPackerFiles() {
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 644
   cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
+  cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
+  cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
-  cpAndMode $AUDITD_RULES_SRC $AUDITD_RULES_DEST 640
-  cpAndMode $LABEL_NODES_SRC $LABEL_NODES_DEST 744
-  cpAndMode $LABEL_NODES_SERVICE_SRC $LABEL_NODES_SERVICE_DEST 644
+  cpAndMode $UPDATE_NODE_LABELS_SRC $UPDATE_NODE_LABELS_DEST 744
+  cpAndMode $UPDATE_NODE_LABELS_SERVICE_SRC $UPDATE_NODE_LABELS_SERVICE_DEST 644
   cpAndMode $CIS_SRC $CIS_DEST 744
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
   cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
-  cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
-  cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
+  cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
+  cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 644
-  cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
+  if [[ $OS != $MARINER_OS_NAME ]]; then
+    cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
+    cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
+    cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
+  fi
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
+    cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644
+    if grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
+      cpAndMode $NVIDIA_DEVICE_PLUGIN_SERVICE_SRC $NVIDIA_DEVICE_PLUGIN_SERVICE_DEST 644
+    fi
+  fi
+
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
 }
 

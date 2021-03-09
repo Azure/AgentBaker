@@ -1,27 +1,60 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(UBUNTU_SKU)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
 trigger: none
 
-# steps:
-# - create an VHD in Packer to normal storage account
-# - copy from Packer storage account to classic storage account using AzCopy
-# - generate SAS link from azure CLI
-# - POST a new SKU to azure marketplace
+# Three modes in prioritized order
+# gen2Mode: Hyper-Generation V2 mode
+#    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
+#    steps:
+#    - Build VHD to a predefined SIG gallery/image with dynamic version (PackerSigGalleryEastUS/1804Gen2/1.0.{{user `create_time`}})
+#    - Create a managed disk with dynamic name 1.0.{{user `create_time`}} from the SIG image.
+#    - (offline) Export the managed disk SAS URL, download the VHD to local disk, rename the file to .vhd, upload it to a classic storage account and publish it to PIR.
+#
+# sigMode: Shared Image Gallery mode
+#    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
+#    It is similar to mode 1 except it will create a gen1 image and the SIG destination is specified by the provided env var.
+#    This is good for quick testing purpose as you can use the SIG image as soon as the build is completed.
+#    steps:
+#    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION
+#
+# default mode: Gen1+VHD
+#    This default mode generates VHD and store it in a classic storage account. This is mainly for publishing a new VM image to Platform Image Repository(PIR).
+#    steps:
+#    - create an VHD in Packer to normal storage account
+#    - copy from Packer storage account to classic storage account using AzCopy
+#    - generate SAS link from azure CLI
+#    - (offline)POST a new SKU to azure marketplace
 
 variables:
-  CONTAINER_IMAGE:  'quay.io/deis/go-dev:v1.25.2'
+  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
 
 phases:
   - phase: build_vhd
     queue:
       name: Hosted Ubuntu 1604
-      timeoutInMinutes: 120
+      timeoutInMinutes: 180
     steps:
-      - script: |
+      - bash: |
+          if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
+          echo "Set build mode to $m" && \
+          echo "##vso[task.setvariable variable=MODE]$m"
+        displayName: Get Build Mode
+      - task: UniversalPackages@0
+        displayName: Download Asc Baseline
+        inputs:
+          command: download
+          vstsFeed: ASMPackages
+          vstsFeedPackage: asc-baseline
+          vstsPackageVersion: '1.0.0-35'
+          downloadDirectory: vhdbuilder/packer
+      - bash: |
+          echo MODE=$(MODE) && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           -e AZURE_LOCATION=${AZURE_LOCATION} \
@@ -30,13 +63,44 @@ phases:
           -e BUILD_ID=$(Build.BuildId) \
           -e BUILD_NUMBER=$(Build.BuildNumber) \
           -e UBUNTU_SKU=${UBUNTU_SKU} \
-          ${CONTAINER_IMAGE} make  -f packer.mk run-packer
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e OS_TYPE="Linux" \
+          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
+          -e MODE=$(MODE) \
+          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+          -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
+          ${CONTAINER_IMAGE} make -f packer.mk run-packer
         displayName: Building VHD
+      - script: |
+          OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+          docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e CLIENT_ID=${CLIENT_ID} \
+          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+          -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+          -e OS_DISK_URI=${OS_DISK_URI} \
+          -e AZURE_LOCATION=${AZURE_LOCATION} \
+          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
+          -e UBUNTU_SKU=${UBUNTU_SKU} \
+          -e OS_TYPE="Linux" \
+          -e MODE=$(MODE) \
+          -e VHD_DEBUG=${VHD_DEBUG} \
+          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+          ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
+        displayName: Run VHD Tests
       - task: PublishPipelineArtifact@0
         inputs:
           artifactName: 'vhd-release-notes'
           targetPath: 'release-notes.txt'
-      - script: |
+      - bash: |
+          echo MODE=$(MODE) && \
           OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -44,45 +108,82 @@ phases:
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e CLASSIC_BLOB=${CLASSIC_BLOB} \
           -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
           -e OS_DISK_SAS=${OS_DISK_SAS} \
           ${CONTAINER_IMAGE} make -f packer.mk az-copy
         displayName: Copying resource to Classic Storage Account
-        condition: eq(variables.DRY_RUN, 'False')
-      - script: |
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+      - bash: |
+          echo MODE=$(MODE) && \
+          PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
+          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+          if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
-          -e SA_NAME=${SA_NAME} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e PKR_RG_NAME=${PKR_RG_NAME} \
+          -e MODE=${MODE} \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          ${CONTAINER_IMAGE} make -f packer.mk delete-sa
-        displayName: Clean-up Storage Account
+          -e SA_NAME=${SA_NAME} \
+          -e IMAGE_NAME=${IMAGE_NAME} \
+          ${CONTAINER_IMAGE} make -f packer.mk cleanup
+        displayName: Clean Up Packer Generated Resources
         condition: always()
-      - script: |
-          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      - bash: |
+          echo MODE=$(MODE) && \
+          create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e CLIENT_ID=${CLIENT_ID} \
           -e CLIENT_SECRET="$(CLIENT_SECRET)" \
           -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+          -e CREATE_TIME="${create_time}" \
+          -e LOCATION="${AZURE_LOCATION}" \
+          -e OS_TYPE="Linux" \
+          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+          -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+          ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+        displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+      - bash: |
+          echo MODE=$(MODE) && \
+          if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
+          VHD_NAME="1.0.${create_time}.vhd"; \
+          SKU_NAME="1804gen2"; else \
+          OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
+          VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
+          SKU_NAME=$UBUNTU_SKU; fi && \
+          if [[ "${FEATURE_FLAGS}" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
+          docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e CLIENT_ID=${CLIENT_ID} \
+          -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+          -e TENANT_ID=${TENANT_ID} \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
           -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
           -e VHD_NAME=${VHD_NAME} \
           -e OS_NAME="Linux" \
-          -e SKU_NAME=${UBUNTU_SKU} \
+          -e SKU_NAME=${SKU_NAME} \
           -e OFFER_NAME="Ubuntu" \
-          ${CONTAINER_IMAGE} make  -f packer.mk generate-sas
+          -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+          -e IMAGE_VERSION=${IMAGE_VERSION} \
+          ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
-        condition: eq(variables.DRY_RUN, 'False')
+        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
-        condition: eq(variables.DRY_RUN, 'False')
+        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))

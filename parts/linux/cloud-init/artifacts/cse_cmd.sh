@@ -1,15 +1,23 @@
-echo $(date),$(hostname);
+echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+{{if IsAKSCustomCloud}}
+for i in $(seq 1 1200); do
+grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
+if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+done;
+{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
+{{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
-CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
 KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
 HYPERKUBE_URL={{GetParameter "kubernetesHyperkubeSpec"}}
+KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
+KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
@@ -35,11 +43,11 @@ CLOUDPROVIDER_BACKOFF_RETRIES={{GetParameterProperty "cloudproviderConfig" "clou
 CLOUDPROVIDER_BACKOFF_EXPONENT={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffExponent"}}
 CLOUDPROVIDER_BACKOFF_DURATION={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffDuration"}}
 CLOUDPROVIDER_BACKOFF_JITTER={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoffJitter"}}
-CLOUDPROVIDER_RATELIMIT={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimit"}}
-CLOUDPROVIDER_RATELIMIT_QPS={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitQPS"}}
-CLOUDPROVIDER_RATELIMIT_QPS_WRITE={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitQPSWrite"}}
-CLOUDPROVIDER_RATELIMIT_BUCKET={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitBucket"}}
-CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE={{GetParameterProperty "cloudproviderConfig" "cloudProviderRatelimitBucketWrite"}}
+CLOUDPROVIDER_RATELIMIT={{GetParameterProperty "cloudproviderConfig" "cloudProviderRateLimit"}}
+CLOUDPROVIDER_RATELIMIT_QPS={{GetParameterProperty "cloudproviderConfig" "cloudProviderRateLimitQPS"}}
+CLOUDPROVIDER_RATELIMIT_QPS_WRITE={{GetParameterProperty "cloudproviderConfig" "cloudProviderRateLimitQPSWrite"}}
+CLOUDPROVIDER_RATELIMIT_BUCKET={{GetParameterProperty "cloudproviderConfig" "cloudProviderRateLimitBucket"}}
+CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE={{GetParameterProperty "cloudproviderConfig" "cloudProviderRateLimitBucketWrite"}}
 LOAD_BALANCER_DISABLE_OUTBOUND_SNAT={{GetParameterProperty "cloudproviderConfig" "cloudProviderDisableOutboundSNAT"}}
 USE_MANAGED_IDENTITY_EXTENSION={{GetVariable "useManagedIdentityExtension"}}
 USE_INSTANCE_METADATA={{GetVariable "useInstanceMetadata"}}
@@ -47,12 +55,16 @@ LOAD_BALANCER_SKU={{GetVariable "loadBalancerSku"}}
 EXCLUDE_MASTER_FROM_STANDARD_LB={{GetVariable "excludeMasterFromStandardLB"}}
 MAXIMUM_LOADBALANCER_RULE_COUNT={{GetVariable "maximumLoadBalancerRuleCount"}}
 CONTAINER_RUNTIME={{GetParameter "containerRuntime"}}
+CLI_TOOL={{GetParameter "cliTool"}}
 CONTAINERD_DOWNLOAD_URL_BASE={{GetParameter "containerdDownloadURLBase"}}
 NETWORK_MODE={{GetParameter "networkMode"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
+API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
-AUDITD_ENABLED={{GetVariable "auditdEnabled"}} 
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1"
+CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
+ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
+TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

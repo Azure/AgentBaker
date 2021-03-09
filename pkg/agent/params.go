@@ -4,33 +4,25 @@
 package agent
 
 import (
+	"encoding/base64"
 	"fmt"
-	"github.com/Azure/go-autorest/autorest/to"
 	"strconv"
+	"strings"
 
-	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
 	properties := cs.Properties
 	location := cs.Location
 	parametersMap := paramsMap{}
-	cloudSpecConfig := cs.GetCloudSpecConfig()
+	cloudSpecConfig := config.CloudSpecConfig
 
 	addValue(parametersMap, "bakerVersion", bakerVersion)
 	addValue(parametersMap, "location", location)
-
-	// Identify Master distro
-	if properties.MasterProfile != nil {
-		addValue(parametersMap, "osImageOffer", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImageOffer)
-		addValue(parametersMap, "osImageSKU", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImageSku)
-		addValue(parametersMap, "osImagePublisher", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImagePublisher)
-		addValue(parametersMap, "osImageVersion", cloudSpecConfig.OSImageConfig[properties.MasterProfile.Distro].ImageVersion)
-		if properties.MasterProfile.ImageRef != nil {
-			addValue(parametersMap, "osImageName", properties.MasterProfile.ImageRef.Name)
-			addValue(parametersMap, "osImageResourceGroup", properties.MasterProfile.ImageRef.ResourceGroup)
-		}
-	}
 
 	addValue(parametersMap, "nameSuffix", cs.Properties.GetClusterID())
 	addValue(parametersMap, "targetEnvironment", GetCloudTargetEnv(cs.Location))
@@ -42,15 +34,11 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 		}
 	}
 	// masterEndpointDNSNamePrefix is the basis for storage account creation across dcos, swarm, and k8s
-	if properties.MasterProfile != nil {
-		// MasterProfile exists, uses master DNS prefix
-		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.MasterProfile.DNSPrefix)
-	} else if properties.HostedMasterProfile != nil {
+	if properties.HostedMasterProfile != nil {
 		// Agents only, use cluster DNS prefix
 		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
 	}
 	if properties.HostedMasterProfile != nil {
-		addValue(parametersMap, "masterSubnet", properties.HostedMasterProfile.Subnet)
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
 	}
 
@@ -66,10 +54,14 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, generatorCode)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode)
+		if profile != nil {
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
+		}
 	}
 
 	// Agent parameters
+	isSetVnetCidrs := false
 	for _, agentProfile := range properties.AgentPoolProfiles {
 		addValue(parametersMap, fmt.Sprintf("%sCount", agentProfile.Name), agentProfile.Count)
 		addValue(parametersMap, fmt.Sprintf("%sVMSize", agentProfile.Name), agentProfile.VMSize)
@@ -90,47 +82,21 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 			addValue(parametersMap, fmt.Sprintf("%sScaleSetEvictionPolicy", agentProfile.Name), agentProfile.ScaleSetEvictionPolicy)
 		}
 
-		// Unless distro is defined, default distro is configured by defaults#setAgentProfileDefaults
-		//   Ignores Windows OS
-		if !(agentProfile.OSType == api.Windows) {
-			if agentProfile.ImageRef != nil {
-				addValue(parametersMap, fmt.Sprintf("%sosImageName", agentProfile.Name), agentProfile.ImageRef.Name)
-				addValue(parametersMap, fmt.Sprintf("%sosImageResourceGroup", agentProfile.Name), agentProfile.ImageRef.ResourceGroup)
-			}
-			addValue(parametersMap, fmt.Sprintf("%sosImageOffer", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImageOffer)
-			addValue(parametersMap, fmt.Sprintf("%sosImageSKU", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImageSku)
-			addValue(parametersMap, fmt.Sprintf("%sosImagePublisher", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImagePublisher)
-			addValue(parametersMap, fmt.Sprintf("%sosImageVersion", agentProfile.Name), cloudSpecConfig.OSImageConfig[agentProfile.Distro].ImageVersion)
+		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {
+			// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
+			// added into the ExceptionList of Windows nodes. Otherwise, the default value `10.0.0.0/8` will
+			// be added into the ExceptionList and it does not work if users use other ip address ranges.
+			// All agent pools in the same cluster share a same VnetCidrs so we only need to set the first non-empty VnetCidrs.
+			addValue(parametersMap, "vnetCidr", strings.Join(agentProfile.VnetCidrs, ","))
+			isSetVnetCidrs = true
 		}
 	}
 
 	// Windows parameters
 	if properties.HasWindows() {
-		addValue(parametersMap, "windowsAdminUsername", properties.WindowsProfile.AdminUsername)
-		addSecret(parametersMap, "windowsAdminPassword", properties.WindowsProfile.AdminPassword, false)
-
-		if properties.WindowsProfile.HasCustomImage() {
-			addValue(parametersMap, "agentWindowsSourceUrl", properties.WindowsProfile.WindowsImageSourceURL)
-		} else if properties.WindowsProfile.HasImageRef() {
-			addValue(parametersMap, "agentWindowsImageResourceGroup", properties.WindowsProfile.ImageRef.ResourceGroup)
-			addValue(parametersMap, "agentWindowsImageName", properties.WindowsProfile.ImageRef.Name)
-		} else {
-			addValue(parametersMap, "agentWindowsPublisher", properties.WindowsProfile.WindowsPublisher)
-			addValue(parametersMap, "agentWindowsOffer", properties.WindowsProfile.WindowsOffer)
-			addValue(parametersMap, "agentWindowsSku", properties.WindowsProfile.GetWindowsSku())
-			addValue(parametersMap, "agentWindowsVersion", properties.WindowsProfile.ImageVersion)
-
-		}
-
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
-
-		for i, s := range properties.WindowsProfile.Secrets {
-			addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%d", i), s.SourceVault.ID)
-			for j, c := range s.VaultCertificates {
-				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
-				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateStore%d", i, j), c.CertificateStore)
-			}
-		}
+		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation", properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
+		addValue(parametersMap, "containerdWindowsRuntimeHandlers", properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
 	}
 
 	for _, extension := range properties.ExtensionProfiles {
@@ -147,8 +113,27 @@ func getParameters(cs *api.ContainerService, generatorCode string, bakerVersion 
 	return parametersMap
 }
 
-func assignKubernetesParameters(properties *api.Properties, parametersMap paramsMap,
-	cloudSpecConfig api.AzureEnvironmentSpecConfig, generatorCode string) {
+func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
+	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+		// override containerRuntime parameter value if specified in AgentPoolProfile
+		// this allows for heteregenous clusters
+		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
+		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
+			addValue(parametersMap, "cliTool", "ctr")
+			if config.TeleportdPluginURL != "" {
+				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
+			}
+		} else {
+			addValue(parametersMap, "cliTool", "docker")
+		}
+	}
+}
+
+func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
+	k8sComponents *datamodel.K8sComponents,
+	generatorCode string) {
 	addValue(parametersMap, "generatorCode", generatorCode)
 
 	orchestratorProfile := properties.OrchestratorProfile
@@ -157,31 +142,18 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 		k8sVersion := orchestratorProfile.OrchestratorVersion
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
-		k8sComponents := api.K8sComponentsByVersionMap[k8sVersion]
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
-		kubernetesImageBase := kubernetesConfig.KubernetesImageBase
-		mcrKubernetesImageBase := kubernetesConfig.MCRKubernetesImageBase
-		hyperkubeImageBase := kubernetesConfig.KubernetesImageBase
 
 		if kubernetesConfig != nil {
-
-			kubeProxySpec := kubernetesImageBase + k8sComponents["kube-proxy"]
 			if kubernetesConfig.CustomKubeProxyImage != "" {
-				kubeProxySpec = kubernetesConfig.CustomKubeProxyImage
+				addValue(parametersMap, "kubeProxySpec", kubernetesConfig.CustomKubeProxyImage)
 			}
-			addValue(parametersMap, "kubeProxySpec", kubeProxySpec)
+
 			if kubernetesConfig.CustomKubeBinaryURL != "" {
 				addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
 			}
 
-			kubernetesHyperkubeSpec := hyperkubeImageBase + k8sComponents["hyperkube"]
-			if properties.IsAzureStackCloud() {
-				kubernetesHyperkubeSpec = kubernetesHyperkubeSpec + AzureStackSuffix
-			}
-			if kubernetesConfig.CustomHyperkubeImage != "" {
-				kubernetesHyperkubeSpec = kubernetesConfig.CustomHyperkubeImage
-			}
-			addValue(parametersMap, "kubernetesHyperkubeSpec", kubernetesHyperkubeSpec)
+			addValue(parametersMap, "kubernetesHyperkubeSpec", k8sComponents.HyperkubeImageURL)
 
 			addValue(parametersMap, "kubeDNSServiceIP", kubernetesConfig.DNSServiceIP)
 			if kubernetesConfig.IsAADPodIdentityEnabled() {
@@ -196,7 +168,7 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 			} else {
 				addValue(parametersMap, "kubernetesACIConnectorEnabled", false)
 			}
-			addValue(parametersMap, "kubernetesPodInfraContainerSpec", mcrKubernetesImageBase+k8sComponents["pause"])
+			addValue(parametersMap, "kubernetesPodInfraContainerSpec", k8sComponents.PodInfraContainerImageURL)
 			addValue(parametersMap, "cloudproviderConfig", paramsMap{
 				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
 				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
@@ -231,51 +203,36 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 			addValue(parametersMap, "enableAggregatedAPIs", kubernetesConfig.EnableAggregatedAPIs)
 
 			if properties.HasWindows() {
-				// Kubernetes packages as zip file as created by scripts/build-windows-k8s.sh
-				// will be removed in future release as if gets phased out (https://github.com/Azure/aks-engine/issues/3851)
-				kubeBinariesSASURL := kubernetesConfig.CustomWindowsPackageURL
-				if kubeBinariesSASURL == "" {
-					if properties.IsAzureStackCloud() {
-						kubeBinariesSASURL = cloudSpecConfig.KubernetesSpecConfig.KubeBinariesSASURLBase + AzureStackPrefix + k8sComponents["windowszip"]
-					} else {
-						kubeBinariesSASURL = cloudSpecConfig.KubernetesSpecConfig.KubeBinariesSASURLBase + k8sComponents["windowszip"]
-					}
-				}
-				addValue(parametersMap, "kubeBinariesSASURL", kubeBinariesSASURL)
+				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
 
 				// Kubernetes node binaries as packaged by upstream kubernetes
 				// example at https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.11.md#node-binaries-1
 				addValue(parametersMap, "windowsKubeBinariesURL", kubernetesConfig.WindowsNodeBinariesURL)
+				addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
 				addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
 				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
 				addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
+				addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
+
 			}
 		}
 
-		if kubernetesConfig == nil ||
-			!kubernetesConfig.UseManagedIdentity ||
-			properties.IsHostedMasterProfile() {
-			servicePrincipalProfile := properties.ServicePrincipalProfile
+		servicePrincipalProfile := properties.ServicePrincipalProfile
 
-			if servicePrincipalProfile != nil {
-				addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
-				keyVaultSecretRef := servicePrincipalProfile.KeyvaultSecretRef
-				if keyVaultSecretRef != nil {
-					addKeyvaultReference(parametersMap, "servicePrincipalClientSecret",
-						keyVaultSecretRef.VaultID,
-						keyVaultSecretRef.SecretName,
-						keyVaultSecretRef.SecretVersion)
-				} else {
-					addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+		if servicePrincipalProfile != nil {
+			addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
+			encodedServicePrincipalClientSecret := base64.StdEncoding.EncodeToString([]byte(servicePrincipalProfile.Secret))
+			addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
+			// base64 encoding is to escape special characters like quotes in service principal
+			// reference: https://github.com/Azure/aks-engine/pull/1174
+			addValue(parametersMap, "encodedServicePrincipalClientSecret", encodedServicePrincipalClientSecret)
+
+			if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
+				if kubernetesConfig.KeyVaultSku != "" {
+					addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
 				}
-
-				if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
-					if kubernetesConfig.KeyVaultSku != "" {
-						addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
-					}
-					if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
-						addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
-					}
+				if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
+					addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
 				}
 			}
 		}
@@ -330,30 +287,6 @@ func assignKubernetesParameters(properties *api.Properties, parametersMap params
 			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)
 			addSecret(parametersMap, "kubeConfigCertificate", certificateProfile.KubeConfigCertificate, true)
 			addSecret(parametersMap, "kubeConfigPrivateKey", certificateProfile.KubeConfigPrivateKey, true)
-			if properties.MasterProfile != nil {
-				addSecret(parametersMap, "etcdServerCertificate", certificateProfile.EtcdServerCertificate, true)
-				addSecret(parametersMap, "etcdServerPrivateKey", certificateProfile.EtcdServerPrivateKey, true)
-				addSecret(parametersMap, "etcdClientCertificate", certificateProfile.EtcdClientCertificate, true)
-				addSecret(parametersMap, "etcdClientPrivateKey", certificateProfile.EtcdClientPrivateKey, true)
-				for i, pc := range certificateProfile.EtcdPeerCertificates {
-					addSecret(parametersMap, "etcdPeerCertificate"+strconv.Itoa(i), pc, true)
-				}
-				for i, pk := range certificateProfile.EtcdPeerPrivateKeys {
-					addSecret(parametersMap, "etcdPeerPrivateKey"+strconv.Itoa(i), pk, true)
-				}
-			}
-		}
-
-		if properties.HostedMasterProfile != nil && properties.HostedMasterProfile.FQDN != "" {
-			addValue(parametersMap, "kubernetesEndpoint", properties.HostedMasterProfile.FQDN)
-		}
-
-		if properties.OrchestratorProfile.KubernetesConfig.MobyVersion != "" {
-			addValue(parametersMap, "mobyVersion", properties.OrchestratorProfile.KubernetesConfig.MobyVersion)
-		}
-
-		if properties.OrchestratorProfile.KubernetesConfig.ContainerdVersion != "" {
-			addValue(parametersMap, "containerdVersion", properties.OrchestratorProfile.KubernetesConfig.ContainerdVersion)
 		}
 
 		if properties.AADProfile != nil {

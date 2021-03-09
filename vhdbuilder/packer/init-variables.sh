@@ -6,7 +6,7 @@ SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
-STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}"
+STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
@@ -21,6 +21,12 @@ elif [ -z "${CLIENT_ID}" ]; then
 	CLIENT_ID=$(jq -r .appId ${SP_JSON})
 	CLIENT_SECRET=$(jq -r .password ${SP_JSON})
 	TENANT_ID=$(jq -r .tenant ${SP_JSON})
+fi
+
+rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
+if [ -z "$rg_id" ]; then
+	echo "Creating resource group $AZURE_RESOURCE_GROUP_NAME, location ${AZURE_LOCATION}"
+	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 fi
 
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
@@ -51,6 +57,65 @@ fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
+if [ "$MODE" == "sigMode" ]; then
+	echo "SIG existence checking for $MODE"
+	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
+	if [ -z "$id" ]; then
+		echo "Creating gallery ${SIG_GALLERY_NAME} in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
+	else
+		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+	fi
+
+	id=$(az sig image-definition show \
+		--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+		--gallery-name ${SIG_GALLERY_NAME} \
+		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
+	if [ -z "$id" ]; then
+		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		az sig image-definition create \
+			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+			--gallery-name ${SIG_GALLERY_NAME} \
+			--gallery-image-definition ${SIG_IMAGE_NAME} \
+			--publisher microsoft-aks \
+			--offer ${SIG_GALLERY_NAME} \
+			--sku ${SIG_IMAGE_NAME} \
+			--os-type ${OS_TYPE} \
+			--location ${AZURE_LOCATION}
+	else
+		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+	fi
+else
+	echo "Skipping SIG check for $MODE"
+fi
+
+# considerations to also add the windows support here instead of an extra script to initialize windows variables:
+# 1. we can demonstrate the whole user defined parameters all at once
+# 2. help us keep in mind that changes of this variables will influence both windows and linux VHD building
+
+# windows image sku and windows image version are recorded in code instead of pipeline variables
+# because a pr gives a better chance to take a review of the version changes.
+WINDOWS_IMAGE_SKU=""
+WINDOWS_IMAGE_VERSION=""
+# shellcheck disable=SC2236
+if [ ! -z "${WINDOWS_SKU}" ]; then
+	source $CDIR/windows-image.env
+	case "${WINDOWS_SKU}" in
+	"2019"|"2019-containerd")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		;;
+	"2004")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2004_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2004_BASE_IMAGE_VERSION
+		;;
+	*)
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
+		exit 1
+		;;
+	esac
+fi
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -61,7 +126,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
-  "create_time": "${CREATE_TIME}"
+  "create_time": "${CREATE_TIME}",
+  "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
+  "windows_image_version": "${WINDOWS_IMAGE_VERSION}"
 }
 EOF
 

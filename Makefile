@@ -26,7 +26,7 @@ ifeq ($(GITTAG),)
 GITTAG := $(VERSION_SHORT)
 endif
 
-DEV_ENV_IMAGE := quay.io/deis/go-dev:v1.25.0
+DEV_ENV_IMAGE := mcr.microsoft.com/oss/azcu/go-dev:v1.28.5
 DEV_ENV_WORK_DIR := /baker
 DEV_ENV_OPTS := --rm -v $(GOPATH)/pkg/mod:/go/pkg/mod -v $(CURDIR):$(DEV_ENV_WORK_DIR) -w $(DEV_ENV_WORK_DIR) $(DEV_ENV_VARS)
 DEV_ENV_CMD := docker run $(DEV_ENV_OPTS) $(DEV_ENV_IMAGE)
@@ -75,16 +75,19 @@ validate-go:
 
 .PHONY: validate-shell
 validate-shell:
-	@./scripts/validate-shell.sh
-
+	@./.pipelines/scripts/verify_shell.sh
+	
 .PHONY: generate
 generate: bootstrap
 	@echo $(GOFLAGS)
 	@echo "$$(go-bindata --version)"
 	(pushd parts && \
-	../hack/tools/bin/go-bindata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
+	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
 	popd \
 	)
+	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	@echo "running validate-shell to make sure generated cse scripts are correct"
+	@$(MAKE) validate-shell
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -114,14 +117,6 @@ build-cross: build
 build-cross: LDFLAGS += -extldflags "-static"
 build-cross:
 	CGO_ENABLED=0 gox -output="_dist/baker-$(GITTAG)-{{.OS}}-{{.Arch}}/{{.Dir}}" -osarch='$(TARGETS)' $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)'
-
-.PHONY: build-windows-k8s
-build-windows-k8s:
-	./scripts/build-windows-k8s.sh -v $(K8S_VERSION) -p $(PATCH_VERSION)
-
-.PHONY: build-azs-windows-k8s
-build-azs-windows-k8s:
-	./scripts/build-windows-k8s.sh -v $(K8S_VERSION) -p $(PATCH_VERSION) -a $(BUILD_AZURE_STACK)
 
 .PHONY: dist
 dist: build-cross compress-binaries
@@ -163,8 +158,9 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: generate ginkgoBuild
-	ginkgo -mod=vendor -skipPackage test/e2e -failFast -r -v -tags=fast .
+test: generate
+	go test ./...
+
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers

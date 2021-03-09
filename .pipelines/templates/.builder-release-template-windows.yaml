@@ -1,0 +1,137 @@
+parameters:
+    - name: artifactName
+      type: string
+      default: 2019
+
+steps:
+  - bash: |
+      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
+      echo "Set build mode to $m" && \
+      echo "##vso[task.setvariable variable=MODE]$m" && \
+      if [[ "${USE_RELEASE_DATE}" = "False" ]]; then \
+        echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d"); \
+      else \
+        echo "use release date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
+      fi && \
+      echo "Set build date to $BUILD_DATE" && \
+      echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
+    displayName: Get Build Mode
+  - script: |
+      echo MODE=$(MODE) && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+      -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
+      -e GIT_BRANCH=$(Build.SourceBranchName) \
+      -e GIT_REPO=$(Build.Repository.Uri) \
+      -e GIT_VERSION=$(Build.SourceVersion) \
+      -e BUILD_ID=$(Build.BuildId) \
+      -e BUILD_NUMBER=$(Build.BuildNumber) \
+      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
+      -e WINDOWS_SKU=$(WINDOWS_SKU) \
+      -e OS_TYPE="Windows" \
+      -e MODE=$(MODE) \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+      ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
+    displayName: Building windows VHD
+  - script: |
+      OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e OS_DISK_URI=${OS_DISK_URI} \
+      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
+      -e WINDOWS_SKU=$(WINDOWS_SKU) \
+      -e OS_TYPE="Windows" \
+      -e MODE=$(MODE) \
+      -e VHD_DEBUG=${VHD_DEBUG} \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+      ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
+    displayName: Run VHD cache test
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+        targetPath: 'release-notes.txt'
+  - script: |
+      echo MODE=$(MODE) && \
+      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
+      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
+      -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
+      -e OS_DISK_SAS=${OS_DISK_SAS} \
+      -e VHD_NAME=${VHD_NAME} \
+      ${CONTAINER_IMAGE} make -f packer.mk az-copy
+    displayName: Copying resource to Classic Storage Account
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+  - bash: |
+      echo MODE=$(MODE) && \
+      PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
+      SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e SA_NAME=${SA_NAME} \
+      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e PKR_RG_NAME=${PKR_RG_NAME} \
+      -e MODE=${MODE} \
+      -e IMAGE_NAME=${SIG_IMAGE_NAME} \
+      ${CONTAINER_IMAGE} make -f packer.mk cleanup
+    displayName: Clean Up Packer Generated Resources
+    condition: always()
+  - bash: |
+      echo MODE=$(MODE) && \
+      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
+      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      WINDOWS_VERSION="$(grep "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
+      IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}" && \
+      SKU_NAME="windows-$WINDOWS_SKU" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+      -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
+      -e VHD_NAME=${VHD_NAME} \
+      -e OS_NAME="Windows" \
+      -e SKU_NAME=${SKU_NAME} \
+      -e OFFER_NAME="Windows" \
+      -e IMAGE_VERSION=${IMAGE_VERSION} \
+      -e HYPERV_GENERATION="V1" \
+      ${CONTAINER_IMAGE} make -f packer.mk generate-sas
+    displayName: Getting Shared Access Signature URI
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'publishing-info-${{ parameters.artifactName }}'
+        targetPath: 'vhd-publishing-info.json'
+    condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))

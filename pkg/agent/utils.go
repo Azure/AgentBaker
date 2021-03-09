@@ -9,20 +9,59 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/blang/semver"
-	"io/ioutil"
-	"log"
 	"net"
-	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 
-	"github.com/Azure/aks-engine/pkg/api"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/pkg/templates"
+	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/blang/semver"
 	"github.com/pkg/errors"
 )
+
+// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
+var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
+	"--address":                           true,
+	"--anonymous-auth":                    true,
+	"--client-ca-file":                    true,
+	"--authentication-token-webhook":      true,
+	"--authorization-mode":                true,
+	"--pod-manifest-path":                 true,
+	"--cluster-dns":                       true,
+	"--cgroups-per-qos":                   true,
+	"--tls-cert-file":                     true,
+	"--tls-private-key-file":              true,
+	"--tls-cipher-suites":                 true,
+	"--cluster-domain":                    true,
+	"--max-pods":                          true,
+	"--eviction-hard":                     true,
+	"--node-status-update-frequency":      true,
+	"--image-gc-high-threshold":           true,
+	"--image-gc-low-threshold":            true,
+	"--event-qps":                         true,
+	"--pod-max-pids":                      true,
+	"--enforce-node-allocatable":          true,
+	"--streaming-connection-idle-timeout": true,
+	"--rotate-certificates":               true,
+	"--read-only-port":                    true,
+	"--feature-gates":                     true,
+	"--protect-kernel-defaults":           true,
+	"--resolv-conf":                       true,
+	"--system-reserved":                   true,
+	"--kube-reserved":                     true,
+	"--cpu-manager-policy":                true,
+	"--cpu-cfs-quota":                     true,
+	"--cpu-cfs-quota-period":              true,
+	"--topology-manager-policy":           true,
+	"--allowed-unsafe-sysctls":            true,
+	"--fail-swap-on":                      true,
+	"--container-log-max-size":            true,
+	"--container-log-max-files":           true,
+}
 
 var keyvaultSecretPathRe *regexp.Regexp
 
@@ -31,25 +70,6 @@ func init() {
 }
 
 type paramsMap map[string]interface{}
-
-// validateDistro checks if the requested orchestrator type is supported on the requested Linux distro.
-func validateDistro(cs *api.ContainerService) bool {
-	// Check Master distro
-	if cs.Properties.MasterProfile != nil && cs.Properties.MasterProfile.Distro == api.RHEL &&
-		(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
-		log.Printf("Orchestrator type %s not suported on RHEL Master", cs.Properties.OrchestratorProfile.OrchestratorType)
-		return false
-	}
-	// Check Agent distros
-	for _, agentProfile := range cs.Properties.AgentPoolProfiles {
-		if agentProfile.Distro == api.RHEL &&
-			(cs.Properties.OrchestratorProfile.OrchestratorType != api.SwarmMode) {
-			log.Printf("Orchestrator type %s not suported on RHEL Agent", cs.Properties.OrchestratorProfile.OrchestratorType)
-			return false
-		}
-	}
-	return true
-}
 
 // generateConsecutiveIPsList takes a starting IP address and returns a string slice of length "count" of subsequent, consecutive IP addresses
 func generateConsecutiveIPsList(count int, firstAddr string) ([]string, error) {
@@ -80,8 +100,8 @@ func addValue(m paramsMap, k string, v interface{}) {
 
 func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVersion string) {
 	m[k] = paramsMap{
-		"reference": &KeyVaultRef{
-			KeyVault: KeyVaultID{
+		"reference": &datamodel.KeyVaultRef{
+			KeyVault: datamodel.KeyVaultID{
 				ID: vaultID,
 			},
 			SecretName:    secretName,
@@ -108,21 +128,17 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
 }
 
-func makeAgentExtensionScriptCommands(cs *api.ContainerService, profile *api.AgentPoolProfile) string {
-	if profile.OSType == api.Windows {
+func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) string {
+	if profile.OSType == datamodel.Windows {
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
 	}
-	curlCaCertOpt := ""
-	if cs.Properties.IsAzureStackCloud() {
-		curlCaCertOpt = fmt.Sprintf("--cacert %s", AzureStackCaCertLocation)
-	}
 	return makeExtensionScriptCommands(profile.PreprovisionExtension,
-		curlCaCertOpt, cs.Properties.ExtensionProfiles)
+		"", cs.Properties.ExtensionProfiles)
 }
 
-func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string, extensionProfiles []*api.ExtensionProfile) string {
-	var extensionProfile *api.ExtensionProfile
+func makeExtensionScriptCommands(extension *datamodel.Extension, curlCaCertOpt string, extensionProfiles []*datamodel.ExtensionProfile) string {
+	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
 			extensionProfile = eP
@@ -141,8 +157,8 @@ func makeExtensionScriptCommands(extension *api.Extension, curlCaCertOpt string,
 		scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath, extensionsParameterReference, extensionProfile.Name)
 }
 
-func makeWindowsExtensionScriptCommands(extension *api.Extension, extensionProfiles []*api.ExtensionProfile) string {
-	var extensionProfile *api.ExtensionProfile
+func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensionProfiles []*datamodel.ExtensionProfile) string {
+	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
 			extensionProfile = eP
@@ -157,23 +173,10 @@ func makeWindowsExtensionScriptCommands(extension *api.Extension, extensionProfi
 	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; Invoke-WebRequest -Uri \"%s\" -OutFile \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
-func getVNETAddressPrefixes(properties *api.Properties) string {
-	visitedSubnets := make(map[string]bool)
-	var buf bytes.Buffer
-	buf.WriteString(`"[variables('masterSubnet')]"`)
-	visitedSubnets[properties.MasterProfile.Subnet] = true
-	for _, profile := range properties.AgentPoolProfiles {
-		if _, ok := visitedSubnets[profile.Subnet]; !ok {
-			buf.WriteString(fmt.Sprintf(",\n            \"[variables('%sSubnet')]\"", profile.Name))
-		}
-	}
-	return buf.String()
-}
-
-func getVNETSubnetDependencies(properties *api.Properties) string {
+func getVNETSubnetDependencies(properties *datamodel.Properties) string {
 	agentString := `        "[concat('Microsoft.Network/networkSecurityGroups/', variables('%sNSGName'))]"`
 	var buf bytes.Buffer
 	for index, agentProfile := range properties.AgentPoolProfiles {
@@ -181,42 +184,6 @@ func getVNETSubnetDependencies(properties *api.Properties) string {
 			buf.WriteString(",\n")
 		}
 		buf.WriteString(fmt.Sprintf(agentString, agentProfile.Name))
-	}
-	return buf.String()
-}
-
-func getVNETSubnets(properties *api.Properties, addNSG bool) string {
-	masterString := `{
-            "name": "[variables('masterSubnetName')]",
-            "properties": {
-              "addressPrefix": "[variables('masterSubnet')]"
-            }
-          }`
-	agentString := `          {
-            "name": "[variables('%sSubnetName')]",
-            "properties": {
-              "addressPrefix": "[variables('%sSubnet')]"
-            }
-          }`
-	agentStringNSG := `          {
-            "name": "[variables('%sSubnetName')]",
-            "properties": {
-              "addressPrefix": "[variables('%sSubnet')]",
-              "networkSecurityGroup": {
-                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('%sNSGName'))]"
-              }
-            }
-          }`
-	var buf bytes.Buffer
-	buf.WriteString(masterString)
-	for _, agentProfile := range properties.AgentPoolProfiles {
-		buf.WriteString(",\n")
-		if addNSG {
-			buf.WriteString(fmt.Sprintf(agentStringNSG, agentProfile.Name, agentProfile.Name, agentProfile.Name))
-		} else {
-			buf.WriteString(fmt.Sprintf(agentString, agentProfile.Name, agentProfile.Name))
-		}
-
 	}
 	return buf.String()
 }
@@ -244,40 +211,6 @@ func getLBRule(name string, port int) string {
           }`, port, name, name, port, name, port, name, port)
 }
 
-func getLBRules(name string, ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getLBRule(name, port))
-	}
-	return buf.String()
-}
-
-func getProbe(port int) string {
-	return fmt.Sprintf(`          {
-            "name": "tcp%dProbe",
-            "properties": {
-              "intervalInSeconds": 5,
-              "numberOfProbes": 2,
-              "port": %d,
-              "protocol": "Tcp"
-            }
-          }`, port, port)
-}
-
-func getProbes(ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getProbe(port))
-	}
-	return buf.String()
-}
-
 func getSecurityRule(port int, portIndex int) string {
 	// BaseLBPriority specifies the base lb priority.
 	BaseLBPriority := 200
@@ -297,53 +230,6 @@ func getSecurityRule(port int, portIndex int) string {
           }`, port, port, port, BaseLBPriority+portIndex)
 }
 
-func getDataDisks(a *api.AgentPoolProfile) string {
-	if !a.HasDisks() {
-		return ""
-	}
-	var buf bytes.Buffer
-	buf.WriteString("\"dataDisks\": [\n")
-	dataDisks := `            {
-              "createOption": "Empty",
-              "diskSizeGB": "%d",
-              "lun": %d,
-              "caching": "ReadOnly",
-              "name": "[concat(variables('%sVMNamePrefix'), copyIndex(),'-datadisk%d')]",
-              "vhd": {
-                "uri": "[concat('http://',variables('storageAccountPrefixes')[mod(add(add(div(copyIndex(),variables('maxVMsPerStorageAccount')),variables('%sStorageAccountOffset')),variables('dataStorageAccountPrefixSeed')),variables('storageAccountPrefixesCount'))],variables('storageAccountPrefixes')[div(add(add(div(copyIndex(),variables('maxVMsPerStorageAccount')),variables('%sStorageAccountOffset')),variables('dataStorageAccountPrefixSeed')),variables('storageAccountPrefixesCount'))],variables('%sDataAccountName'),'.blob.core.windows.net/vhds/',variables('%sVMNamePrefix'),copyIndex(), '--datadisk%d.vhd')]"
-              }
-            }`
-	managedDataDisks := `            {
-              "diskSizeGB": "%d",
-              "lun": %d,
-              "caching": "ReadOnly",
-              "createOption": "Empty"
-            }`
-	for i, diskSize := range a.DiskSizesGB {
-		if i > 0 {
-			buf.WriteString(",\n")
-		}
-		if a.StorageProfile == api.StorageAccount {
-			buf.WriteString(fmt.Sprintf(dataDisks, diskSize, i, a.Name, i, a.Name, a.Name, a.Name, a.Name, i))
-		} else if a.StorageProfile == api.ManagedDisks {
-			buf.WriteString(fmt.Sprintf(managedDataDisks, diskSize, i))
-		}
-	}
-	buf.WriteString("\n          ],")
-	return buf.String()
-}
-
-func getSecurityRules(ports []int) string {
-	var buf bytes.Buffer
-	for index, port := range ports {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(getSecurityRule(port, index))
-	}
-	return buf.String()
-}
-
 func escapeSingleLine(escapedStr string) string {
 	// template.JSEscapeString leaves undesirable chars that don't work with pretty print
 	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
@@ -354,21 +240,21 @@ func escapeSingleLine(escapedStr string) string {
 }
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
-func getBase64EncodedGzippedCustomScript(csFilename string, cs *api.ContainerService) string {
+func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters
-	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(cs))
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
-	templ.Execute(&buffer, cs)
+	templ.Execute(&buffer, config.ContainerService)
 	csStr := buffer.String()
 	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
@@ -386,299 +272,6 @@ func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	w.Write([]byte(str))
 	w.Close()
 	return base64.StdEncoding.EncodeToString(gzipB.Bytes())
-}
-
-func getAddonFuncMap(addon api.KubernetesAddon) template.FuncMap {
-	return template.FuncMap{
-		"ContainerImage": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].Image
-		},
-
-		"ContainerCPUReqs": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].CPURequests
-		},
-
-		"ContainerCPULimits": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].CPULimits
-		},
-
-		"ContainerMemReqs": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].MemoryRequests
-		},
-
-		"ContainerMemLimits": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].MemoryLimits
-		},
-		"ContainerConfig": func(name string) string {
-			return addon.Config[name]
-		},
-	}
-}
-
-func getClusterAutoscalerAddonFuncMap(addon api.KubernetesAddon, cs *api.ContainerService) template.FuncMap {
-	return template.FuncMap{
-		"ContainerImage": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].Image
-		},
-
-		"ContainerCPUReqs": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].CPURequests
-		},
-
-		"ContainerCPULimits": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].CPULimits
-		},
-
-		"ContainerMemReqs": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].MemoryRequests
-		},
-
-		"ContainerMemLimits": func(name string) string {
-			i := addon.GetAddonContainersIndexByName(name)
-			return addon.Containers[i].MemoryLimits
-		},
-		"ContainerConfig": func(name string) string {
-			return addon.Config[name]
-		},
-		"GetMode": func() string {
-			return addon.Mode
-		},
-		"GetClusterAutoscalerNodesConfig": func() string {
-			return api.GetClusterAutoscalerNodesConfig(addon, cs)
-		},
-		"GetVolumeMounts": func() string {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity {
-				return fmt.Sprintf("\n        - mountPath: /var/lib/waagent/\n          name: waagent\n          readOnly: true")
-			}
-			return ""
-		},
-		"GetVolumes": func() string {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity {
-				return fmt.Sprintf("\n      - hostPath:\n          path: /var/lib/waagent/\n        name: waagent")
-			}
-			return ""
-		},
-		"GetHostNetwork": func() string {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity {
-				return fmt.Sprintf("\n      hostNetwork: true")
-			}
-			return ""
-		},
-		"GetCloud": func() string {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return cloudSpecConfig.CloudName
-		},
-		"UseManagedIdentity": func() string {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity {
-				return "true"
-			}
-			return "false"
-		},
-	}
-}
-
-func buildYamlFileWithWriteFiles(files []string, cs *api.ContainerService) string {
-	clusterYamlFile := `#cloud-config
-
-write_files:
-%s
-`
-	writeFileBlock := ` -  encoding: gzip
-    content: !!binary |
-        %s
-    path: /opt/azure/containers/%s
-    permissions: "0744"
-`
-
-	filelines := ""
-	for _, file := range files {
-		b64GzipString := getBase64EncodedGzippedCustomScript(file, cs)
-		fileNoPath := strings.TrimPrefix(file, "swarm/")
-		filelines += fmt.Sprintf(writeFileBlock, b64GzipString, fileNoPath)
-	}
-	return fmt.Sprintf(clusterYamlFile, filelines)
-}
-
-func getKubernetesSubnets(properties *api.Properties) string {
-	subnetString := `{
-            "name": "podCIDR%d",
-            "properties": {
-              "addressPrefix": "10.244.%d.0/24",
-              "networkSecurityGroup": {
-                "id": "[variables('nsgID')]"
-              },
-              "routeTable": {
-                "id": "[variables('routeTableID')]"
-              }
-            }
-          }`
-	var buf bytes.Buffer
-
-	cidrIndex := getKubernetesPodStartIndex(properties)
-	for _, agentProfile := range properties.AgentPoolProfiles {
-		if agentProfile.OSType == api.Windows {
-			for i := 0; i < agentProfile.Count; i++ {
-				buf.WriteString(",\n")
-				buf.WriteString(fmt.Sprintf(subnetString, cidrIndex, cidrIndex))
-				cidrIndex++
-			}
-		}
-	}
-	return buf.String()
-}
-
-func getKubernetesPodStartIndex(properties *api.Properties) int {
-	nodeCount := 0
-	nodeCount += properties.MasterProfile.Count
-	for _, agentProfile := range properties.AgentPoolProfiles {
-		if agentProfile.OSType != api.Windows {
-			nodeCount += agentProfile.Count
-		}
-	}
-
-	return nodeCount + 1
-}
-
-func getMasterLinkedTemplateText(orchestratorType string, extensionProfile *api.ExtensionProfile, singleOrAll string) (string, error) {
-	extTargetVMNamePrefix := "variables('masterVMNamePrefix')"
-
-	loopCount := "[variables('masterCount')]"
-	loopOffset := ""
-	if orchestratorType == api.Kubernetes {
-		// Due to upgrade k8s sometimes needs to install just some of the nodes.
-		loopCount = "[sub(variables('masterCount'), variables('masterOffset'))]"
-		loopOffset = "variables('masterOffset')"
-	}
-
-	if strings.EqualFold(singleOrAll, "single") {
-		loopCount = "1"
-	}
-	return internalGetPoolLinkedTemplateText(extTargetVMNamePrefix, orchestratorType, loopCount,
-		loopOffset, extensionProfile)
-}
-
-func getAgentPoolLinkedTemplateText(agentPoolProfile *api.AgentPoolProfile, orchestratorType string, extensionProfile *api.ExtensionProfile, singleOrAll string) (string, error) {
-	extTargetVMNamePrefix := fmt.Sprintf("variables('%sVMNamePrefix')", agentPoolProfile.Name)
-	loopCount := fmt.Sprintf("[variables('%sCount'))]", agentPoolProfile.Name)
-	loopOffset := ""
-
-	// Availability sets can have an offset since we don't redeploy vms.
-	// So we don't want to rerun these extensions in scale up scenarios.
-	if agentPoolProfile.IsAvailabilitySets() {
-		loopCount = fmt.Sprintf("[sub(variables('%sCount'), variables('%sOffset'))]",
-			agentPoolProfile.Name, agentPoolProfile.Name)
-		loopOffset = fmt.Sprintf("variables('%sOffset')", agentPoolProfile.Name)
-	}
-
-	if strings.EqualFold(singleOrAll, "single") {
-		loopCount = "1"
-	}
-
-	return internalGetPoolLinkedTemplateText(extTargetVMNamePrefix, orchestratorType, loopCount,
-		loopOffset, extensionProfile)
-}
-
-func internalGetPoolLinkedTemplateText(extTargetVMNamePrefix, orchestratorType, loopCount, loopOffset string, extensionProfile *api.ExtensionProfile) (string, error) {
-	dta, e := getLinkedTemplateTextForURL(extensionProfile.RootURL, orchestratorType, extensionProfile.Name, extensionProfile.Version, extensionProfile.URLQuery)
-	if e != nil {
-		return "", e
-	}
-	if strings.Contains(extTargetVMNamePrefix, "master") {
-		dta = strings.Replace(dta, "EXTENSION_TARGET_VM_TYPE", "master", -1)
-	} else {
-		dta = strings.Replace(dta, "EXTENSION_TARGET_VM_TYPE", "agent", -1)
-	}
-	extensionsParameterReference := fmt.Sprintf("[parameters('%sParameters')]", extensionProfile.Name)
-	dta = strings.Replace(dta, "EXTENSION_PARAMETERS_REPLACE", extensionsParameterReference, -1)
-	dta = strings.Replace(dta, "EXTENSION_URL_REPLACE", extensionProfile.RootURL, -1)
-	dta = strings.Replace(dta, "EXTENSION_TARGET_VM_NAME_PREFIX", extTargetVMNamePrefix, -1)
-	if _, err := strconv.Atoi(loopCount); err == nil {
-		dta = strings.Replace(dta, "\"EXTENSION_LOOP_COUNT\"", loopCount, -1)
-	} else {
-		dta = strings.Replace(dta, "EXTENSION_LOOP_COUNT", loopCount, -1)
-	}
-
-	dta = strings.Replace(dta, "EXTENSION_LOOP_OFFSET", loopOffset, -1)
-	return dta, nil
-}
-
-func validateProfileOptedForExtension(extensionName string, profileExtensions []api.Extension) (bool, string) {
-	for _, extension := range profileExtensions {
-		if extensionName == extension.Name {
-			return true, extension.SingleOrAll
-		}
-	}
-	return false, ""
-}
-
-// getLinkedTemplateTextForURL returns the string data from
-// template-link.json in the following directory:
-// extensionsRootURL/extensions/extensionName/version
-// It returns an error if the extension cannot be found
-// or loaded.  getLinkedTemplateTextForURL provides the ability
-// to pass a root extensions url for testing
-func getLinkedTemplateTextForURL(rootURL, orchestrator, extensionName, version, query string) (string, error) {
-	supportsExtension, err := orchestratorSupportsExtension(rootURL, orchestrator, extensionName, version, query)
-	if !supportsExtension {
-		return "", errors.Wrap(err, "Extension not supported for orchestrator")
-	}
-
-	templateLinkBytes, err := getExtensionResource(rootURL, extensionName, version, "template-link.json", query)
-	if err != nil {
-		return "", err
-	}
-
-	return string(templateLinkBytes), nil
-}
-
-func orchestratorSupportsExtension(rootURL, orchestrator, extensionName, version, query string) (bool, error) {
-	orchestratorBytes, err := getExtensionResource(rootURL, extensionName, version, "supported-orchestrators.json", query)
-	if err != nil {
-		return false, err
-	}
-
-	var supportedOrchestrators []string
-	err = json.Unmarshal(orchestratorBytes, &supportedOrchestrators)
-	if err != nil {
-		return false, errors.Errorf("Unable to parse supported-orchestrators.json for Extension %s Version %s", extensionName, version)
-	}
-
-	if !stringInSlice(orchestrator, supportedOrchestrators) {
-		return false, errors.Errorf("Orchestrator: %s not in list of supported orchestrators for Extension: %s Version %s", orchestrator, extensionName, version)
-	}
-
-	return true, nil
-}
-
-func getExtensionResource(rootURL, extensionName, version, fileName, query string) ([]byte, error) {
-	requestURL := getExtensionURL(rootURL, extensionName, version, fileName, query)
-
-	res, err := http.Get(requestURL)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to GET extension resource for extension: %s with version %s with filename %s at URL: %s", extensionName, version, fileName, requestURL)
-	}
-
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		return nil, errors.Errorf("Unable to GET extension resource for extension: %s with version %s with filename %s at URL: %s StatusCode: %s: Status: %s", extensionName, version, fileName, requestURL, strconv.Itoa(res.StatusCode), res.Status)
-	}
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to GET extension resource for extension: %s with version %s  with filename %s at URL: %s", extensionName, version, fileName, requestURL)
-	}
-
-	return body, nil
 }
 
 func getExtensionURL(rootURL, extensionName, version, fileName, query string) string {
@@ -699,7 +292,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func getSSHPublicKeysPowerShell(linuxProfile *api.LinuxProfile) string {
+func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	str := ""
 	if linuxProfile != nil {
 		lastItem := len(linuxProfile.SSH.PublicKeys) - 1
@@ -711,56 +304,6 @@ func getSSHPublicKeysPowerShell(linuxProfile *api.LinuxProfile) string {
 		}
 	}
 	return str
-}
-
-func getWindowsMasterSubnetARMParam(masterProfile *api.MasterProfile) string {
-	if masterProfile != nil && masterProfile.IsCustomVNET() {
-		return fmt.Sprintf("',parameters('vnetCidr'),'")
-	}
-	return fmt.Sprintf("',parameters('masterSubnet'),'")
-}
-
-// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
-func IsNvidiaEnabledSKU(vmSize string) bool {
-	/* If a new GPU sku becomes available, add a key to this map, but only if you have a confirmation
-	   that we have an agreement with NVIDIA for this specific gpu.
-	*/
-	dm := map[string]bool{
-		// K80
-		"Standard_NC6":   true,
-		"Standard_NC12":  true,
-		"Standard_NC24":  true,
-		"Standard_NC24r": true,
-		// M60
-		"Standard_NV6":   true,
-		"Standard_NV12":  true,
-		"Standard_NV24":  true,
-		"Standard_NV24r": true,
-		// P40
-		"Standard_ND6s":   true,
-		"Standard_ND12s":  true,
-		"Standard_ND24s":  true,
-		"Standard_ND24rs": true,
-		// P100
-		"Standard_NC6s_v2":   true,
-		"Standard_NC12s_v2":  true,
-		"Standard_NC24s_v2":  true,
-		"Standard_NC24rs_v2": true,
-		// V100
-		"Standard_NC6s_v3":   true,
-		"Standard_NC12s_v3":  true,
-		"Standard_NC24s_v3":  true,
-		"Standard_NC24rs_v3": true,
-		"Standard_ND40s_v3":  true,
-		"Standard_ND40rs_v2": true,
-	}
-	// Trim the optional _Promo suffix.
-	vmSize = strings.TrimSuffix(vmSize, "_Promo")
-	if _, ok := dm[vmSize]; ok {
-		return dm[vmSize]
-	}
-
-	return false
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support
@@ -803,4 +346,243 @@ func getCustomDataFromJSON(jsonStr string) string {
 		panic(err)
 	}
 	return customDataObj["customData"]
+}
+
+// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
+// copied from AKS-Engine and filter out flags that already translated to config file
+func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
+	if k.KubeletConfig == nil {
+		return ""
+	}
+	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
+	keys := []string{}
+	for key := range k.KubeletConfig {
+		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, k.KubeletConfig[key]))
+	}
+	return buf.String()
+}
+
+// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
+func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) bool {
+	// TODO(bowa) remove toggle when backfill
+	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
+	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
+		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
+			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
+}
+
+// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
+func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
+	return tlsBootstrapToken != nil
+}
+
+// GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
+// It returns empty string if TLS bootstrap token is not enabled.
+//
+// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
+func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
+	if tlsBootstrapToken == nil {
+		// not set
+		return ""
+	}
+
+	return *tlsBootstrapToken
+}
+
+// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
+func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
+	if kc == nil {
+		return ""
+	}
+	// translate simple values
+	kubeletConfig := &datamodel.AKSKubeletConfiguration{
+		APIVersion:    "kubelet.config.k8s.io/v1beta1",
+		Kind:          "KubeletConfiguration",
+		Address:       kc["--address"],
+		StaticPodPath: kc["--pod-manifest-path"],
+		Authorization: datamodel.KubeletAuthorization{
+			Mode: datamodel.KubeletAuthorizationMode(kc["--authorization-mode"]),
+		},
+		ClusterDNS:                     strings.Split(kc["--cluster-dns"], ","),
+		CgroupsPerQOS:                  strToBoolPtr(kc["--cgroups-per-qos"]),
+		TLSCertFile:                    kc["--tls-cert-file"],
+		TLSPrivateKeyFile:              kc["--tls-private-key-file"],
+		TLSCipherSuites:                strings.Split(kc["--tls-cipher-suites"], ","),
+		ClusterDomain:                  kc["--cluster-domain"],
+		MaxPods:                        strToInt32(kc["--max-pods"]),
+		NodeStatusUpdateFrequency:      datamodel.Duration(kc["--node-status-update-frequency"]),
+		ImageGCHighThresholdPercent:    strToInt32Ptr(kc["--image-gc-high-threshold"]),
+		ImageGCLowThresholdPercent:     strToInt32Ptr(kc["--image-gc-low-threshold"]),
+		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
+		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
+		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
+		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
+		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
+		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
+		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
+		ResolverConfig:                 kc["--resolv-conf"],
+	}
+
+	// Authentication
+	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
+	if ca := kc["--client-ca-file"]; ca != "" {
+		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
+			ClientCAFile: ca,
+		}
+	}
+	if aw := kc["--authentication-token-webhook"]; aw != "" {
+		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
+			Enabled: strToBool(aw),
+		}
+	}
+	if aa := kc["--anonymous-auth"]; aa != "" {
+		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
+			Enabled: strToBool(aa),
+		}
+	}
+
+	// EvictionHard
+	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
+	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
+		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+	}
+
+	// feature gates
+	// look like "f1=true,f2=true"
+	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+
+	// system reserve and kube reserve
+	// looks like "cpu=100m,memory=1638Mi"
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
+
+	// settings from customKubeletConfig, only take if it's set
+	if customKc != nil {
+		if customKc.CPUManagerPolicy != "" {
+			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
+		}
+		if customKc.CPUCfsQuota != nil {
+			kubeletConfig.CPUCFSQuota = customKc.CPUCfsQuota
+		}
+		if customKc.CPUCfsQuotaPeriod != "" {
+			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
+		}
+		if customKc.TopologyManagerPolicy != "" {
+			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
+			// enable TopologyManager feature gate is required for this configuration
+			kubeletConfig.FeatureGates["TopologyManager"] = true
+		}
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig.ImageGCLowThresholdPercent = customKc.ImageGcLowThreshold
+		}
+		if customKc.AllowedUnsafeSysctls != nil {
+			kubeletConfig.AllowedUnsafeSysctls = *customKc.AllowedUnsafeSysctls
+		}
+		if customKc.FailSwapOn != nil {
+			kubeletConfig.FailSwapOn = customKc.FailSwapOn
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig.ContainerLogMaxSize = fmt.Sprintf("%dM", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
+		}
+		if customKc.PodMaxPids != nil {
+			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
+		}
+	}
+
+	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
+	return string(configStringByte)
+}
+
+func strToBool(str string) bool {
+	b, _ := strconv.ParseBool(str)
+	return b
+}
+
+func strToBoolPtr(str string) *bool {
+	if str == "" {
+		return nil
+	}
+	b := strToBool(str)
+	return &b
+}
+
+func strToInt32(str string) int32 {
+	i, _ := strconv.ParseInt(str, 10, 32)
+	return int32(i)
+}
+
+func strToInt32Ptr(str string) *int32 {
+	if str == "" {
+		return nil
+	}
+	i := strToInt32(str)
+	return &i
+}
+
+func strToInt64(str string) int64 {
+	i, _ := strconv.ParseInt(str, 10, 64)
+	return i
+}
+
+func strToInt64Ptr(str string) *int64 {
+	if str == "" {
+		return nil
+	}
+	i := strToInt64(str)
+	return &i
+}
+
+func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
+	m := make(map[string]string)
+	pairs := strings.Split(str, strDelim)
+	for _, pairRaw := range pairs {
+		pair := strings.Split(pairRaw, pairDelim)
+		if len(pair) == 2 {
+			key := strings.TrimSpace(pair[0])
+			val := strings.TrimSpace(pair[1])
+			m[key] = val
+		}
+	}
+	return m
+}
+
+func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
+	m := make(map[string]bool)
+	pairs := strings.Split(str, strDelim)
+	for _, pairRaw := range pairs {
+		pair := strings.Split(pairRaw, pairDelim)
+		if len(pair) == 2 {
+			key := strings.TrimSpace(pair[0])
+			val := strings.TrimSpace(pair[1])
+			m[key] = strToBool(val)
+		}
+	}
+	return m
+}
+
+func addFeatureGateString(featureGates string, key string, value bool) string {
+	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	fgMap[key] = value
+	keys := make([]string, 0, len(fgMap))
+	for k := range fgMap {
+		keys = append(keys, k)
+	}
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
+	}
+	return strings.Join(pairs, ",")
 }

@@ -60,63 +60,76 @@ const (
 )
 
 const (
-	// AzureStackSuffix is appended to kubernetes version on Azure Stack instances
-	AzureStackSuffix = "-azs"
-	// AzureStackPrefix is appended to windows binary version for Azure Stack instances
-	AzureStackPrefix = "azs-"
-	// AzureStackCaCertLocation is where Azure Stack's CRP drops the stamp CA certificate
-	AzureStackCaCertLocation = "/var/lib/waagent/Certificates.pem"
-)
+	// kubernetesWindowsAgentCSECommandPS1 privides the command of Windows CSE
+	kubernetesWindowsAgentCSECommandPS1 = "windows/csecmd.ps1"
+	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
+	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
+	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
 
-const (
-	// Windows custom scripts
-	kubernetesWindowsAgentCustomDataPS1   = "windows/kuberneteswindowssetup.ps1"
-	kubernetesWindowsAgentFunctionsPS1    = "windows/kuberneteswindowsfunctions.ps1"
-	kubernetesWindowsConfigFunctionsPS1   = "windows/windowsconfigfunc.ps1"
-	kubernetesWindowsKubeletFunctionsPS1  = "windows/windowskubeletfunc.ps1"
-	kubernetesWindowsCniFunctionsPS1      = "windows/windowscnifunc.ps1"
-	kubernetesWindowsAzureCniFunctionsPS1 = "windows/windowsazurecnifunc.ps1"
-	kubernetesWindowsOpenSSHFunctionPS1   = "windows/windowsinstallopensshfunc.ps1"
+	kubernetesWindowsAgentFunctionsPS1            = "windows/kuberneteswindowsfunctions.ps1"
+	kubernetesWindowsConfigFunctionsPS1           = "windows/windowsconfigfunc.ps1"
+	kubernetesWindowsContainerdFunctionsPS1       = "windows/windowscontainerdfunc.ps1"
+	kubernetesWindowsCsiProxyFunctionsPS1         = "windows/windowscsiproxyfunc.ps1"
+	kubernetesWindowsKubeletFunctionsPS1          = "windows/windowskubeletfunc.ps1"
+	kubernetesWindowsCniFunctionsPS1              = "windows/windowscnifunc.ps1"
+	kubernetesWindowsAzureCniFunctionsPS1         = "windows/windowsazurecnifunc.ps1"
+	kubernetesWindowsHostsConfigAgentFunctionsPS1 = "windows/windowshostsconfigagentfunc.ps1"
+	kubernetesWindowsOpenSSHFunctionPS1           = "windows/windowsinstallopensshfunc.ps1"
+	kubernetesWindowsCalicoFunctionPS1            = "windows/windowscalicofunc.ps1"
+	kubernetesWindowsHypervtemplatetoml           = "windows/containerdtemplate.toml"
 )
 
 // cloud-init (i.e. ARM customData) source file references
 const (
-	kubernetesNodeCustomDataYaml  = "linux/cloud-init/nodecustomdata.yml"
-	kubernetesCSECommandString    = "linux/cloud-init/artifacts/cse_cmd.sh"
-	kubernetesCSEMainScript       = "linux/cloud-init/artifacts/cse_main.sh"
-	kubernetesCSEHelpersScript    = "linux/cloud-init/artifacts/cse_helpers.sh"
-	kubernetesCSEInstall          = "linux/cloud-init/artifacts/cse_install.sh"
-	kubernetesCSEConfig           = "linux/cloud-init/artifacts/cse_config.sh"
-	kubernetesCISScript           = "linux/cloud-init/artifacts/cis.sh"
-	kubernetesHealthMonitorScript = "linux/cloud-init/artifacts/health-monitor.sh"
+	kubernetesNodeCustomDataYaml      = "linux/cloud-init/nodecustomdata.yml"
+	kubernetesCSECommandString        = "linux/cloud-init/artifacts/cse_cmd.sh"
+	kubernetesCSEStartScript          = "linux/cloud-init/artifacts/cse_start.sh"
+	kubernetesCSEMainScript           = "linux/cloud-init/artifacts/cse_main.sh"
+	kubernetesCSEHelpersScript        = "linux/cloud-init/artifacts/cse_helpers.sh"
+	kubernetesCSEHelpersScriptUbuntu  = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+	kubernetesCSEHelpersScriptMariner = "linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+	kubernetesCSEInstall              = "linux/cloud-init/artifacts/cse_install.sh"
+	kubernetesCSEInstallUbuntu        = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+	kubernetesCSEInstallMariner       = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+	kubernetesCSEConfig               = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCISScript               = "linux/cloud-init/artifacts/cis.sh"
+	kubernetesHealthMonitorScript     = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
-	kubernetesKubeletMonitorSystemdService = "linux/cloud-init/artifacts/kubelet-monitor.service"
-	kubernetesDockerMonitorSystemdTimer    = "linux/cloud-init/artifacts/docker-monitor.timer"
-	kubernetesDockerMonitorSystemdService  = "linux/cloud-init/artifacts/docker-monitor.service"
-	labelNodesScript                       = "linux/cloud-init/artifacts/label-nodes.sh"
-	labelNodesSystemdService               = "linux/cloud-init/artifacts/label-nodes.service"
-	kubernetesCustomSearchDomainsScript    = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
-	kubeletSystemdService                  = "linux/cloud-init/artifacts/kubelet.service"
-	kmsSystemdService                      = "linux/cloud-init/artifacts/kms.service"
-	aptPreferences                         = "linux/cloud-init/artifacts/apt-preferences"
-	dockerClearMountPropagationFlags       = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"
-	systemdBPFMount                        = "linux/cloud-init/artifacts/sys-fs-bpf.mount"
-	etcdSystemdService                     = "linux/cloud-init/artifacts/etcd.service"
-	auditdRules                            = "linux/cloud-init/artifacts/auditd-rules"
+	kubernetesKubeletMonitorSystemdService    = "linux/cloud-init/artifacts/kubelet-monitor.service"
+	kubernetesDockerMonitorSystemdTimer       = "linux/cloud-init/artifacts/docker-monitor.timer"
+	kubernetesDockerMonitorSystemdService     = "linux/cloud-init/artifacts/docker-monitor.service"
+	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
+	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
+	updateNodeLabelsScript                    = "linux/cloud-init/artifacts/update-node-labels.sh"
+	updateNodeLabelsSystemdService            = "linux/cloud-init/artifacts/update-node-labels.service"
+	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
+	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
+	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
+	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"
+	dockerClearMountPropagationFlags          = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"
+	etcdSystemdService                        = "linux/cloud-init/artifacts/etcd.service"
+	reconcilePrivateHostsScript               = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
+	reconcilePrivateHostsService              = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
+
 	// scripts and service for enabling ipv6 dual stack
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
+	initAKSCustomCloudScript  = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
+	containerdSystemdService  = "linux/cloud-init/artifacts/containerd.service"
 )
 
 // cloud-init destination file references
 const (
 	customCloudConfigCSEScriptFilepath   = "/opt/azure/containers/provision_configs_custom_cloud.sh"
 	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
+	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
+	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
 	cseConfigScriptFilepath              = "/opt/azure/containers/provision_configs.sh"
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
+	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
 )
 
 // Kubernetes manifests file references
@@ -192,4 +205,11 @@ const (
 	ACIConnectorAddonName = "aci-connector"
 	// AppGwIngressAddonName appgw addon
 	AppGwIngressAddonName = "appgw-ingress"
+)
+
+const (
+	// VMSSInstanceErrorCode is used to parse vmss instance error code
+	VMSSInstanceErrorCode = "vmssInstanceErrorCode"
+	// InvalidCSEMessage is the error code for vmss cse invalid message
+	InvalidCSEMessage = "InvalidCSEMessage"
 )

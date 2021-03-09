@@ -3,6 +3,7 @@ module github.com/Azure/aks-engine/hack/tools
 go 1.12
 
 require (
+	github.com/devigned/pub v0.2.6 // indirect
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/mitchellh/gox v1.0.1
 	github.com/onsi/ginkgo v1.10.1

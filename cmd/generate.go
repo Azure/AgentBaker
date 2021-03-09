@@ -10,11 +10,10 @@ import (
 	"path"
 
 	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/aks-engine/pkg/api"
-	"github.com/Azure/aks-engine/pkg/engine"
-	"github.com/Azure/aks-engine/pkg/engine/transform"
-	"github.com/Azure/aks-engine/pkg/helpers"
-	"github.com/Azure/aks-engine/pkg/i18n"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/pkg/aks-engine/api"
+	"github.com/Azure/agentbaker/pkg/aks-engine/engine"
+	"github.com/Azure/agentbaker/pkg/aks-engine/engine/transform"
 	"github.com/google/uuid"
 	"github.com/leonelquinteros/gotext"
 	"github.com/pkg/errors"
@@ -38,7 +37,7 @@ type generateCmd struct {
 	set               []string
 
 	// derived
-	containerService *api.ContainerService
+	containerService *datamodel.ContainerService
 	apiVersion       string
 	locale           *gotext.Locale
 
@@ -67,14 +66,42 @@ func newGenerateCmd() *cobra.Command {
 			if err := gc.loadAPIModel(); err != nil {
 				return errors.Wrap(err, "loading API model in generateCmd")
 			}
-			if gc.apiVersion == "vlabs" {
-				if err := gc.validateAPIModelAsVLabs(); err != nil {
-					return errors.Wrap(err, "validating API model after populating values")
-				}
-			} else {
-				log.Warnf("API model validation is only available for \"apiVersion\": \"vlabs\", skipping validation...")
+
+			azurePublicCloudSpec := &datamodel.AzureEnvironmentSpecConfig{
+				CloudName: "AzurePublicCloud",
+				//DockerSpecConfig specify the docker engine download repo
+				DockerSpecConfig: datamodel.DockerSpecConfig{
+					DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
+					DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
+				},
+				//KubernetesSpecConfig is the default kubernetes container image url.
+				KubernetesSpecConfig: datamodel.KubernetesSpecConfig{
+					KubernetesImageBase:                  "k8s.gcr.io/",
+					TillerImageBase:                      "gcr.io/kubernetes-helm/",
+					ACIConnectorImageBase:                "microsoft/",
+					NVIDIAImageBase:                      "nvidia/",
+					CalicoImageBase:                      "calico/",
+					AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
+					MCRKubernetesImageBase:               "mcr.microsoft.com/",
+					EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
+					KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
+					WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
+					CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+					VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+					VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
+					ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
+					CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+					WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+					WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.1",
+					AlwaysPullWindowsPauseImage:          false,
+				},
+
+				EndpointConfig: datamodel.AzureEndpointConfig{
+					ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
+				},
 			}
-			return gc.run()
+
+			return gc.run(azurePublicCloudSpec)
 		},
 	}
 
@@ -92,13 +119,6 @@ func newGenerateCmd() *cobra.Command {
 }
 
 func (gc *generateCmd) validate(cmd *cobra.Command, args []string) error {
-	var err error
-
-	gc.locale, err = i18n.LoadTranslations()
-	if err != nil {
-		return errors.Wrap(err, "error loading translation files")
-	}
-
 	if gc.apimodelPath == "" {
 		if len(args) == 1 {
 			gc.apimodelPath = args[0]
@@ -144,22 +164,15 @@ func (gc *generateCmd) loadAPIModel() error {
 	var caKeyBytes []byte
 	var err error
 
-	apiloader := &api.Apiloader{
-		Translator: &i18n.Translator{
-			Locale: gc.locale,
-		},
-	}
-	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath, false, false, nil)
+	apiloader := &api.Apiloader{}
+
+	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath)
 	if err != nil {
 		return errors.Wrap(err, "error parsing the api model")
 	}
 
 	if gc.outputDirectory == "" {
-		if gc.containerService.Properties.MasterProfile != nil {
-			gc.outputDirectory = path.Join("_output", gc.containerService.Properties.MasterProfile.DNSPrefix)
-		} else {
-			gc.outputDirectory = path.Join("_output", gc.containerService.Properties.HostedMasterProfile.DNSPrefix)
-		}
+		gc.outputDirectory = path.Join("_output", gc.containerService.Properties.HostedMasterProfile.DNSPrefix)
 	}
 
 	// consume gc.caCertificatePath and gc.caPrivateKeyPath
@@ -177,7 +190,7 @@ func (gc *generateCmd) loadAPIModel() error {
 
 		prop := gc.containerService.Properties
 		if prop.CertificateProfile == nil {
-			prop.CertificateProfile = &api.CertificateProfile{}
+			prop.CertificateProfile = &datamodel.CertificateProfile{}
 		}
 		prop.CertificateProfile.CaCertificate = string(caCertificateBytes)
 		prop.CertificateProfile.CaPrivateKey = string(caKeyBytes)
@@ -195,7 +208,7 @@ func (gc *generateCmd) autofillApimodel() error {
 	useManagedIdentity := k8sConfig != nil && k8sConfig.UseManagedIdentity
 	if !useManagedIdentity {
 		if (gc.containerService.Properties.ServicePrincipalProfile == nil || ((gc.containerService.Properties.ServicePrincipalProfile.ClientID == "" || gc.containerService.Properties.ServicePrincipalProfile.ClientID == "00000000-0000-0000-0000-000000000000") && gc.containerService.Properties.ServicePrincipalProfile.Secret == "")) && gc.ClientID.String() != "" && gc.ClientSecret != "" {
-			gc.containerService.Properties.ServicePrincipalProfile = &api.ServicePrincipalProfile{
+			gc.containerService.Properties.ServicePrincipalProfile = &datamodel.ServicePrincipalProfile{
 				ClientID: gc.ClientID.String(),
 				Secret:   gc.ClientSecret,
 			}
@@ -204,44 +217,41 @@ func (gc *generateCmd) autofillApimodel() error {
 	return nil
 }
 
-// validateAPIModelAsVLabs converts the ContainerService object to a vlabs ContainerService object and validates it
-func (gc *generateCmd) validateAPIModelAsVLabs() error {
-	return api.ConvertContainerServiceToVLabs(gc.containerService).Validate(false)
-}
-
-func (gc *generateCmd) run() error {
+func (gc *generateCmd) run(cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) error {
 	log.Infoln(fmt.Sprintf("Generating assets into %s...", gc.outputDirectory))
-
-	certsGenerated, err := gc.containerService.SetPropertiesDefaults(api.PropertiesDefaultsParams{
-		IsScale:    false,
-		IsUpgrade:  false,
-		PkiKeySize: helpers.DefaultPkiKeySize,
-	})
-	if err != nil {
-		return errors.Wrapf(err, "in SetPropertiesDefaults template %s", gc.apimodelPath)
-	}
 
 	templateGenerator := agent.InitializeTemplateGenerator()
 
 	//extra parameters
-	gc.containerService.Properties.HostedMasterProfile = &api.HostedMasterProfile{
+	gc.containerService.Properties.HostedMasterProfile = &datamodel.HostedMasterProfile{
 		FQDN: "abc.aks.com",
 	}
-	gc.containerService.Properties.MasterProfile.VnetCidr = "vnetcidr"
-	gc.containerService.Properties.MasterProfile.VnetSubnetID = "VnetSubnetID"
-	fmt.Printf("Cs%++v", gc.containerService.Properties.MasterProfile)
 	fmt.Printf("Cs%++v", gc.containerService.Properties)
 
-	customDataStr := templateGenerator.GetNodeBootstrappingPayload(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0])
-
-	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(gc.containerService, gc.containerService.Properties.AgentPoolProfiles[0], "<tenantid>", "<subid>", "rgname", "msiid")
-
-	writer := &engine.ArtifactWriter{
-		Translator: &i18n.Translator{
-			Locale: gc.locale,
+	config := &datamodel.NodeBootstrappingConfiguration{
+		ContainerService:              gc.containerService,
+		CloudSpecConfig:               cloudSpecConfig,
+		AgentPoolProfile:              gc.containerService.Properties.AgentPoolProfiles[0],
+		TenantID:                      "<tenantid>",
+		SubscriptionID:                "<subid>",
+		ResourceGroupName:             "rgname",
+		UserAssignedIdentityClientID:  "msiid",
+		ConfigGPUDriverIfNeeded:       true,
+		EnableGPUDevicePluginIfNeeded: false,
+		EnableKubeletConfigFile:       false,
+		K8sComponents: &datamodel.K8sComponents{
+			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:1.3.1",
+			HyperkubeImageURL:         "mcr.microsoft.com/hyperkube-amd64:v1.16.13",
+			WindowsPackageURL:         "https://acs-mirror.azureedge.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip",
 		},
 	}
-	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
+
+	customDataStr := templateGenerator.GetNodeBootstrappingPayload(config)
+
+	cseCmdStr := templateGenerator.GetNodeBootstrappingCmd(config)
+
+	writer := &engine.ArtifactWriter{}
+	if err := writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, customDataStr, cseCmdStr, gc.outputDirectory, false, gc.parametersOnly, cloudSpecConfig); err != nil {
 		return errors.Wrap(err, "writing artifacts")
 	}
 

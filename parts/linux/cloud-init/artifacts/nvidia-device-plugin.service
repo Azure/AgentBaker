@@ -1,0 +1,8 @@
+[Unit]
+Description=Run nvidia device plugin
+[Service]
+RemainAfterExit=true
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target

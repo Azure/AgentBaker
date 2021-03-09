@@ -1,0 +1,33 @@
+debug
+_output/
+_input/
+.vscode
+.DS_Store
+test/user.env
+user.env
+.editorconfig
+_dist/
+bin/
+.env
+.coverprofile
+coverage.txt
+
+test/junit/
+test/e2e/kubernetes/junit.xml
+_logs/
+*.swp
+
+# test outputs
+cmd/_test_output
+*.test
+*.coverprofile
+**/junit.xml
+
+.idea
+.vs
+
+# exclude vendor directory from gitignore
+!/vendor/**/*
+!/test/e2e/vendor/**/*
+
+translations/

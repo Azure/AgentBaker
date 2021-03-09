@@ -1,27 +1,6 @@
 #!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
-if [[ $OS == $COREOS_OS_NAME ]]; then
-    PRIVATE_IP=$(ip a show eth0 | grep -Po 'inet \K[\d.]+')
-else
-    PRIVATE_IP=$(hostname -I | cut -d' ' -f1)
-fi
-ETCD_PEER_URL="https://${PRIVATE_IP}:2380"
-ETCD_CLIENT_URL="https://${PRIVATE_IP}:2379"
-
-systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
-    RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
-        return 1
-    fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
-        return 1
-    fi
-}
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -84,52 +63,51 @@ configureSecrets(){
     echo "${ETCD_PEER_CERT}" | base64 --decode > "${ETCD_PEER_CERTIFICATE_PATH}"
 }
 
-configureEtcd() {
-    set -x
-
-    ETCD_SETUP_FILE=/opt/azure/containers/setup-etcd.sh
-    wait_for_file 1200 1 $ETCD_SETUP_FILE || exit $ERR_ETCD_CONFIG_FAIL
-    $ETCD_SETUP_FILE > /opt/azure/containers/setup-etcd.log 2>&1
-    RET=$?
-    if [ $RET -ne 0 ]; then
-        exit $RET
-    fi
-
-    MOUNT_ETCD_FILE=/opt/azure/containers/mountetcd.sh
-    wait_for_file 1200 1 $MOUNT_ETCD_FILE || exit $ERR_ETCD_CONFIG_FAIL
-    $MOUNT_ETCD_FILE || exit $ERR_ETCD_VOL_MOUNT_FAIL
-    systemctlEnableAndStart etcd || exit $ERR_ETCD_START_TIMEOUT
-    for i in $(seq 1 600); do
-        MEMBER="$(sudo etcdctl member list | grep -E ${NODE_NAME} | cut -d':' -f 1)"
-        if [ "$MEMBER" != "" ]; then
-            break
-        else
-            sleep 1
-        fi
-    done
-    retrycmd_if_failure 120 5 25 sudo etcdctl member update $MEMBER ${ETCD_PEER_URL} || exit $ERR_ETCD_CONFIG_FAIL
+{{- if EnableHostsConfigAgent}}
+configPrivateClusterHosts() {
+  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
+{{- end}}
 
 ensureRPC() {
     systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
     systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-ensureAuditD() {
-  if [[ "${AUDITD_ENABLED}" == true ]]; then
-    systemctlEnableAndStart auditd || exit $ERR_SYSTEMCTL_START_FAIL
-  else
-    if apt list --installed | grep 'auditd'; then
-      apt_get_purge 20 30 120 auditd &
+{{- if ShouldConfigTransparentHugePage}}
+configureTransparentHugePage() {
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    THP_ENABLED={{GetTransparentHugePageEnabled}}
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-  fi
+    THP_DEFRAG={{GetTransparentHugePageDefrag}}
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+    fi
 }
+{{- end}}
 
-generateAggregatedAPICerts() {
-    AGGREGATED_API_CERTS_SETUP_FILE=/etc/kubernetes/generate-proxy-certs.sh
-    wait_for_file 1200 1 $AGGREGATED_API_CERTS_SETUP_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    $AGGREGATED_API_CERTS_SETUP_FILE
+{{- if ShouldConfigSwapFile}}
+configureSwapFile() {
+    SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    DISK_FREE_KB=$(df /dev/sdb1 | sed 1d | awk '{print $4}')
+    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
+        SWAP_LOCATION=/mnt/swapfile
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        chmod 600 ${SWAP_LOCATION}
+        retrycmd_if_failure 24 5 25 mkswap ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon --show | grep ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
+        echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
+    else
+        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
+        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
+    fi
 }
+{{- end}}
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -163,7 +141,11 @@ configureK8s() {
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud":"{{GetTargetEnvironment}}",
+    {{- if IsAKSCustomCloud}}
+    "cloud": "AzureStackCloud",
+    {{- else}}
+    "cloud": "{{GetTargetEnvironment}}",
+    {{- end}}
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -184,11 +166,11 @@ configureK8s() {
     "cloudProviderBackoffExponent": ${CLOUDPROVIDER_BACKOFF_EXPONENT},
     "cloudProviderBackoffDuration": ${CLOUDPROVIDER_BACKOFF_DURATION},
     "cloudProviderBackoffJitter": ${CLOUDPROVIDER_BACKOFF_JITTER},
-    "cloudProviderRatelimit": ${CLOUDPROVIDER_RATELIMIT},
+    "cloudProviderRateLimit": ${CLOUDPROVIDER_RATELIMIT},
     "cloudProviderRateLimitQPS": ${CLOUDPROVIDER_RATELIMIT_QPS},
     "cloudProviderRateLimitBucket": ${CLOUDPROVIDER_RATELIMIT_BUCKET},
-    "cloudProviderRatelimitQPSWrite": ${CLOUDPROVIDER_RATELIMIT_QPS_WRITE},
-    "cloudProviderRatelimitBucketWrite": ${CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE},
+    "cloudProviderRateLimitQPSWrite": ${CLOUDPROVIDER_RATELIMIT_QPS_WRITE},
+    "cloudProviderRateLimitBucketWrite": ${CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE},
     "useManagedIdentityExtension": ${USE_MANAGED_IDENTITY_EXTENSION},
     "userAssignedIdentityID": "${USER_ASSIGNED_IDENTITY_ID}",
     "useInstanceMetadata": ${USE_INSTANCE_METADATA},
@@ -208,6 +190,60 @@ EOF
     fi
 
     configureKubeletServerCert
+{{- if IsAKSCustomCloud}}
+    set +x
+    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/{{GetTargetEnvironment}}.json"
+    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+{
+    "name": "{{GetTargetEnvironment}}",
+    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
+    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
+    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
+    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
+    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
+    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
+    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
+    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
+    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
+    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
+    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
+    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
+    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
+    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
+    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
+    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
+    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
+    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
+    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
+    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
+    "resourceIdentifiers": {
+        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
+        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
+        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
+        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
+        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
+        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
+    }
+}
+EOF
+    set -x
+{{end}}
+
+{{- if IsKubeletConfigFileEnabled}}
+    set +x
+    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+    touch "${KUBELET_CONFIG_JSON_PATH}"
+    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
+    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
+{{GetKubeletConfigFileContent}}
+EOF
+    set -x
+{{- end}}
 }
 
 configureCNI() {
@@ -215,18 +251,6 @@ configureCNI() {
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
-    {{if HasCiliumNetworkPlugin}}
-    systemctl enable sys-fs-bpf.mount
-    systemctl restart sys-fs-bpf.mount
-    REBOOTREQUIRED=true
-    {{end}}
-{{- if IsAzureStackCloud}}
-    if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
-        {{/* set environment to mas when using Azure CNI on Azure Stack */}}
-        {{/* shellcheck disable=SC2002,SC2005 */}}
-        echo $(cat "$CNI_CONFIG_DIR/10-azure.conflist" | jq '.plugins[0].ipam.environment = "mas"') > "$CNI_CONFIG_DIR/10-azure.conflist"
-    fi
-{{end}}
 }
 
 configureCNIIPTables() {
@@ -242,13 +266,42 @@ configureCNIIPTables() {
     fi
 }
 
-{{if NeedsContainerd}}
-ensureContainerd() {
-    echo "Starting cri-containerd service..."
-    systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+disable1804SystemdResolved() {
+    ls -ltr /etc/resolv.conf
+    cat /etc/resolv.conf
+    {{- if Disable1804SystemdResolved}}
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+        echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
+        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        ls -ltr /etc/resolv.conf
+        cat /etc/resolv.conf
+    fi
+    {{- else}}
+    echo "Disable1804SystemdResolved is false. Skipping."
+    {{- end}}
 }
-{{end}}
 
+{{- if NeedsContainerd}}
+ensureContainerd() {
+  {{- if TeleportEnabled}}
+  ensureTeleportd
+  {{- end}}
+  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- if TeleportEnabled}}
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- end}}
+{{- else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -268,7 +321,22 @@ ensureDocker() {
             sleep 1
         fi
     done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+
+}
+{{- end}}
+{{- if NeedsContainerd}}
+ensureMonitorService() {
+    {{/* Delay start of containerd-monitor for 30 mins after booting */}}
+    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
+    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
+    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- else}}
+ensureMonitorService() {
     {{/* Delay start of docker-monitor for 30 mins after booting */}}
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -276,7 +344,7 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
+{{- end}}
 {{if EnableEncryptionWithExternalKms}}
 ensureKMS() {
     systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
@@ -295,16 +363,16 @@ ensureDHCPv6() {
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{if IsKubeletClientTLSBootstrappingEnabled -}}
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+    wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- else -}}
     KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
     wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-    {{if HasCiliumNetworkPolicy}}
-    while [ ! -f /etc/cni/net.d/05-cilium.conf ]; do
-        sleep 3
-    done
-    {{end}}
     {{if HasAntreaNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
         sleep 3
@@ -317,12 +385,21 @@ ensureKubelet() {
     {{end}}
 }
 
-ensureLabelNodes() {
-    LABEL_NODES_SCRIPT_FILE=/opt/azure/containers/label-nodes.sh
-    wait_for_file 1200 1 $LABEL_NODES_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    LABEL_NODES_SYSTEMD_FILE=/etc/systemd/system/label-nodes.service
-    wait_for_file 1200 1 $LABEL_NODES_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart label-nodes || exit $ERR_SYSTEMCTL_START_FAIL
+# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
+ensureUpdateNodeLabels() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
+    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureSysctl() {
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    retrycmd_if_failure 24 5 25 sysctl --system
 }
 
 ensureJournal() {
@@ -411,7 +488,34 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if HasNSeriesSKU}}
+{{if IsNSeriesSKU}}
+installGPUDriversRun() {
+    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
+    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
+    if yes please help remove the clean up logic here too */}}
+    set -x
+    MODULE_NAME="nvidia"
+    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
+    KERNEL_NAME=$(uname -r)
+    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
+        if [ -x "$(command -v dkms)" ]; then
+          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
+        else
+          rm -rf "${NVIDIA_DKMS_DIR}"
+        fi
+    fi
+    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
+    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
+        installGPUDrivers
+    fi
+    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
+        -k=$KERNEL_NAME \
+        --log-file-name=${log_file_name} \
+        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
+    exit $?
+}
+
 configGPUDrivers() {
     {{/* only install the runtime since nvidia-docker2 has a hard dep on docker CE packages. */}}
     {{/* we will manually install nvidia-docker2 */}}
@@ -419,7 +523,8 @@ configGPUDrivers() {
     echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
     retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{/* if the unattened upgrade is turned on, and it may takes 10 min to finish the installation, and we use the 1 second just to try to get the lock more aggressively */}}
+    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     tmpDir=$GPU_DEST/tmp
     (
       set -e -o pipefail
@@ -429,19 +534,50 @@ configGPUDrivers() {
       cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     )
     rm -rf $GPU_DEST/tmp
+    {{if NeedsContainerd}}
+    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{else}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    {{end}}
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 1 600 sh $GPU_DEST/nvidia-drivers-$GPU_DV --silent --accept-license --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}" || exit $ERR_GPU_DRIVERS_START_FAIL
+    export -f installGPUDriversRun
+    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
+    mv ${GPU_DEST}/bin/* /usr/bin
     echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     umount -l /usr/lib/x86_64-linux-gnu
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 $GPU_DEST/bin/nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
+
+validateGPUDrivers() {
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    which nvidia-smi
+    if [[ $? == 0 ]]; then
+        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
+    else
+        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+    fi
+    SMI_STATUS=$?
+    if [[ $SMI_STATUS != 0 ]]; then
+        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
+            exit $ERR_GPU_INFO_ROM_CORRUPTED
+        else
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    else
+        echo "gpu driver working fine"
+    fi
+}
+
 ensureGPUDrivers() {
-    configGPUDrivers
+    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
+        configGPUDrivers
+    else
+        validateGPUDrivers
+    fi
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 {{end}}
