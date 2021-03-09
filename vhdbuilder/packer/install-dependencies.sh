@@ -20,7 +20,7 @@ copyPackerFiles
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-echo "test"
+echo "test 2"
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
