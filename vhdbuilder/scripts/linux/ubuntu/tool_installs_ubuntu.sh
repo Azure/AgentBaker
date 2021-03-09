@@ -1,15 +1,5 @@
 #!/bin/bash
 
-{{/* FIPS-related error codes */}}
-ERR_UA_TOOLS_INSTALL_TIMEOUT=173 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
-ERR_ADD_UA_APT_REPO=174 {{/* Error to add UA apt repository */}}
-ERR_AUTO_UA_ATTACH=175 {{/* Error to auto UA attach */}}
-ERR_UA_DISABLE_LIVEPATCH=176 {{/* Error to disable UA livepatch */}}
-ERR_UA_ENABLE_FIPS=177 {{/* Error to enable UA FIPS */}}
-ERR_UA_DETACH=178 {{/* Error to detach UA */}}
-LINUX_HEADER_INSTALL_TIMEOUT=179 {{/* Timeout to install linux header */}}
-ERR_STRONGSWAN_INSTALL_TIMEOUT=180 {{/* Timeout to install strongswan */}}
-
 echo "Sourcing tool_installs_ubuntu.sh"
 
 installAscBaseline() {
@@ -132,7 +122,7 @@ installFIPS() {
     # however linux-headers-4.15.0-1002-azure doesn't exist any more, install closest 1011 to workaround
     if [[ ! -d /usr/src/linux-azure-headers-4.15.0-1002 ]]; then
         echo "installing linux-headers-fips..."
-        apt_get_install 5 10 120 linux-headers-fips || exit $LINUX_HEADER_INSTALL_TIMEOUT
+        apt_get_install 5 10 120 linux-headers-fips || exit $ERR_LINUX_HEADER_INSTALL_TIMEOUT
         ln -s /usr/src/linux-fips-headers-4.15.0-1011 /usr/src/linux-azure-headers-4.15.0-1002
     fi
 
@@ -153,11 +143,4 @@ installFIPS() {
     rm -f /etc/apt/sources.list.d/ubuntu-fips.list
     rm -f /etc/apt/auth.conf.d/90ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-
-    resolvconf=$(readlink -f /etc/resolv.conf)
-    # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
-    if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
-        unlink /etc/resolv.conf
-        ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
-    fi
 }
