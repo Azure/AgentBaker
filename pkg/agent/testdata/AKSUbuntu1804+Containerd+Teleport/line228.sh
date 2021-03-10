@@ -1,8 +1,9 @@
 [Unit]
-Description=Add dudup ebtable rules for promisc mode
+Description=Add dedup ebtable rules for kubenet bridge in promiscuous mode
+After=containerd.service
 After=kubelet.service
 [Service]
 Restart=on-failure
-RestartSec=30
+RestartSec=1
 ExecStart=/bin/bash /opt/azure/containers/ensure_no_dup.sh
 #EOF

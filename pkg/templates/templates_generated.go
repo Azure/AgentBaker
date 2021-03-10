@@ -689,7 +689,7 @@ ensureContainerd() {
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-ensureNoDup() {
+ensureNoDupOnPromiscuBridge() {
     wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
@@ -1728,7 +1728,7 @@ ensureKubelet
 ensureJournal
 ensureUpdateNodeLabels
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-ensureNoDup
+ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
@@ -1985,11 +1985,12 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsEnsureNoDupService = []byte(`[Unit]
-Description=Add dudup ebtable rules for promisc mode
+Description=Add dedup ebtable rules for kubenet bridge in promiscuous mode
+After=containerd.service
 After=kubelet.service
 [Service]
 Restart=on-failure
-RestartSec=30
+RestartSec=1
 ExecStart=/bin/bash /opt/azure/containers/ensure_no_dup.sh
 #EOF
 `)
@@ -2017,41 +2018,46 @@ var _linuxCloudInitArtifactsEnsureNoDupSh = []byte(`#!/bin/bash
 # this is exactly what kubelet does for dockershim+kubenet
 # https://github.com/kubernetes/kubernetes/pull/28717
 
-ebtables -t filter -L AKS-DEDUP 2>/dev/null
+ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
 if [[ $? -eq 0 ]]; then
-    echo "AKS-DEDUP rule already set"
+    echo "AKS-DEDUP-PROMISC rule already set"
     exit 0
 fi
 if [[ ! -f /etc/cni/net.d/10-containerd-net.conflist ]]; then
     echo "cni config not up yet...exiting early"
     exit 1
 fi
+
+bridgeName=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .bridge")
+promiscMode=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .promiscMode")
+if [[ "${promiscMode}" == "true" ]]; then
+    echo "bridge ${bridgeName} not in promiscuous mode...exiting early"
+    exit 0
+fi
+
 podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
 
-if [[ ! -f /sys/class/net/cbr0/address ]]; then
-    echo "cbr0 bridge not up yet...exiting early"
+if [[ ! -f /sys/class/net/${bridgeName}/address ]]; then
+    echo "bridge ${bridgeName} not up yet...exiting early"
     exit 1
 fi
-cbr0MAC=$(cat /sys/class/net/cbr0/address)
+bridgeMAC=$(cat /sys/class/net/${bridgeName}/address)
 
-cbr0IP=$(ip addr show cbr0 | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
-if [[ -z "${cbr0IP}" ]]; then
-    echo "cbr0 bridge does not have an ipv4 address...exiting early"
+bridgeIP=$(ip addr show ${bridgeName} | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
+if [[ -z "${bridgeIP}" ]]; then
+    echo "bridge ${bridgeName} does not have an ipv4 address...exiting early"
     exit 1
 fi
 
-echo "adding AKS-DEDUP ebtable chain"
-ebtables -t filter -N AKS-DEDUP # add new AKS-DEDUP chain
+echo "adding AKS-DEDUP-PROMISC ebtable chain"
+ebtables -t filter -N AKS-DEDUP-PROMISC # add new AKS-DEDUP-PROMISC chain
+ebtables -t filter -A AKS-DEDUP-PROMISC -p IPv4 -s ${bridgeMAC} -o veth+ --ip-src ${bridgeIP} -j ACCEPT
+ebtables -t filter -A AKS-DEDUP-PROMISC -p IPv4 -s ${bridgeMAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP
+ebtables -t filter -A OUTPUT -j AKS-DEDUP-PROMISC # add new rule to OUTPUT chain jump to AKS-DEDUP-PROMISC
 
-echo "adding rule: ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${cbr0IP} -j ACCEPT"
-ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${cbr0IP} -j ACCEPT
-
-echo "adding rule: ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP"
-ebtables -t filter -A AKS-DEDUP -p IPv4 -s ${cbr0MAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP
-
-echo "adding new AKS-DEDUP chain to OUTPUT"
-ebtables -t filter -A OUTPUT -j AKS-DEDUP # add new rule to OUTPUT chain jump to AKS-DEDUP
-
+echo "outputting newly added AKS-DEDUP-PROMISC rules:"
+ebtables -t filter -L OUTPUT 2>/dev/null
+ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
 exit 0
 #EOF`)
 
@@ -4200,6 +4206,7 @@ write_files:
 - path: /opt/azure/containers/ensure-no-dup.sh
   permissions: "0755"
   owner: root
+  encoding: gzip
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 {{- end}}

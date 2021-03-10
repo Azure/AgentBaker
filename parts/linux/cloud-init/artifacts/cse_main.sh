@@ -178,7 +178,7 @@ ensureKubelet
 ensureJournal
 ensureUpdateNodeLabels
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-ensureNoDup
+ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
 
 if $FULL_INSTALL_REQUIRED; then

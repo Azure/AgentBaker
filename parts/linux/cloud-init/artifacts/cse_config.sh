@@ -296,7 +296,7 @@ ensureContainerd() {
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-ensureNoDup() {
+ensureNoDupOnPromiscuBridge() {
     wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
