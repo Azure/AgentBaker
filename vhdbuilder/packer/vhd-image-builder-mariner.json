@@ -10,7 +10,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "os_sku": "{{env `OS_SKU`}}",
+    "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}"
@@ -28,7 +28,7 @@
       "capture_name_prefix": "aks-mariner-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_url": "https://{{user `storage_account_name`}}.blob.core.windows.net/system/imported.vhd",
+      "image_url": "{{user `imported_image_url`}}",
       "azure_tags": {
         "os": "Linux",
         "now": "{{user `create_time`}}",

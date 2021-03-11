@@ -37,8 +37,8 @@ steps:
         -e GIT_VERSION=$(Build.SourceVersion) \
         -e BUILD_ID=$(Build.BuildId) \
         -e BUILD_NUMBER=$(Build.BuildNumber) \
-        -e OS_SKU=$(OS_SKU) \
-        -e OS_DISTRO_FAMILY=${OS_DISTRO_FAMILY} \
+        -e OS_VERSION=$(OS_VERSION) \
+        -e OS_SKU=${OS_SKU} \
         -e HYPERV_GENERATION=${HYPERV_GENERATION} \
         -e OS_TYPE="Linux" \
         -e MODE=$(MODE) \
@@ -118,7 +118,7 @@ steps:
         SKU_NAME="1804gen2"; else \
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
         VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-        SKU_NAME=$OS_SKU; fi && \
+        SKU_NAME=$OS_VERSION; fi && \
         if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
         if [[ "$(CONTAINER_RUNTIME)" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
         docker run --rm \

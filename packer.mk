@@ -1,7 +1,7 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer: import-image
-ifeq (${OS_DISTRO_FAMILY},Ubuntu)
+build-packer:
+ifeq (${OS_SKU},Ubuntu)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
@@ -12,7 +12,8 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
-else ifeq (${OS_DISTRO_FAMILY},Mariner)
+else ifeq (${OS_SKU},Mariner)
+	@./vhdbuilder/packer/import-image.sh
 ifeq (${MODE},gen2Mode)
 	$(error gen2Mode not supported yet)
 else ifeq (${MODE},sigMode)
@@ -22,7 +23,7 @@ else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else
-	$(error OS_DISTRO_FAMILY was invalid ${OS_DISTRO_FAMILY})
+	$(error OS_SKU was invalid ${OS_SKU})
 endif
 
 build-packer-windows:
@@ -49,11 +50,6 @@ run-packer-windows: az-login
 
 az-copy: az-login
 	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
-
-import-image: az-login
-ifeq (${OS_DISTRO_FAMILY},Mariner)
-	@./vhdbuilder/packer/import-image.sh
-endif
 
 cleanup: az-login
 	@./vhdbuilder/packer/cleanup.sh
