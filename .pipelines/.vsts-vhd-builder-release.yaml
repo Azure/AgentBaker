@@ -38,6 +38,10 @@ parameters:
   displayName: Build 1804 Gen2 GPU+containerd
   type: boolean
   default: true
+- name: buildMarinerV1
+  displayName: Build MarinerV1
+  type: boolean
+  default: false
 - name: dryrun
   displayName: Dry run
   type: boolean
@@ -55,7 +59,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]16.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]16.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -72,7 +77,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -89,7 +95,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -106,7 +113,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -123,7 +131,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -140,7 +149,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -157,7 +167,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -174,7 +185,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -191,7 +203,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=UBUNTU_SKU]18.04'
+          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+          echo '##vso[task.setvariable variable=OS_VERSION]18.04'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -200,3 +213,21 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gen2-gpu-containerd
+  - phase: build_vhd_marinerv1
+    condition: eq('${{ parameters.buildMarinerV1 }}', true)
+    queue:
+      name: Hosted Ubuntu 1604
+      timeoutInMinutes: 180
+    steps:
+      - bash: |
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+          echo '##vso[task.setvariable variable=OS_SKU]Mariner'
+          echo '##vso[task.setvariable variable=OS_VERSION]1.0'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+        displayName: Setup Build Variables
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: marinerv1

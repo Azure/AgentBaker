@@ -10,7 +10,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "ubuntu_sku": "{{env `UBUNTU_SKU`}}",
+    "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}"
@@ -25,10 +25,10 @@
       "resource_group_name": "{{user `resource_group_name`}}",
       "storage_account": "{{user `storage_account_name`}}",
       "capture_container_name": "aks-vhds",
-      "capture_name_prefix": "aks-{{user `create_time`}}",
+      "capture_name_prefix": "aks-mariner-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_url": "{{env `IMAGEURL`}}",
+      "image_url": "{{user `imported_image_url`}}",
       "azure_tags": {
         "os": "Linux",
         "now": "{{user `create_time`}}",
@@ -226,6 +226,12 @@
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/vhd-install.complete",
+      "destination": "release-notes.txt"
     },
     {
       "type": "shell",
