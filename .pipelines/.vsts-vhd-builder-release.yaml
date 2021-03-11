@@ -42,7 +42,7 @@ parameters:
   displayName: Build MarinerV1
   type: boolean
   default: false
-  - name: build1804fipscontainerd
+- name: build1804fipscontainerd
   displayName: Build 1804 FIPS containerd
   type: boolean
   default: false
