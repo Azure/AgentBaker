@@ -1069,16 +1069,6 @@ ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space fo
 ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
-{{/* FIPS-related error codes */}}
-ERR_UA_TOOLS_INSTALL_TIMEOUT=160 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
-ERR_ADD_UA_APT_REPO=161 {{/* Error to add UA apt repository */}}
-ERR_AUTO_UA_ATTACH=162 {{/* Error to auto UA attach */}}
-ERR_UA_DISABLE_LIVEPATCH=163 {{/* Error to disable UA livepatch */}}
-ERR_UA_ENABLE_FIPS=164 {{/* Error to enable UA FIPS */}}
-ERR_UA_DETACH=165 {{/* Error to detach UA */}}
-ERR_LINUX_HEADER_INSTALL_TIMEOUT=166 {{/* Timeout to install linux header */}}
-ERR_STRONGSWAN_INSTALL_TIMEOUT=167 {{/* Timeout to install strongswan */}}
-
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 RHEL_OS_NAME="RHEL"
