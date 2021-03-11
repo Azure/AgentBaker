@@ -49,6 +49,7 @@ steps:
         -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
         -e IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL} \
         -e IMPORT_IMAGE_SAS=${IMPORT_IMAGE_SAS} \
+        -e ENABLE_FIPS=${ENABLE_FIPS} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - task: PublishPipelineArtifact@0
@@ -119,6 +120,7 @@ steps:
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
         VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
         SKU_NAME=$OS_VERSION; fi && \
+        if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
         if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
         if [[ "$(CONTAINER_RUNTIME)" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
         docker run --rm \

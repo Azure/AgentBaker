@@ -121,19 +121,23 @@ type Distro string
 
 // Distro string consts
 const (
-	Ubuntu                         Distro = "ubuntu"
-	Ubuntu1804                     Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2                 Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1804Gen2              Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
-	AKSUbuntu1604                  Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804                  Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804               Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2           Distro = "aks-ubuntu-gpu-18.04-gen2"
-	AKSUbuntuContainerd1804        Distro = "aks-ubuntu-containerd-18.04"
-	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
-	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
-	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
-	AKSMarinerV1                   Distro = "aks-mariner-v1"
+	Ubuntu                             Distro = "ubuntu"
+	Ubuntu1804                         Distro = "ubuntu-18.04"
+	Ubuntu1804Gen2                     Distro = "ubuntu-18.04-gen2"
+	AKSUbuntu1804Gen2                  Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
+	AKSUbuntu1604                      Distro = "aks-ubuntu-16.04"
+	AKSUbuntu1804                      Distro = "aks-ubuntu-18.04"
+	AKSUbuntuGPU1804                   Distro = "aks-ubuntu-gpu-18.04"
+	AKSUbuntuGPU1804Gen2               Distro = "aks-ubuntu-gpu-18.04-gen2"
+	AKSUbuntuContainerd1804            Distro = "aks-ubuntu-containerd-18.04"
+	AKSUbuntuContainerd1804Gen2        Distro = "aks-ubuntu-containerd-18.04-gen2"
+	AKSUbuntuGPUContainerd1804         Distro = "aks-ubuntu-gpu-containerd-18.04"
+	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSMarinerV1                       Distro = "aks-mariner-v1"
+	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
+	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
+	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
+	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -147,6 +151,10 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSMarinerV1,
+	AKSUbuntuFipsContainerd1804,
+	AKSUbuntuFipsContainerd1804Gen2,
+	AKSUbuntuFipsGPUContainerd1804,
+	AKSUbuntuFipsGPUContainerd1804Gen2,
 }
 
 func (d Distro) IsVHDDistro() bool {

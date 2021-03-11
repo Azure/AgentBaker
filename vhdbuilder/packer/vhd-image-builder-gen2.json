@@ -13,7 +13,8 @@
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
-    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}"
+    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
+    "enable_fips": "{{env `ENABLE_FIPS`}}"
   },
   "builders": [
     {
@@ -125,6 +126,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
       "destination": "/home/packer/sshd_config_1604"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config_1804_fips",
+      "destination": "/home/packer/sshd_config_1804_fips"
     },
     {
       "type": "file",
@@ -269,7 +275,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} SGX_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

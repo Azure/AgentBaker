@@ -90,6 +90,30 @@ testAuditDNotPresent() {
   echo "$test:Finish"
 }
 
+testFips() {
+  test="testFips"
+  echo "$test:Start"
+  os_version=$1
+  enable_fips=$2
+
+  if [[ ${os_version} == "18.04" && ${enable_fips,,} == "true" ]]; then
+    kernel=$(uname -r)
+    if [[ -f /proc/sys/crypto/fips_enabled ]]; then
+        echo "FIPS is enabled."
+    else
+        err $test "FIPS is not enabled."
+    fi
+
+    if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+        echo "fips header files exist."
+    else
+        err $test "fips header files don't exist."
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -308,3 +332,4 @@ imagesToBePulled='
 testFilesDownloaded "$filesToDownload"
 testImagesPulled $1 "$imagesToBePulled"
 testAuditDNotPresent
+testFips $2 $3
