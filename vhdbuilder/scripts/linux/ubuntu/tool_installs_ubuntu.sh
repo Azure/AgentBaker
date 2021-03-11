@@ -1,4 +1,13 @@
 #!/bin/bash
+{{/* FIPS-related error codes */}}
+ERR_UA_TOOLS_INSTALL_TIMEOUT=180 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
+ERR_ADD_UA_APT_REPO=181 {{/* Error to add UA apt repository */}}
+ERR_AUTO_UA_ATTACH=182 {{/* Error to auto UA attach */}}
+ERR_UA_DISABLE_LIVEPATCH=183 {{/* Error to disable UA livepatch */}}
+ERR_UA_ENABLE_FIPS=184 {{/* Error to enable UA FIPS */}}
+ERR_UA_DETACH=185 {{/* Error to detach UA */}}
+ERR_LINUX_HEADER_INSTALL_TIMEOUT=186 {{/* Timeout to install linux header */}}
+ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
 
 echo "Sourcing tool_installs_ubuntu.sh"
 
@@ -144,8 +153,9 @@ installFIPS() {
     rm -f /etc/apt/auth.conf.d/90ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    resolvconf=$(readlink -f /etc/resolv.conf)
     # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
+    # remove this block after toggle disable-1804-systemd-resolved is enabled prod wide
+    resolvconf=$(readlink -f /etc/resolv.conf)
     if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
         unlink /etc/resolv.conf
         ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
