@@ -639,29 +639,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 })
 
-var _ = Describe("Assert ParseVMSSCSEMessage", func() {
-	It("when cse output format is correct", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
-		res, err := ParseVMSSCSEMessage(testMessage)
-		Expect(err).To(BeNil())
-		Expect(res.ExitCode).To(Equal("51"))
-	})
-
-	It("when cse output format is incorrect", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n"
-		_, err := ParseVMSSCSEMessage(testMessage)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("vmssInstanceErrorCode=InvalidCSEMessage"))
-	})
-
-	It("when cse output exitcode is empty", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
-		_, err := ParseVMSSCSEMessage(testMessage)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("vmssInstanceErrorCode=InvalidCSEMessage"))
-	})
-})
-
 func backfillCustomData(folder, customData string) {
 	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)

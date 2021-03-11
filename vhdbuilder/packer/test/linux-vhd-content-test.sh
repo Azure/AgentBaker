@@ -93,10 +93,10 @@ testAuditDNotPresent() {
 testFips() {
   test="testFips"
   echo "$test:Start"
-  ubuntu_sku=$1
+  os_version=$1
   enable_fips=$2
 
-  if [[ ${ubuntu_sku} == "18.04" && ${enable_fips,,} == "true" ]]; then
+  if [[ ${os_version} == "18.04" && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
         echo "FIPS is enabled."
@@ -200,7 +200,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:v*",
-    "versions": ["1.2.3","1.2.2_hotfix","1.2.1","1.1.8","1.1.7"]
+    "versions": ["1.2.7","1.2.2_hotfix","1.2.1","1.1.8"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v*",
@@ -275,11 +275,11 @@ imagesToBePulled='
     "versions": ["0.0.9"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/k8s/csi/azuredisk-csi:v*",
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v*",
     "versions": ["0.9.0","1.0.0","1.1.0"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/k8s/csi/azurefile-csi:v*",
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v*",
     "versions": ["0.9.0","1.0.0"]
   },
   {

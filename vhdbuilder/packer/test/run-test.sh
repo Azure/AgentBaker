@@ -82,7 +82,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${UBUNTU_SKU} ${ENABLE_FIPS}) && break
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:

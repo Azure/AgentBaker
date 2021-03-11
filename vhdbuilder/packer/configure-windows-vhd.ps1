@@ -62,10 +62,10 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.0",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.1",
-                "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.1",
+                "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.0.0")
             Write-Log "Pulling images for windows server 2019"
         }
         '2004' {
@@ -234,7 +234,7 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/updt/2021/02/windows10.0-kb4601383-x64_0161100ba8b1413a84cbd26b514b00c299bac8a4.msu")
+    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/03/windows10.0-kb5000822-x64_567b66c719842beeaaf49e6332aa6f3477c225a7.msu")
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
