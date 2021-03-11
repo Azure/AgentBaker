@@ -1824,12 +1824,37 @@ type KubeletWebhookAuthorization struct {
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
-
-type VMSSInstanceViewCSEStatus struct {
-	// ExitCode stores the exitCode from VMSS CSE output.
+type CSEStatus struct {
+	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
-	// Output stores the output from VMSS CSE output.
+	// Output stores the output from CSE output.
 	Output string `json:"output,omitempty"`
-	// Error stores the error from VMSS CSE output.
+	// Error stores the error from CSE output.
 	Error string `json:"error,omitempty"`
+	// ExecDuration stores the execDuration from CSE output.
+	ExecDuration int `json:"execDuration,omitempty"`
+}
+
+type CSEStatusParsingErrorCode string
+
+const (
+	// CSEMessageUnmarshalError is the error code for unmarshal cse message
+	CSEMessageUnmarshalError CSEStatusParsingErrorCode = "CSEMessageUnmarshalError"
+	// CSEMessageExitCodeEmptyError is the error code for empty cse message exit code
+	CSEMessageExitCodeEmptyError CSEStatusParsingErrorCode = "CSEMessageExitCodeEmptyError"
+	// InvalidCSEMessage is the error code for cse invalid message
+	InvalidCSEMessage CSEStatusParsingErrorCode = "InvalidCSEMessage"
+)
+
+type CSEStatusParsingError struct {
+	Code    CSEStatusParsingErrorCode
+	Message string
+}
+
+func NewError(code CSEStatusParsingErrorCode, message string) *CSEStatusParsingError {
+	return &CSEStatusParsingError{Code: code, Message: message}
+}
+
+func (err *CSEStatusParsingError) Error() string {
+	return fmt.Sprintf("CSE has invalid message=%q, InstanceErrorCode=%s", err.Message, err.Code)
 }
