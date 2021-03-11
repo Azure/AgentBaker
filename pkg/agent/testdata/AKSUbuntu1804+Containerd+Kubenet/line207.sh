@@ -18,7 +18,7 @@ fi
 
 bridgeName=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .bridge")
 promiscMode=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .promiscMode")
-if [[ "${promiscMode}" == "true" ]]; then
+if [[ "${promiscMode}" != "true" ]]; then
     echo "bridge ${bridgeName} not in promiscuous mode...exiting early"
     exit 0
 fi
