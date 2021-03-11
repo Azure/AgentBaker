@@ -251,11 +251,11 @@ imagesToBePulled='
     "versions": ["0.0.9"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/k8s/csi/azuredisk-csi:v*",
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v*",
     "versions": ["0.9.0","1.0.0","1.1.0"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/k8s/csi/azurefile-csi:v*",
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v*",
     "versions": ["0.9.0","1.0.0"]
   },
   {

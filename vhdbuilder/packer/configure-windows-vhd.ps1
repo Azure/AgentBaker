@@ -62,10 +62,10 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.0",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.1",
-                "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.1",
+                "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.0.0")
             Write-Log "Pulling images for windows server 2019"
         }
         '2004' {
