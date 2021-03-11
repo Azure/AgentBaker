@@ -247,7 +247,7 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: marinerv1
-- phase: build_vhd_1804_fips_containerd
+  - phase: build_vhd_1804_fips_containerd
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
     queue:
       name: Hosted Ubuntu 1604
