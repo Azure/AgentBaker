@@ -31,6 +31,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"reconcilePrivateHostsService":   getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"updateNodeLabelsSystemdService": getBase64EncodedGzippedCustomScript(updateNodeLabelsSystemdService, config),
 			"updateNodeLabelsScript":         getBase64EncodedGzippedCustomScript(updateNodeLabelsScript, config),
+			"ensureNoDupEbtablesScript":      getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
+			"ensureNoDupEbtablesService":	  getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
 		},
 	}
 
