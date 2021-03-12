@@ -108,7 +108,6 @@ VNET_CNI_VERSIONS="
 1.2.7
 1.2.6
 1.2.0_hotfix
-1.2.0
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -118,6 +117,7 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
+1.2.7
 1.2.6
 "
 
