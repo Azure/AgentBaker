@@ -1,0 +1,11 @@
+name: check-image-version
+on: pull_request
+
+jobs:
+  check-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        make validate-image-version
+      name: Verify image versions to be pulled
