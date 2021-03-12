@@ -36,6 +36,10 @@ param(
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
+    $AgentKey,
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
     $AADClientId,
 
     [parameter(Mandatory=$true)]
@@ -368,6 +372,14 @@ try
             -MasterIP $MasterIP `
             -TLSBootstrapToken $TLSBootstrapToken
 
+        Write-Log "Write kube config"
+        Write-KubeConfig -CACertificate $global:CACertificate `
+            -KubeDir $global:KubeDir `
+            -MasterFQDNPrefix $MasterFQDNPrefix `
+            -MasterIP $MasterIP `
+            -AgentKey $AgentKey `
+            -AgentCertificate $global:AgentCertificate
+
         if ($global:EnableHostsConfigAgent) {
              Write-Log "Starting hosts config agent"
              New-HostsConfigService
@@ -480,6 +492,10 @@ try
             $global:AppInsightsClient.TrackMetric("TotalDuration", $global:globalTimer.Elapsed.TotalSeconds)
             $global:AppInsightsClient.Flush()
         }
+
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
 
         Write-Log "Setup Complete, reboot computer"
         Restart-Computer

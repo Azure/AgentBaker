@@ -34,12 +34,11 @@ param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $TLSBootstrapToken,
-{{- else}}
+{{- end}}
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $AgentKey,
-{{- end}}
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -383,7 +382,7 @@ try
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $TLSBootstrapToken
-{{- else}}
+{{- end}}
 
         Write-Log "Write kube config"
         Write-KubeConfig -CACertificate $global:CACertificate `
@@ -392,7 +391,6 @@ try
             -MasterIP $MasterIP `
             -AgentKey $AgentKey `
             -AgentCertificate $global:AgentCertificate
-{{- end}}
 
         if ($global:EnableHostsConfigAgent) {
              Write-Log "Starting hosts config agent"
@@ -506,6 +504,13 @@ try
             $global:AppInsightsClient.TrackMetric("TotalDuration", $global:globalTimer.Elapsed.TotalSeconds)
             $global:AppInsightsClient.Flush()
         }
+
+{{- if IsKubeletClientTLSBootstrappingEnabled}}
+
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+{{- end }}
 
         Write-Log "Setup Complete, reboot computer"
         Restart-Computer
