@@ -2035,19 +2035,25 @@ if [[ "${promiscMode}" != "true" ]]; then
     exit 0
 fi
 
-podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
-
 if [[ ! -f /sys/class/net/${bridgeName}/address ]]; then
     echo "bridge ${bridgeName} not up yet...exiting early"
     exit 1
 fi
-bridgeMAC=$(cat /sys/class/net/${bridgeName}/address)
+
 
 bridgeIP=$(ip addr show ${bridgeName} | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
 if [[ -z "${bridgeIP}" ]]; then
     echo "bridge ${bridgeName} does not have an ipv4 address...exiting early"
     exit 1
 fi
+
+podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
+if [[ -z "${podSubnetAddr}" ]]; then
+    echo "could not determine this node's pod ipam subnet range from 10-containerd-net.conflist...exiting early"
+    exit 1
+fi
+
+bridgeMAC=$(cat /sys/class/net/${bridgeName}/address)
 
 echo "adding AKS-DEDUP-PROMISC ebtable chain"
 ebtables -t filter -N AKS-DEDUP-PROMISC # add new AKS-DEDUP-PROMISC chain
