@@ -22,6 +22,19 @@ function Write-Log($Message) {
     Write-Output $msg
 }
 
+function DownloadFileWithRetry {
+    param (
+        $URL,
+        $Dest,
+        $retryCount = 5,
+        $retryDelay = 0
+    )
+    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+    if (-not $?) {
+        throw "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$URL'"
+    }
+}
+
 function Disable-WindowsUpdates {
     # See https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
     # for additional information on WU related registry settings
@@ -178,7 +191,7 @@ function Get-FilesToCacheOnVHD {
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            curl.exe --retry 5 --retry-delay 0 -L $URL -o $dest
+            DownloadFileWithRetry -URL $URL -Dest $dest
         }
     }
 }
@@ -191,7 +204,7 @@ function Install-ContainerD {
 
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
-    curl.exe --retry 5 --retry-delay 0 -L $global:containerdPackageUrl -o $zipPath
+    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $installDir
     Remove-Item -Path $zipPath | Out-null
 
@@ -245,7 +258,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                curl.exe --retry 5 --retry-delay 0 -L $patchUrl -o $fullPath
+                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
