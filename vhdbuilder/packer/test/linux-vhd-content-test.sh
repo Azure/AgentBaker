@@ -90,6 +90,30 @@ testAuditDNotPresent() {
   echo "$test:Finish"
 }
 
+testFips() {
+  test="testFips"
+  echo "$test:Start"
+  os_version=$1
+  enable_fips=$2
+
+  if [[ ${os_version} == "18.04" && ${enable_fips,,} == "true" ]]; then
+    kernel=$(uname -r)
+    if [[ -f /proc/sys/crypto/fips_enabled ]]; then
+        echo "FIPS is enabled."
+    else
+        err $test "FIPS is not enabled."
+    fi
+
+    if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+        echo "fips header files exist."
+    else
+        err $test "fips header files don't exist."
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -116,13 +140,13 @@ filesToDownload='
   "fileName":"azure-vnet-cni-linux-amd64-v*.tgz",
   "downloadLocation":"/opt/cni/downloads",
   "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-  "versions":["1.2.6", "1.2.0_hotfix","1.2.0"]
+  "versions":["1.2.7", "1.2.6", "1.2.0_hotfix"]
 },
 {
   "fileName":"azure-vnet-cni-swift-linux-amd64-v*.tgz",
   "downloadLocation":"/opt/cni/downloads",
   "downloadURL":"https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-  "versions":["1.2.6"]
+  "versions":["1.2.7", "1.2.6"]
 },
 {
   "fileName":"v*/bpftrace-tools.tar",
@@ -176,7 +200,7 @@ imagesToBePulled='
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:v*",
-    "versions": ["1.2.3","1.2.2_hotfix","1.2.1","1.1.8","1.1.7"]
+    "versions": ["1.2.7","1.2.2_hotfix","1.2.1","1.1.8"]
   },
   {
     "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:v*",
@@ -251,11 +275,11 @@ imagesToBePulled='
     "versions": ["0.0.9"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/k8s/csi/azuredisk-csi:v*",
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v*",
     "versions": ["0.9.0","1.0.0","1.1.0"]
   },
   {
-    "downloadURL": "mcr.microsoft.com/k8s/csi/azurefile-csi:v*",
+    "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v*",
     "versions": ["0.9.0","1.0.0"]
   },
   {
@@ -308,3 +332,4 @@ imagesToBePulled='
 testFilesDownloaded "$filesToDownload"
 testImagesPulled $1 "$imagesToBePulled"
 testAuditDNotPresent
+testFips $2 $3

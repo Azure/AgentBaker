@@ -89,10 +89,9 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2/windowszip/v1.20.2-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.0_hotfix/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0_hotfix.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip"
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.7.zip"
         );
         "c:\akse-cache\calico\" = @(
             "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip",
@@ -147,7 +146,7 @@ function Test-FilesToCacheOnVHD
 
 function Test-PatchInstalled {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @("KB4601383")
+    $patchIDs = @("KB5000822")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID) {
@@ -183,10 +182,10 @@ function Test-ImagesPulled {
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.0.0",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.0",
-                "mcr.microsoft.com/k8s/csi/azuredisk-csi:v1.1.1",
-                "mcr.microsoft.com/k8s/csi/azurefile-csi:v1.0.0")
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.0.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.0",
+                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.1",
+                "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.0.0")
             Write-Output "Pulling images for windows server 2019"
         }
         '2004' {
