@@ -177,6 +177,9 @@ ensureSysctl
 ensureKubelet
 ensureJournal
 ensureUpdateNodeLabels
+{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+ensureNoDupOnPromiscuBridge
+{{- end}} {{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
