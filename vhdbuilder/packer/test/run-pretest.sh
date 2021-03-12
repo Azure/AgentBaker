@@ -8,11 +8,8 @@ for component in ${components[*]}; do
 	toDownloadVersions=$(echo "${component}" | jq .versions[])
 
 	validVersions=$(curl -L https://$downloadURL | jq .tags[])
-	echo ${validVersions}
-	echo ${toDownloadVersions}
 	
 	for toDownloadVersion in ${toDownloadVersions[*]}; do
-		echo "single version: ${toDownloadVersion}"
-		[[ ${validVersions[*]}  =~  ${toDownloadVersion} ]] || (echo "${toDownloadVersion} does not exist" && exit 1)
+		[[ ${validVersions[*]}  =~  ${toDownloadVersion} ]] || (echo "${toDownloadVersion} does not exist in ${validVersions}" && exit 1)
 	done
 done
