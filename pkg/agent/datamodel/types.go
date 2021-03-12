@@ -121,19 +121,23 @@ type Distro string
 
 // Distro string consts
 const (
-	Ubuntu                         Distro = "ubuntu"
-	Ubuntu1804                     Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2                 Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1804Gen2              Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
-	AKSUbuntu1604                  Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804                  Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804               Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2           Distro = "aks-ubuntu-gpu-18.04-gen2"
-	AKSUbuntuContainerd1804        Distro = "aks-ubuntu-containerd-18.04"
-	AKSUbuntuContainerd1804Gen2    Distro = "aks-ubuntu-containerd-18.04-gen2"
-	AKSUbuntuGPUContainerd1804     Distro = "aks-ubuntu-gpu-containerd-18.04"
-	AKSUbuntuGPUContainerd1804Gen2 Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
-	AKSMarinerV1                   Distro = "aks-mariner-v1"
+	Ubuntu                             Distro = "ubuntu"
+	Ubuntu1804                         Distro = "ubuntu-18.04"
+	Ubuntu1804Gen2                     Distro = "ubuntu-18.04-gen2"
+	AKSUbuntu1804Gen2                  Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
+	AKSUbuntu1604                      Distro = "aks-ubuntu-16.04"
+	AKSUbuntu1804                      Distro = "aks-ubuntu-18.04"
+	AKSUbuntuGPU1804                   Distro = "aks-ubuntu-gpu-18.04"
+	AKSUbuntuGPU1804Gen2               Distro = "aks-ubuntu-gpu-18.04-gen2"
+	AKSUbuntuContainerd1804            Distro = "aks-ubuntu-containerd-18.04"
+	AKSUbuntuContainerd1804Gen2        Distro = "aks-ubuntu-containerd-18.04-gen2"
+	AKSUbuntuGPUContainerd1804         Distro = "aks-ubuntu-gpu-containerd-18.04"
+	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSMarinerV1                       Distro = "aks-mariner-v1"
+	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
+	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
+	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
+	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -147,6 +151,10 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSMarinerV1,
+	AKSUbuntuFipsContainerd1804,
+	AKSUbuntuFipsContainerd1804Gen2,
+	AKSUbuntuFipsGPUContainerd1804,
+	AKSUbuntuFipsGPUContainerd1804Gen2,
 }
 
 func (d Distro) IsVHDDistro() bool {
@@ -1441,6 +1449,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
+	Enable1804Chrony              bool
 	TeleportdPluginURL            string
 
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
@@ -1823,12 +1832,37 @@ type KubeletWebhookAuthorization struct {
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
-
-type VMSSInstanceViewCSEStatus struct {
-	// ExitCode stores the exitCode from VMSS CSE output.
+type CSEStatus struct {
+	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
-	// Output stores the output from VMSS CSE output.
+	// Output stores the output from CSE output.
 	Output string `json:"output,omitempty"`
-	// Error stores the error from VMSS CSE output.
+	// Error stores the error from CSE output.
 	Error string `json:"error,omitempty"`
+	// ExecDuration stores the execDuration from CSE output.
+	ExecDuration int `json:"execDuration,omitempty"`
+}
+
+type CSEStatusParsingErrorCode string
+
+const (
+	// CSEMessageUnmarshalError is the error code for unmarshal cse message
+	CSEMessageUnmarshalError CSEStatusParsingErrorCode = "CSEMessageUnmarshalError"
+	// CSEMessageExitCodeEmptyError is the error code for empty cse message exit code
+	CSEMessageExitCodeEmptyError CSEStatusParsingErrorCode = "CSEMessageExitCodeEmptyError"
+	// InvalidCSEMessage is the error code for cse invalid message
+	InvalidCSEMessage CSEStatusParsingErrorCode = "InvalidCSEMessage"
+)
+
+type CSEStatusParsingError struct {
+	Code    CSEStatusParsingErrorCode
+	Message string
+}
+
+func NewError(code CSEStatusParsingErrorCode, message string) *CSEStatusParsingError {
+	return &CSEStatusParsingError{Code: code, Message: message}
+}
+
+func (err *CSEStatusParsingError) Error() string {
+	return fmt.Sprintf("CSE has invalid message=%q, InstanceErrorCode=%s", err.Message, err.Code)
 }

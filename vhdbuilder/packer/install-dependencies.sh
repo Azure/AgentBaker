@@ -18,6 +18,19 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS 
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
+
+if [[ $OS == $MARINER_OS_NAME ]]; then
+  chmod 755 /opt
+  chmod 755 /opt/azure
+  chmod 644 ${VHD_LOGS_FILEPATH}
+fi
+
 copyPackerFiles
 
 echo ""
@@ -62,7 +75,7 @@ fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  CONTAINERD_VERSION="1.4.3"
+  CONTAINERD_VERSION="1.4.4"
   installStandaloneContainerd
   echo "  - containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
   CRICTL_VERSIONS="1.19.0"
@@ -134,7 +147,6 @@ for fileToDownload in ${DownloadFiles[*]}; do
   versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
   download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
   mkdir -p $downloadLocation
-
   for version in ${versions}; do
     file_Name=$(string_replace $fileName $version)
     dest="$downloadLocation/${file_Name}"
@@ -179,7 +191,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 
-installSGX=${SGX_DEVICE_PLUGIN_INSTALL:-"False"}
+installSGX=${SGX_INSTALL:-"False"}
 if [[ ${installSGX} == "True" ]]; then
     SGX_DEVICE_PLUGIN_VERSIONS="1.0"
     for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
@@ -198,6 +210,13 @@ if [[ ${installSGX} == "True" ]]; then
     SGX_WEBHOOK_VERSIONS="0.1"
     for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
+        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    done
+
+    SGX_QUOTE_HELPER_VERSIONS="1.0"
+    for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
+        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
@@ -380,6 +399,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Hyperv generation: ${HYPERV_GENERATION}"
   echo "Feature flags: ${FEATURE_FLAGS}"
   echo "Container runtime: ${CONTAINER_RUNTIME}"
+  echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
 installAscBaseline

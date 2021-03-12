@@ -116,8 +116,6 @@ const (
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
 	initAKSCustomCloudScript  = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
 	containerdSystemdService  = "linux/cloud-init/artifacts/containerd.service"
-
-	ensureNoDupEbtablesScript = "linux/cloud-init/artifacts/ensure_no_dup.sh"
 )
 
 // cloud-init destination file references
@@ -207,11 +205,4 @@ const (
 	ACIConnectorAddonName = "aci-connector"
 	// AppGwIngressAddonName appgw addon
 	AppGwIngressAddonName = "appgw-ingress"
-)
-
-const (
-	// VMSSInstanceErrorCode is used to parse vmss instance error code
-	VMSSInstanceErrorCode = "vmssInstanceErrorCode"
-	// InvalidCSEMessage is the error code for vmss cse invalid message
-	InvalidCSEMessage = "InvalidCSEMessage"
 )

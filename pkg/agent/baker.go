@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -440,6 +439,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsNSeriesSKU": func() bool {
 			return config.EnableNvidia
 		},
+		"EnableChronyFor1804": func() bool {
+			return config.Enable1804Chrony
+		},
 		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
 			return profile.HasAvailabilityZones()
 		},
@@ -710,26 +712,4 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
 		},
 	}
-}
-
-// ParseVMSSCSEMessage parses the raw VMSS CSE output
-func ParseVMSSCSEMessage(message string) (datamodel.VMSSInstanceViewCSEStatus, error) {
-	var cseStatus datamodel.VMSSInstanceViewCSEStatus
-	var rerr error
-	start := strings.Index(message, "[stdout]") + len("[stdout]")
-	end := strings.Index(message, "[stderr]")
-	if end > start {
-		rawInstanceViewInfo := message[start:end]
-		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
-		if err != nil || cseStatus.ExitCode == "" {
-			// Regex "vmssInstanceErrorCode=" is part of contract to parse the error, please inform clients who are relying on it before change the regex.
-			rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
-		} else {
-			cseStatus.ExitCode = strings.Trim(cseStatus.ExitCode, "\"")
-		}
-	} else {
-		// Regex "vmssInstanceErrorCode=" is part of contract to parse the error, please inform clients who are relying on it before change the regex.
-		rerr = fmt.Errorf("vmssCSE has invalid message=%s, %s=%s", message, VMSSInstanceErrorCode, InvalidCSEMessage)
-	}
-	return cseStatus, rerr
 }
