@@ -1,4 +1,4 @@
-#!/bin/bah
+#!/bin/bash
 set -euo pipefail
 
 components=$(cat ../components.json | jq .ContainerImages[] --monochrome-output --compact-output)
