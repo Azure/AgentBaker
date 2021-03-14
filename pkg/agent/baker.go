@@ -59,6 +59,9 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// validtae and fix input
+	validateAndSetWindowsNodeBootstrappingConfiguration(config)
+
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
@@ -266,6 +269,21 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	}
 }
 
+func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
+		// backfill proper flags for Windows agent node TLS bootstrapping
+		if config.AgentPoolProfile != nil && config.AgentPoolProfile.KubernetesConfig != nil {
+			k8sConfig := config.AgentPoolProfile.KubernetesConfig
+			if k8sConfig.KubeletConfig == nil {
+				k8sConfig.KubeletConfig = make(map[string]string)
+			}
+
+			k8sConfig.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
+			k8sConfig.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
+		}
+	}
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation
 // These funcs are a thin wrapper for template generation operations,
 // all business logic is implemented in the underlying func
@@ -317,12 +335,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyValsPsh": func(kc *datamodel.KubernetesConfig) string {
 			if kc == nil {
 				return ""
-			}
-
-			// FIXME: hack
-			if config.KubeletClientTLSBootstrapToken != nil {
-				kc.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
-				kc.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 			}
 
 			return kc.GetOrderedKubeletConfigStringForPowershell()
