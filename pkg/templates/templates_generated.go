@@ -6087,6 +6087,33 @@ var _windowsWindowscalicofuncPs1 = []byte(`function Get-CalicoPackage {
     Remove-Item -Path 'c:\calicowindows.zip' -Force
 }
 
+function Set-CalicoStaticRules {
+    param(
+        [parameter(Mandatory=$true)] $CalicoRootDir
+    )
+    $fileName  = [Io.path]::Combine("$CalicoRootDir", "static-rules.json")
+    echo '{
+    "Provider": "AKS",
+    "Rules": [
+        {
+            "Name": "EndpointPolicy",
+            "Rule": {
+                "Action": "Block",
+                "Direction": "Out",
+                "Id": "block-wireserver",
+                "Priority": 200,
+                "Protocol": 6,
+                "RemoteAddresses": "168.63.129.16/32",
+                "RemotePorts": "80",
+                "RuleType": "Switch",
+                "Type": "ACL"
+            }
+        }
+    ],
+    "version": "0.1.0"
+}' | Out-File -encoding ASCII -filepath $fileName
+}
+
 function SetConfigParameters {
     param(
         [parameter(Mandatory=$true)] $RootDir,
@@ -6151,7 +6178,9 @@ function Start-InstallCalico {
     Write-Log "Download Calico"
     Get-CalicoPackage -RootDir $RootDir
 
-    $CalicoDir = $RootDir + "CalicoWindows"
+    $CalicoDir  = [Io.path]::Combine("$RootDir", "CalicoWindows")
+
+    Set-CalicoStaticRules -CalicoRootDir $CalicoDir
 
     SetConfigParameters -RootDir $CalicoDir -OldString "<your datastore type>" -NewString "kubernetes"
     SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd endpoints>" -NewString ""
