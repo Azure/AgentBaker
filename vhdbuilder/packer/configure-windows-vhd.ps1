@@ -22,6 +22,19 @@ function Write-Log($Message) {
     Write-Output $msg
 }
 
+function DownloadFileWithRetry {
+    param (
+        $URL,
+        $Dest,
+        $retryCount = 5,
+        $retryDelay = 0
+    )
+    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+    if (-not $?) {
+        throw "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$URL'"
+    }
+}
+
 function Disable-WindowsUpdates {
     # See https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
     # for additional information on WU related registry settings
@@ -148,10 +161,9 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2/windowszip/v1.20.2-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.0_hotfix/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.0_hotfix.zip",
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip"
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip",
+            "https://acs-mirror.azureedge.net/azure-cni/v1.2.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.7.zip"
         );
         "c:\akse-cache\calico\" = @(
             "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip",
@@ -178,7 +190,7 @@ function Get-FilesToCacheOnVHD {
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            curl.exe --retry 5 --retry-delay 0 -L $URL -o $dest
+            DownloadFileWithRetry -URL $URL -Dest $dest
         }
     }
 }
@@ -191,7 +203,7 @@ function Install-ContainerD {
 
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
-    curl.exe --retry 5 --retry-delay 0 -L $global:containerdPackageUrl -o $zipPath
+    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $installDir
     Remove-Item -Path $zipPath | Out-null
 
@@ -245,7 +257,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                curl.exe --retry 5 --retry-delay 0 -L $patchUrl -o $fullPath
+                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc

@@ -16,6 +16,8 @@
 // linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
+// linux/cloud-init/artifacts/ensure-no-dup.service
+// linux/cloud-init/artifacts/ensure-no-dup.sh
 // linux/cloud-init/artifacts/etc-issue
 // linux/cloud-init/artifacts/etc-issue.net
 // linux/cloud-init/artifacts/etcd.service
@@ -687,6 +689,13 @@ ensureContainerd() {
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
+{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+ensureNoDupOnPromiscuBridge() {
+    wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
+}
+{{- end}}
 {{- if TeleportEnabled}}
 ensureTeleportd() {
     wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1719,6 +1728,9 @@ ensureSysctl
 ensureKubelet
 ensureJournal
 ensureUpdateNodeLabels
+{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+ensureNoDupOnPromiscuBridge
+{{- end}} {{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -1969,6 +1981,104 @@ func linuxCloudInitArtifactsEnableDhcpv6Sh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/enable-dhcpv6.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsEnsureNoDupService = []byte(`[Unit]
+Description=Add dedup ebtable rules for kubenet bridge in promiscuous mode
+After=containerd.service
+After=kubelet.service
+[Service]
+Restart=on-failure
+RestartSec=2
+ExecStart=/bin/bash /opt/azure/containers/ensure-no-dup.sh
+#EOF
+`)
+
+func linuxCloudInitArtifactsEnsureNoDupServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsEnsureNoDupService, nil
+}
+
+func linuxCloudInitArtifactsEnsureNoDupService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsEnsureNoDupServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ensure-no-dup.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsEnsureNoDupSh = []byte(`#!/bin/bash
+
+# remove this if we are no longer using promiscuous bridge mode for containerd
+# background: we get duplicated packets from pod to serviceIP if both are on the same node (one from the cbr0 bridge and one from the pod ip itself via kernel due to promiscuous mode being on)
+# we should filter out the one from pod ip
+# this is exactly what kubelet does for dockershim+kubenet
+# https://github.com/kubernetes/kubernetes/pull/28717
+
+ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
+if [[ $? -eq 0 ]]; then
+    echo "AKS-DEDUP-PROMISC rule already set"
+    exit 0
+fi
+if [[ ! -f /etc/cni/net.d/10-containerd-net.conflist ]]; then
+    echo "cni config not up yet...exiting early"
+    exit 1
+fi
+
+bridgeName=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .bridge")
+promiscMode=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .promiscMode")
+if [[ "${promiscMode}" != "true" ]]; then
+    echo "bridge ${bridgeName} not in promiscuous mode...exiting early"
+    exit 0
+fi
+
+if [[ ! -f /sys/class/net/${bridgeName}/address ]]; then
+    echo "bridge ${bridgeName} not up yet...exiting early"
+    exit 1
+fi
+
+
+bridgeIP=$(ip addr show ${bridgeName} | grep -Eo "inet ([0-9]*\.){3}[0-9]*" | grep -Eo "([0-9]*\.){3}[0-9]*")
+if [[ -z "${bridgeIP}" ]]; then
+    echo "bridge ${bridgeName} does not have an ipv4 address...exiting early"
+    exit 1
+fi
+
+podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
+if [[ -z "${podSubnetAddr}" ]]; then
+    echo "could not determine this node's pod ipam subnet range from 10-containerd-net.conflist...exiting early"
+    exit 1
+fi
+
+bridgeMAC=$(cat /sys/class/net/${bridgeName}/address)
+
+echo "adding AKS-DEDUP-PROMISC ebtable chain"
+ebtables -t filter -N AKS-DEDUP-PROMISC # add new AKS-DEDUP-PROMISC chain
+ebtables -t filter -A AKS-DEDUP-PROMISC -p IPv4 -s ${bridgeMAC} -o veth+ --ip-src ${bridgeIP} -j ACCEPT
+ebtables -t filter -A AKS-DEDUP-PROMISC -p IPv4 -s ${bridgeMAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP
+ebtables -t filter -A OUTPUT -j AKS-DEDUP-PROMISC # add new rule to OUTPUT chain jump to AKS-DEDUP-PROMISC
+
+echo "outputting newly added AKS-DEDUP-PROMISC rules:"
+ebtables -t filter -L OUTPUT 2>/dev/null
+ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
+exit 0
+#EOF`)
+
+func linuxCloudInitArtifactsEnsureNoDupShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsEnsureNoDupSh, nil
+}
+
+func linuxCloudInitArtifactsEnsureNoDupSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsEnsureNoDupShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ensure-no-dup.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4232,6 +4342,21 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 {{end}}
+{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
+{{- end}}
 {{end}}
 
 {{if IsNSeriesSKU}}
@@ -4663,7 +4788,10 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        curl.exe --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
+        curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
+        if (-not $?) {
+            throw "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+        }
         $downloadTimer.Stop()
 
         if ($global:AppInsightsClient -ne $null) {
@@ -7118,6 +7246,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
 	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
+	"linux/cloud-init/artifacts/ensure-no-dup.service":                     linuxCloudInitArtifactsEnsureNoDupService,
+	"linux/cloud-init/artifacts/ensure-no-dup.sh":                          linuxCloudInitArtifactsEnsureNoDupSh,
 	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
 	"linux/cloud-init/artifacts/etcd.service":                              linuxCloudInitArtifactsEtcdService,
@@ -7227,6 +7357,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
 				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
+				"ensure-no-dup.service":                     &bintree{linuxCloudInitArtifactsEnsureNoDupService, map[string]*bintree{}},
+				"ensure-no-dup.sh":                          &bintree{linuxCloudInitArtifactsEnsureNoDupSh, map[string]*bintree{}},
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
 				"etcd.service":                              &bintree{linuxCloudInitArtifactsEtcdService, map[string]*bintree{}},
