@@ -94,8 +94,8 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.7.zip"
         );
         "c:\akse-cache\calico\" = @(
-            "https://acs-mirror.azureedge.net/calico-node/v3.17.1/binaries/calico-windows-v3.17.1.zip",
-            "https://acs-mirror.azureedge.net/calico-node/v3.17.2/binaries/calico-windows-v3.17.2.zip"
+            "https://acs-mirror.azureedge.net/calico-node/v3.17.2/binaries/calico-windows-v3.17.2.zip",
+            "https://acs-mirror.azureedge.net/calico-node/v3.17.3/binaries/calico-windows-v3.17.3.zip"
         )
     }
 
