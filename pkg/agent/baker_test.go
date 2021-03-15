@@ -638,8 +638,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}),
 		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
-			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 		}))
 
 })
