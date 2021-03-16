@@ -1041,10 +1041,6 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
-func (a *AgentPoolProfile) IsMariner() bool {
-	return strings.EqualFold(string(a.Distro), string(AKSMarinerV1))
-}
-
 // IsVHDDistro returns true if the distro uses VHD SKUs
 func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
@@ -1443,6 +1439,7 @@ type NodeBootstrappingConfiguration struct {
 	SubscriptionID                string
 	ResourceGroupName             string
 	UserAssignedIdentityClientID  string
+	OSSKU                         string
 	ConfigGPUDriverIfNeeded       bool
 	Disable1804SystemdResolved    bool
 	EnableGPUDevicePluginIfNeeded bool

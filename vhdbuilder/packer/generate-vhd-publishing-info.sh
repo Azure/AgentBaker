@@ -9,6 +9,8 @@ required_env_vars=(
     "SKU_NAME"
     "HYPERV_GENERATION"
     "IMAGE_VERSION"
+    "OS_SKU"
+    "OS_VERSION"
 )
 
 for v in "${required_env_vars[@]}"
@@ -39,7 +41,9 @@ cat <<EOF > vhd-publishing-info.json
     "sku_name" : "$sku_name",
     "offer_name" : "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
-    "image_version": "${IMAGE_VERSION}"
+    "image_version": "${IMAGE_VERSION}",
+    "os_sku" : "${OS_SKU}",
+    "os_version" : "${OS_VERSION}"
 }
 EOF
 
