@@ -1233,8 +1233,9 @@ semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1)
     [[ "${VERSION_A}" == "${VERSION_B}" ]] && return 0
-    sorted=( $( echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V ) )
-    [[ "${VERSION_A}" == ${sorted[1]} ]] && return 0
+    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V | tr '\n' ' ')
+    IFS=' ' read -a sortedArray <<< "${sorted}"
+    [[ "${VERSION_A}" == ${sortedArray[1]} ]] && return 0
     return 1
 }
 #HELPERSEOF
@@ -1479,7 +1480,7 @@ cleanUpImages() {
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            images=(${images_to_delete}) #alternatively use IFS+read but we are using bash anyways so this works too
+            IFS=' ' read -a images <<< "${images_to_delete}"
             for image in "${images[@]}"
             do
                 {{if NeedsContainerd}}

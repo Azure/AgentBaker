@@ -231,8 +231,9 @@ semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1)
     [[ "${VERSION_A}" == "${VERSION_B}" ]] && return 0
-    sorted=( $( echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V ) )
-    [[ "${VERSION_A}" == ${sorted[1]} ]] && return 0
+    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V | tr '\n' ' ')
+    IFS=' ' read -a sortedArray <<< "${sorted}"
+    [[ "${VERSION_A}" == ${sortedArray[1]} ]] && return 0
     return 1
 }
 #HELPERSEOF
