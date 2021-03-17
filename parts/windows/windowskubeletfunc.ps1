@@ -136,6 +136,46 @@ users:
 }
 
 function
+Write-BootstrapKubeConfig {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $CACertificate,
+        [Parameter(Mandatory = $true)][string]
+        $MasterFQDNPrefix,
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $true)][string]
+        $TLSBootstrapToken,
+        [Parameter(Mandatory = $true)][string]
+        $KubeDir
+    )
+    $bootstrapKubeConfigFile = [io.path]::Combine($KubeDir, "bootstrap-config")
+
+    $bootstrapKubeConfig = @"
+---
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: "$CACertificate"
+    server: https://${MasterIP}:443
+  name: "$MasterFQDNPrefix"
+contexts:
+- context:
+    cluster: "$MasterFQDNPrefix"
+    user: "kubelet-bootstrap"
+  name: "$MasterFQDNPrefix"
+current-context: "$MasterFQDNPrefix"
+kind: Config
+users:
+- name: "kubelet-bootstrap"
+  user:
+    token: "$TLSBootstrapToken"
+"@
+
+    $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
+}
+
+function
 Test-ContainerImageExists {
     Param(
         [Parameter(Mandatory = $true)][string]

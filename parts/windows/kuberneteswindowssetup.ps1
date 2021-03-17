@@ -173,6 +173,9 @@ $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 
+# TLS Bootstrap Token
+$global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -369,7 +372,22 @@ try
             New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
         }
 
-        Write-Log "Write kube config"
+        if ($global:TLSBootstrapToken) {
+            Write-Log "Write TLS bootstrap kubeconfig"
+            Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
+                -KubeDir $global:KubeDir `
+                -MasterFQDNPrefix $MasterFQDNPrefix `
+                -MasterIP $MasterIP `
+                -TLSBootstrapToken $global:TLSBootstrapToken
+
+            # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
+            #       This kubeconfig will deleted after calico installation.
+            # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
+            Write-Log "Write temporary kube config"
+        } else {
+            Write-Log "Write kube config"
+        }
+
         Write-KubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `
@@ -488,6 +506,12 @@ try
             $global:globalTimer.Stop()
             $global:AppInsightsClient.TrackMetric("TotalDuration", $global:globalTimer.Elapsed.TotalSeconds)
             $global:AppInsightsClient.Flush()
+        }
+
+        if ($global:TLSBootstrapToken) {
+            Write-Log "Removing temporary kube config"
+            $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+            Remove-Item $kubeConfigFile
         }
 
         Write-Log "Setup Complete, reboot computer"

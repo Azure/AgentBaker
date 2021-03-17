@@ -635,6 +635,9 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				Gallery:        "AKSWindows",
 				Version:        "17763.1457.201019",
 			}
+		}),
+		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}))
 
 })
