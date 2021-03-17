@@ -1993,8 +1993,9 @@ After=kubelet.service
 Restart=on-failure
 RestartSec=2
 ExecStart=/bin/bash /opt/azure/containers/ensure-no-dup.sh
-#EOF
-`)
+[Install]
+WantedBy=multi-user.target
+#EOF`)
 
 func linuxCloudInitArtifactsEnsureNoDupServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsEnsureNoDupService, nil

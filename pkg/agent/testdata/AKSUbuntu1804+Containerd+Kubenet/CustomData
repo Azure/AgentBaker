@@ -197,7 +197,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/zyNvUoEQRCE83mKBuO9AfMNDjxTwcXouGB+ar3GvZ6hu0fEpxeV26z4qqjv/Cbsl/AEK8rducl8rJUq6uiE7ClvIB0bjNam9DEyBE5Zub6DWKhru7GV0YbRrVWE4+rQuTTxxAKtB4N+crkXvw8bfKfn5T9cwivMk/rcZFoTb0NxRwvK/BhOXyjL3yJmlpiTXSm27jF9D0XcjRYhNhSTtKmOfrBreDi9PIefAAAA//+1G3Iw6wAAAA==
+    H4sIAAAAAAAA/zyNu0osQRiE836KhhPPNpx8ghVXMBIcxGCYoC81u409fw//RdSnF5XdrPiqqG9+oaqLu4dkrrvWTuOxFF9QbPdIGlODZ2sQv3b2b5ZAUJ+4ljN8Jb9z36pk6yZ+6wXuuCp4zJ00VgKXg4Dfa74WPw8NeqPz9BcW9wzRyDp2GtZYmzGuaEIe/7vTB/L0uwipUkhRLj70XUP8Mka4GSWAxBgD9aHYfpCLmx9JNLa2uNdIinL3OW7WtA4m4INGPkPdv9PTw3cAAAD//1q6lP4PAQAA
 
 - path: /opt/azure/containers/ensure-no-dup.sh
   permissions: "0755"

@@ -6,4 +6,6 @@ After=kubelet.service
 Restart=on-failure
 RestartSec=2
 ExecStart=/bin/bash /opt/azure/containers/ensure-no-dup.sh
+[Install]
+WantedBy=multi-user.target
 #EOF
