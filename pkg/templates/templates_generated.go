@@ -1233,9 +1233,9 @@ semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1)
     [[ "${VERSION_A}" == "${VERSION_B}" ]] && return 0
-    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V | tr '\n' ' ')
-    IFS=' ' read -a sortedArray <<< "${sorted}"
-    [[ "${VERSION_A}" == ${sortedArray[1]} ]] && return 0
+    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
+    highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
+    [[ "${VERSION_A}" == ${highestVersion} ]] && return 0
     return 1
 }
 #HELPERSEOF
@@ -1472,17 +1472,15 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}|${KUBERNETES_VERSION}.[0-9]+|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr '\n' ' ')
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}|${KUBERNETES_VERSION}.[0-9]+|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr '\n' ' ')
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            IFS=' ' read -a images <<< "${images_to_delete}"
-            for image in "${images[@]}"
-            do
+            echo "${images_to_delete}" | while read image; do
                 {{if NeedsContainerd}}
                 removeContainerImage "ctr" ${image}
                 {{else}}

@@ -159,15 +159,13 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         
-        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}|${KUBERNETES_VERSION}.[0-9]+|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr '\n' ' ')
+        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            IFS=' ' read -a images <<< "${images_to_delete}"
-            for image in "${images[@]}"
-            do
+            echo "${images_to_delete}" | while read image; do
                 
                 removeContainerImage "docker" ${image}
                 
