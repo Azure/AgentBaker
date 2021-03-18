@@ -55,7 +55,7 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(jq ".ContainerImages" | jq .[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
+  imagesToBePulled=$(jq .ContainerImages[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
