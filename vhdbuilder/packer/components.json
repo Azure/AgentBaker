@@ -80,11 +80,10 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "versions": [
-        "v1.2.3",
+        "v1.2.7",
         "v1.2.2_hotfix",
         "v1.2.1",
-        "v1.1.8",
-        "v1.1.7"
+        "v1.1.8"
       ]
     },
     {
@@ -223,15 +222,16 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/k8s/csi/azuredisk-csi:*",
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
         "v0.9.0",
         "v1.0.0",
-        "v1.1.0"
+        "v1.1.0",
+        "v1.1.1"
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/k8s/csi/azurefile-csi:*",
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "versions": [
         "v0.9.0",
         "v1.0.0"
