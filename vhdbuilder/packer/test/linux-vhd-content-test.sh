@@ -45,7 +45,6 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  imagesToBePulled=$(cat $COMPONENTS_FILEPATH)
 
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
@@ -56,7 +55,7 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(echo $imagesToBePulled | jq ".ContainerImages" | jq .[] --monochrome-output --compact-output)
+  imagesToBePulled=$(jq ".ContainerImages" | jq .[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)

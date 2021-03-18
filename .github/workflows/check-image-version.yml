@@ -2,7 +2,7 @@ name: check-image-version
 on: pull_request
 
 jobs:
-  check-tests:
+  check-image-version:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
