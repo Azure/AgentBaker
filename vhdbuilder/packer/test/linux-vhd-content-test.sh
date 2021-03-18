@@ -4,8 +4,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 testFilesDownloaded() {
   test="testFilesDownloaded"
   echo "$test:Start"
-  filesToDownload=$(cat $COMPONENTS_FILEPATH)
-  filesToDownload=$(echo $filesToDownload | jq ".DownloadFiles" | jq .[] --monochrome-output --compact-output)
+  filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
   for fileToDownload in ${filesToDownload[*]}; do
     fileName=$(echo "${fileToDownload}" | jq .fileName -r)

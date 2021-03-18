@@ -1,8 +1,8 @@
-name: check-image-version
+name: validate-image-version
 on: pull_request
 
 jobs:
-  check-image-version:
+  validate-image-version:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
