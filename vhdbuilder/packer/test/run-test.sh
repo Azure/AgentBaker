@@ -58,11 +58,13 @@ else
   az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
     --source "${OS_DISK_URI}" \
+    --sku Premium_LRS \
     --query id
   az vm create --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
+    --storage-sku Premium_LRS \
     --public-ip-address ""
 fi
 
