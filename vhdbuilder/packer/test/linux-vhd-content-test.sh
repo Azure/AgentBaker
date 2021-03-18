@@ -1,5 +1,5 @@
 #!/bin/bash
-source /home/packer/provision_source_distro.sh
+source /opt/azure/containers/provision_source_distro.sh
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
