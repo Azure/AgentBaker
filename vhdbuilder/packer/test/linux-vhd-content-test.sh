@@ -1,4 +1,5 @@
 #!/bin/bash
+git clone https://github.com/Azure/AgentBaker.git
 ls -R
 source /opt/azure/containers/provision_source_distro.sh
 
