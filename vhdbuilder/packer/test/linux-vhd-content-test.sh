@@ -1,4 +1,5 @@
 #!/bin/bash
+ls -R
 source /opt/azure/containers/provision_source_distro.sh
 
 testFilesDownloaded() {
@@ -370,9 +371,3 @@ imagesToBePulled='
   }
 ]
 '
-
-testFilesDownloaded "$filesToDownload"
-testImagesPulled $1 "$imagesToBePulled"
-testAuditDNotPresent
-testChrony
-testFips $2 $3
