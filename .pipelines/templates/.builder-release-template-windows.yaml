@@ -123,8 +123,6 @@ steps:
       -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
       -e VHD_NAME=${VHD_NAME} \
       -e OS_NAME="Windows" \
-      -e OS_VERSION=${OS_VERSION} \
-      -e OS_SKU=${OS_SKU} \
       -e SKU_NAME=${SKU_NAME} \
       -e OFFER_NAME="Windows" \
       -e IMAGE_VERSION=${IMAGE_VERSION} \

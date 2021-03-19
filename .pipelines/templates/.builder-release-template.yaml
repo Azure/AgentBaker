@@ -135,10 +135,8 @@ steps:
         -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
         -e VHD_NAME=${VHD_NAME} \
         -e OS_NAME="Linux" \
-        -e OS_VERSION=${OS_VERSION} \
-        -e OS_SKU=${OS_SKU} \
         -e SKU_NAME=${SKU_NAME} \
-        -e OFFER_NAME="Ubuntu" \
+        -e OFFER_NAME=${OS_SKU} \
         -e HYPERV_GENERATION=${HYPERV_GENERATION} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
