@@ -97,7 +97,7 @@ testChrony() {
   echo "$test:Start"
 
   # ---- Setup ----
-  disableNtpAndTimesyncdInstallChrony > /dev/null
+  disableNtpAndTimesyncdInstallChrony  2>/dev/null
 
   # ---- Test Setup ----
   # Test ntp is not active
