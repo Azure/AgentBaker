@@ -76,7 +76,11 @@ validate-go:
 .PHONY: validate-shell
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
-	
+
+.PHONY: validate-image-version
+validate-image-version:
+	@./vhdbuilder/packer/test/run-pretest.sh
+
 .PHONY: generate
 generate: bootstrap
 	@echo $(GOFLAGS)
