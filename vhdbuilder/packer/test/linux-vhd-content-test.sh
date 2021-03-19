@@ -1,6 +1,6 @@
 #!/bin/bash
 git clone https://github.com/Azure/AgentBaker.git
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh > /dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
