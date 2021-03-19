@@ -63,8 +63,7 @@ else
   az vm create --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
-    --os-type $OS_TYPE \
-    --public-ip-address ""
+    --os-type $OS_TYPE
 fi
 
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
