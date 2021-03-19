@@ -43,6 +43,7 @@
               "image_version": "{{user `sig_image_version`}}",
               "replication_regions": ["{{user `location`}}"]
             },
+	    "shared_image_gallery_timeout": "1h30m",
             "communicator": "winrm",
             "winrm_use_ssl": true,
             "winrm_insecure": true,
