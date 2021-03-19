@@ -77,7 +77,6 @@ fi
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -158,6 +157,11 @@ ensureContainerd {{/* containerd should not be configured until cni has been con
 {{- else}}
 ensureDocker
 {{- end}}
+
+if [ -f $VHD_LOGS_FILEPATH ]; then
+    echo "removing unused pre-pulled images"
+    cleanUpContainerImages
+fi
 
 ensureMonitorService
 
