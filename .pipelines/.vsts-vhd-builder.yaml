@@ -77,10 +77,6 @@ phases:
           -e ENABLE_FIPS=${ENABLE_FIPS} \
           ${CONTAINER_IMAGE} make -f packer.mk run-packer
         displayName: Building VHD
-      - bash: |
-          pwd
-          ls -R
-        displayName: show Directory
       - script: |
           OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
           docker run --rm \
