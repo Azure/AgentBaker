@@ -1,6 +1,6 @@
 #!/bin/bash
 git clone https://github.com/Azure/AgentBaker.git
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh > /dev/null
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -371,3 +371,8 @@ imagesToBePulled='
   }
 ]
 '
+#testFilesDownloaded "$filesToDownload"
+#testImagesPulled $1 "$imagesToBePulled"
+#testAuditDNotPresent
+testChrony
+#testFips $2 $3
