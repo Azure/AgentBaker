@@ -1,7 +1,6 @@
 #!/bin/bash
 git clone https://github.com/Azure/AgentBaker.git
-ls -R
-source /opt/azure/containers/provision_source_distro.sh
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
