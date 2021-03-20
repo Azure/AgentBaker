@@ -111,42 +111,55 @@ testFips() {
 }
 
 testKubeBinaries() {
-  K8S_VERSIONS="
-1.17.3-hotfix.20200601.1
-1.17.7-hotfix.20200817.1
-1.17.9-hotfix.20200824.1
-1.17.11-hotfix.20200901.1
-1.17.13
-1.17.16
-1.18.2-hotfix.20200624.1
-1.18.4-hotfix.20200626.1
-1.18.6-hotfix.20200723.1
-1.18.8-hotfix.20200924
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210118
-1.19.0
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210122
-1.20.2
-"
-for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
-  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    continue
-  fi
-  # strip the last .1 as that is for base image patch for hyperkube
-  if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
-    # shellcheck disable=SC2006
-    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-  else
-    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-  fi
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
-done
+  test="testKubeBinaries"
+  echo "$test:Start"
+  containerRuntime=$1
+  binaryDir=/usr/local/bin
+  k8sVersions="
+  1.17.3-hotfix.20200601.1
+  1.17.7-hotfix.20200817.1
+  1.17.9-hotfix.20200824.1
+  1.17.11-hotfix.20200901.1
+  1.17.13
+  1.17.16
+  1.18.2-hotfix.20200624.1
+  1.18.4-hotfix.20200626.1
+  1.18.6-hotfix.20200723.1
+  1.18.8-hotfix.20200924
+  1.18.10-hotfix.20210118
+  1.18.14-hotfix.20210118
+  1.19.0
+  1.19.1-hotfix.20200923
+  1.19.3
+  1.19.6-hotfix.20210118
+  1.19.7-hotfix.20210122
+  1.20.2
+  "
+  for patchedK8sVersion in ${k8sVersions}; do
+    # Only need to store k8s components >= 1.19 for containerd VHDs
+    if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
+      continue
+    fi
+    # strip the last .1 as that is for base image patch for hyperkube
+    if grep -iq hotfix <<< ${patchedK8sVersion}; then
+      # shellcheck disable=SC2006
+      patchedK8sVersion=`echo ${patchedK8sVersion} | cut -d"." -f1,2,3,4`;
+    else
+      patchedK8sVersion=`echo ${patchedK8sVersion} | cut -d"." -f1,2,3`;
+    fi
+    k8sVersion=$(echo ${patchedK8sVersion} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    kubeletLocation="$binaryDir/kubelet-$k8sVersion"
+    kubectlLocation="$binaryDir/kubectl-$k8sVersion"
+    if [ ! -s $kubeletLocation ]; then
+      err $test "Binary ${kubeletLocation} does not exist"
+    fi
+    if [ ! -s $kubectlLocation ]; then
+      err $test "Binary ${kubectlLocation} does not exist"
+    fi
+  done
+  echo "$test:Finish"
 }
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -160,3 +173,4 @@ testImagesPulled $1
 
 testAuditDNotPresent
 testFips $2 $3
+testKubeBinaries $1
