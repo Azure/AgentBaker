@@ -18,13 +18,6 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS 
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
-fi
-
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
@@ -67,6 +60,13 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - xz-utils
   - zip
 EOF
+
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
@@ -397,3 +397,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 } >> ${VHD_LOGS_FILEPATH}
 
 installAscBaseline
+
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  relinkResolvConf
+fi
