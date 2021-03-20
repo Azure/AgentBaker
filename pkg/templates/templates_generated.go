@@ -3946,7 +3946,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 
-{{if .IsMariner}}
+{{if IsMariner}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -3983,7 +3983,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
-{{if .IsMariner}}
+{{if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -4122,7 +4122,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
-{{if not .IsMariner}}
+{{if not IsMariner}}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root

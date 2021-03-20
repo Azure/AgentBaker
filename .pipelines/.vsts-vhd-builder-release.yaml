@@ -237,8 +237,8 @@ phases:
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=OS_SKU]Mariner'
-          echo '##vso[task.setvariable variable=OS_VERSION]1.0'
+          echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+          echo '##vso[task.setvariable variable=OS_VERSION]V1'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
