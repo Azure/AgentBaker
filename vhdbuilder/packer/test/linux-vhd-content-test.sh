@@ -1,4 +1,6 @@
 #!/bin/bash
+git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 
 testFilesDownloaded() {
@@ -81,6 +83,48 @@ testAuditDNotPresent() {
     echo "AuditD is not present, as expected"
   else
     err $test "AuditD is active with status ${status}"
+  fi
+  echo "$test:Finish"
+}
+
+testChrony() {
+  test="testChrony"
+  echo "$test:Start"
+
+  # ---- Setup ----
+  # TODO remove this installation call once chrony is installed in VHD itself
+  disableNtpAndTimesyncdInstallChrony  2>/dev/null
+
+  # ---- Test Setup ----
+  # Test ntp is not active
+  status=$(systemctl show -p SubState --value ntp)
+  if [ $status == 'dead' ]; then
+    echo "ntp is removed, as expected"
+  else
+    err $test "ntp is active with status ${status}"
+  fi
+  #test chrony is running
+  status=$(systemctl show -p SubState --value chrony)
+  if [ $status == 'running' ]; then
+    echo "chrony is running, as expected"
+  else
+    err $test "chrony is not running with status ${status}"
+  fi
+
+  #test if chrony corrects time
+  initialDate=$(date +%s)
+  date --set "27 Feb 2021"
+  for i in $(seq 1 10); do
+    newDate=$(date +%s)
+    if (( $newDate > $initialDate)); then
+      echo "chrony readjusted the system time correctly"
+      break
+    fi
+    sleep 10
+    echo "${i}: retrying: check if chrony modified the time"
+  done
+  if (($i == 10)); then
+    err $test "chrony failed to readjust the system time"
   fi
   echo "$test:Finish"
 }
@@ -229,7 +273,7 @@ string_replace() {
 
 testFilesDownloaded
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
-
+testChrony
 testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1

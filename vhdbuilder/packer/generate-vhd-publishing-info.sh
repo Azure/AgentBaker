@@ -32,6 +32,7 @@ vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?$sas_token"
 echo "COPY ME ---> ${vhd_url}"
 sku_name=$(echo $SKU_NAME | tr -d '.')
 
+# Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
 cat <<EOF > vhd-publishing-info.json
 {
     "vhd_url" : "$vhd_url",

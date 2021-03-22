@@ -152,7 +152,9 @@ installFIPS() {
     rm -f /etc/apt/sources.list.d/ubuntu-fips.list
     rm -f /etc/apt/auth.conf.d/90ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
 
+relinkResolvConf() {
     # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
     # remove this block after toggle disable-1804-systemd-resolved is enabled prod wide
     resolvconf=$(readlink -f /etc/resolv.conf)
