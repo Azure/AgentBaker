@@ -162,6 +162,7 @@ testKubeBinariesPresent() {
 testKubeProxyImagesPulled() {
   test="testKubeProxyImagesPulled"
   echo "$test:Start"
+  containerRuntime=$1
   dockerKubeProxyImages='
 {
   "ContainerImages": [
@@ -207,8 +208,14 @@ containerdKubeProxyImages='
   ]
 }
 '
-  testImagesPulled docker "$dockerKubeProxyImages"
-  testImagesPulled containerd "$containerdKubeProxyImages"
+  if [ $containerRuntime == 'containerd' ]; then
+    testImagesPulled containerd "$containerdKubeProxyImages"
+  elif [ $containerRuntime == 'docker' ]; then
+    testImagesPulled docker "$dockerKubeProxyImages"
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
   echo "$test:Finish"
 }
 
@@ -226,4 +233,4 @@ testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1
-testKubeProxyImagesPulled
+testKubeProxyImagesPulled $1
