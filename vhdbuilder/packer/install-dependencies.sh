@@ -283,28 +283,26 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
       fi
   fi
 
-  # from 1.17 onwards start using kube-proxy as well
+  # use kube-proxy as well
   # strip the last .1 as that is for base image patch for hyperkube
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)); then
-      if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
-      KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-      else
-      KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-      fi
-      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
-      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-      if [[ ${cliTool} == "docker" ]]; then
-          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-      else
-          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-      fi
-      # shellcheck disable=SC2181
-      if [[ $? != 0 ]]; then
-      echo "Hyperkube contains nf_tables, exiting..."
-      exit 99
-      fi
-      echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
+  if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
+    KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
+  else
+    KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
   fi
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  if [[ ${cliTool} == "docker" ]]; then
+      docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+  else
+      ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+  fi
+  # shellcheck disable=SC2181
+  if [[ $? != 0 ]]; then
+  echo "Hyperkube contains nf_tables, exiting..."
+  exit 99
+  fi
+  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
 # kubelet and kubectl
@@ -344,28 +342,15 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     continue
   fi
-  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 17)); then
-    HYPERKUBE_URL="mcr.microsoft.com/oss/kubernetes/hyperkube:v${PATCHED_KUBERNETES_VERSION}"
-    # NOTE: the KUBERNETES_VERSION will be used to tag the extracted kubelet/kubectl in /usr/local/bin
-    # it should match the KUBERNETES_VERSION format(just version number, e.g. 1.15.7, no prefix v)
-    # in installKubeletAndKubectl() executed by cse, otherwise cse will need to download the kubelet/kubectl again
-    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-    # extractHyperkube will extract the kubelet/kubectl binary from the image: ${HYPERKUBE_URL}
-    # and put them to /usr/local/bin/kubelet-${KUBERNETES_VERSION}
-    extractHyperkube ${cliTool}
-    # remove hyperkube here as the one that we really need is pulled later
-    removeContainerImage ${cliTool} $HYPERKUBE_URL
+  # strip the last .1 as that is for base image patch for hyperkube
+  if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
+    # shellcheck disable=SC2006
+    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
   else
-    # strip the last .1 as that is for base image patch for hyperkube
-    if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
-      # shellcheck disable=SC2006
-      PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-    else
-      PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-    fi
-    KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-    extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
   fi
+  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
 done
 
 # shellcheck disable=SC2129
