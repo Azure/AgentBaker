@@ -111,6 +111,7 @@ ensureMonitorService
 ensureSysctl
 ensureKubelet
 ensureJournal
+ensureUpdateNodeLabels
 ensureNoDupOnPromiscuBridge
 
 if $FULL_INSTALL_REQUIRED; then
