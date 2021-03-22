@@ -44,7 +44,6 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
   elif [ $containerRuntime == 'docker' ]; then
@@ -54,7 +53,7 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(jq .ContainerImages[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
+  imagesToBePulled=$(echo $2 | jq .ContainerImages[] --monochrome-output --compact-output)
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -110,7 +109,7 @@ testFips() {
   echo "$test:Finish"
 }
 
-testKubeBinaries() {
+testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
   containerRuntime=$1
@@ -160,6 +159,59 @@ testKubeBinaries() {
   echo "$test:Finish"
 }
 
+testKubeProxyImagesPulled() {
+  test="testKubeProxyImagesPulled"
+  echo "$test:Start"
+  dockerKubeProxyImages='
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
+      "versions": [
+        "1.17.3-hotfix.20200601",
+        "1.17.7-hotfix.20200714",
+        "1.17.9-hotfix.20200824",
+        "1.17.11-hotfix.20200901",
+        "1.17.13",
+        "1.17.16",
+        "1.18.4-hotfix.20200626",
+        "1.18.6-hotfix.20200723",
+        "1.18.8-hotfix.20200924",
+        "1.18.10-hotfix.20210118",
+        "1.18.14-hotfix.20210118",
+        "1.19.0",
+        "1.19.1-hotfix.20200923",
+        "1.19.3",
+        "1.19.6-hotfix.20210118",
+        "1.19.7-hotfix.20210122",
+        "1.20.2"
+      ]
+    }
+  ]
+}
+'
+containerdKubeProxyImages='
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
+      "versions": [
+        "1.19.0",
+        "1.19.1-hotfix.20200923",
+        "1.19.3",
+        "1.19.6-hotfix.20210118",
+        "1.19.7-hotfix.20210122",
+        "1.20.2"
+      ]
+    }
+  ]
+}
+'
+  testImagesPulled docker "$dockerKubeProxyImages"
+  testImagesPulled containerd "$containerdKubeProxyImages"
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -169,8 +221,9 @@ string_replace() {
 }
 
 testFilesDownloaded
-testImagesPulled $1
+testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 
 testAuditDNotPresent
 testFips $2 $3
-testKubeBinaries $1
+testKubeBinariesPresent $1
+testKubeProxyImagesPulled
