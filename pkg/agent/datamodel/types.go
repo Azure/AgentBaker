@@ -11,13 +11,11 @@ import (
 	"math/rand"
 	neturl "net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/blang/semver"
 )
 
 // TypeMeta describes an individual API model object
