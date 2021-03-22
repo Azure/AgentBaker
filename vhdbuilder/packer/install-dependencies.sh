@@ -13,15 +13,10 @@ source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-
+COMPONENTS_FILEPATH=/opt/azure/components.json
+#this is used by post build test to check whether the compoenents do indeed exist
+cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS 
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
-fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
@@ -65,6 +60,13 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - xz-utils
   - zip
 EOF
+
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
@@ -117,179 +119,41 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libbcc-examples
 EOF
 
-VNET_CNI_VERSIONS="
-1.2.7
-1.2.6
-1.2.0_hotfix
-"
-for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# merge with above after two more version releases
-SWIFT_CNI_VERSIONS="
-1.2.7
-1.2.6
-"
-
-for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CNI_PLUGIN_VERSIONS="
-0.7.6
-0.7.5
-0.7.1
-"
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CNI_PLUGIN_VERSIONS="
-0.8.6
-"
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 installImg
 echo "  - img" >> ${VHD_LOGS_FILEPATH}
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
-DASHBOARD_VERSIONS="1.10.1"
-for DASHBOARD_VERSION in ${DASHBOARD_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v${DASHBOARD_VERSION}"
+string_replace() {
+  echo ${1//\*/$2}
+}
+
+ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+for imageToBePulled in ${ContainerImages[*]}; do
+  downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
+  versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
+
+  for version in ${versions}; do
+    CONTAINER_IMAGE=$(string_replace $downloadURL $version)
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+  done
 done
 
-NEW_DASHBOARD_VERSIONS="
-2.0.0-beta8
-2.0.0-rc3
-2.0.0-rc7
-2.0.1
-"
-for DASHBOARD_VERSION in ${NEW_DASHBOARD_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/dashboard:v${DASHBOARD_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+DownloadFiles=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+for fileToDownload in ${DownloadFiles[*]}; do
+  fileName=$(echo "${fileToDownload}" | jq .fileName -r)
+  downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
+  versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
+  download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
+  mkdir -p $downloadLocation
+  for version in ${versions}; do
+    file_Name=$(string_replace $fileName $version)
+    dest="$downloadLocation/${file_Name}"
+    downloadURL=$(string_replace $download_URL $version)/$file_Name
+    retrycmd_get_tarball 120 5 ${dest} ${downloadURL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+  done
 done
-
-NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS="
-1.0.2
-1.0.3
-1.0.4
-"
-for DASHBOARD_VERSION in ${NEW_DASHBOARD_METRICS_SCRAPER_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/metrics-scraper:v${DASHBOARD_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-EXECHEALTHZ_VERSIONS="1.2"
-for EXECHEALTHZ_VERSION in ${EXECHEALTHZ_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/exechealthz:${EXECHEALTHZ_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-ADDON_RESIZER_VERSIONS="
-1.8.5
-1.8.4
-1.8.1
-1.7
-"
-for ADDON_RESIZER_VERSION in ${ADDON_RESIZER_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:${ADDON_RESIZER_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-METRICS_SERVER_VERSIONS="
-0.3.6
-0.3.5
-"
-for METRICS_SERVER_VERSION in ${METRICS_SERVER_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/metrics-server:v${METRICS_SERVER_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-LEGACY_MCR_PAUSE_VERSIONS="1.2.0"
-for PAUSE_VERSION in ${LEGACY_MCR_PAUSE_VERSIONS}; do
-    # Pull the arch independent MCR pause image which is built for Linux and Windows
-    CONTAINER_IMAGE="mcr.microsoft.com/k8s/core/pause:${PAUSE_VERSION}"
-    pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-MCR_PAUSE_VERSIONS="
-1.2.0
-1.3.1
-1.4.0
-"
-for PAUSE_VERSION in ${MCR_PAUSE_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/pause:${PAUSE_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CORE_DNS_VERSIONS="
-1.6.6
-1.6.5
-1.5.0
-1.3.1
-1.2.6
-"
-for CORE_DNS_VERSION in ${CORE_DNS_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/coredns:${CORE_DNS_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-#this needs to be removed sometime after this is in https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp/pullrequest/3947551
-AZURE_CNIIMAGEBASE="mcr.microsoft.com/containernetworking"
-AZURE_CNI_NETWORKMONITOR_VERSIONS="
-1.1.8
-0.0.7
-0.0.6
-"
-for AZURE_CNI_NETWORKMONITOR_VERSION in ${AZURE_CNI_NETWORKMONITOR_VERSIONS}; do
-    CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/networkmonitor:v${AZURE_CNI_NETWORKMONITOR_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZURE_NPM_VERSIONS="
-1.2.7
-1.2.2_hotfix
-1.2.1
-1.1.8
-"
-for AZURE_NPM_VERSION in ${AZURE_NPM_VERSIONS}; do
-    CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-npm:v${AZURE_NPM_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZURE_VNET_TELEMETRY_VERSIONS="
-1.0.30
-"
-for AZURE_VNET_TELEMETRY_VERSION in ${AZURE_VNET_TELEMETRY_VERSIONS}; do
-    CONTAINER_IMAGE="${AZURE_CNIIMAGEBASE}/azure-vnet-telemetry:v${AZURE_VNET_TELEMETRY_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -353,152 +217,6 @@ if [[ ${installSGX} == "True" ]]; then
 fi
 fi
 
-TUNNELFRONT_VERSIONS="
-v1.9.2-v3.0.18
-v1.9.2-v3.0.19
-v1.9.2-v3.0.20
-"
-for TUNNELFRONT_VERSION in ${TUNNELFRONT_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/hcp-tunnel-front:${TUNNELFRONT_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-KONNECTIVITY_AGENT_VERSIONS="
-0.0.13
-"
-for KONNECTIVITY_AGENT_VERSION in ${KONNECTIVITY_AGENT_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v${KONNECTIVITY_AGENT_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# 1.0.10 is for the ipv6 fix
-# 1.0.11 is for the cve fix
-OPENVPN_VERSIONS="
-1.0.8
-1.0.10
-1.0.11
-"
-for OPENVPN_VERSION in ${OPENVPN_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/tunnel-openvpn:${OPENVPN_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-KUBE_SVC_REDIRECT_VERSIONS="1.0.7"
-for KUBE_SVC_REDIRECT_VERSION in ${KUBE_SVC_REDIRECT_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/aks/hcp/kube-svc-redirect:v${KUBE_SVC_REDIRECT_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# oms agent used by AKS
-# keeping last-->last image (ciprod11092020) as last released (ciprod01112021) is not fully rolledout to all clouds yet. Also added latest (ciprod02232021)
-OMS_AGENT_IMAGES="ciprod11092020 ciprod01112021 ciprod02232021"
-for OMS_AGENT_IMAGE in ${OMS_AGENT_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/azuremonitor/containerinsights/ciprod:${OMS_AGENT_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# calico images used by AKS
-CALICO_CNI_IMAGES="
-3.8.9.1
-3.8.9.2
-"
-for CALICO_CNI_IMAGE in ${CALICO_CNI_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/cni:v${CALICO_CNI_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CALICO_NODE_IMAGES="
-3.17.2
-3.8.9.1
-3.8.9.2
-"
-for CALICO_NODE_IMAGE in ${CALICO_NODE_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/node:v${CALICO_NODE_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# typha and pod2daemon can't be patched like cni and node can as they use scratch as a base
-CALICO_TYPHA_IMAGES="
-3.17.2
-3.8.9
-"
-for CALICO_TYPHA_IMAGE in ${CALICO_TYPHA_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/typha:v${CALICO_TYPHA_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CALICO_KUBE_CONTROLLERS_IMAGES="
-3.17.2
-"
-for CALICO_KUBE_CONTROLLERS_IMAGE in ${CALICO_KUBE_CONTROLLERS_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/kube-controllers:v${CALICO_KUBE_CONTROLLERS_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-TIGERA_OPERATOR_IMAGES="
-1.13.5
-"
-for TIGERA_OPERATOR_IMAGE in ${TIGERA_OPERATOR_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/tigera/operator:v${TIGERA_OPERATOR_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CALICO_POD2DAEMON_IMAGES="
-3.8.9
-"
-for CALICO_POD2DAEMON_IMAGE in ${CALICO_POD2DAEMON_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v${CALICO_POD2DAEMON_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# Cluster Proportional Autoscaler
-CPA_IMAGES="
-1.3.0_v0.0.5
-1.7.1
-1.7.1-hotfix.20200403
-"
-for CPA_IMAGE in ${CPA_IMAGES}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:${CPA_IMAGE}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-KV_FLEXVOLUME_VERSIONS="0.0.13"
-for KV_FLEXVOLUME_VERSION in ${KV_FLEXVOLUME_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:v${KV_FLEXVOLUME_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-BLOBFUSE_FLEXVOLUME_VERSIONS="1.0.15"
-for BLOBFUSE_FLEXVOLUME_VERSION in ${BLOBFUSE_FLEXVOLUME_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:${BLOBFUSE_FLEXVOLUME_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# this is the patched images which AKS are using.
-AKS_IP_MASQ_AGENT_VERSIONS="
-2.5.0.2
-2.5.0.3
-"
-for IP_MASQ_AGENT_VERSION in ${AKS_IP_MASQ_AGENT_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v${IP_MASQ_AGENT_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
     if [[ "${cliTool}" == "ctr" ]]; then
@@ -509,106 +227,6 @@ for NGINX_VERSION in ${NGINX_VERSIONS}; do
     fi
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-KMS_PLUGIN_VERSIONS="0.0.9"
-for KMS_PLUGIN_VERSION in ${KMS_PLUGIN_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/k8s/kms/keyvault:v${KMS_PLUGIN_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-ADDON_IMAGES="
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.1.3
-mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.2.3
-mcr.microsoft.com/oss/kubernetes/external-dns:v0.6.0-hotfix-20200228
-mcr.microsoft.com/oss/kubernetes/defaultbackend:1.4
-mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.19.0
-mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.2.1.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20201015.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20210216.1
-mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20200505.3
-mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20210209.1
-mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.0.1-rc3
-mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.2.0
-mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.3.0
-mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.0
-mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.4
-"
-for ADDON_IMAGE in ${ADDON_IMAGES}; do
-  pullContainerImage ${cliTool} ${ADDON_IMAGE}
-  echo "  - ${ADDON_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZUREDISK_CSI_VERSIONS="
-0.9.0
-1.0.0
-1.1.0
-1.1.1
-"
-for AZUREDISK_CSI_VERSION in ${AZUREDISK_CSI_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v${AZUREDISK_CSI_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZUREFILE_CSI_VERSIONS="
-0.9.0
-1.0.0
-"
-for AZUREFILE_CSI_VERSION in ${AZUREFILE_CSI_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v${AZUREFILE_CSI_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_LIVENESSPROBE_VERSIONS="
-1.1.0
-2.2.0
-"
-for CSI_LIVENESSPROBE_VERSION in ${CSI_LIVENESSPROBE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v${CSI_LIVENESSPROBE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-CSI_NODE_DRIVER_REGISTRAR_VERSIONS="
-1.2.0
-2.0.1
-"
-for CSI_NODE_DRIVER_REGISTRAR_VERSION in ${CSI_NODE_DRIVER_REGISTRAR_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v${CSI_NODE_DRIVER_REGISTRAR_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-AZURE_CLOUD_NODE_MANAGER_VERSIONS="
-0.5.1
-0.6.0
-0.7.0
-"
-for AZURE_CLOUD_NODE_MANAGER_VERSION in ${AZURE_CLOUD_NODE_MANAGER_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v${AZURE_CLOUD_NODE_MANAGER_VERSION}"
-  pullContainerImage ${cliTool} "${CONTAINER_IMAGE}"
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-SECRETS_STORE_CSI_DRIVER_VERSIONS="
-0.0.19
-"
-for SECRETS_STORE_CSI_DRIVER_VERSION in ${SECRETS_STORE_CSI_DRIVER_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v${SECRETS_STORE_CSI_DRIVER_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-SECRETS_STORE_PROVIDER_AZURE_VERSIONS="
-0.0.12
-"
-for SECRETS_STORE_PROVIDER_AZURE_VERSION in ${SECRETS_STORE_PROVIDER_AZURE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/azure/secrets-store/provider-azure:${SECRETS_STORE_PROVIDER_AZURE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # pull patched hyperkube image for AKS
@@ -655,7 +273,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
       echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
       if [[ ${cliTool} == "docker" ]]; then
           docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      else 
+      else
           ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
       fi
       # shellcheck disable=SC2181
@@ -779,3 +397,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 } >> ${VHD_LOGS_FILEPATH}
 
 installAscBaseline
+
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  relinkResolvConf
+fi

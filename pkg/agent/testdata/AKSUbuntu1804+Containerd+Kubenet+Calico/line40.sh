@@ -181,15 +181,13 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}')
+        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            images=(${images_to_delete}) #alternatively use IFS+read but we are using bash anyways so this works too
-            for image in "${images[@]}"
-            do
+            echo "${images_to_delete}" | while read image; do
                 
                 removeContainerImage "ctr" ${image}
                 

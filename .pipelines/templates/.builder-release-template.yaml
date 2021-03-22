@@ -116,13 +116,14 @@ steps:
         echo MODE=$(MODE) && \
         if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
         [ -n "${create_time}" ] && VHD_NAME="1.0.${create_time}.vhd"; \
-        SKU_NAME="1804gen2"; else \
+        if [[ ${OS_SKU} == "Ubuntu" ]]; then SKU_NAME="1804gen2"; else SKU_NAME="${OS_VERSION}gen2"; fi; \
+        else \
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
         VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
         SKU_NAME=$OS_VERSION; fi && \
         if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
         if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
-        if [[ "$(CONTAINER_RUNTIME)" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
+        if [[ ${OS_SKU} != "CBLMariner" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
@@ -135,7 +136,7 @@ steps:
         -e VHD_NAME=${VHD_NAME} \
         -e OS_NAME="Linux" \
         -e SKU_NAME=${SKU_NAME} \
-        -e OFFER_NAME="Ubuntu" \
+        -e OFFER_NAME=${OS_SKU} \
         -e HYPERV_GENERATION=${HYPERV_GENERATION} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
