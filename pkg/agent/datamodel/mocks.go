@@ -72,12 +72,6 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 		cs.Properties.CertificateProfile.APIServerPrivateKey = "apiserverkey"
 		cs.Properties.CertificateProfile.ClientCertificate = "clientcert"
 		cs.Properties.CertificateProfile.ClientPrivateKey = "clientkey"
-		cs.Properties.CertificateProfile.EtcdServerCertificate = "etcdservercert"
-		cs.Properties.CertificateProfile.EtcdServerPrivateKey = "etcdserverkey"
-		cs.Properties.CertificateProfile.EtcdClientCertificate = "etcdclientcert"
-		cs.Properties.CertificateProfile.EtcdClientPrivateKey = "etcdclientkey"
-		cs.Properties.CertificateProfile.EtcdPeerCertificates = []string{"etcdpeercert1", "etcdpeercert2", "etcdpeercert3", "etcdpeercert4", "etcdpeercert5"}
-		cs.Properties.CertificateProfile.EtcdPeerPrivateKeys = []string{"etcdpeerkey1", "etcdpeerkey2", "etcdpeerkey3", "etcdpeerkey4", "etcdpeerkey5"}
 
 	}
 
