@@ -49,7 +49,6 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		EnableSecureKubelet:     to.BoolPtr(true),
 		EnableRbac:              to.BoolPtr(true),
-		EtcdDiskSizeGB:          "256",
 		DockerBridgeSubnet:      "172.17.0.1/16",
 		GCLowThreshold:          80,
 		GCHighThreshold:         85,
@@ -201,7 +200,6 @@ var (
 			CalicoImageBase:                      "calico/",
 			AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
 			MCRKubernetesImageBase:               "mcr.microsoft.com/",
-			EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
 			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",

@@ -195,10 +195,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
 			addValue(parametersMap, "gchighthreshold", kubernetesConfig.GCHighThreshold)
 			addValue(parametersMap, "gclowthreshold", kubernetesConfig.GCLowThreshold)
-			addValue(parametersMap, "etcdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.EtcdDownloadURLBase)
-			addValue(parametersMap, "etcdVersion", kubernetesConfig.EtcdVersion)
-			addValue(parametersMap, "etcdDiskSizeGB", kubernetesConfig.EtcdDiskSizeGB)
-			addValue(parametersMap, "etcdEncryptionKey", kubernetesConfig.EtcdEncryptionKey)
 
 			addValue(parametersMap, "enableAggregatedAPIs", kubernetesConfig.EnableAggregatedAPIs)
 
@@ -249,12 +245,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		 - kubeConfigCertificate
 		 - kubeConfigPrivateKey
 		 - servicePrincipalClientSecret
-		 - etcdClientCertificate
-		 - etcdClientPrivateKey
-		 - etcdServerCertificate
-		 - etcdServerPrivateKey
-		 - etcdPeerCertificates
-		 - etcdPeerPrivateKeys
 
 		 To refer to a keyvault secret, the value of the parameter in the api model file should be formatted as:
 

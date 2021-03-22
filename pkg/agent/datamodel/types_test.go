@@ -1678,28 +1678,6 @@ func TestWindowsProfileCustomOS(t *testing.T) {
 	}
 }
 
-func TestGetAPIServerEtcdAPIVersion(t *testing.T) {
-	o := OrchestratorProfile{}
-
-	if o.GetAPIServerEtcdAPIVersion() != "" {
-		t.Fatalf("Expected GetAPIServerEtcdAPIVersion() to return \"\" but instead got %s", o.GetAPIServerEtcdAPIVersion())
-	}
-
-	o.KubernetesConfig = &KubernetesConfig{
-		EtcdVersion: "3.2.1",
-	}
-
-	if o.GetAPIServerEtcdAPIVersion() != "etcd3" {
-		t.Fatalf("Expected GetAPIServerEtcdAPIVersion() to return \"etcd3\" but instead got %s", o.GetAPIServerEtcdAPIVersion())
-	}
-
-	// invalid version string
-	o.KubernetesConfig.EtcdVersion = "2.3.8"
-	if o.GetAPIServerEtcdAPIVersion() != "etcd2" {
-		t.Fatalf("Expected GetAPIServerEtcdAPIVersion() to return \"etcd2\" but instead got %s", o.GetAPIServerEtcdAPIVersion())
-	}
-}
-
 func TestIsAzureCNI(t *testing.T) {
 	k := &KubernetesConfig{
 		NetworkPlugin: NetworkPluginAzure,

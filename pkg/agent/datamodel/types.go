@@ -505,9 +505,6 @@ type KubernetesConfig struct {
 	PrivateCluster                    *PrivateCluster   `json:"privateCluster,omitempty"`
 	GCHighThreshold                   int               `json:"gchighthreshold,omitempty"`
 	GCLowThreshold                    int               `json:"gclowthreshold,omitempty"`
-	EtcdVersion                       string            `json:"etcdVersion,omitempty"`
-	EtcdDiskSizeGB                    string            `json:"etcdDiskSizeGB,omitempty"`
-	EtcdEncryptionKey                 string            `json:"etcdEncryptionKey,omitempty"`
 	EnableDataEncryptionAtRest        *bool             `json:"enableDataEncryptionAtRest,omitempty"`
 	EnableEncryptionWithExternalKms   *bool             `json:"enableEncryptionWithExternalKms,omitempty"`
 	EnablePodSecurityPolicy           *bool             `json:"enablePodSecurityPolicy,omitempty"`
@@ -1116,16 +1113,6 @@ func (l *LinuxProfile) HasSearchDomain() bool {
 		}
 	}
 	return false
-}
-
-// GetAPIServerEtcdAPIVersion Used to set apiserver's etcdapi version
-func (o *OrchestratorProfile) GetAPIServerEtcdAPIVersion() string {
-	if o.KubernetesConfig != nil {
-		// if we are here, version has already been validated..
-		etcdVersion, _ := semver.Make(o.KubernetesConfig.EtcdVersion)
-		return "etcd" + strconv.FormatUint(etcdVersion.Major, 10)
-	}
-	return ""
 }
 
 // IsAzureCNI returns true if Azure CNI network plugin is enabled
