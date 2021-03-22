@@ -246,10 +246,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				ClientPrivateKey:      "SampleClientPrivateKey",
 				KubeConfigCertificate: "SampleKubeConfigCert",
 				KubeConfigPrivateKey:  "SampleKubeConfigPrivateKey",
-				EtcdClientCertificate: "SampleEtcdClientCert",
-				EtcdClientPrivateKey:  "SampleEtcdClientPrivateKey",
-				EtcdServerCertificate: "SampleEtcdServerCert",
-				EtcdServerPrivateKey:  "SampleEtcdServerPrivateKey",
 			},
 			FeatureFlags: &datamodel.FeatureFlags{
 				EnableCSERunInBackground: true,

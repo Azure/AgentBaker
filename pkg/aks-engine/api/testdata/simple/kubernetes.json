@@ -43,17 +43,7 @@
       "clientCertificate": "clientCertificate",
       "clientPrivateKey": "clientPrivateKey",
       "kubeConfigCertificate": "kubeConfigCertificate",
-      "kubeConfigPrivateKey": "kubeConfigPrivateKey",
-      "etcdClientCertificate": "etcdClientCertificate",
-      "etcdClientPrivateKey": "etcdClientPrivateKey",
-      "etcdServerCertificate": "etcdServerCertificate",
-      "etcdServerPrivateKey": "etcdServerPrivateKey",
-      "etcdPeerCertificates": [
-        "etcdPeerCertificate0"
-      ],
-      "etcdPeerPrivateKeys": [
-        "etcdPeerPrivateKey0"
-      ]
+      "kubeConfigPrivateKey": "kubeConfigPrivateKey"
     }
   }
 }
