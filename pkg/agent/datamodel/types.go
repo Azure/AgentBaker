@@ -299,12 +299,8 @@ type AADProfile struct {
 type CertificateProfile struct {
 	// CaCertificate is the certificate authority certificate.
 	CaCertificate string `json:"caCertificate,omitempty" conform:"redact"`
-	// CaPrivateKey is the certificate authority key.
-	CaPrivateKey string `json:"caPrivateKey,omitempty" conform:"redact"`
 	// ApiServerCertificate is the rest api server certificate, and signed by the CA
 	APIServerCertificate string `json:"apiServerCertificate,omitempty" conform:"redact"`
-	// ApiServerPrivateKey is the rest api server private key, and signed by the CA
-	APIServerPrivateKey string `json:"apiServerPrivateKey,omitempty" conform:"redact"`
 	// ClientCertificate is the certificate used by the client kubelet services and signed by the CA
 	ClientCertificate string `json:"clientCertificate,omitempty" conform:"redact"`
 	// ClientPrivateKey is the private key used by the client kubelet services and signed by the CA
