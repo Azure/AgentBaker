@@ -37,9 +37,7 @@
     },
     "certificateProfile": {
       "caCertificate": "caCertificate",
-      "caPrivateKey": "caPrivateKey",
       "apiServerCertificate": "apiServerCertificate",
-      "apiServerPrivateKey": "apiServerPrivateKey",
       "clientCertificate": "clientCertificate",
       "clientPrivateKey": "clientPrivateKey",
       "kubeConfigCertificate": "kubeConfigCertificate",
