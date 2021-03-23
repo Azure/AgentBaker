@@ -238,8 +238,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		/**
 		 The following parameters could be either a plain text, or referenced to a secret in a keyvault:
 		 - apiServerCertificate
-		 - apiServerPrivateKey
-		 - caCertificate
 		 - clientCertificate
 		 - clientPrivateKey
 		 - kubeConfigCertificate

@@ -73,13 +73,7 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *datamodel.Container
 			}
 		}
 
-		if e := f.SaveFileString(artifactsDir, "ca.key", properties.CertificateProfile.CaPrivateKey); e != nil {
-			return e
-		}
 		if e := f.SaveFileString(artifactsDir, "ca.crt", properties.CertificateProfile.CaCertificate); e != nil {
-			return e
-		}
-		if e := f.SaveFileString(artifactsDir, "apiserver.key", properties.CertificateProfile.APIServerPrivateKey); e != nil {
 			return e
 		}
 		if e := f.SaveFileString(artifactsDir, "apiserver.crt", properties.CertificateProfile.APIServerCertificate); e != nil {

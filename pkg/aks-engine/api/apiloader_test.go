@@ -239,9 +239,7 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			},
 			CertificateProfile: &datamodel.CertificateProfile{
 				CaCertificate:         "SampleCACert",
-				CaPrivateKey:          "SampleCAPrivateKey",
 				APIServerCertificate:  "SampleAPIServerCert",
-				APIServerPrivateKey:   "SampleAPIServerPrivateKey",
 				ClientCertificate:     "SampleClientCert",
 				ClientPrivateKey:      "SampleClientPrivateKey",
 				KubeConfigCertificate: "SampleKubeConfigCert",
