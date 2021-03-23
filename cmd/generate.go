@@ -107,7 +107,7 @@ func newGenerateCmd() *cobra.Command {
 	f := generateCmd.Flags()
 	f.StringVarP(&gc.apimodelPath, "api-model", "m", "", "path to your cluster definition file")
 	f.StringVarP(&gc.outputDirectory, "output-directory", "o", "", "output directory (derived from FQDN if absent)")
-	f.StringVar(&gc.caCertificatePath, "ca-certificate-path", "path", "path to the CA certificate to use for Kubernetes PKI assets")
+	f.StringVar(&gc.caCertificatePath, "ca-certificate-path", "../pkg/aks-engine/api/testdata/simple/kubernetes.json", "path to the CA certificate to use for Kubernetes PKI assets")
 	f.StringArrayVar(&gc.set, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&gc.noPrettyPrint, "no-pretty-print", false, "skip pretty printing the output")
 	f.BoolVar(&gc.parametersOnly, "parameters-only", false, "only output parameters files")
