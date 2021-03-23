@@ -64,11 +64,9 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.CertificateProfile = &CertificateProfile{}
 	if certs {
 		cs.Properties.CertificateProfile.CaCertificate = "cacert"
-		cs.Properties.CertificateProfile.CaPrivateKey = "cakey"
 		cs.Properties.CertificateProfile.KubeConfigCertificate = "kubeconfigcert"
 		cs.Properties.CertificateProfile.KubeConfigPrivateKey = "kubeconfigkey"
 		cs.Properties.CertificateProfile.APIServerCertificate = "apiservercert"
-		cs.Properties.CertificateProfile.APIServerPrivateKey = "apiserverkey"
 		cs.Properties.CertificateProfile.ClientCertificate = "clientcert"
 		cs.Properties.CertificateProfile.ClientPrivateKey = "clientkey"
 
@@ -200,6 +198,7 @@ var (
 			CalicoImageBase:                      "calico/",
 			AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
 			MCRKubernetesImageBase:               "mcr.microsoft.com/",
+
 			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
