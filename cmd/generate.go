@@ -159,7 +159,6 @@ func (gc *generateCmd) mergeAPIModel() error {
 
 func (gc *generateCmd) loadAPIModel() error {
 	var caCertificateBytes []byte
-	var caKeyBytes []byte
 	var err error
 
 	apiloader := &api.Apiloader{}
