@@ -171,7 +171,6 @@ configureSwapFile
 ensureSysctl
 ensureKubelet
 ensureJournal
-ensureUpdateNodeLabels
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
