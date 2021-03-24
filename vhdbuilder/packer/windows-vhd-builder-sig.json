@@ -1,4 +1,3 @@
-
 {
     "variables": {
         "build_branch": "{{env `GIT_BRANCH`}}",
@@ -37,13 +36,15 @@
             "managed_image_resource_group_name": "{{user `resource_group_name`}}",
             "managed_image_name": "{{user `sig_image_name`}}",
             "shared_image_gallery_destination": {
-              "resource_group": "{{user `resource_group_name`}}",
-              "gallery_name": "{{user `sig_gallery_name`}}",
-              "image_name": "{{user `sig_image_name`}}",
-              "image_version": "{{user `sig_image_version`}}",
-              "replication_regions": ["{{user `location`}}"]
+                "resource_group": "{{user `resource_group_name`}}",
+                "gallery_name": "{{user `sig_gallery_name`}}",
+                "image_name": "{{user `sig_image_name`}}",
+                "image_version": "{{user `sig_image_version`}}",
+                "replication_regions": [
+                    "{{user `location`}}"
+                ]
             },
-	    "shared_image_gallery_timeout": "1h30m",
+            "shared_image_gallery_timeout": "2h",
             "communicator": "winrm",
             "winrm_use_ssl": true,
             "winrm_insecure": true,
@@ -100,7 +101,7 @@
         {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
-            "environment_vars" : [
+            "environment_vars": [
                 "BUILD_BRANCH={{user `build_branch`}}",
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
