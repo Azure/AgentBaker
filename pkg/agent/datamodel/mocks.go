@@ -49,7 +49,6 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		EnableSecureKubelet:     to.BoolPtr(true),
 		EnableRbac:              to.BoolPtr(true),
-		EtcdDiskSizeGB:          "256",
 		DockerBridgeSubnet:      "172.17.0.1/16",
 		GCLowThreshold:          80,
 		GCHighThreshold:         85,
@@ -65,19 +64,11 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.CertificateProfile = &CertificateProfile{}
 	if certs {
 		cs.Properties.CertificateProfile.CaCertificate = "cacert"
-		cs.Properties.CertificateProfile.CaPrivateKey = "cakey"
 		cs.Properties.CertificateProfile.KubeConfigCertificate = "kubeconfigcert"
 		cs.Properties.CertificateProfile.KubeConfigPrivateKey = "kubeconfigkey"
 		cs.Properties.CertificateProfile.APIServerCertificate = "apiservercert"
-		cs.Properties.CertificateProfile.APIServerPrivateKey = "apiserverkey"
 		cs.Properties.CertificateProfile.ClientCertificate = "clientcert"
 		cs.Properties.CertificateProfile.ClientPrivateKey = "clientkey"
-		cs.Properties.CertificateProfile.EtcdServerCertificate = "etcdservercert"
-		cs.Properties.CertificateProfile.EtcdServerPrivateKey = "etcdserverkey"
-		cs.Properties.CertificateProfile.EtcdClientCertificate = "etcdclientcert"
-		cs.Properties.CertificateProfile.EtcdClientPrivateKey = "etcdclientkey"
-		cs.Properties.CertificateProfile.EtcdPeerCertificates = []string{"etcdpeercert1", "etcdpeercert2", "etcdpeercert3", "etcdpeercert4", "etcdpeercert5"}
-		cs.Properties.CertificateProfile.EtcdPeerPrivateKeys = []string{"etcdpeerkey1", "etcdpeerkey2", "etcdpeerkey3", "etcdpeerkey4", "etcdpeerkey5"}
 
 	}
 
@@ -207,7 +198,7 @@ var (
 			CalicoImageBase:                      "calico/",
 			AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
 			MCRKubernetesImageBase:               "mcr.microsoft.com/",
-			EtcdDownloadURLBase:                  "mcr.microsoft.com/oss/etcd-io/",
+
 			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
