@@ -207,9 +207,15 @@ testKubeBinariesPresent() {
     mv $kubectlDownloadLocation $kubectlInstallLocation
     chmod a+x $kubeletInstallLocation $kubectlInstallLocation
     echo "kubectl version"
-    kubectl version
+    kubectlLongVersion=$(kubectl version)
+    if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
+      err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
+    fi
     echo "kubelet version"
-    kubelet --version
+    kubeletLongVersion=$(kubelet --version 2>/dev/null)
+    if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
+      err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
+    fi
   done
   echo "$test:Finish"
 }
