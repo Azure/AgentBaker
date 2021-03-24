@@ -5575,7 +5575,8 @@ try
         New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
         Install-KubernetesServices `+"`"+`
-            -KubeDir $global:KubeDir
+            -KubeDir $global:KubeDir `+"`"+`
+            -ContainerRuntime $global:ContainerRuntime
 
         Get-LogCollectionScripts
 
@@ -7183,10 +7184,12 @@ New-NSSMService {
         $KubeletStartFile,
         [string]
         [Parameter(Mandatory = $true)]
-        $KubeProxyStartFile
+        $KubeProxyStartFile,
+        [Parameter(Mandatory = $false)][string]
+        $ContainerRuntime = "docker"
     )
 
-    $kubeletDependOnServices = "docker"
+    $kubeletDependOnServices = $ContainerRuntime
     if ($global:EnableCsiProxy) {
         $kubeletDependOnServices += " csi-proxy"
     }
@@ -7241,7 +7244,9 @@ function
 Install-KubernetesServices {
     param(
         [Parameter(Mandatory = $true)][string]
-        $KubeDir
+        $KubeDir,
+        [Parameter(Mandatory = $false)][string]
+        $ContainerRuntime = "docker"
     )
 
     # TODO ksbrmnn fix callers to this function
@@ -7251,7 +7256,8 @@ Install-KubernetesServices {
 
     New-NSSMService -KubeDir $KubeDir `+"`"+`
         -KubeletStartFile $KubeletStartFile `+"`"+`
-        -KubeProxyStartFile $KubeProxyStartFile
+        -KubeProxyStartFile $KubeProxyStartFile `+"`"+`
+        -ContainerRuntime $ContainerRuntime
 }
 `)
 
