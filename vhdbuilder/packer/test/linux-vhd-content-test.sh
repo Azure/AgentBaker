@@ -206,8 +206,10 @@ testKubeBinariesPresent() {
     mv $kubeletDownloadLocation $kubeletInstallLocation
     mv $kubectlDownloadLocation $kubectlInstallLocation
     chmod a+x $kubeletInstallLocation $kubectlInstallLocation
+    echo "kubectl version"
     kubectl version
-    kubelet version
+    echo "kubelet version"
+    kubelet --version
   done
   echo "$test:Finish"
 }
