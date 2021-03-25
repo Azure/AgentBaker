@@ -1201,6 +1201,20 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
+			name: "with custom labels for FIPS enabled agentpool",
+			ap: AgentPoolProfile{
+				CustomNodeLabels: map[string]string{
+					"mycustomlabel1": "foo",
+					"mycustomlabel2": "bar",
+				},
+				EnableFIPS: to.BoolPtr(true),
+			},
+			rg:            "my-resource-group",
+			deprecated:    false,
+			nvidiaEnabled: false,
+			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+		},
+		{
 			name: "N series and managed disk with custom labels",
 			ap: AgentPoolProfile{
 				StorageProfile: ManagedDisks,
