@@ -473,6 +473,8 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 		if customKc.CPUCfsQuotaPeriod != "" {
 			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
+			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration
+			kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
