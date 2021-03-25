@@ -666,7 +666,6 @@ type AgentPoolProfile struct {
 	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
 	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig                 *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
-	EnableFIPS                          *bool                `json:"enableFIPS,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1062,7 +1061,7 @@ func (a *AgentPoolProfile) IsSpotScaleSet() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool) string {
+func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool) string {
 	var buf bytes.Buffer
 	buf.WriteString("kubernetes.azure.com/role=agent")
 	if deprecated {
@@ -1078,7 +1077,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		accelerator := "nvidia"
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
 	}
-	if a.IsFIPSEnabled() {
+	if fipsEnabled {
 		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
 	}
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
@@ -1096,11 +1095,6 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 // HasDisks returns true if the customer specified disks
 func (a *AgentPoolProfile) HasDisks() bool {
 	return len(a.DiskSizesGB) > 0
-}
-
-// IsFIPSEnabled returns true if the agentpool uses FIPSEnabled OS
-func (a *AgentPoolProfile) IsFIPSEnabled() bool {
-	return a.EnableFIPS != nil && *a.EnableFIPS
 }
 
 // HasSecrets returns true if the customer specified secrets to install
@@ -1431,6 +1425,7 @@ type NodeBootstrappingConfiguration struct {
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
 	KubeletClientTLSBootstrapToken *string
+	FIPSEnabled                    bool
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
