@@ -121,6 +121,7 @@ var expectedKubeletJSON string = `{
     },
     "protectKernelDefaults": true,
     "featureGates": {
+        "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
         "RotateKubeletServerCertificate": true,
         "TopologyManager": true
