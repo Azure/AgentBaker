@@ -140,19 +140,47 @@ for imageToBePulled in ${ContainerImages[*]}; do
   done
 done
 
-DownloadFiles=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for fileToDownload in ${DownloadFiles[*]}; do
-  fileName=$(echo "${fileToDownload}" | jq .fileName -r)
-  downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
-  versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
-  download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-  mkdir -p $downloadLocation
-  for version in ${versions}; do
-    file_Name=$(string_replace $fileName $version)
-    dest="$downloadLocation/${file_Name}"
-    downloadURL=$(string_replace $download_URL $version)/$file_Name
-    retrycmd_get_tarball 120 5 ${dest} ${downloadURL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-  done
+VNET_CNI_VERSIONS="
+1.2.7
+1.2.6
+1.2.0_hotfix
+"
+for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+# merge with above after two more version releases
+SWIFT_CNI_VERSIONS="
+1.2.7
+1.2.6
+"
+
+for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CNI_PLUGIN_VERSIONS="
+0.7.6
+0.7.5
+0.7.1
+"
+for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+    downloadCNI
+    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+CNI_PLUGIN_VERSIONS="
+0.8.6
+"
+for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+    downloadCNI
+    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
