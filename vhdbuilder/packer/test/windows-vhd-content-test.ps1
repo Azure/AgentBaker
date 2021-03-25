@@ -214,7 +214,20 @@ function Test-ImagesPulled {
         $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
     }
     elseif ($containerRuntime -eq 'docker') {
-        $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
+        $MaxRetryCount = 10
+        $RetryDelaySeconds = 10
+        $retryCount=0
+        do {
+            $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}" 2> dockerError.log
+            $SEL = Select-String -Path dockerError.log -Pattern "docker daemon is not running"
+            if ($SEL -eq $null){
+                break
+            }
+            Write-Output "Failed to list docker images for docker daemon is not running"
+            $retryCount++
+            Write-Output "Retry after $RetryDelaySeconds seconds, retry times: $retryCount"
+            Sleep $RetryDelaySeconds
+        } while ($retryCount -lt $MaxRetryCount)
     }
     else {
         Write-Error "unsupported container runtime $containerRuntime"
