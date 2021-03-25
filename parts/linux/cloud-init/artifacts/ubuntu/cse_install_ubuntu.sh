@@ -173,7 +173,6 @@ installStandaloneContainerd() {
 
 downloadContainerd() {
     CONTAINERD_VERSION=$1
-    https://mobyartifacts.azureedge.net/moby/moby-containerd/1.5.0-beta.git31a0f92df+azure/bionic/linux_amd64/moby-containerd_1.5.0~beta.git31a0f92df+azure-1_amd64.deb
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}}+azure-1_amd64.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
