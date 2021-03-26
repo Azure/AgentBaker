@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 required_env_vars=(
-    "CLASSIC_SA_CONNECTION_STRING"
+    "CLASSIC_SA_CONNECTION_STRING" # This can be replaced with sas_token+account_name
     "STORAGE_ACCT_BLOB_URL"
     "VHD_NAME"
     "OS_NAME"
@@ -24,9 +24,14 @@ do
     fi
 done
 
+
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
 sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+if [ "$sas_token" == "" ]; then
+    echo "sas_token is empty"
+    exit 1
+fi
 vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?$sas_token"
 
 echo "COPY ME ---> ${vhd_url}"
