@@ -24,7 +24,6 @@ do
     fi
 done
 
-az --version
 
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
