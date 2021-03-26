@@ -135,6 +135,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			EnableGPUDevicePluginIfNeeded: false,
 			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
+			FIPSEnabled:                   false,
 		}
 
 		if configUpdator != nil {
@@ -365,6 +366,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+		}),
+
+		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet+FIPSEnabled", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+			config.FIPSEnabled = true
 		}))
 })
 
