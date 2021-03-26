@@ -215,7 +215,7 @@ function Test-ImagesPulled {
     }
     elseif ($containerRuntime -eq 'docker') {
         $MaxRetryCount = 10
-        $RetryDelaySeconds = 10
+        $RetryDelaySeconds = 60
         $retryCount=0
         do {
             # dockerError.log will be overwritten every the following command is executed, so
