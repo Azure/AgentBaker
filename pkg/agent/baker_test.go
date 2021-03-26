@@ -373,7 +373,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
                                 ContainerRuntime: datamodel.Containerd,
                         }
                         config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
-			config.FIPSEnabled = true
+                        config.FIPSEnabled = true
                 }))
 })
 
