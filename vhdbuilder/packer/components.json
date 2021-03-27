@@ -94,9 +94,10 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
-        "v1.9.2-v3.0.18",
         "v1.9.2-v3.0.19",
-        "v1.9.2-v3.0.20"
+        "v1.9.2-v3.0.20",
+        "v1.9.2-v3.0.22",
+        "master.0326.5"
       ]
     },
     {
@@ -108,9 +109,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "versions": [
-        "1.0.8",
-        "1.0.10",
-        "1.0.11"
+        "1.0.11",
+        "master.0326.5"
       ]
     },
     {
@@ -123,12 +123,6 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "versions": [
         "0.0.12"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/hcp/kube-svc-redirect:*",
-      "versions": [
-        "v1.0.7"
       ]
     },
     {
