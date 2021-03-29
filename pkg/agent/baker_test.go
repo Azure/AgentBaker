@@ -283,7 +283,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.HostedMasterProfile.IPMasqAgent = true
 		}),
 
-		Entry("AKSUbuntu1804 with containerd and version specified", "AKSUbuntu1804+Containerd+ContainerdVersion", "1.9.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1804 with containerd and version specified", "AKSUbuntu1804+Containerd+ContainerdVersion", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: datamodel.Containerd,
