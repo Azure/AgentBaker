@@ -3707,6 +3707,14 @@ EOF
 }
 
 {{- if NeedsContainerd}}
+
+# this check is outside because installStandaloneContainerd is also called by install_dependencies.sh in VHD Builder
+{{if HasContainerdVersion}}
+    echo "Containerd version specified by RP"
+{{else}}
+    echo "Containerd version not specified, use hardcoded version"
+{{end}}
+
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
@@ -3714,13 +3722,9 @@ installStandaloneContainerd() {
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
     #if there is no containerd_version input from RP, use hardcoded version
-
-    {{if HasContainerdVersion}}
-        echo "Containerd version specified by RP"
-    {{else}}
-        echo "Containerd version not specified, use hardcoded version"
+    if [[ -z ${CONTAINERD_VERSION} ]]; then
         CONTAINERD_VERSION="1.5.0-beta.git31a0f92df"
-    {{end}}
+    fi
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
