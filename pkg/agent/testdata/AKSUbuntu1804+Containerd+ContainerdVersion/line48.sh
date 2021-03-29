@@ -148,8 +148,6 @@ EOF
 
     systemctl restart chrony
 }
-
-{{- if NeedsContainerd}}
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
@@ -158,12 +156,9 @@ installStandaloneContainerd() {
     # v1.4.1 is our lowest supported version of containerd
     #if there is no containerd_version input from RP, use hardcoded version
 
-    {{if HasContainerdVersion}}
+    
         echo "Containerd version specified by RP"
-    {{else}}
-        echo "Containerd version not specified, use hardcoded version"
-        CONTAINERD_VERSION="1.5.0-beta.git31a0f92df"
-    {{end}}
+    
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
@@ -189,7 +184,6 @@ downloadContainerd() {
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
-{{- end}}
 
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
