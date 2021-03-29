@@ -139,10 +139,10 @@ function Get-FilesToCacheOnVHD {
         "c:\akse-cache\csi-proxy\"    = @(
             "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz"
         );
+        # When to remove depracted Kubernetes Windows packages:
+        # There are 30 days grace period before a depracted Kubernetes version is out of supported
+        # xref: https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions
         "c:\akse-cache\win-k8s\"      = @(
-            "https://acs-mirror.azureedge.net/kubernetes/v1.16.10-hotfix.20200817/windowszip/v1.16.10-hotfix.20200817-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.16.13-hotfix.20210118/windowszip/v1.16.13-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.16.15-hotfix.20210118/windowszip/v1.16.15-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.7-hotfix.20200817/windowszip/v1.17.7-hotfix.20200817-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.9-hotfix.20200824/windowszip/v1.17.9-hotfix.20200824-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.11-hotfix.20200901/windowszip/v1.17.11-hotfix.20200901-1int.zip",
@@ -152,13 +152,16 @@ function Get-FilesToCacheOnVHD {
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.6-hotfix.20200723/windowszip/v1.18.6-hotfix.20200723-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.8-hotfix.20200924/windowszip/v1.18.8-hotfix.20200924-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.10-hotfix.20210118/windowszip/v1.18.10-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210118/windowszip/v1.18.14-hotfix.20210118-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210322/windowszip/v1.18.14-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210322/windowszip/v1.18.17-hotfix.20210322-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.3-hotfix.20210118/windowszip/v1.19.3-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.6-hotfix.20210118/windowszip/v1.19.6-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210122/windowszip/v1.19.7-hotfix.20210122-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2/windowszip/v1.20.2-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210310/windowszip/v1.19.7-hotfix.20210310-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/windowszip/v1.19.9-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210310/windowszip/v1.20.2-hotfix.20210310-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
@@ -246,7 +249,7 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/03/windows10.0-kb5000822-x64_567b66c719842beeaaf49e6332aa6f3477c225a7.msu")
+    $patchUrls = @()
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
