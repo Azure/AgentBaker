@@ -266,24 +266,27 @@ write_files:
     [plugins."io.containerd.grpc.v1.cri"]
       sandbox_image = "{{GetPodInfraContainerSpec}}"
       [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{ if TeleportEnabled }}
+        {{- if TeleportEnabled }}
         snapshotter = "teleportd"
         disable_snapshot_annotations = false
+        {{- end}}
+        {{ if IsNSeriesSKU }}
+        default_runtime_name = "nvidia-container-runtime"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted_workload_runtime]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted_workload_runtime.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+        {{ else}}
+        default_runtime_name = "runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+          runtime_type = "io.containerd.runc.v2"
         {{ end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
       {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"

@@ -95,12 +95,16 @@ write_files:
       sandbox_image = "oss/kubernetes/pause:1.3.1"
       [plugins."io.containerd.grpc.v1.cri".containerd]
         
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
+        default_runtime_name = "nvidia-container-runtime"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted_workload_runtime]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted_workload_runtime.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+        
       
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
