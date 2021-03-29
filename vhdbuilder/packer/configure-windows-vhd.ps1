@@ -95,9 +95,14 @@ function Get-ContainerImages {
     }
 
     if ($containerRuntime -eq 'containerd') {
+        # start containerd to pre-pull the images to disk on VHD
+        # CSE will configure and register containerd as a service at deployment time
+        Start-Job -Name containerd -ScriptBlock { containerd.exe }
         foreach ($image in $imagesToPull) {
             & ctr.exe -n k8s.io images pull $image
         }
+        Stop-Job  -Name containerd
+        Remove-Job -Name containerd
     }
     else {
         foreach ($image in $imagesToPull) {
@@ -214,19 +219,6 @@ function Install-ContainerD {
     $newPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
     [Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
     $env:Path += ";$installDir"
-
-    Write-Log "Registering containerd as a service"
-    & containerd.exe --register-service
-    $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-    if ($null -eq $svc) {
-        throw "containerd.exe did not get installed as a service correctly."
-    }
-
-    Write-Log "Starting containerd service"
-    $svc | Start-Service
-    if ($svc.Status -ne "Running") {
-        throw "containerd service is not running"
-    }
 }
 
 function Install-Docker {

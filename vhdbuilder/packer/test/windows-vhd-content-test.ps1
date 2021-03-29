@@ -38,7 +38,7 @@ function Test-FilesToCacheOnVHD
     # TODO(qinhao): share this map variable with `configure-windows-vhd.ps1`
     $map = @{
         "c:\akse-cache\" = @(
-            "https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
+            "https://github.com/Azure/AgentBaker/raw/qinhao/update-k8s-hotfixes/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
             "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/win-bridge.exe",
             "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1",
             "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1",
