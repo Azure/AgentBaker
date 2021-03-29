@@ -3804,7 +3804,7 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
-    local CONTAINERD_VERSION="1.4.4"
+    local CONTAINERD_VERSION="1.4.3"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
@@ -3812,7 +3812,9 @@ installStandaloneContainerd() {
         removeMoby
         removeContainerd
         updateAptWithMicrosoftPkg
-        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        # Note we need to explicitly install runc rc92 as rc93 introduces a regression with our configured containerd runc v1 shim
+        # We will be looking to deprecate v1 shim in favour of v2 soon
+        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* moby-runc=1.0.0~rc92* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
 }
 
