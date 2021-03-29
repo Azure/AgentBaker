@@ -4109,10 +4109,10 @@ write_files:
     [plugins."io.containerd.grpc.v1.cri"]
       sandbox_image = "{{GetPodInfraContainerSpec}}"
       [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{- if TeleportEnabled }}
+        {{ if TeleportEnabled }}
         snapshotter = "teleportd"
         disable_snapshot_annotations = false
-        {{- end}}
+        {{ end}}
         {{ if IsNSeriesSKU }}
         default_runtime_name = "nvidia-container-runtime"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]

@@ -94,8 +94,10 @@ write_files:
     [plugins."io.containerd.grpc.v1.cri"]
       sandbox_image = "oss/kubernetes/pause:1.3.1"
       [plugins."io.containerd.grpc.v1.cri".containerd]
+        
         snapshotter = "teleportd"
         disable_snapshot_annotations = false
+        
         
         default_runtime_name = "runc"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
