@@ -195,10 +195,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
 			addValue(parametersMap, "gchighthreshold", kubernetesConfig.GCHighThreshold)
 			addValue(parametersMap, "gclowthreshold", kubernetesConfig.GCLowThreshold)
-			addValue(parametersMap, "etcdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.EtcdDownloadURLBase)
-			addValue(parametersMap, "etcdVersion", kubernetesConfig.EtcdVersion)
-			addValue(parametersMap, "etcdDiskSizeGB", kubernetesConfig.EtcdDiskSizeGB)
-			addValue(parametersMap, "etcdEncryptionKey", kubernetesConfig.EtcdEncryptionKey)
 
 			addValue(parametersMap, "enableAggregatedAPIs", kubernetesConfig.EnableAggregatedAPIs)
 
@@ -242,19 +238,11 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		/**
 		 The following parameters could be either a plain text, or referenced to a secret in a keyvault:
 		 - apiServerCertificate
-		 - apiServerPrivateKey
-		 - caCertificate
 		 - clientCertificate
 		 - clientPrivateKey
 		 - kubeConfigCertificate
 		 - kubeConfigPrivateKey
 		 - servicePrincipalClientSecret
-		 - etcdClientCertificate
-		 - etcdClientPrivateKey
-		 - etcdServerCertificate
-		 - etcdServerPrivateKey
-		 - etcdPeerCertificates
-		 - etcdPeerPrivateKeys
 
 		 To refer to a keyvault secret, the value of the parameter in the api model file should be formatted as:
 
@@ -280,9 +268,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		certificateProfile := properties.CertificateProfile
 		if certificateProfile != nil {
 			addSecret(parametersMap, "apiServerCertificate", certificateProfile.APIServerCertificate, true)
-			addSecret(parametersMap, "apiServerPrivateKey", certificateProfile.APIServerPrivateKey, true)
 			addSecret(parametersMap, "caCertificate", certificateProfile.CaCertificate, true)
-			addSecret(parametersMap, "caPrivateKey", certificateProfile.CaPrivateKey, true)
 			addSecret(parametersMap, "clientCertificate", certificateProfile.ClientCertificate, true)
 			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)
 			addSecret(parametersMap, "kubeConfigCertificate", certificateProfile.KubeConfigCertificate, true)

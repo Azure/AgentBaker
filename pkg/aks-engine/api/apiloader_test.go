@@ -239,17 +239,11 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			},
 			CertificateProfile: &datamodel.CertificateProfile{
 				CaCertificate:         "SampleCACert",
-				CaPrivateKey:          "SampleCAPrivateKey",
 				APIServerCertificate:  "SampleAPIServerCert",
-				APIServerPrivateKey:   "SampleAPIServerPrivateKey",
 				ClientCertificate:     "SampleClientCert",
 				ClientPrivateKey:      "SampleClientPrivateKey",
 				KubeConfigCertificate: "SampleKubeConfigCert",
 				KubeConfigPrivateKey:  "SampleKubeConfigPrivateKey",
-				EtcdClientCertificate: "SampleEtcdClientCert",
-				EtcdClientPrivateKey:  "SampleEtcdClientPrivateKey",
-				EtcdServerCertificate: "SampleEtcdServerCert",
-				EtcdServerPrivateKey:  "SampleEtcdServerPrivateKey",
 			},
 			FeatureFlags: &datamodel.FeatureFlags{
 				EnableCSERunInBackground: true,

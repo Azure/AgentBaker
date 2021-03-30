@@ -91,7 +91,7 @@ fi
 
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
 # 1. we can demonstrate the whole user defined parameters all at once
-# 2. help us keep in mind that changes of this variables will influence both windows and linux VHD building
+# 2. help us keep in mind that changes of these variables will influence both windows and linux VHD building
 
 # windows image sku and windows image version are recorded in code instead of pipeline variables
 # because a pr gives a better chance to take a review of the version changes.

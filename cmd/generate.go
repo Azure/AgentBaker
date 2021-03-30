@@ -31,7 +31,6 @@ type generateCmd struct {
 	apimodelPath      string
 	outputDirectory   string // can be auto-determined from clusterDefinition
 	caCertificatePath string
-	caPrivateKeyPath  string
 	noPrettyPrint     bool
 	parametersOnly    bool
 	set               []string
@@ -108,8 +107,7 @@ func newGenerateCmd() *cobra.Command {
 	f := generateCmd.Flags()
 	f.StringVarP(&gc.apimodelPath, "api-model", "m", "", "path to your cluster definition file")
 	f.StringVarP(&gc.outputDirectory, "output-directory", "o", "", "output directory (derived from FQDN if absent)")
-	f.StringVar(&gc.caCertificatePath, "ca-certificate-path", "", "path to the CA certificate to use for Kubernetes PKI assets")
-	f.StringVar(&gc.caPrivateKeyPath, "ca-private-key-path", "", "path to the CA private key to use for Kubernetes PKI assets")
+	f.StringVar(&gc.caCertificatePath, "ca-certificate-path", "../pkg/aks-engine/api/testdata/simple/kubernetes.json", "path to the CA certificate to use for Kubernetes PKI assets")
 	f.StringArrayVar(&gc.set, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	f.BoolVar(&gc.noPrettyPrint, "no-pretty-print", false, "skip pretty printing the output")
 	f.BoolVar(&gc.parametersOnly, "parameters-only", false, "only output parameters files")
@@ -161,7 +159,6 @@ func (gc *generateCmd) mergeAPIModel() error {
 
 func (gc *generateCmd) loadAPIModel() error {
 	var caCertificateBytes []byte
-	var caKeyBytes []byte
 	var err error
 
 	apiloader := &api.Apiloader{}
@@ -175,17 +172,13 @@ func (gc *generateCmd) loadAPIModel() error {
 		gc.outputDirectory = path.Join("_output", gc.containerService.Properties.HostedMasterProfile.DNSPrefix)
 	}
 
-	// consume gc.caCertificatePath and gc.caPrivateKeyPath
-
-	if (gc.caCertificatePath != "" && gc.caPrivateKeyPath == "") || (gc.caCertificatePath == "" && gc.caPrivateKeyPath != "") {
-		return errors.New("--ca-certificate-path and --ca-private-key-path must be specified together")
+	//path cannot be empty
+	if gc.caCertificatePath == "" {
+		return errors.New("--ca-certificate-path must be specified")
 	}
 	if gc.caCertificatePath != "" {
 		if caCertificateBytes, err = ioutil.ReadFile(gc.caCertificatePath); err != nil {
 			return errors.Wrap(err, "failed to read CA certificate file")
-		}
-		if caKeyBytes, err = ioutil.ReadFile(gc.caPrivateKeyPath); err != nil {
-			return errors.Wrap(err, "failed to read CA private key file")
 		}
 
 		prop := gc.containerService.Properties
@@ -193,7 +186,6 @@ func (gc *generateCmd) loadAPIModel() error {
 			prop.CertificateProfile = &datamodel.CertificateProfile{}
 		}
 		prop.CertificateProfile.CaCertificate = string(caCertificateBytes)
-		prop.CertificateProfile.CaPrivateKey = string(caKeyBytes)
 	}
 
 	if err = gc.autofillApimodel(); err != nil {

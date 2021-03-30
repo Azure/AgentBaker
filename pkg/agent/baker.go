@@ -305,11 +305,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				false, config.EnableNvidia)
+				false, config.EnableNvidia, config.FIPSEnabled)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				true, config.EnableNvidia)
+				true, config.EnableNvidia, config.FIPSEnabled)
 		},
 		"GetKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {
@@ -389,9 +389,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsMariner": func() bool {
 			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
-		},
-		"IsUbuntu": func() bool {
-			return strings.EqualFold(string(config.OSSKU), string("Ubuntu"))
 		},
 		"IsPrivateCluster": func() bool {
 			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
