@@ -288,10 +288,10 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-#testFilesDownloaded
-#testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
-#testChrony
-#testAuditDNotPresent
-#testFips $2 $3
+testFilesDownloaded
+testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
+testChrony
+testAuditDNotPresent
+testFips $2 $3
 testKubeBinariesPresent $1
-#testKubeProxyImagesPulled $1
+testKubeProxyImagesPulled $1
