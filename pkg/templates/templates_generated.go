@@ -3719,6 +3719,9 @@ installStandaloneContainerd() {
         wait_for_apt_locks
         retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+        # runc rc93 has a regression that causes pods to be stuck in containercreation
+        # https://github.com/opencontainers/runc/issues/2865
+        apt_get_install 20 30 120 moby-runc=1.0.0~rc92* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
 }
 
