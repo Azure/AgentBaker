@@ -159,24 +159,19 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.17.3-hotfix.20200601.1
-  1.17.7-hotfix.20200817.1
-  1.17.9-hotfix.20200824.1
-  1.17.11-hotfix.20200901.1
   1.17.13
   1.17.16
-  1.18.2-hotfix.20200624.1
-  1.18.4-hotfix.20200626.1
-  1.18.6-hotfix.20200723.1
   1.18.8-hotfix.20200924
   1.18.10-hotfix.20210118
-  1.18.14-hotfix.20210118
-  1.19.0
+  1.18.14-hotfix.20210322
+  1.18.17-hotfix.20210322
   1.19.1-hotfix.20200923
   1.19.3
   1.19.6-hotfix.20210118
-  1.19.7-hotfix.20210122
-  1.20.2
+  1.19.7-hotfix.20210310
+  1.19.9-hotfix.20210322
+  1.20.2-hotfix.20210310
+  1.20.5-hotfix.20210322
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -230,23 +225,21 @@ testKubeProxyImagesPulled() {
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
       "versions": [
-        "1.17.3-hotfix.20200601",
-        "1.17.7-hotfix.20200714",
-        "1.17.9-hotfix.20200824",
-        "1.17.11-hotfix.20200901",
         "1.17.13",
         "1.17.16",
-        "1.18.4-hotfix.20200626",
-        "1.18.6-hotfix.20200723",
         "1.18.8-hotfix.20200924",
         "1.18.10-hotfix.20210118",
         "1.18.14-hotfix.20210118",
-        "1.19.0",
+        "1.18.14-hotfix.20210322",
+        "1.18.17-hotfix.20210322",
         "1.19.1-hotfix.20200923",
         "1.19.3",
         "1.19.6-hotfix.20210118",
-        "1.19.7-hotfix.20210122",
-        "1.20.2"
+        "1.19.7-hotfix.20210310",
+        "1.19.9-hotfix.20210322",
+        "1.20.2",
+        "1.20.2-hotfix.20210310",
+        "1.20.5-hotfix.20210322"
       ]
     }
   ]
@@ -258,12 +251,14 @@ containerdKubeProxyImages='
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
       "versions": [
-        "1.19.0",
         "1.19.1-hotfix.20200923",
         "1.19.3",
         "1.19.6-hotfix.20210118",
-        "1.19.7-hotfix.20210122",
-        "1.20.2"
+        "1.19.7-hotfix.20210310",
+        "1.19.9-hotfix.20210322",
+        "1.20.2",
+        "1.20.2-hotfix.20210310",
+        "1.20.5-hotfix.20210322"
       ]
     }
   ]
