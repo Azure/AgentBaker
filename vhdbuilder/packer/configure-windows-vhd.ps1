@@ -321,8 +321,22 @@ function Update-WindowsFeatures {
 }
 
 function Update-Registry {
+
+    param (
+        $containerRuntime
+    )
+
+    # if multple LB policies are included for same endpoint then HNS hangs.
+    # this fix forces an error
     Write-Host "Enable a HNS fix in 2021-2C"
     reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\hns\State /v HNSControlFlag /t REG_DWORD /d 1
+
+    # Enables DNS resolution of SMB shares for containerD
+    # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
+    if ($containerRuntime -eq 'containerd') {
+        Write-Host "Apply SMB Resolution Fix for containerD"
+        reg add HKLM\SYSTEM\CurrentControlSet\Services\hns\State /v EnableCompartmentNamespace /t REG_DWORD /d 1
+    }
 }
 
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
@@ -361,7 +375,7 @@ switch ($env:ProvisioningPhase) {
         } else {
             Install-Docker
         }
-        Update-Registry
+        Update-Registry -containerRuntime $containerRuntime
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
