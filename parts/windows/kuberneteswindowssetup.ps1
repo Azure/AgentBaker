@@ -91,18 +91,6 @@ $global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
 $global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultContainerdWindowsSandboxIsolation"}}"
 $global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
-# To support newer Windows OS version, we need to support set ContainerRuntime,
-# ContainerdWindowsRuntimeHandlers and DefaultContainerdWindowsSandboxIsolation per agent pool but
-# current code does not support this. Below is a workaround to set contianer
-# runtime variables per Windows OS version.
-#
-# Set default values for container runtime variables for AKS Windows 2004
-if ($([System.Environment]::OSVersion.Version).Build -eq "19041") {
-    $global:ContainerRuntime = "containerd"
-    $global:ContainerdWindowsRuntimeHandlers = "17763,19041"
-    $global:DefaultContainerdWindowsSandboxIsolation = "process"
-}
-
 ## VM configuration passed by Azure
 $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
 {{if eq GetIdentitySystem "adfs"}}
