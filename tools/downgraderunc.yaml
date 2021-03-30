@@ -57,4 +57,5 @@ spec:
                   echo "runc version ${CURRENT_VERSION} not at 1.0.0-rc92"
                   exit 1
                 fi
+                reboot
               done
