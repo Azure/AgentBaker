@@ -42,6 +42,12 @@ installStandaloneContainerd() {
           exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
+
+    # Workaround to restore the CSE configuration after containerd has been installed from the package server.
+    if [[ -f /etc/containerd/config.toml.rpmsave ]]; then
+        mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
+    fi
+
 }
 
 cleanUpGPUDrivers() {
