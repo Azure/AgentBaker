@@ -6,6 +6,10 @@ dnfversionlockWALinuxAgent() {
     echo "No aptmark equivalent for DNF by default. If this is necessary add support for dnf versionlock plugin"
 }
 
+aptmarkWALinuxAgent() {
+    echo "No aptmark equivalent for DNF by default. If this is necessary add support for dnf versionlock plugin"
+}
+
 dnf_makecache() {
     retries=10
     dnf_makecache_output=/tmp/dnf-makecache.out
