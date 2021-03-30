@@ -2415,6 +2415,10 @@ dnfversionlockWALinuxAgent() {
     echo "No aptmark equivalent for DNF by default. If this is necessary add support for dnf versionlock plugin"
 }
 
+aptmarkWALinuxAgent() {
+    echo "No aptmark equivalent for DNF by default. If this is necessary add support for dnf versionlock plugin"
+}
+
 dnf_makecache() {
     retries=10
     dnf_makecache_output=/tmp/dnf-makecache.out
@@ -2497,8 +2501,8 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in ca-certificates cifs-utils cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq pam nfs-utils socat sysstat traceroute util-linux xz zip; do
-      if ! dnf_install 30 1 600 $apt_package; then
+    for dnf_package in ca-certificates cifs-utils cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq pam nmap-ncat nfs-utils socat sysstat traceroute util-linux xz zip; do
+      if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
