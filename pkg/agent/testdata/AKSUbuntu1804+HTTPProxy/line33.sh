@@ -1,5 +1,5 @@
 #!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -16,8 +16,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
-        grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
+    if [ -s /opt/azure/containers/provision_source.sh ]; then
+        grep -Fq '#HELPERSEOF' /opt/azure/containers/provision_source.sh && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -25,26 +25,20 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptFilepath}}
+sed -i "/#HELPERSEOF/d" /opt/azure/containers/provision_source.sh
+source /opt/azure/containers/provision_source.sh
 
-wait_for_file 3600 1 {{GetCSEHelpersScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEHelpersScriptDistroFilepath}}
+wait_for_file 3600 1 /opt/azure/containers/provision_source_distro.sh || exit $ERR_FILE_WATCH_TIMEOUT
+source /opt/azure/containers/provision_source_distro.sh
 
-wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptFilepath}}
+wait_for_file 3600 1 /opt/azure/containers/provision_installs.sh || exit $ERR_FILE_WATCH_TIMEOUT
+source /opt/azure/containers/provision_installs.sh
 
-wait_for_file 3600 1 {{GetCSEInstallScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptDistroFilepath}}
+wait_for_file 3600 1 /opt/azure/containers/provision_installs_distro.sh || exit $ERR_FILE_WATCH_TIMEOUT
+source /opt/azure/containers/provision_installs_distro.sh
 
-wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEConfigScriptFilepath}}
-
-{{- if EnableChronyFor1804}}
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    disableNtpAndTimesyncdInstallChrony
-fi
-{{end}}
+wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
+source /opt/azure/containers/provision_configs.sh
 
 disable1804SystemdResolved
 
@@ -60,10 +54,8 @@ else
 fi
 
 configureAdminUser
-
-{{- if not NeedsContainerd}}
 cleanUpContainerd
-{{end}}
+
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
@@ -89,36 +81,8 @@ else
 fi
 
 installContainerRuntime
-{{- if NeedsContainerd}}
-installCrictl
-# If crictl gets installed then use it as the cri cli instead of ctr
-CLI_TOOL="crictl"
-{{- if TeleportEnabled}}
-installTeleportdPlugin
-{{end}}
-{{end}}
 
 installNetworkPlugin
-
-{{- if IsNSeriesSKU}}
-echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
-    fi
-    ensureGPUDrivers
-    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    else
-        systemctlDisableAndStop nvidia-device-plugin
-    fi
-fi
-echo $(date),$(hostname), "End configuring GPU drivers"
-{{end}}
-
-{{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
-docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
-{{end}}
 
 installKubeletKubectlAndKubeProxy
 
@@ -128,66 +92,27 @@ fi
 
 createKubeManifestDir
 
-{{- if HasDCSeriesSKU}}
-if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    installSGXDrivers
-fi
-{{end}}
-
-{{- if HasCustomSearchDomain}}
-wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-{{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
-{{end}}
-
 configureK8s
 
 configureCNI
 
-{{/* configure and enable dhcpv6 for dual stack feature */}}
-{{- if IsIPv6DualStackFeatureEnabled}}
-ensureDHCPv6
-{{- end}}
 
-{{- if NeedsContainerd}}
-ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
-{{- else}}
 ensureDocker
-{{- end}}
 
 ensureMonitorService
-
-{{- if EnableHostsConfigAgent}}
-configPrivateClusterHosts
-{{- end}}
-
-{{- if ShouldConfigTransparentHugePage}}
-configureTransparentHugePage
-{{- end}}
-
-{{- if ShouldConfigSwapFile}}
-configureSwapFile
-{{- end}}
-
-{{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA
-{{- end}}
 
 ensureSysctl
 ensureKubelet
 ensureJournal
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-ensureNoDupOnPromiscuBridge
-{{- end}} {{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
+        
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
 fi
-
-{{- /* re-enable unattended upgrades */}}
 rm -f /etc/apt/apt.conf.d/99periodic
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -200,12 +125,8 @@ API_SERVER_DNS_RETRIES=100
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
 fi
-{{- if not EnableHostsConfigAgent}}
 RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 3 nslookup ${API_SERVER_NAME})
 STS=$?
-{{- else}}
-STS=0
-{{- end}}
 if [[ $STS != 0 ]]; then
     if [[ $RES == *"168.63.129.16"*  ]]; then
         VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
