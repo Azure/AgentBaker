@@ -226,6 +226,7 @@ function Test-ImagesPulled {
             if ($SEL -eq $null){
                 break
             }
+            Get-Process
             $retryCount++
             Write-Output "Failed to list docker images for docker daemon is not running"
             Write-Output "Retry after $RetryDelaySeconds seconds, retry times: $retryCount"
