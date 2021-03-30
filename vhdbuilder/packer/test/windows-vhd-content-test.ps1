@@ -214,29 +214,9 @@ function Test-ImagesPulled {
         $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
     }
     elseif ($containerRuntime -eq 'docker') {
-        $MaxRetryCount = 10
-        $RetryDelaySeconds = 60
-        $retryCount=0
-        do {
-            # dockerError.log will be overwritten every the following command is executed, so
-            # we can check the content of dockerError.log to see if the last command executes successfully,
-            # and an empty file indicates a success.
-            $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}" 2> dockerError.log
-            $SEL = Select-String -Path dockerError.log -Pattern "docker daemon is not running"
-            if ($SEL -eq $null){
-                break
-            }
-            Get-Process
-            $retryCount++
-            Write-Output "Failed to list docker images for docker daemon is not running"
-            Write-Output "Retry after $RetryDelaySeconds seconds, retry times: $retryCount"
-            Sleep $RetryDelaySeconds
-        } while ($retryCount -lt $MaxRetryCount)
-        # we want to log every possible error when listing docker images for deubgging
-        $errMsg = Get-Content -Path dockerError.log
-        if ($errMsg) {
-            throw "Failed to list docker images: $errMsg"
-        }
+        Start-Service docker
+        $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}" 2> dockerError.log
+
     }
     else {
         Write-Error "unsupported container runtime $containerRuntime"
