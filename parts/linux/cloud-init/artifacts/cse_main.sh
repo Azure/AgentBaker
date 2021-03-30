@@ -168,6 +168,10 @@ configureTransparentHugePage
 configureSwapFile
 {{- end}}
 
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+{{- end}}
+
 ensureSysctl
 ensureKubelet
 ensureJournal
