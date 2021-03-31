@@ -1810,7 +1810,7 @@ type CSEStatus struct {
 	// Error stores the error from CSE output.
 	Error string `json:"error,omitempty"`
 	// ExecDuration stores the execDuration from CSE output.
-	ExecDuration int `json:"execDuration,omitempty"`
+	ExecDuration string `json:"execDuration,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string
