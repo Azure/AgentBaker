@@ -221,6 +221,13 @@ var _ = Describe("Assert ParseCSE", func() {
 	})
 
 	It("when cse output exitcode is empty", func() {
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}\n\n[stderr]\n"
+		_, err := ParseCSEMessage(testMessage)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=CSEMessageUnmarshalError"))
+	})
+
+	It("when ExecDuration is integer", func() {
 		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": 39}\n\n[stderr]\n"
 		_, err := ParseCSEMessage(testMessage)
 		Expect(err).NotTo(BeNil())
