@@ -1,6 +1,8 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // linux/cloud-init/artifacts/apt-preferences
+// linux/cloud-init/artifacts/bind-mount.service
+// linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
@@ -129,6 +131,84 @@ func linuxCloudInitArtifactsAptPreferences() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/apt-preferences", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsBindMountService = []byte(`[Unit]
+Description=Bind mount kubelet data
+[Service]
+Restart=on-failure
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/azure/containers/bind-mount.sh
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsBindMountServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBindMountService, nil
+}
+
+func linuxCloudInitArtifactsBindMountService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBindMountServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsBindMountSh = []byte(`#!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
+set -x
+
+# Bind mount kubelet to ephemeral storage on startup, as necessary.
+#
+# This fixes an issue with kubelet's ability to detect allocatable
+# capacity for Node ephemeral-storage. On Azure, ephemeral-storage
+# should correspond to the temp disk if a VM has one. This script makes
+# that true by bind mounting the temp disk to /var/lib/kubelet, so
+# kubelet thinks it's located on the temp disk (/dev/sdb). This results
+# in correct calculation of ephemeral-storage capacity.
+
+{{if eq GetKubeletDiskType "Temporary"}}
+MOUNT_POINT="/mnt/aks"
+{{end}}
+
+KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
+KUBELET_DIR="/var/lib/kubelet"
+
+mkdir -p "${MOUNT_POINT}"
+
+# only move the kubelet directory to alternate location on first boot.
+SENTINEL_FILE="/opt/azure/containers/bind-sentinel"
+if [ ! -e "$SENTINEL_FILE" ]; then
+    mv "$KUBELET_DIR" "$MOUNT_POINT"
+    touch "$SENTINEL_FILE"
+fi
+
+# on every boot, bind mount the kubelet directory back to the expected
+# location before kubelet itself may start.
+mkdir -p "${KUBELET_DIR}"
+mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
+chmod a+w "${KUBELET_DIR}"`)
+
+func linuxCloudInitArtifactsBindMountShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBindMountSh, nil
+}
+
+func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBindMountShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2360,6 +2440,10 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
+{{- if HasKubeletDiskType}}
+Requires=bind-mount.service
+After=bind-mount.service
+{{end}}
 
 [Service]
 Restart=always
@@ -3981,7 +4065,23 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
+{{end}}
+
+{{- if HasKubeletDiskType}}
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -7250,6 +7350,8 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
+	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
+	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
@@ -7360,6 +7462,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
+				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
+				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},

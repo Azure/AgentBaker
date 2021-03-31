@@ -581,6 +581,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
+		"HasKubeletDiskType": func() bool {
+			return profile != nil && profile.KubeletDiskType != ""
+		},
+		"GetKubeletDiskType": func() string {
+			if profile != nil && profile.KubeletDiskType != "" {
+				return string(profile.KubeletDiskType)
+			}
+			return ""
+		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
 		},
