@@ -77,7 +77,7 @@ function GetCalicoKubeConfig {
     } while ($retryCount -lt $maxRetryCount)
 
     if ([string]::IsNullOrEmpty($name)) {
-        throw "$SecretName service account does not exist."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST -ErrorMessage "$SecretName service account does not exist."
     }
 
     $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace

@@ -4,7 +4,7 @@ $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 function RegisterContainerDService {
   Assert-FileExists (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
-  Write-Host "Registering containerd as a service"
+  Write-Log "Registering containerd as a service"
   $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
   if ($null -ne $svc) {
@@ -13,11 +13,11 @@ function RegisterContainerDService {
   & $cdbinary --register-service
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
   if ($null -eq $svc) {
-    throw "containerd.exe did not get installed as a service correctly."
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
   }
   $svc | Start-Service
   if ($svc.Status -ne "Running") {
-    throw "containerd service is not running"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
 }
 
@@ -52,7 +52,7 @@ function CreateHypervisorRuntimes {
     $image
   )
   
-  Write-Host "Adding hyperv runtimes $builds"
+  Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
     $windowsVersion = Select-Windows-Version -buildNumber $buildNumber

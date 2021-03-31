@@ -15,7 +15,7 @@ Install-OpenSSH {
         $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
 
         if (!$isAvailable) {
-            throw "OpenSSH is not available on this machine"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED -ErrorMessage "OpenSSH is not available on this machine"
         }
 
         Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
@@ -53,7 +53,7 @@ Install-OpenSSH {
     $firewall = Get-NetFirewallRule -Name *ssh*
 
     if (!$firewall) {
-        throw "OpenSSH is firewall is not configured properly"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
     }
     Write-Log "OpenSSH installed and configured successfully"
 }

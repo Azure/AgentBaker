@@ -50,9 +50,21 @@ param(
     [ValidateNotNullOrEmpty()]
     $TargetEnvironment,
 
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $LogFile,
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $CSEResultFilePath,
+
     [string]
     $UserAssignedClientID
 )
+# Do not parse the start time from $LogFile to simplify the logic
+$StartTime=Get-Date
+$global:ExitCode=0
+$global:ErrorMessage=""
 
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
@@ -194,6 +206,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscontainerdfunc.ps1
 . c:\AzureData\windows\windowshostsconfigagentfunc.ps1
 . c:\AzureData\windows\windowscalicofunc.ps1
+. c:\AzureData\windows\windowscsehelper.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
@@ -419,7 +432,7 @@ try
                 $o = docker image list
                 Write-Log $o
             }
-            throw "kubletwin/pause container does not exist!"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
         }
 
         Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
@@ -515,8 +528,9 @@ try
             Remove-Item $kubeConfigFile
         }
 
+        # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
-        Restart-Computer
+        Postpone-RestartComputer
     }
     else
     {
@@ -533,8 +547,19 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    # Add timestamp in the logs
-    Write-Log $_
-    throw $_
+    # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
+    # Ideally all exceptions will be handled and no exception will be thrown.
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
+}
+finally
+{
+    # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
+    $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
+    Write-Log "CSE ExecutionDuration: $ExecutionDuration"
+
+    # Windows CSE does not return any error message so we cannot generate below content as the response
+    # $JsonString = "ExitCode: `"{0}`", Output: `"{1}`", Error: `"{2}`", ExecDuration: `"{3}`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
+    Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
+    echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
 }
 

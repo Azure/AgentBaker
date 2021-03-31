@@ -330,7 +330,7 @@ function Update-Registry {
 
     # if multple LB policies are included for same endpoint then HNS hangs.
     # this fix forces an error
-    Write-Host "Enable a HNS fix in 2021-2C"
+    Write-Log "Enable a HNS fix in 2021-2C"
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value 1 -Type DWORD
 
     # Enables DNS resolution of SMB shares for containerD
@@ -347,14 +347,14 @@ $ProgressPreference = 'SilentlyContinue'
 $containerRuntime = $env:ContainerRuntime
 $validContainerRuntimes = @('containerd', 'docker')
 if (-not ($validContainerRuntimes -contains $containerRuntime)) {
-    Write-Host "Unsupported container runtime: $containerRuntime"
+    Write-Log "Unsupported container runtime: $containerRuntime"
     exit 1
 }
 
 $windowsSKU = $env:WindowsSKU
 $validSKU = @('2019', '2019-containerd', '2004')
 if (-not ($validSKU -contains $windowsSKU)) {
-    Write-Host "Unsupported windows image SKU: $windowsSKU"
+    Write-Log "Unsupported windows image SKU: $windowsSKU"
     exit 1
 }
 

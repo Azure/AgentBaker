@@ -47,7 +47,7 @@ Write-AzureConfig {
     )
 
     if ( -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
-        throw "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG -ErrorMessage "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
     }
 
     $azureConfigFile = [io.path]::Combine($KubeDir, "azure.json")
@@ -218,7 +218,7 @@ Build-PauseContainer {
         Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".")
     }
     else {
-        throw "Cannot build pause container without Docker"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER -ErrorMessage "Cannot build pause container without Docker"
     }
 }
 

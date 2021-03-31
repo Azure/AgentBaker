@@ -62,6 +62,7 @@
 // windows/windowscnifunc.ps1
 // windows/windowsconfigfunc.ps1
 // windows/windowscontainerdfunc.ps1
+// windows/windowscsehelper.ps1
 // windows/windowscsiproxyfunc.ps1
 // windows/windowshostsconfigagentfunc.ps1
 // windows/windowsinstallopensshfunc.ps1
@@ -4750,7 +4751,7 @@ func windowsContainerdtemplateToml() (*asset, error) {
 	return a, nil
 }
 
-var _windowsCsecmdPs1 = []byte(`echo %DATE%,%TIME%,%COMPUTERNAME% && powershell.exe -ExecutionPolicy Unrestricted -command \"
+var _windowsCsecmdPs1 = []byte(`powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
 -MasterIP {{ GetKubernetesEndpoint }}
 -KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
@@ -4763,12 +4764,14 @@ $arguments = '
 -AgentKey {{ GetParameter "clientPrivateKey" }}
 -AADClientId {{ GetParameter "servicePrincipalClientId" }}
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
--NetworkAPIVersion 2018-08-01';
+-NetworkAPIVersion 2018-08-01
+-LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
+-CSEResultFilePath %SYSTEMDRIVE%\AzureData\CSEResult.log';
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 Copy-Item $inputFile $outputFile;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
-\" > %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; exit $LASTEXITCODE`)
+\" >> %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; $code=(Get-Content %SYSTEMDRIVE%\AzureData\CSEResult.log); exit $code`)
 
 func windowsCsecmdPs1Bytes() ([]byte, error) {
 	return _windowsCsecmdPs1, nil
@@ -4832,7 +4835,7 @@ function DownloadFileOverHttp {
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         if (-not $?) {
-            throw "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
         }
         $downloadTimer.Stop()
 
@@ -4966,7 +4969,7 @@ function Invoke-Executable {
         }
     }
 
-    throw "Exhausted retries for $Executable $ArgList"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
 }
 
 function Get-LogCollectionScripts {
@@ -5082,7 +5085,7 @@ function Assert-FileExists {
     )
 
     if (-Not (Test-Path $Filename)) {
-        throw "$Filename does not exist"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
     }
 }
 
@@ -5130,7 +5133,7 @@ function Check-APIServerConnectivity {
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    throw "Failed to connect to API server $MasterIP after $retryCount retries"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
 }
 `)
 
@@ -5201,9 +5204,21 @@ param(
     [ValidateNotNullOrEmpty()]
     $TargetEnvironment,
 
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $LogFile,
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $CSEResultFilePath,
+
     [string]
     $UserAssignedClientID
 )
+# Do not parse the start time from $LogFile to simplify the logic
+$StartTime=Get-Date
+$global:ExitCode=0
+$global:ErrorMessage=""
 
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
@@ -5345,6 +5360,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscontainerdfunc.ps1
 . c:\AzureData\windows\windowshostsconfigagentfunc.ps1
 . c:\AzureData\windows\windowscalicofunc.ps1
+. c:\AzureData\windows\windowscsehelper.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
@@ -5570,7 +5586,7 @@ try
                 $o = docker image list
                 Write-Log $o
             }
-            throw "kubletwin/pause container does not exist!"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
         }
 
         Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
@@ -5666,8 +5682,9 @@ try
             Remove-Item $kubeConfigFile
         }
 
+        # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
-        Restart-Computer
+        Postpone-RestartComputer
     }
     else
     {
@@ -5684,9 +5701,20 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    # Add timestamp in the logs
-    Write-Log $_
-    throw $_
+    # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
+    # Ideally all exceptions will be handled and no exception will be thrown.
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
+}
+finally
+{
+    # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
+    $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
+    Write-Log "CSE ExecutionDuration: $ExecutionDuration"
+
+    # Windows CSE does not return any error message so we cannot generate below content as the response
+    # $JsonString = "ExitCode: `+"`"+`"{0}`+"`"+`", Output: `+"`"+`"{1}`+"`"+`", Error: `+"`"+`"{2}`+"`"+`", ExecDuration: `+"`"+`"{3}`+"`"+`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
+    Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
+    echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
 }
 
 `)
@@ -5802,7 +5830,7 @@ Set-AzureCNIConfig
         # This issue has been addressed in 19h1+ builds
 
         $processedExceptions = GetBroadestRangesForEachAddress $exceptionAddresses
-        Write-Host "Filtering CNI config exception list values to work around WS2019 issue processing rules. Original exception list: $exceptionAddresses, processed exception list: $processedExceptions"
+        Write-Log "Filtering CNI config exception list values to work around WS2019 issue processing rules. Original exception list: $exceptionAddresses, processed exception list: $processedExceptions"
         $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $processedExceptions
     }
     else {
@@ -5913,7 +5941,7 @@ function GetSubnetPrefix
     $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=$headers} -Retries 5 -RetryDelaySeconds 10
 
     if(!$response) {
-        throw 'Error getting subnet prefix'
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage 'Error getting subnet prefix'
     }
 
     $response.properties.addressPrefix
@@ -5974,7 +6002,7 @@ function GenerateAzureStackCNIConfig
     $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
 
     if(!$tokenResponse) {
-        throw 'Error generating token for Azure Resource Manager'
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage 'Error generating token for Azure Resource Manager'
     }
 
     $token = $tokenResponse | Select-Object -ExpandProperty access_token
@@ -5987,7 +6015,7 @@ function GenerateAzureStackCNIConfig
     Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
 
     if(!$(Test-Path $networkInterfacesFile)) {
-        throw 'Error fetching network interface configuration for node'
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage 'Error fetching network interface configuration for node'
     }
 
     Write-Log "Generating Azure CNI interface file"
@@ -6035,7 +6063,7 @@ function New-ExternalHnsNetwork
     $na = @(Get-NetAdapter -Physical)
 
     if ($na.Count -eq 0) {
-        throw "Failed to find any physical network adapters"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
     }
 
     # If there is more than one adapter, use the first adapter.
@@ -6065,7 +6093,7 @@ function New-ExternalHnsNetwork
 
     $stopWatch.Stop()
     if (-not $mgmtIPAfterNetworkCreate) {
-        throw "Failed to find $managementIP after creating $externalNetwork network"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
     Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
 }
@@ -6198,7 +6226,7 @@ function GetCalicoKubeConfig {
     } while ($retryCount -lt $maxRetryCount)
 
     if ([string]::IsNullOrEmpty($name)) {
-        throw "$SecretName service account does not exist."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST -ErrorMessage "$SecretName service account does not exist."
     }
 
     $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
@@ -6492,7 +6520,7 @@ function Add-SystemPathEntry
     }
     if($updated)
     {
-        Write-Output "Updating path, added $Directory"
+        Write-Log "Updating path, added $Directory"
         [Environment]::SetEnvironmentVariable("Path", $path, [EnvironmentVariableTarget]::Machine)
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }
@@ -6519,7 +6547,7 @@ $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 function RegisterContainerDService {
   Assert-FileExists (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
-  Write-Host "Registering containerd as a service"
+  Write-Log "Registering containerd as a service"
   $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
   if ($null -ne $svc) {
@@ -6528,11 +6556,11 @@ function RegisterContainerDService {
   & $cdbinary --register-service
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
   if ($null -eq $svc) {
-    throw "containerd.exe did not get installed as a service correctly."
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
   }
   $svc | Start-Service
   if ($svc.Status -ne "Running") {
-    throw "containerd service is not running"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
 }
 
@@ -6567,7 +6595,7 @@ function CreateHypervisorRuntimes {
     $image
   )
   
-  Write-Host "Adding hyperv runtimes $builds"
+  Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
     $windowsVersion = Select-Windows-Version -buildNumber $buildNumber
@@ -6705,6 +6733,69 @@ func windowsWindowscontainerdfuncPs1() (*asset, error) {
 	return a, nil
 }
 
+var _windowsWindowscsehelperPs1 = []byte(`# Define all exit codes in Windows CSE
+
+function Set-ExitCode
+{
+    Param(
+        [Parameter(Mandatory=$true)][int]
+        $ExitCode,
+        [Parameter(Mandatory=$true)][string]
+        $ErrorMessage
+    )
+    Write-Log "Set ExitCode to $ExitCode and exit. Error: $ErrorMessage"
+    $global:ExitCode=$ExitCode
+    $global:ErrorMessage=$ErrorMessage
+    exit $ExitCode
+}
+
+function Postpone-RestartComputer
+{
+    Write-Log "Creating an one-time task to restart the VM"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `+"`"+`"Restart-Computer -Force`+"`"+`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once
+    $trigger = New-JobTrigger -At  (Get-Date).AddSeconds(15).DateTime -Once
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "Restart computer after provisioning the VM"
+    Register-ScheduledTask -TaskName "restart-computer" -InputObject $definition
+    Write-Log "Created an one-time task to restart the VM"
+}
+
+$global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE=2
+$global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
+$global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST=4
+$global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY=5
+$global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST=6
+$global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX=7
+$global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM=8
+$global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST=9
+$global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST=10
+$global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST=11
+$global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST=12
+$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED=13
+$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
+$global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
+$global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
+$global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
+$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=19`)
+
+func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
+	return _windowsWindowscsehelperPs1, nil
+}
+
+func windowsWindowscsehelperPs1() (*asset, error) {
+	bytes, err := windowsWindowscsehelperPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/windowscsehelper.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _windowsWindowscsiproxyfuncPs1 = []byte(`function New-CsiProxyService {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -6810,7 +6901,7 @@ Install-OpenSSH {
         $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
 
         if (!$isAvailable) {
-            throw "OpenSSH is not available on this machine"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED -ErrorMessage "OpenSSH is not available on this machine"
         }
 
         Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
@@ -6848,7 +6939,7 @@ Install-OpenSSH {
     $firewall = Get-NetFirewallRule -Name *ssh*
 
     if (!$firewall) {
-        throw "OpenSSH is firewall is not configured properly"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
     }
     Write-Log "OpenSSH installed and configured successfully"
 }
@@ -6918,7 +7009,7 @@ Write-AzureConfig {
     )
 
     if ( -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
-        throw "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG -ErrorMessage "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
     }
 
     $azureConfigFile = [io.path]::Combine($KubeDir, "azure.json")
@@ -7089,7 +7180,7 @@ Build-PauseContainer {
         Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".")
     }
     else {
-        throw "Cannot build pause container without Docker"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER -ErrorMessage "Cannot build pause container without Docker"
     }
 }
 
@@ -7433,6 +7524,7 @@ var _bindata = map[string]func() (*asset, error){
 	"windows/windowscnifunc.ps1":                                           windowsWindowscnifuncPs1,
 	"windows/windowsconfigfunc.ps1":                                        windowsWindowsconfigfuncPs1,
 	"windows/windowscontainerdfunc.ps1":                                    windowsWindowscontainerdfuncPs1,
+	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
 	"windows/windowscsiproxyfunc.ps1":                                      windowsWindowscsiproxyfuncPs1,
 	"windows/windowshostsconfigagentfunc.ps1":                              windowsWindowshostsconfigagentfuncPs1,
 	"windows/windowsinstallopensshfunc.ps1":                                windowsWindowsinstallopensshfuncPs1,
@@ -7553,6 +7645,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"windowscnifunc.ps1":              &bintree{windowsWindowscnifuncPs1, map[string]*bintree{}},
 		"windowsconfigfunc.ps1":           &bintree{windowsWindowsconfigfuncPs1, map[string]*bintree{}},
 		"windowscontainerdfunc.ps1":       &bintree{windowsWindowscontainerdfuncPs1, map[string]*bintree{}},
+		"windowscsehelper.ps1":            &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
 		"windowscsiproxyfunc.ps1":         &bintree{windowsWindowscsiproxyfuncPs1, map[string]*bintree{}},
 		"windowshostsconfigagentfunc.ps1": &bintree{windowsWindowshostsconfigagentfuncPs1, map[string]*bintree{}},
 		"windowsinstallopensshfunc.ps1":   &bintree{windowsWindowsinstallopensshfuncPs1, map[string]*bintree{}},
