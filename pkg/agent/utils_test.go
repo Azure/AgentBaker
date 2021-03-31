@@ -201,6 +201,9 @@ var _ = Describe("Assert ParseCSE", func() {
 		res, err := ParseCSEMessage(testMessage)
 		Expect(err).To(BeNil())
 		Expect(res.ExitCode).To(Equal("51"))
+		Expect(res.Output).To(Equal("test"))
+		Expect(res.Error).To(Equal(""))
+		Expect(res.ExecDuration).To(Equal("39"))
 	})
 
 	It("when cse output format is incorrect", func() {
