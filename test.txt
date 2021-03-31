@@ -1,1 +1,2 @@
 this file tests whether the vhd build runs successfully
+hvg
