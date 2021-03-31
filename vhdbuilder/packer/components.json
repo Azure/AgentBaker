@@ -103,6 +103,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
+        "v0.0.15",
         "v0.0.13"
       ]
     },
@@ -128,9 +129,9 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
-        "ciprod11092020",
         "ciprod01112021",
-        "ciprod02232021"
+        "ciprod02232021",
+        "ciprod03262021"
       ]
     },
     {

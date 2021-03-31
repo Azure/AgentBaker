@@ -9,8 +9,8 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in ca-certificates cifs-utils cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq pam nfs-utils socat sysstat traceroute util-linux xz zip; do
-      if ! dnf_install 30 1 600 $apt_package; then
+    for dnf_package in ca-certificates cifs-utils cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq pam nmap-ncat nfs-utils socat sysstat traceroute util-linux xz zip; do
+      if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
@@ -42,10 +42,17 @@ installStandaloneContainerd() {
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeContainerd
+        # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 moby-containerd; then
           exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
+
+    # Workaround to restore the CSE configuration after containerd has been installed from the package server.
+    if [[ -f /etc/containerd/config.toml.rpmsave ]]; then
+        mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
+    fi
+
 }
 
 cleanUpGPUDrivers() {

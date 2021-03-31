@@ -202,6 +202,7 @@ function Test-ImagesPulled {
         }
     }
     if ($containerRuntime -eq 'containerd') {
+        Start-Job -Name containerd -ScriptBlock { containerd.exe }
         # NOTE:
         # 1. listing images with -q set is expected to return only image names/references, but in practise
         #    we got additional digest info. The following command works as a workaround to return only image names instad.

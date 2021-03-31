@@ -197,10 +197,13 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 
 var _ = Describe("Assert ParseCSE", func() {
 	It("when cse output format is correct", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}\n\n[stderr]\n"
 		res, err := ParseCSEMessage(testMessage)
 		Expect(err).To(BeNil())
 		Expect(res.ExitCode).To(Equal("51"))
+		Expect(res.Output).To(Equal("test"))
+		Expect(res.Error).To(Equal(""))
+		Expect(res.ExecDuration).To(Equal("39"))
 	})
 
 	It("when cse output format is incorrect", func() {
@@ -218,7 +221,14 @@ var _ = Describe("Assert ParseCSE", func() {
 	})
 
 	It("when cse output exitcode is empty", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}\n\n[stderr]\n"
+		_, err := ParseCSEMessage(testMessage)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=CSEMessageUnmarshalError"))
+	})
+
+	It("when ExecDuration is integer", func() {
+		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": 39}\n\n[stderr]\n"
 		_, err := ParseCSEMessage(testMessage)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=CSEMessageUnmarshalError"))

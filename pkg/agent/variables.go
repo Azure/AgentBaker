@@ -32,7 +32,9 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"updateNodeLabelsSystemdService": getBase64EncodedGzippedCustomScript(updateNodeLabelsSystemdService, config),
 			"updateNodeLabelsScript":         getBase64EncodedGzippedCustomScript(updateNodeLabelsScript, config),
 			"ensureNoDupEbtablesScript":      getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
-			"ensureNoDupEbtablesService":	  getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
+			"ensureNoDupEbtablesService":     getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
+			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
+			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
 		},
 	}
 
