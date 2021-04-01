@@ -334,7 +334,7 @@ function Update-Registry {
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
     if ($containerRuntime -eq 'containerd') {
-        Write-Host "Apply SMB Resolution Fix for containerD"
+        Write-Log "Apply SMB Resolution Fix for containerD"
         reg add HKLM\SYSTEM\CurrentControlSet\Services\hns\State /v EnableCompartmentNamespace /t REG_DWORD /d 1
     }
 }
