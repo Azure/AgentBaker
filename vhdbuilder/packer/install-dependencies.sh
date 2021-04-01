@@ -308,7 +308,7 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
   fi
 done
 
-PATCHED_KUBEPROXY_IMAGES="
+KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
 1.17.16
 1.18.8-hotfix.20200924
@@ -325,19 +325,19 @@ PATCHED_KUBEPROXY_IMAGES="
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210322
 "
-for KUBERNETES_VERSION in ${PATCHED_KUBEPROXY_IMAGES}; do
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
+  if (($(echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
   # use kube-proxy as well
   # strip the last .1 as that is for base image patch for hyperkube
-  if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
-    KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
+  if grep -iq hotfix <<< ${KUBE_PROXY_IMAGE_VERSIONS}; then
+    KUBE_PROXY_IMAGE_VERSIONS=`echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f1,2,3,4`;
   else
-    KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
+    KUBE_PROXY_IMAGE_VERSIONS=`echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f1,2,3`;
   fi
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSIONS}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   if [[ ${cliTool} == "docker" ]]; then
       docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
