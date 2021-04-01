@@ -7,14 +7,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/hyperkube:*",
-      "versions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:*",
-      "versions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "versions": [
         "v2.0.0-beta8",

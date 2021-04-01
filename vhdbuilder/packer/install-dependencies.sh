@@ -306,7 +306,30 @@ for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
       exit 99
       fi
   fi
+done
 
+PATCHED_KUBEPROXY_IMAGES="
+1.17.13
+1.17.16
+1.18.8-hotfix.20200924
+1.18.10-hotfix.20210118
+1.18.14-hotfix.20210118
+1.18.14-hotfix.20210322
+1.18.17-hotfix.20210322
+1.19.1-hotfix.20200923
+1.19.3
+1.19.6-hotfix.20210118
+1.19.7-hotfix.20210310
+1.19.9-hotfix.20210322
+1.20.2
+1.20.2-hotfix.20210310
+1.20.5-hotfix.20210322
+"
+for KUBERNETES_VERSION in ${PATCHED_KUBEPROXY_IMAGES}; do
+  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
+    continue
+  fi
   # use kube-proxy as well
   # strip the last .1 as that is for base image patch for hyperkube
   if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
