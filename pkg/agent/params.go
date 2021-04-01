@@ -121,6 +121,9 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
 		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			addValue(parametersMap, "cliTool", "ctr")
+			if config.ContainerdVersion != "" {
+				addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
+			}
 			if config.TeleportdPluginURL != "" {
 				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
 			}

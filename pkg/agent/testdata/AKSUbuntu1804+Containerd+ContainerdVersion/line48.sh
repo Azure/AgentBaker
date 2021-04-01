@@ -151,7 +151,7 @@ EOF
 
 # this check is outside because installStandaloneContainerd is also called by install_dependencies.sh in VHD Builder
 
-    echo "Containerd version not specified, use hardcoded version"
+    echo "Containerd version specified by RP"
 
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
