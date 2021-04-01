@@ -356,8 +356,8 @@ K8S_VERSIONS="
 1.20.5-hotfix.20210322
 "
 for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
   if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
   # strip the last .1 as that is for base image patch for hyperkube
