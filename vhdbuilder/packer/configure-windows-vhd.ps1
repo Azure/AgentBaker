@@ -329,13 +329,13 @@ function Update-Registry {
     # if multple LB policies are included for same endpoint then HNS hangs.
     # this fix forces an error
     Write-Host "Enable a HNS fix in 2021-2C"
-    reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\hns\State /v HNSControlFlag /t REG_DWORD /d 1
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value 1 -Type DWORD
 
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Apply SMB Resolution Fix for containerD"
-        reg add HKLM\SYSTEM\CurrentControlSet\Services\hns\State /v EnableCompartmentNamespace /t REG_DWORD /d 1
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
     }
 }
 
