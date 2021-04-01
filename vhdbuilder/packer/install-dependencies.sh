@@ -280,12 +280,6 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
     continue
   fi
   # use kube-proxy as well
-  # strip the last .1 as that is for base image patch for hyperkube
-  if grep -iq hotfix <<< ${KUBE_PROXY_IMAGE_VERSION}; then
-    KUBE_PROXY_IMAGE_VERSION=`echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f1,2,3,4`;
-  else
-    KUBE_PROXY_IMAGE_VERSION=`echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f1,2,3`;
-  fi
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   if [[ ${cliTool} == "docker" ]]; then
