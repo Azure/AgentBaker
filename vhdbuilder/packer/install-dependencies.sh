@@ -257,47 +257,6 @@ for NGINX_VERSION in ${NGINX_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# pull patched hyperkube image for AKS
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# below are the required to support versions
-# v1.18.14
-# v1.18.17
-# v1.19.7
-# v1.19.9
-# v1.20.2
-# v1.20.5
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-HYPERKUBE_IMAGE_VERSIONS="
-1.17.13
-1.17.16
-1.18.8-hotfix.20200924
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210118
-1.18.14-hotfix.20210322
-1.18.17-hotfix.20210322
-"
-for HYPERKUBE_IMAGE_VERSION in ${HYPERKUBE_IMAGE_VERSIONS}; do
-  if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    echo "do not need to store hyperkube image for containerd VHDs"
-    continue
-  fi
-  # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${HYPERKUBE_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-  if [[ ${cliTool} == "docker" ]]; then
-      docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-  else
-      ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-  fi
-  # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then
-    echo "Hyperkube contains nf_tables, exiting..."
-    exit 99
-  fi
-done
-
 KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
 1.17.16
