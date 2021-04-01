@@ -332,12 +332,12 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   fi
   # use kube-proxy as well
   # strip the last .1 as that is for base image patch for hyperkube
-  if grep -iq hotfix <<< ${KUBE_PROXY_IMAGE_VERSIONS}; then
-    KUBE_PROXY_IMAGE_VERSIONS=`echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f1,2,3,4`;
+  if grep -iq hotfix <<< ${KUBE_PROXY_IMAGE_VERSION}; then
+    KUBE_PROXY_IMAGE_VERSION=`echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f1,2,3,4`;
   else
-    KUBE_PROXY_IMAGE_VERSIONS=`echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f1,2,3`;
+    KUBE_PROXY_IMAGE_VERSION=`echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f1,2,3`;
   fi
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSIONS}"
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   if [[ ${cliTool} == "docker" ]]; then
       docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
