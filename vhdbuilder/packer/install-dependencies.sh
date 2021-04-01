@@ -268,7 +268,7 @@ done
 # v1.20.2
 # v1.20.5
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-PATCHED_HYPERKUBE_IMAGES="
+HYPERKUBE_IMAGE_VERSIONS="
 1.17.13
 1.17.16
 1.18.8-hotfix.20200924
@@ -285,14 +285,14 @@ PATCHED_HYPERKUBE_IMAGES="
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210322
 "
-for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+for HYPERKUBE_IMAGE_VERSION in ${HYPERKUBE_IMAGE_VERSIONS}; do
+  if (($(echo ${HYPERKUBE_IMAGE_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)); then
-      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
+  if (($(echo ${HYPERKUBE_IMAGE_VERSION} | cut -d"." -f2) < 19)); then
+      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${HYPERKUBE_IMAGE_VERSION}"
       pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
       echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
       if [[ ${cliTool} == "docker" ]]; then
