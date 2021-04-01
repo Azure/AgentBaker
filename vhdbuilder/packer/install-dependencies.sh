@@ -286,8 +286,8 @@ PATCHED_HYPERKUBE_IMAGES="
 1.20.5-hotfix.20210322
 "
 for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
   if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
