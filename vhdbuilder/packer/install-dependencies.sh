@@ -259,38 +259,29 @@ done
 
 KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
+1.17.13-hotfix.20210310.1
 1.17.16
+1.17.16-hotfix.20210310.1
 1.18.8-hotfix.20200924
+1.18.8-hotfix.20201112.1
 1.18.10-hotfix.20210118
+1.18.10-hotfix.20210310.1
 1.18.14-hotfix.20210118
 1.18.14-hotfix.20210322
 1.18.17-hotfix.20210322
 1.19.1-hotfix.20200923
+1.19.1-hotfix.20200923.1
 1.19.3
 1.19.6-hotfix.20210118
+1.19.6-hotfix.20210310.1
 1.19.7-hotfix.20210310
+1.19.7-hotfix.20210310.1
 1.19.9-hotfix.20210322
 1.20.2
 1.20.2-hotfix.20210310
+1.20.2-hotfix.20210310.1
 1.20.5-hotfix.20210322
 "
-
-	# "v1.17.3":  "v1.17.3-hotfix.20200601.2",
-	# 	"v1.17.7":  "v1.17.7-hotfix.20200917.2",
-	# 	"v1.17.9":  "v1.17.9-hotfix.20200917.2",
-	# 	"v1.17.11": "v1.17.11-hotfix.20200901.1",
-	# 	"v1.17.13": "v1.17.13-hotfix.20210310.1",
-	# 	"v1.17.16": "v1.17.16-hotfix.20210310.1",
-	# 	"v1.18.2":  "v1.18.2-hotfix.20200626.3",
-	# 	"v1.18.4":  "v1.18.4-hotfix.20200626.4",
-	# 	"v1.18.6":  "v1.18.6-hotfix.20200917.3",
-	# 	"v1.18.8":  "v1.18.8-hotfix.20201112.1",
-	# 	"v1.18.10": "v1.18.10-hotfix.20210310.1",
-	# 	"v1.18.14": "v1.18.14-hotfix.20210322",
-	# 	"v1.19.1":  "v1.19.1-hotfix.20200923.1",
-	# 	"v1.19.6":  "v1.19.6-hotfix.20210310.1",
-	# 	"v1.19.7":  "v1.19.7-hotfix.20210310.1",
-	# 	"v1.20.2":  "v1.20.2-hotfix.20210310.1",
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f2) < 19)) ; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
