@@ -276,35 +276,25 @@ HYPERKUBE_IMAGE_VERSIONS="
 1.18.14-hotfix.20210118
 1.18.14-hotfix.20210322
 1.18.17-hotfix.20210322
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210310
-1.19.9-hotfix.20210322
-1.20.2
-1.20.2-hotfix.20210310
-1.20.5-hotfix.20210322
 "
 for HYPERKUBE_IMAGE_VERSION in ${HYPERKUBE_IMAGE_VERSIONS}; do
-  if (($(echo ${HYPERKUBE_IMAGE_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
+  if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    echo "do not need to store hyperkube image for containerd VHDs"
     continue
   fi
   # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
-  if (($(echo ${HYPERKUBE_IMAGE_VERSION} | cut -d"." -f2) < 19)); then
-      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${HYPERKUBE_IMAGE_VERSION}"
-      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-      if [[ ${cliTool} == "docker" ]]; then
-          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      else
-          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      fi
-      # shellcheck disable=SC2181
-      if [[ $? != 0 ]]; then
-      echo "Hyperkube contains nf_tables, exiting..."
-      exit 99
-      fi
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${HYPERKUBE_IMAGE_VERSION}"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+  if [[ ${cliTool} == "docker" ]]; then
+      docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+  else
+      ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
+  fi
+  # shellcheck disable=SC2181
+  if [[ $? != 0 ]]; then
+    echo "Hyperkube contains nf_tables, exiting..."
+    exit 99
   fi
 done
 
