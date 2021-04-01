@@ -270,9 +270,13 @@ done
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 PATCHED_HYPERKUBE_IMAGES="
 1.17.13
+1.17.13-hotfix.20210310.1
 1.17.16
+1.17.16-hotfix.20210310.1
 1.18.8-hotfix.20200924
+1.18.8-hotfix.20201112.1
 1.18.10-hotfix.20210118
+1.18.10-hotfix.20210310.1
 1.18.14-hotfix.20210118
 1.18.14-hotfix.20210322
 1.18.17-hotfix.20210322
