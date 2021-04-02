@@ -257,6 +257,16 @@ for NGINX_VERSION in ${NGINX_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
+# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+# below are the required to support versions
+# v1.18.14
+# v1.18.17
+# v1.19.7
+# v1.19.9
+# v1.20.2
+# v1.20.5
+# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
 1.17.13-hotfix.20210310.1
