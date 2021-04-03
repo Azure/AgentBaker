@@ -1766,9 +1766,9 @@ fi
 
 VALIDATION_ERR=0
 
-# Edge case scenarios:
-# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
-# high timeout to address high latency for private dns server to forward request to Azure DNS
+{{- /* Edge case scenarios: */}}
+{{- /* high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster) */}}
+{{- /* high timeout to address high latency for private dns server to forward request to Azure DNS */}}
 API_SERVER_DNS_RETRIES=100
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
