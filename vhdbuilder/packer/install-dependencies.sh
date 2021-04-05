@@ -293,7 +293,7 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.20.5-hotfix.20210322
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSIONS} | cut -d"." -f2) < 19)) ; then
+  if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
