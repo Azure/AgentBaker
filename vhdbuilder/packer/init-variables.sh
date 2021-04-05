@@ -57,7 +57,7 @@ fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
-if [ "$MODE" == "sigMode" ]; then
+if [[ "$MODE" == "sigMode" || ("$MODE" == "gen2Mode" && "$OS_SKU" == "CBLMariner" ) ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
 	if [ -z "$id" ]; then
@@ -65,6 +65,10 @@ if [ "$MODE" == "sigMode" ]; then
 		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
 	else
 		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+	fi
+
+	if [[ "$OS_SKU" == "CBLMariner" ]]; then
+		SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 	fi
 
 	id=$(az sig image-definition show \
@@ -81,6 +85,7 @@ if [ "$MODE" == "sigMode" ]; then
 			--offer ${SIG_GALLERY_NAME} \
 			--sku ${SIG_IMAGE_NAME} \
 			--os-type ${OS_TYPE} \
+			--hyper-v-generation ${HYPERV_GENERATION} \
 			--location ${AZURE_LOCATION}
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
@@ -125,6 +130,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
+  "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",

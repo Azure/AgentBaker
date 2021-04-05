@@ -77,6 +77,7 @@ steps:
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
       create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      IMPORTED_IMAGE="$(cat vhdbuilder/packer/settings.json | grep "imported_sig_image" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -90,6 +91,8 @@ steps:
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
       -e SA_NAME=${SA_NAME} \
       -e IMAGE_NAME=${IMAGE_NAME} \
+      -e IMPORTED_IMAGE=${IMPORTED_IMAGE} \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
@@ -109,6 +112,8 @@ steps:
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
         -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+        -e OS_VERSION=${OS_VERSION} \
+        -e OS_SKU=${OS_SKU} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
