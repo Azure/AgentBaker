@@ -226,19 +226,27 @@ testKubeProxyImagesPulled() {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
       "versions": [
         "1.17.13",
+        "1.17.13-hotfix.20210310.1",
         "1.17.16",
+        "1.17.16-hotfix.20210310.1",
         "1.18.8-hotfix.20200924",
+        "1.18.8-hotfix.20201112.1",
         "1.18.10-hotfix.20210118",
+        "1.18.10-hotfix.20210310.1",
         "1.18.14-hotfix.20210118",
         "1.18.14-hotfix.20210322",
         "1.18.17-hotfix.20210322",
         "1.19.1-hotfix.20200923",
+        "1.19.1-hotfix.20200923.1",
         "1.19.3",
         "1.19.6-hotfix.20210118",
+        "1.19.6-hotfix.20210310.1",
         "1.19.7-hotfix.20210310",
+        "1.19.7-hotfix.20210310.1",
         "1.19.9-hotfix.20210322",
         "1.20.2",
         "1.20.2-hotfix.20210310",
+        "1.20.2-hotfix.20210310.1",
         "1.20.5-hotfix.20210322"
       ]
     }
@@ -252,12 +260,16 @@ containerdKubeProxyImages='
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
       "versions": [
         "1.19.1-hotfix.20200923",
+        "1.19.1-hotfix.20200923.1",
         "1.19.3",
         "1.19.6-hotfix.20210118",
+        "1.19.6-hotfix.20210310.1",
         "1.19.7-hotfix.20210310",
+        "1.19.7-hotfix.20210310.1",
         "1.19.9-hotfix.20210322",
         "1.20.2",
         "1.20.2-hotfix.20210310",
+        "1.20.2-hotfix.20210310.1",
         "1.20.5-hotfix.20210322"
       ]
     }

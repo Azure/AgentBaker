@@ -26,7 +26,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/exechealthz:*",
       "versions": [
-        "1.2"
+        "1.2",
+        "1.2_v0.0.5"
       ]
     },
     {
@@ -73,7 +74,8 @@
       "versions": [
         "v1.1.8",
         "v0.0.7",
-        "v0.0.6"
+        "v0.0.6",
+        "v0.0.6_v0.0.5"
       ]
     },
     {
