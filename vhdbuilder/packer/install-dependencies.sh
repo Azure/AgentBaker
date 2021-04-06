@@ -344,6 +344,12 @@ for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
+  if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
+    # shellcheck disable=SC2006
+    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
+  else
+    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
+  fi
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
 done
