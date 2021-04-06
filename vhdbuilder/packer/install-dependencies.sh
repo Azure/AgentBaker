@@ -324,7 +324,8 @@ done
 # v1.20.2
 # v1.20.5
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-K8S_VERSIONS="
+# Please do not use the .1 suffix, because that's only for the base image patches
+KUBE_BINARY_VERSIONS="
 1.17.13
 1.17.16
 1.18.8-hotfix.20200924
@@ -339,19 +340,13 @@ K8S_VERSIONS="
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210322
 "
-for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
+  if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
-  if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
-    # shellcheck disable=SC2006
-    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-  else
-    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-  fi
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
 done
 
 # shellcheck disable=SC2129
