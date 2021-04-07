@@ -45,7 +45,7 @@ function DownloadFileOverHttp {
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         if (-not $?) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
         }
         $downloadTimer.Stop()
 

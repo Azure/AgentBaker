@@ -4835,7 +4835,7 @@ function DownloadFileOverHttp {
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
         if (-not $?) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
         }
         $downloadTimer.Stop()
 
@@ -6762,7 +6762,7 @@ function Postpone-RestartComputer
 }
 
 $global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE=2
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
 $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
 $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST=4
 $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY=5
@@ -6778,8 +6778,7 @@ $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
 $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
 $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
 $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
-$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=19`)
+$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
