@@ -119,13 +119,15 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "versions": [
-        "v0.0.19"
+        "v0.0.19",
+        "v0.0.21"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "versions": [
-        "0.0.12"
+        "0.0.12",
+        "0.0.14"
       ]
     },
     {
