@@ -35,6 +35,47 @@ function DownloadFileWithRetry {
     }
 }
 
+function Retry-Command {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [string]$ErrorMessage,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [int]$Maximum = 5,
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$Delay = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        do {
+            $cnt++
+            try {
+                $ScriptBlock.Invoke()
+                if ($LASTEXITCODE) {
+                    throw "Retry $cnt : $ErrorMessage"
+                }
+                return
+            } catch {
+                Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                Start-Sleep $Delay
+            }
+        } while ($cnt -lt $Maximum)
+
+        # Throw an error after $Maximum unsuccessful invocations. Doesn't need
+        # a condition, since the function returns upon successful invocation.
+        throw 'All retries failed. $ErrorMessage'
+    }
+}
+
 function Disable-WindowsUpdates {
     # See https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
     # for additional information on WU related registry settings
@@ -101,14 +142,18 @@ function Get-ContainerImages {
         # CSE will configure and register containerd as a service at deployment time
         Start-Job -Name containerd -ScriptBlock { containerd.exe }
         foreach ($image in $imagesToPull) {
-            & ctr.exe -n k8s.io images pull $image
+            Retry-Command -ScriptBlock {
+                & ctr.exe -n k8s.io images pull $image
+            } -ErrorMessage "Failed to pull image $image"
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd
     }
     else {
         foreach ($image in $imagesToPull) {
-            docker pull $image
+            Retry-Command -ScriptBlock {
+                docker pull $image
+            } -ErrorMessage "Failed to pull image $image"
         }
     }
 }
