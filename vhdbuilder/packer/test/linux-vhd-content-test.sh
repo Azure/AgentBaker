@@ -5,6 +5,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
+  containerRuntime=$1
   echo "$test:Start"
   filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
@@ -13,7 +14,11 @@ testFilesDownloaded() {
     downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
     versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
     download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-
+    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
+    if [ "$targetContainerRuntime" != "null" ] && [ ${containerRuntime} != $targetContainerRuntime ]; then
+      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
+      continue
+    fi
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
       continue
@@ -295,7 +300,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-testFilesDownloaded
+testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
 testAuditDNotPresent
