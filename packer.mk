@@ -13,7 +13,6 @@ else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
 else ifeq (${OS_SKU},CBLMariner)
-	@./vhdbuilder/packer/import-image.sh
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-gen2.json

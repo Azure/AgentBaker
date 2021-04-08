@@ -57,6 +57,18 @@ fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
+# If SIG_IMAGE_NAME hasnt been provided in Gen2 mode, set it to the default value
+if [[ "$MODE" == "gen2Mode" ]]; then
+	if 	[[ -n "$SIG_IMAGE_NAME" ]]; then
+		if [[ "$OS_SKU" == "Ubuntu" ]]; then
+			SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+		fi
+		if [[ "$OS_SKU" == "CBLMariner" ]]; then
+			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
+		fi
+	fi
+fi
+
 if [[ "$MODE" == "sigMode" || ("$MODE" == "gen2Mode" && "$OS_SKU" == "CBLMariner" ) ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -65,10 +77,6 @@ if [[ "$MODE" == "sigMode" || ("$MODE" == "gen2Mode" && "$OS_SKU" == "CBLMariner
 		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
 	else
 		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
-	fi
-
-	if [[ "$OS_SKU" == "CBLMariner" ]]; then
-		SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 	fi
 
 	id=$(az sig image-definition show \
@@ -92,6 +100,60 @@ if [[ "$MODE" == "sigMode" || ("$MODE" == "gen2Mode" && "$OS_SKU" == "CBLMariner
 	fi
 else
 	echo "Skipping SIG check for $MODE"
+fi
+
+# Image import from storage account. Required to build CBLMariner images.
+if [[ "$OS_SKU" == "CBLMariner" ]]; then
+	if [[ $HYPERV_GENERATION == "V2" ]]; then
+		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
+	elif [[ $HYPERV_GENERATION == "V1" ]]; then
+		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
+	fi
+
+	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
+	sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
+
+	IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
+	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
+	DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
+
+	echo Importing VHD from $IMPORT_IMAGE_URL
+	azcopy-preview copy $IMPORT_IMAGE_URL$IMPORT_IMAGE_SAS $DESTINATION_WITH_SAS
+
+# Generation 2 Packer builds require that the imported image is hosted in a SIG
+	if [[ $HYPERV_GENERATION == "V2" ]]; then
+		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
+		az image create \
+			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+			--name $IMPORTED_IMAGE_NAME \
+			--source $IMPORTED_IMAGE_URL \
+			--hyper-v-generation V2 \
+			--os-type Linux
+
+		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+		az sig image-definition create \
+			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+			--gallery-name $SIG_GALLERY_NAME \
+			--gallery-image-definition $IMPORTED_IMAGE_NAME \
+			--location $AZURE_LOCATION \
+			--os-type Linux \
+			--publisher microsoft-aks \
+			--offer $IMPORTED_IMAGE_NAME \
+			--sku $OS_SKU \
+			--hyper-v-generation V2 \
+			--os-state generalized \
+			--description "Imported image for AKS Packer build"
+
+
+		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
+		az sig image-version create \
+			--location $AZURE_LOCATION \
+			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+			--gallery-name $SIG_GALLERY_NAME \
+			--gallery-image-definition $IMPORTED_IMAGE_NAME \
+			--gallery-image-version 1.0.0 \
+			--managed-image $IMPORTED_IMAGE_NAME
+	fi
 fi
 
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
@@ -134,7 +196,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
-  "windows_image_version": "${WINDOWS_IMAGE_VERSION}"
+  "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
+  "imported_image_name": "${IMPORTED_IMAGE_NAME}",
+  "sig_image_name":  "${SIG_IMAGE_NAME}"
 }
 EOF
 

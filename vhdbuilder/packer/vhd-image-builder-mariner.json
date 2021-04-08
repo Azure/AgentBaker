@@ -29,7 +29,7 @@
       "capture_name_prefix": "aks-mariner-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_url": "{{user `imported_image_url`}}",
+      "image_url": "https://{{user `storage_account_name`}}.blob.core.windows.net/system/{{user `IMPORTD_IMAGE_NAME`}}.vhd",
       "azure_tags": {
         "os": "Linux",
         "now": "{{user `create_time`}}",

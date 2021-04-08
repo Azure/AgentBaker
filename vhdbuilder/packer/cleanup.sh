@@ -40,28 +40,28 @@ if [[ "$MODE" != "default" ]]; then
 fi
 
 #cleanup imported sig image version
-if [[ -n "${IMPORTED_IMAGE}" ]]; then
-  id=$(az sig image-version show -e 1.0.0 -i ${IMPORTED_IMAGE} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
+  id=$(az sig image-version show -e 1.0.0 -i ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
-    echo "Deleting sig image-version 1.0.0 ${IMPORTED_IMAGE} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
-    az sig image-version delete -e 1.0.0 -i ${IMPORTED_IMAGE} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+    echo "Deleting sig image-version 1.0.0 ${IMPORTED_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+    az sig image-version delete -e 1.0.0 -i ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
 
 #cleanup imported sig image definition
-if [[ -n "${IMPORTED_IMAGE}" ]]; then
-  id=$(az sig image-definition show --gallery-image-definition ${IMPORTED_IMAGE} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
+  id=$(az sig image-definition show --gallery-image-definition ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
-    echo "Deleting sig image-definition ${IMPORTED_IMAGE} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
-    az sig image-definition delete --gallery-image-definition ${IMPORTED_IMAGE} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+    echo "Deleting sig image-definition ${IMPORTED_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+    az sig image-definition delete --gallery-image-definition ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
 
 #cleanup imported image
-if [[ -n "${IMPORTED_IMAGE}" ]]; then
-  id=$(az image show -n ${IMPORTED_IMAGE} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
+  id=$(az image show -n ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
-    echo "Deleting managed image ${IMPORTED_IMAGE} from rg ${AZURE_RESOURCE_GROUP_NAME}"
-    az image delete -n ${IMPORTED_IMAGE} -g ${AZURE_RESOURCE_GROUP_NAME}
+    echo "Deleting managed image ${IMPORTED_IMAGE_NAME} from rg ${AZURE_RESOURCE_GROUP_NAME}"
+    az image delete -n ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi

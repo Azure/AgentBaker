@@ -14,7 +14,8 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "enable_fips": "{{env `ENABLE_FIPS`}}"
+    "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}"
   },
   "builders": [
     {
@@ -37,11 +38,11 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "1804Gen2-{{user `create_time`}}",
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "PackerSigGalleryEastUS",
-        "image_name": "1804Gen2",
+        "image_name": "{{user `sig_image_name`}}",
         "image_version": "1.0.{{user `create_time`}}",
         "replication_regions": [
           "{{user `location`}}"
