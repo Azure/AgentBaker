@@ -44,8 +44,8 @@ function DownloadFileOverHttp {
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
-        if (-not $?) {
-            throw "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+        if ($LASTEXITCODE) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
         }
         $downloadTimer.Stop()
 
@@ -179,7 +179,7 @@ function Invoke-Executable {
         }
     }
 
-    throw "Exhausted retries for $Executable $ArgList"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
 }
 
 function Get-LogCollectionScripts {
@@ -295,7 +295,7 @@ function Assert-FileExists {
     )
 
     if (-Not (Test-Path $Filename)) {
-        throw "$Filename does not exist"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
     }
 }
 
@@ -343,5 +343,5 @@ function Check-APIServerConnectivity {
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    throw "Failed to connect to API server $MasterIP after $retryCount retries"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
 }

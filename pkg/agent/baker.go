@@ -428,6 +428,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				kubernetesWindowsHostsConfigAgentFunctionsPS1,
 				kubernetesWindowsOpenSSHFunctionPS1,
 				kubernetesWindowsCalicoFunctionPS1,
+				kubernetesWindowsCSEHelperPS1,
 				kubernetesWindowsHypervtemplatetoml,
 			}
 

@@ -30,8 +30,49 @@ function DownloadFileWithRetry {
         $retryDelay = 0
     )
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if (-not $?) {
+    if ($LASTEXITCODE) {
         throw "Curl exited with '$LASTEXITCODE' while attemping to download '$URL'"
+    }
+}
+
+function Retry-Command {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [string]$ErrorMessage,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [int]$Maximum = 5,
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$Delay = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        do {
+            $cnt++
+            try {
+                $ScriptBlock.Invoke()
+                if ($LASTEXITCODE) {
+                    throw "Retry $cnt : $ErrorMessage"
+                }
+                return
+            } catch {
+                Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                Start-Sleep $Delay
+            }
+        } while ($cnt -lt $Maximum)
+
+        # Throw an error after $Maximum unsuccessful invocations. Doesn't need
+        # a condition, since the function returns upon successful invocation.
+        throw 'All retries failed. $ErrorMessage'
     }
 }
 
@@ -101,14 +142,18 @@ function Get-ContainerImages {
         # CSE will configure and register containerd as a service at deployment time
         Start-Job -Name containerd -ScriptBlock { containerd.exe }
         foreach ($image in $imagesToPull) {
-            & ctr.exe -n k8s.io images pull $image
+            Retry-Command -ScriptBlock {
+                & ctr.exe -n k8s.io images pull $image
+            } -ErrorMessage "Failed to pull image $image"
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd
     }
     else {
         foreach ($image in $imagesToPull) {
-            docker pull $image
+            Retry-Command -ScriptBlock {
+                docker pull $image
+            } -ErrorMessage "Failed to pull image $image"
         }
     }
 }
@@ -330,7 +375,7 @@ function Update-Registry {
 
     # if multple LB policies are included for same endpoint then HNS hangs.
     # this fix forces an error
-    Write-Host "Enable a HNS fix in 2021-2C"
+    Write-Log "Enable a HNS fix in 2021-2C"
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value 1 -Type DWORD
 
     # Enables DNS resolution of SMB shares for containerD
@@ -347,14 +392,14 @@ $ProgressPreference = 'SilentlyContinue'
 $containerRuntime = $env:ContainerRuntime
 $validContainerRuntimes = @('containerd', 'docker')
 if (-not ($validContainerRuntimes -contains $containerRuntime)) {
-    Write-Host "Unsupported container runtime: $containerRuntime"
+    Write-Log "Unsupported container runtime: $containerRuntime"
     exit 1
 }
 
 $windowsSKU = $env:WindowsSKU
 $validSKU = @('2019', '2019-containerd', '2004')
 if (-not ($validSKU -contains $windowsSKU)) {
-    Write-Host "Unsupported windows image SKU: $windowsSKU"
+    Write-Log "Unsupported windows image SKU: $windowsSKU"
     exit 1
 }
 
