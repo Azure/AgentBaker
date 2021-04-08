@@ -59,13 +59,14 @@ echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_IMAGE_NAME hasnt been provided in Gen2 mode, set it to the default value
 if [[ "$MODE" == "gen2Mode" ]]; then
-	if 	[[ -n "$SIG_IMAGE_NAME" ]]; then
+	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
 			SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
 		fi
 		if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 		fi
+		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to `${SIG_IMAGE_NAME}`"
 	fi
 fi
 
