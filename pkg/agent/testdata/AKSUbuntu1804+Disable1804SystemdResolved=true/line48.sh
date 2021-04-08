@@ -89,15 +89,15 @@ updateAptWithMicrosoftPkg() {
 
 disableNtpAndTimesyncdInstallChrony() {
     # Disable systemd-timesyncd
-    sudo systemctl stop systemd-timesyncd
-    sudo systemctl disable systemd-timesyncd
+    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+    systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
     # Disable ntp
-    sudo systemctl stop ntp
-    sudo systemctl disable ntp
+    systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
 
     # Install chrony
-    apt-get update
-    apt-get install chrony -y
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
     cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usuable directives.
@@ -146,7 +146,7 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-    systemctl restart chrony
+    systemctlEnableAndStart chrony || exit $ERR_CHRONY_START_TIMEOUT
 }
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
