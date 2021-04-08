@@ -15,7 +15,7 @@ testFilesDownloaded() {
     versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
     download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
     targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
-    if [ "$targetContainerRuntime" != "null" ] && [ ${containerRuntime} != $targetContainerRuntime ]; then
+    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
       echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
       continue
     fi
