@@ -145,7 +145,6 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			--os-state generalized \
 			--description "Imported image for AKS Packer build"
 
-
 		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 		az sig image-version create \
 			--location $AZURE_LOCATION \
@@ -193,7 +192,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
-  "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",

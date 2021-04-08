@@ -102,7 +102,6 @@ steps:
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
       -e IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()

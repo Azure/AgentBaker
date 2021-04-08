@@ -6,10 +6,9 @@ required_env_vars=(
     "CREATE_TIME"
     "LOCATION"
     "OS_TYPE"
-    "OS_VERSION"
-    "OS_SKU"
     "SIG_IMAGE_NAME"
 )
+
 
 for v in "${required_env_vars[@]}"
 do

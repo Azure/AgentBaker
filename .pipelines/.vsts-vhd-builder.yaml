@@ -163,8 +163,6 @@ phases:
           -e OS_TYPE="Linux" \
           -e CLASSIC_BLOB=${CLASSIC_BLOB} \
           -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-          -e OS_VERSION=${OS_VERSION} \
-          -e OS_SKU=${OS_SKU} \
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
         displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
