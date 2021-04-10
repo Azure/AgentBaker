@@ -357,7 +357,7 @@
     },
     {
       "fileName": "crictl-v*-linux-amd64.tar.gz",
-      "downloadLocation:": "/opt/crictl/downloads",
+      "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://github.com/kubernetes-sigs/cri-tools/releases/download/v*/crictl-v*-linux-amd64.tar.gz",
       "versions": [
         "1.19.0",
