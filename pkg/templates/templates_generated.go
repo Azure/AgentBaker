@@ -761,9 +761,7 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     usermod -aG docker ${ADMINUSER}
     DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    if [[ $OS != $COREOS_OS_NAME ]]; then
-        wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    fi
+    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then
@@ -1135,10 +1133,11 @@ ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
 ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
+ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
-RHEL_OS_NAME="RHEL"
-COREOS_OS_NAME="COREOS"
+MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV=450.51.06
@@ -1669,11 +1668,6 @@ configureHTTPProxyCA
 
 disable1804SystemdResolved
 
-if [[ $OS == $COREOS_OS_NAME ]]; then
-    echo "Changing default kubectl bin location"
-    KUBECTL=/opt/kubectl
-fi
-
 if [ -f /var/run/reboot-required ]; then
     REBOOTREQUIRED=true
 else
@@ -1736,9 +1730,7 @@ docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET
 
 installKubeletKubectlAndKubeProxy
 
-if [[ $OS != $COREOS_OS_NAME ]]; then
-    ensureRPC
-fi
+ensureRPC
 
 createKubeManifestDir
 
@@ -2678,6 +2670,31 @@ installStandaloneContainerd() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
+}
+
+disableSystemdResolvedCache() {
+    SERVICE_FILEPATH="/etc/systemd/system/resolv-uplink-override.service"
+    touch ${SERVICE_FILEPATH}
+    cat << EOF >> ${SERVICE_FILEPATH}
+[Unit]
+Description=Symlink /etc/resolv.conf to /run/systemd/resolve/resolv.conf
+After=systemd-networkd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+RemainAfterExit=no
+
+[Install]
+RequiredBy=network-online.target kubelet.service
+EOF
+
+    systemctlEnableAndStart resolv-uplink-override || exit $ERR_SYSTEMCTL_START_FAIL
+
+}
+
+disableSystemdIptables() {
+    systemctlDisableAndStop iptables || exit $ERR_DISBALE_IPTABLES
 }
 
 #EOF

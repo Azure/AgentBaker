@@ -47,11 +47,6 @@ fi
 
 disable1804SystemdResolved
 
-if [[ $OS == $COREOS_OS_NAME ]]; then
-    echo "Changing default kubectl bin location"
-    KUBECTL=/opt/kubectl
-fi
-
 if [ -f /var/run/reboot-required ]; then
     REBOOTREQUIRED=true
 else
@@ -99,9 +94,7 @@ echo $(date),$(hostname), "End configuring GPU drivers"
 
 installKubeletKubectlAndKubeProxy
 
-if [[ $OS != $COREOS_OS_NAME ]]; then
-    ensureRPC
-fi
+ensureRPC
 
 createKubeManifestDir
 

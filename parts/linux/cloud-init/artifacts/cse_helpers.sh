@@ -77,10 +77,11 @@ ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
 ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
+ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
-RHEL_OS_NAME="RHEL"
-COREOS_OS_NAME="COREOS"
+MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV=450.51.06

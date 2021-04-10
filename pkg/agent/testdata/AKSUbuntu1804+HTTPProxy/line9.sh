@@ -77,10 +77,11 @@ ERR_TELEPORTD_INSTALL_ERR=151
 ERR_HTTP_PROXY_CA_CONVERT=160 
 ERR_HTTP_PROXY_CA_UPDATE=161 
 
+ERR_DISBALE_IPTABLES=170 
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
-RHEL_OS_NAME="RHEL"
-COREOS_OS_NAME="COREOS"
+MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV=450.51.06
