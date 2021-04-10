@@ -33,8 +33,8 @@ testFilesDownloaded() {
         err $test "File ${dest} does not exist"
         continue
       fi
-
-      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+      # -L since some urls are redirects (i.e github)
+      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
         err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
