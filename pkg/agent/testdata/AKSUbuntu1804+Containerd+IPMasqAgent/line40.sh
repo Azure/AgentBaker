@@ -209,16 +209,18 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
+        if [[ ${CLI_TOOL} == "crictl" ]]; then
+            images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
+        fi
         
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
-                removeContainerImage "ctr" ${image}
-                
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     }

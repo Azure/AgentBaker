@@ -167,9 +167,7 @@ cleanUpImages() {
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
-                removeContainerImage "docker" ${image}
-                
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     }
