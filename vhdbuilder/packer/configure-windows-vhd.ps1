@@ -268,9 +268,9 @@ function Install-ContainerD {
         Remove-Item -Path $tarPath | Out-Null
     }
 
-    $newPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
-    [Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
-    $env:Path += ";$installDir"
+    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir;$installDir/bin"
+    [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
+    $env:Path += ";$installDir;$installDir/bin"
 }
 
 function Install-Docker {
