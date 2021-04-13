@@ -1654,6 +1654,10 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+{{- end}}
+
 {{- if EnableChronyFor1804}}
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
     disableNtpAndTimesyncdInstallChrony
@@ -1780,10 +1784,6 @@ configureTransparentHugePage
 
 {{- if ShouldConfigSwapFile}}
 configureSwapFile
-{{- end}}
-
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
 {{- end}}
 
 ensureSysctl
