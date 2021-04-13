@@ -49,12 +49,16 @@ $lockedFiles | Foreach-Object {
 }
 
 # Containerd log is outside the c:\k folder
-$containerd = "C:\ProgramData\containerd\root\panic.log"
-if (Test-Path $containerd) {
-  $tempfile = Copy-Item $containerd $lockedTemp -Passthru -ErrorAction Ignore
+Write-Host "Collecting containerd panic logs"
+$containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
+if (Test-Path $containerdPanicLog) {
+  $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
   if ($tempFile) {
     $paths += $tempFile
   }
+}
+else {
+  Write-Host "Containerd panic logs not avalaible"
 }
 
 Write-Host "Exporting ETW events to CSV files"
@@ -97,12 +101,19 @@ else {
 }
 
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
+Write-Host "Collecting Containerd running containers"
 $res = Get-Command ctr.exe -ErrorAction SilentlyContinue
 if ($res) {
+  Write-Host "Collecting Containerd running containers - containers"
   & ctr.exe -n k8s.io c ls > "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-containers.txt"
+
+  Write-Host "Collecting Containerd running containers - tasks"
+  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+}
+else {
+  Write-Host "ctr.exe command not avaiable"
 }
 
 Write-Host "Collecting calico logs"

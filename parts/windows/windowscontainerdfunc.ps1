@@ -34,8 +34,12 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
 
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+  if ($null -eq $svc) {
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
+  }
+  Start-Service containerd
   if ($svc.Status -ne "Running") {
-    Start-Service containerd
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
 }
 
@@ -110,6 +114,9 @@ function Enable-Logging {
     mkdir -Force $logs
     # !ContainerPlatformPersistent profile is made to work with long term and boot tracing
     & $diag -Start -ProfilePath "$global:ContainerdInstallLocation\ContainerPlatform.wprp!ContainerPlatformPersistent" -TempPath $logs
+  }
+  else {
+    Write-Log "Containerd hyperv logging script not avalaible"
   }
 }
 
