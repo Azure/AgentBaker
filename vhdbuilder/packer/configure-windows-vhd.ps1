@@ -256,17 +256,16 @@ function Install-ContainerD {
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
 
-    if ($global:containerdPackageUrl.endswith(".zip")) {
-        $zipPath = [IO.Path]::Combine($installDir, "containerd.zip")
-        DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $zipPath
-        Expand-Archive -path $zipPath -DestinationPath $installDir -Force
-        Remove-Item -Path $zipPath | Out-Null
+    $containerdFilename=[IO.Path]::GetFileName($global:containerdPackageUrl)
+    $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
+    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $containerdTmpDest
+    # The released containerd package format is either zip or tar.gz
+    if ($containerdFilename.endswith(".zip")) {
+        Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
     } else {
-        $tarPath = [IO.Path]::Combine($installDir, "containerd.tar.gz")
-        DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $tarPath
-        tar -xzf $tarPath --strip=1 -C $installDir
-        Remove-Item -Path $tarPath | Out-Null
+        tar -xzf $containerdTmpDest --strip=1 -C $installDir
     }
+    Remove-Item -Path $containerdTmpDest | Out-Null
 
     $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir;$installDir/bin"
     [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
