@@ -78,7 +78,10 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   containerd_version="1.5.0-beta.git31a0f92df"
   installStandaloneContainerd ${containerd_version}
   echo "  - containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
-  CRICTL_VERSIONS="1.19.0"
+  CRICTL_VERSIONS="
+  1.19.0
+  1.20.0
+  "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}

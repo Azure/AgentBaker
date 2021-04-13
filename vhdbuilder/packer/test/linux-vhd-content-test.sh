@@ -5,6 +5,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
+  containerRuntime=$1
   echo "$test:Start"
   filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
@@ -13,7 +14,11 @@ testFilesDownloaded() {
     downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
     versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
     download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-
+    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
+    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
+      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
+      continue
+    fi
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
       continue
@@ -23,16 +28,15 @@ testFilesDownloaded() {
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
       downloadURL=$(string_replace $download_URL $version)/$file_Name
-
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
       fi
-
-      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+      # -L since some urls are redirects (i.e github)
+      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
     done
@@ -299,7 +303,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-testFilesDownloaded
+testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
 testAuditDNotPresent
