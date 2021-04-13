@@ -44,6 +44,7 @@
                     "{{user `location`}}"
                 ]
             },
+            "shared_image_gallery_timeout": "90m",
             "polling_duration_timeout": "1h",
             "communicator": "winrm",
             "winrm_use_ssl": true,

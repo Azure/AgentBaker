@@ -50,7 +50,8 @@
         "replication_regions": [
           "{{user `location`}}"
         ]
-      }
+      },
+      "shared_image_gallery_timeout": "90m"
     }
   ],
   "provisioners": [
