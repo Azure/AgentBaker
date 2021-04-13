@@ -15,7 +15,7 @@
             "Component": {
                 "Type": "other",
                 "Other": {
-                    "Name": "containerd",
+                    "Name": "ContainerDWindows",
                     "Version": "0.0.1",
                     "DownloadUrl": "https://acs-mirror.azureedge.net/containerd/windows/v0.0.1/binaries/containerd-v0.0.1-windows-amd64.tar.gz"
                 }
