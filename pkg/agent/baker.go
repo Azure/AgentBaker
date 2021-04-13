@@ -745,5 +745,46 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			//               is to be moved away from NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
 		},
+		// HTTP proxy related funcs
+		"ShouldConfigureHTTPProxy": func() bool {
+			return config.HTTPProxyConfig != nil && (config.HTTPProxyConfig.HTTPProxy != nil || config.HTTPProxyConfig.HTTPSProxy != nil)
+		},
+		"HasHTTPProxy": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPProxy != nil
+		},
+		"HasHTTPSProxy": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPSProxy != nil
+		},
+		"HasNoProxy": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.NoProxy != nil
+		},
+		"GetHTTPProxy": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPProxy != nil {
+				return *config.HTTPProxyConfig.HTTPProxy
+			}
+			return ""
+		},
+		"GetHTTPSProxy": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPSProxy != nil {
+				return *config.HTTPProxyConfig.HTTPSProxy
+			}
+			return ""
+		},
+		"GetNoProxy": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.NoProxy != nil {
+				return strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
+			}
+			return ""
+		},
+		"ShouldConfigureHTTPProxyCA": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil
+		},
+		"GetHTTPProxyCA": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
+				dec, _ := base64.StdEncoding.DecodeString(*config.HTTPProxyConfig.TrustedCA)
+				return datamodel.IndentString(string(dec), 4)
+			}
+			return ""
+		},
 	}
 }

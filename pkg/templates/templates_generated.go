@@ -527,6 +527,31 @@ configureSwapFile() {
 }
 {{- end}}
 
+{{- if ShouldConfigureHTTPProxy}}
+configureEtcEnvironment() {
+    {{- if HasHTTPProxy }}
+    echo 'HTTP_PROXY="{{GetHTTPProxy}}"' >> /etc/environment
+    echo 'http_proxy="{{GetHTTPProxy}}"' >> /etc/environment
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    echo 'HTTPS_PROXY="{{GetHTTPSProxy}}"' >> /etc/environment
+    echo 'https_proxy="{{GetHTTPSProxy}}"' >> /etc/environment
+    {{- end}}
+    {{- if HasNoProxy }}
+    echo 'NO_PROXY="{{GetNoProxy}}"' >> /etc/environment
+    echo 'no_proxy="{{GetNoProxy}}"' >> /etc/environment
+    {{- end}}
+}
+{{- end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA() {
+    openssl x509 -outform der -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
+    rm -f /usr/local/share/ca-certificates/proxyCA.pem
+    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+}
+{{- end}}
+
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -797,6 +822,9 @@ ensureKubelet() {
     {{- end}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- if ShouldConfigureHTTPProxy}}
+    configureEtcEnvironment
+    {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasAntreaNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
@@ -1105,6 +1133,9 @@ ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space fo
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
+
+ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
+ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1617,6 +1648,10 @@ source {{GetCSEInstallScriptDistroFilepath}}
 
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+{{- end}}
 
 {{- if EnableChronyFor1804}}
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
@@ -2456,6 +2491,9 @@ After=bind-mount.service
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
+{{- if ShouldConfigureHTTPProxy}}
+EnvironmentFile=/etc/environment
+{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -4177,6 +4215,45 @@ write_files:
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
 {{end}}
+
+{{- if ShouldConfigureHTTPProxy}}
+- path: /etc/apt/apt.conf.d/95proxy
+  permissions: "0644"
+  owner: root
+  content: |
+    {{- if HasHTTPProxy }}
+    Acquire::http::proxy "{{GetHTTPProxy}}";
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    Acquire::https::proxy "{{GetHTTPSProxy}}";
+    {{- end}}
+
+- path: /etc/systemd/system.conf.d/proxy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Manager]
+    {{- if HasHTTPProxy }}
+    DefaultEnvironment="HTTP_PROXY={{GetHTTPProxy}}"
+    DefaultEnvironment="http_proxy={{GetHTTPProxy}}"
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    DefaultEnvironment="HTTPS_PROXY={{GetHTTPSProxy}}"
+    DefaultEnvironment="https_proxy={{GetHTTPSProxy}}"
+    {{- end}}
+    {{- if HasNoProxy }}
+    DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
+    DefaultEnvironment="no_proxy={{GetNoProxy}}"
+    {{- end}}
+{{- end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+- path: /usr/local/share/ca-certificates/proxyCA.pem
+  permissions: "0644"
+  owner: root
+  content: |
+{{GetHTTPProxyCA}}
+{{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
