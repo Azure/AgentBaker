@@ -28,7 +28,6 @@ testFilesDownloaded() {
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
       downloadURL=$(string_replace $download_URL $version)/$file_Name
-      echo "downloadURL=${downloadURL}"
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
@@ -37,7 +36,7 @@ testFilesDownloaded() {
       fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
     done
