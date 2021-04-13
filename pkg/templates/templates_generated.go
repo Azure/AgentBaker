@@ -4763,7 +4763,7 @@ state = "C:\\ProgramData\\containerd\\state"
 
 [debug]
   address = ""
-  level = "debug"
+  level = "info"
 
 [metrics]
   address = ""
@@ -4785,6 +4785,7 @@ state = "C:\\ProgramData\\containerd\\state"
     disable_http2_client = false
     [plugins.cri.containerd]
       snapshotter = "windows"
+      discard_unpacked_layers = true
       no_pivot = false
       [plugins.cri.containerd.default_runtime]
         runtime_type = "io.containerd.runhcs.v1"
@@ -5540,6 +5541,18 @@ try
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
+        Write-Log "Download kubelet binaries and unzip"
+        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
+
+        # This overwrites the binaries that are downloaded from the custom packge with binaries.
+        # The custom package has a few files that are necessary for future steps (nssm.exe)
+        # this is a temporary work around to get the binaries until we depreciate
+        # custom package and nssm.exe as defined in aks-engine#3851.
+        if ($global:WindowsKubeBinariesURL){
+            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
+            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
+        }
+
         if ($useContainerD) {
             Write-Log "Installing ContainerD"
             if ($global:EnableTelemetry) {
@@ -5551,7 +5564,7 @@ try
                 $cniBinPath = $global:CNIPath
                 $cniConfigPath = $global:CNIConfigPath
             }
-            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath
+            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
             if ($global:EnableTelemetry) {
                 $containerdTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
@@ -5568,18 +5581,6 @@ try
                 $dockerTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-Docker", $dockerTimer.Elapsed.TotalSeconds)
             }
-        }
-
-        Write-Log "Download kubelet binaries and unzip"
-        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-        # this overwrite the binaries that are download from the custom packge with binaries
-        # The custom package has a few files that are nessary for future steps (nssm.exe)
-        # this is a temporary work around to get the binaries until we depreciate
-        # custom package and nssm.exe as defined in #3851.
-        if ($global:WindowsKubeBinariesURL){
-            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
         }
 
         # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
@@ -6626,22 +6627,44 @@ func windowsWindowsconfigfuncPs1() (*asset, error) {
 
 var _windowsWindowscontainerdfuncPs1 = []byte(`# this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
+$global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
 function RegisterContainerDService {
-  Assert-FileExists (Join-Path $global:ContainerdInstallLocation containerd.exe)
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $kubedir
+  )
+
+  Assert-FileExists $global:Containerdbinary
+
+  # in the past service was not installed via nssm so remove it in case
+  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+  if ($null -ne $svc) {
+    sc.exe delete containerd
+  }
 
   Write-Log "Registering containerd as a service"
-  $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
-  $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    & $cdbinary --unregister-service
-  }
-  & $cdbinary --register-service
+  # setup containerd
+  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
+
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
   if ($null -eq $svc) {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
   }
-  $svc | Start-Service
+  Start-Service containerd
   if ($svc.Status -ne "Running") {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
@@ -6731,7 +6754,9 @@ function Install-Containerd {
     [Parameter(Mandatory = $true)][string]
     $CNIBinDir,
     [Parameter(Mandatory = $true)][string]
-    $CNIConfDir
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
   )
 
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
@@ -6762,7 +6787,6 @@ function Install-Containerd {
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
-  $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
   $pauseImage = $clusterConfig.Cri.Images.Pause
@@ -6796,7 +6820,7 @@ function Install-Containerd {
   Replace('{{currentversion}}', $windowsVersion) | `+"`"+`
     Out-File -FilePath "$configFile" -Encoding ascii
 
-  RegisterContainerDService
+  RegisterContainerDService -KubeDir $KubeDir
   Enable-Logging
 }
 `)
