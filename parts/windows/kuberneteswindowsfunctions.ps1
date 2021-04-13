@@ -58,7 +58,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file to $DestinationPath"
+        Write-Log "Downloaded file $Url to $DestinationPath"
     }
 }
 

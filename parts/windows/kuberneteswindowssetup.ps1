@@ -303,6 +303,18 @@ try
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
+        Write-Log "Download kubelet binaries and unzip"
+        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
+
+        # This overwrites the binaries that are downloaded from the custom packge with binaries.
+        # The custom package has a few files that are necessary for future steps (nssm.exe)
+        # this is a temporary work around to get the binaries until we depreciate
+        # custom package and nssm.exe as defined in aks-engine#3851.
+        if ($global:WindowsKubeBinariesURL){
+            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
+            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
+        }
+
         if ($useContainerD) {
             Write-Log "Installing ContainerD"
             if ($global:EnableTelemetry) {
@@ -314,7 +326,7 @@ try
                 $cniBinPath = $global:CNIPath
                 $cniConfigPath = $global:CNIConfigPath
             }
-            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath
+            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
             if ($global:EnableTelemetry) {
                 $containerdTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
@@ -331,18 +343,6 @@ try
                 $dockerTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-Docker", $dockerTimer.Elapsed.TotalSeconds)
             }
-        }
-
-        Write-Log "Download kubelet binaries and unzip"
-        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-        # this overwrite the binaries that are download from the custom packge with binaries
-        # The custom package has a few files that are nessary for future steps (nssm.exe)
-        # this is a temporary work around to get the binaries until we depreciate
-        # custom package and nssm.exe as defined in #3851.
-        if ($global:WindowsKubeBinariesURL){
-            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
         }
 
         # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
