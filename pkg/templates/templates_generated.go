@@ -5464,6 +5464,7 @@ try
         Write-Log "Download kubelet binaries and unzip"
         Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
 
+        # This overwrites the binaries that are downloaded from the custom packge with binaries.
         # The custom package has a few files that are necessary for future steps (nssm.exe)
         # this is a temporary work around to get the binaries until we depreciate
         # custom package and nssm.exe as defined in aks-engine#3851.
