@@ -5219,7 +5219,44 @@ function Check-APIServerConnectivity {
 
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
 }
-`)
+
+function Get-CACertificates {
+    try {
+        Write-Log "Get CA certificates"
+        $caFolder = "C:\ca"
+        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+
+        if (-Not (Test-Path $caFolder)) {
+            Write-Log "Create folder $caFolder for storing CA certificates"
+            New-Item -ItemType Directory -Path $caFolder
+        }
+
+        Write-Log "Download CA certificates rawdata"
+        # This is required when the root CA certs are different for some clouds.
+        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        if ([string]::IsNullOrEmpty($rawData)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
+        }
+
+        Write-Log "Convert CA certificates rawdata"
+        $caCerts=($rawData.Content) | ConvertFrom-Json
+        if ([string]::IsNullOrEmpty($caCerts)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
+        }
+
+        $certificates = $caCerts.Certificates
+        for ($index = 0; $index -lt $certificates.Length ; $index++) {
+            $name=$certificates[$index].Name
+            $certFilePath = Join-Path $caFolder $name
+            Write-Log "Write certificate $name to $certFilePath"
+            $certificates[$index].CertBody > $certFilePath
+        }
+    }
+    catch {
+        # Catch all exceptions in this function. NOTE: exit cannot be caught.
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
+    }
+}`)
 
 func windowsKuberneteswindowsfunctionsPs1Bytes() ([]byte, error) {
 	return _windowsKuberneteswindowsfunctionsPs1, nil
@@ -5613,6 +5650,8 @@ try
         $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
         $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
         [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
+
+        Get-CACertificates
         {{end}}
 
         Write-Log "Write ca root"
@@ -6885,7 +6924,10 @@ $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
 $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
 $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
 $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
-$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18`)
+$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
+$global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil

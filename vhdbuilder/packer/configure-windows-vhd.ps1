@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
-$global:containerdPackageUrl = "https://mobyartifacts.azureedge.net/moby/moby-containerd/1.4.3+azure/windows/windows_amd64/moby-containerd-1.4.3+azure-1.amd64.zip"
+$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.1/binaries/containerd-v0.0.1-windows-amd64.tar.gz"
 
 function Write-Log($Message) {
     $msg = $message | Timestamp
@@ -253,17 +253,23 @@ function Install-ContainerD {
     Write-Log "Getting containerD binaries from $global:containerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
-    $zipPath = [IO.Path]::Combine($installDir, "containerd.zip")
-
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
-    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $zipPath
-    Expand-Archive -Path $zipPath -DestinationPath $installDir
-    Remove-Item -Path $zipPath | Out-null
 
-    $newPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
-    [Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
-    $env:Path += ";$installDir"
+    $containerdFilename=[IO.Path]::GetFileName($global:containerdPackageUrl)
+    $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
+    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $containerdTmpDest
+    # The released containerd package format is either zip or tar.gz
+    if ($containerdFilename.endswith(".zip")) {
+        Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
+    } else {
+        tar -xzf $containerdTmpDest --strip=1 -C $installDir
+    }
+    Remove-Item -Path $containerdTmpDest | Out-Null
+
+    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir;$installDir/bin"
+    [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
+    $env:Path += ";$installDir;$installDir/bin"
 }
 
 function Install-Docker {
@@ -287,7 +293,7 @@ function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 
-    $patchUrls = @()
+    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/04/windows10.0-kb5001342-x64_ddf38137b7616d101d9f82dcf7b9c6b2ae6be327.msu")
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]

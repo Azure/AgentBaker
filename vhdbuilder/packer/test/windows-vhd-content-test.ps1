@@ -11,7 +11,7 @@ param (
 )
 
 # TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
-$global:containerdPackageUrl = "https://mobyartifacts.azureedge.net/moby/moby-containerd/1.4.3+azure/windows/windows_amd64/moby-containerd-1.4.3+azure-1.amd64.zip"
+$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.1/binaries/containerd-v0.0.1-windows-amd64.tar.gz"
 
 function Compare-AllowedSecurityProtocols {
 
@@ -147,7 +147,7 @@ function Test-FilesToCacheOnVHD
 
 function Test-PatchInstalled {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @("KB5000822")
+    $patchIDs = @("KB5001342")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID) {
