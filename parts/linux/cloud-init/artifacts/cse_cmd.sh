@@ -1,4 +1,18 @@
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
+{{- if ShouldConfigureHTTPProxy}}
+{{- if HasHTTPProxy }}
+HTTP_PROXY={{GetHTTPProxy}};
+http_proxy={{GetHTTPProxy}};
+{{- end}}
+{{- if HasHTTPSProxy }}
+HTTPS_PROXY={{GetHTTPSProxy}};
+https_proxy={{GetHTTPSProxy}};
+{{- end}}
+{{- if HasNoProxy }}
+NO_PROXY={{GetNoProxy}};
+no_proxy={{GetNoProxy}};
+{{- end}}
+{{- end}}
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
