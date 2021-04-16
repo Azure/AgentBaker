@@ -89,19 +89,6 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
-disableSystemdTimesyncdAndEnableNTP() {
-    # disable systemd-timesyncd
-    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-    systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-
-    # install ntp
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 20 30 120 ntp || exit $ERR_NTP_INSTALL_TIMEOUT
-
-    # enable ntp
-    systemctlEnableAndStart ntp || exit $ERR_NTP_START_TIMEOUT
-}
-
 installFIPS() {
     echo "Installing FIPS..."
     wait_for_apt_locks
