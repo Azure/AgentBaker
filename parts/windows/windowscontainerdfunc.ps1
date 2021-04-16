@@ -37,9 +37,8 @@ function RegisterContainerDService {
   if ($null -eq $svc) {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
   }
-  Start-Service containerd
   if ($svc.Status -ne "Running") {
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
+    Start-Service containerd
   }
 }
 
