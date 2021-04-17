@@ -101,6 +101,9 @@ else
   cliTool="docker"
 fi
 
+RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
