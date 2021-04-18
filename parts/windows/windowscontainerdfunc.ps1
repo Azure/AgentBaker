@@ -33,14 +33,29 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
 
-  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -eq $svc) {
-    throw "containerd.exe did not get installed as a service correctly."
-  }
-  Start-Service containerd
+  $retryCount=0
+  $retryInterval=10
+  $maxRetryCount=6 # 1 minutes
+
+  do {
+    $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+      throw "containerd.exe did not get installed as a service correctly."
+    }
+    if ($svc.Status -eq "Running") {
+      break
+    }
+    Write-Log "Starting containerd, current status: $svc.Status"
+    Start-Service containerd
+    $retryCount++
+    Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
+    Sleep $retryInterval
+  } while ($retryCount -lt $maxRetryCount)
+
   if ($svc.Status -ne "Running") {
     throw "containerd service is not running"
   }
+
 }
 
 function CreateHypervisorRuntime {

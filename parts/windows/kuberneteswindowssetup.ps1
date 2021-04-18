@@ -318,7 +318,6 @@ try
                 $containerdTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
             }
-            # TODO: disable/uninstall Docker later
         } else {
             Write-Log "Install docker"
             if ($global:EnableTelemetry) {
