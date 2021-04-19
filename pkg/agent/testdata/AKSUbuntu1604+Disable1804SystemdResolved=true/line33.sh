@@ -41,7 +41,6 @@ wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FIL
 source /opt/azure/containers/provision_configs.sh
 cleanUpContainerd
 
-
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi

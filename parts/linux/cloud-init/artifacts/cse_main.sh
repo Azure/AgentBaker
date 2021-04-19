@@ -42,7 +42,7 @@ source {{GetCSEConfigScriptFilepath}}
 
 {{- if not NeedsContainerd}}
 cleanUpContainerd
-{{end}}
+{{- end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
