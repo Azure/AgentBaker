@@ -1654,6 +1654,14 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{- end}}
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
+
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA
 {{- end}}
@@ -1678,14 +1686,6 @@ else
 fi
 
 configureAdminUser
-
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
