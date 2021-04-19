@@ -91,8 +91,15 @@ configGPUDrivers() {
 
 disableSystemdTimesyncdAndEnableNTP() {
     # disable systemd-timesyncd
+    echo $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
     systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
     systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+
+    #testing purpose: check if the timeout constants are set
+     # Disable ntp
+    echo $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
 
     # install ntp
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
