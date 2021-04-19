@@ -96,10 +96,15 @@ disableSystemdTimesyncdAndEnableNTP() {
     systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
 
     #testing purpose: check if the timeout constants are set
-     # Disable ntp
-    echo $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
-    systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
-    systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    #first check if ntp is present, if yes then disable
+    status=$(systemctl show -p SubState --value ntp)
+    if [ $status == 'dead' ]; then
+        echo "ntp is removed, no need to disable"
+    else
+        echo "disable ntp"
+        systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+        systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    fi
 
     # install ntp
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
