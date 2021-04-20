@@ -91,9 +91,15 @@ disableNtpAndTimesyncdInstallChrony() {
     # Disable systemd-timesyncd
     systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
     systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-    # Disable ntp
-    systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
-    systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+
+    # Disable ntp if present
+    status=$(systemctl show -p SubState --value ntp)
+    if [ $status == 'dead' ]; then
+        echo "ntp is removed, no need to disable"
+    else
+        systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+        systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    fi
 
     # Install chrony
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
