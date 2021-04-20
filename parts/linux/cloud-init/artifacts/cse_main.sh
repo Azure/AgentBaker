@@ -52,12 +52,6 @@ fi
 configureHTTPProxyCA
 {{- end}}
 
-{{- if EnableChronyFor1804}}
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    disableNtpAndTimesyncdInstallChrony
-fi
-{{end}}
-
 disable1804SystemdResolved
 
 if [[ $OS == $COREOS_OS_NAME ]]; then
