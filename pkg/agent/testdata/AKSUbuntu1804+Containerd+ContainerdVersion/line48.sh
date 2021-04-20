@@ -87,20 +87,19 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-# this check is outside because installStandaloneContainerd is also called by install_dependencies.sh in VHD Builder
-
-    echo "Containerd version specified by RP"
-
-
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
+    
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
         CONTAINERD_VERSION="1.5.0-beta.git31a0f92df"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
     fi
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
