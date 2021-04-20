@@ -187,10 +187,8 @@ installStandaloneContainerd() {
         wait_for_apt_locks
         retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-        # runc rc93 has a regression that causes pods to be stuck in containercreation
-        # https://github.com/opencontainers/runc/issues/2865
-        apt_get_install 20 30 120 moby-runc=1.0.0~rc92* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
+    ensureRunc
 }
 
 downloadContainerd() {
@@ -217,6 +215,18 @@ installMoby() {
             MOBY_CLI="3.0.3"
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
+    ensureRunc
+}
+
+ensureRunc() {
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    local TARGET_VERSION="1.0.0~rc92"
+    # runc rc93 has a regression that causes pods to be stuck in containercreation
+    # https://github.com/opencontainers/runc/issues/2865
+    # not using semverCompare b/c we need to downgrade
+    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
+        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
 }
 

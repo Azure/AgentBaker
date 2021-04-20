@@ -1654,6 +1654,14 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{- end}}
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
+
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA
 {{- end}}
@@ -1672,14 +1680,6 @@ else
 fi
 
 configureAdminUser
-
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -3882,10 +3882,8 @@ installStandaloneContainerd() {
         wait_for_apt_locks
         retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-        # runc rc93 has a regression that causes pods to be stuck in containercreation
-        # https://github.com/opencontainers/runc/issues/2865
-        apt_get_install 20 30 120 moby-runc=1.0.0~rc92* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
+    ensureRunc
 }
 
 downloadContainerd() {
@@ -3912,6 +3910,18 @@ installMoby() {
             MOBY_CLI="3.0.3"
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
+    ensureRunc
+}
+
+ensureRunc() {
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    local TARGET_VERSION="1.0.0~rc92"
+    # runc rc93 has a regression that causes pods to be stuck in containercreation
+    # https://github.com/opencontainers/runc/issues/2865
+    # not using semverCompare b/c we need to downgrade
+    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
+        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
 }
 
@@ -5606,7 +5616,6 @@ try
                 $containerdTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
             }
-            # TODO: disable/uninstall Docker later
         } else {
             Write-Log "Install docker"
             if ($global:EnableTelemetry) {
@@ -6699,14 +6708,29 @@ function RegisterContainerDService {
   & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
   & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
 
-  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -eq $svc) {
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
-  }
-  Start-Service containerd
+  $retryCount=0
+  $retryInterval=10
+  $maxRetryCount=6 # 1 minutes
+
+  do {
+    $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
+    }
+    if ($svc.Status -eq "Running") {
+      break
+    }
+    Write-Log "Starting containerd, current status: $svc.Status"
+    Start-Service containerd
+    $retryCount++
+    Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
+    Sleep $retryInterval
+  } while ($retryCount -lt $maxRetryCount)
+
   if ($svc.Status -ne "Running") {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
+
 }
 
 function CreateHypervisorRuntime {
