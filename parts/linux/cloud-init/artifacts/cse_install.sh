@@ -215,7 +215,7 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
-        if [[ ${CLI_TOOL} == "crictl" ]]; then
+        if [[ ${CLI_TOOL:-"crictl"} == "crictl" ]]; then
             images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
@@ -229,7 +229,7 @@ cleanUpImages() {
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 {{if NeedsContainerd}}
-                removeContainerImage ${CLI_TOOL} ${image}
+                removeContainerImage ${CLI_TOOL:-"ctr"} ${image}
                 {{else}}
                 removeContainerImage "docker" ${image}
                 {{end}}
