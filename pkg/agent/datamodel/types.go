@@ -1426,15 +1426,6 @@ type NodeBootstrappingConfiguration struct {
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
 	KubeletClientTLSBootstrapToken *string
 	FIPSEnabled                    bool
-	HTTPProxyConfig                *HTTPProxyConfig
-}
-
-// HTTPProxyConfig represents configurations of http proxy
-type HTTPProxyConfig struct {
-	HTTPProxy  *string   `json:"httpProxy,omitempty"`
-	HTTPSProxy *string   `json:"httpsProxy,omitempty"`
-	NoProxy    *[]string `json:"noProxy,omitempty"`
-	TrustedCA  *string   `json:"trustedCa,omitempty"`
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
