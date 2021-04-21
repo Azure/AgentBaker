@@ -179,7 +179,6 @@ function Test-ImagesPulled {
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v1.2.1-alpha.1-windows-1809-amd64",
                 "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1.2",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.2",
