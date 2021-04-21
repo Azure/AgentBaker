@@ -72,7 +72,7 @@ fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
-  disableSystemdTimesyncdAndEnableNTP || exit 1
+  disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then

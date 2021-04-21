@@ -68,7 +68,7 @@ testImagesPulled() {
       download_URL=$(string_replace $downloadURL $version)
 
       if [[ $pulledImages =~ $downloadURL ]]; then
-        echo "Image ${download_URL} has been pulled Successfully"
+        echo "Image ${download_URL} pulled"
       else
         err $test "Image ${download_URL} has NOT been pulled"
       fi
@@ -95,22 +95,18 @@ testChrony() {
   test="testChrony"
   echo "$test:Start"
 
-  # ---- Setup ----
-  # TODO remove this installation call once chrony is installed in VHD itself
-  disableNtpAndTimesyncdInstallChrony  2>/dev/null
-
   # ---- Test Setup ----
   # Test ntp is not active
   status=$(systemctl show -p SubState --value ntp)
   if [ $status == 'dead' ]; then
-    echo "ntp is removed, as expected"
+    echo $test "ntp is removed, as expected"
   else
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
   status=$(systemctl show -p SubState --value chrony)
   if [ $status == 'running' ]; then
-    echo "chrony is running, as expected"
+    echo $test "chrony is running, as expected"
   else
     err $test "chrony is not running with status ${status}"
   fi
