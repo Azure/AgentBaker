@@ -167,7 +167,9 @@ cleanUpImages() {
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                removeContainerImage ${CLI_TOOL} ${image}
+                
+                removeContainerImage "docker" ${image}
+                
             done
         fi
     }
@@ -190,6 +192,7 @@ cleanUpKubeProxyImages() {
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
+    export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
