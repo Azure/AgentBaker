@@ -9,6 +9,13 @@ ERR_UA_DETACH=185 {{/* Error to detach UA */}}
 ERR_LINUX_HEADER_INSTALL_TIMEOUT=186 {{/* Timeout to install linux header */}}
 ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
 
+ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
+ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
+ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for systemd-timesyncd stop */}}
+ERR_STOP_OR_DISABLE_NTP_TIMEOUT=13 {{/* Timeout waiting for ntp stop */}}
+ERR_CHRONY_INSTALL_TIMEOUT=14 {{/*Unable to install CHRONY */}}
+ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
+
 echo "Sourcing tool_installs_ubuntu.sh"
 
 installAscBaseline() {
