@@ -96,7 +96,7 @@ disableNtpAndTimesyncdInstallChrony() {
     systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
 
     # Install chrony
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    # apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
     cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
