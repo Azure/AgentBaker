@@ -57,29 +57,4 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
 }
 
-disableSystemdResolvedCache() {
-    SERVICE_FILEPATH="/etc/systemd/system/resolv-uplink-override.service"
-    touch ${SERVICE_FILEPATH}
-    cat << EOF >> ${SERVICE_FILEPATH}
-[Unit]
-Description=Symlink /etc/resolv.conf to /run/systemd/resolve/resolv.conf
-After=systemd-networkd.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-RemainAfterExit=no
-
-[Install]
-RequiredBy=network-online.target kubelet.service
-EOF
-
-    systemctlEnableAndStart resolv-uplink-override || exit $ERR_SYSTEMCTL_START_FAIL
-
-}
-
-disableSystemdIptables() {
-    systemctlDisableAndStop iptables || exit $ERR_DISBALE_IPTABLES
-}
-
 #EOF
