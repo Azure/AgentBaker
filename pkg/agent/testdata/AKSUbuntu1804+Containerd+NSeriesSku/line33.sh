@@ -79,9 +79,10 @@ else
 fi
 
 installContainerRuntime
-installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
-CLI_TOOL="crictl"
+# crictl is not a critical component so continue with boostrapping if the install fails
+# CLI_TOOL is by default set to "ctr"
+installCrictl && CLI_TOOL="crictl"
 
 
 installNetworkPlugin
