@@ -1691,7 +1691,7 @@ configureAdminUser
 # crictl is not a critical component so continue with boostrapping if the install fails
 # CLI_TOOL is by default set to "ctr"
 installCrictl && CLI_TOOL="crictl"
-{{end}}
+{{- end}}
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -1713,9 +1713,9 @@ else
 fi
 
 installContainerRuntime
-{{- if NeedsContainerd and TeleportEnabled}}
+{{- if and NeedsContainerd TeleportEnabled}}
 installTeleportdPlugin
-{{end}}
+{{- end}}
 
 installNetworkPlugin
 
