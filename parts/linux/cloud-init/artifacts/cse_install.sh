@@ -145,7 +145,6 @@ extractHyperkube() {
     path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
     pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
     mkdir -p "$path"
-
     if [[ "$CLI_TOOL" == "ctr" ]]; then
         if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
@@ -174,7 +173,7 @@ installKubeletKubectlAndKubeProxy() {
             extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
         else
             if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                extractHyperkube "ctr"
+                extractHyperkube "ctr" #TODO: use crictl if installed though in theory after 1.19.x hyperkube is no longer used
             else
                 extractHyperkube "docker"
             fi
@@ -222,7 +221,7 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
-        if [[ ${CLI_TOOL} == "crictl" ]]; then
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
             images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
