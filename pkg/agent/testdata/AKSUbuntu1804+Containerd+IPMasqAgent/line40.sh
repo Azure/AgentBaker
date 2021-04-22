@@ -205,7 +205,7 @@ removeContainerImage() {
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl image rm $CONTAINER_IMAGE_URL
+        crictl rmi $CONTAINER_IMAGE_URL
     else
         docker image rm $CONTAINER_IMAGE_URL
     fi
@@ -216,7 +216,7 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         
-        if [[ ${CLI_TOOL:-"crictl"} == "crictl" ]]; then
+        if [[ ${CLI_TOOL} == "crictl" ]]; then
             images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
@@ -228,7 +228,7 @@ cleanUpImages() {
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 
-                removeContainerImage ${CLI_TOOL:-"ctr"} ${image}
+                removeContainerImage ${CLI_TOOL} ${image}
                 
             done
         fi

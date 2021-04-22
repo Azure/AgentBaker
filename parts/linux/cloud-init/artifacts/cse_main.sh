@@ -67,6 +67,13 @@ fi
 
 configureAdminUser
 
+{{- if NeedsContainerd}}
+# If crictl gets installed then use it as the cri cli instead of ctr
+# crictl is not a critical component so continue with boostrapping if the install fails
+# CLI_TOOL is by default set to "ctr"
+installCrictl && CLI_TOOL="crictl"
+{{end}}
+
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
@@ -87,14 +94,8 @@ else
 fi
 
 installContainerRuntime
-{{- if NeedsContainerd}}
-# If crictl gets installed then use it as the cri cli instead of ctr
-# crictl is not a critical component so continue with boostrapping if the install fails
-# CLI_TOOL is by default set to "ctr"
-installCrictl && CLI_TOOL="crictl"
-{{- if TeleportEnabled}}
+{{- if NeedsContainerd and TeleportEnabled}}
 installTeleportdPlugin
-{{end}}
 {{end}}
 
 installNetworkPlugin

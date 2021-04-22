@@ -149,7 +149,7 @@ removeContainerImage() {
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl image rm $CONTAINER_IMAGE_URL
+        crictl rmi $CONTAINER_IMAGE_URL
     else
         docker image rm $CONTAINER_IMAGE_URL
     fi
