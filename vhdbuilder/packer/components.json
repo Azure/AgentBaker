@@ -107,6 +107,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
+        "v0.0.16",
         "v0.0.15",
         "v0.0.13"
       ]
@@ -354,6 +355,16 @@
         "1.2.6",
         "1.2.7"
       ]
+    },
+    {
+      "fileName": "crictl-v*-linux-amd64.tar.gz",
+      "downloadLocation": "/opt/crictl/downloads",
+      "downloadURL": "https://github.com/kubernetes-sigs/cri-tools/releases/download/v*",
+      "versions": [
+        "1.19.0",
+        "1.20.0"
+      ],
+      "targetContainerRuntime": "containerd"
     }
   ]
 }

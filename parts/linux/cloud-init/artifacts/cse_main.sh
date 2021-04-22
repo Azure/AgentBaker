@@ -40,11 +40,17 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if EnableChronyFor1804}}
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    disableNtpAndTimesyncdInstallChrony
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{- end}}
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
 fi
-{{end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+{{- end}}
 
 disable1804SystemdResolved
 
@@ -60,14 +66,6 @@ else
 fi
 
 configureAdminUser
-
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -90,9 +88,10 @@ fi
 
 installContainerRuntime
 {{- if NeedsContainerd}}
-installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
-CLI_TOOL="crictl"
+# crictl is not a critical component so continue with boostrapping if the install fails
+# CLI_TOOL is by default set to "ctr"
+installCrictl && CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
 installTeleportdPlugin
 {{end}}

@@ -40,6 +40,10 @@ source /opt/azure/containers/provision_installs_distro.sh
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
 
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
+
 disable1804SystemdResolved
 
 if [[ $OS == $COREOS_OS_NAME ]]; then
@@ -54,10 +58,6 @@ else
 fi
 
 configureAdminUser
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -79,9 +79,10 @@ else
 fi
 
 installContainerRuntime
-installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
-CLI_TOOL="crictl"
+# crictl is not a critical component so continue with boostrapping if the install fails
+# CLI_TOOL is by default set to "ctr"
+installCrictl && CLI_TOOL="crictl"
 
 
 installNetworkPlugin

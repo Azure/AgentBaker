@@ -76,7 +76,8 @@ LOG "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settin
 
 $wuRegistryKeys = @(
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate",
-    "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+    "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
+    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"
 )
 
 foreach ($key in $wuRegistryKeys) {

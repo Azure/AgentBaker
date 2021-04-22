@@ -5,6 +5,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
+  containerRuntime=$1
   echo "$test:Start"
   filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
@@ -13,7 +14,11 @@ testFilesDownloaded() {
     downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
     versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
     download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-
+    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
+    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
+      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
+      continue
+    fi
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
       continue
@@ -23,16 +28,15 @@ testFilesDownloaded() {
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
       downloadURL=$(string_replace $download_URL $version)/$file_Name
-
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
       fi
-
-      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+      # -L since some urls are redirects (i.e github)
+      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
     done
@@ -64,7 +68,7 @@ testImagesPulled() {
       download_URL=$(string_replace $downloadURL $version)
 
       if [[ $pulledImages =~ $downloadURL ]]; then
-        echo "Image ${download_URL} has been pulled Successfully"
+        echo "Image ${download_URL} pulled"
       else
         err $test "Image ${download_URL} has NOT been pulled"
       fi
@@ -91,22 +95,18 @@ testChrony() {
   test="testChrony"
   echo "$test:Start"
 
-  # ---- Setup ----
-  # TODO remove this installation call once chrony is installed in VHD itself
-  disableNtpAndTimesyncdInstallChrony  2>/dev/null
-
   # ---- Test Setup ----
   # Test ntp is not active
   status=$(systemctl show -p SubState --value ntp)
   if [ $status == 'dead' ]; then
-    echo "ntp is removed, as expected"
+    echo $test "ntp is removed, as expected"
   else
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
   status=$(systemctl show -p SubState --value chrony)
   if [ $status == 'running' ]; then
-    echo "chrony is running, as expected"
+    echo $test "chrony is running, as expected"
   else
     err $test "chrony is not running with status ${status}"
   fi
@@ -299,7 +299,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-testFilesDownloaded
+testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
 testAuditDNotPresent

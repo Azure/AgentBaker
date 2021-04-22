@@ -57,7 +57,14 @@ installCrictl() {
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
     else
-        downloadCrictl ${CRICTL_VERSION}
+        # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
+        # if the vhd does not have crictl pre-baked, return early
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
+            rm -rf ${CRICTL_DOWNLOAD_DIR}
+            echo "pre-cached crictl not found: skipping installCrictl"
+            return 1
+        fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
@@ -182,7 +189,7 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         
-        if [[ ${CLI_TOOL} == "crictl" ]]; then
+        if [[ ${CLI_TOOL:-"crictl"} == "crictl" ]]; then
             images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
@@ -194,7 +201,7 @@ cleanUpImages() {
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 
-                removeContainerImage ${CLI_TOOL} ${image}
+                removeContainerImage ${CLI_TOOL:-"ctr"} ${image}
                 
             done
         fi

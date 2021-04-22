@@ -4,6 +4,10 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 
+#the following sed removes all comments of the format {{/* */}}
+sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
+sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
+
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -70,7 +74,7 @@ fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
-  disableSystemdTimesyncdAndEnableNTP || exit 1
+  disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
@@ -78,7 +82,10 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   containerd_version="1.5.0-beta.git31a0f92df"
   installStandaloneContainerd ${containerd_version}
   echo "  - containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
-  CRICTL_VERSIONS="1.19.0"
+  CRICTL_VERSIONS="
+  1.19.0
+  1.20.0
+  "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -97,6 +104,9 @@ else
   echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
   cliTool="docker"
 fi
+
+RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
@@ -222,14 +232,20 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_PLUGIN_VERSIONS="0.2"
+    SGX_PLUGIN_VERSIONS="
+    0.2
+    0.4
+    "
     for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_WEBHOOK_VERSIONS="0.6"
+    SGX_WEBHOOK_VERSIONS="
+    0.6
+    0.9
+    "
     for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}

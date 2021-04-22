@@ -58,7 +58,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file to $DestinationPath"
+        Write-Log "Downloaded file $Url to $DestinationPath"
     }
 }
 
@@ -344,4 +344,42 @@ function Check-APIServerConnectivity {
     } while ($retryCount -lt $MaxRetryCount)
 
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
+}
+
+function Get-CACertificates {
+    try {
+        Write-Log "Get CA certificates"
+        $caFolder = "C:\ca"
+        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+
+        if (-Not (Test-Path $caFolder)) {
+            Write-Log "Create folder $caFolder for storing CA certificates"
+            New-Item -ItemType Directory -Path $caFolder
+        }
+
+        Write-Log "Download CA certificates rawdata"
+        # This is required when the root CA certs are different for some clouds.
+        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        if ([string]::IsNullOrEmpty($rawData)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
+        }
+
+        Write-Log "Convert CA certificates rawdata"
+        $caCerts=($rawData.Content) | ConvertFrom-Json
+        if ([string]::IsNullOrEmpty($caCerts)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
+        }
+
+        $certificates = $caCerts.Certificates
+        for ($index = 0; $index -lt $certificates.Length ; $index++) {
+            $name=$certificates[$index].Name
+            $certFilePath = Join-Path $caFolder $name
+            Write-Log "Write certificate $name to $certFilePath"
+            $certificates[$index].CertBody > $certFilePath
+        }
+    }
+    catch {
+        # Catch all exceptions in this function. NOTE: exit cannot be caught.
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
+    }
 }

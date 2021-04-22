@@ -531,6 +531,31 @@ configureSwapFile() {
 }
 {{- end}}
 
+{{- if ShouldConfigureHTTPProxy}}
+configureEtcEnvironment() {
+    {{- if HasHTTPProxy }}
+    echo 'HTTP_PROXY="{{GetHTTPProxy}}"' >> /etc/environment
+    echo 'http_proxy="{{GetHTTPProxy}}"' >> /etc/environment
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    echo 'HTTPS_PROXY="{{GetHTTPSProxy}}"' >> /etc/environment
+    echo 'https_proxy="{{GetHTTPSProxy}}"' >> /etc/environment
+    {{- end}}
+    {{- if HasNoProxy }}
+    echo 'NO_PROXY="{{GetNoProxy}}"' >> /etc/environment
+    echo 'no_proxy="{{GetNoProxy}}"' >> /etc/environment
+    {{- end}}
+}
+{{- end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA() {
+    openssl x509 -outform der -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
+    rm -f /usr/local/share/ca-certificates/proxyCA.pem
+    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+}
+{{- end}}
+
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -801,6 +826,9 @@ ensureKubelet() {
     {{- end}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- if ShouldConfigureHTTPProxy}}
+    configureEtcEnvironment
+    {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasAntreaNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
@@ -1036,12 +1064,6 @@ ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
 ERR_HOLD_WALINUXAGENT=7 {{/* Unable to place walinuxagent apt package on hold during install */}}
 ERR_RELEASE_HOLD_WALINUXAGENT=8 {{/* Unable to release hold on walinuxagent apt package after install */}}
 ERR_APT_INSTALL_TIMEOUT=9 {{/* Timeout installing required apt packages */}}
-ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
-ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
-ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for systemd-timesyncd stop */}}
-ERR_STOP_OR_DISABLE_NTP_TIMEOUT=13 {{/* Timeout waiting for ntp stop */}}
-ERR_CHRONY_INSTALL_TIMEOUT=14 {{/*Unable to install CHRONY */}}
-ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
 ERR_DOCKER_INSTALL_TIMEOUT=20 {{/* Timeout waiting for docker install */}}
 ERR_DOCKER_DOWNLOAD_TIMEOUT=21 {{/* Timout waiting for docker downloads */}}
 ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 {{/* Timeout waiting to download docker repo key */}}
@@ -1109,6 +1131,9 @@ ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space fo
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
+
+ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
+ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1350,7 +1375,14 @@ installCrictl() {
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
     else
-        downloadCrictl ${CRICTL_VERSION}
+        # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
+        # if the vhd does not have crictl pre-baked, return early
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
+            rm -rf ${CRICTL_DOWNLOAD_DIR}
+            echo "pre-cached crictl not found: skipping installCrictl"
+            return 1
+        fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
@@ -1505,7 +1537,7 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
-        if [[ ${CLI_TOOL} == "crictl" ]]; then
+        if [[ ${CLI_TOOL:-"crictl"} == "crictl" ]]; then
             images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
@@ -1519,7 +1551,7 @@ cleanUpImages() {
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 {{if NeedsContainerd}}
-                removeContainerImage ${CLI_TOOL} ${image}
+                removeContainerImage ${CLI_TOOL:-"ctr"} ${image}
                 {{else}}
                 removeContainerImage "docker" ${image}
                 {{end}}
@@ -1628,11 +1660,17 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if EnableChronyFor1804}}
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    disableNtpAndTimesyncdInstallChrony
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{- end}}
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
 fi
-{{end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+{{- end}}
 
 disable1804SystemdResolved
 
@@ -1648,14 +1686,6 @@ else
 fi
 
 configureAdminUser
-
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -1678,9 +1708,10 @@ fi
 
 installContainerRuntime
 {{- if NeedsContainerd}}
-installCrictl
 # If crictl gets installed then use it as the cri cli instead of ctr
-CLI_TOOL="crictl"
+# crictl is not a critical component so continue with boostrapping if the install fails
+# CLI_TOOL is by default set to "ctr"
+installCrictl && CLI_TOOL="crictl"
 {{- if TeleportEnabled}}
 installTeleportdPlugin
 {{end}}
@@ -2466,6 +2497,9 @@ After=bind-mount.service
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
+{{- if ShouldConfigureHTTPProxy}}
+EnvironmentFile=/etc/environment
+{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -3755,76 +3789,7 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-disableNtpAndTimesyncdInstallChrony() {
-    # Disable systemd-timesyncd
-    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-    systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-    # Disable ntp
-    systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
-    systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
-
-    # Install chrony
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
-    cat > /etc/chrony/chrony.conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    systemctlEnableAndStart chrony || exit $ERR_CHRONY_START_TIMEOUT
-}
-
 {{- if NeedsContainerd}}
-
-# this check is outside because installStandaloneContainerd is also called by install_dependencies.sh in VHD Builder
-{{if HasContainerdVersion}}
-    echo "Containerd version specified by RP"
-{{else}}
-    echo "Containerd version not specified, use hardcoded version"
-{{end}}
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
@@ -3832,9 +3797,13 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
+    
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
         CONTAINERD_VERSION="1.5.0-beta.git31a0f92df"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
     fi
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
@@ -3849,10 +3818,8 @@ installStandaloneContainerd() {
         wait_for_apt_locks
         retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-        # runc rc93 has a regression that causes pods to be stuck in containercreation
-        # https://github.com/opencontainers/runc/issues/2865
-        apt_get_install 20 30 120 moby-runc=1.0.0~rc92* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
+    ensureRunc
 }
 
 downloadContainerd() {
@@ -3879,6 +3846,18 @@ installMoby() {
             MOBY_CLI="3.0.3"
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
+    ensureRunc
+}
+
+ensureRunc() {
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    local TARGET_VERSION="1.0.0~rc92"
+    # runc rc93 has a regression that causes pods to be stuck in containercreation
+    # https://github.com/opencontainers/runc/issues/2865
+    # not using semverCompare b/c we need to downgrade
+    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
+        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
 }
 
@@ -4187,6 +4166,45 @@ write_files:
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
 {{end}}
+
+{{- if ShouldConfigureHTTPProxy}}
+- path: /etc/apt/apt.conf.d/95proxy
+  permissions: "0644"
+  owner: root
+  content: |
+    {{- if HasHTTPProxy }}
+    Acquire::http::proxy "{{GetHTTPProxy}}";
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    Acquire::https::proxy "{{GetHTTPSProxy}}";
+    {{- end}}
+
+- path: /etc/systemd/system.conf.d/proxy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Manager]
+    {{- if HasHTTPProxy }}
+    DefaultEnvironment="HTTP_PROXY={{GetHTTPProxy}}"
+    DefaultEnvironment="http_proxy={{GetHTTPProxy}}"
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    DefaultEnvironment="HTTPS_PROXY={{GetHTTPSProxy}}"
+    DefaultEnvironment="https_proxy={{GetHTTPSProxy}}"
+    {{- end}}
+    {{- if HasNoProxy }}
+    DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
+    DefaultEnvironment="no_proxy={{GetNoProxy}}"
+    {{- end}}
+{{- end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+- path: /usr/local/share/ca-certificates/proxyCA.pem
+  permissions: "0644"
+  owner: root
+  content: |
+{{GetHTTPProxyCA}}
+{{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
@@ -4691,7 +4709,7 @@ state = "C:\\ProgramData\\containerd\\state"
 
 [debug]
   address = ""
-  level = "debug"
+  level = "info"
 
 [metrics]
   address = ""
@@ -4713,6 +4731,7 @@ state = "C:\\ProgramData\\containerd\\state"
     disable_http2_client = false
     [plugins.cri.containerd]
       snapshotter = "windows"
+      discard_unpacked_layers = true
       no_pivot = false
       [plugins.cri.containerd.default_runtime]
         runtime_type = "io.containerd.runhcs.v1"
@@ -4859,7 +4878,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file to $DestinationPath"
+        Write-Log "Downloaded file $Url to $DestinationPath"
     }
 }
 
@@ -5146,7 +5165,44 @@ function Check-APIServerConnectivity {
 
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
 }
-`)
+
+function Get-CACertificates {
+    try {
+        Write-Log "Get CA certificates"
+        $caFolder = "C:\ca"
+        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+
+        if (-Not (Test-Path $caFolder)) {
+            Write-Log "Create folder $caFolder for storing CA certificates"
+            New-Item -ItemType Directory -Path $caFolder
+        }
+
+        Write-Log "Download CA certificates rawdata"
+        # This is required when the root CA certs are different for some clouds.
+        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        if ([string]::IsNullOrEmpty($rawData)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
+        }
+
+        Write-Log "Convert CA certificates rawdata"
+        $caCerts=($rawData.Content) | ConvertFrom-Json
+        if ([string]::IsNullOrEmpty($caCerts)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
+        }
+
+        $certificates = $caCerts.Certificates
+        for ($index = 0; $index -lt $certificates.Length ; $index++) {
+            $name=$certificates[$index].Name
+            $certFilePath = Join-Path $caFolder $name
+            Write-Log "Write certificate $name to $certFilePath"
+            $certificates[$index].CertBody > $certFilePath
+        }
+    }
+    catch {
+        # Catch all exceptions in this function. NOTE: exit cannot be caught.
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
+    }
+}`)
 
 func windowsKuberneteswindowsfunctionsPs1Bytes() ([]byte, error) {
 	return _windowsKuberneteswindowsfunctionsPs1, nil
@@ -5468,6 +5524,18 @@ try
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
+        Write-Log "Download kubelet binaries and unzip"
+        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
+
+        # This overwrites the binaries that are downloaded from the custom packge with binaries.
+        # The custom package has a few files that are necessary for future steps (nssm.exe)
+        # this is a temporary work around to get the binaries until we depreciate
+        # custom package and nssm.exe as defined in aks-engine#3851.
+        if ($global:WindowsKubeBinariesURL){
+            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
+            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
+        }
+
         if ($useContainerD) {
             Write-Log "Installing ContainerD"
             if ($global:EnableTelemetry) {
@@ -5479,12 +5547,11 @@ try
                 $cniBinPath = $global:CNIPath
                 $cniConfigPath = $global:CNIConfigPath
             }
-            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath
+            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
             if ($global:EnableTelemetry) {
                 $containerdTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
             }
-            # TODO: disable/uninstall Docker later
         } else {
             Write-Log "Install docker"
             if ($global:EnableTelemetry) {
@@ -5496,18 +5563,6 @@ try
                 $dockerTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-Docker", $dockerTimer.Elapsed.TotalSeconds)
             }
-        }
-
-        Write-Log "Download kubelet binaries and unzip"
-        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-        # this overwrite the binaries that are download from the custom packge with binaries
-        # The custom package has a few files that are nessary for future steps (nssm.exe)
-        # this is a temporary work around to get the binaries until we depreciate
-        # custom package and nssm.exe as defined in #3851.
-        if ($global:WindowsKubeBinariesURL){
-            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
         }
 
         # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
@@ -5540,6 +5595,8 @@ try
         $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
         $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
         [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
+
+        Get-CACertificates
         {{end}}
 
         Write-Log "Write ca root"
@@ -6554,25 +6611,62 @@ func windowsWindowsconfigfuncPs1() (*asset, error) {
 
 var _windowsWindowscontainerdfuncPs1 = []byte(`# this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
+$global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
 function RegisterContainerDService {
-  Assert-FileExists (Join-Path $global:ContainerdInstallLocation containerd.exe)
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $kubedir
+  )
+
+  Assert-FileExists $global:Containerdbinary
+
+  # in the past service was not installed via nssm so remove it in case
+  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+  if ($null -ne $svc) {
+    sc.exe delete containerd
+  }
 
   Write-Log "Registering containerd as a service"
-  $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
-  $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    & $cdbinary --unregister-service
-  }
-  & $cdbinary --register-service
-  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -eq $svc) {
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
-  }
-  $svc | Start-Service
+  # setup containerd
+  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
+
+  $retryCount=0
+  $retryInterval=10
+  $maxRetryCount=6 # 1 minutes
+
+  do {
+    $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
+    }
+    if ($svc.Status -eq "Running") {
+      break
+    }
+    Write-Log "Starting containerd, current status: $svc.Status"
+    Start-Service containerd
+    $retryCount++
+    Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
+    Sleep $retryInterval
+  } while ($retryCount -lt $maxRetryCount)
+
   if ($svc.Status -ne "Running") {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
+
 }
 
 function CreateHypervisorRuntime {
@@ -6659,7 +6753,9 @@ function Install-Containerd {
     [Parameter(Mandatory = $true)][string]
     $CNIBinDir,
     [Parameter(Mandatory = $true)][string]
-    $CNIConfDir
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
   )
 
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
@@ -6690,7 +6786,6 @@ function Install-Containerd {
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
-  $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
   $pauseImage = $clusterConfig.Cri.Images.Pause
@@ -6724,7 +6819,7 @@ function Install-Containerd {
   Replace('{{currentversion}}', $windowsVersion) | `+"`"+`
     Out-File -FilePath "$configFile" -Encoding ascii
 
-  RegisterContainerDService
+  RegisterContainerDService -KubeDir $KubeDir
   Enable-Logging
 }
 `)
@@ -6789,7 +6884,10 @@ $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
 $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
 $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
 $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
-$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18`)
+$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
+$global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
