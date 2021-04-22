@@ -57,7 +57,14 @@ installCrictl() {
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
     else
-        downloadCrictl ${CRICTL_VERSION}
+        # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
+        # if the vhd does not have crictl pre-baked, return early
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
+            rm -rf ${CRICTL_DOWNLOAD_DIR}
+            echo "pre-cached crictl not found: skipping installCrictl"
+            return 1
+        fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
