@@ -180,6 +180,7 @@ function Test-ImagesPulled {
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.2",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
                 "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.0.0",
