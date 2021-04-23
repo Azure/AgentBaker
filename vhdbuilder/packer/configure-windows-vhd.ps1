@@ -356,8 +356,14 @@ function Set-WinRmServiceDelayedStart {
     sc.exe config winrm start=delayed-auto
 }
 
+# Best effort to update defender signatures
+# This can fail if there is already a signature
+# update running which means we will get them anyways
+# Also at the time the VM is provisioned Defender will trigger any required updates
 function Update-DefenderSignatures {
     Write-Log "Updating windows defender signatures."
+    $service = Get-Service "Windefend"
+    $service.WaitForStatus("Running","00:5:00")
     Update-MpSignature
 }
 
