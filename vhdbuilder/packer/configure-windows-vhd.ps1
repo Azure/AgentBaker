@@ -418,11 +418,11 @@ if (-not ($validSKU -contains $windowsSKU)) {
 switch ($env:ProvisioningPhase) {
     "1" {
         Write-Log "Performing actions for provisioning phase 1"
-        Set-WinRmServiceDelayedStart
-        Set-AllowedSecurityProtocols
         Disable-WindowsUpdates
-        Install-WindowsPatches
+        Set-WinRmServiceDelayedStart
         Update-DefenderSignatures
+        Set-AllowedSecurityProtocols
+        Install-WindowsPatches
         Install-OpenSSH
         Update-WindowsFeatures
     }
