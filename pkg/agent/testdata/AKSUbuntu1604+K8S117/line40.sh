@@ -83,7 +83,6 @@ extractHyperkube() {
     path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
     pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
     mkdir -p "$path"
-
     if [[ "$CLI_TOOL" == "ctr" ]]; then
         if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
@@ -149,7 +148,7 @@ removeContainerImage() {
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl image rm $CONTAINER_IMAGE_URL
+        crictl rmi $CONTAINER_IMAGE_URL
     else
         docker image rm $CONTAINER_IMAGE_URL
     fi
@@ -192,6 +191,7 @@ cleanUpKubeProxyImages() {
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
+    export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
