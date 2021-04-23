@@ -215,7 +215,7 @@ function Test-ImagesPulled {
     }
     elseif ($containerRuntime -eq 'docker') {
         Start-Service docker
-        $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}" 2> dockerError.log
+        $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
 
     }
     else {
