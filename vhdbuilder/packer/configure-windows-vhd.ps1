@@ -114,6 +114,7 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0",
                 "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.0",
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.2",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
                 "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.0.0",
@@ -180,9 +181,8 @@ function Get-FilesToCacheOnVHD {
             "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
             "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
             "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.8.zip",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.10.zip",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.12.zip"
+            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.12.zip",
+            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.13.zip"
         );
         "c:\akse-cache\containerd\"   = @(
             $global:containerdPackageUrl

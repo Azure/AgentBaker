@@ -46,11 +46,6 @@ fi
 
 disable1804SystemdResolved
 
-if [[ $OS == $COREOS_OS_NAME ]]; then
-    echo "Changing default kubectl bin location"
-    KUBECTL=/opt/kubectl
-fi
-
 if [ -f /var/run/reboot-required ]; then
     REBOOTREQUIRED=true
 else
@@ -88,9 +83,7 @@ installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy
 
-if [[ $OS != $COREOS_OS_NAME ]]; then
-    ensureRPC
-fi
+ensureRPC
 
 createKubeManifestDir
 
