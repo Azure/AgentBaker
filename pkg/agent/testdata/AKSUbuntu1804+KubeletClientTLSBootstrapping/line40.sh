@@ -111,7 +111,7 @@ installKubeletKubectlAndKubeProxy() {
             extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
         else
             if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                extractHyperkube "ctr" #TODO: use crictl if installed though in theory after 1.19.x hyperkube is no longer used
+                extractHyperkube "ctr"
             else
                 extractHyperkube "docker"
             fi
