@@ -77,6 +77,11 @@ if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    disableSystemdResolvedCache
+    disableSystemdIptables
+fi
+
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
   containerd_version="1.5.0-beta.git31a0f92df"
