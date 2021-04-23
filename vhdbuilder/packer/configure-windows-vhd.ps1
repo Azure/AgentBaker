@@ -292,8 +292,14 @@ function Install-OpenSSH {
 function Install-WindowsPatches {
     # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
     # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
-
-    $patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/04/windows10.0-kb5001342-x64_ddf38137b7616d101d9f82dcf7b9c6b2ae6be327.msu")
+    #
+    # IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C: 
+    # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
+    # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU. 
+    $patchUrls = @(
+        "http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/04/windows10.0-kb5001407-x64_6dfbd9b5e713826ad84194d4e72fef836db9e1e2.msu",
+        "http://download.windowsupdate.com/c/msdownload/update/software/updt/2021/04/windows10.0-kb5001384-x64_8f4e0a94fa9bb9b02639a86441b93e33191f81cf.msu"
+    )
 
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
