@@ -132,15 +132,6 @@ else {
   Write-Host "Calico logs not avalaible"
 }
 
-# log containerd containers (this is done for docker via networking collectlogs.ps1)
-$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
-if ($res) {
-  & ctr.exe -n k8s.io c ls > "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
-}
-
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
 Compress-Archive -LiteralPath $paths -DestinationPath $zipName
