@@ -214,7 +214,9 @@ function Test-ImagesPulled {
         $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
     }
     elseif ($containerRuntime -eq 'docker') {
+        Start-Service docker
         $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
+
     }
     else {
         Write-Error "unsupported container runtime $containerRuntime"
