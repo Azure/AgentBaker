@@ -53,30 +53,6 @@ steps:
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
-  - script: |
-        OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-        -e OS_DISK_URI=${OS_DISK_URI} \
-        -e AZURE_LOCATION=${AZURE_LOCATION} \
-        -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
-        -e OS_VERSION=${OS_VERSION} \
-        -e OS_SKU=${OS_SKU} \
-        -e OS_TYPE="Linux" \
-        -e MODE=$(MODE) \
-        -e VHD_DEBUG=${VHD_DEBUG} \
-        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-        -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-        -e ENABLE_FIPS=${ENABLE_FIPS} \
-        ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
-    displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
