@@ -1,6 +1,5 @@
 #!/bin/bash
 set -eux
-
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"

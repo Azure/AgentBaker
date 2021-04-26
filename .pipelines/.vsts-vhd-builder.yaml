@@ -121,7 +121,7 @@ phases:
           -e OS_DISK_SAS=${OS_DISK_SAS} \
           ${CONTAINER_IMAGE} make -f packer.mk az-copy
         displayName: Copying resource to Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+        condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
       - bash: |
           echo MODE=$(MODE) && \
           PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -166,7 +166,7 @@ phases:
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
         displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-        condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+        condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
       - bash: |
           echo MODE=$(MODE) && \
           if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
@@ -194,9 +194,9 @@ phases:
           -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
         displayName: Getting Shared Access Signature URI
-        condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
+        condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
       - task: PublishPipelineArtifact@1
         inputs:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
-        condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+        condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
