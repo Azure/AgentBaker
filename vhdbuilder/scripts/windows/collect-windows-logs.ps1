@@ -84,7 +84,7 @@ if ((Test-Path "$Env:ProgramFiles\containerd\diag.ps1") -And (Test-Path "$Env:Pr
   $paths += $hypervlogs
 }
 else {
-  Write-Host "Containerd hyperv logs not avalaible"
+  Write-Host "Containerd hyperv logs not available"
 }
 
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
@@ -100,7 +100,7 @@ if ($res) {
   $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
 }
 else {
-  Write-Host "ctr.exe command not avaiable"
+  Write-Host "ctr.exe command not available"
 }
 
 # Containerd panic log is outside the c:\k folder
@@ -113,7 +113,7 @@ if (Test-Path $containerdPanicLog) {
   }
 }
 else {
-  Write-Host "Containerd panic logs not avalaible"
+  Write-Host "Containerd panic logs not available"
 }
 
 Write-Host "Collecting calico logs"
@@ -129,7 +129,7 @@ if (Test-Path "c:\CalicoWindows\logs") {
   }
 }
 else {
-  Write-Host "Calico logs not avalaible"
+  Write-Host "Calico logs not available"
 }
 
 Write-Host "Compressing all logs to $zipName"
