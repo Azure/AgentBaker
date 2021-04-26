@@ -48,19 +48,6 @@ $lockedFiles | Foreach-Object {
   }
 }
 
-# Containerd log is outside the c:\k folder
-Write-Host "Collecting containerd panic logs"
-$containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
-if (Test-Path $containerdPanicLog) {
-  $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
-  if ($tempFile) {
-    $paths += $tempFile
-  }
-}
-else {
-  Write-Host "Containerd panic logs not avalaible"
-}
-
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
@@ -114,6 +101,19 @@ if ($res) {
 }
 else {
   Write-Host "ctr.exe command not avaiable"
+}
+
+# Containerd log is outside the c:\k folder
+Write-Host "Collecting containerd panic logs"
+$containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
+if (Test-Path $containerdPanicLog) {
+  $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
+}
+else {
+  Write-Host "Containerd panic logs not avalaible"
 }
 
 Write-Host "Collecting calico logs"
