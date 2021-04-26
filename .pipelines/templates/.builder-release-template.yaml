@@ -96,7 +96,7 @@ steps:
         -e OS_DISK_SAS=${OS_DISK_SAS} \
         ${CONTAINER_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -171,12 +171,12 @@ steps:
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
-    condition: and(eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
-    condition: and(eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - task: UniversalPackages@0
     displayName: Universal Publish
     inputs:
