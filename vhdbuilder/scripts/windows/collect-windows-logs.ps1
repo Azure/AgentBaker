@@ -48,19 +48,6 @@ $lockedFiles | Foreach-Object {
   }
 }
 
-# Containerd log is outside the c:\k folder
-Write-Host "Collecting containerd panic logs"
-$containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
-if (Test-Path $containerdPanicLog) {
-  $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
-  if ($tempFile) {
-    $paths += $tempFile
-  }
-}
-else {
-  Write-Host "Containerd panic logs not avalaible"
-}
-
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
@@ -97,7 +84,7 @@ if ((Test-Path "$Env:ProgramFiles\containerd\diag.ps1") -And (Test-Path "$Env:Pr
   $paths += $hypervlogs
 }
 else {
-  Write-Host "Containerd hyperv logs not avalaible"
+  Write-Host "Containerd hyperv logs not available"
 }
 
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
@@ -113,7 +100,20 @@ if ($res) {
   $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
 }
 else {
-  Write-Host "ctr.exe command not avaiable"
+  Write-Host "ctr.exe command not available"
+}
+
+# Containerd panic log is outside the c:\k folder
+Write-Host "Collecting containerd panic logs"
+$containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
+if (Test-Path $containerdPanicLog) {
+  $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
+}
+else {
+  Write-Host "Containerd panic logs not available"
 }
 
 Write-Host "Collecting calico logs"
@@ -129,16 +129,7 @@ if (Test-Path "c:\CalicoWindows\logs") {
   }
 }
 else {
-  Write-Host "Calico logs not avalaible"
-}
-
-# log containerd containers (this is done for docker via networking collectlogs.ps1)
-$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
-if ($res) {
-  & ctr.exe -n k8s.io c ls > "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+  Write-Host "Calico logs not available"
 }
 
 Write-Host "Compressing all logs to $zipName"
