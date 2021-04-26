@@ -103,7 +103,7 @@ else {
   Write-Host "ctr.exe command not avaiable"
 }
 
-# Containerd log is outside the c:\k folder
+# Containerd panic log is outside the c:\k folder
 Write-Host "Collecting containerd panic logs"
 $containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
 if (Test-Path $containerdPanicLog) {
