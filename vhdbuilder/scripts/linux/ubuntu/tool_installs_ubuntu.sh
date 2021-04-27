@@ -122,9 +122,6 @@ installFIPS() {
     echo "enabling ua fips..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips || exit $ERR_UA_ENABLE_FIPS
 
-    echo "installing strongswan..."
-    apt_get_install 5 10 120 strongswan=5.6.2-1ubuntu2.fips.2.4.2 || exit $ERR_STRONGSWAN_INSTALL_TIMEOUT
-
     # workaround to make GPU provisioning in CSE work
     # under /usr/src/linux-headers-4.15.0-1002-azure-fips there are some dangling symlinks to non-existing linux-azure-headers-4.15.0-1002
     # this causes command '/usr/sbin/dkms build -m nvidia -v 450.51.06 -k 4.15.0-1002-azure-fips' for GPU provisioning in CSE to fail
