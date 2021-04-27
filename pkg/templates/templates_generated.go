@@ -6864,16 +6864,16 @@ function Create-Directory
 {
     Param(
         [Parameter(Mandatory=$true)][string]
-        $Folder,
+        $Name,
         [Parameter(Mandatory=$false)][string]
-        $FolderUsage = "general purpose"
+        $DirectoryUsage = "general purpose"
     )
     
-    if (-Not (Test-Path $Folder)) {
-        Write-Log "Create folder $Folder for $FolderUsage"
-        New-Item -ItemType Directory -Path $Folder > $null
+    if (-Not (Test-Path $Name)) {
+        Write-Log "Create directory $Name for $DirectoryUsage"
+        New-Item -ItemType Directory -Path $Name > $null
     } else {
-        Write-Log "Folder $Folder for $FolderUsage exists"
+        Write-Log "Directory $Name for $DirectoryUsage exists"
     }
 }
 
