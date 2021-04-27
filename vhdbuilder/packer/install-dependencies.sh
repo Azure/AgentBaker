@@ -87,6 +87,10 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   containerd_version="1.4.4"
   installStandaloneContainerd ${containerd_version}
   echo "  - containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+  # also pre-cache containerd 1.5 for ACC as a local .deb file
+  containerd_version="1.5.0-beta.git31a0f92df"
+  downloadContainerd ${containerd_version}
+  echo "  - containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
