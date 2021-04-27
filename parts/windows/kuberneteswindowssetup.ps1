@@ -225,7 +225,7 @@ try
 
             $configAppInsightsClientTimer = [System.Diagnostics.Stopwatch]::StartNew()
             # Get app insights binaries and set up app insights client
-            Create-Directory -Folder c:\k\appinsights -FolderUsage "storing appinsights"
+            Create-Directory -FullPath c:\k\appinsights -DirectoryUsage "storing appinsights"
             DownloadFileOverHttp -Url "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg" -DestinationPath "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip"
             Expand-Archive -Path "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip" -DestinationPath "c:\k\appinsights"
             $appInsightsDll = "c:\k\appinsights\lib\net46\Microsoft.ApplicationInsights.dll"
@@ -298,7 +298,7 @@ try
         Write-Log "Create required data directories as needed"
         Initialize-DataDirectories
 
-        Create-Directory -Folder "c:\k"
+        Create-Directory -FullPath "c:\k"
         Get-ProvisioningScripts
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp

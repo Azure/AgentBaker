@@ -28,8 +28,8 @@ Install-VnetPlugins
         $VNetCNIPluginsURL
     )
     # Create CNI directories.
-    Create-Directory -Folder $AzureCNIBinDir -FolderUsage "storing Azure CNI binaries"
-    Create-Directory -Folder $AzureCNIConfDir -FolderUsage "storing Azure CNI configuration"
+    Create-Directory -FullPath $AzureCNIBinDir -DirectoryUsage "storing Azure CNI binaries"
+    Create-Directory -FullPath $AzureCNIConfDir -DirectoryUsage "storing Azure CNI configuration"
 
     # Download Azure VNET CNI plugins.
     # Mirror from https://github.com/Azure/azure-container-networking/releases

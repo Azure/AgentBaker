@@ -123,7 +123,7 @@ function Initialize-DataDirectories {
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
-        Create-Directory -Folder $_
+        Create-Directory -FullPath $_
     }
 }
 
@@ -182,7 +182,7 @@ function Invoke-Executable {
 
 function Get-LogCollectionScripts {
     Write-Log "Getting various log collect scripts and depencencies"
-    Create-Directory -Folder 'c:\k\debug' -FolderUsage "storing debug scripts"
+    Create-Directory -FullPath 'c:\k\debug' -DirectoryUsage "storing debug scripts"
     DownloadFileOverHttp -Url 'https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1' -DestinationPath 'c:\k\debug\collect-windows-logs.ps1'
     DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1' -DestinationPath 'c:\k\debug\collectlogs.ps1'
     DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1' -DestinationPath 'c:\k\debug\dumpVfpPolicies.ps1'
@@ -350,7 +350,7 @@ function Get-CACertificates {
         $caFolder = "C:\ca"
         $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
 
-        Create-Directory -Folder $caFolder -FolderUsage "storing CA certificates"
+        Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
 
         Write-Log "Download CA certificates rawdata"
         # This is required when the root CA certs are different for some clouds.

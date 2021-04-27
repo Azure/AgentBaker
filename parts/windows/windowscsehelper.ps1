@@ -30,16 +30,16 @@ function Create-Directory
 {
     Param(
         [Parameter(Mandatory=$true)][string]
-        $Name,
+        $FullPath,
         [Parameter(Mandatory=$false)][string]
         $DirectoryUsage = "general purpose"
     )
     
-    if (-Not (Test-Path $Name)) {
-        Write-Log "Create directory $Name for $DirectoryUsage"
-        New-Item -ItemType Directory -Path $Name > $null
+    if (-Not (Test-Path $FullPath)) {
+        Write-Log "Create directory $FullPath for $DirectoryUsage"
+        New-Item -ItemType Directory -Path $FullPath > $null
     } else {
-        Write-Log "Directory $Name for $DirectoryUsage exists"
+        Write-Log "Directory $FullPath for $DirectoryUsage exists"
     }
 }
 

@@ -4941,7 +4941,7 @@ function Initialize-DataDirectories {
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
-        Create-Directory -Folder $_
+        Create-Directory -FullPath $_
     }
 }
 
@@ -5000,7 +5000,7 @@ function Invoke-Executable {
 
 function Get-LogCollectionScripts {
     Write-Log "Getting various log collect scripts and depencencies"
-    Create-Directory -Folder 'c:\k\debug' -FolderUsage "storing debug scripts"
+    Create-Directory -FullPath 'c:\k\debug' -DirectoryUsage "storing debug scripts"
     DownloadFileOverHttp -Url 'https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1' -DestinationPath 'c:\k\debug\collect-windows-logs.ps1'
     DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1' -DestinationPath 'c:\k\debug\collectlogs.ps1'
     DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1' -DestinationPath 'c:\k\debug\dumpVfpPolicies.ps1'
@@ -5168,7 +5168,7 @@ function Get-CACertificates {
         $caFolder = "C:\ca"
         $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
 
-        Create-Directory -Folder $caFolder -FolderUsage "storing CA certificates"
+        Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
 
         Write-Log "Download CA certificates rawdata"
         # This is required when the root CA certs are different for some clouds.
@@ -5439,7 +5439,7 @@ try
 
             $configAppInsightsClientTimer = [System.Diagnostics.Stopwatch]::StartNew()
             # Get app insights binaries and set up app insights client
-            Create-Directory -Folder c:\k\appinsights -FolderUsage "storing appinsights"
+            Create-Directory -FullPath c:\k\appinsights -DirectoryUsage "storing appinsights"
             DownloadFileOverHttp -Url "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg" -DestinationPath "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip"
             Expand-Archive -Path "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip" -DestinationPath "c:\k\appinsights"
             $appInsightsDll = "c:\k\appinsights\lib\net46\Microsoft.ApplicationInsights.dll"
@@ -5512,7 +5512,7 @@ try
         Write-Log "Create required data directories as needed"
         Initialize-DataDirectories
 
-        Create-Directory -Folder "c:\k"
+        Create-Directory -FullPath "c:\k"
         Get-ProvisioningScripts
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
@@ -5825,8 +5825,8 @@ Install-VnetPlugins
         $VNetCNIPluginsURL
     )
     # Create CNI directories.
-    Create-Directory -Folder $AzureCNIBinDir -FolderUsage "storing Azure CNI binaries"
-    Create-Directory -Folder $AzureCNIConfDir -FolderUsage "storing Azure CNI configuration"
+    Create-Directory -FullPath $AzureCNIBinDir -DirectoryUsage "storing Azure CNI binaries"
+    Create-Directory -FullPath $AzureCNIConfDir -DirectoryUsage "storing Azure CNI configuration"
 
     # Download Azure VNET CNI plugins.
     # Mirror from https://github.com/Azure/azure-container-networking/releases
@@ -6730,7 +6730,7 @@ function Enable-Logging {
     $logs = Join-path $pwd.drive.Root logs
     Write-Log "Containerd hyperv logging enabled; temp location $logs"
     $diag = Join-Path $global:ContainerdInstallLocation diag.ps1
-    Create-Directory -Folder $logs -FolderUsage "storing containerd logs"
+    Create-Directory -FullPath $logs -DirectoryUsage "storing containerd logs"
     # !ContainerPlatformPersistent profile is made to work with long term and boot tracing
     & $diag -Start -ProfilePath "$global:ContainerdInstallLocation\ContainerPlatform.wprp!ContainerPlatformPersistent" -TempPath $logs
   }
@@ -6770,7 +6770,7 @@ function Install-Containerd {
     # upstream containerd package is a tar 
     $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
-    Create-Directory -Folder $global:ContainerdInstallLocation -FolderUsage "storing containerd"
+    Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
     del $tarfile
@@ -6864,16 +6864,16 @@ function Create-Directory
 {
     Param(
         [Parameter(Mandatory=$true)][string]
-        $Name,
+        $FullPath,
         [Parameter(Mandatory=$false)][string]
         $DirectoryUsage = "general purpose"
     )
     
-    if (-Not (Test-Path $Name)) {
-        Write-Log "Create directory $Name for $DirectoryUsage"
-        New-Item -ItemType Directory -Path $Name > $null
+    if (-Not (Test-Path $FullPath)) {
+        Write-Log "Create directory $FullPath for $DirectoryUsage"
+        New-Item -ItemType Directory -Path $FullPath > $null
     } else {
-        Write-Log "Directory $Name for $DirectoryUsage exists"
+        Write-Log "Directory $FullPath for $DirectoryUsage exists"
     }
 }
 
@@ -7415,7 +7415,7 @@ Get-KubeBinaries {
 
     # copy binaries over to kube folder
     $windowsbinariespath = "c:\k\"
-    Create-Directory -Folder $windowsbinariespath
+    Create-Directory -FullPath $windowsbinariespath
     cp $tempdir\kubernetes\node\bin\* $windowsbinariespath -Recurse
 
     #remove temp folder created when unzipping
