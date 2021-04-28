@@ -26,6 +26,23 @@ function Postpone-RestartComputer
     Write-Log "Created an one-time task to restart the VM"
 }
 
+function Create-Directory
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $FullPath,
+        [Parameter(Mandatory=$false)][string]
+        $DirectoryUsage = "general purpose"
+    )
+    
+    if (-Not (Test-Path $FullPath)) {
+        Write-Log "Create directory $FullPath for $DirectoryUsage"
+        New-Item -ItemType Directory -Path $FullPath > $null
+    } else {
+        Write-Log "Directory $FullPath for $DirectoryUsage exists"
+    }
+}
+
 $global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
 $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3

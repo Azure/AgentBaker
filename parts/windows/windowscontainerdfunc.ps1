@@ -126,7 +126,7 @@ function Enable-Logging {
     $logs = Join-path $pwd.drive.Root logs
     Write-Log "Containerd hyperv logging enabled; temp location $logs"
     $diag = Join-Path $global:ContainerdInstallLocation diag.ps1
-    mkdir -Force $logs
+    Create-Directory -FullPath $logs -DirectoryUsage "storing containerd logs"
     # !ContainerPlatformPersistent profile is made to work with long term and boot tracing
     & $diag -Start -ProfilePath "$global:ContainerdInstallLocation\ContainerPlatform.wprp!ContainerPlatformPersistent" -TempPath $logs
   }
@@ -166,7 +166,7 @@ function Install-Containerd {
     # upstream containerd package is a tar 
     $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
-    mkdir -Force $global:ContainerdInstallLocation
+    Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
     del $tarfile

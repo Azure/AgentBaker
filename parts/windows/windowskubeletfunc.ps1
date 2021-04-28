@@ -335,9 +335,7 @@ Get-KubeBinaries {
 
     # copy binaries over to kube folder
     $windowsbinariespath = "c:\k\"
-    if (!(Test-path $windowsbinariespath)) {
-        mkdir $windowsbinariespath
-    }
+    Create-Directory -FullPath $windowsbinariespath
     cp $tempdir\kubernetes\node\bin\* $windowsbinariespath -Recurse
 
     #remove temp folder created when unzipping
