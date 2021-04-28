@@ -78,20 +78,6 @@ $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Objec
 $paths += $netLogs
 $paths += "c:\AzureData\CustomDataSetupScript.log"
 
-Write-Host "Collecting containerd hyperv logs"
-if ((Test-Path "$Env:ProgramFiles\containerd\diag.ps1") -And (Test-Path "$Env:ProgramFiles\containerd\ContainerPlatform.wprp")) {
-  $tempHyperv = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
-  New-Item -Type Directory $tempHyperv
-  $persistedLogs = "c:\logs"
-  # there will either be an error collecting "bootlogs" or "trace profiles" as only one will be active at time. This will be fixed in future release of the script
-  & $Env:ProgramFiles\containerd\diag.ps1 -Snap -ProfilePath "$Env:ProgramFiles\containerd\ContainerPlatform.wprp!ContainerPlatformPersistent" -TraceDirPath "$tempHyperv" -TempPath $persistedLogs
-  $hypervlogs = (Get-ChildItem -Path $tempHyperv | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-  $paths += $hypervlogs
-}
-else {
-  Write-Host "Containerd hyperv logs not available"
-}
-
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
 Write-Host "Collecting Containerd running containers"
 $res = Get-Command ctr.exe -ErrorAction SilentlyContinue
