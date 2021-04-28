@@ -1617,14 +1617,6 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
-
 {{- if EnableChronyFor1804}}
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
     disableNtpAndTimesyncdInstallChrony
@@ -1645,6 +1637,14 @@ else
 fi
 
 configureAdminUser
+
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{end}}
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -2290,7 +2290,7 @@ sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 systemctl stop systemd-timesyncd
 systemctl disable systemd-timesyncd
 
-#apt-get update
+apt-get update
 apt-get install chrony -y
 cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
@@ -3592,7 +3592,7 @@ apt_get_install() {
             return 1
         else
             sleep $wait_sleep
-            # apt_get_update
+            apt_get_update
         fi
     done
     echo Executed apt-get install --no-install-recommends -y \"$@\" $i times;
@@ -3750,7 +3750,7 @@ disableNtpAndTimesyncdInstallChrony() {
     systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
 
     # Install chrony
-    # apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
     cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more

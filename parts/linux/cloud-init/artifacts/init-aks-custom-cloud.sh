@@ -35,7 +35,7 @@ sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 systemctl stop systemd-timesyncd
 systemctl disable systemd-timesyncd
 
-#apt-get update
+apt-get update
 apt-get install chrony -y
 cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more

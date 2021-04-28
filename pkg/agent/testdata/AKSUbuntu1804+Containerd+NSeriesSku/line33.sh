@@ -40,10 +40,6 @@ source /opt/azure/containers/provision_installs_distro.sh
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
 
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
-
 disable1804SystemdResolved
 
 if [[ $OS == $COREOS_OS_NAME ]]; then
@@ -58,6 +54,10 @@ else
 fi
 
 configureAdminUser
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
