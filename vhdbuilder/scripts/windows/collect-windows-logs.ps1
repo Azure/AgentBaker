@@ -57,8 +57,13 @@ $scm + $reboots + $crashes | Sort-Object TimeCreated | Export-CSV -Path "$ENV:TE
 $paths += "$ENV:TEMP\\$($timeStamp)_services.csv"
 Get-WinEvent -LogName Microsoft-Windows-Hyper-V-Compute-Operational | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message | Sort-Object TimeCreated | Export-Csv -Path "$ENV:TEMP\\$($timeStamp)_hyper-v-compute-operational.csv"
 $paths += "$ENV:TEMP\\$($timeStamp)_hyper-v-compute-operational.csv"
-get-eventlog -LogName Application -Source Docker | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_docker.csv"
-$paths += "$ENV:TEMP\\$($timeStamp)_docker.csv"
+if ([System.Diagnostics.EventLog]::SourceExists("Docker")) {
+  get-eventlog -LogName Application -Source Docker | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_docker.csv"
+  $paths += "$ENV:TEMP\\$($timeStamp)_docker.csv"
+}
+else {
+  Write-Host "Docker events are not available"
+}
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
