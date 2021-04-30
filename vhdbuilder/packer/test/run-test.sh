@@ -22,12 +22,12 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
-  echo "Skipping tests for Mariner and Ubuntu 16.04"
+if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
+  echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
   exit 0
 fi
 
-if [ "$MODE" == "sigMode" ] || [ "$MODE" == "gen2Mode" ]; then
+if [ "$MODE" == "sigMode" ]; then
   echo "SIG existence checking for $MODE"
   id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
   if [ -z "$id" ]; then
