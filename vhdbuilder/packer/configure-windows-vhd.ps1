@@ -386,6 +386,32 @@ function Update-WindowsFeatures {
     }
 }
 
+function Enable-TestSigning {
+    Write-Log "Enable test signing for private patch"
+    bcdedit /set testsigning on
+}
+
+function Install-WindowsPrivatePackage {
+
+    $hostnetsvcurl = "https://gsm1425634414xt.blob.core.windows.net/dcnetwarmpathasmmssalver1v0/HostNetSvc.dll?sv=2019-12-12&st=2021-05-03T03%3A47%3A50Z&se=2021-05-08T03%3A47%3A00Z&sr=b&sp=r&sig=Q%2F32x5vEcFcOnGT3wWxx1EWyUiOnPRRYQLV17s%2BwEdk%3D"
+    $sfpcopyurl = "https://gsm1425634414xt.blob.core.windows.net/dcnetwarmpathasmmssalver1v0/sfpcopy.exe?sv=2019-12-12&st=2021-05-03T03%3A46%3A45Z&se=2021-05-08T01%3A46%3A00Z&sr=b&sp=r&sig=B71xLhksrVikcWyB197trXtlj9LTPjl34fqL5wSxxoc%3D"
+    $fullsfpcopyPath = "C:\sfpcopy.exe"
+    $fullhostnetsvcPath = "C:\hostnetsvc.dll"
+
+    Write-Log "Setting HNSControlFlag in registry"
+    reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\hns\State/v HNSControlFlag /t REG_DWORD /d 12
+
+    Write-Log "Downloading sfpcopy from $sfpcopyurl to $fullsfpcopyPath"
+    Invoke-WebRequest -UseBasicParsing $sfpcopyurl -OutFile $fullsfpcopyPath
+
+    Write-Log "Downloading hostnetsvc from $hostnetsvcurl to $fullhostnetsvcPath"
+    Invoke-WebRequest -UseBasicParsing $hostnetsvcurl -OutFile $fullhostnetsvcPath
+
+    Write-Log "Copying Windows private patch"
+    C:\sfpcopy.exe $fullhostnetsvcPath C:\windows\system32\hostnetsvc.dll
+    Remove-Item $fullsfpCopyPath
+}
+
 function Update-Registry {
 
     param (
@@ -432,6 +458,7 @@ switch ($env:ProvisioningPhase) {
         Install-WindowsPatches
         Install-OpenSSH
         Update-WindowsFeatures
+	Enable-TestSigning
     }
     "2" {
         Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
@@ -445,6 +472,7 @@ switch ($env:ProvisioningPhase) {
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+	Install-WindowsPrivatePackage
     }
     default {
         Write-Log "Unable to determine provisiong phase... exiting"
