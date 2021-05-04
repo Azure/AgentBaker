@@ -27,8 +27,14 @@ if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" ==
   exit 0
 fi
 
-if [ "$MODE" == "sigMode" ]; then
+if [ "$MODE" == "sigMode" ] || ["$MODE" == "gen2Mode" ]; then
   echo "SIG existence checking for $MODE"
+  echo "subscription id is ${SUBSCRIPTION_ID}"
+  echo "sig gallery name is ${SIG_GALLERY_NAME}"
+  echo "azure rg name is ${AZURE_RESOURCE_GROUP_NAME}"
+  echo "sig image name is ${SIG_IMAGE_NAME}"
+  echo "sig image version is ${SIG_IMAGE_VERSION}"
+  
   id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
   if [ -z "$id" ]; then
     echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
