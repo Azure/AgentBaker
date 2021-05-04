@@ -288,12 +288,12 @@ done
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.14
 # v1.18.17
-# v1.19.7
+# v1.18.18
 # v1.19.9
-# v1.20.2
+# v1.19.10
 # v1.20.5
+# v1.20.6
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
@@ -309,6 +309,8 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.18.14-hotfix.20210322.1
 1.18.17-hotfix.20210322
 1.18.17-hotfix.20210322.2
+1.18.17-hotfix.20210428.1
+1.18.18.1
 1.19.1-hotfix.20200923
 1.19.1-hotfix.20200923.1
 1.19.3
@@ -318,11 +320,16 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.19.7-hotfix.20210310.2
 1.19.9-hotfix.20210322
 1.19.9-hotfix.20210322.1
+1.19.9-hotfix.20210428
+1.19.10
 1.20.2
 1.20.2-hotfix.20210310
 1.20.2-hotfix.20210310.2
 1.20.5-hotfix.20210322
 1.20.5-hotfix.20210322.1
+1.20.5-hotfix.20210428
+1.20.6
+1.21.0
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
@@ -349,12 +356,12 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.14
 # v1.18.17
-# v1.19.7
+# v1.18.18
 # v1.19.9
-# v1.20.2
+# v1.19.10
 # v1.20.5
+# v1.20.6
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
@@ -363,14 +370,18 @@ KUBE_BINARY_VERSIONS="
 1.18.8-hotfix.20200924
 1.18.10-hotfix.20210118
 1.18.14-hotfix.20210322
-1.18.17-hotfix.20210322
+1.18.17-hotfix.20210428
+1.18.18
 1.19.1-hotfix.20200923
 1.19.3
 1.19.6-hotfix.20210118
 1.19.7-hotfix.20210310
-1.19.9-hotfix.20210322
+1.19.9-hotfix.20210428
+1.19.10
 1.20.2-hotfix.20210310
-1.20.5-hotfix.20210322
+1.20.5-hotfix.20210428
+1.20.6
+1.21.0
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
