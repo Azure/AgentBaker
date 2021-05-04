@@ -6,7 +6,7 @@ TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
-if [ "$OS_TYPE" == "Linux" ] && ([ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]); then
+if [ "$OS_TYPE" == "Linux" ] && {[ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]}; then
   echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
   exit 0
 fi
