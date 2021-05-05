@@ -6,6 +6,13 @@ TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
+if [ "$OS_TYPE" == "Linux" ]; then
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
+    exit 0
+  fi
+fi
+
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
@@ -21,11 +28,6 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-
-if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
-  echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
-  exit 0
-fi
 
 if [ "$MODE" == "sigMode" ]; then
   echo "SIG existence checking for $MODE"

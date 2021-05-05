@@ -40,6 +40,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+      -e HYPERV_GENERATION="V1" \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - script: |
