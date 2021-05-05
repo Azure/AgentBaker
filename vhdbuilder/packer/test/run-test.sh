@@ -6,6 +6,13 @@ TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
+if [ "$OS_TYPE" == "Linux" ]; then
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
+    exit 0
+  fi
+fi
+
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
@@ -22,19 +29,7 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
-  echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
-  exit 0
-fi
-
-if [ "$MODE" == "sigMode" ] || ["$MODE" == "gen2Mode" ]; then
-  echo "SIG existence checking for $MODE"
-  echo "subscription id is ${SUBSCRIPTION_ID}"
-  echo "sig gallery name is ${SIG_GALLERY_NAME}"
-  echo "azure rg name is ${AZURE_RESOURCE_GROUP_NAME}"
-  echo "sig image name is ${SIG_IMAGE_NAME}"
-  echo "sig image version is ${SIG_IMAGE_VERSION}"
-  
+if [ "$MODE" == "sigMode" ]; then
   id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
   if [ -z "$id" ]; then
     echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
