@@ -55,6 +55,7 @@ steps:
     displayName: Building VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+        MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \

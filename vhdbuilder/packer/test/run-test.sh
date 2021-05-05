@@ -7,7 +7,7 @@ TEST_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
     echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
     exit 0
   fi
@@ -58,7 +58,19 @@ if [ "$MODE" == "sigMode" ]; then
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+elif [ "$MODE" == "gen2Mode" ]; then
+  echo "ID for managed SIG is ${MANAGED_SIG_ID}"
+  echo "VM name is ${VM_NAME}"
+  echo "Resource group name is ${RESOURCE_GROUP_NAME}"
 
+  az vm create \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --name $VM_NAME \
+    --image $MANAGED_SIG_ID \
+    --admin-username $TEST_VM_ADMIN_USERNAME \
+    --admin-password $TEST_VM_ADMIN_PASSWORD \
+    --public-ip-address ""
+  echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 else
   az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
