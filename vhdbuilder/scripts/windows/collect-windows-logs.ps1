@@ -48,6 +48,9 @@ $lockedFiles | Foreach-Object {
   }
 }
 
+Write-Host "Collecting kubeclusterconfig"
+$paths += "c:\k\kubeclusterconfig.json"
+
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
