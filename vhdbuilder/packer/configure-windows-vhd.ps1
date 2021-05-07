@@ -194,26 +194,36 @@ function Get-FilesToCacheOnVHD {
         # When to remove depracted Kubernetes Windows packages:
         # There are 30 days grace period before a depracted Kubernetes version is out of supported
         # xref: https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions
+        #
+        # NOTE: Please cleanup old k8s versions when adding new k8s versions to save the VHD build time
+        #
+        # Principle to add/delete cached k8s versions
+        # 1. For unsupported minor versions: Keep two patch versions for the latest unsupported minor version
+        # 2. For supported minor versions: Keep 4 patch versions
+        # 3. For new hotfix versions: Keep one old version in case that we need to release VHD as a hotfix but without changing k8s version in AKS RP
+        #
+        # For example, AKS RP supports 1.18, 1.19, 1.20.
+        #    1. Keep 1.17.13 and 1.17.16 until 1.18 is not supported
+        #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
+        #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
         "c:\akse-cache\win-k8s\"      = @(
-            "https://acs-mirror.azureedge.net/kubernetes/v1.17.7-hotfix.20200817/windowszip/v1.17.7-hotfix.20200817-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.17.9-hotfix.20200824/windowszip/v1.17.9-hotfix.20200824-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.17.11-hotfix.20200901/windowszip/v1.17.11-hotfix.20200901-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.13-hotfix.20210118/windowszip/v1.17.13-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.17.16-hotfix.20210118/windowszip/v1.17.16-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.4-hotfix.20200626/windowszip/v1.18.4-hotfix.20200626-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.6-hotfix.20200723/windowszip/v1.18.6-hotfix.20200723-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.8-hotfix.20200924/windowszip/v1.18.8-hotfix.20200924-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.10-hotfix.20210118/windowszip/v1.18.10-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210322/windowszip/v1.18.14-hotfix.20210322-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210322/windowszip/v1.18.17-hotfix.20210322-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.3-hotfix.20210118/windowszip/v1.19.3-hotfix.20210118-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210505/windowszip/v1.18.17-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.18-hotfix.20210504/windowszip/v1.18.18-hotfix.20210504-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.6-hotfix.20210118/windowszip/v1.19.6-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210310/windowszip/v1.19.7-hotfix.20210310-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/windowszip/v1.19.9-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210505/windowszip/v1.19.9-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.10-hotfix.20210504/windowszip/v1.19.10-hotfix.20210504-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210310/windowszip/v1.20.2-hotfix.20210310-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210505/windowszip/v1.20.5-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.6-hotfix.20210504/windowszip/v1.20.6-hotfix.20210504-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.21.0/windowszip/v1.21.0-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
