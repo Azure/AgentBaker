@@ -161,7 +161,6 @@ function Install-Containerd {
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
     Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
     Remove-Item -Path $zipfile -Force
-
   }
   elseif ($ContainerdUrl.endswith(".tar.gz")) {
     # upstream containerd package is a tar 
@@ -170,7 +169,7 @@ function Install-Containerd {
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
 
-    Get-ChildItem -Path $global:ContainerdInstallLocation\bin -Recurse -File | Move-Item -Destination $installDir
+    Get-ChildItem -Path $global:ContainerdInstallLocation\bin -Recurse -File | Move-Item -Destination $global:ContainerdInstallLocation
     Remove-Item -Path $tarfile -Force
     Remove-Item -Path $global:ContainerdInstallLocation\bin -Force
   }
