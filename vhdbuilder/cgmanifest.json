@@ -16,8 +16,8 @@
                 "Type": "other",
                 "Other": {
                     "Name": "ContainerdWindows",
-                    "Version": "0.0.1",
-                    "DownloadUrl": "https://acs-mirror.azureedge.net/containerd/windows/v0.0.1/binaries/containerd-v0.0.1-windows-amd64.tar.gz"
+                    "Version": "0.0.41",
+                    "DownloadUrl": "https://k8sreleases.blob.core.windows.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
                 }
             },
             "DevelopmentDependency": false
