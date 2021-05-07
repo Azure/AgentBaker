@@ -74,14 +74,20 @@ function Test-FilesToCacheOnVHD
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.10-hotfix.20210118/windowszip/v1.18.10-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210322/windowszip/v1.18.14-hotfix.20210322-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210322/windowszip/v1.18.17-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210505/windowszip/v1.18.17-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.18.18-hotfix.20210504/windowszip/v1.18.18-hotfix.20210504-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.1-hotfix.20200923/windowszip/v1.19.1-hotfix.20200923-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.3-hotfix.20210118/windowszip/v1.19.3-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.6-hotfix.20210118/windowszip/v1.19.6-hotfix.20210118-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210310/windowszip/v1.19.7-hotfix.20210310-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/windowszip/v1.19.9-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210505/windowszip/v1.19.9-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.19.10-hotfix.20210504/windowszip/v1.19.10-hotfix.20210504-1int.zip",
             "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210310/windowszip/v1.20.2-hotfix.20210310-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210505/windowszip/v1.20.5-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.6-hotfix.20210504/windowszip/v1.20.6-hotfix.20210504-1int.zip"
         );
         # Please add new winzips with Kuberentes version >= 1.20 here
         "c:\akse-cache\win-k8s-docker-and-containerd\" = @(
