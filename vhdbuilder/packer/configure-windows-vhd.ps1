@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
-$global:containerdPackageUrl = "https://k8sreleases.blob.core.windows.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
+$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
 
 function Write-Log($Message) {
     $msg = $message | Timestamp
