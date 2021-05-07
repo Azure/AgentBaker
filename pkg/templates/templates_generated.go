@@ -6785,7 +6785,7 @@ function Install-Containerd {
     $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
     Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    del $zipfile
+    Remove-Item -Path $zipfile -Force
   }
   elseif ($ContainerdUrl.endswith(".tar.gz")) {
     # upstream containerd package is a tar 
@@ -6793,9 +6793,10 @@ function Install-Containerd {
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
-    mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    del $tarfile
-    del -Recurse -Force $global:ContainerdInstallLocation\bin
+
+    Get-ChildItem -Path $global:ContainerdInstallLocation\bin -Recurse -File | Move-Item -Destination $global:ContainerdInstallLocation
+    Remove-Item -Path $tarfile -Force
+    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force
   }
 
   # get configuration options
