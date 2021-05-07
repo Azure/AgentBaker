@@ -29,23 +29,38 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-if [ "$MODE" == "sigMode" ]; then
-  id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
-  if [ -z "$id" ]; then
-    echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
-    exit 1
-  fi
+if [ "$MODE" == "default" ]; then
+  az disk create --resource-group $RESOURCE_GROUP_NAME \
+    --name $DISK_NAME \
+    --source "${OS_DISK_URI}" \
+    --query id
+  az vm create --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --attach-os-disk $DISK_NAME \
+    --os-type $OS_TYPE \
+    --public-ip-address ""
+else 
+  if [ "$MODE" == "sigMode" ]; then
+    id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
+    if [ -z "$id" ]; then
+      echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+      exit 1
+    fi
 
-  id=$(az sig image-definition show \
-    --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-    --gallery-name ${SIG_GALLERY_NAME} \
-    --gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
-  if [ -z "$id" ]; then
-    echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-    exit 1
-  fi
+    id=$(az sig image-definition show \
+      --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+      --gallery-name ${SIG_GALLERY_NAME} \
+      --gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
+    if [ -z "$id" ]; then
+      echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+      exit 1
+    fi
 
-  IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+  else 
+    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+    IMG_DEF=${MANAGED_SIG_ID}
+  fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
@@ -58,29 +73,6 @@ if [ "$MODE" == "sigMode" ]; then
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
-elif [ "$MODE" == "gen2Mode" ]; then
-  echo "ID for managed SIG is ${MANAGED_SIG_ID}"
-  echo "VM name is ${VM_NAME}"
-  echo "Resource group name is ${RESOURCE_GROUP_NAME}"
-
-  az vm create \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --name $VM_NAME \
-    --image $MANAGED_SIG_ID \
-    --admin-username $TEST_VM_ADMIN_USERNAME \
-    --admin-password $TEST_VM_ADMIN_PASSWORD \
-    --public-ip-address ""
-  echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
-else
-  az disk create --resource-group $RESOURCE_GROUP_NAME \
-    --name $DISK_NAME \
-    --source "${OS_DISK_URI}" \
-    --query id
-  az vm create --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --attach-os-disk $DISK_NAME \
-    --os-type $OS_TYPE \
-    --public-ip-address ""
 fi
 
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
