@@ -99,7 +99,7 @@ else {
 
 # Containerd panic log is outside the c:\k folder
 Write-Host "Collecting containerd panic logs"
-$containerdPanicLog = "C:\ProgramData\containerd\root\panic.log"
+$containerdPanicLog = "c:\ProgramData\containerd\root\panic.log"
 if (Test-Path $containerdPanicLog) {
   $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
   if ($tempFile) {
@@ -108,6 +108,15 @@ if (Test-Path $containerdPanicLog) {
 }
 else {
   Write-Host "Containerd panic logs not available"
+}
+
+Write-Host "Collecting containerd configuration"
+$containerdConfig = "$Env:ProgramFiles\containerd\config.toml"
+if (Test-Path $containerdConfig) {
+  $tempfile = Copy-Item $containerdConfig $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
 }
 
 Write-Host "Collecting calico logs"
