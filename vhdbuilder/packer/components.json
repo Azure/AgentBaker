@@ -324,8 +324,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "versions": [
-        "v1.7.0",
-        "v1.7.4"
+        "v1.7.4",
+        "v1.7.5"
       ]
     }
   ],
