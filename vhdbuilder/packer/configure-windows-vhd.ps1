@@ -323,8 +323,8 @@ function Install-WindowsPatches {
     # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
     # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU. 
     $patchUrls = @(
-        "http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/04/windows10.0-kb5001407-x64_6dfbd9b5e713826ad84194d4e72fef836db9e1e2.msu",
-        "http://download.windowsupdate.com/c/msdownload/update/software/updt/2021/04/windows10.0-kb5001384-x64_8f4e0a94fa9bb9b02639a86441b93e33191f81cf.msu"
+        "http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/05/windows10.0-kb5003243-x64_81350c4efec5a183725fda73091c9ee9d4577bc3.msu",
+        "http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/05/windows10.0-kb5003171-x64_30162051d5376b7a19c4c25157347c522e804bbb.msu"
     )
 
     foreach ($patchUrl in $patchUrls) {
