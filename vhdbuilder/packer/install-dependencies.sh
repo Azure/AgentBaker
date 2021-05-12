@@ -80,6 +80,7 @@ fi
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
+    forceEnableIpForward
 fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
