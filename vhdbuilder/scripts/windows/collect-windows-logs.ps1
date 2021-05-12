@@ -38,6 +38,7 @@ Write-Host "Collecting kubeclusterconfig"
 $paths += "c:\k\kubeclusterconfig.json"
 
 Write-Host "Collecting Azure CNI configurations"
+$paths += "C:\k\azurecni\netconf\10-azure.conflist"
 $azureCNIConfigurations = @(
   "azure-vnet.json",
   "azure-vnet-ipam.json"
