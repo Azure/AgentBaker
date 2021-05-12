@@ -34,6 +34,26 @@ $lockedFiles | Foreach-Object {
   }
 }
 
+Write-Host "Collecting kubeclusterconfig"
+$paths += "c:\k\kubeclusterconfig.json"
+
+Write-Host "Collecting Azure CNI configurations"
+$paths += "C:\k\azurecni\netconf\10-azure.conflist"
+$azureCNIConfigurations = @(
+  "azure-vnet.json",
+  "azure-vnet-ipam.json"
+)
+$azureCNIConfigurations | Foreach-Object {
+  Write-Host "Copying $_ to temp"
+  $src = "c:\k\$_"
+  if (Test-Path $src) {
+    $tempfile = Copy-Item $src $lockedTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+
 # azure-cni logs currently end up in system32 when called by containerd so check there for logs too
 $lockedTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -Type Directory $lockedTemp
@@ -47,9 +67,6 @@ $lockedFiles | Foreach-Object {
     }
   }
 }
-
-Write-Host "Collecting kubeclusterconfig"
-$paths += "c:\k\kubeclusterconfig.json"
 
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
