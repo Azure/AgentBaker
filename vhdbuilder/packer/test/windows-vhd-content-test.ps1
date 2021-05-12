@@ -190,7 +190,8 @@ function Test-ImagesPulled {
                 "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-                "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
+                "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021",
+                "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05122021")
             Write-Output "Pulling images for windows server 2019"
         }
         '2004' {
