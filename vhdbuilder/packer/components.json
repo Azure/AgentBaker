@@ -168,7 +168,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
       "versions": [
-        "v3.8.9"
+        "v3.8.9.1"
       ]
     },
     {
@@ -180,7 +180,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
-        "v1.13.5"
+        "v1.17.1"
       ]
     },
     {
