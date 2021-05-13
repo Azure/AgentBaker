@@ -1,4 +1,4 @@
-{
+W{
   "ContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:*",
@@ -139,8 +139,8 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
-        "ciprod03262021",
         "ciprod04222021",
+        "ciprod03262021",
         "ciprod05122021"
       ]
     },
