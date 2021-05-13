@@ -118,8 +118,10 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0",
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1", # for k8s 1.18.x
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
                 "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
             Write-Output "Pulling images for windows server 2019 with docker"
         }
@@ -134,7 +136,8 @@ function Get-ContainerImages {
                 "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.2.0",
                 "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
                 "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0",
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
+                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
                 "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
             Write-Output "Pulling images for windows server 2019 with containerd"
         }
