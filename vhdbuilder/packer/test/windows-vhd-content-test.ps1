@@ -86,8 +86,12 @@ function Test-FilesToCacheOnVHD
         );
         # Please add new winzips with Kuberentes version >= 1.20 here
         "c:\akse-cache\win-k8s-docker-and-containerd\" = @(
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210310/windowszip/v1.20.2-hotfix.20210310-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip"
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210428/windowszip/v1.20.2-hotfix.20210428-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210511/windowszip/v1.20.2-hotfix.20210511-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210505/windowszip/v1.20.5-hotfix.20210505-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.20.6-hotfix.20210504/windowszip/v1.20.6-hotfix.20210504-1int.zip",
+            "https://acs-mirror.azureedge.net/kubernetes/v1.21.0/windowszip/v1.21.0-1int.zip"
         );
         "c:\akse-cache\win-vnet-cni\" = @(
             "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
@@ -147,7 +151,7 @@ function Test-FilesToCacheOnVHD
 
 function Test-PatchInstalled {
     # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @("KB5001407", "KB5001384")
+    $patchIDs = @("KB5003243", "KB5003171")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID) {
