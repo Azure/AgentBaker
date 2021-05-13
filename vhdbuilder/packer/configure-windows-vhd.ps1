@@ -457,6 +457,8 @@ switch ($env:ProvisioningPhase) {
         Update-Registry -containerRuntime $containerRuntime
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
+        # Show disk space
+        Get-CimInstance -ClassName Win32_LogicalDisk
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }
     default {
