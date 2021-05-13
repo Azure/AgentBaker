@@ -43,8 +43,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "versions": [
         "v0.3.6",
-        "v0.3.5",
-        "v0.4.2"
+        "v0.4.4"
       ]
     },
     {
