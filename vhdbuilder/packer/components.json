@@ -1,4 +1,4 @@
-W{
+{
   "ContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:*",
