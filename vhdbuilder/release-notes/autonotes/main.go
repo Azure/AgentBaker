@@ -115,6 +115,8 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 }
 
 func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
+	defer func() { done <- struct{}{} }()
+
 	// working directory, need one per sku because the file name is
 	// always "release-notes.txt" so they all overwrite each other.
 	tmpdir, err := ioutil.TempDir("", "releasenotes")
@@ -130,18 +132,19 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	if err := os.MkdirAll(artifactDirOut, 0644); err != nil {
 		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactDirOut, err)
+		return
 	}
 
 	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", artifactName)
 	if err := cmd.Run(); err != nil {
 		errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %w", sku, err)
+		return
 	}
 
 	if err := os.Rename(artifactFileIn, artifactFileOut); err != nil {
 		errc <- fmt.Errorf("failed to rename file %s to %s, err: %w", artifactFileIn, artifactFileOut, err)
+		return
 	}
-
-	done <- struct{}{}
 }
 
 func stripWhitespace(str string) string {
