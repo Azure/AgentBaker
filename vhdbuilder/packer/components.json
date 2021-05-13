@@ -139,8 +139,8 @@ W{
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
-        "ciprod04222021",
         "ciprod03262021",
+        "ciprod04222021",
         "ciprod05122021"
       ]
     },
