@@ -25,6 +25,7 @@ if [ ! -f "$SKU_TEMPLATE_FILE" ]; then
 fi
 
 echo "Get token"
+az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
 token=$(az account get-access-token --resource https://cloudpartner.azure.com --query "accessToken" -o tsv)
 export AZURE_TOKEN=$token
 
