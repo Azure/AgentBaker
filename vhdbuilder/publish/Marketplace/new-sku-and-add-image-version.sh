@@ -24,6 +24,10 @@ if [ ! -f "$SKU_TEMPLATE_FILE" ]; then
     exit 1
 fi
 
+echo "Get token"
+token=$(az account get-access-token --resource https://cloudpartner.azure.com --query "accessToken" -o tsv)
+export AZURE_TOKEN=$token
+
 ls -lhR artifacts
 vhd_artifacts_path="publishing-info-2019"
 if [[ ${CONTAINER_RUNTIME} = "containerd" ]]; then
