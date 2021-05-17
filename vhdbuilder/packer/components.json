@@ -154,6 +154,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "versions": [
         "v3.17.2",
+        "v3.18.1",
         "v3.19.0",
         "v3.8.9.2",
         "v3.8.9.5"
@@ -163,6 +164,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
       "versions": [
         "v3.17.2",
+        "v3.18.1",
         "v3.19.0",
         "v3.8.9"
       ]
@@ -177,6 +179,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "versions": [
         "v3.17.2",
+        "v3.18.1",
         "v3.19.0"
       ]
     },
@@ -184,6 +187,7 @@
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
         "v1.13.5",
+        "v1.15.1",
         "v1.17.1"
       ]
     },
