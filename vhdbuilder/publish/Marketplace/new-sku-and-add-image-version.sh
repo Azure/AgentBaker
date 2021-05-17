@@ -24,8 +24,10 @@ if [ ! -f "$SKU_TEMPLATE_FILE" ]; then
     exit 1
 fi
 
-echo "Get token"
-az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+# we use token as a workaround even after a successful login as a result of pub tool Authorization failure.
+# allow-no-subscriptions is safe because we have no sub-level operations
+echo "Get cloudpartner access token"
+az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID --allow-no-subscriptions
 token=$(az account get-access-token --resource https://cloudpartner.azure.com --query "accessToken" -o tsv)
 export AZURE_TOKEN=$token
 
