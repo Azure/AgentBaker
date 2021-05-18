@@ -538,7 +538,6 @@ type KubernetesConfig struct {
 	ProxyMode                         KubeProxyMode     `json:"kubeProxyMode,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	OutboundRuleIdleTimeoutInMinutes  int32             `json:"outboundRuleIdleTimeoutInMinutes,omitempty"`
-	EnableRuncShimV2                  bool              `json:"enableRuncShimV2,omitempty"`
 }
 
 // CustomFile has source as the full absolute source path to a file and dest
@@ -1309,15 +1308,6 @@ func (k *KubernetesConfig) NeedsContainerd() bool {
 	return strings.EqualFold(k.ContainerRuntime, KataContainers) || strings.EqualFold(k.ContainerRuntime, Containerd)
 }
 
-// NeedsContainerd returns whether or not we need the containerd runtime configuration
-// E.g., kata configuration requires containerd config
-func (k *KubernetesConfig) UseRuncShimV2() bool {
-	if k == nil {
-		return false
-	}
-	return k.EnableRuncShimV2
-}
-
 // RequiresDocker returns if the kubernetes settings require docker binary to be installed.
 func (k *KubernetesConfig) RequiresDocker() bool {
 	if k == nil {
@@ -1437,6 +1427,7 @@ type NodeBootstrappingConfiguration struct {
 	KubeletClientTLSBootstrapToken *string
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
+	EnableRuncShimV2               bool
 }
 
 // HTTPProxyConfig represents configurations of http proxy
