@@ -433,6 +433,16 @@ function Update-Registry {
     }
 }
 
+function Get-SystemDriveDiskInfo {
+    Write-Log "Get Disk info"
+    $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach($disk in $disksInfo) {
+        if ($disk.DeviceID -eq "C:") {
+            Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+        }
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -472,8 +482,7 @@ switch ($env:ProvisioningPhase) {
         Update-Registry -containerRuntime $containerRuntime
         Get-ContainerImages -containerRuntime $containerRuntime -windowsSKU $windowsSKU
         Get-FilesToCacheOnVHD -containerRuntime $containerRuntime
-        # Show disk space
-        Get-CimInstance -ClassName Win32_LogicalDisk
+        Get-SystemDriveDiskInfo
         (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
     }
     default {
