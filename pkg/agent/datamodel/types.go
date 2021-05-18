@@ -1420,12 +1420,21 @@ type NodeBootstrappingConfiguration struct {
 	EnableACRTeleportPlugin       bool
 	Enable1804Chrony              bool
 	TeleportdPluginURL            string
-
+	ContainerdVersion			  string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
 	KubeletClientTLSBootstrapToken *string
 	FIPSEnabled                    bool
+	HTTPProxyConfig                *HTTPProxyConfig
+}
+
+// HTTPProxyConfig represents configurations of http proxy
+type HTTPProxyConfig struct {
+	HTTPProxy  *string   `json:"httpProxy,omitempty"`
+	HTTPSProxy *string   `json:"httpsProxy,omitempty"`
+	NoProxy    *[]string `json:"noProxy,omitempty"`
+	TrustedCA  *string   `json:"trustedCa,omitempty"`
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
@@ -1809,8 +1818,8 @@ type CSEStatus struct {
 	Output string `json:"output,omitempty"`
 	// Error stores the error from CSE output.
 	Error string `json:"error,omitempty"`
-	// ExecDuration stores the execDuration from CSE output.
-	ExecDuration int `json:"execDuration,omitempty"`
+	// ExecDuration stores the execDuration in seconds from CSE output.
+	ExecDuration string `json:"execDuration,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string

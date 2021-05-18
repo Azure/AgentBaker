@@ -28,8 +28,8 @@ Install-VnetPlugins
         $VNetCNIPluginsURL
     )
     # Create CNI directories.
-    mkdir $AzureCNIBinDir
-    mkdir $AzureCNIConfDir
+    Create-Directory -FullPath $AzureCNIBinDir -DirectoryUsage "storing Azure CNI binaries"
+    Create-Directory -FullPath $AzureCNIConfDir -DirectoryUsage "storing Azure CNI configuration"
 
     # Download Azure VNET CNI plugins.
     # Mirror from https://github.com/Azure/azure-container-networking/releases
@@ -94,7 +94,7 @@ Set-AzureCNIConfig
         # This issue has been addressed in 19h1+ builds
 
         $processedExceptions = GetBroadestRangesForEachAddress $exceptionAddresses
-        Write-Host "Filtering CNI config exception list values to work around WS2019 issue processing rules. Original exception list: $exceptionAddresses, processed exception list: $processedExceptions"
+        Write-Log "Filtering CNI config exception list values to work around WS2019 issue processing rules. Original exception list: $exceptionAddresses, processed exception list: $processedExceptions"
         $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $processedExceptions
     }
     else {
@@ -205,7 +205,7 @@ function GetSubnetPrefix
     $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=$headers} -Retries 5 -RetryDelaySeconds 10
 
     if(!$response) {
-        throw 'Error getting subnet prefix'
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage 'Error getting subnet prefix'
     }
 
     $response.properties.addressPrefix
@@ -266,7 +266,7 @@ function GenerateAzureStackCNIConfig
     $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
 
     if(!$tokenResponse) {
-        throw 'Error generating token for Azure Resource Manager'
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage 'Error generating token for Azure Resource Manager'
     }
 
     $token = $tokenResponse | Select-Object -ExpandProperty access_token
@@ -279,7 +279,7 @@ function GenerateAzureStackCNIConfig
     Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
 
     if(!$(Test-Path $networkInterfacesFile)) {
-        throw 'Error fetching network interface configuration for node'
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage 'Error fetching network interface configuration for node'
     }
 
     Write-Log "Generating Azure CNI interface file"
@@ -327,7 +327,7 @@ function New-ExternalHnsNetwork
     $na = @(Get-NetAdapter -Physical)
 
     if ($na.Count -eq 0) {
-        throw "Failed to find any physical network adapters"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
     }
 
     # If there is more than one adapter, use the first adapter.
@@ -357,7 +357,7 @@ function New-ExternalHnsNetwork
 
     $stopWatch.Stop()
     if (-not $mgmtIPAfterNetworkCreate) {
-        throw "Failed to find $managementIP after creating $externalNetwork network"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
     Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
 }

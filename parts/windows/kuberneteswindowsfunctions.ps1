@@ -44,8 +44,8 @@ function DownloadFileOverHttp {
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
-        if (-not $?) {
-            throw "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+        if ($LASTEXITCODE) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
         }
         $downloadTimer.Stop()
 
@@ -58,7 +58,7 @@ function DownloadFileOverHttp {
         }
 
         $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file to $DestinationPath"
+        Write-Log "Downloaded file $Url to $DestinationPath"
     }
 }
 
@@ -123,9 +123,7 @@ function Initialize-DataDirectories {
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
-        if (-Not (Test-Path $_)) {
-            New-Item -ItemType Directory -Path $_
-        }
+        Create-Directory -FullPath $_
     }
 }
 
@@ -179,12 +177,12 @@ function Invoke-Executable {
         }
     }
 
-    throw "Exhausted retries for $Executable $ArgList"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
 }
 
 function Get-LogCollectionScripts {
     Write-Log "Getting various log collect scripts and depencencies"
-    mkdir 'c:\k\debug'
+    Create-Directory -FullPath 'c:\k\debug' -DirectoryUsage "storing debug scripts"
     DownloadFileOverHttp -Url 'https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1' -DestinationPath 'c:\k\debug\collect-windows-logs.ps1'
     DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1' -DestinationPath 'c:\k\debug\collectlogs.ps1'
     DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1' -DestinationPath 'c:\k\debug\dumpVfpPolicies.ps1'
@@ -295,7 +293,7 @@ function Assert-FileExists {
     )
 
     if (-Not (Test-Path $Filename)) {
-        throw "$Filename does not exist"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
     }
 }
 
@@ -343,5 +341,40 @@ function Check-APIServerConnectivity {
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    throw "Failed to connect to API server $MasterIP after $retryCount retries"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
+}
+
+function Get-CACertificates {
+    try {
+        Write-Log "Get CA certificates"
+        $caFolder = "C:\ca"
+        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+
+        Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
+
+        Write-Log "Download CA certificates rawdata"
+        # This is required when the root CA certs are different for some clouds.
+        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        if ([string]::IsNullOrEmpty($rawData)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
+        }
+
+        Write-Log "Convert CA certificates rawdata"
+        $caCerts=($rawData.Content) | ConvertFrom-Json
+        if ([string]::IsNullOrEmpty($caCerts)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
+        }
+
+        $certificates = $caCerts.Certificates
+        for ($index = 0; $index -lt $certificates.Length ; $index++) {
+            $name=$certificates[$index].Name
+            $certFilePath = Join-Path $caFolder $name
+            Write-Log "Write certificate $name to $certFilePath"
+            $certificates[$index].CertBody > $certFilePath
+        }
+    }
+    catch {
+        # Catch all exceptions in this function. NOTE: exit cannot be caught.
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
+    }
 }

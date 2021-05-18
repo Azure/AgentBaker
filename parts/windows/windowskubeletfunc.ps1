@@ -47,7 +47,7 @@ Write-AzureConfig {
     )
 
     if ( -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
-        throw "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG -ErrorMessage "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
     }
 
     $azureConfigFile = [io.path]::Combine($KubeDir, "azure.json")
@@ -218,7 +218,7 @@ Build-PauseContainer {
         Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".")
     }
     else {
-        throw "Cannot build pause container without Docker"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER -ErrorMessage "Cannot build pause container without Docker"
     }
 }
 
@@ -240,7 +240,7 @@ New-InfraContainer {
     $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
     $defaultPauseImage = $clusterConfig.Cri.Images.Pause
 
-    $pauseImageVersions = @("1809", "1903", "1909", "2004")
+    $pauseImageVersions = @("1809", "1903", "1909", "2004", "2009", "20h2")
 
     if ($pauseImageVersions -icontains $windowsVersion) {
         if ($ContainerRuntime -eq "docker") {
@@ -335,9 +335,7 @@ Get-KubeBinaries {
 
     # copy binaries over to kube folder
     $windowsbinariespath = "c:\k\"
-    if (!(Test-path $windowsbinariespath)) {
-        mkdir $windowsbinariespath
-    }
+    Create-Directory -FullPath $windowsbinariespath
     cp $tempdir\kubernetes\node\bin\* $windowsbinariespath -Recurse
 
     #remove temp folder created when unzipping

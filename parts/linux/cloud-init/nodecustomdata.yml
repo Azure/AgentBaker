@@ -123,7 +123,23 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}
+    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
+{{end}}
+
+{{- if HasKubeletDiskType}}
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
+
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -195,6 +211,45 @@ write_files:
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
 {{end}}
+
+{{- if ShouldConfigureHTTPProxy}}
+- path: /etc/apt/apt.conf.d/95proxy
+  permissions: "0644"
+  owner: root
+  content: |
+    {{- if HasHTTPProxy }}
+    Acquire::http::proxy "{{GetHTTPProxy}}";
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    Acquire::https::proxy "{{GetHTTPSProxy}}";
+    {{- end}}
+
+- path: /etc/systemd/system.conf.d/proxy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Manager]
+    {{- if HasHTTPProxy }}
+    DefaultEnvironment="HTTP_PROXY={{GetHTTPProxy}}"
+    DefaultEnvironment="http_proxy={{GetHTTPProxy}}"
+    {{- end}}
+    {{- if HasHTTPSProxy }}
+    DefaultEnvironment="HTTPS_PROXY={{GetHTTPSProxy}}"
+    DefaultEnvironment="https_proxy={{GetHTTPSProxy}}"
+    {{- end}}
+    {{- if HasNoProxy }}
+    DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
+    DefaultEnvironment="no_proxy={{GetNoProxy}}"
+    {{- end}}
+{{- end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+- path: /usr/local/share/ca-certificates/proxyCA.pem
+  permissions: "0644"
+  owner: root
+  content: |
+{{GetHTTPProxyCA}}
+{{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}

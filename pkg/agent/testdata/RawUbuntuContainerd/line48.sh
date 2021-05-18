@@ -87,86 +87,51 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
-disableNtpAndTimesyncdInstallChrony() {
-    # Disable systemd-timesyncd
-    sudo systemctl stop systemd-timesyncd
-    sudo systemctl disable systemd-timesyncd
-    # Disable ntp
-    sudo systemctl stop ntp
-    sudo systemctl disable ntp
-
-    # Install chrony
-    apt-get update
-    apt-get install chrony -y
-    cat > /etc/chrony/chrony.conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    systemctl restart chrony
-}
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
+    CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
-    local CONTAINERD_VERSION="1.5.0-beta.git31a0f92df"
+    
+    #if there is no containerd_version input from RP, use hardcoded version
+    if [[ -z ${CONTAINERD_VERSION} ]]; then
+        CONTAINERD_VERSION="1.4.4"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+    fi
+
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeMoby
         removeContainerd
+        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+        # if no files found then try fetching from packages.microsoft repo
+        if [[ "${IS_VHD:-"false"}" = true ]]; then
+            CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+            CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+            if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+                installStandaloneContainerdFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+                return 0
+            fi
+        fi
         updateAptWithMicrosoftPkg
-        # TODO: first try downloading from microsoft apt repo then fallback to our storage ep
-        downloadContainerd ${CONTAINERD_VERSION}
-        wait_for_apt_locks
-        retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
+    ensureRunc
+}
+
+installStandaloneContainerdFromFile() {
+    CONTAINERD_DEB_FILE=$1
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} --allow-downgrades
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+    rm -Rf $CONTAINERD_DOWNLOADS_DIR &
 }
 
 downloadContainerd() {
@@ -192,6 +157,18 @@ installMoby() {
             MOBY_CLI="3.0.3"
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
+    ensureRunc
+}
+
+ensureRunc() {
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    local TARGET_VERSION="1.0.0~rc92"
+    # runc rc93 has a regression that causes pods to be stuck in containercreation
+    # https://github.com/opencontainers/runc/issues/2865
+    # not using semverCompare b/c we need to downgrade
+    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
+        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
 }
 

@@ -40,18 +40,19 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if EnableChronyFor1804}}
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-    disableNtpAndTimesyncdInstallChrony
+{{- if not NeedsContainerd}}
+cleanUpContainerd
+{{- end}}
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
 fi
-{{end}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+{{- end}}
 
 disable1804SystemdResolved
-
-if [[ $OS == $COREOS_OS_NAME ]]; then
-    echo "Changing default kubectl bin location"
-    KUBECTL=/opt/kubectl
-fi
 
 if [ -f /var/run/reboot-required ]; then
     REBOOTREQUIRED=true
@@ -61,13 +62,12 @@ fi
 
 configureAdminUser
 
-{{- if not NeedsContainerd}}
-cleanUpContainerd
-{{end}}
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
+{{- if NeedsContainerd}}
+# If crictl gets installed then use it as the cri cli instead of ctr
+# crictl is not a critical component so continue with boostrapping if the install fails
+# CLI_TOOL is by default set to "ctr"
+installCrictl && CLI_TOOL="crictl"
+{{- end}}
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -89,14 +89,9 @@ else
 fi
 
 installContainerRuntime
-{{- if NeedsContainerd}}
-installCrictl
-# If crictl gets installed then use it as the cri cli instead of ctr
-CLI_TOOL="crictl"
-{{- if TeleportEnabled}}
+{{- if and NeedsContainerd TeleportEnabled}}
 installTeleportdPlugin
-{{end}}
-{{end}}
+{{- end}}
 
 installNetworkPlugin
 
@@ -122,9 +117,7 @@ docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET
 
 installKubeletKubectlAndKubeProxy
 
-if [[ $OS != $COREOS_OS_NAME ]]; then
-    ensureRPC
-fi
+ensureRPC
 
 createKubeManifestDir
 
@@ -192,17 +185,21 @@ fi
 
 VALIDATION_ERR=0
 
+{{- /* Edge case scenarios: */}}
+{{- /* high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster) */}}
+{{- /* high timeout to address high latency for private dns server to forward request to Azure DNS */}}
 API_SERVER_DNS_RETRIES=100
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
 fi
 {{- if not EnableHostsConfigAgent}}
-RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 3 nslookup ${API_SERVER_NAME})
+RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
 STS=$?
 {{- else}}
 STS=0
 {{- end}}
 if [[ $STS != 0 ]]; then
+    time nslookup ${API_SERVER_NAME}
     if [[ $RES == *"168.63.129.16"*  ]]; then
         VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
     else
@@ -213,7 +210,7 @@ else
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
         API_SERVER_CONN_RETRIES=100
     fi
-    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if $REBOOTREQUIRED; then

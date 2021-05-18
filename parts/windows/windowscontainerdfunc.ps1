@@ -1,24 +1,61 @@
 # this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
+$global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
 function RegisterContainerDService {
-  Assert-FileExists (Join-Path $global:ContainerdInstallLocation containerd.exe)
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $kubedir
+  )
 
-  Write-Host "Registering containerd as a service"
-  $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
-  $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    & $cdbinary --unregister-service
-  }
-  & $cdbinary --register-service
+  Assert-FileExists $global:Containerdbinary
+
+  # in the past service was not installed via nssm so remove it in case
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -eq $svc) {
-    throw "containerd.exe did not get installed as a service correctly."
+  if ($null -ne $svc) {
+    sc.exe delete containerd
   }
-  $svc | Start-Service
+
+  Write-Log "Registering containerd as a service"
+  # setup containerd
+  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
+  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
+
+  $retryCount=0
+  $retryInterval=10
+  $maxRetryCount=6 # 1 minutes
+
+  do {
+    $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
+    }
+    if ($svc.Status -eq "Running") {
+      break
+    }
+    Write-Log "Starting containerd, current status: $svc.Status"
+    Start-Service containerd
+    $retryCount++
+    Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
+    Sleep $retryInterval
+  } while ($retryCount -lt $maxRetryCount)
+
   if ($svc.Status -ne "Running") {
-    throw "containerd service is not running"
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
   }
+
 }
 
 function CreateHypervisorRuntime {
@@ -52,7 +89,7 @@ function CreateHypervisorRuntimes {
     $image
   )
   
-  Write-Host "Adding hyperv runtimes $builds"
+  Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
     $windowsVersion = Select-Windows-Version -buildNumber $buildNumber
@@ -89,7 +126,7 @@ function Enable-Logging {
     $logs = Join-path $pwd.drive.Root logs
     Write-Log "Containerd hyperv logging enabled; temp location $logs"
     $diag = Join-Path $global:ContainerdInstallLocation diag.ps1
-    mkdir -Force $logs
+    Create-Directory -FullPath $logs -DirectoryUsage "storing containerd logs"
     # !ContainerPlatformPersistent profile is made to work with long term and boot tracing
     & $diag -Start -ProfilePath "$global:ContainerdInstallLocation\ContainerPlatform.wprp!ContainerPlatformPersistent" -TempPath $logs
   }
@@ -105,7 +142,9 @@ function Install-Containerd {
     [Parameter(Mandatory = $true)][string]
     $CNIBinDir,
     [Parameter(Mandatory = $true)][string]
-    $CNIConfDir
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
   )
 
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
@@ -127,7 +166,7 @@ function Install-Containerd {
     # upstream containerd package is a tar 
     $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
-    mkdir -Force $global:ContainerdInstallLocation
+    Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
     del $tarfile
@@ -136,7 +175,6 @@ function Install-Containerd {
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
-  $cdbinary = Join-Path $global:ContainerdInstallLocation containerd.exe
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
   $pauseImage = $clusterConfig.Cri.Images.Pause
@@ -170,6 +208,6 @@ function Install-Containerd {
   Replace('{{currentversion}}', $windowsVersion) | `
     Out-File -FilePath "$configFile" -Encoding ascii
 
-  RegisterContainerDService
+  RegisterContainerDService -KubeDir $KubeDir
   Enable-Logging
 }

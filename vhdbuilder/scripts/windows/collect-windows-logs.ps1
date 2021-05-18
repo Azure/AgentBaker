@@ -34,6 +34,26 @@ $lockedFiles | Foreach-Object {
   }
 }
 
+Write-Host "Collecting kubeclusterconfig"
+$paths += "c:\k\kubeclusterconfig.json"
+
+Write-Host "Collecting Azure CNI configurations"
+$paths += "C:\k\azurecni\netconf\10-azure.conflist"
+$azureCNIConfigurations = @(
+  "azure-vnet.json",
+  "azure-vnet-ipam.json"
+)
+$azureCNIConfigurations | Foreach-Object {
+  Write-Host "Copying $_ to temp"
+  $src = "c:\k\$_"
+  if (Test-Path $src) {
+    $tempfile = Copy-Item $src $lockedTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+
 # azure-cni logs currently end up in system32 when called by containerd so check there for logs too
 $lockedTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -Type Directory $lockedTemp
@@ -48,15 +68,6 @@ $lockedFiles | Foreach-Object {
   }
 }
 
-# Containerd log is outside the c:\k folder
-$containerd = "C:\ProgramData\containerd\root\panic.log"
-if (Test-Path $containerd) {
-  $tempfile = Copy-Item $containerd $lockedTemp -Passthru -ErrorAction Ignore
-  if ($tempFile) {
-    $paths += $tempFile
-  }
-}
-
 Write-Host "Exporting ETW events to CSV files"
 $scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
@@ -66,8 +77,13 @@ $scm + $reboots + $crashes | Sort-Object TimeCreated | Export-CSV -Path "$ENV:TE
 $paths += "$ENV:TEMP\\$($timeStamp)_services.csv"
 Get-WinEvent -LogName Microsoft-Windows-Hyper-V-Compute-Operational | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message | Sort-Object TimeCreated | Export-Csv -Path "$ENV:TEMP\\$($timeStamp)_hyper-v-compute-operational.csv"
 $paths += "$ENV:TEMP\\$($timeStamp)_hyper-v-compute-operational.csv"
-get-eventlog -LogName Application -Source Docker | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_docker.csv"
-$paths += "$ENV:TEMP\\$($timeStamp)_docker.csv"
+if ([System.Diagnostics.EventLog]::SourceExists("Docker")) {
+  get-eventlog -LogName Application -Source Docker | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_docker.csv"
+  $paths += "$ENV:TEMP\\$($timeStamp)_docker.csv"
+}
+else {
+  Write-Host "Docker events are not available"
+}
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
@@ -82,18 +98,42 @@ $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Objec
 $paths += $netLogs
 $paths += "c:\AzureData\CustomDataSetupScript.log"
 
-Write-Host "Collecting containerd hyperv logs"
-if ((Test-Path "$Env:ProgramFiles\containerd\diag.ps1") -And (Test-Path "$Env:ProgramFiles\containerd\ContainerPlatform.wprp")) {
-  $tempHyperv = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
-  New-Item -Type Directory $tempHyperv
-  $persistedLogs = "c:\logs"
-  # there will either be an error collecting "bootlogs" or "trace profiles" as only one will be active at time. This will be fixed in future release of the script
-  & $Env:ProgramFiles\containerd\diag.ps1 -Snap -ProfilePath "$Env:ProgramFiles\containerd\ContainerPlatform.wprp!ContainerPlatformPersistent" -TraceDirPath "$tempHyperv" -TempPath $persistedLogs
-  $hypervlogs = (Get-ChildItem -Path $tempHyperv | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-  $paths += $hypervlogs
+# log containerd containers (this is done for docker via networking collectlogs.ps1)
+Write-Host "Collecting Containerd running containers"
+$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting Containerd running containers - containers"
+  & ctr.exe -n k8s.io c ls > "$ENV:TEMP\$timeStamp-containerd-containers.txt"
+  $paths += "$ENV:TEMP\$timeStamp-containerd-containers.txt"
+
+  Write-Host "Collecting Containerd running containers - tasks"
+  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+  $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
 }
 else {
-  Write-Host "Containerd hyperv logs not avalaible"
+  Write-Host "ctr.exe command not available"
+}
+
+# Containerd panic log is outside the c:\k folder
+Write-Host "Collecting containerd panic logs"
+$containerdPanicLog = "c:\ProgramData\containerd\root\panic.log"
+if (Test-Path $containerdPanicLog) {
+  $tempfile = Copy-Item $containerdPanicLog $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
+}
+else {
+  Write-Host "Containerd panic logs not available"
+}
+
+Write-Host "Collecting containerd configuration"
+$containerdConfig = "$Env:ProgramFiles\containerd\config.toml"
+if (Test-Path $containerdConfig) {
+  $tempfile = Copy-Item $containerdConfig $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
 }
 
 Write-Host "Collecting calico logs"
@@ -109,16 +149,7 @@ if (Test-Path "c:\CalicoWindows\logs") {
   }
 }
 else {
-  Write-Host "Calico logs not avalaible"
-}
-
-# log containerd containers (this is done for docker via networking collectlogs.ps1)
-$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
-if ($res) {
-  & ctr.exe -n k8s.io c ls > "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+  Write-Host "Calico logs not available"
 }
 
 Write-Host "Compressing all logs to $zipName"

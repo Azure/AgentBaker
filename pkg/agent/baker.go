@@ -428,6 +428,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				kubernetesWindowsHostsConfigAgentFunctionsPS1,
 				kubernetesWindowsOpenSSHFunctionPS1,
 				kubernetesWindowsCalicoFunctionPS1,
+				kubernetesWindowsCSEHelperPS1,
 				kubernetesWindowsHypervtemplatetoml,
 			}
 
@@ -551,6 +552,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
 		},
+		"HasContainerdVersion": func() bool {
+			return config.ContainerdVersion != ""
+		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
@@ -580,6 +584,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return datamodel.TempDiskContainerDataDir
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+		},
+		"HasKubeletDiskType": func() bool {
+			return profile != nil && profile.KubeletDiskType != ""
+		},
+		"GetKubeletDiskType": func() string {
+			if profile != nil && profile.KubeletDiskType != "" {
+				return string(profile.KubeletDiskType)
+			}
+			return ""
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
@@ -732,6 +745,47 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			// TODO(qinhao): we need to move this to NodeBootstrappingConfiguration as cs.Properties
 			//               is to be moved away from NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedIDEnabled()
+		},
+		// HTTP proxy related funcs
+		"ShouldConfigureHTTPProxy": func() bool {
+			return config.HTTPProxyConfig != nil && (config.HTTPProxyConfig.HTTPProxy != nil || config.HTTPProxyConfig.HTTPSProxy != nil)
+		},
+		"HasHTTPProxy": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPProxy != nil
+		},
+		"HasHTTPSProxy": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPSProxy != nil
+		},
+		"HasNoProxy": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.NoProxy != nil
+		},
+		"GetHTTPProxy": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPProxy != nil {
+				return *config.HTTPProxyConfig.HTTPProxy
+			}
+			return ""
+		},
+		"GetHTTPSProxy": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPSProxy != nil {
+				return *config.HTTPProxyConfig.HTTPSProxy
+			}
+			return ""
+		},
+		"GetNoProxy": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.NoProxy != nil {
+				return strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
+			}
+			return ""
+		},
+		"ShouldConfigureHTTPProxyCA": func() bool {
+			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil
+		},
+		"GetHTTPProxyCA": func() string {
+			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
+				dec, _ := base64.StdEncoding.DecodeString(*config.HTTPProxyConfig.TrustedCA)
+				return datamodel.IndentString(string(dec), 4)
+			}
+			return ""
 		},
 	}
 }

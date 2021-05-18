@@ -4,6 +4,10 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 
+#the following sed removes all comments of the format {{/* */}}
+sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
+sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
+
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -70,15 +74,30 @@ fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
   overrideNetworkConfig || exit 1
-  disableSystemdTimesyncdAndEnableNTP || exit 1
+  disableNtpAndTimesyncdInstallChrony || exit 1
+fi
+
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    disableSystemdResolvedCache
+    disableSystemdIptables
+    forceEnableIpForward
 fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  CONTAINERD_VERSION="1.5.0-beta.git31a0f92df"
-  installStandaloneContainerd
-  echo "  - containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  CRICTL_VERSIONS="1.19.0"
+  containerd_version="1.4.4"
+  installStandaloneContainerd ${containerd_version}
+  echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+  if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    # also pre-cache containerd 1.5 for ACC as a local .deb file for Ubuntu OS SKUs
+    containerd_version="1.5.0-beta.git31a0f92df"
+    downloadContainerd ${containerd_version}
+    echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+  fi
+  CRICTL_VERSIONS="
+  1.19.0
+  1.20.0
+  "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -88,7 +107,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.6.0"
+  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.7.0"
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.14"
@@ -98,6 +117,9 @@ else
   cliTool="docker"
 fi
 
+RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
@@ -106,6 +128,7 @@ installGPUDrivers
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" >> ${VHD_LOGS_FILEPATH}
+echo "  - nvidia-gpu-driver-version=${GPU_DV}" >> ${VHD_LOGS_FILEPATH}
 
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
@@ -222,14 +245,20 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_PLUGIN_VERSIONS="0.2"
+    SGX_PLUGIN_VERSIONS="
+    0.2
+    0.4
+    "
     for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_WEBHOOK_VERSIONS="0.6"
+    SGX_WEBHOOK_VERSIONS="
+    0.6
+    0.9
+    "
     for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -257,64 +286,55 @@ for NGINX_VERSION in ${NGINX_VERSIONS}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# pull patched hyperkube image for AKS
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.14
 # v1.18.17
-# v1.19.7
+# v1.18.18
 # v1.19.9
-# v1.20.2
+# v1.19.10
 # v1.20.5
+# v1.20.6
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-PATCHED_HYPERKUBE_IMAGES="
+KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
+1.17.13-hotfix.20210310.2
 1.17.16
+1.17.16-hotfix.20210310.2
 1.18.8-hotfix.20200924
+1.18.8-hotfix.20201112.2
 1.18.10-hotfix.20210118
-1.18.14-hotfix.20210118
-1.18.14-hotfix.20210322
-1.18.17-hotfix.20210322
+1.18.10-hotfix.20210310.2
+1.18.14-hotfix.20210322.1
+1.18.14-hotfix.20210511
+1.18.17-hotfix.20210322.2
+1.18.17-hotfix.20210505
+1.18.18-hotfix.20210504
 1.19.1-hotfix.20200923
+1.19.1-hotfix.20200923.1
 1.19.3
 1.19.6-hotfix.20210118
-1.19.7-hotfix.20210310
-1.19.9-hotfix.20210322
+1.19.6-hotfix.20210310.1
+1.19.7-hotfix.20210310.2
+1.19.7-hotfix.20210511
+1.19.9-hotfix.20210322.1
+1.19.9-hotfix.20210505
+1.19.10-hotfix.20210504
 1.20.2
-1.20.2-hotfix.20210310
-1.20.5-hotfix.20210322
+1.20.2-hotfix.20210310.2
+1.20.2-hotfix.20210511
+1.20.5-hotfix.20210322.1
+1.20.5-hotfix.20210505
+1.20.6-hotfix.20210504
+1.21.0
 "
-for KUBERNETES_VERSION in ${PATCHED_HYPERKUBE_IMAGES}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
+  if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
+    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
-  # TODO: after CCP chart is done, change below to get hyperkube only for versions less than 1.17 only
-  if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) < 19)); then
-      CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/hyperkube:v${KUBERNETES_VERSION}"
-      pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-      if [[ ${cliTool} == "docker" ]]; then
-          docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      else
-          ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "Hyperkube contains no nf_tables"
-      fi
-      # shellcheck disable=SC2181
-      if [[ $? != 0 ]]; then
-      echo "Hyperkube contains nf_tables, exiting..."
-      exit 99
-      fi
-  fi
-
   # use kube-proxy as well
-  # strip the last .1 as that is for base image patch for hyperkube
-  if grep -iq hotfix <<< ${KUBERNETES_VERSION}; then
-    KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-  else
-    KUBERNETES_VERSION=`echo ${KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-  fi
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBERNETES_VERSION}"
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   if [[ ${cliTool} == "docker" ]]; then
       docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
@@ -333,42 +353,40 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.14
 # v1.18.17
-# v1.19.7
+# v1.18.18
 # v1.19.9
-# v1.20.2
+# v1.19.10
 # v1.20.5
+# v1.20.6
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-K8S_VERSIONS="
+# Please do not use the .1 suffix, because that's only for the base image patches
+KUBE_BINARY_VERSIONS="
 1.17.13
 1.17.16
 1.18.8-hotfix.20200924
 1.18.10-hotfix.20210118
 1.18.14-hotfix.20210322
-1.18.17-hotfix.20210322
+1.18.17-hotfix.20210505
+1.18.18-hotfix.20210504
 1.19.1-hotfix.20200923
 1.19.3
 1.19.6-hotfix.20210118
 1.19.7-hotfix.20210310
-1.19.9-hotfix.20210322
+1.19.9-hotfix.20210505
+1.19.10-hotfix.20210504
 1.20.2-hotfix.20210310
-1.20.5-hotfix.20210322
+1.20.5-hotfix.20210505
+1.20.6-hotfix.20210504
+1.21.0
 "
-for PATCHED_KUBERNETES_VERSION in ${K8S_VERSIONS}; do
-  # Only need to store k8s components >= 1.19 for containerd VHDs
-  if (($(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
+  if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
-  # strip the last .1 as that is for base image patch for hyperkube
-  if grep -iq hotfix <<< ${PATCHED_KUBERNETES_VERSION}; then
-    # shellcheck disable=SC2006
-    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3,4`;
-  else
-    PATCHED_KUBERNETES_VERSION=`echo ${PATCHED_KUBERNETES_VERSION} | cut -d"." -f1,2,3`;
-  fi
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBERNETES_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBERNETES_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
 done
 
 # shellcheck disable=SC2129

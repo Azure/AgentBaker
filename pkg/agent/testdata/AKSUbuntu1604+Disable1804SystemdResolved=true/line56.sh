@@ -128,9 +128,7 @@ ensureDocker() {
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     usermod -aG docker ${ADMINUSER}
     DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    if [[ $OS != $COREOS_OS_NAME ]]; then
-        wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    fi
+    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then

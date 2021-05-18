@@ -6,9 +6,6 @@ ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
 ERR_HOLD_WALINUXAGENT=7 {{/* Unable to place walinuxagent apt package on hold during install */}}
 ERR_RELEASE_HOLD_WALINUXAGENT=8 {{/* Unable to release hold on walinuxagent apt package after install */}}
 ERR_APT_INSTALL_TIMEOUT=9 {{/* Timeout installing required apt packages */}}
-ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
-ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
-ERR_STOP_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for systemd-timesyncd stop */}}
 ERR_DOCKER_INSTALL_TIMEOUT=20 {{/* Timeout waiting for docker install */}}
 ERR_DOCKER_DOWNLOAD_TIMEOUT=21 {{/* Timout waiting for docker downloads */}}
 ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 {{/* Timeout waiting to download docker repo key */}}
@@ -18,6 +15,8 @@ ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
 ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
 ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
+ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
+ERR_RUNC_INSTALL_TIMEOUT=29 {{/* Timeout waiting for moby-runc install */}}
 ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
 ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
 ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
@@ -76,10 +75,14 @@ ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space fo
 ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
+ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
+ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
+
+ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
-RHEL_OS_NAME="RHEL"
-COREOS_OS_NAME="COREOS"
+MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV=450.51.06

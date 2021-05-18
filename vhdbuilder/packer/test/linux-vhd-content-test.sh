@@ -5,6 +5,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
+  containerRuntime=$1
   echo "$test:Start"
   filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
@@ -13,7 +14,11 @@ testFilesDownloaded() {
     downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
     versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
     download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-
+    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
+    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
+      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
+      continue
+    fi
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
       continue
@@ -23,16 +28,15 @@ testFilesDownloaded() {
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
       downloadURL=$(string_replace $download_URL $version)/$file_Name
-
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
       fi
-
-      fileSizeInRepo=$(curl -sI $downloadURL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+      # -L since some urls are redirects (i.e github)
+      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${dest} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
     done
@@ -46,7 +50,6 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
   elif [ $containerRuntime == 'docker' ]; then
@@ -56,7 +59,7 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(jq .ContainerImages[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
+  imagesToBePulled=$(echo $2 | jq .ContainerImages[] --monochrome-output --compact-output)
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -65,7 +68,7 @@ testImagesPulled() {
       download_URL=$(string_replace $downloadURL $version)
 
       if [[ $pulledImages =~ $downloadURL ]]; then
-        echo "Image ${download_URL} has been pulled Successfully"
+        echo "Image ${download_URL} pulled"
       else
         err $test "Image ${download_URL} has NOT been pulled"
       fi
@@ -92,22 +95,18 @@ testChrony() {
   test="testChrony"
   echo "$test:Start"
 
-  # ---- Setup ----
-  # TODO remove this installation call once chrony is installed in VHD itself
-  disableNtpAndTimesyncdInstallChrony  2>/dev/null
-
   # ---- Test Setup ----
   # Test ntp is not active
   status=$(systemctl show -p SubState --value ntp)
   if [ $status == 'dead' ]; then
-    echo "ntp is removed, as expected"
+    echo $test "ntp is removed, as expected"
   else
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
   status=$(systemctl show -p SubState --value chrony)
   if [ $status == 'running' ]; then
-    echo "chrony is running, as expected"
+    echo $test "chrony is running, as expected"
   else
     err $test "chrony is not running with status ${status}"
   fi
@@ -154,6 +153,144 @@ testFips() {
   echo "$test:Finish"
 }
 
+testKubeBinariesPresent() {
+  test="testKubeBinaries"
+  echo "$test:Start"
+  containerRuntime=$1
+  binaryDir=/usr/local/bin
+  k8sVersions="
+  1.17.13
+  1.17.16
+  1.18.8-hotfix.20200924
+  1.18.10-hotfix.20210118
+  1.18.14-hotfix.20210322
+  1.18.17-hotfix.20210322
+  1.19.1-hotfix.20200923
+  1.19.3
+  1.19.6-hotfix.20210118
+  1.19.7-hotfix.20210310
+  1.19.9-hotfix.20210322
+  1.20.2-hotfix.20210310
+  1.20.5-hotfix.20210322
+  "
+  for patchedK8sVersion in ${k8sVersions}; do
+    # Only need to store k8s components >= 1.19 for containerd VHDs
+    if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
+      continue
+    fi
+    # strip the last .1 as that is for base image patch for hyperkube
+    if grep -iq hotfix <<< ${patchedK8sVersion}; then
+      # shellcheck disable=SC2006
+      patchedK8sVersion=`echo ${patchedK8sVersion} | cut -d"." -f1,2,3,4`;
+    else
+      patchedK8sVersion=`echo ${patchedK8sVersion} | cut -d"." -f1,2,3`;
+    fi
+    k8sVersion=$(echo ${patchedK8sVersion} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    kubeletDownloadLocation="$binaryDir/kubelet-$k8sVersion"
+    kubectlDownloadLocation="$binaryDir/kubectl-$k8sVersion"
+    kubeletInstallLocation="/usr/local/bin/kubelet"
+    kubectlInstallLocation="/usr/local/bin/kubectl"
+    #Test whether the binaries have been extracted
+    if [ ! -s $kubeletDownloadLocation ]; then
+      err $test "Binary ${kubeletDownloadLocation} does not exist"
+    fi
+    if [ ! -s $kubectlDownloadLocation ]; then
+      err $test "Binary ${kubectlDownloadLocation} does not exist"
+    fi
+    #Test whether the installed binary version is indeed correct
+    mv $kubeletDownloadLocation $kubeletInstallLocation
+    mv $kubectlDownloadLocation $kubectlInstallLocation
+    chmod a+x $kubeletInstallLocation $kubectlInstallLocation
+    echo "kubectl version"
+    kubectlLongVersion=$(kubectl version 2>/dev/null)
+    if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
+      err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
+    fi
+    echo "kubelet version"
+    kubeletLongVersion=$(kubelet --version 2>/dev/null)
+    if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
+      err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
+    fi
+  done
+  echo "$test:Finish"
+}
+
+testKubeProxyImagesPulled() {
+  test="testKubeProxyImagesPulled"
+  echo "$test:Start"
+  containerRuntime=$1
+  dockerKubeProxyImages='
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
+      "versions": [
+        "1.17.13",
+        "1.17.13-hotfix.20210310.2",
+        "1.17.16",
+        "1.17.16-hotfix.20210310.2",
+        "1.18.8-hotfix.20200924",
+        "1.18.8-hotfix.20201112.2",
+        "1.18.10-hotfix.20210118",
+        "1.18.10-hotfix.20210310.2",
+        "1.18.14-hotfix.20210118",
+        "1.18.14-hotfix.20210322",
+        "1.18.14-hotfix.20210322.1",
+        "1.18.17-hotfix.20210322",
+        "1.18.17-hotfix.20210322.2",
+        "1.19.1-hotfix.20200923",
+        "1.19.1-hotfix.20200923.1",
+        "1.19.3",
+        "1.19.6-hotfix.20210118",
+        "1.19.6-hotfix.20210310.1",
+        "1.19.7-hotfix.20210310",
+        "1.19.7-hotfix.20210310.2",
+        "1.19.9-hotfix.20210322",
+        "1.19.9-hotfix.20210322.1",
+        "1.20.2",
+        "1.20.2-hotfix.20210310",
+        "1.20.2-hotfix.20210310.2",
+        "1.20.5-hotfix.20210322",
+        "1.20.5-hotfix.20210322.1"
+      ]
+    }
+  ]
+}
+'
+containerdKubeProxyImages='
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
+      "versions": [
+        "1.19.1-hotfix.20200923",
+        "1.19.1-hotfix.20200923.1",
+        "1.19.3",
+        "1.19.6-hotfix.20210118",
+        "1.19.6-hotfix.20210310.1",
+        "1.19.7-hotfix.20210310",
+        "1.19.7-hotfix.20210310.1",
+        "1.19.9-hotfix.20210322",
+        "1.20.2",
+        "1.20.2-hotfix.20210310",
+        "1.20.2-hotfix.20210310.1",
+        "1.20.5-hotfix.20210322"
+      ]
+    }
+  ]
+}
+'
+  if [ $containerRuntime == 'containerd' ]; then
+    testImagesPulled containerd "$containerdKubeProxyImages"
+  elif [ $containerRuntime == 'docker' ]; then
+    testImagesPulled docker "$dockerKubeProxyImages"
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -162,8 +299,10 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-testFilesDownloaded
-testImagesPulled $1
+testFilesDownloaded $1
+testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
 testAuditDNotPresent
 testFips $2 $3
+testKubeBinariesPresent $1
+testKubeProxyImagesPulled $1

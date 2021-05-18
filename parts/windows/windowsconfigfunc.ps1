@@ -174,7 +174,7 @@ function Add-SystemPathEntry
     }
     if($updated)
     {
-        Write-Output "Updating path, added $Directory"
+        Write-Log "Updating path, added $Directory"
         [Environment]::SetEnvironmentVariable("Path", $path, [EnvironmentVariableTarget]::Machine)
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }

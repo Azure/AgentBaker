@@ -50,9 +50,21 @@ param(
     [ValidateNotNullOrEmpty()]
     $TargetEnvironment,
 
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $LogFile,
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $CSEResultFilePath,
+
     [string]
     $UserAssignedClientID
 )
+# Do not parse the start time from $LogFile to simplify the logic
+$StartTime=Get-Date
+$global:ExitCode=0
+$global:ErrorMessage=""
 
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
@@ -194,6 +206,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscontainerdfunc.ps1
 . c:\AzureData\windows\windowshostsconfigagentfunc.ps1
 . c:\AzureData\windows\windowscalicofunc.ps1
+. c:\AzureData\windows\windowscsehelper.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
@@ -212,7 +225,7 @@ try
 
             $configAppInsightsClientTimer = [System.Diagnostics.Stopwatch]::StartNew()
             # Get app insights binaries and set up app insights client
-            mkdir c:\k\appinsights
+            Create-Directory -FullPath c:\k\appinsights -DirectoryUsage "storing appinsights"
             DownloadFileOverHttp -Url "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg" -DestinationPath "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip"
             Expand-Archive -Path "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip" -DestinationPath "c:\k\appinsights"
             $appInsightsDll = "c:\k\appinsights\lib\net46\Microsoft.ApplicationInsights.dll"
@@ -285,10 +298,22 @@ try
         Write-Log "Create required data directories as needed"
         Initialize-DataDirectories
 
-        New-Item -ItemType Directory -Path "c:\k" -Force | Out-Null
+        Create-Directory -FullPath "c:\k"
         Get-ProvisioningScripts
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+        Write-Log "Download kubelet binaries and unzip"
+        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
+
+        # This overwrites the binaries that are downloaded from the custom packge with binaries.
+        # The custom package has a few files that are necessary for future steps (nssm.exe)
+        # this is a temporary work around to get the binaries until we depreciate
+        # custom package and nssm.exe as defined in aks-engine#3851.
+        if ($global:WindowsKubeBinariesURL){
+            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
+            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
+        }
 
         if ($useContainerD) {
             Write-Log "Installing ContainerD"
@@ -301,12 +326,11 @@ try
                 $cniBinPath = $global:CNIPath
                 $cniConfigPath = $global:CNIConfigPath
             }
-            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath
+            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
             if ($global:EnableTelemetry) {
                 $containerdTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
             }
-            # TODO: disable/uninstall Docker later
         } else {
             Write-Log "Install docker"
             if ($global:EnableTelemetry) {
@@ -318,18 +342,6 @@ try
                 $dockerTimer.Stop()
                 $global:AppInsightsClient.TrackMetric("Install-Docker", $dockerTimer.Elapsed.TotalSeconds)
             }
-        }
-
-        Write-Log "Download kubelet binaries and unzip"
-        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-        # this overwrite the binaries that are download from the custom packge with binaries
-        # The custom package has a few files that are nessary for future steps (nssm.exe)
-        # this is a temporary work around to get the binaries until we depreciate
-        # custom package and nssm.exe as defined in #3851.
-        if ($global:WindowsKubeBinariesURL){
-            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
         }
 
         # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
@@ -362,6 +374,8 @@ try
         $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
         $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
         [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
+
+        Get-CACertificates
         {{end}}
 
         Write-Log "Write ca root"
@@ -419,7 +433,7 @@ try
                 $o = docker image list
                 Write-Log $o
             }
-            throw "kubletwin/pause container does not exist!"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
         }
 
         Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
@@ -515,8 +529,9 @@ try
             Remove-Item $kubeConfigFile
         }
 
+        # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
-        Restart-Computer
+        Postpone-RestartComputer
     }
     else
     {
@@ -533,8 +548,19 @@ catch
         $global:AppInsightsClient.Flush()
     }
 
-    # Add timestamp in the logs
-    Write-Log $_
-    throw $_
+    # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
+    # Ideally all exceptions will be handled and no exception will be thrown.
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
+}
+finally
+{
+    # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
+    $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
+    Write-Log "CSE ExecutionDuration: $ExecutionDuration"
+
+    # Windows CSE does not return any error message so we cannot generate below content as the response
+    # $JsonString = "ExitCode: `"{0}`", Output: `"{1}`", Error: `"{2}`", ExecDuration: `"{3}`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
+    Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
+    echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
 }
 

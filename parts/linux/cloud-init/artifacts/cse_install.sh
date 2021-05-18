@@ -19,7 +19,7 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     {{if NeedsContainerd}}
-        installStandaloneContainerd
+        installStandaloneContainerd ${CONTAINERD_VERSION}
     {{else}}
         installMoby
     {{end}}
@@ -60,7 +60,14 @@ installCrictl() {
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
     else
-        downloadCrictl ${CRICTL_VERSION}
+        # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
+        # if the vhd does not have crictl pre-baked, return early
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
+            rm -rf ${CRICTL_DOWNLOAD_DIR}
+            echo "pre-cached crictl not found: skipping installCrictl"
+            return 1
+        fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
@@ -85,7 +92,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.6.0"
+    local TARGET_VERSION="0.7.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else
@@ -138,7 +145,6 @@ extractHyperkube() {
     path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
     pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
     mkdir -p "$path"
-
     if [[ "$CLI_TOOL" == "ctr" ]]; then
         if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
             mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
@@ -188,6 +194,7 @@ installKubeletKubectlAndKubeProxy() {
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
+    echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
@@ -203,7 +210,7 @@ removeContainerImage() {
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl image rm $CONTAINER_IMAGE_URL
+        crictl rmi $CONTAINER_IMAGE_URL
     else
         docker image rm $CONTAINER_IMAGE_URL
     fi
@@ -214,7 +221,11 @@ cleanUpImages() {
     export targetImage
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
-        images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1":"$2}' | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
+        fi
         {{else}}
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         {{end}}
@@ -224,7 +235,7 @@ cleanUpImages() {
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 {{if NeedsContainerd}}
-                removeContainerImage "ctr" ${image}
+                removeContainerImage ${CLI_TOOL} ${image}
                 {{else}}
                 removeContainerImage "docker" ${image}
                 {{end}}
@@ -250,6 +261,7 @@ cleanUpKubeProxyImages() {
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
+    export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages

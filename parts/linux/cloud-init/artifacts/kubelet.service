@@ -4,10 +4,17 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
+{{- if HasKubeletDiskType}}
+Requires=bind-mount.service
+After=bind-mount.service
+{{end}}
 
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
+{{- if ShouldConfigureHTTPProxy}}
+EnvironmentFile=/etc/environment
+{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet

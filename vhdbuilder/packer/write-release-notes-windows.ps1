@@ -23,14 +23,14 @@ Log "Commit:       $env:BUILD_COMMIT"
 Log ""
 
 $vhdId = Get-Content 'c:\vhd-id.txt'
-LOG ("VHD ID:      $vhdId")
-LOG ""
+Log ("VHD ID:      $vhdId")
+Log ""
 
 Log "System Info"
 $systemInfo = Get-ItemProperty -Path 'HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion'
 Log ("`t{0,-14} : {1}" -f "OS Name", $systemInfo.ProductName)
-LOG ("`t{0,-14} : {1}" -f "OS Version", "$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR)")
-LOG ("`t{0,-14} : {1}" -f "OS InstallType", $systemInfo.InstallationType)
+Log ("`t{0,-14} : {1}" -f "OS Version", "$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR)")
+Log ("`t{0,-14} : {1}" -f "OS InstallType", $systemInfo.InstallationType)
 Log ""
 
 $allowedSecurityProtocols = [System.Net.ServicePointManager]::SecurityProtocol
@@ -42,7 +42,7 @@ if ($systemInfo.InstallationType -ne 'client') {
     Log (Get-WindowsFeature | Where-Object Installed)
 }
 else {
-    LOG "`t<Cannot enumerate installed features on client skus>"
+    Log "`t<Cannot enumerate installed features on client skus>"
 }
 Log ""
 
@@ -58,7 +58,7 @@ Log "Installed QFEs"
 $qfes = Get-HotFix
 foreach ($qfe in $qfes) {
     $link = "http://support.microsoft.com/?kbid={0}" -f ($qfe.HotFixID.Replace("KB", ""))
-    LOG ("`t{0,-9} : {1, -15} : {2}" -f $qfe.HotFixID, $Qfe.Description, $link)
+    Log ("`t{0,-9} : {1, -15} : {2}" -f $qfe.HotFixID, $Qfe.Description, $link)
 }
 Log ""
 
@@ -67,16 +67,17 @@ $updateSession = New-Object -ComObject Microsoft.Update.Session
 $updateSearcher = $UpdateSession.CreateUpdateSearcher()
 $updates = $updateSearcher.Search("IsInstalled=1").Updates
 foreach ($update in $updates) {
-    LOG ("`t{0}" -f $update.Title)
+    Log ("`t{0}" -f $update.Title)
 }
-LOG ""
+Log ""
 
-LOG "Windows Update Registry Settings"
-LOG "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings"
+Log "Windows Update Registry Settings"
+Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings"
 
 $wuRegistryKeys = @(
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate",
-    "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+    "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
+    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"
 )
 
 foreach ($key in $wuRegistryKeys) {
@@ -94,13 +95,17 @@ if ($env:containerRuntime -eq 'docker') {
     $dockerVersion = (docker --version) | Out-String
     Log ("Version: {0}" -f $dockerVersion)
     Log "Images:"
-    LOG (docker images --format='{{json .}}' | ConvertFrom-Json | Format-Table Repository, Tag, ID)
+    Log (docker images --format='{{json .}}' | ConvertFrom-Json | Format-Table Repository, Tag, ID)
 } else {
     Log "ContainerD Info"
+    # starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
+    Start-Job -Name containerd -ScriptBlock { containerd.exe }
     $containerDVersion = (ctr.exe --version) | Out-String
     Log ("Version: {0}" -f $containerDVersion)
     Log "Images:"
-    LOG (ctr.exe -n k8s.io image ls)
+    Log (ctr.exe -n k8s.io image ls)
+    Stop-Job  -Name containerd
+    Remove-Job -Name containerd
 }
 Log ""
 

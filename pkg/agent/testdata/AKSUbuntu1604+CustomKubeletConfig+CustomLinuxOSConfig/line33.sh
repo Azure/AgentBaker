@@ -39,13 +39,13 @@ source /opt/azure/containers/provision_installs_distro.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
+cleanUpContainerd
+
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
 
 disable1804SystemdResolved
-
-if [[ $OS == $COREOS_OS_NAME ]]; then
-    echo "Changing default kubectl bin location"
-    KUBECTL=/opt/kubectl
-fi
 
 if [ -f /var/run/reboot-required ]; then
     REBOOTREQUIRED=true
@@ -54,12 +54,6 @@ else
 fi
 
 configureAdminUser
-cleanUpContainerd
-
-
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -86,9 +80,7 @@ installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy
 
-if [[ $OS != $COREOS_OS_NAME ]]; then
-    ensureRPC
-fi
+ensureRPC
 
 createKubeManifestDir
 
@@ -121,14 +113,14 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 VALIDATION_ERR=0
-
 API_SERVER_DNS_RETRIES=100
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
   API_SERVER_DNS_RETRIES=200
 fi
-RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 3 nslookup ${API_SERVER_NAME})
+RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
 STS=$?
 if [[ $STS != 0 ]]; then
+    time nslookup ${API_SERVER_NAME}
     if [[ $RES == *"168.63.129.16"*  ]]; then
         VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
     else
@@ -139,7 +131,7 @@ else
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
         API_SERVER_CONN_RETRIES=100
     fi
-    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 3 nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if $REBOOTREQUIRED; then

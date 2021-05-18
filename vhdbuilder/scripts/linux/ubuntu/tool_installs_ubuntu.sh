@@ -9,6 +9,13 @@ ERR_UA_DETACH=185 {{/* Error to detach UA */}}
 ERR_LINUX_HEADER_INSTALL_TIMEOUT=186 {{/* Timeout to install linux header */}}
 ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
 
+ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
+ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
+ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for systemd-timesyncd stop */}}
+ERR_STOP_OR_DISABLE_NTP_TIMEOUT=13 {{/* Timeout waiting for ntp stop */}}
+ERR_CHRONY_INSTALL_TIMEOUT=14 {{/*Unable to install CHRONY */}}
+ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
+
 echo "Sourcing tool_installs_ubuntu.sh"
 
 installAscBaseline() {
@@ -89,17 +96,72 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
-disableSystemdTimesyncdAndEnableNTP() {
-    # disable systemd-timesyncd
-    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_SYSTEMD_TIMESYNCD_TIMEOUT
-    systemctl disable systemd-timesyncd
+disableNtpAndTimesyncdInstallChrony() {
+    # Disable systemd-timesyncd
+    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+    systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
 
-    # install ntp
+    # Disable ntp if present
+    status=$(systemctl show -p SubState --value ntp)
+    if [ $status == 'dead' ]; then
+        echo "ntp is removed, no need to disable"
+    else
+        systemctl_stop 20 30 120 ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+        systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
+    fi
+
+    # Install chrony
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 20 30 120 ntp || exit $ERR_NTP_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
+    cat > /etc/chrony/chrony.conf <<EOF
+# Welcome to the chrony configuration file. See chrony.conf(5) for more
+# information about usuable directives.
 
-    # enable ntp
-    systemctlEnableAndStart ntp || exit $ERR_NTP_START_TIMEOUT
+# This will use (up to):
+# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
+# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
+# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
+# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
+# sources will be used.
+# At the same time it retains some protection against one of the entries being
+# down (compare to just using one of the lines). See (LP: #1754358) for the
+# discussion.
+#
+# About using servers from the NTP Pool Project in general see (LP: #104525).
+# Approved by Ubuntu Technical Board on 2011-02-08.
+# See http://www.pool.ntp.org/join.html for more information.
+#pool ntp.ubuntu.com        iburst maxsources 4
+#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+
+# This directive specify the location of the file containing ID/key pairs for
+# NTP authentication.
+keyfile /etc/chrony/chrony.keys
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/chrony.drift
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics
+
+# Log files location.
+logdir /var/log/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+makestep 1.0 -1
+EOF
+
+    systemctlEnableAndStart chrony || exit $ERR_CHRONY_START_TIMEOUT
 }
 
 installFIPS() {
@@ -121,9 +183,6 @@ installFIPS() {
 
     echo "enabling ua fips..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips || exit $ERR_UA_ENABLE_FIPS
-
-    echo "installing strongswan..."
-    apt_get_install 5 10 120 strongswan=5.6.2-1ubuntu2.fips.2.4.2 || exit $ERR_STRONGSWAN_INSTALL_TIMEOUT
 
     # workaround to make GPU provisioning in CSE work
     # under /usr/src/linux-headers-4.15.0-1002-azure-fips there are some dangling symlinks to non-existing linux-azure-headers-4.15.0-1002
