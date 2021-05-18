@@ -56,7 +56,10 @@
                 "ContainerRuntime={{user `container_runtime`}}"
             ],
             "type": "powershell",
-            "script": "vhdbuilder/packer/configure-windows-vhd.ps1"
+            "scripts": [
+                "vhdbuilder/packer/generate-windows-vhd-configuration.ps1",
+                "vhdbuilder/packer/configure-windows-vhd.ps1"
+            ]
         },
         {
             "restart_timeout": "10m",
@@ -75,7 +78,10 @@
                 "ContainerRuntime={{user `container_runtime`}}"
             ],
             "type": "powershell",
-            "script": "vhdbuilder/packer/configure-windows-vhd.ps1"
+            "scripts": [
+                "vhdbuilder/packer/generate-windows-vhd-configuration.ps1",
+                "vhdbuilder/packer/configure-windows-vhd.ps1"
+            ]
         },
         {
             "restart_timeout": "10m",
