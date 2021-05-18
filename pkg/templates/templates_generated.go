@@ -4280,7 +4280,6 @@ write_files:
   owner: root
   content: |
     version = 2
-    subreaper = true
     oom_score = 0{{if HasDataDir }}
     root = "{{GetDataDir}}"{{- end}}
     [plugins."io.containerd.grpc.v1.cri"]
