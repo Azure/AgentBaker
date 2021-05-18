@@ -7,7 +7,7 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 }
 
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019", "2019-containerd", "2004")
+$validSKU = @("2019", "2019-containerd")
 if (-not ($validSKU -contains $windowsSKU)) {
     Write-Log "Unsupported windows image SKU: $windowsSKU"
     exit 1
@@ -68,13 +68,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
         Write-Output "Pulling images for windows server 2019 with containerd"
-    }
-    "2004" {
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:2004",
-            "mcr.microsoft.com/windows/nanoserver:2004",
-            "mcr.microsoft.com/oss/kubernetes/pause:1.4.1")
-        Write-Log "Pulling images for windows server core 2004"
     }
     default {
         Write-Log "No valid windows SKU is specified $windowsSKU"
