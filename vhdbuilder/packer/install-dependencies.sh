@@ -37,7 +37,7 @@ installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
-  - blobfuse=1.3.5
+  - blobfuse=1.3.7
   - ca-certificates
   - ceph-common
   - cgroup-lite
