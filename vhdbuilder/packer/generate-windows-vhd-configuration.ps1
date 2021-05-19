@@ -1,16 +1,17 @@
+# MUST define global variable with "global"
+# This script is used to generate shared configuration for configure-windows-vhd.ps1 and windows-vhd-content-test.ps1.
+# MUST NOT add any shared functions in this script.
 $windowsConfig=@'
 $global:containerRuntime = $env:ContainerRuntime
 $validContainerRuntimes = @("containerd", "docker")
 if (-not ($validContainerRuntimes -contains $containerRuntime)) {
-    Write-Log "Unsupported container runtime: $containerRuntime"
-    exit 1
+    throw "Unsupported container runtime: $containerRuntime"
 }
 
 $global:windowsSKU = $env:WindowsSKU
 $validSKU = @("2019", "2019-containerd")
 if (-not ($validSKU -contains $windowsSKU)) {
-    Write-Log "Unsupported windows image SKU: $windowsSKU"
-    exit 1
+    throw "Unsupported windows image SKU: $windowsSKU"
 }
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
@@ -51,7 +52,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
-        Write-Output "Pulling images for windows server 2019 with docker"
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -67,11 +67,9 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
-        Write-Output "Pulling images for windows server 2019 with containerd"
     }
     default {
-        Write-Log "No valid windows SKU is specified $windowsSKU"
-        exit 1
+        throw "No valid windows SKU is specified $windowsSKU"
     }
 }
 

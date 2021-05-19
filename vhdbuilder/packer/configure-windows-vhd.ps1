@@ -90,6 +90,7 @@ function Disable-WindowsUpdates {
 
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
+        Write-Log "Pulling images for windows server 2019 with containerd"
         # start containerd to pre-pull the images to disk on VHD
         # CSE will configure and register containerd as a service at deployment time
         Start-Job -Name containerd -ScriptBlock { containerd.exe }
@@ -102,6 +103,7 @@ function Get-ContainerImages {
         Remove-Job -Name containerd
     }
     else {
+        Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
             Retry-Command -ScriptBlock {
                 docker pull $image
