@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eux
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
+WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
@@ -112,13 +113,22 @@ if [ "$OS_TYPE" == "Linux" ]; then
     exit 1
   fi
 else
+  SCRIPT_PATH="$CDIR/../$WIN_CONFIGURATION_SCRIPT_PATH"
+  echo "Run $SCRIPT_PATH"
+  az vm run-command invoke --command-id RunPowerShellScript \
+    --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
+    --output json
+
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
+  echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
   # An example of failed run-command output:
   # {
   #   "value": [
