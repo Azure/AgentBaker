@@ -114,7 +114,8 @@ write_files:
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
-      address = "127.0.0.1:10257"
+      address = "0.0.0.0:10257"
+      grpc_histogram = true
     
     [proxy_plugins]
       [proxy_plugins.teleportd]
