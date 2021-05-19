@@ -18,6 +18,10 @@ for v in "${required_env_vars[@]}"; do
   fi
 done
 
+if [[ -z "$SIG_GALLERY_NAME" ]]; then
+  SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+fi
+
 #clean up the packer generated resource group
 id=$(az group show --name ${PKR_RG_NAME} | jq .id)
 if [ -n "$id" ]; then
