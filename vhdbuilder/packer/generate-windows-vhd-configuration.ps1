@@ -1,4 +1,6 @@
 # MUST define global variable with "global"
+# This script is used to generate shared configuration for configure-windows-vhd.ps1 and windows-vhd-content-test.ps1.
+# MUST NOT add any shared functions in this script.
 $windowsConfig=@'
 $global:containerRuntime = $env:ContainerRuntime
 $validContainerRuntimes = @("containerd", "docker")
