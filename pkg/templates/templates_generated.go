@@ -4320,7 +4320,6 @@ write_files:
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
       address = "0.0.0.0:10257"
-      grpc_histogram = true
     {{- if TeleportEnabled }}
     [proxy_plugins]
       [proxy_plugins.teleportd]
@@ -4368,7 +4367,6 @@ write_files:
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
       address = "0.0.0.0:10257"
-      grpc_histogram = true
     {{ if TeleportEnabled }}
     [proxy_plugins]
       [proxy_plugins.teleportd]
