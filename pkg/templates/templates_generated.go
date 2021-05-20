@@ -5754,6 +5754,17 @@ try
             Remove-Item $kubeConfigFile
         }
 
+        # Enable FIPS-mode
+        $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+        if ( $fipsEnabled ) {
+            Write-Log "Set the registry to enable fips-mode"
+            Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Force
+        }
+        else
+        {
+            Write-Log "Leave FipsAlgorithmPolicy as it is."
+        }
+
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
         Postpone-RestartComputer

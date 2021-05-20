@@ -787,5 +787,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return ""
 		},
+		"FIPSEnabled": func() bool {
+			return config.FIPSEnabled
+		},
 	}
 }
