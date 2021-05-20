@@ -261,8 +261,8 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
 	if IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
-		if config.AgentPoolProfile.KubernetesConfig != nil && config.AgentPoolProfile.KubernetesConfig.KubeletConfig != nil {
-			kubeletFlags := config.AgentPoolProfile.KubernetesConfig.KubeletConfig
+		if config.KubeletConfig != nil {
+			kubeletFlags := config.KubeletConfig
 			delete(kubeletFlags, "--dynamic-config-dir")
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 		}
@@ -315,7 +315,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if profile.KubernetesConfig == nil {
 				return ""
 			}
-			return GetKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig, profile.CustomKubeletConfig)
+			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)

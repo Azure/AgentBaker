@@ -1427,6 +1427,7 @@ type NodeBootstrappingConfiguration struct {
 	KubeletClientTLSBootstrapToken *string
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
+	KubeletConfig                  map[string]string
 }
 
 // HTTPProxyConfig represents configurations of http proxy
