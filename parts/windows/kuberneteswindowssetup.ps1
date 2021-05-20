@@ -533,7 +533,7 @@ try
         $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
         if ( $fipsEnabled ) {
             Write-Log "Set the registry to enable fips-mode"
-            Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Force
+            Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
         }
         else
         {
