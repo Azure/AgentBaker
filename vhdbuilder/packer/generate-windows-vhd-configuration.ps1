@@ -21,10 +21,9 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU. 
 $global:patchUrls = @(
-    "http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/05/windows10.0-kb5003243-x64_81350c4efec5a183725fda73091c9ee9d4577bc3.msu",
-    "http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/05/windows10.0-kb5003171-x64_30162051d5376b7a19c4c25157347c522e804bbb.msu"
+    "http://download.windowsupdate.com/d/msdownload/update/software/updt/2021/05/windows10.0-kb5003217-x64_92c969426f41f135f842dd232a64e6a461a848ca.msu"
 )
-$global:patchIDs = @("KB5003243", "KB5003171")
+$global:patchIDs = @("kb5003217")
 
 $global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
 
