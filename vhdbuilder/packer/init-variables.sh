@@ -59,6 +59,9 @@ echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_IMAGE_NAME hasnt been provided in Gen2 mode, set it to the default value
 if [[ "$MODE" == "gen2Mode" ]]; then
+	if 	[[ -z "$SIG_GALLERY_NAME" ]]; then
+		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+	fi
 	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
 			SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
@@ -70,7 +73,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 fi
 
-if [[ "$MODE" == "sigMode" || ("$MODE" == "gen2Mode" && "$OS_SKU" == "CBLMariner" ) ]]; then
+if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
 	if [ -z "$id" ]; then
