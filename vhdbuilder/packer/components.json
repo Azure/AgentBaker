@@ -104,7 +104,8 @@
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
         "master.0326.5",
-        "master.210427.1"
+        "master.210427.1",
+        "master.210524.1"
       ]
     },
     {
@@ -120,7 +121,8 @@
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "versions": [
         "master.0326.5",
-        "master.210427.1"
+        "master.210427.1",
+        "master.210524.1"
       ]
     },
     {
@@ -234,7 +236,8 @@
       "versions": [
         "v2.5.0.2",
         "v2.5.0.3",
-        "v2.5.0.4"
+        "v2.5.0.4",
+        "v2.5.0.5"
       ]
     },
     {
