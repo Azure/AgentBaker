@@ -3861,7 +3861,7 @@ installMoby() {
 
 ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
-    local TARGET_VERSION="1.0.0~rc92"
+    local TARGET_VERSION="1.0.0~rc95"
     # runc rc93 has a regression that causes pods to be stuck in containercreation
     # https://github.com/opencontainers/runc/issues/2865
     # not using semverCompare b/c we need to downgrade
