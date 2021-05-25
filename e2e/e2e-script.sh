@@ -14,3 +14,17 @@ if [ -z $(az aks list -g $RESOURCE_GROUP_NAME | jq '.[].name') ]; then
     echo "Cluster doesnt exist, creating"
     az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys
 fi
+
+MC_RESOURCE_GROUP_NAME=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.nodeResourceGroup')
+VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME | jq -r '.[].name')
+
+echo $MC_RESOURCE_GROUP_NAME
+echo $VMSS_NAME
+
+az vmss run-command invoke \
+            -n $VMSS_NAME \
+            -g $MC_RESOURCE_GROUP_NAME \
+            --command-id RunShellScript \
+            --instance-id 0 \
+            --scripts "cat /etc/kubernetes/azure.json" | jq -r '.value[].message' | awk '/{/{flag=1}/}/{print;flag=0}flag' \
+            > fields.json
