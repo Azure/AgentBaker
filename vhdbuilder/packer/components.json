@@ -103,8 +103,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
-        "master.0326.5",
-        "master.210427.1"
+        "master.210427.1",
+        "master.210524.1"
       ]
     },
     {
@@ -119,8 +119,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "versions": [
-        "master.0326.5",
-        "master.210427.1"
+        "master.210427.1",
+        "master.210524.1"
       ]
     },
     {
@@ -141,8 +141,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
         "ciprod03262021",
-        "ciprod04222021",
-        "ciprod05122021"
+        "ciprod05202021"
       ]
     },
     {
@@ -233,9 +232,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "versions": [
-        "v2.5.0.2",
-        "v2.5.0.3",
-        "v2.5.0.4"
+        "v2.5.0.4",
+        "v2.5.0.5"
       ]
     },
     {

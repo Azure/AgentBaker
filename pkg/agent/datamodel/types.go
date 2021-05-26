@@ -1061,7 +1061,7 @@ func (a *AgentPoolProfile) IsSpotScaleSet() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool) string {
+func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
 	var buf bytes.Buffer
 	buf.WriteString("kubernetes.azure.com/role=agent")
 	if deprecated {
@@ -1079,6 +1079,9 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 	}
 	if fipsEnabled {
 		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
+	}
+	if osSku != "" {
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/os-sku=%s", osSku))
 	}
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
 	keys := []string{}
@@ -1420,7 +1423,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableACRTeleportPlugin       bool
 	Enable1804Chrony              bool
 	TeleportdPluginURL            string
-	ContainerdVersion			  string
+	ContainerdVersion             string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping

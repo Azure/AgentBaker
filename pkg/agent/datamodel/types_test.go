@@ -1137,6 +1137,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 		deprecated    bool
 		nvidiaEnabled bool
 		fipsEnabled   bool
+		osSku         string
 		expected      string
 	}{
 		{
@@ -1237,15 +1238,25 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			fipsEnabled:   true,
 			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
+		{
+			name:          "with osSKU set",
+			ap:            AgentPoolProfile{},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			fipsEnabled:   false,
+			osSku:         "CBLMariner",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/os-sku=CBLMariner,kubernetes.azure.com/cluster=my-resource-group",
+		},
 	}
 
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled) {
+			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled, c.osSku) {
 				t.Fatalf("Got unexpected AgentPoolProfile.GetKubernetesLabels(%s, %t) result. Expected: %s. Got: %s.",
-					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled))
+					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled, c.osSku))
 			}
 		})
 	}
