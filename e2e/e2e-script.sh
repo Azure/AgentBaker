@@ -42,3 +42,5 @@ for file in "${files[@]}"; do
             )
     jq -r --arg key $file --arg value $content '. + { ($key) : $value }' < fields.json > dummy.json && mv dummy.json fields.json
 done
+
+go test -v
