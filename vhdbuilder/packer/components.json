@@ -80,6 +80,7 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/networkmonitor:*",
       "versions": [
+        "v1.1.8_hotfix",
         "v1.1.8post2",
         "v1.1.8"
       ]
