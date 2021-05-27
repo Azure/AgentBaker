@@ -80,6 +80,7 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/networkmonitor:*",
       "versions": [
+        "v1.1.8_hotfix",
         "v1.1.8post2",
         "v1.1.8"
       ]
@@ -110,10 +111,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
+        "v0.0.19",
         "v0.0.17",
-        "v0.0.16",
-        "v0.0.15",
-        "v0.0.13"
+        "v0.0.16"
       ]
     },
     {
