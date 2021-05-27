@@ -179,3 +179,20 @@ function Add-SystemPathEntry
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }
 }
+
+function Enable-FIPSMode
+{
+    Param(
+        [Parameter(Mandatory = $true)][bool]
+        $fipsEnabled
+    )
+
+    if ( $fipsEnabled ) {
+        Write-Log "Set the registry to enable fips-mode"
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
+    }
+    else
+    {
+        Write-Log "Leave FipsAlgorithmPolicy as it is."
+    }
+}

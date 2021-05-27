@@ -210,6 +210,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
+$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
 try
 {
@@ -530,15 +531,7 @@ try
         }
 
         # Enable FIPS-mode
-        $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
-        if ( $fipsEnabled ) {
-            Write-Log "Set the registry to enable fips-mode"
-            Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
-        }
-        else
-        {
-            Write-Log "Leave FipsAlgorithmPolicy as it is."
-        }
+        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
