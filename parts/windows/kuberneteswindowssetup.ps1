@@ -210,6 +210,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
+$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
 try
 {
@@ -528,6 +529,9 @@ try
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
             Remove-Item $kubeConfigFile
         }
+
+        # Enable FIPS-mode
+        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"

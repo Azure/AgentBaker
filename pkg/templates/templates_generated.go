@@ -5435,6 +5435,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
+$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
 try
 {
@@ -5753,6 +5754,9 @@ try
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
             Remove-Item $kubeConfigFile
         }
+
+        # Enable FIPS-mode
+        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
@@ -6596,7 +6600,25 @@ function Add-SystemPathEntry
         [Environment]::SetEnvironmentVariable("Path", $path, [EnvironmentVariableTarget]::Machine)
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }
-}`)
+}
+
+function Enable-FIPSMode
+{
+    Param(
+        [Parameter(Mandatory = $true)][bool]
+        $fipsEnabled
+    )
+
+    if ( $fipsEnabled ) {
+        Write-Log "Set the registry to enable fips-mode"
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
+    }
+    else
+    {
+        Write-Log "Leave FipsAlgorithmPolicy as it is."
+    }
+}
+`)
 
 func windowsWindowsconfigfuncPs1Bytes() ([]byte, error) {
 	return _windowsWindowsconfigfuncPs1, nil
