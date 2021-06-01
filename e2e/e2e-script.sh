@@ -18,9 +18,11 @@ fi
 
 MC_RESOURCE_GROUP_NAME=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.nodeResourceGroup')
 VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME | jq -r '.[].name')
+CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
 echo $MC_RESOURCE_GROUP_NAME
 echo $VMSS_NAME
+echo $CLUSTER_ID
 
 az vmss run-command invoke \
             -n $VMSS_NAME \
@@ -42,5 +44,34 @@ for file in "${files[@]}"; do
             )
     jq -r --arg key $file --arg value $content '. + { ($key) : $value }' < fields.json > dummy.json && mv dummy.json fields.json
 done
+
+#make this a function
+#we dont want to populate every value like this
+
+#TODO 1) : Make the following a function : Adding a field to the JSON file(moving from one to another)
+#TODO 2) : 
+#Have all the fields that we want in an array and get them through there, 
+#eg get all agentPoolProfiles[] field in an array and iterate over them to fetch instead of seperate calls
+
+fqdn=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.fqdn')
+jq -r --arg value $fqdn '. + { "fqdn" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+mode=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.agentPoolProfiles[].mode')
+jq -r --arg value $mode '. + { "mode" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+nodepool_name=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.agentPoolProfiles[].name')
+jq -r --arg value $nodepool_name '. + { "nodepoolname" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+image_version=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.agentPoolProfiles[].nodeImageVersion')
+jq -r --arg value $image_version '. + { "nodeImageVersion" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+tenantID=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.identity.tenantId')
+jq -r --arg value $tenantID '. + { "tenantID" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+jq -r --arg value $MC_RESOURCE_GROUP_NAME '. + { "mcRGName" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+jq -r --arg value $CLUSTER_ID '. + { "clusterID" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
+jq -r --arg value $SUBSCRIPTION_ID '. + { "subID" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
 
 go test -v
