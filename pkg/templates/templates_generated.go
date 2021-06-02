@@ -1295,6 +1295,17 @@ semverCompare() {
     [[ "${VERSION_A}" == ${highestVersion} ]] && return 0
     return 1
 }
+downloadDebPkgToFile() {
+    PKG_NAME=$1
+    PKG_VERSION=$2
+    PKG_DIRECTORY=$3
+    mkdir -p $PKG_DIRECTORY
+    # shellcheck disable=SC2164
+    pushd ${PKG_DIRECTORY}
+    retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
+    # shellcheck disable=SC2164
+    popd
+}
 #HELPERSEOF
 `)
 
