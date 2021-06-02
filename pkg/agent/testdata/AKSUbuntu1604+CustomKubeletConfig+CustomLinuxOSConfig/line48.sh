@@ -101,7 +101,7 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION}
+    ensureRunc ${RUNC_VERSION:-""}
 }
 
 ensureRunc() {

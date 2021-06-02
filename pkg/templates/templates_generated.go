@@ -3831,7 +3831,7 @@ installStandaloneContainerd() {
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION}
+    ensureRunc ${RUNC_VERSION:-""}
 }
 
 downloadContainerd() {
@@ -3859,7 +3859,7 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION}
+    ensureRunc ${RUNC_VERSION:-""}
 }
 
 ensureRunc() {
