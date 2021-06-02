@@ -92,8 +92,8 @@ func TestBasic(t *testing.T) {
 	createFile("../e2e/cseCmd")
 
 	caCertDecoded, _ := base64.URLEncoding.DecodeString(values.Cacert)
-	//apiServerCertDecoded, _ := base64.URLEncoding.DecodeString(values.Apiservercert)
-	//clientKeyDecoded, _ := base64.URLEncoding.DecodeString(values.Clientkey)
+	apiServerCertDecoded, _ := base64.URLEncoding.DecodeString(values.Apiservercert)
+	clientKeyDecoded, _ := base64.URLEncoding.DecodeString(values.Clientkey)
 	clientCertDecoded, _ := base64.URLEncoding.DecodeString(values.Clientcert)
 	
 	cs := &datamodel.ContainerService{
@@ -194,14 +194,15 @@ func TestBasic(t *testing.T) {
 			// 	AdminUsername: "azureuser",
 			// },
 			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-				ClientID: "ClientID",
-				Secret:   "Secret",
+				ClientID: values.AadClientId,
+				Secret:   values.AadClientSecret,
 			},
 
 			CertificateProfile: &datamodel.CertificateProfile{
 				CaCertificate: string(caCertDecoded),
 				ClientCertificate: string(clientCertDecoded),
-				//CaCertificate: base64.URLEncoding.DecodeString(values.Cacert),
+				APIServerCertificate: string(apiServerCertDecoded),
+				ClientPrivateKey: string(clientKeyDecoded),
 			},
 		},
 	}
@@ -218,8 +219,8 @@ func TestBasic(t *testing.T) {
 	agentPool := cs.Properties.AgentPoolProfiles[0]
 	baker := agent.InitializeTemplateGenerator()
 
-	//fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-	// pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
+	// fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
+	// // pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
 
 	// hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
 	// hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
@@ -229,7 +230,7 @@ func TestBasic(t *testing.T) {
 
 	// windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
 	pauseImage := "mcr.microsoft.com/oss/kubernetes/pause:3.5"
-	hyperkubeImage := "hyperkubeimage"
+	hyperkubeImage := "mcr.microsoft.com/oss/kubernetes/"
 	windowsPackage := "windowspackage"
 
 	k8sComponents := &datamodel.K8sComponents{
