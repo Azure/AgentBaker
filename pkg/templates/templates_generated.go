@@ -459,6 +459,7 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+RUNC_VERSION={{GetParameter "runcVersion"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -3823,34 +3824,14 @@ installStandaloneContainerd() {
             CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
             CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
             if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-                installStandaloneContainerdFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+                installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
                 return 0
             fi
         fi
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    ensureRunc
-}
-
-installStandaloneContainerdFromFile() {
-    CONTAINERD_DEB_FILE=$1
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} --allow-downgrades
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-    rm -Rf $CONTAINERD_DOWNLOADS_DIR &
-}
-
-downloadContainerd() {
-    CONTAINERD_VERSION=$1
-    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
-    mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
-    CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+    ensureRunc ${RUNC_VERSION}
 }
 {{- end}}
 
@@ -3868,18 +3849,38 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc
+    ensureRunc ${RUNC_VERSION}
+}
+
+downloadContainerd() {
+    CONTAINERD_VERSION=$1
+    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
+    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
 ensureRunc() {
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
-    local TARGET_VERSION="1.0.0~rc95" # TODO: add overrideable version
-    # runc rc93 has a regression that causes pods to be stuck in containercreation
-    # https://github.com/opencontainers/runc/issues/2865
-    # not using semverCompare b/c we need to downgrade
-    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
-        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    TARGET_VERSION=$1
+    if [[ -z ${TARGET_VERSION } ]]; then
+        TARGET_VERSION="1.0.0-rc95"
     fi
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    fi
+    # if on a vhd-built image, first check if we've cached the deb file
+    if [[ "${IS_VHD:-"false"}" = true ]]; then
+        RUNC_DEB_TMP="moby-runc_${TARGET_VERSION/-/\~}+azure-1_amd64.deb"
+        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+            return 0
+        fi
+    fi
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 cleanUpGPUDrivers() {
