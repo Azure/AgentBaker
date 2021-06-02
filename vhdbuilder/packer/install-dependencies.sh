@@ -97,6 +97,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
+  1.21.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
