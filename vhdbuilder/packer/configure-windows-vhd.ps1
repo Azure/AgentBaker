@@ -159,7 +159,7 @@ function Install-ContainerD {
     } else {
         tar -xzf $containerdTmpDest --strip=1 -C $installDir
         mv -Force $installDir\bin\* $installDir
-        Remove-Item -Path $installDir\bin -Force
+        Remove-Item -Path $installDir\bin -Force -Recurse
     }
     Remove-Item -Path $containerdTmpDest | Out-Null
 

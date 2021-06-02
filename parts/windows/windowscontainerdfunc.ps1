@@ -171,7 +171,7 @@ function Install-Containerd {
 
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
     Remove-Item -Path $tarfile -Force
-    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force
+    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
   }
 
   # get configuration options
