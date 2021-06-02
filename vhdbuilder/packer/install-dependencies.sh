@@ -127,7 +127,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   1.0.0-rc95
   "
   for RUNC_VERSION in $RUNC_VERSIONS; do
-    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION} ${RUNC_DOWNLOADS_DIR}
+    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
     echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
 fi
