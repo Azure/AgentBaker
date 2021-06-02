@@ -73,6 +73,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/packer_ubuntu_utils.sh",
+      "destination": "/home/packer/packer_ubuntu_utils.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
       "destination": "/home/packer/provision_installs.sh"
     },

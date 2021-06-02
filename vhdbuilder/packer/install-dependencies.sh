@@ -16,6 +16,10 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  source /home/packer/packer_ubuntu_utils.sh
+fi
+
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 #this is used by post build test to check whether the compoenents do indeed exist
@@ -91,7 +95,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # also pre-cache containerd 1.5 for ACC as a local .deb file for Ubuntu OS SKUs
     containerd_version="1.5.0-beta.git31a0f92df"
-    downloadContainerd ${containerd_version}
+    downloadContainerdFromBlob ${containerd_version}
     echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
@@ -117,8 +121,20 @@ else
   cliTool="docker"
 fi
 
+## for ubuntu-based images, cache multiple versions of runc
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  RUNC_VERSIONS="
+  1.0.0-rc92
+  1.0.0-rc95
+  "
+  for RUNC_VERSION in $RUNC_VERSIONS; do
+    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION} ${RUNC_DOWNLOADS_DIR}
+  done
+fi
 RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
+
 
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
