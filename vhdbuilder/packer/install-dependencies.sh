@@ -117,8 +117,21 @@ else
   cliTool="docker"
 fi
 
-RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
+## for ubuntu-based images, cache multiple versions of runc
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  RUNC_VERSIONS="
+  1.0.0-rc92
+  1.0.0-rc95
+  "
+  for RUNC_VERSION in $RUNC_VERSIONS; do
+    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
+    echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  done
+fi
+
 
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
