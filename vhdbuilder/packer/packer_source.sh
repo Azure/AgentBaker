@@ -103,3 +103,15 @@ cpAndMode() {
   src=$1; dest=$2; mode=$3
   DIR=$(dirname "$dest") && mkdir -p ${DIR} && cp $src $dest && chmod $mode $dest || exit $ERR_PACKER_COPY_FILE
 }
+
+downloadDebPkgToFile() {
+    PKG_NAME=$1
+    PKG_VERSION=$2
+    PKG_DIRECTORY=$3
+    mkdir -p $PKG_DIRECTORY
+    # shellcheck disable=SC2164
+    pushd ${PKG_DIRECTORY}
+    retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
+    # shellcheck disable=SC2164
+    popd
+}

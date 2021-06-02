@@ -1323,6 +1323,7 @@ CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
+RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
@@ -3861,7 +3862,7 @@ installMoby() {
 
 ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
-    local TARGET_VERSION="1.0.0~rc95"
+    local TARGET_VERSION="1.0.0~rc95" # TODO: add overrideable version
     # runc rc93 has a regression that causes pods to be stuck in containercreation
     # https://github.com/opencontainers/runc/issues/2865
     # not using semverCompare b/c we need to downgrade
