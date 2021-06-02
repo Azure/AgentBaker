@@ -20,9 +20,9 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     {{if NeedsContainerd}}
-        installStandaloneContainerd ${CONTAINERD_VERSION}
+        installStandaloneContainerd ${CONTAINERD_VERSION} ${RUNC_VERSION}
     {{else}}
-        installMoby
+        installMoby ${RUNC_VERSION}
     {{end}}
 }
 
