@@ -6794,7 +6794,7 @@ function Install-Containerd {
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
 
-    Get-ChildItem -Path $global:ContainerdInstallLocation\bin -Recurse -File | Move-Item -Destination $global:ContainerdInstallLocation
+    mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
     Remove-Item -Path $tarfile -Force
     Remove-Item -Path $global:ContainerdInstallLocation\bin -Force
   }

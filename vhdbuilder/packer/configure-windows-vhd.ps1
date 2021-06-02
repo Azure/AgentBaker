@@ -158,7 +158,7 @@ function Install-ContainerD {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
     } else {
         tar -xzf $containerdTmpDest --strip=1 -C $installDir
-        Get-ChildItem -Path $installDir\bin -Recurse -File | Move-Item -Destination $installDir
+        mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force
     }
     Remove-Item -Path $containerdTmpDest | Out-Null
