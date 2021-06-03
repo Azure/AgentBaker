@@ -25,3 +25,7 @@ forceEnableIpForward() {
     net.bridge.bridge-nf-call-iptables = 1
 EOF
 }
+
+networkdWorkaround() {
+    sed -i "s/Name=e\*/Name=eth0/g" /etc/systemd/network/99-dhcp-en.network
+}
