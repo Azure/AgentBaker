@@ -20,7 +20,7 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     
-        installStandaloneContainerd ${CONTAINERD_VERSION} ${RUNC_VERSION}
+        installStandaloneContainerd ${CONTAINERD_VERSION}
     
 }
 

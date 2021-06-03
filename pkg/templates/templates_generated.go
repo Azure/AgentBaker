@@ -1347,9 +1347,9 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     {{if NeedsContainerd}}
-        installStandaloneContainerd ${CONTAINERD_VERSION} ${RUNC_VERSION}
+        installStandaloneContainerd ${CONTAINERD_VERSION}
     {{else}}
-        installMoby ${RUNC_VERSION}
+        installMoby
     {{end}}
 }
 
@@ -3800,7 +3800,6 @@ updateAptWithMicrosoftPkg() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
-    RUNC_VERSION=${2:-""}
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
@@ -3832,7 +3831,7 @@ installStandaloneContainerd() {
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION}
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 downloadContainerd() {
@@ -3847,7 +3846,6 @@ downloadContainerd() {
 {{- end}}
 
 installMoby() {
-    RUNC_VERSION=${1:-""}
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
@@ -3861,11 +3859,11 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION}
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
-    TARGET_VERSION=${1:-""}
+    TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION } ]]; then
         TARGET_VERSION="1.0.0-rc95"
     fi

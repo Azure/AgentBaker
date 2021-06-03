@@ -20,7 +20,7 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     
-        installMoby ${RUNC_VERSION}
+        installMoby
     
 }
 

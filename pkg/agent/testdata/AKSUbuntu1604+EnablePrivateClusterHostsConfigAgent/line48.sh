@@ -88,7 +88,6 @@ updateAptWithMicrosoftPkg() {
 }
 
 installMoby() {
-    RUNC_VERSION=${1:-""}
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
@@ -102,11 +101,11 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION}
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
-    TARGET_VERSION=${1:-""}
+    TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION } ]]; then
         TARGET_VERSION="1.0.0-rc95"
     fi
