@@ -1420,7 +1420,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.7.0"
+    local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else
@@ -6800,7 +6800,7 @@ function Install-Containerd {
     $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
     Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    del $zipfile
+    Remove-Item -Path $zipfile -Force
   }
   elseif ($ContainerdUrl.endswith(".tar.gz")) {
     # upstream containerd package is a tar 
@@ -6808,9 +6808,10 @@ function Install-Containerd {
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
+
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    del $tarfile
-    del -Recurse -Force $global:ContainerdInstallLocation\bin
+    Remove-Item -Path $tarfile -Force
+    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
   }
 
   # get configuration options

@@ -140,6 +140,10 @@ function Get-FilesToCacheOnVHD {
 }
 
 function Install-ContainerD {
+    # installing containerd during VHD building is to cache container images into the VHD,
+    # and the containerd to managed customer containers after provisioning the vm is not necessary
+    # the one used here, considering containerd version/package is configurable, and the first one
+    # is expected to override the later one
     Write-Log "Getting containerD binaries from $global:containerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
@@ -154,12 +158,14 @@ function Install-ContainerD {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
     } else {
         tar -xzf $containerdTmpDest --strip=1 -C $installDir
+        mv -Force $installDir\bin\* $installDir
+        Remove-Item -Path $installDir\bin -Force -Recurse
     }
     Remove-Item -Path $containerdTmpDest | Out-Null
 
-    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir;$installDir/bin"
+    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
     [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
-    $env:Path += ";$installDir;$installDir/bin"
+    $env:Path += ";$installDir"
 }
 
 function Install-Docker {
