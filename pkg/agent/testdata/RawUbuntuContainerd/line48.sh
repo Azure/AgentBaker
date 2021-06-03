@@ -164,8 +164,8 @@ ensureRunc() {
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [[ "${IS_VHD:-"false"}" = true ]]; then
-        RUNC_DEB_TMP="moby-runc_${TARGET_VERSION/-/\~}+azure-1_amd64.deb"
-        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
+        RUNC_DEB_FILE=$(find ${$RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
