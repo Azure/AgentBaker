@@ -156,7 +156,7 @@ installMoby() {
 
 ensureRunc() {
     TARGET_VERSION=$1
-    if [[ -z ${TARGET_VERSION } ]]; then
+    if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.0-rc95"
     fi
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
