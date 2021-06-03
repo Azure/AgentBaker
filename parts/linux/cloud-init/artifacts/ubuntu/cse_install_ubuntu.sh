@@ -92,7 +92,7 @@ updateAptWithMicrosoftPkg() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
-    RUNC_VERSION=$2
+    RUNC_VERSION=${2:-""}
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
@@ -124,7 +124,7 @@ installStandaloneContainerd() {
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION:-""}
+    ensureRunc ${RUNC_VERSION}
 }
 
 downloadContainerd() {
