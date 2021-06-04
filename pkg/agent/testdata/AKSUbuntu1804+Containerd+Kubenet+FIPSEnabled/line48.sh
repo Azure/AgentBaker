@@ -110,7 +110,7 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        if [[ "${IS_VHD:-"false"}" = true ]]; then
+        if [ -f $VHD_LOGS_FILEPATH ]; then
             CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
             CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
             if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
@@ -156,14 +156,14 @@ ensureRunc() {
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.0-rc95"
     fi
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi
     # if on a vhd-built image, first check if we've cached the deb file
-    if [[ "${IS_VHD:-"false"}" = true ]]; then
+    if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
-        RUNC_DEB_FILE=$(find ${$RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
