@@ -1424,6 +1424,7 @@ type NodeBootstrappingConfiguration struct {
 	Enable1804Chrony              bool
 	TeleportdPluginURL            string
 	ContainerdVersion             string
+	RuncVersion                   string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping

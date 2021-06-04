@@ -395,6 +395,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				}),
 				TrustedCA: to.StringPtr(EncodedTestCert),
 			}
+		}),
+		Entry("AKSUbuntu1804containerd with custom runc verison", "AKSUbuntu1804Containerd+RuncVersion", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				KubeletConfig:    map[string]string{},
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.RuncVersion = "1.0.0-rc96"
 		}))
 })
 
