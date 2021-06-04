@@ -398,11 +398,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}),
 
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableRuncShimV2 = true
+		}),
+
+		Entry("AKSUbuntu1804containerd with custom runc verison", "AKSUbuntu1804Containerd+RuncVersion", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				KubeletConfig:    map[string]string{},
 				ContainerRuntime: datamodel.Containerd,
 			}
-			config.EnableRuncShimV2 = true
+			config.RuncVersion = "1.0.0-rc96"
 		}),
 
 		Entry("AKSUbuntu1804 with containerd+gpu and runcshimv2", "AKSUbuntu1804+Containerd++GPU+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -673,19 +677,11 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
 		}),
-		Entry("AKSWindows2004 with k8s version 1.19 and hyperv", "AKSWindows2004+K8S119+hyperv", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Distro("aks-windows-2019")
-			config.ContainerService.Properties.AgentPoolProfiles[0].CustomNodeLabels = map[string]string{"kubernetes.azure.com/node-image-version": "AKSWindows-2004-17763.1457.201019"}
-			config.ContainerService.Properties.AgentPoolProfiles[0].ImageRef = &datamodel.ImageReference{
-				Name:           "windows-2004",
-				ResourceGroup:  "akswinvhdbuilderrg",
-				SubscriptionID: "109a5e88-712a-48ae-9078-9ca8b3c81345",
-				Gallery:        "AKSWindows",
-				Version:        "17763.1457.201019",
-			}
-		}),
 		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+		}),
+		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.FIPSEnabled = true
 		}))
 
 })

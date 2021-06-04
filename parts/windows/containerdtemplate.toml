@@ -38,8 +38,8 @@ state = "C:\\ProgramData\\containerd\\state"
       [plugins.cri.containerd.default_runtime]
         runtime_type = "io.containerd.runhcs.v1"
         [plugins.cri.containerd.default_runtime.options]
-          Debug = true
-          DebugType = 2
+          Debug = false
+          DebugType = 0
           SandboxImage = "{{pauseImage}}-windows-{{currentversion}}-amd64"
           SandboxPlatform = "windows/amd64"
           SandboxIsolation = {{sandboxIsolation}}

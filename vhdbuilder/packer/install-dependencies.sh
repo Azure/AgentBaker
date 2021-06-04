@@ -37,7 +37,7 @@ installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
-  - blobfuse=1.3.5
+  - blobfuse=1.3.7
   - ca-certificates
   - ceph-common
   - cgroup-lite
@@ -97,6 +97,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
+  1.21.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -107,7 +108,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.7.0"
+  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.14"
@@ -117,8 +118,21 @@ else
   cliTool="docker"
 fi
 
-RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
+## for ubuntu-based images, cache multiple versions of runc
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  RUNC_VERSIONS="
+  1.0.0-rc92
+  1.0.0-rc95
+  "
+  for RUNC_VERSION in $RUNC_VERSIONS; do
+    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
+    echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  done
+fi
+
 
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
@@ -290,11 +304,12 @@ done
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
 # v1.18.17
-# v1.18.18
+# v1.18.19
 # v1.19.9
-# v1.19.10
+# v1.19.11
 # v1.20.5
-# v1.20.6
+# v1.20.7
+# v1.21.1
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
@@ -305,28 +320,32 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.18.8-hotfix.20201112.2
 1.18.10-hotfix.20210118
 1.18.10-hotfix.20210310.2
-1.18.14-hotfix.20210322.1
 1.18.14-hotfix.20210511
-1.18.17-hotfix.20210322.2
+1.18.14-hotfix.20210525
 1.18.17-hotfix.20210505
-1.18.18-hotfix.20210504
+1.18.17-hotfix.20210525
+1.18.19
+1.18.19-hotfix.20210522
 1.19.1-hotfix.20200923
 1.19.1-hotfix.20200923.1
 1.19.3
 1.19.6-hotfix.20210118
 1.19.6-hotfix.20210310.1
-1.19.7-hotfix.20210310.2
 1.19.7-hotfix.20210511
-1.19.9-hotfix.20210322.1
+1.19.7-hotfix.20210525
 1.19.9-hotfix.20210505
-1.19.10-hotfix.20210504
+1.19.9-hotfix.20210526
+1.19.11
+1.19.11-hotfix.20210526
 1.20.2
-1.20.2-hotfix.20210310.2
 1.20.2-hotfix.20210511
-1.20.5-hotfix.20210322.1
+1.20.2-hotfix.20210525
 1.20.5-hotfix.20210505
-1.20.6-hotfix.20210504
-1.21.0
+1.20.5-hotfix.20210526
+1.20.7
+1.20.7-hotfix.20210526
+1.21.1
+1.21.1-hotfix.20210526
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
@@ -354,11 +373,12 @@ done
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
 # v1.18.17
-# v1.18.18
+# v1.18.19
 # v1.19.9
-# v1.19.10
+# v1.19.11
 # v1.20.5
-# v1.20.6
+# v1.20.7
+# v1.21.1
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
@@ -368,17 +388,17 @@ KUBE_BINARY_VERSIONS="
 1.18.10-hotfix.20210118
 1.18.14-hotfix.20210322
 1.18.17-hotfix.20210505
-1.18.18-hotfix.20210504
+1.18.19
 1.19.1-hotfix.20200923
 1.19.3
 1.19.6-hotfix.20210118
 1.19.7-hotfix.20210310
 1.19.9-hotfix.20210505
-1.19.10-hotfix.20210504
+1.19.11
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210505
-1.20.6-hotfix.20210504
-1.21.0
+1.20.7
+1.21.1
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then

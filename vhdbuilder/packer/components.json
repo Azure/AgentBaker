@@ -73,13 +73,14 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "versions": [
-        "v1.2.9",
-        "v1.3.3"
+        "v1.3.3",
+        "v1.4.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/networkmonitor:*",
       "versions": [
+        "v1.1.8_hotfix",
         "v1.1.8post2",
         "v1.1.8"
       ]
@@ -103,24 +104,23 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
-        "master.0326.5",
-        "master.210427.1"
+        "master.210427.1",
+        "master.210524.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
+        "v0.0.19",
         "v0.0.17",
-        "v0.0.16",
-        "v0.0.15",
-        "v0.0.13"
+        "v0.0.16"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "versions": [
-        "master.0326.5",
-        "master.210427.1"
+        "master.210427.1",
+        "master.210524.1"
       ]
     },
     {
@@ -141,8 +141,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
         "ciprod03262021",
-        "ciprod04222021",
-        "ciprod05122021"
+        "ciprod05202021"
       ]
     },
     {
@@ -233,9 +232,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "versions": [
-        "v2.5.0.2",
-        "v2.5.0.3",
-        "v2.5.0.4"
+        "v2.5.0.4",
+        "v2.5.0.5"
       ]
     },
     {

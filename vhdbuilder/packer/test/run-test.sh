@@ -1,13 +1,14 @@
 #!/bin/bash
 set -eux
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
+WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$MODE" == "gen2Mode" ]; then
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
     echo "Skipping tests for Mariner, Ubuntu 16.04 and Gen2"
     exit 0
   fi
@@ -29,24 +30,38 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-if [ "$MODE" == "sigMode" ]; then
-  echo "SIG existence checking for $MODE"
-  id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
-  if [ -z "$id" ]; then
-    echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
-    exit 1
-  fi
+if [ "$MODE" == "default" ]; then
+  az disk create --resource-group $RESOURCE_GROUP_NAME \
+    --name $DISK_NAME \
+    --source "${OS_DISK_URI}" \
+    --query id
+  az vm create --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --attach-os-disk $DISK_NAME \
+    --os-type $OS_TYPE \
+    --public-ip-address ""
+else 
+  if [ "$MODE" == "sigMode" ]; then
+    id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
+    if [ -z "$id" ]; then
+      echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+      exit 1
+    fi
 
-  id=$(az sig image-definition show \
-    --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-    --gallery-name ${SIG_GALLERY_NAME} \
-    --gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
-  if [ -z "$id" ]; then
-    echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-    exit 1
-  fi
+    id=$(az sig image-definition show \
+      --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+      --gallery-name ${SIG_GALLERY_NAME} \
+      --gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
+    if [ -z "$id" ]; then
+      echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+      exit 1
+    fi
 
-  IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+  else 
+    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+    IMG_DEF=${MANAGED_SIG_ID}
+  fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
@@ -59,17 +74,6 @@ if [ "$MODE" == "sigMode" ]; then
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --public-ip-address ""
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
-
-else
-  az disk create --resource-group $RESOURCE_GROUP_NAME \
-    --name $DISK_NAME \
-    --source "${OS_DISK_URI}" \
-    --query id
-  az vm create --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --attach-os-disk $DISK_NAME \
-    --os-type $OS_TYPE \
-    --public-ip-address ""
 fi
 
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
@@ -109,13 +113,22 @@ if [ "$OS_TYPE" == "Linux" ]; then
     exit 1
   fi
 else
+  SCRIPT_PATH="$CDIR/../$WIN_CONFIGURATION_SCRIPT_PATH"
+  echo "Run $SCRIPT_PATH"
+  az vm run-command invoke --command-id RunPowerShellScript \
+    --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
+    --output json
+
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
+  echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "WindowsSKU=${WINDOWS_SKU}")
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
   # An example of failed run-command output:
   # {
   #   "value": [

@@ -459,6 +459,7 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+RUNC_VERSION={{GetParameter "runcVersion"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -1295,6 +1296,17 @@ semverCompare() {
     [[ "${VERSION_A}" == ${highestVersion} ]] && return 0
     return 1
 }
+downloadDebPkgToFile() {
+    PKG_NAME=$1
+    PKG_VERSION=$2
+    PKG_DIRECTORY=$3
+    mkdir -p $PKG_DIRECTORY
+    # shellcheck disable=SC2164
+    pushd ${PKG_DIRECTORY}
+    retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
+    # shellcheck disable=SC2164
+    popd
+}
 #HELPERSEOF
 `)
 
@@ -1323,6 +1335,7 @@ CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
+RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
@@ -1407,7 +1420,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.7.0"
+    local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else
@@ -1537,9 +1550,9 @@ cleanUpImages() {
     function cleanupImagesRun() {
         {{if NeedsContainerd}}
         if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1":"$2}' | tr ' ' '\n')
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | awk '{print $1}' | tr ' ' '\n')
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
         {{else}}
         images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
@@ -3675,6 +3688,14 @@ apt_get_dist_upgrade() {
   echo Executed apt-get dist-upgrade $i times
   wait_for_apt_locks
 }
+installDebPackageFromFile() {
+    DEB_FILE=$1
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 600 apt-get -y -f install ${DEB_FILE} --allow-downgrades
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+}
 #EOF
 `)
 
@@ -3713,7 +3734,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in apache2-utils apt-transport-https blobfuse=1.1.1 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
+    for apt_package in apache2-utils apt-transport-https blobfuse=1.3.7 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -3807,28 +3828,18 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        if [[ "${IS_VHD:-"false"}" = true ]]; then
+        if [ -f $VHD_LOGS_FILEPATH ]; then
             CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
             CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
             if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-                installStandaloneContainerdFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+                installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
                 return 0
             fi
         fi
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    ensureRunc
-}
-
-installStandaloneContainerdFromFile() {
-    CONTAINERD_DEB_FILE=$1
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} --allow-downgrades
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-    rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 downloadContainerd() {
@@ -3856,18 +3867,28 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
-    local TARGET_VERSION="1.0.0~rc92"
-    # runc rc93 has a regression that causes pods to be stuck in containercreation
-    # https://github.com/opencontainers/runc/issues/2865
-    # not using semverCompare b/c we need to downgrade
-    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
-        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    TARGET_VERSION=$1
+    if [[ -z ${TARGET_VERSION} ]]; then
+        TARGET_VERSION="1.0.0-rc95"
     fi
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    fi
+    # if on a vhd-built image, first check if we've cached the deb file
+    if [ -f $VHD_LOGS_FILEPATH ]; then
+        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
+        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+            return 0
+        fi
+    fi
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 cleanUpGPUDrivers() {
@@ -4799,8 +4820,8 @@ state = "C:\\ProgramData\\containerd\\state"
       [plugins.cri.containerd.default_runtime]
         runtime_type = "io.containerd.runhcs.v1"
         [plugins.cri.containerd.default_runtime.options]
-          Debug = true
-          DebugType = 2
+          Debug = false
+          DebugType = 0
           SandboxImage = "{{pauseImage}}-windows-{{currentversion}}-amd64"
           SandboxPlatform = "windows/amd64"
           SandboxIsolation = {{sandboxIsolation}}
@@ -5199,7 +5220,7 @@ function Check-APIServerConnectivity {
         [Parameter(Mandatory = $false)][int]
         $RetryInterval = 1,
         [Parameter(Mandatory = $false)][int]
-        $ConnectTimeout = 3,  #seconds
+        $ConnectTimeout = 10,  #seconds
         [Parameter(Mandatory = $false)][int]
         $MaxRetryCount = 100
     )
@@ -5370,18 +5391,6 @@ $global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
 $global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultContainerdWindowsSandboxIsolation"}}"
 $global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
-# To support newer Windows OS version, we need to support set ContainerRuntime,
-# ContainerdWindowsRuntimeHandlers and DefaultContainerdWindowsSandboxIsolation per agent pool but
-# current code does not support this. Below is a workaround to set contianer
-# runtime variables per Windows OS version.
-#
-# Set default values for container runtime variables for AKS Windows 2004
-if ($([System.Environment]::OSVersion.Version).Build -eq "19041") {
-    $global:ContainerRuntime = "containerd"
-    $global:ContainerdWindowsRuntimeHandlers = "17763,19041"
-    $global:DefaultContainerdWindowsSandboxIsolation = "process"
-}
-
 ## VM configuration passed by Azure
 $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
 {{if eq GetIdentitySystem "adfs"}}
@@ -5489,6 +5498,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
+$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
 try
 {
@@ -5807,6 +5817,9 @@ try
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
             Remove-Item $kubeConfigFile
         }
+
+        # Enable FIPS-mode
+        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
@@ -6650,7 +6663,25 @@ function Add-SystemPathEntry
         [Environment]::SetEnvironmentVariable("Path", $path, [EnvironmentVariableTarget]::Machine)
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }
-}`)
+}
+
+function Enable-FIPSMode
+{
+    Param(
+        [Parameter(Mandatory = $true)][bool]
+        $fipsEnabled
+    )
+
+    if ( $fipsEnabled ) {
+        Write-Log "Set the registry to enable fips-mode"
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
+    }
+    else
+    {
+        Write-Log "Leave FipsAlgorithmPolicy as it is."
+    }
+}
+`)
 
 func windowsWindowsconfigfuncPs1Bytes() ([]byte, error) {
 	return _windowsWindowsconfigfuncPs1, nil
@@ -6829,7 +6860,7 @@ function Install-Containerd {
     $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
     Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    del $zipfile
+    Remove-Item -Path $zipfile -Force
   }
   elseif ($ContainerdUrl.endswith(".tar.gz")) {
     # upstream containerd package is a tar 
@@ -6837,9 +6868,10 @@ function Install-Containerd {
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
+
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    del $tarfile
-    del -Recurse -Force $global:ContainerdInstallLocation\bin
+    Remove-Item -Path $tarfile -Force
+    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
   }
 
   # get configuration options

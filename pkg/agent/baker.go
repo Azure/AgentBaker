@@ -305,11 +305,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				false, config.EnableNvidia, config.FIPSEnabled)
+				false, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				true, config.EnableNvidia, config.FIPSEnabled)
+				true, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
 		"GetKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {
@@ -789,6 +789,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return datamodel.IndentString(string(dec), 4)
 			}
 			return ""
+		},
+		"FIPSEnabled": func() bool {
+			return config.FIPSEnabled
 		},
 	}
 }

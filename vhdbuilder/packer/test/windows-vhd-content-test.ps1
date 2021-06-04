@@ -7,14 +7,16 @@
 
 param (
     $containerRuntime,
-    $WindowsSKU
+    $windowsSKU
 )
 
-# TODO(qinhao): we can share the variables from configure-windows-vhd.ps1
-$global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
+# We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
+$env:ContainerRuntime=$containerRuntime
+$env:WindowsSKU=$windowsSKU
+
+. c:\windows-vhd-configuration.ps1
 
 function Compare-AllowedSecurityProtocols {
-
     $allowedProtocols = @()
     $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
 
@@ -31,79 +33,6 @@ function Compare-AllowedSecurityProtocols {
 
 function Test-FilesToCacheOnVHD
 {
-    param (
-        $containerRuntime
-    )
-
-    # TODO(qinhao): share this map variable with `configure-windows-vhd.ps1`
-    $map = @{
-        "c:\akse-cache\" = @(
-            "https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
-            "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/win-bridge.exe",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/portReservationTest.ps1",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.cmd",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.cmd",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/stoppacketcapture.cmd",
-            "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/VFP.psm1",
-            "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
-            "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
-            "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.12.zip",
-            "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.13.zip"
-        );
-        "c:\akse-cache\containerd\" = @(
-            $global:containerdPackageUrl
-        );
-        "c:\akse-cache\csi-proxy\"    = @(
-            "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz"
-        );
-        # winzip paths here are not valid, but will be changed to the actual path.
-        # we don't resue the code the validate the winzip used for different container runtimes, but use the real list to
-        # validat the code and winzip downloaded.
-        "c:\akse-cache\win-k8s-docker\" = @(
-            "https://acs-mirror.azureedge.net/kubernetes/v1.17.13-hotfix.20210118/windowszip/v1.17.13-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.17.16-hotfix.20210118/windowszip/v1.17.16-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.10-hotfix.20210118/windowszip/v1.18.10-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210428/windowszip/v1.18.14-hotfix.20210428-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210511/windowszip/v1.18.14-hotfix.20210511-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210322/windowszip/v1.18.17-hotfix.20210322-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210505/windowszip/v1.18.17-hotfix.20210505-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.18.18-hotfix.20210504/windowszip/v1.18.18-hotfix.20210504-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.6-hotfix.20210118/windowszip/v1.19.6-hotfix.20210118-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210428/windowszip/v1.19.7-hotfix.20210428-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.7-hotfix.20210511/windowszip/v1.19.7-hotfix.20210511-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/windowszip/v1.19.9-hotfix.20210322-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210505/windowszip/v1.19.9-hotfix.20210505-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.19.10-hotfix.20210504/windowszip/v1.19.10-hotfix.20210504-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210428/windowszip/v1.20.2-hotfix.20210428-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210511/windowszip/v1.20.2-hotfix.20210511-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210505/windowszip/v1.20.5-hotfix.20210505-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.6-hotfix.20210504/windowszip/v1.20.6-hotfix.20210504-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.21.0/windowszip/v1.21.0-1int.zip"
-        );
-        # Please add new winzips with Kuberentes version >= 1.20 here
-        "c:\akse-cache\win-k8s-docker-and-containerd\" = @(
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210428/windowszip/v1.20.2-hotfix.20210428-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210511/windowszip/v1.20.2-hotfix.20210511-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210322/windowszip/v1.20.5-hotfix.20210322-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210505/windowszip/v1.20.5-hotfix.20210505-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.20.6-hotfix.20210504/windowszip/v1.20.6-hotfix.20210504-1int.zip",
-            "https://acs-mirror.azureedge.net/kubernetes/v1.21.0/windowszip/v1.21.0-1int.zip"
-        );
-        "c:\akse-cache\win-vnet-cni\" = @(
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.2/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.2.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.6.zip",
-            "https://acs-mirror.azureedge.net/azure-cni/v1.2.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.7.zip"
-        );
-        "c:\akse-cache\calico\" = @(
-            "https://acs-mirror.azureedge.net/calico-node/v3.18.1/binaries/calico-windows-v3.18.1.zip",
-            "https://acs-mirror.azureedge.net/calico-node/v3.19.0/binaries/calico-windows-v3.19.0.zip"
-        )
-    }
-
     $invalidFiles = @()
     $missingPaths = @()
     foreach ($dir in $map.Keys) {
@@ -121,8 +50,13 @@ function Test-FilesToCacheOnVHD
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s-docker\") {
-                continue
+            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s\") {
+                $k8sMajorVersion = $fileName.split(".",3)[0]
+                $k8sMinorVersion = $fileName.split(".",3)[1]
+                if ($k8sMinorVersion -lt "20" -And $k8sMajorVersion -eq "v1") {
+                    Write-Output "Skip to validate $URL for containerD is supported from Kubernets 1.20"
+                    continue
+                }
             }
 
             if(![System.IO.File]::Exists($dest)) {
@@ -150,8 +84,6 @@ function Test-FilesToCacheOnVHD
 }
 
 function Test-PatchInstalled {
-    # patchIDs contains a list of hotfixes patched in "configure-windows-vhd.ps1", like "kb4558998"
-    $patchIDs = @("KB5003243", "KB5003171")
     $hotfix = Get-HotFix
     $currenHotfixes = @()
     foreach($hotfixID in $hotfix.HotFixID) {
@@ -167,63 +99,6 @@ function Test-PatchInstalled {
 }
 
 function Test-ImagesPulled {
-    param (
-        $containerRuntime,
-        $WindowsSKU
-    )
-    $imagesToPull = @()
-    switch ($WindowsSKU) {
-        '2019' {
-            $imagesToPull = @(
-                "mcr.microsoft.com/windows/servercore:ltsc2019",
-                "mcr.microsoft.com/windows/nanoserver:1809",
-                "mcr.microsoft.com/oss/kubernetes/pause:3.4.1",
-                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.0.1",
-                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.1.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.1.1",
-                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.2.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.0.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.2.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.19",
-                "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
-                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.12",
-                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.5.1", # for k8s 1.18.x
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
-                "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
-            Write-Output "Pulling images for windows server 2019 with docker"
-        }
-        '2019-containerd' {
-            $imagesToPull = @(
-                "mcr.microsoft.com/windows/servercore:ltsc2019",
-                "mcr.microsoft.com/windows/nanoserver:1809",
-                "mcr.microsoft.com/oss/kubernetes/pause:3.4.1",
-                "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.1.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.2.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.2.0",
-                "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
-                "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
-                "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.0", # for k8s 1.21.x
-                "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021")
-            Write-Output "Pulling images for windows server 2019 with containerd"
-        }
-        '2004' {
-            $imagesToPull = @(
-                "mcr.microsoft.com/windows/servercore:2004",
-                "mcr.microsoft.com/windows/nanoserver:2004",
-                "mcr.microsoft.com/oss/kubernetes/pause:1.4.1")
-            Write-Output "Pulling images for windows server core 2004"
-        }
-        default {
-            Write-Output "No valid windows SKU is specified $WindowsSKU"
-            exit 1
-        }
-    }
     if ($containerRuntime -eq 'containerd') {
         Start-Job -Name containerd -ScriptBlock { containerd.exe }
         # NOTE:
@@ -254,11 +129,6 @@ function Test-ImagesPulled {
 }
 
 function Test-RegistryAdded {
-
-    param (
-        $containerRuntime
-    )
-
     Write-Output "Get the registry for the HNS fix in 2021-2C"
     $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
     if ($result.HNSControlFlag -eq 1) {
@@ -279,7 +149,8 @@ function Test-RegistryAdded {
 }
 
 Compare-AllowedSecurityProtocols
-Test-FilesToCacheOnVHD -containerRuntime $containerRuntime
+Test-FilesToCacheOnVHD
 Test-PatchInstalled
-Test-ImagesPulled  -containerRuntime $containerRuntime -WindowsSKU $WindowsSKU
-Test-RegistryAdded -containerRuntime $containerRuntime
+Test-ImagesPulled
+Test-RegistryAdded
+Remove-Item -Path c:\windows-vhd-configuration.ps1
