@@ -114,24 +114,14 @@ installStandaloneContainerd() {
             CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
             CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
             if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-                installStandaloneContainerdFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+                installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
                 return 0
             fi
         fi
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    ensureRunc
-}
-
-installStandaloneContainerdFromFile() {
-    CONTAINERD_DEB_FILE=$1
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 600 apt-get -y -f install ${CONTAINERD_DEB_FILE} --allow-downgrades
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-    rm -Rf $CONTAINERD_DOWNLOADS_DIR &
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 downloadContainerd() {
@@ -158,18 +148,28 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
-    local TARGET_VERSION="1.0.0~rc95" # TODO: add overrideable version
-    # runc rc93 has a regression that causes pods to be stuck in containercreation
-    # https://github.com/opencontainers/runc/issues/2865
-    # not using semverCompare b/c we need to downgrade
-    if [ "${CURRENT_VERSION}" != "${TARGET_VERSION}" ]; then
-        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    TARGET_VERSION=$1
+    if [[ -z ${TARGET_VERSION} ]]; then
+        TARGET_VERSION="1.0.0-rc95"
     fi
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //' | sed 's/-/~/')
+    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    fi
+    # if on a vhd-built image, first check if we've cached the deb file
+    if [[ "${IS_VHD:-"false"}" = true ]]; then
+        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
+        RUNC_DEB_FILE=$(find ${$RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+            return 0
+        fi
+    fi
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 cleanUpGPUDrivers() {
