@@ -3688,6 +3688,14 @@ apt_get_dist_upgrade() {
   echo Executed apt-get dist-upgrade $i times
   wait_for_apt_locks
 }
+installDebPackageFromFile() {
+    DEB_FILE=$1
+    wait_for_apt_locks
+    retrycmd_if_failure 10 5 600 apt-get -y -f install ${DEB_FILE} --allow-downgrades
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+}
 #EOF
 `)
 
