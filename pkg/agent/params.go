@@ -115,6 +115,9 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
+	if config.RuncVersion != "" {
+		addValue(parametersMap, "runcVersion", config.RuncVersion)
+	}
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
@@ -126,9 +129,6 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 			}
 			if config.TeleportdPluginURL != "" {
 				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
-			}
-			if config.RuncVersion != "" {
-				addValue(parametersMap, "runcVersion", config.RuncVersion)
 			}
 		} else {
 			addValue(parametersMap, "cliTool", "docker")
