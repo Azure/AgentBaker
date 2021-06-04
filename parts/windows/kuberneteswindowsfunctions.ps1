@@ -316,7 +316,7 @@ function Check-APIServerConnectivity {
         [Parameter(Mandatory = $false)][int]
         $RetryInterval = 1,
         [Parameter(Mandatory = $false)][int]
-        $ConnectTimeout = 3,  #seconds
+        $ConnectTimeout = 10,  #seconds
         [Parameter(Mandatory = $false)][int]
         $MaxRetryCount = 100
     )
