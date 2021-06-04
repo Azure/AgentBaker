@@ -552,6 +552,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
 		},
+		"UseRuncShimV2": func() bool {
+			return config.EnableRuncShimV2
+		},
 		"HasContainerdVersion": func() bool {
 			return config.ContainerdVersion != ""
 		},
