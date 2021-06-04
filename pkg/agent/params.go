@@ -115,13 +115,13 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
+	if config.RuncVersion != "" {
+		addValue(parametersMap, "runcVersion", config.RuncVersion)
+	}
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
-		if config.RuncVersion != "" {
-			addValue(parametersMap, "runcVersion", config.RuncVersion)
-		}
 		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			addValue(parametersMap, "cliTool", "ctr")
 			if config.ContainerdVersion != "" {
