@@ -1674,6 +1674,11 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+# Question: need to check Nvidia A100??? the path???
+if [[ "${GPU_NODE}" == "true" ]]; then
+    ~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb
+fi
+
 {{- if not NeedsContainerd}}
 cleanUpContainerd
 {{- end}}
@@ -4144,6 +4149,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
+#Question, need conditions?
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
