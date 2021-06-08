@@ -30,6 +30,8 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mig-partition.service
+// linux/cloud-init/artifacts/mig_partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -2709,6 +2711,53 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
+Description=a script that installs the mig-parted library to do multi-instance GPU partitioning
+# After=
+[Service]
+Restart=on-failure
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
+#EOF`)
+
+func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionService, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMig_partitionSh = []byte(`#!/bin/bash
+GO111MODULE=off
+go get -u github.com/NVIDIA/mig-parted/cmd/nvidia-mig-parted
+GOBIN=$(pwd)
+go install github.com/NVIDIA/mig-parted/cmd/nvidia-mig-parted@latest
+git clone http://github.com/NVIDIA/mig-parted
+cd ~/mig-parted
+go build ./cmd/nvidia-mig-parted`)
+
+func linuxCloudInitArtifactsMig_partitionShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMig_partitionSh, nil
+}
+
+func linuxCloudInitArtifactsMig_partitionSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMig_partitionShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig_partition.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsModprobeCisConf = []byte(`# 3.5.1 Ensure DCCP is disabled
 install dccp /bin/true
 # 3.5.2 Ensure SCTP is disabled
@@ -4094,6 +4143,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+- path: /etc/systemd/system/mig-partition.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
 
 {{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service
@@ -7705,6 +7761,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
+	"linux/cloud-init/artifacts/mig_partition.sh":                          linuxCloudInitArtifactsMig_partitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -7820,6 +7878,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
+				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
+				"mig_partition.sh":                &bintree{linuxCloudInitArtifactsMig_partitionSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":               &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":    &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":       &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
