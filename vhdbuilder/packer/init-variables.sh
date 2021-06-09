@@ -214,6 +214,10 @@ fi
 echo "Tien is here4"
 echo "Tien is here4 CLIENT_ID: $CLIENT_ID"
 echo "Tien is here4 TENANT_ID: $TENANT_ID"
+echo "Tien is here4 AZURE_CLIENT_ID: $AZURE_CLIENT_ID"
+echo "Tien is here4 AZURE_TENANT_ID: $AZURE_TENANT_ID"
+echo "Tien is here4 AZURE_SUBSCRIPTION_ID: $AZURE_SUBSCRIPTION_ID"
+
 
 
 cat <<EOF > vhdbuilder/packer/settings.json
