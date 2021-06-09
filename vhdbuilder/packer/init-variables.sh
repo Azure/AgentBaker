@@ -74,26 +74,6 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 fi
 
 
-#Tien: we are here
-	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
-	sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
-	IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
-	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
-	DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
-	echo "Tien is here1"
-	echo "expiry_date: $expiry_date"
-	echo "IMPORTED_IMAGE_NAME: $IMPORTED_IMAGE_NAME"
-	echo "IMPORTED_IMAGE_URL: $IMPORTED_IMAGE_URL"
-	echo "DESTINATION_WITH_SAS: $DESTINATION_WITH_SAS"
-	
-	echo Importing VHD from $IMPORT_IMAGE_URL
-	#azcopy-preview copy $IMPORT_IMAGE_URL$IMPORT_IMAGE_SAS $DESTINATION_WITH_SAS
-	
-#Tien: for testing	
-	
-
-
-
 if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
