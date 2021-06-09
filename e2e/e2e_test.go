@@ -60,6 +60,7 @@ type customDataFields struct {
 	MCRGName								string 		`json:"mcRGName"`
 	ClusterID								string		`json:"clusterID"`
 	SubID									string		`json:"subID"`	
+	TLSBootstrapToken						string		`json:"tlsbootstraptoken"`
 }
 
 func createFile(path string) {
@@ -131,6 +132,7 @@ func TestBasic(t *testing.T) {
 			},
 			HostedMasterProfile: &datamodel.HostedMasterProfile{
 				FQDN: values.Fqdn,
+				IPMasqAgent: true,
 			},
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
@@ -190,9 +192,9 @@ func TestBasic(t *testing.T) {
 					Distro: datamodel.AKSUbuntuContainerd1804Gen2,
 				},
 			},
-			// LinuxProfile: &datamodel.LinuxProfile{
-			// 	AdminUsername: "azureuser",
-			// },
+			LinuxProfile: &datamodel.LinuxProfile{
+				AdminUsername: "azureuser",
+			},
 			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 				ClientID: values.AadClientId,
 				Secret:   values.AadClientSecret,
@@ -206,9 +208,9 @@ func TestBasic(t *testing.T) {
 			},
 		},
 	}
-	// cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
-	// 	KeyData: string("testsshkey"),
-	// }}
+	cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
+		KeyData: string("testsshkey"),
+	}}
 
 	// AKS always pass in te customHyperKubeImage to aks-e, so we don't really rely on
 	// the default component version for "hyperkube", which is not set since 1.17
@@ -240,19 +242,20 @@ func TestBasic(t *testing.T) {
 	}
 
 	config := &datamodel.NodeBootstrappingConfiguration{
-		ContainerService:              cs,
-		CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
-		K8sComponents:                 k8sComponents,
-		AgentPoolProfile:              agentPool,
-		TenantID:                      values.TenantID,
-		SubscriptionID:                values.SubID,
-		ResourceGroupName:             values.MCRGName,
-		UserAssignedIdentityClientID:  "userAssignedID",
-		ConfigGPUDriverIfNeeded:       true,
-		EnableGPUDevicePluginIfNeeded: false,
-		EnableKubeletConfigFile:       false,
-		EnableNvidia:                  false,
-		FIPSEnabled:                   false,
+		ContainerService:              	cs,
+		CloudSpecConfig:              	datamodel.AzurePublicCloudSpecForTest,
+		K8sComponents:                 	k8sComponents,
+		AgentPoolProfile:              	agentPool,
+		TenantID:                      	values.TenantID,
+		SubscriptionID:                	values.SubID,
+		ResourceGroupName:             	values.MCRGName,
+		UserAssignedIdentityClientID:  	values.UserAssignedIdentityID,
+		ConfigGPUDriverIfNeeded:       	true,
+		EnableGPUDevicePluginIfNeeded: 	false,
+		EnableKubeletConfigFile:       	false,
+		EnableNvidia:                  	false,
+		FIPSEnabled:                   	false,
+		KubeletClientTLSBootstrapToken:	to.StringPtr(values.TLSBootstrapToken),
 	}
 
 	// customData
