@@ -35,7 +35,7 @@
       "shared_image_gallery": {
         "subscription": "{{user `subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
+        "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `imported_image_name`}}",
         "image_version": "latest"
       },
@@ -43,7 +43,7 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
+        "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "1.0.{{user `create_time`}}",
         "replication_regions": [
