@@ -110,29 +110,28 @@ fi
 
 
 
-#Tien: this is important
-# Image import from storage account. Required to build CBLMariner images.
-if [[ "$OS_SKU" == "CBLMariner" ]]; then
-	if [[ $HYPERV_GENERATION == "V2" ]]; then
-		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
-	elif [[ $HYPERV_GENERATION == "V1" ]]; then
-		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
-	fi
+# #Tien: this is important
+# # Image import from storage account. Required to build CBLMariner images.
+# if [[ "$OS_SKU" == "CBLMariner" ]]; then
+# 	if [[ $HYPERV_GENERATION == "V2" ]]; then
+# 		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
+# 	elif [[ $HYPERV_GENERATION == "V1" ]]; then
+# 		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
+# 	fi
 
-	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
-	sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
+# 	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
+# 	sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
 
-	IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
-	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
-	DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
-	echo "Tien is here2"
-	echo "IMPORT_IMAGE_URL: $IMPORT_IMAGE_URL"
-	echo "DESTINATION_WITH_SAS: $DESTINATION_WITH_SAS"
-	echo Importing VHD from $IMPORT_IMAGE_URL
-	#azcopy-preview copy $IMPORT_IMAGE_URL$IMPORT_IMAGE_SAS $DESTINATION_WITH_SAS
-	azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
-	echo "Tien is here3"
-
+# 	IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
+# 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
+# 	DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
+# 	echo "Tien is here2"
+# 	echo "IMPORT_IMAGE_URL: $IMPORT_IMAGE_URL"
+# 	echo "DESTINATION_WITH_SAS: $DESTINATION_WITH_SAS"
+# 	echo Importing VHD from $IMPORT_IMAGE_URL
+# 	#azcopy-preview copy $IMPORT_IMAGE_URL$IMPORT_IMAGE_SAS $DESTINATION_WITH_SAS
+# 	azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
+# 	echo "Tien is here3"
 
 
 # # Generation 2 Packer builds require that the imported image is hosted in a SIG
@@ -171,7 +170,7 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 
 
 
-fi
+# fi
 
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
 # 1. we can demonstrate the whole user defined parameters all at once
