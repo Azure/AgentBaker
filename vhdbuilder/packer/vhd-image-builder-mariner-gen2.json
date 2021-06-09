@@ -39,8 +39,9 @@
         "image_name": "{{user `imported_image_name`}}",
         "image_version": "1.0.0"
       },
-      "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
+      "managed_image_resource_group_name": "tienle-vhd20-rg",
+      "managed_image_name": "sig_image123",
+      
       "shared_image_gallery_destination": {
         "resource_group": "tienle-vhd20-rg",
         "gallery_name": "tienle_sig_gallery20",
