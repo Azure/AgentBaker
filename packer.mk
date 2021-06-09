@@ -21,7 +21,9 @@ ifeq (${MODE},gen2Mode)
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
 	
 else ifeq (${MODE},sigMode)
-	$(error sigMode not supported yet)
+	#$(error sigMode not supported yet)
+	@echo "${MODE}: Tien is here 1"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
