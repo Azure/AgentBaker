@@ -75,6 +75,9 @@ jq -r --arg value $image_version '. + { "nodeImageVersion" : $value }' < fields.
 tenantID=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.identity.tenantId')
 jq -r --arg value $tenantID '. + { "tenantID" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
 
+msiResourceID=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.identityProfile.kubeletidentity.resourceId')
+jq -r --arg value $msiResourceID '. + { "msiResourceID" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+
 jq -r --arg value $MC_RESOURCE_GROUP_NAME '. + { "mcRGName" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
 
 jq -r --arg value $CLUSTER_ID '. + { "clusterID" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
@@ -100,8 +103,23 @@ else
     jq -r --arg value $tlsbootstrap '. + { "tlsbootstraptoken" : $value }' < fields.json > dummy.json && mv dummy.json fields.json
 fi
 
-#go test -v
+go test -v
 
-#az vmss create -n agentbaker-test-vmss -g MC_agentbaker-e2e-tests_agentbaker-e2e-test-cluster_eastus --admin-username azureuser --custom-data cloud-init.txt --lb kubernetes --backend-pool-name aksOutboundBackendPool --vm-sku Standard_DS2_v2 --instance-count 1 --assign-identity /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/MC_agentbaker-e2e-tests_agentbaker-e2e-test-cluster_eastus/providers/Microsoft.ManagedIdentity/userAssignedIdentities/agentbaker-e2e-test-cluster-agentpool --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" 
+az vmss create -n agentbaker-test-vmss \
+    -g $MC_RESOURCE_GROUP_NAME \
+    --admin-username azureuser \
+    --custom-data cloud-init.txt \
+    --lb kubernetes --backend-pool-name aksOutboundBackendPool \
+    --vm-sku Standard_DS2_v2 \
+    --instance-count 1 \
+    --assign-identity $msiResourceID \
+    --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" 
 
-#jq -Rs '{commandToExecute: . }' cseCmd > settings.json
+jq -Rs '{commandToExecute: . }' cseCmd > settings.json
+
+az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
+    --name CustomScript \
+    --vmss-name agentbaker-test-vmss \
+    --publisher Microsoft.Azure.Extensions \
+    --settings settings.json \
+    --version 2.0
