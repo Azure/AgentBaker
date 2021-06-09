@@ -211,6 +211,11 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	esac
 fi
 
+echo "Tien is here4"
+echo "Tien is here4 CLIENT_ID: $CLIENT_ID"
+echo "Tien is here4 TENANT_ID: $TENANT_ID"
+
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
