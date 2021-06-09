@@ -42,9 +42,9 @@
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
       "shared_image_gallery_destination": {
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "{{user `sig_gallery_name`}}",
-        "image_name": "{{user `sig_image_name`}}",
+        "resource_group": "tienle-vhd20-rg",
+        "gallery_name": "tienle_sig_gallery20",
+        "image_name": "sig_image",
         "image_version": "1.0.{{user `create_time`}}",
         "replication_regions": [
           "{{user `location`}}"
