@@ -4424,6 +4424,9 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
+    {{- if not UsePtpKubenet}}
+    net.bridge.bridge-nf-call-iptables = 1
+    {{- end}}
     #EOF
 
 {{if TeleportEnabled}}
