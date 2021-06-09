@@ -135,39 +135,39 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 
 
 
-# Generation 2 Packer builds require that the imported image is hosted in a SIG
-	if [[ $HYPERV_GENERATION == "V2" ]]; then
-		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
-		az image create \
-			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-			--name $IMPORTED_IMAGE_NAME \
-			--source $IMPORTED_IMAGE_URL \
-			--hyper-v-generation V2 \
-			--os-type Linux
+# # Generation 2 Packer builds require that the imported image is hosted in a SIG
+# 	if [[ $HYPERV_GENERATION == "V2" ]]; then
+# 		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
+# 		az image create \
+# 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+# 			--name $IMPORTED_IMAGE_NAME \
+# 			--source $IMPORTED_IMAGE_URL \
+# 			--hyper-v-generation V2 \
+# 			--os-type Linux
 
-		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-		az sig image-definition create \
-			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-			--gallery-name $SIG_GALLERY_NAME \
-			--gallery-image-definition $IMPORTED_IMAGE_NAME \
-			--location $AZURE_LOCATION \
-			--os-type Linux \
-			--publisher microsoft-aks \
-			--offer $IMPORTED_IMAGE_NAME \
-			--sku $OS_SKU \
-			--hyper-v-generation V2 \
-			--os-state generalized \
-			--description "Imported image for AKS Packer build"
+# 		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+# 		az sig image-definition create \
+# 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+# 			--gallery-name $SIG_GALLERY_NAME \
+# 			--gallery-image-definition $IMPORTED_IMAGE_NAME \
+# 			--location $AZURE_LOCATION \
+# 			--os-type Linux \
+# 			--publisher microsoft-aks \
+# 			--offer $IMPORTED_IMAGE_NAME \
+# 			--sku $OS_SKU \
+# 			--hyper-v-generation V2 \
+# 			--os-state generalized \
+# 			--description "Imported image for AKS Packer build"
 
-		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
-		az sig image-version create \
-			--location $AZURE_LOCATION \
-			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-			--gallery-name $SIG_GALLERY_NAME \
-			--gallery-image-definition $IMPORTED_IMAGE_NAME \
-			--gallery-image-version 1.0.0 \
-			--managed-image $IMPORTED_IMAGE_NAME
-	fi
+# 		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
+# 		az sig image-version create \
+# 			--location $AZURE_LOCATION \
+# 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+# 			--gallery-name $SIG_GALLERY_NAME \
+# 			--gallery-image-definition $IMPORTED_IMAGE_NAME \
+# 			--gallery-image-version 1.0.0 \
+# 			--managed-image $IMPORTED_IMAGE_NAME
+# 	fi
 
 
 
