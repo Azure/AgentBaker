@@ -5431,6 +5431,9 @@ $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 
+# GMSAv2
+$global:WindowsGMSAv2PackageURL = "{{GetVariable "windowsGMSAv2PackageURL" }}";
+
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
@@ -5745,6 +5748,9 @@ try
         Write-Log "Update service failure actions"
         Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
 
+        Enable-FIPSMode -FipsEnabled $fipsEnabled
+        Install-GMSAv2Plugin -GMSAv2PackageURL $global:WindowsGMSAv2PackageURL
+
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
@@ -5774,9 +5780,6 @@ try
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
             Remove-Item $kubeConfigFile
         }
-
-        # Enable FIPS-mode
-        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
@@ -6626,10 +6629,10 @@ function Enable-FIPSMode
 {
     Param(
         [Parameter(Mandatory = $true)][bool]
-        $fipsEnabled
+        $FipsEnabled
     )
 
-    if ( $fipsEnabled ) {
+    if ( $FipsEnabled ) {
         Write-Log "Set the registry to enable fips-mode"
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
     }
@@ -6637,6 +6640,153 @@ function Enable-FIPSMode
     {
         Write-Log "Leave FipsAlgorithmPolicy as it is."
     }
+}
+
+function Install-GMSAv2Plugin {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $GMSAv2PackageURL
+    )
+
+    if ( $GMSAv2PackageURL -eq "" ) {
+        Write-Log "GMSAv2PackageURL is not set so skip installing GMSAv2."
+        return
+    }
+
+    $tempInstallPackageFoler = $env:TEMP
+    $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsav2.zip")
+
+    Write-Log "Getting the GMSAv2 plugin package"
+    DownloadFileOverHttp -Url $GMSAv2PackageURL -DestinationPath $tempPluginZipFile
+    Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
+    if($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
+    }
+    Remove-Item -Path $tempPluginZipFile -Force
+
+    $tempInstallPackageFoler = [Io.path]::Combine($tempInstallPackageFoler, "CCGPlugin")
+
+    # Copy the plugin DLL file.
+    Write-Log "Installing the GMSAv2 plugin"
+    Copy-Item -Force -Path "$tempInstallPackageFoler\CCGAKVPlugin.dll" -Destination "${env:SystemRoot}\System32\"
+
+    # Enable the logging manifest.
+    Write-Log "Importing the CCGEvents manifest file"
+    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
+    if($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file."
+    }
+
+    # Set the registry permissions.
+    Write-Log "Setting the appropriate GMSAv2 plugin registry values"
+    $keyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
+    $acl = New-Object System.Security.AccessControl.RegistrySecurity
+    $administratorsSID = ([System.Security.Principal.NTAccount](".\Administrators")).Translate([System.Security.Principal.SecurityIdentifier])
+    $acl.SetOwner($administratorsSID)
+    $regKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($keyPath, "ReadWriteSubTree", "TakeOwnership")
+    $regKey.SetAccessControl($acl)
+    $regKey = $regKey.OpenSubKey("", "ReadWriteSubTree", "ChangePermissions")
+    $rule = New-Object System.Security.AccessControl.RegistryAccessRule($administratorsSID, "FullControl", @("ObjectInherit","ContainerInherit"), "None", "Allow")
+    $acl.ResetAccessRule($rule)
+    $regKey.SetAccessControl($acl)
+    # Set the appropriate registry values.
+    # Ignore errors, because it fails even though the registry changes are applied.
+    # We will validate everything below anyway.
+    try {
+        reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
+    } catch {
+        $LASTEXITCODE = $null
+    }
+
+    Remove-Item -Path $tempInstallPackageFoler -Force
+
+    # Validate that we have the proper registry values
+    $tests = @(
+        @{
+            "Path" = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}"
+            "Validate" = {
+                $default = $_.'(default)'
+                $expected = "ICcgDomainAuthCredentials"
+                if($default -ne $expected) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ICCG_DOMAIN_AUTH_CREDENTIALS -ErrorMessage "Default value at '$($_.PSPath)' is '$default', expected '$expected'."
+                }
+            }
+        },
+        @{
+            "Path" = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}\ProxyStubClsid32"
+            "Validate" = {
+                $default = $_.'(default)'
+                $expected = "{A6FF50C0-56C0-71CA-5732-BED303A59628}"
+                if($default -ne $expected) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_PROXY_STUB_CLSID32 -ErrorMessage "Default value at '$($_.PSPath)' is '$default', expected '$expected'."
+                }
+            }
+        }
+        @{
+            "Path" = "HKLM:\Software\CLASSES\Appid\{557110E1-88BC-4583-8281-6AAC6F708584}"
+            "Validate" = {
+                $expected = @{
+                    "access" = [Byte[]] 1, 0, 4, 128, 68, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 2, 0, 48, 0, 2, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 11, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0
+                    "launch" = [Byte[]] 1, 0, 4, 128, 68, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 2, 0, 48, 0, 2, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 11, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0
+                }
+                $diff = Compare-Object $_.AccessPermission $expected["access"]
+                if($diff) {
+                    Write-Log $diff
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ACCESS_PERMISSION -ErrorMessage "The 'AccessPermission' at '$($_.PSPath)' is not the expected one."
+                }
+                $diff = Compare-Object $_.LaunchPermission $expected["launch"]
+                if($diff) {
+                    Write-Log $diff
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_LAUNCH_PERMISSION -ErrorMessage "The 'LaunchPermission' at '$($_.PSPath)' is not the expected one."
+                }
+                if($_.DllSurrogate -ne "") {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_DLLSURROGATE -ErrorMessage "Expected 'DDllSurrogate' at '$($_.PSPath)' to be empty value."
+                }
+            }
+        }
+        @{
+            "Path" = "HKLM:\SOFTWARE\CLASSES\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+            "Validate" = {
+                $actual = $_.AppID
+                $expected = "{557110E1-88BC-4583-8281-6AAC6F708584}"
+                if($actual -ne $expected) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_APPID -ErrorMessage "The 'AppID' at '$($_.PSPath) is '$actual'. Expected '$expected'."
+                }
+            }
+        }
+        @{
+            "Path" = "HKLM:\SOFTWARE\CLASSES\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}\InprocServer32"
+            "Validate" = {
+                $default = $_.'(default)'
+                $expected = "C:\Windows\System32\CCGAKVPlugin.dll"
+                if($default -ne $expected) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_INPROCSERVER32 -ErrorMessage "Default value at '$($_.PSPath)' is '$default', expected '$expected'."
+                }
+                $threadingModel = $_.ThreadingModel
+                $expected = "Both"
+                if($threadingModel -ne $expected) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_THREADING_MODEL -ErrorMessage "The 'ThreadingModel' at '$($_.PSPath)' is '$threadingModel', expected '$expected'."
+                }
+            }
+        }
+        @{
+            "Path" = "HKLM:\SYSTEM\CurrentControlSet\Control\CCG\COMClasses\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+            "Validate" = {
+                $default = $_.'(default)'
+                if($default -ne "") {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_CCG_COMCLASSES -ErrorMessage "The default value at '$($_.PSPath)' is not empty value."
+                }
+            }
+        }
+    )
+
+    Write-Log "Validating the GMSAv2 plugin registry changes"
+    foreach($t in $tests) {
+        $item = Get-ItemProperty $t["Path"]
+        $item | ForEach-Object $t["Validate"]
+    }
+
+    Write-Log "Successfully installed the GMSAv2 plugin"
 }
 `)
 
@@ -6951,7 +7101,18 @@ $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
 $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
 $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
-$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21`)
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21
+$global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=22
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=23
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ICCG_DOMAIN_AUTH_CREDENTIALS=24
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_PROXY_STUB_CLSID32=25
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ACCESS_PERMISSION=26
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_LAUNCH_PERMISSION=27
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_DLLSURROGATE=28
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_APPID=29
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_INPROCSERVER32=30
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_THREADING_MODEL=31
+$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_CCG_COMCLASSES=32`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil

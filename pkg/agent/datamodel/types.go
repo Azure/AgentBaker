@@ -369,6 +369,7 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
+	WindowsGmsaPackageUrl       string                     `json:"windowsGmsaPackageUrl,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
