@@ -114,7 +114,6 @@ const (
 	TempDisk KubeletDiskType = "Temporary"
 )
 
-
 // WorkloadRuntime describes choices for the type of workload: container or wasm-wasi, currently.
 type WorkloadRuntime string
 
@@ -399,6 +398,7 @@ type WindowsProfile struct {
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
 	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
+	WindowsGmsaPackageUrl         string                     `json:"windowsGmsaPackageUrl,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
