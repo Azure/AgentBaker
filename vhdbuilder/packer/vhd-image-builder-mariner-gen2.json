@@ -12,6 +12,9 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
+    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}"
@@ -25,6 +28,10 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
+      "image_publisher": "Canonical",
+      "image_offer": "UbuntuServer",
+      "image_sku": "{{user `os_version`}}-LTS",
+      "image_version": "latest",
       "azure_tags": {
         "os": "Linux",
         "now": "{{user `create_time`}}",
@@ -32,20 +39,14 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-      "shared_image_gallery": {
-        "subscription": "{{user `subscription_id`}}",
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
-        "image_name": "{{user `imported_image_name`}}",
-        "image_version": "latest"
-      },
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
+      "managed_image_name": "{{user `sig_image_name`}}",
+      "polling_duration_timeout": "1h",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
+        "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
-        "image_version": "1.0.{{user `create_time`}}",
+        "image_version": "{{user `sig_image_version`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
