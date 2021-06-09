@@ -379,7 +379,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.2.6",
+        "1.2.7",
         "1.4.0"
       ]
     },
