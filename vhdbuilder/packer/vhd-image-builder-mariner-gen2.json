@@ -37,7 +37,7 @@
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `imported_image_name`}}",
-        "image_version": "latest"
+        "image_version": "1.0.0"
       },
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
