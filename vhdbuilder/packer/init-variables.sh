@@ -234,7 +234,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
-  "sig_image_name":  "${SIG_IMAGE_NAME}"
+  "sig_image_name":  "${SIG_IMAGE_NAME}",
+  "sig_gallery_name": "${SIG_GALLERY_NAME}"
 }
 EOF
 
