@@ -1,9 +1,5 @@
 {
   "variables": {
-    "client_id": "{{env `AZURE_CLIENT_ID`}}",
-    "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
-    "tenant_id": "{{env `AZURE_TENANT_ID`}}",
-    "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "location": "{{env `AZURE_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
     "build_number": "{{env `BUILD_NUMBER`}}",
