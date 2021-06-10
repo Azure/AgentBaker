@@ -272,15 +272,12 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
-		if config.AgentPoolProfile != nil && config.AgentPoolProfile.KubernetesConfig != nil {
-			k8sConfig := config.AgentPoolProfile.KubernetesConfig
-			if k8sConfig.KubeletConfig == nil {
-				k8sConfig.KubeletConfig = make(map[string]string)
-			}
-
-			k8sConfig.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
-			k8sConfig.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
+		if config.KubeletConfig == nil {
+			config.KubeletConfig = make(map[string]string)
 		}
+
+		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
+		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
 }
 
@@ -312,9 +309,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				true, config.EnableNvidia, config.FIPSEnabled)
 		},
 		"GetKubeletConfigFileContent": func() string {
-			if profile.KubernetesConfig == nil {
-				return ""
-			}
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
