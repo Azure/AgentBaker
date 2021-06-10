@@ -8,21 +8,16 @@ ifeq (${MODE},gen2Mode)
 else ifeq (${MODE},sigMode)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
-	
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
-
-
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
-	
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-gen2.json
 else ifeq (${MODE},sigMode)
-	@echo "${MODE}: Tien is here 1"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
+	$(error sigMode not supported yet)
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
@@ -70,4 +65,3 @@ windows-vhd-publishing-info: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
-
