@@ -110,67 +110,67 @@ fi
 
 
 
-# #Tien: this is important
-# # Image import from storage account. Required to build CBLMariner images.
-# if [[ "$OS_SKU" == "CBLMariner" ]]; then
-# 	if [[ $HYPERV_GENERATION == "V2" ]]; then
-# 		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
-# 	elif [[ $HYPERV_GENERATION == "V1" ]]; then
-# 		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
-# 	fi
+#Tien: this is important
+# Image import from storage account. Required to build CBLMariner images.
+if [[ "$OS_SKU" == "CBLMariner" ]]; then
+	if [[ $HYPERV_GENERATION == "V2" ]]; then
+		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
+	elif [[ $HYPERV_GENERATION == "V1" ]]; then
+		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
+	fi
 
-# 	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
-# 	sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
+	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
+	sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
 
-# 	IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
-# 	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
-# 	DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
-# 	echo "Tien is here2"
-# 	echo "IMPORT_IMAGE_URL: $IMPORT_IMAGE_URL"
-# 	echo "DESTINATION_WITH_SAS: $DESTINATION_WITH_SAS"
-# 	echo Importing VHD from $IMPORT_IMAGE_URL
-# 	#azcopy-preview copy $IMPORT_IMAGE_URL$IMPORT_IMAGE_SAS $DESTINATION_WITH_SAS
-# 	azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
-# 	echo "Tien is here3"
-
-
-# # Generation 2 Packer builds require that the imported image is hosted in a SIG
-# 	if [[ $HYPERV_GENERATION == "V2" ]]; then
-# 		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
-# 		az image create \
-# 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-# 			--name $IMPORTED_IMAGE_NAME \
-# 			--source $IMPORTED_IMAGE_URL \
-# 			--hyper-v-generation V2 \
-# 			--os-type Linux
-
-# 		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-# 		az sig image-definition create \
-# 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-# 			--gallery-name $SIG_GALLERY_NAME \
-# 			--gallery-image-definition $IMPORTED_IMAGE_NAME \
-# 			--location $AZURE_LOCATION \
-# 			--os-type Linux \
-# 			--publisher microsoft-aks \
-# 			--offer $IMPORTED_IMAGE_NAME \
-# 			--sku $OS_SKU \
-# 			--hyper-v-generation V2 \
-# 			--os-state generalized \
-# 			--description "Imported image for AKS Packer build"
-
-# 		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
-# 		az sig image-version create \
-# 			--location $AZURE_LOCATION \
-# 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
-# 			--gallery-name $SIG_GALLERY_NAME \
-# 			--gallery-image-definition $IMPORTED_IMAGE_NAME \
-# 			--gallery-image-version 1.0.0 \
-# 			--managed-image $IMPORTED_IMAGE_NAME
-# 	fi
+	IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
+	IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
+	DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
+	echo "Tien is here2"
+	echo "IMPORT_IMAGE_URL: $IMPORT_IMAGE_URL"
+	echo "DESTINATION_WITH_SAS: $DESTINATION_WITH_SAS"
+	echo Importing VHD from $IMPORT_IMAGE_URL
+	#azcopy-preview copy $IMPORT_IMAGE_URL$IMPORT_IMAGE_SAS $DESTINATION_WITH_SAS
+	azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
+	echo "Tien is here3"
 
 
+# Generation 2 Packer builds require that the imported image is hosted in a SIG
+	if [[ $HYPERV_GENERATION == "V2" ]]; then
+		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
+		az image create \
+			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+			--name $IMPORTED_IMAGE_NAME \
+			--source $IMPORTED_IMAGE_URL \
+			--hyper-v-generation V2 \
+			--os-type Linux
 
-# fi
+		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+		az sig image-definition create \
+			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+			--gallery-name $SIG_GALLERY_NAME \
+			--gallery-image-definition $IMPORTED_IMAGE_NAME \
+			--location $AZURE_LOCATION \
+			--os-type Linux \
+			--publisher microsoft-aks \
+			--offer $IMPORTED_IMAGE_NAME \
+			--sku $OS_SKU \
+			--hyper-v-generation V2 \
+			--os-state generalized \
+			--description "Imported image for AKS Packer build"
+
+		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
+		az sig image-version create \
+			--location $AZURE_LOCATION \
+			--resource-group $AZURE_RESOURCE_GROUP_NAME \
+			--gallery-name $SIG_GALLERY_NAME \
+			--gallery-image-definition $IMPORTED_IMAGE_NAME \
+			--gallery-image-version 1.0.0 \
+			--managed-image $IMPORTED_IMAGE_NAME
+	fi
+
+
+
+fi
 
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
 # 1. we can demonstrate the whole user defined parameters all at once
