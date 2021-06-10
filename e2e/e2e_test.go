@@ -13,55 +13,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-type customDataFields struct {
-	Cloud                             string  `json:"cloud"`
-	TenantId                          string  `json:"tenantId"`
-	SubscriptionId                    string  `json:"subscriptionId"`
-	AadClientId                       string  `json:"aadClientId"`
-	AadClientSecret                   string  `json:"aadClientSecret"`
-	ResourceGroup                     string  `json:"resourceGroup"`
-	Location                          string  `json:"location"`
-	VmType                            string  `json:"vmType"`
-	SubnetName                        string  `json:"subnetName"`
-	SecurityGroupName                 string  `json:"securityGroupName"`
-	VnetName                          string  `json:"vnetName"`
-	VnetResourceGroup                 string  `json:"vnetResourceGroup"`
-	RouteTableName                    string  `json:"routeTableName"`
-	PrimaryAvailabilitySetName        string  `json:"primaryAvailabilitySetName"`
-	PrimaryScaleSetName               string  `json:"primaryScaleSetName"`
-	CloudProviderBackoffMode          string  `json:"cloudProviderBackoffMode"`
-	CloudProviderBackoff              bool    `json:"cloudProviderBackoff"`
-	CloudProviderBackoffRetries       int     `json:"cloudProviderBackoffRetries"`
-	CloudProviderBackoffDuration      int     `json:"cloudProviderBackoffDuration"`
-	CloudProviderRateLimit            bool    `json:"cloudProviderRateLimit"`
-	CloudProviderRateLimitQPS         float64 `json:"cloudProviderRateLimitQPS"`
-	CloudProviderRateLimitBucket      int     `json:"cloudProviderRateLimitBucket"`
-	CloudProviderRateLimitQPSWrite    float64 `json:"cloudProviderRateLimitQPSWrite"`
-	CloudProviderRateLimitBucketWrite int     `json:"cloudProviderRateLimitBucketWrite"`
-	UseManagedIdentityExtension       bool    `json:"useManagedIdentityExtension"`
-	UserAssignedIdentityID            string  `json:"userAssignedIdentityID"`
-	UseInstanceMetadata               bool    `json:"useInstanceMetadata"`
-	LoadBalancerSku                   string  `json:"loadBalancerSku"`
-	DisableOutboundSNAT               bool    `json:"disableOutboundSNAT"`
-	ExcludeMasterFromStandardLB       bool    `json:"excludeMasterFromStandardLB"`
-	ProviderVaultName                 string  `json:"providerVaultName"`
-	MaximumLoadBalancerRuleCount      int     `json:"maximumLoadBalancerRuleCount"`
-	ProviderKeyName                   string  `json:"providerKeyName"`
-	ProviderKeyVersion                string  `json:"providerKeyVersion"`
-	Apiservercert                     string  `json:"apiserver.crt"`
-	Cacert                            string  `json:"ca.crt"`
-	Clientkey                         string  `json:"client.key"`
-	Clientcert                        string  `json:"client.crt"`
-	Fqdn                              string  `json:"fqdn"`
-	Mode                              string  `json:"mode"`
-	NodePoolName                      string  `json:"nodepoolname"`
-	NodeImageVersion                  string  `json:"nodeImageVersion"`
-	TenantID                          string  `json:"tenantID"`
-	MCRGName                          string  `json:"mcRGName"`
-	ClusterID                         string  `json:"clusterID"`
-	SubID                             string  `json:"subID"`
-	TLSBootstrapToken                 string  `json:"tlsbootstraptoken"`
-}
+// TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones for eg CustomKubeBinaryURL, Pause Image etc
+// TODO 2: Update --rotate-certificate (true for TLS enabled, false otherwise, small nit)
+// TODO 3: Seperate out the certificate encode/decode
+// TODO 4: Investigate CloudSpecConfig and its need. Without it, the bootstrapping struct breaks.
 
 func createFile(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -125,9 +80,6 @@ func TestBasic(t *testing.T) {
 					CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/binaries/kubernetes-node-linux-amd64.tar.gz",
 					CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.9-hotfix.20210322.1",
 					AzureCNIURLLinux:                  "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
-					// KubeletConfig: map[string]string{
-					// 	"--feature-gates": "RotateKubeletServerCertificate=true,a=b, PodPriority=true, x=y",
-					// },
 				},
 			},
 			HostedMasterProfile: &datamodel.HostedMasterProfile{
@@ -136,12 +88,11 @@ func TestBasic(t *testing.T) {
 			},
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
-					Name:           values.NodePoolName,
+					Name:           values.Name,
 					Count:          1,
 					VMSize:         "Standard_DS1_v2",
 					StorageProfile: "ManagedDisks",
 					OSType:         datamodel.Linux,
-					//VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 					CustomNodeLabels: map[string]string{
 						"kubernetes.azure.com/node-image-version": values.NodeImageVersion,
@@ -208,32 +159,18 @@ func TestBasic(t *testing.T) {
 			},
 		},
 	}
-	cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
-		KeyData: string("testsshkey"),
-	}}
 
-	// AKS always pass in te customHyperKubeImage to aks-e, so we don't really rely on
-	// the default component version for "hyperkube", which is not set since 1.17
-	// if IsKubernetesVersionGe(k8sVersion, "1.17.0") {
-	// 	cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage = fmt.Sprintf("k8s.gcr.io/hyperkube-amd64:v%v", k8sVersion)
-	// }
+	//Adding a dummy key because we are not actually ssh'ing into the node. 
+	cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
+		KeyData: string("dummysshkey"),
+	}}
 
 	agentPool := cs.Properties.AgentPoolProfiles[0]
 	baker := agent.InitializeTemplateGenerator()
 
-	// fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-	// // pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
-
-	// hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-	// hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
-	// if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-	// 	hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-	// }
-
-	// windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
 	pauseImage := "mcr.microsoft.com/oss/kubernetes/pause:3.5"
 	hyperkubeImage := "mcr.microsoft.com/oss/kubernetes/"
-	windowsPackage := "windowspackage"
+	windowsPackage := "windowspackage"	//dummy string because not needed for our purpose, might want to align it better
 
 	k8sComponents := &datamodel.K8sComponents{
 		PodInfraContainerImageURL: pauseImage,
@@ -262,12 +199,12 @@ func TestBasic(t *testing.T) {
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
 	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
 	customData := string(customDataBytes)
-	//customData := string(base64EncodedCustomData)
 	err = ioutil.WriteFile("cloud-init.txt", []byte(customData), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
-	// CSE
+
+	// cseCmd
 	cseCommand := baker.GetNodeBootstrappingCmd(config)
 	err = ioutil.WriteFile("csecmd", []byte(cseCommand), 0644)
 	if err != nil {
