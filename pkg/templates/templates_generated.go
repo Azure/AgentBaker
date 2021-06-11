@@ -5779,7 +5779,6 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
-        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
 
         Check-APIServerConnectivity -MasterIP $MasterIP
