@@ -141,7 +141,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
         "ciprod03262021",
-        "ciprod05202021"
+        "ciprod05202021",
+        "ciprod06112021"
       ]
     },
     {
@@ -371,8 +372,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.2.0_hotfix",
-        "1.2.6"
+        "1.4.0"
       ]
     },
     {
@@ -380,8 +380,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.2.6",
-        "1.2.7"
+        "1.2.7",
+        "1.4.0"
       ]
     },
     {
