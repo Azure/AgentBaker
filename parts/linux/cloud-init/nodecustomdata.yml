@@ -519,7 +519,7 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 {{end}}
-{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+{{- if and (and IsKubenet (not UsePtpKubenet)) (not HasCalicoNetworkPolicy)}}
 - path: /etc/systemd/system/ensure-no-dup.service
   permissions: "0644"
   encoding: gzip

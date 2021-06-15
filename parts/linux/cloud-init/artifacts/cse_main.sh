@@ -164,7 +164,7 @@ configureSwapFile
 ensureSysctl
 ensureKubelet
 ensureJournal
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+{{- if NeedsContainerd}} {{- if and (and IsKubenet (not UsePtpKubenet)) (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
 
