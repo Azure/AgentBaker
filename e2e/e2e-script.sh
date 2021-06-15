@@ -85,7 +85,7 @@ for file in "${files[@]}"; do
                 awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
                 awk NF | base64 \
             )
-    jq -r --arg key $file --arg value $content '. + { ($key) : $value }' < fields.json > dummy.json && mv dummy.json fields.json
+    addJsonToFile $file $content
 done
 
 # Add other relevant information needed by AgentBaker for bootstrapping later
@@ -124,7 +124,7 @@ go test -v
 
 # TODO 4: Random name for the VMSS for when we have multiple scenarios to run
 
-az vmss create -n agentbaker-test-vmss3 \
+az vmss create -n agentbaker-test-vmss \
     -g $MC_RESOURCE_GROUP_NAME \
     --admin-username azureuser \
     --custom-data cloud-init.txt \
@@ -137,7 +137,7 @@ az vmss create -n agentbaker-test-vmss3 \
 
 # Get the name of the VM instance to later check with kubectl get nodes
 export computerName=$(az vmss list-instances \
-                -n agentbaker-test-vmss3 \
+                -n agentbaker-test-vmss \
                 -g $MC_RESOURCE_GROUP_NAME | \
                 jq -r '.[].osProfile.computerName'
             )
@@ -148,7 +148,7 @@ jq -Rs '{commandToExecute: . }' cseCmd > settings.json
 # Apply extension to the VM
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --name CustomScript \
-    --vmss-name agentbaker-test-vmss3 \
+    --vmss-name agentbaker-test-vmss \
     --publisher Microsoft.Azure.Extensions \
     --protected-settings settings.json \
     --version 2.0
@@ -157,10 +157,10 @@ az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
 sleep 60s
 
 # Check if the node joined the cluster
-if [[ -z $(kubectl get nodes | grep $computerName) ]]; then
-	echo "Node did not join the cluster"
-else
+if kubectl get nodes | grep -q $computerName; then
 	echo "Test succeeded, node joined the cluster"
+else
+	echo "Node did not join cluster"
 fi
 
 # Run a nginx pod on the node to check if pod runs
