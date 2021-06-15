@@ -743,7 +743,7 @@ ensureContainerd() {
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+{{- if and (and IsKubenet (not UsePtpKubenet)) (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge() {
     wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1796,7 +1796,7 @@ configureSwapFile
 ensureSysctl
 ensureKubelet
 ensureJournal
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+{{- if NeedsContainerd}} {{- if and (and IsKubenet (not UsePtpKubenet)) (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
 
@@ -4402,20 +4402,24 @@ write_files:
   content: |
       {
           "cniVersion": "0.3.1",
-          "name": "kubenet",
+          "name": "aks-kubenet",
           "plugins": [{
+            {{- if UsePtpKubenet}}
+            "type": "ptp",
+            {{- else}}
             "type": "bridge",
             "bridge": "cbr0",
-            "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
+            "promiscMode": true,
+            "hairpinMode": false,
+            {{- end}}
+            "mtu": 1500,
             {{- if IsIPMasqAgentEnabled}}
             "ipMasq": false,
             {{- else}}
             "ipMasq": true,
             {{- end}}
-            "promiscMode": true,
-            "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
                 "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
@@ -4474,7 +4478,9 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
+    {{- if not UsePtpKubenet}}
     net.bridge.bridge-nf-call-iptables = 1
+    {{- end}}
     #EOF
 
 {{if TeleportEnabled}}
@@ -4498,7 +4504,7 @@ write_files:
     WantedBy=multi-user.target
     #EOF
 {{end}}
-{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+{{- if and (and IsKubenet (not UsePtpKubenet)) (not HasCalicoNetworkPolicy)}}
 - path: /etc/systemd/system/ensure-no-dup.service
   permissions: "0644"
   encoding: gzip

@@ -555,6 +555,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
 		},
+		"UsePtpKubenet": func() bool {
+			return config.EnablePTPKubenet
+		},
 		"HasContainerdVersion": func() bool {
 			return config.ContainerdVersion != ""
 		},

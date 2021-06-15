@@ -1432,6 +1432,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	EnableRuncShimV2               bool
+	EnablePTPKubenet               bool
 }
 
 // HTTPProxyConfig represents configurations of http proxy
