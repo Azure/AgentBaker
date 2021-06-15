@@ -39,7 +39,7 @@ LOCATION="eastus"
 CLUSTER_NAME="agentbaker-e2e-test-cluster"
 
 # Clear the kube/config file for any conflicts
-truncate -s 0 ~/.kube/config
+# truncate -s 0 ~/.kube/config
 
 # Create a resource group for the cluster
 if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID) == "false" ]; then
@@ -124,7 +124,7 @@ go test -v
 
 # TODO 4: Random name for the VMSS for when we have multiple scenarios to run
 
-az vmss create -n agentbaker-test-vmss \
+az vmss create -n agentbaker-test-vmss3 \
     -g $MC_RESOURCE_GROUP_NAME \
     --admin-username azureuser \
     --custom-data cloud-init.txt \
@@ -136,8 +136,8 @@ az vmss create -n agentbaker-test-vmss \
     --upgrade-policy-mode Automatic
 
 # Get the name of the VM instance to later check with kubectl get nodes
-computerName=$(az vmss list-instances \
-                -n agentbaker-test-vmss \
+export computerName=$(az vmss list-instances \
+                -n agentbaker-test-vmss3 \
                 -g $MC_RESOURCE_GROUP_NAME | \
                 jq -r '.[].osProfile.computerName'
             )
@@ -148,7 +148,7 @@ jq -Rs '{commandToExecute: . }' cseCmd > settings.json
 # Apply extension to the VM
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --name CustomScript \
-    --vmss-name agentbaker-test-vmss \
+    --vmss-name agentbaker-test-vmss3 \
     --publisher Microsoft.Azure.Extensions \
     --protected-settings settings.json \
     --version 2.0
@@ -161,4 +161,21 @@ if [[ -z $(kubectl get nodes | grep $computerName) ]]; then
 	echo "Node did not join the cluster"
 else
 	echo "Test succeeded, node joined the cluster"
+fi
+
+# Run a nginx pod on the node to check if pod runs
+( echo "cat <<EOF >pod-nginx.yaml";
+  cat pod-nginx-template.yaml;
+) >temp.yaml
+. temp.yaml
+
+kubectl apply -f pod-nginx.yaml
+
+# Sleep to let Pod Status=Running
+sleep 60s
+
+if kubectl get pods -o wide | grep -q 'Running'; then
+    echo "Pod ran successfully"
+else
+    echo "Pod pending/not running"
 fi
