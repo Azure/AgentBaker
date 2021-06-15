@@ -1420,7 +1420,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.7.0"
+    local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else
@@ -4295,6 +4295,60 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+{{if UseRuncShimV2}}
+- path: /etc/containerd/config.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    version = 2
+    oom_score = 0{{if HasDataDir }}
+    root = "{{GetDataDir}}"{{- end}}
+    [plugins."io.containerd.grpc.v1.cri"]
+      sandbox_image = "{{GetPodInfraContainerSpec}}"
+      [plugins."io.containerd.grpc.v1.cri".containerd]
+        {{- if TeleportEnabled }}
+        snapshotter = "teleportd"
+        disable_snapshot_annotations = false
+        {{- end}}
+        {{- if IsNSeriesSKU }}
+        default_runtime_name = "nvidia-container-runtime"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+        {{- else}}
+        default_runtime_name = "runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          BinaryName = "/usr/bin/runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+          BinaryName = "/usr/bin/runc"
+        {{- end}}
+      {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+      [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        conf_template = "/etc/containerd/kubenet_template.conf"
+      {{- end}}
+      [plugins."io.containerd.grpc.v1.cri".registry.headers]
+        X-Meta-Source-Client = ["azure/aks"]
+    [metrics]
+      address = "0.0.0.0:10257"
+    {{- if TeleportEnabled }}
+    [proxy_plugins]
+      [proxy_plugins.teleportd]
+        type = "snapshot"
+        address = "/run/teleportd/snapshotter.sock"
+    {{- end}}
+    #EOF
+{{else}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -4341,7 +4395,7 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     {{ end}}
     #EOF
-
+{{end}}
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -5071,17 +5125,6 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
-function Register-NodeLabelSyncScriptTask {
-    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
-
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every 5 minutes(by `+"`"+`-RepetitionInterval 00:05:00`+"`"+`)
-    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
-    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
-}
-
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -5742,7 +5785,6 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
-        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
 
         Check-APIServerConnectivity -MasterIP $MasterIP
@@ -6812,7 +6854,7 @@ function Install-Containerd {
     $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
     Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    del $zipfile
+    Remove-Item -Path $zipfile -Force
   }
   elseif ($ContainerdUrl.endswith(".tar.gz")) {
     # upstream containerd package is a tar 
@@ -6820,9 +6862,10 @@ function Install-Containerd {
     DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
+
     mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    del $tarfile
-    del -Recurse -Force $global:ContainerdInstallLocation\bin
+    Remove-Item -Path $tarfile -Force
+    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
   }
 
   # get configuration options
