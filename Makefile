@@ -89,6 +89,7 @@ generate: bootstrap
 	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
 	popd \
 	)
+	@rm pkg/agent/testdata/*/ -r
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
