@@ -97,6 +97,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
+  1.21.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -107,7 +108,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.7.0"
+  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.14"
@@ -117,8 +118,21 @@ else
   cliTool="docker"
 fi
 
-RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
+## for ubuntu-based images, cache multiple versions of runc
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  RUNC_VERSIONS="
+  1.0.0-rc92
+  1.0.0-rc95
+  "
+  for RUNC_VERSION in $RUNC_VERSIONS; do
+    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
+    echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  done
+fi
+
 
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
@@ -164,9 +178,8 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
+1.4.0
 1.2.7
-1.2.6
-1.2.0_hotfix
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -176,8 +189,8 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
+1.4.0
 1.2.7
-1.2.6
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -306,28 +319,32 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.18.8-hotfix.20201112.2
 1.18.10-hotfix.20210118
 1.18.10-hotfix.20210310.2
-1.18.14-hotfix.20210322.1
 1.18.14-hotfix.20210511
-1.18.17-hotfix.20210322.2
+1.18.14-hotfix.20210525
 1.18.17-hotfix.20210505
+1.18.17-hotfix.20210525
 1.18.19
+1.18.19-hotfix.20210522
 1.19.1-hotfix.20200923
 1.19.1-hotfix.20200923.1
 1.19.3
 1.19.6-hotfix.20210118
 1.19.6-hotfix.20210310.1
-1.19.7-hotfix.20210310.2
 1.19.7-hotfix.20210511
-1.19.9-hotfix.20210322.1
+1.19.7-hotfix.20210525
 1.19.9-hotfix.20210505
+1.19.9-hotfix.20210526
 1.19.11
+1.19.11-hotfix.20210526
 1.20.2
-1.20.2-hotfix.20210310.2
 1.20.2-hotfix.20210511
-1.20.5-hotfix.20210322.1
+1.20.2-hotfix.20210525
 1.20.5-hotfix.20210505
+1.20.5-hotfix.20210526
 1.20.7
+1.20.7-hotfix.20210526
 1.21.1
+1.21.1-hotfix.20210526
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then

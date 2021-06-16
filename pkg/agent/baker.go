@@ -302,11 +302,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				false, config.EnableNvidia, config.FIPSEnabled)
+				false, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				true, config.EnableNvidia, config.FIPSEnabled)
+				true, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
@@ -538,6 +538,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return profile.KubernetesConfig.NeedsContainerd()
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+		},
+		"UseRuncShimV2": func() bool {
+			return config.EnableRuncShimV2
 		},
 		"HasContainerdVersion": func() bool {
 			return config.ContainerdVersion != ""
@@ -773,6 +776,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return datamodel.IndentString(string(dec), 4)
 			}
 			return ""
+		},
+		"FIPSEnabled": func() bool {
+			return config.FIPSEnabled
 		},
 	}
 }
