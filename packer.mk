@@ -20,7 +20,7 @@ else ifeq (${MODE},sigMode)
 	$(error sigMode not supported yet)
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@packer build -debug -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
