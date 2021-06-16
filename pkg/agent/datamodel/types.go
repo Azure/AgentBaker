@@ -1342,6 +1342,10 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
 func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell() string {
+	if config.KubeletConfig == nil {
+		return ""
+	}
+	
 	keys := []string{}
 	for key := range config.KubeletConfig {
 		keys = append(keys, key)
