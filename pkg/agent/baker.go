@@ -320,18 +320,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
-		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
-			if kc == nil {
-				return ""
-			}
-			return GetOrderedKubeletConfigFlagString(kc, cs, profile, config.EnableKubeletConfigFile)
+		"GetKubeletConfigKeyVals": func() string {
+			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
 		},
-		"GetKubeletConfigKeyValsPsh": func(kc *datamodel.KubernetesConfig) string {
-			if kc == nil {
-				return ""
-			}
-
-			return kc.GetOrderedKubeletConfigStringForPowershell()
+		"GetKubeletConfigKeyValsPsh": func() string {
+			return config.GetOrderedKubeletConfigStringForPowershell()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()

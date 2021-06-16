@@ -2294,20 +2294,20 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
 	cases := []struct {
 		name                  string
-		kc                    KubernetesConfig
+		config                *NodeBootstrappingConfiguration
 		expected              string
 		expectedForPowershell string
 	}{
 		{
 			name:                  "zero value kubernetesConfig",
-			kc:                    KubernetesConfig{},
+			config:                &NodeBootstrappingConfiguration{},
 			expected:              "",
 			expectedForPowershell: "",
 		},
 		// Some values
 		{
 			name: "expected values",
-			kc: KubernetesConfig{
+			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
 					"--address":                     "0.0.0.0",
 					"--allow-privileged":            "true",
@@ -2326,17 +2326,17 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		// Switch the "order" in the map, validate the same return string
 		{
 			name: "expected values re-ordered",
-			kc: KubernetesConfig{
+			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
 					"--address":                     "0.0.0.0",
 					"--allow-privileged":            "true",
-					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
+					"--anonymous-auth":              "false",
 					"--authorization-mode":          "Webhook",
+					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
 					"--pod-manifest-path":           "/etc/kubernetes/manifests",
 					"--cgroups-per-qos":             "true",
+					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
 					"--keep-terminated-pod-volumes": "false",
-					"--anonymous-auth":              "false",
 				},
 			},
 			expected:              alphabetizedString,
@@ -2348,8 +2348,8 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expectedForPowershell != c.kc.GetOrderedKubeletConfigStringForPowershell() {
-				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.kc.GetOrderedKubeletConfigStringForPowershell())
+			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell() {
+				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell())
 			}
 		})
 	}
