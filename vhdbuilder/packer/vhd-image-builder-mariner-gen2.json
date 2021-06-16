@@ -27,7 +27,7 @@
       "os_disk_size_gb": 30,
       "ssh_username": "packer",
       "ssh_password": "TienTest123",
-      "ssh_host": "104.45.138.233"
+      "ssh_host": "104.45.138.233",
       "azure_tags": {
         "os": "Linux",
         "now": "{{user `create_time`}}",
