@@ -4610,7 +4610,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig}}
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY={{GetParameter "networkPolicy"}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
@@ -5419,7 +5419,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
-$global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
+$global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
