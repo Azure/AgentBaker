@@ -350,13 +350,13 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
-	if k.KubeletConfig == nil {
+func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
+	if k == nil {
 		return ""
 	}
 	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
 	keys := []string{}
-	for key := range k.KubeletConfig {
+	for key := range k {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
@@ -364,7 +364,7 @@ func GetOrderedKubeletConfigFlagString(k *datamodel.KubernetesConfig, cs *datamo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, k.KubeletConfig[key]))
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
 	}
 	return buf.String()
 }

@@ -57,7 +57,6 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 		ContainerRuntime:        Docker,
 		NetworkPlugin:           "kubenet",
 		LoadBalancerSku:         "Basic",
-		KubeletConfig:           make(map[string]string),
 		ControllerManagerConfig: make(map[string]string),
 	}
 
