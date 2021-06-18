@@ -13,23 +13,23 @@ getAgentPoolProfileValues() {
     declare -a properties=("mode" "name" "nodeImageVersion")
 
     for property in "${properties[@]}"; do
-        value=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r .agentPoolProfiles[].${property})
+        value=$(cat cluster_info.json | jq -r .agentPoolProfiles[].${property})
         addJsonToFile $property $value
     done
 }
 
 getFQDN() {
-    fqdn=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.fqdn')
+    fqdn=$(cat cluster_info.json | jq -r '.fqdn')
     addJsonToFile "fqdn" $fqdn
 }
 
 getMSIResourceID() {
-    msiResourceID=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.identityProfile.kubeletidentity.resourceId')
+    msiResourceID=$(cat cluster_info.json | jq -r '.identityProfile.kubeletidentity.resourceId')
     addJsonToFile "msiResourceID" $msiResourceID
 }
 
 getTenantID() {
-    tenantID=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.identity.tenantId')
+    tenantID=$(cat cluster_info.json | jq -r '.identity.tenantId')
     addJsonToFile "tenantID" $tenantID
 }
 
@@ -39,7 +39,7 @@ LOCATION="eastus"
 CLUSTER_NAME="agentbaker-e2e-test-cluster"
 
 # Clear the kube/config file for any conflicts
-# truncate -s 0 ~/.kube/config
+truncate -s 0 ~/.kube/config
 
 # Create a resource group for the cluster
 if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID) == "false" ]; then
@@ -54,7 +54,10 @@ if [ -z $(az aks list -g $RESOURCE_GROUP_NAME | jq '.[].name') ]; then
     az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME
 fi
 
-MC_RESOURCE_GROUP_NAME=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.nodeResourceGroup')
+# Store the contents of az aks show to a file to reduce API call overhead
+az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME > cluster_info.json
+
+MC_RESOURCE_GROUP_NAME=$(cat cluster_info.json | jq -r '.nodeResourceGroup')
 VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME | jq -r '.[length -1].name')
 CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
