@@ -72,7 +72,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/zSOwWqEQBBE7/MVDZ7NfIGHQEyOCRFP4qEdW6dh7JGeNmT36xdd9lYUj6o39MI2ug8qQXk3ztIgPDNYRAOWYphSAYsEG6/1jmo0Q+JJUW9gGeYM25GM64uVQPD108PJ8TnIsroK3hcjbdzQkf5xoNH9UjFUa7LUC3I6lFz7T6G7Sj+x+AlLBJ9383g/lHzIYshCWvxL5Dp4K9FV7ffnIwAA//8u2O2bzAAAAA==
+    H4sIAAAAAAAA/yTNPW7DMAxA4Z2nENDZVnoADy6aBhn6gwZBB8MDrdAOUYUSKCpoevrCzfbwLW84CtsIz1SCcjZO0vU5x5t73e9cSDLzUhVXd0nc25VPjK5/3Gzc7uMI/Wyk3XedKJK1hfTKgQCGw71G+KRiqNYlaWbkWJVg+0Ph8I9+YvETlrPzKZvH36rkQxJDFtLiL7w0GdV43bflDDDspRjGOMIXitHp6dZdajRuaiFtDXUhg4ft+8tfAAAA//8D0iH71wAAAA==
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip

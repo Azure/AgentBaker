@@ -2717,11 +2717,15 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
-Description=a script that installs the mig-parted library to do multi-instance GPU partitioning
-# After=
+Description=Apply MIG configuration on Nvidia A100 GPU
+After=kubelet.service
+
 [Service]
 Restart=on-failure
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
+
+[Install]
+WantedBy=multi-user.target
 #EOF`)
 
 func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
@@ -2740,13 +2744,9 @@ func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
-GO111MODULE=off
-go get -u github.com/NVIDIA/mig-parted/cmd/nvidia-mig-parted
-GOBIN=$(pwd)
-go install github.com/NVIDIA/mig-parted/cmd/nvidia-mig-parted@latest
-git clone http://github.com/NVIDIA/mig-parted
-cd ~/mig-parted
-go build ./cmd/nvidia-mig-parted`)
+
+#enable MIG mode
+nvidia-smi -mig 1`)
 
 func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionSh, nil
