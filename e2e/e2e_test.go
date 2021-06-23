@@ -29,7 +29,7 @@ func createFile(path string) {
 	}
 }
 
-func TestBasic(t *testing.T) {
+func TestE2EBasic(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
@@ -88,11 +88,11 @@ func TestBasic(t *testing.T) {
 			},
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
-					Name:           values.Name,
-					Count:          1,
-					VMSize:         "Standard_DS1_v2",
-					StorageProfile: "ManagedDisks",
-					OSType:         datamodel.Linux,
+					Name:                values.Name,
+					Count:               1,
+					VMSize:              "Standard_DS1_v2",
+					StorageProfile:      "ManagedDisks",
+					OSType:              datamodel.Linux,
 					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 					CustomNodeLabels: map[string]string{
 						"kubernetes.azure.com/node-image-version": values.NodeImageVersion,
@@ -160,7 +160,7 @@ func TestBasic(t *testing.T) {
 		},
 	}
 
-	//Adding a dummy key because we are not actually ssh'ing into the node. 
+	//Adding a dummy key because we are not actually ssh'ing into the node.
 	cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
 		KeyData: string("dummysshkey"),
 	}}
@@ -170,7 +170,7 @@ func TestBasic(t *testing.T) {
 
 	pauseImage := "mcr.microsoft.com/oss/kubernetes/pause:3.5"
 	hyperkubeImage := "mcr.microsoft.com/oss/kubernetes/"
-	windowsPackage := "windowspackage"	//dummy string because not needed for our purpose, might want to align it better
+	windowsPackage := "windowspackage" //dummy string because not needed for our purpose, might want to align it better
 
 	k8sComponents := &datamodel.K8sComponents{
 		PodInfraContainerImageURL: pauseImage,

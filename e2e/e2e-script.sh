@@ -1,37 +1,6 @@
 #!/bin/bash
-
+source e2e-helper.sh
 echo "Starting e2e tests"
-
-# TODO 1: Probably move the helper functions to some other file to imrpove readability
-
-addJsonToFile() {
-    k=$1; v=$2
-    jq -r --arg key $k --arg value $v '. + { ($key) : $value}' < fields.json > dummy.json && mv dummy.json fields.json
-}
-
-getAgentPoolProfileValues() {
-    declare -a properties=("mode" "name" "nodeImageVersion")
-
-    for property in "${properties[@]}"; do
-        value=$(cat cluster_info.json | jq -r .agentPoolProfiles[].${property})
-        addJsonToFile $property $value
-    done
-}
-
-getFQDN() {
-    fqdn=$(cat cluster_info.json | jq -r '.fqdn')
-    addJsonToFile "fqdn" $fqdn
-}
-
-getMSIResourceID() {
-    msiResourceID=$(cat cluster_info.json | jq -r '.identityProfile.kubeletidentity.resourceId')
-    addJsonToFile "msiResourceID" $msiResourceID
-}
-
-getTenantID() {
-    tenantID=$(cat cluster_info.json | jq -r '.identity.tenantId')
-    addJsonToFile "tenantID" $tenantID
-}
 
 SUBSCRIPTION_ID="8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" #Azure Container Service - Test Subscription
 RESOURCE_GROUP_NAME="agentbaker-e2e-tests"
@@ -57,7 +26,7 @@ fi
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME > cluster_info.json
 
-MC_RESOURCE_GROUP_NAME=$(cat cluster_info.json | jq -r '.nodeResourceGroup')
+MC_RESOURCE_GROUP_NAME=$(jq -r '.nodeResourceGroup' < cluster_info.json)
 VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME | jq -r '.[length -1].name')
 CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
@@ -78,6 +47,7 @@ az vmss run-command invoke \
 
 declare -a files=("apiserver.crt" "ca.crt" "client.key" "client.crt")
 for file in "${files[@]}"; do
+    sleep 60s
     content=$(az vmss run-command invoke \
                 -n $VMSS_NAME \
                 -g $MC_RESOURCE_GROUP_NAME \
@@ -101,6 +71,7 @@ addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
 # Check if TLS Bootstrapping is enabled(no client.crt in that case, retrieve the tlsbootstrap token)
+sleep 60s
 tlsbootstrap=$(az vmss run-command invoke \
                 -n $VMSS_NAME \
                 -g $MC_RESOURCE_GROUP_NAME \
@@ -119,7 +90,7 @@ else
 fi
 
 # Call AgentBaker to generate CustomData and cseCmd
-go test -v
+go test -run TestE2EBasic
 
 # Create a test VMSS with 1 instance 
 # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
@@ -139,11 +110,12 @@ az vmss create -n agentbaker-test-vmss \
     --upgrade-policy-mode Automatic
 
 # Get the name of the VM instance to later check with kubectl get nodes
-export computerName=$(az vmss list-instances \
+vmInstanceName=$(az vmss list-instances \
                 -n agentbaker-test-vmss \
                 -g $MC_RESOURCE_GROUP_NAME | \
                 jq -r '.[].osProfile.computerName'
             )
+export vmInstanceName
 
 # Generate the extension from cseCmd
 jq -Rs '{commandToExecute: . }' cseCmd > settings.json
@@ -160,7 +132,7 @@ az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
 sleep 60s
 
 # Check if the node joined the cluster
-if kubectl get nodes | grep -q $computerName; then
+if kubectl get nodes | grep -q $vmInstanceName; then
 	echo "Test succeeded, node joined the cluster"
 else
 	echo "Node did not join cluster"
