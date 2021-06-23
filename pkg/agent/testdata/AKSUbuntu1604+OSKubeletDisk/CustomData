@@ -72,7 +72,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/yTOPWrDQBDF8X5OseBaWvsAKhTiGBf5IMakECpG8kgesppdZmdNnNMHK93jVzz+3VnYenimPCon4yhNm1K4u9fjwY1RJp6L4sNdFPd24wuja3fbrTt8nKGdjLT5LgMFsjqT3ngkgO70v3r4pGyo1kSpJuRQlGD/Q+NpRV+y+oHFy3pb5YVdtfDsdrBZfcB8dT4m8/hblPwYxZCFNPuF5yqhGj/S6nwF6I6SDUPo4QvF6PJ0b5YSjKuSSWtDnclgs39/+QsAAP//EBmFcvMAAAA=
+    H4sIAAAAAAAA/2zPsWrDMBDG8V1PcWDIVFnJmMGDS9OQoW1oCB2MB1k5O0dlyZxOoenTF6dDh2Y7/vw4+JpjIGnVEybHNAnFUNXT5K/wstuCi6GnIbOdO8QArxc6kYV6tVzCdn9URd0LcvWZO/QoZUK+kEOlmsPv1ap3TGJZqhh0b8lnRrX5QneY456xMjmx6SiYcHut00igRxpg9efuotloNxCsH9awWMA98487UsUNdTadwcRJjP3OjMbFIJYCcjIjDXqyLDSPLtNZqWYXkljvW/Vhg+Dp8VqN2QvpnJBLsTygqGLz9vwTAAD//xn6gghNAQAA
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip

@@ -2723,11 +2723,12 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-After=kubelet.service
+#After=kubelet.service
 
 [Service]
 Restart=on-failure
-ExecStart=/usr/bin/nvidia-smi -mig 1
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
+ExecStart=/usr/bin/nvidia-smi mig -cgi 9,9 && /usr/bin/nvidia-smi nvidia-smi mig -cci
 #/bin/bash /opt/azure/containers/mig-partition.sh
 
 [Install]
