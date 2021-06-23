@@ -66,12 +66,11 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.2.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.2.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.1", # for k8s 1.21.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021")
     }
     default {
