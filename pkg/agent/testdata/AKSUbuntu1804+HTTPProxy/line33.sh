@@ -60,11 +60,11 @@ if [[ "${GPU_NODE}" == "true" ]]; then
     echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"\
 
     #enable mig mode
-    nvidia-smi -mig 1
+    #nvidia-smi -mig 1
     REBOOTREQUIRED=true
 
     #download mig-parted binary 
-    git clone https://github.com/qinchen352/mig-parted
+    #git clone https://github.com/qinchen352/mig-parted
 fi
 
 configureAdminUser

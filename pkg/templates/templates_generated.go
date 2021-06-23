@@ -1701,11 +1701,11 @@ if [[ "${GPU_NODE}" == "true" ]]; then
     echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"\
 
     #enable mig mode
-    nvidia-smi -mig 1
+    #nvidia-smi -mig 1
     REBOOTREQUIRED=true
 
     #download mig-parted binary 
-    git clone https://github.com/qinchen352/mig-parted
+    #git clone https://github.com/qinchen352/mig-parted
 fi
 
 configureAdminUser
@@ -2755,8 +2755,9 @@ func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
 var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
 #enable MIG mode
-nvidia-smi mig -cgi 9,9
-nvidia-smi mig -cci `)
+nvidia-smi -mig 1
+# nvidia-smi mig -cgi 9,9
+# nvidia-smi mig -cci `)
 
 func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionSh, nil
