@@ -284,7 +284,7 @@ MOUNT_POINT="/mnt/aks"
 {{end}}
 
 KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
-KUBELET_DIR="/var/lib/kubelet"
+KUBELET_DIR="/var/lib/kubelet/pods"
 
 mkdir -p "${MOUNT_POINT}"
 
@@ -299,7 +299,8 @@ fi
 # location before kubelet itself may start.
 mkdir -p "${KUBELET_DIR}"
 mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
-chmod a+w "${KUBELET_DIR}"`)
+chmod a+w "${KUBELET_DIR}"
+`)
 
 func linuxCloudInitArtifactsBindMountShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsBindMountSh, nil

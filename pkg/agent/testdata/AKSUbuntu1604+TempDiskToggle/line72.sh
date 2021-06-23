@@ -16,7 +16,7 @@ set -x
 
 
 KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
-KUBELET_DIR="/var/lib/kubelet"
+KUBELET_DIR="/var/lib/kubelet/pods"
 
 mkdir -p "${MOUNT_POINT}"
 
