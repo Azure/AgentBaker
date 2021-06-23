@@ -40,9 +40,9 @@ source /opt/azure/containers/provision_installs_distro.sh
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
 
-# Question: need to check Nvidia A100??? the path???
+# Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
-    ~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb
+    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"
 fi
 cleanUpContainerd
 
@@ -58,6 +58,11 @@ if [ -f /var/run/reboot-required ]; then
 else
     REBOOTREQUIRED=false
 fi
+
+#reboot the node if mig node is enabled 
+if [[ "${GPU_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+fi 
 
 configureAdminUser
 

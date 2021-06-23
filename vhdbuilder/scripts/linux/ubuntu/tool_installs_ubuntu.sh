@@ -222,3 +222,7 @@ relinkResolvConf() {
         ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
     fi
 }
+
+installMigParted(){
+    echo "installing mig-parted..."
+}
