@@ -1674,10 +1674,6 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-# Question: need conditions?
-if [[ "${GPU_NODE}" == "true" ]]; then
-    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"
-fi
 
 {{- if not NeedsContainerd}}
 cleanUpContainerd
@@ -1699,10 +1695,18 @@ else
     REBOOTREQUIRED=false
 fi
 
-#reboot the node if mig node is enabled 
+
+# Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
+    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"\
+
+    #enable mig mode
+    nvidia-smi -mig 1
     REBOOTREQUIRED=true
-fi 
+
+    #download mig-parted binary 
+    git clone https://github.com/qinchen352/mig-parted
+fi
 
 configureAdminUser
 
@@ -2723,13 +2727,11 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-#After=kubelet.service
 
 [Service]
 Restart=on-failure
-ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/usr/bin/nvidia-smi mig -cgi 9,9 && /usr/bin/nvidia-smi nvidia-smi mig -cci
-#/bin/bash /opt/azure/containers/mig-partition.sh
+
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -2753,7 +2755,8 @@ func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
 var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
 #enable MIG mode
-nvidia-smi -mig 1`)
+nvidia-smi mig -cgi 9,9
+nvidia-smi mig -cci `)
 
 func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionSh, nil
@@ -4163,6 +4166,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
+
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
 
 {{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service

@@ -118,6 +118,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
 
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
+
 {{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"

@@ -112,6 +112,7 @@ const (
 	reconcilePrivateHostsService              = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
 	bindMountScript                           = "linux/cloud-init/artifacts/bind-mount.sh"
 	bindMountSystemdService                   = "linux/cloud-init/artifacts/bind-mount.service"
+	migPartitionScript                        = "linux/cloud-init/artifacts/mig-partition.sh"
 	migPartitionSystemdService                = "linux/cloud-init/artifacts/mig-partition.service"
 
 	// scripts and service for enabling ipv6 dual stack

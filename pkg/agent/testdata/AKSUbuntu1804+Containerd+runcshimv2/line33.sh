@@ -39,11 +39,6 @@ source /opt/azure/containers/provision_installs_distro.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
-
-# Question: need conditions?
-if [[ "${GPU_NODE}" == "true" ]]; then
-    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"
-fi
 cleanUpContainerd
 
 if [[ "${GPU_NODE}" != "true" ]]; then
@@ -58,10 +53,18 @@ else
     REBOOTREQUIRED=false
 fi
 
-#reboot the node if mig node is enabled 
+
+# Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
+    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"\
+
+    #enable mig mode
+    nvidia-smi -mig 1
     REBOOTREQUIRED=true
-fi 
+
+    #download mig-parted binary 
+    git clone https://github.com/qinchen352/mig-parted
+fi
 
 configureAdminUser
 

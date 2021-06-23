@@ -36,6 +36,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
 			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
 			"migPartitionSystemdService":     getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":             getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 		},
 	}
 
