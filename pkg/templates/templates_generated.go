@@ -1698,7 +1698,7 @@ fi
 
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
-    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"\
+    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"
 
     #enable mig mode
     #nvidia-smi -mig 1
@@ -2727,6 +2727,7 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
+After=kubelet.service
 
 [Service]
 Restart=on-failure
@@ -2756,8 +2757,8 @@ var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
 #enable MIG mode
 nvidia-smi -mig 1
-# nvidia-smi mig -cgi 9,9
-# nvidia-smi mig -cci `)
+nvidia-smi mig -cgi 9,9
+nvidia-smi mig -cci `)
 
 func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionSh, nil

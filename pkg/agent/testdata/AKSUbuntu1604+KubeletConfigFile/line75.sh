@@ -1,5 +1,6 @@
 [Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
+After=kubelet.service
 
 [Service]
 Restart=on-failure

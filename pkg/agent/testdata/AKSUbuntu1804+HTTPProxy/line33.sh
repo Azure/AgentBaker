@@ -57,7 +57,7 @@ fi
 
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
-    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"\
+    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"
 
     #enable mig mode
     #nvidia-smi -mig 1
