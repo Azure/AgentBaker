@@ -8,6 +8,7 @@ CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
+RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
@@ -92,7 +93,7 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.7.0"
+    local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else

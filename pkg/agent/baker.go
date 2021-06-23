@@ -261,8 +261,8 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
 	if IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
-		if config.AgentPoolProfile.KubernetesConfig != nil && config.AgentPoolProfile.KubernetesConfig.KubeletConfig != nil {
-			kubeletFlags := config.AgentPoolProfile.KubernetesConfig.KubeletConfig
+		if config.KubeletConfig != nil {
+			kubeletFlags := config.KubeletConfig
 			delete(kubeletFlags, "--dynamic-config-dir")
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 		}
@@ -272,15 +272,12 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
-		if config.AgentPoolProfile != nil && config.AgentPoolProfile.KubernetesConfig != nil {
-			k8sConfig := config.AgentPoolProfile.KubernetesConfig
-			if k8sConfig.KubeletConfig == nil {
-				k8sConfig.KubeletConfig = make(map[string]string)
-			}
-
-			k8sConfig.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
-			k8sConfig.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
+		if config.KubeletConfig == nil {
+			config.KubeletConfig = make(map[string]string)
 		}
+
+		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
+		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
 }
 
@@ -312,10 +309,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				true, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
 		"GetKubeletConfigFileContent": func() string {
-			if profile.KubernetesConfig == nil {
-				return ""
-			}
-			return GetKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig, profile.CustomKubeletConfig)
+			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
@@ -326,18 +320,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
-		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
-			if kc == nil {
-				return ""
-			}
-			return GetOrderedKubeletConfigFlagString(kc, cs, profile, config.EnableKubeletConfigFile)
+		"GetKubeletConfigKeyVals": func() string {
+			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
 		},
-		"GetKubeletConfigKeyValsPsh": func(kc *datamodel.KubernetesConfig) string {
-			if kc == nil {
-				return ""
-			}
-
-			return kc.GetOrderedKubeletConfigStringForPowershell()
+		"GetKubeletConfigKeyValsPsh": func() string {
+			return config.GetOrderedKubeletConfigStringForPowershell()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -551,6 +538,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return profile.KubernetesConfig.NeedsContainerd()
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+		},
+		"UseRuncShimV2": func() bool {
+			return config.EnableRuncShimV2
 		},
 		"HasContainerdVersion": func() bool {
 			return config.ContainerdVersion != ""
@@ -786,6 +776,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return datamodel.IndentString(string(dec), 4)
 			}
 			return ""
+		},
+		"FIPSEnabled": func() bool {
+			return config.FIPSEnabled
 		},
 	}
 }

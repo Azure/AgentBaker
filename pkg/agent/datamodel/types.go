@@ -503,7 +503,6 @@ type KubernetesConfig struct {
 	EnableEncryptionWithExternalKms   *bool             `json:"enableEncryptionWithExternalKms,omitempty"`
 	EnablePodSecurityPolicy           *bool             `json:"enablePodSecurityPolicy,omitempty"`
 	Addons                            []KubernetesAddon `json:"addons,omitempty"`
-	KubeletConfig                     map[string]string `json:"kubeletConfig,omitempty"`
 	ContainerRuntimeConfig            map[string]string `json:"containerRuntimeConfig,omitempty"`
 	ControllerManagerConfig           map[string]string `json:"controllerManagerConfig,omitempty"`
 	CloudControllerManagerConfig      map[string]string `json:"cloudControllerManagerConfig,omitempty"`
@@ -1342,15 +1341,19 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
-func (k *KubernetesConfig) GetOrderedKubeletConfigStringForPowershell() string {
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell() string {
+	if config.KubeletConfig == nil {
+		return ""
+	}
+	
 	keys := []string{}
-	for key := range k.KubeletConfig {
+	for key := range config.KubeletConfig {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, k.KubeletConfig[key]))
+		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config.KubeletConfig[key]))
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1424,12 +1427,15 @@ type NodeBootstrappingConfiguration struct {
 	Enable1804Chrony              bool
 	TeleportdPluginURL            string
 	ContainerdVersion             string
+	RuncVersion                   string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
 	KubeletClientTLSBootstrapToken *string
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
+	KubeletConfig                  map[string]string
+	EnableRuncShimV2               bool
 }
 
 // HTTPProxyConfig represents configurations of http proxy
