@@ -2,8 +2,7 @@
 Description=Enable MIG configuration on Nvidia A100 GPU
 
 [Service]
-Restart=on-failure
-
+Type=oneshot
 ExecStart=/usr/bin/nvidia-smi -mig 1
 
 [Install]

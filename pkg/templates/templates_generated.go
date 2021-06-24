@@ -1699,14 +1699,12 @@ fi
 
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
-    echo "~/mig-parted/nvidia-mig-parted apply -f examples/config.yaml -c all-1g.5gb"
-
-    #enable mig mode
-    #nvidia-smi -mig 1
     REBOOTREQUIRED=true
-
+    #systemctlEnableAndStart mig-enable
+    systemctlEnableAndStart mig-partition
     #download mig-parted binary 
     #git clone https://github.com/qinchen352/mig-parted
+    #apply mig config
 fi
 
 configureAdminUser
@@ -2730,8 +2728,7 @@ var _linuxCloudInitArtifactsMigEnableService = []byte(`[Unit]
 Description=Enable MIG configuration on Nvidia A100 GPU
 
 [Service]
-Restart=on-failure
-
+Type=oneshot
 ExecStart=/usr/bin/nvidia-smi -mig 1
 
 [Install]
@@ -2755,12 +2752,14 @@ func linuxCloudInitArtifactsMigEnableService() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-After=mig-enable.service
+After=kubelet.service
 
 [Service]
-Restart=on-failure
-
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
+TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target

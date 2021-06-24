@@ -1,11 +1,13 @@
 [Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-After=mig-enable.service
+After=kubelet.service
 
 [Service]
-Restart=on-failure
-
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
+TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target
