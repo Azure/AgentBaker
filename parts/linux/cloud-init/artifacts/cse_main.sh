@@ -217,8 +217,9 @@ fi
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
+    nvidia-smi -mig 1
     #systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    #systemctlEnableAndStart mig-partition|| exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-partition|| exit $ERR_SYSTEMCTL_START_FAIL
     #download mig-parted binary 
     #git clone https://github.com/qinchen352/mig-parted
     #apply mig config

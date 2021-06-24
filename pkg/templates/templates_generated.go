@@ -1857,8 +1857,9 @@ fi
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
+    nvidia-smi -mig 1
     #systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    #systemctlEnableAndStart mig-partition|| exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-partition|| exit $ERR_SYSTEMCTL_START_FAIL
     #download mig-parted binary 
     #git clone https://github.com/qinchen352/mig-parted
     #apply mig config
@@ -2733,6 +2734,7 @@ Description=Enable MIG configuration on Nvidia A100 GPU
 
 [Service]
 Type=oneshot
+RemainAfterExit=true
 ExecStart=/usr/bin/nvidia-smi -mig 1
 
 [Install]
@@ -2759,8 +2761,10 @@ Description=Apply MIG configuration on Nvidia A100 GPU
 After=mig-enable.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+# Type=oneshot
+# RemainAfterExit=yes
+Restart=on-failure
+
 #ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh 
 #$MIG_PARTITION
