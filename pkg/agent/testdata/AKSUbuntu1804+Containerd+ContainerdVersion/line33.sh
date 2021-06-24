@@ -52,17 +52,6 @@ else
     REBOOTREQUIRED=false
 fi
 
-
-# Question: need conditions?
-if [[ "${GPU_NODE}" == "true" ]]; then
-    REBOOTREQUIRED=true
-    #systemctlEnableAndStart mig-enable
-    systemctlEnableAndStart mig-partition
-    #download mig-parted binary 
-    #git clone https://github.com/qinchen352/mig-parted
-    #apply mig config
-fi
-
 configureAdminUser
 # If crictl gets installed then use it as the cri cli instead of ctr
 # crictl is not a critical component so continue with boostrapping if the install fails
@@ -144,6 +133,16 @@ else
         API_SERVER_CONN_RETRIES=100
     fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+fi
+
+# Question: need conditions?
+if [[ "${GPU_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    systemctlEnableAndStart mig-enable exit || exit $ERR_SYSTEMCTL_START_FAIL
+    #systemctlEnableAndStart mig-partition
+    #download mig-parted binary 
+    #git clone https://github.com/qinchen352/mig-parted
+    #apply mig config
 fi
 
 if $REBOOTREQUIRED; then
