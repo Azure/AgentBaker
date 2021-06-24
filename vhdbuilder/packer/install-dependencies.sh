@@ -278,7 +278,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_QUOTE_HELPER_VERSIONS="1.0"
+    SGX_QUOTE_HELPER_VERSIONS="2.0"
     for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
