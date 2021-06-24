@@ -855,10 +855,10 @@ ensureUpdateNodeLabels() {
     systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-ensureMigPartition(){
-    systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
-}
+# ensureMigPartition(){
+#     systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
+#     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+# }
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
@@ -1857,8 +1857,8 @@ fi
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart mig-partition
+    #systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-partition|| exit $ERR_SYSTEMCTL_START_FAIL
     #download mig-parted binary 
     #git clone https://github.com/qinchen352/mig-parted
     #apply mig config
@@ -2756,7 +2756,7 @@ func linuxCloudInitArtifactsMigEnableService() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-After=kubelet.service
+#After=kubelet.service
 
 [Service]
 Type=oneshot
@@ -2764,7 +2764,7 @@ RemainAfterExit=yes
 ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh 
 #$MIG_PARTITION
-TimeoutStartSec=0
+#TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target
