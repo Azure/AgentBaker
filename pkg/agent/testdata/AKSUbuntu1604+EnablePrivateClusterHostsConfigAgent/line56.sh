@@ -177,7 +177,7 @@ ensureUpdateNodeLabels() {
 
 ensureMigPartition(){
     systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-partition 
 }
 
 ensureSysctl() {
