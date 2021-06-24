@@ -1857,7 +1857,7 @@ fi
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    #systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
     systemctlEnableAndStart mig-partition|| exit $ERR_SYSTEMCTL_START_FAIL
     #download mig-parted binary 
     #git clone https://github.com/qinchen352/mig-parted
@@ -2756,12 +2756,12 @@ func linuxCloudInitArtifactsMigEnableService() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-#After=kubelet.service
+After=mig-enable.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStartPre=/usr/bin/nvidia-smi -mig 1
+#ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh 
 #$MIG_PARTITION
 #TimeoutStartSec=0
