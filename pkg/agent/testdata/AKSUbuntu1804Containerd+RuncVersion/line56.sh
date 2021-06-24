@@ -159,10 +159,10 @@ ensureUpdateNodeLabels() {
     systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-# ensureMigPartition(){
-#     systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-#     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
-# }
+ensureMigPartition(){
+    systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+}
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
