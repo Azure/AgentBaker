@@ -1852,7 +1852,7 @@ fi
 # Question: need conditions?
 if [[ "${GPU_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    systemctlEnableAndStart mig-enable exit || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
     #systemctlEnableAndStart mig-partition
     #download mig-parted binary 
     #git clone https://github.com/qinchen352/mig-parted
