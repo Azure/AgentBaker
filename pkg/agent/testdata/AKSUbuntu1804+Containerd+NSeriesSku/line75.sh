@@ -1,11 +1,10 @@
 [Unit]
-Description=Apply MIG configuration on Nvidia A100 GPU
-After=kubelet.service
+Description=Enable MIG configuration on Nvidia A100 GPU
 
 [Service]
 Restart=on-failure
 
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
+ExecStart=/usr/bin/nvidia-smi -mig 1
 
 [Install]
 WantedBy=multi-user.target

@@ -1,6 +1,12 @@
-#!/bin/bash
+[Unit]
+Description=Apply MIG configuration on Nvidia A100 GPU
+After=mig-enable.service
 
-#enable MIG mode
-nvidia-smi -mig 1
-nvidia-smi mig -cgi 9,9
-nvidia-smi mig -cci 
+[Service]
+Restart=on-failure
+
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh
+
+[Install]
+WantedBy=multi-user.target
+#EOF

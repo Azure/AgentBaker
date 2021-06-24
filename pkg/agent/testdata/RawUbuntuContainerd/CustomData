@@ -74,19 +74,26 @@ write_files:
     H4sIAAAAAAAA/4ySz0/bThDF7/4rRhGH7/ewbOmPS5EPUAyNiCjCQRxChNbrgYyynnV3Z0No6f9emRAgYKT6ZM++z5vn1ZucM8k0O8BoA7VCnvPjVKFDyb55rqmbnBqZFUuKEnOdYtDOW+N0Raznj9Ism5QYFmRxmp1hFBMkN+7W3MWs4AUFzw2yHJLDXKNYXeO1SU6e+DJZizEWS5JSjKSY73z+lBVLtGXndRowf9hXmTgD7VvR5lcKqK1nMcQY4tpqO856uGZeUwDVgl6YoB1VT5v/RWuZ3suiLAzoGiaw9V/jEwvcw03AFi4HrzddDuAebi0o9z8oh/ABprALMkOG1doHXKmKuH4T8+1gF65p0Jf+0aYxc1RxZgK+dcs2OaVjR2IlpnIYQQmw6TwcRemVUvtayqnBQHYNPVPvNAYuM3h8lELu3FTEsMCwccK+RuVMhS7mg63fx+f7xagYX538OCiuRnv7xaj8M9gAFvlHUOqpFiokFmowD9h4QVDrgQr4M2EU1X34JPnOl6YPVMh164klT0zLr1rrkPi5dvWL1+3o7XwzjHepQdW6dEOsagqr8ndXEBgFo14pVoL4gt1a/+nhaO+o7Ds4K46G5bg4e7iLnvHFcPz9arw3PBmXWTYZchTj3DS7MCxY79/lTXJCKkUM22LCDcrfAAAA//8PqjOJCQQAAA==
 
 #Question, need conditions?
+- path: /etc/systemd/system/mig-enable.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/xzMPWrEQAxA4V6nEKSeePcALhLiLFvkhywmhXEhj2UjGGuCRmOS24d1+x58Q6/iI7xwiSY/LlnbTmlKjG/XC8asi6zV6D4wK77vMgvh0/l0wstnDzDc2HaJPMIXFyfzNmtYSFI1Buh+Od6O2tRizSTa6CGEsgmGTVY8AwxXLU4pjfBN6jw//7VbTS6hFrZHJ1vZ4aH7eP0PAAD//0Zp3YStAAAA
+
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/yTNPW7DMAxA4Z2nENDZVnoADy6aBhn6gwZBB8MDrdAOUYUSKCpoevrCzfbwLW84CtsIz1SCcjZO0vU5x5t73e9cSDLzUhVXd0nc25VPjK5/3Gzc7uMI/Wyk3XedKJK1hfTKgQCGw71G+KRiqNYlaWbkWJUAtj8UDv/qJxY/YTk7n7J5/K1KPiQxZCEt/sJLk1GN139bzgDDXophjCN8oRidnm7dpUbjphbS1lAXMnjYvr/8BQAA//8kJAnV2AAAAA==
+    H4sIAAAAAAAA/yTOv2rDMBDH8f2eQtDZVvoAHlyahgz9Q0PoYDyclbNzoJzE6RTqPn1xu/34DD++w1nYRnimEpSzcZKuzzmu7vV4cCHJzEtV3NwlcW93vjC6/nG3c4ePM/SzkXY3XhoSnCK1hfTOgQCG0/8a4ZOKoVqXpJmRY1UC2H9TOP2pn1j8hOXqfMrm8acq+ZDEkIW0+O07oxpvCW25AgxHKYYxjvCFYnR5WrtbjcZNLaStoS5k8LB/f/kNAAD//xWP6yfbAAAA
 
 - path: /opt/azure/containers/mig-partition.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/1JW1E/KzNNPSizO4OJSTs1LTMpJVfD1dFfIzU9J5cory0zJTNQtzs1U0M3NTFcwRBYBCegmp2cqWOpYYoonZyoAAgAA//9OjKd2XAAAAA==
+    H4sIAAAAAAAA/1JW1E/KzNNPSizO4OJSTs1LTMpJVfD1dFfIzU9J5VLOK8tMyUzULc7NVNDNzUxXMORCEgEJ6CanZypY6lhiiidnKgACAAD//+7MgZhdAAAA
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"
   encoding: gzip

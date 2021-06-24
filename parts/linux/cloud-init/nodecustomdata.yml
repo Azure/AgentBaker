@@ -111,6 +111,13 @@ write_files:
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 #Question, need conditions?
+- path: /etc/systemd/system/mig-enable.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migEnableSystemdService"}}
+
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip

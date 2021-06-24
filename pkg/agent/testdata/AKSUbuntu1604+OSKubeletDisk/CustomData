@@ -67,19 +67,26 @@ write_files:
     H4sIAAAAAAAA/4ySzW7bMBCE73yKhZBDe2DYv1ugg9MoqREjDSwHOTiGQVFre2GKUsml47TpuxfyT1rHClCdhN35ZgbEju8c8URcYDCeGqbapdexQIssvtaupHZyq3mRrSlwSFUMXtnaaKsKcmq5k4oh/ojkMaQFuVJWdXR8GtCvyKDozRh910KIcb79nYghBtaeU20f9VMQmVuRr12Fji/JYqqQjSpxpqPll9Q8GoMhZGvinDXHkH788llkazR563XrMd20LHRYgKobVvpn9KhM7ViTQx/2Vqdh0cFVy5I8yAbUSntlqXhJ/h+tcfRWF2kgoRmM4eTd5kXgGeYeG3hIXic9JPAMjwakfQ/SInyACZwBL9DBNnaDS9m+7lHN48EZzCjpar+zqfQSZVhoj8du4pCTKrQkFqwLiwEkg9Oth6XAnVJqXktdrNCT2UN/qTfuDB4E7D4p0bVusj0m9AcbV5corS7QhjQ5+XV9d54NstH05vtFNh30zrNB/js5AFbpJzgc1DZWKBsb5+RkSX57gG0N75AxqK1iKwj/sCf7tMtB7yrvWgyzq34+yoabPh3j+/7o23TU69+MciHGfRdYWzsR99oxludPaRUtk4wB/SlrP0f+EwAA//+JXiD+wwMAAA==
 
 #Question, need conditions?
+- path: /etc/systemd/system/mig-enable.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/xzMPWrEQAxA4V6nEKSeePcALhLiLFvkhywmhXEhj2UjGGuCRmOS24d1+x58Q6/iI7xwiSY/LlnbTmlKjG/XC8asi6zV6D4wK77vMgvh0/l0wstnDzDc2HaJPMIXFyfzNmtYSFI1Buh+Od6O2tRizSTa6CGEsgmGTVY8AwxXLU4pjfBN6jw//7VbTS6hFrZHJ1vZ4aH7eP0PAAD//0Zp3YStAAAA
+
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/yTNPW7DMAxA4Z2nENDZVnoADy6aBhn6gwZBB8MDrdAOUYUSKCpoevrCzfbwLW84CtsIz1SCcjZO0vU5x5t73e9cSDLzUhVXd0nc25VPjK5/3Gzc7uMI/Wyk3XedKJK1hfTKgQCGw71G+KRiqNYlaWbkWJUAtj8UDv/qJxY/YTk7n7J5/K1KPiQxZCEt/sJLk1GN139bzgDDXophjCN8oRidnm7dpUbjphbS1lAXMnjYvr/8BQAA//8kJAnV2AAAAA==
+    H4sIAAAAAAAA/yTOv2rDMBDH8f2eQtDZVvoAHlyahgz9Q0PoYDyclbNzoJzE6RTqPn1xu/34DD++w1nYRnimEpSzcZKuzzmu7vV4cCHJzEtV3NwlcW93vjC6/nG3c4ePM/SzkXY3XhoSnCK1hfTOgQCG0/8a4ZOKoVqXpJmRY1UC2H9TOP2pn1j8hOXqfMrm8acq+ZDEkIW0+O07oxpvCW25AgxHKYYxjvCFYnR5WrtbjcZNLaStoS5k8LB/f/kNAAD//xWP6yfbAAAA
 
 - path: /opt/azure/containers/mig-partition.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/1JW1E/KzNNPSizO4OJSTs1LTMpJVfD1dFfIzU9J5cory0zJTNQtzs1U0M3NTFcwRBYBCegmp2cqWOpYYoonZyoAAgAA//9OjKd2XAAAAA==
+    H4sIAAAAAAAA/1JW1E/KzNNPSizO4OJSTs1LTMpJVfD1dFfIzU9J5VLOK8tMyUzULc7NVNDNzUxXMORCEgEJ6CanZypY6lhiiidnKgACAAD//+7MgZhdAAAA
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
