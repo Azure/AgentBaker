@@ -4203,7 +4203,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 #Question, need conditions?
-MIG_PROFLE={{GetMigProfile}}
 - path: /etc/systemd/system/mig-enable.service
   permissions: "0644"
   encoding: gzip

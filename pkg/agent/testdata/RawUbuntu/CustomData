@@ -74,7 +74,6 @@ write_files:
     H4sIAAAAAAAA/4ySTW8aPRSF9/4VVyMW77tw3K9dNAtoJikKSiOGKAtAyOO5wBUez8i+JqRN/3s1fKQlEKleHp/nnLO44wdHPBVXGIynhql26W0s0CKLr7UrqVXuNS+zDQUOqYrBK1sbbVVBTq32ViHGOfo1GZyKIQbWnlNtn/RzEJlbk69dhY6vyWKqkI0qca6j5Vc+j8ZgCNmGOGfNMaQfv3wW2QZN3mbde0y3fYUOS1B1w0r/iB6VqR1rcujDIeoiLM9w1aokD7IBtdZeWSpem//Faxy9t0UaSGgOY+j8V9XRMbzAwmMDk+Rt0ySBF3gyIO3/IC3CB5jCJfASHexqt7iUBbnyZOapcAlzSs6t38dUeoUyLLXH0zRxzEkVWhIL1oXFAJLB6TbDUuCzVmreWl2s0JM5QH+ody4GJgL2T0p0bZoM6Nfoj35cXaK0ukAb0qTz8/ahlw2y0ezu+1U2G3R72SD/lRwB6/QTHAu1jRXKxsYFOVmS3x1gO8M7ZAxq59gZwl9s59B2Peje5Oc+htlNPx9lw+2eM/Jjf/RtNur270a5EOO+C6ytnYpH7RjL3nNaRcskY0B/wdovkH8HAAD//yMq/TONAwAA
 
 #Question, need conditions?
-MIG_PROFLE=
 - path: /etc/systemd/system/mig-enable.service
   permissions: "0644"
   encoding: gzip

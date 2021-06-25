@@ -67,7 +67,6 @@ write_files:
     H4sIAAAAAAAA/4ySTU/bQBCG7/srRhaH9rBsv27IByiGRkQU4SAOIULr9SQZsd61dmcDtPS/V84HEGKq+jjzPO+MVzO+csQTcYzRBGqZvMvPUoUWWXz3rqaucqF5XjxQ5JirFIOy3mirKnLqbo0KMS4xLMjgRFxiZB041/ZeP0ZRuAUF7xp0fEIWc4VsVI1TnSw/+2UyBmMsHohL1pxi/vnbV1E8oCm7rIuA+XJepeMclG9Z6V8poDLesSaHIW6i9uO8x2vuagogW1ALHZSl6nny/7DG0Xu7SAMZTWEMex8anxzDE8wCtnCTvZ10k8ET3BuQ9iNIi/AJJnAAPEcHq7FLXcqKXL2z5m7hAKaU9W2/jmn0Hco41wF308S2J1XsTKxYVxYjSAanuwxLkXtRat+iLjUYyGykF+udi4EbAetPSnRdmowYFhi2Os7XKK2u0MY82/t9dnVUDIvR7fnP4+J2eHhUDMs/2ZawyL/AdsHb1KBsbZqRkzWF1QF2awSHjFGtiBUQt9wOMt5NabbzhOpV77VSec+Rg27/KfdSLzF7m/88GR6eln2Ny+J0UI6Ky+VL9JSvB6Mft6PDwfmoFGI8cJG1tRNxrR1jffSYN8kyyRQx7LMOM+S/AQAA////XE1IBwQAAA==
 
 #Question, need conditions?
-MIG_PROFLE=
 - path: /etc/systemd/system/mig-enable.service
   permissions: "0644"
   encoding: gzip
