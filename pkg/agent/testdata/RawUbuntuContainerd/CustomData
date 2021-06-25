@@ -93,7 +93,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/2yNsQrCMBiE9/8pzrSjsWRwcOiopWBRXEUkadP0hzQVIy6l7y7dKgo33X3cl6wywyEzOnZEiQ3aeIuqLNAPjaUkvLlhLWPPkD07KKrK4n6+nA7lcZ+no5rI1t0AMY+P59Cyt+CIdFxwkyBucf3ukENo76Vym60z4oZXZwMBwMI5v8raMdRu/ZP/cM2glj8BAAD//21Dr6bXAAAA
+    H4sIAAAAAAAA/2yNQcuCQBiE7++vmG/1+InsoUMH8VQiJEXXiNjV1/WFdY2MLuJ/D29GwZxmHuaJ/lIrIbVm7IgiDsZ6RlUW6IeG8zynKLykEZOMvSDpxUFTVRa30/m4Lw+7LJ70TFx3A9Qy3h9DK54hI+Jpxc2KpMXls0MGZbzXbuOsuuLZcSAAWBmXz6R2Ar39/8pvuBZQK+8AAAD//xBVDlvYAAAA
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"
   encoding: gzip
