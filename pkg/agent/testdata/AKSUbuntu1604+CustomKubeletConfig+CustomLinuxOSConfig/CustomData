@@ -67,6 +67,7 @@ write_files:
     H4sIAAAAAAAA/4ySzW7bMBCE73yKhZBDe2DYv1ugQ9IoqREjDSwHOdiGQVFre2uKEsil47TpuxfyT1rHClAed+ebGQI7unfEE3GJwXhqmGqX3sQCLbL4WruS2smd5kW2psAhVTF4ZWujrSrIqeVOKsQoR78igxMxwMDac6rto34KInMr8rWr0PEVWUwVslElznS0/MLn0RgMIVsT56w5hvTjl88iW6PJW687j+kmr9BhAapuWOmf0aMytWNNDn3YW52GRQdXLUvyIBtQK+2VpeIl+X+0xtFbXaSBhGYwgpN3VR0dwzPMPTYwTl4njRN4hkcD0r4HaRE+wATOgBfoYBu7waUsyJVHNY8HZzCjpKv9zqbSS5RhoT0eu4lDTqrQkliwLiwGkAxOtx6WAndKqXktdbFCT2YP/aXeuBgYC9g9KdG1bjKgX6E/2Li6RGl1gTakycmvm/uLrJ8Np7ffL7Np//wi6+e/kwNglX6Cw0FtY4WysXFOTpbktwfY1vAOGYPaKraCcMCa2s1oDl0Xu12d/gi1+wc52Re86p9f512LQXbdy4fZYPOFjvFDb/htOjzv3Q5zIUY9F1hbOxEP2jGWF09pFS2TjAH9KWs/R/4TAAD//8iFB9zAAwAA
 
 #Question, need conditions?
+MIG_PROFLE=
 - path: /etc/systemd/system/mig-enable.service
   permissions: "0644"
   encoding: gzip
@@ -79,14 +80,14 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/zyPTWrzQAxA9zrFgL+tM8kBZpGPOsHQNCE/dBFCmTiKLbA1RqMJcUvvXuxCd+LxJJ7OJya9wAvGSqhXCuyWfd8OZlOuTRX4TnUSP3IT2Lw96EbeLBfzuVnvTrC8K4rrqM6R/bXFWUR5UIUA58PvdIHMHIceXWCMTVDIzB47TzytFk9SN2CEPUb1oi5wfvfUJkGArHhidRjxTtDZFMVeiS1PDXnsyOQd1WYBf56bhKuPjbGhV+s/k6CtAqsnRol2LO29KI0PzWJj/n1tyvXHbr9dla/FN2RH6jAkna4dsHJzgHPJUX3bXuDds+Lt/+C61CrlKaLM1EuNClmxXf0EAAD//2svSYVLAQAA
+    H4sIAAAAAAAA/zyPTWrzQAxA9zrFgL+tM8kBZpGPOsHQNCE/dBFCmTiKLbA1RqMJcUvvXuxCd+LxJJ7OJya9wAvGSqhXCuyWfd8OZlOuTRX4TnUSP3IT2Lw96EbeLBfzuVnvTrC8K4rrqM6R/bXFWUR5UIUA58PvdIHMHIceXWCMTVDIzB47TzytFk9SN2CEPUb1oi5wfvfUJkGArHhidRjxTtDZFMVeiS1PDXnsyOQd1WYBf56bhKuPjbGhV+s/k6CtAqsnRol2LO29KI0PzWJj/n1tyvXHbr9dla/Ft4HsSB2GpNO5A1ZuDnAuOapv2wu8e1a8/R9cl1qlPEWUmXqpUSErtqufAAAA//+lVAebTAEAAA==
 
 - path: /opt/azure/containers/mig-partition.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/2yNQcuCQBiE7++vmG/1+InsoUMH8VQiJEXXiNjV1/WFdY2MLuJ/D29GwZxmHuaJ/lIrIbVm7IgiDsZ6RlUW6IeG8zynKLykEZOMvSDpxUFTVRa30/m4Lw+7LJ70TFx3A9Qy3h9DK54hI+Jpxc2KpMXls0MGZbzXbuOsuuLZcSAAWBmXz6R2Ar39/8pvuBZQK+8AAAD//xBVDlvYAAAA
+    H4sIAAAAAAAA/2yOQcuCQBCG7/Mr3m/1+Ils0KGDeCoRkqJrROzqug6sa2R0Ef97KARSwRyGZ555eYO/WLOPteobosB4pZ1BkWdou8qkaUqBf3LFKupbRtSyhSRTNh3CQY7vbTVSkWfX4+mwy/fbZAbzSUwPt3tXszPgHuGw8EZBXOP8AZFAKOekXVstcAE9GuMJABZFptiotAy5+f+a33LJoJpfAQAA//+IdNmn7wAAAA==
 
 
 

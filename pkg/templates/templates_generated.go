@@ -2765,7 +2765,7 @@ After=mig-enable.service
 Restart=on-failure
 
 #ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${MIG_PROFILE}
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${MIG_PROFILE} {{GetMigProfile}}
 #TimeoutStartSec=0
 
 [Install]
@@ -2791,9 +2791,12 @@ var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
 #enable MIG mode???
 #nvidia-smi -mig 1
-MIG_PROFILE=${1}
+echo ${1}
+echo ${2}
+MIG_PROFILE=${2}
 echo "mig profile is ${MIG_PROFILE}"
-if [${MIG_PROFILE} = "all1g5gb"] then
+if [ ${MIG_PROFILE} = "all1g5gb" ] 
+then
     nvidia-smi mig -cgi 19,19,19,19,19,19,19
     nvidia-smi mig -cci 
 fi`)
@@ -4200,6 +4203,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
 #Question, need conditions?
+MIG_PROFLE={{GetMigProfile}}
 - path: /etc/systemd/system/mig-enable.service
   permissions: "0644"
   encoding: gzip
