@@ -8,8 +8,7 @@ After=mig-enable.service
 Restart=on-failure
 
 #ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh 
-#$MIG_PARTITION
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${MIG_PROFILE}
 #TimeoutStartSec=0
 
 [Install]

@@ -149,12 +149,10 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-# Question: need conditions?
-if [[ "${GPU_NODE}" == "true" ]]; then
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
     ensureMigPartition
-    # systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    # systemctlEnableAndStart mig-partition
 fi
 
 if $REBOOTREQUIRED; then

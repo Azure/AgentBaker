@@ -458,6 +458,8 @@ API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
+MIG_NODE={{GetVariable "migNode"}}
+MIG_PROFILE={{GetVariable "migProfile"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -856,8 +858,8 @@ ensureUpdateNodeLabels() {
 }
 
 ensureMigPartition(){
-    systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart mig-partition 
+    systemctlEnableAndStart mig-enable #|| exit $ERR_MIG_PARTITION_FAILURE
+    systemctlEnableAndStart mig-partition #|| exit $ERR_MIG_PARTITION_FAILURE
 }
 
 ensureSysctl() {
@@ -1144,6 +1146,8 @@ ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem 
 ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+
+ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1854,12 +1858,10 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-# Question: need conditions?
-if [[ "${GPU_NODE}" == "true" ]]; then
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
     ensureMigPartition
-    # systemctlEnableAndStart mig-enable || exit $ERR_SYSTEMCTL_START_FAIL
-    # systemctlEnableAndStart mig-partition
 fi
 
 if $REBOOTREQUIRED; then
@@ -2763,8 +2765,7 @@ After=mig-enable.service
 Restart=on-failure
 
 #ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh 
-#$MIG_PARTITION
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${MIG_PROFILE}
 #TimeoutStartSec=0
 
 [Install]
@@ -2790,8 +2791,12 @@ var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
 #enable MIG mode
 #nvidia-smi -mig 1
-nvidia-smi mig -cgi 9,9
-nvidia-smi mig -cci `)
+MIG_PROFILE=${1}
+echo "mig profile is ${MIG_PROFILE}"
+if [${MIG_PROFILE} = "all-1g.5gb"] then
+    nvidia-smi mig -cgi 19,19,19,19,19,19,19
+    nvidia-smi mig -cci 
+fi`)
 
 func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionSh, nil

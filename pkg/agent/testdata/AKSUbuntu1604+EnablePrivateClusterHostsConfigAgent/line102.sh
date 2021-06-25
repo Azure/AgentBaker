@@ -2,5 +2,9 @@
 
 #enable MIG mode
 #nvidia-smi -mig 1
-nvidia-smi mig -cgi 9,9
-nvidia-smi mig -cci 
+MIG_PROFILE=${1}
+echo "mig profile is ${MIG_PROFILE}"
+if [${MIG_PROFILE} = "all-1g.5gb"] then
+    nvidia-smi mig -cgi 19,19,19,19,19,19,19
+    nvidia-smi mig -cci 
+fi
