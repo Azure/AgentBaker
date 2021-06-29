@@ -635,6 +635,7 @@ type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
 	VMSize                string               `json:"vmSize"`
 	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	KubeletType           string               `json:"kubeletType,omitempty"`
 	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
 	OSType                OSType               `json:"osType,omitempty"`
 	Ports                 []int                `json:"ports,omitempty"`
