@@ -459,7 +459,6 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 MIG_NODE={{GetVariable "migNode"}}
-MIG_PROFILE={{GetVariable "migProfile"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -2765,7 +2764,7 @@ After=mig-enable.service
 Restart=on-failure
 
 #ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${MIG_PROFILE} {{GetMigProfile}}
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
 #TimeoutStartSec=0
 
 [Install]
@@ -2792,10 +2791,9 @@ var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 #enable MIG mode???
 #nvidia-smi -mig 1
 echo ${1}
-echo ${2}
-MIG_PROFILE=${2}
+MIG_PROFILE=${1}
 echo "mig profile is ${MIG_PROFILE}"
-if [ ${MIG_PROFILE} = "all1g5gb" ] 
+if [ ${MIG_PROFILE} = "MIG1g" ] 
 then
     nvidia-smi mig -cgi 19,19,19,19,19,19,19
     nvidia-smi mig -cci 
