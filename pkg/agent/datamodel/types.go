@@ -1432,7 +1432,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	EnableRuncShimV2               bool
-	MigProfile                     string
+	GPUInstanceProfile             string
 }
 
 // HTTPProxyConfig represents configurations of http proxy

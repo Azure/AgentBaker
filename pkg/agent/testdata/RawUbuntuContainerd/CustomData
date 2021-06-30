@@ -86,14 +86,14 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/zyPTWrzQAxA9zrFgL+tM8kBZpGPOsHQNCE/dBFCmTiKLbA1RqMJcUvvXuxCd+LxJJ7OJya9wAvGSqhXCuyWfd8OZlOuTRX4TnUSP3IT2Lw96EbeLBfzuVnvTrC8K4rrqM6R/bXFWUR5UIUA58PvdIHMHIceXWCMTVDIzB47TzytFk9SN2CEPUb1oi5wfvfUJkGArHhidRjxTtDZFMVeiS1PDXnsyOQd1WYBf56bhKuPjbGhV+s/k6CtAqsnRol2LO29KI0PzWJj/n1tyvXHbr9dla/Ft4HsSB2GpNO5A1ZuDnAuOapv2wu8e1a8/R9cl1qlPEWUmXqpUSErtqufAAAA//+lVAebTAEAAA==
+    H4sIAAAAAAAA/zyPzWrrQAxG93qKAa+dSR5gFrncNGTRNuSHLkIWiqPYAlszaDQh7tMXu9Cd+DgHji5nYbvCf8qNcjKOEtYp9aN7321dE+XBbVGcdhfFfTz5zujWq+XSbfdnWD+MNAzc1iR462mRSZ/cEMDl+HtdoXKnMVGIQrmLBpU70IAss7p5sYWRMhwoG6qFKPUDuS9KANXmRc1xmvdKwZes/sbiZW6o88CuHrh1K/jjwgzcMHfOx2Qev4uSb6IYspBmP5UmVOPpoUXuHFQnHigWm/0jNWEJcNlJNuz7K3yhGN3/jWEovXFdMunCUFsyqDafbz8BAAD//4jfSRM9AQAA
 
 - path: /opt/azure/containers/mig-partition.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/2yOQcuCQBCG7/Mr3m/1+Ils0KGDeCoRkqJrROzqug6sa2R0Ef97KARSwRyGZ555eYO/WLOPteobosB4pZ1BkWdou8qkaUqBf3LFKupbRtSyhSRTNh3CQY7vbTVSkWfX4+mwy/fbZAbzSUwPt3tXszPgHuGw8EZBXOP8AZFAKOekXVstcAE9GuMJABZFptiotAy5+f+a33LJoJpfAQAA//+IdNmn7wAAAA==
+    H4sIAAAAAAAA/5yOT0vDQBDF7/MpnkmPCTVakQolJw0Bg+JVRJJ0shnYP7IrXkq/u9RTUbcshXeaefx+L79YDmKXQx9mopxtP2hG1zYwbst1XVNuv2QrfRmMoDSiUBF1bfP+/PL00D7ebxa7ak88zg7Z4fvh3SSaIQGL3VFvn5FMeP11xAZZ1zaVyvAG+pzZEgAcKQ/MclSCal38yf/lUUDEOq67StGtip/EFKcN1wmGdRHdfxq+SoDfnIe+TUBfxtE568B3YO+dhwkKNMl3AAAA//8Wu9+ZYQIAAA==
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"
   encoding: gzip

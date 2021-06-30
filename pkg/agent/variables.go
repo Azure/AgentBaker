@@ -124,8 +124,8 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
-		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.MigProfile)),
-		"migProfile":                      config.MigProfile,
+		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"gpuInstanceProfile":              config.GPUInstanceProfile,
 	}
 }
 
