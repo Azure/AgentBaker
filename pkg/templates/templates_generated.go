@@ -1854,7 +1854,7 @@ systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-o
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
 START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g")
-SYSTEMD_ANALYZE=$(systemd-analyze)
+SYSTEMD_SUMMARY=$(systemd-analyze)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
 
 JSON_STRING=$( jq -n \
