@@ -119,7 +119,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
-$global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
+$global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
@@ -490,7 +490,6 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
-        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
 
         Check-APIServerConnectivity -MasterIP $MasterIP

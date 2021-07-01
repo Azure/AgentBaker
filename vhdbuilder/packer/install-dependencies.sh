@@ -81,6 +81,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
     forceEnableIpForward
+    networkdWorkaround
 fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
@@ -278,7 +279,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_QUOTE_HELPER_VERSIONS="1.0"
+    SGX_QUOTE_HELPER_VERSIONS="2.0"
     for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -321,10 +322,10 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.18.10-hotfix.20210310.2
 1.18.14-hotfix.20210511
 1.18.14-hotfix.20210525
-1.18.17-hotfix.20210505
 1.18.17-hotfix.20210525
-1.18.19
+1.18.17-hotfix.20210525.1
 1.18.19-hotfix.20210522
+1.18.19-hotfix.20210522.1
 1.19.1-hotfix.20200923
 1.19.1-hotfix.20200923.1
 1.19.3
@@ -332,19 +333,19 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.19.6-hotfix.20210310.1
 1.19.7-hotfix.20210511
 1.19.7-hotfix.20210525
-1.19.9-hotfix.20210505
 1.19.9-hotfix.20210526
-1.19.11
+1.19.9-hotfix.20210526.1
 1.19.11-hotfix.20210526
+1.19.11-hotfix.20210526.1
 1.20.2
 1.20.2-hotfix.20210511
 1.20.2-hotfix.20210525
-1.20.5-hotfix.20210505
 1.20.5-hotfix.20210526
-1.20.7
+1.20.5-hotfix.20210603
 1.20.7-hotfix.20210526
-1.21.1
+1.20.7-hotfix.20210603
 1.21.1-hotfix.20210526
+1.21.1-hotfix.20210603
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then

@@ -1468,44 +1468,9 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
-extractHyperkube() {
-    CLI_TOOL=$1
-    path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
-    pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
-    mkdir -p "$path"
-    if [[ "$CLI_TOOL" == "ctr" ]]; then
-        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi
-
-    else
-        if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
-        fi
-    fi
-
-    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-}
-
 installKubeletKubectlAndKubeProxy() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
-        if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-            extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-        else
-            if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                extractHyperkube "ctr"
-            else
-                extractHyperkube "docker"
-            fi
-        fi
+        extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
     fi
 
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
@@ -2664,7 +2629,7 @@ installSGXDrivers() {
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
     #overwrite the passed containerd_version since mariner uses only 1 version now which is different than ubuntu's
-    CONTAINERD_VERSION="1.4.4"
+    CONTAINERD_VERSION="1.3.4"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
@@ -4610,7 +4575,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals .KubernetesConfig}}
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY={{GetParameter "networkPolicy"}}
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
@@ -5119,17 +5084,6 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
-function Register-NodeLabelSyncScriptTask {
-    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
-
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodelabelsync.ps1`+"`"+`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    # trigger this task once(by `+"`"+`-Once) at the time being scheduled(by `+"`"+`-At (Get-Date).Date`+"`"+`) every 5 minutes(by `+"`"+`-RepetitionInterval 00:05:00`+"`"+`)
-    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
-    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
-}
-
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -5419,7 +5373,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
-$global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh .KubernetesConfig }} )
+$global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
@@ -5790,7 +5744,6 @@ try
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
-        Register-NodeLabelSyncScriptTask
         Update-DefenderPreferences
 
         Check-APIServerConnectivity -MasterIP $MasterIP
