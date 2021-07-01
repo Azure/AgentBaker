@@ -1829,6 +1829,10 @@ type CSEStatus struct {
 	Error string `json:"error,omitempty"`
 	// ExecDuration stores the execDuration in seconds from CSE output.
 	ExecDuration string `json:"execDuration,omitempty"`
+	// KernelStartTime of current boot, output from systemctl show -p KernelTimestamp
+	KernelStartTime string `json:"kernelStartTime,omitempty"`
+	// SystemdSummary of current boot, output from systemd-analyze
+	SystemdSummary string `json:"systemdSummary,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string
