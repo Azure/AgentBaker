@@ -1137,6 +1137,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 		deprecated    bool
 		nvidiaEnabled bool
 		fipsEnabled   bool
+		osSku         string
 		expected      string
 	}{
 		{
@@ -1237,15 +1238,25 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			fipsEnabled:   true,
 			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
+		{
+			name:          "with osSKU set",
+			ap:            AgentPoolProfile{},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			fipsEnabled:   false,
+			osSku:         "CBLMariner",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/os-sku=CBLMariner,kubernetes.azure.com/cluster=my-resource-group",
+		},
 	}
 
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled) {
+			if c.expected != c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled, c.osSku) {
 				t.Fatalf("Got unexpected AgentPoolProfile.GetKubernetesLabels(%s, %t) result. Expected: %s. Got: %s.",
-					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled))
+					c.rg, c.deprecated, c.expected, c.ap.GetKubernetesLabels(c.rg, c.deprecated, c.nvidiaEnabled, c.fipsEnabled, c.osSku))
 			}
 		})
 	}
@@ -2294,20 +2305,20 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
 	cases := []struct {
 		name                  string
-		kc                    KubernetesConfig
+		config                *NodeBootstrappingConfiguration
 		expected              string
 		expectedForPowershell string
 	}{
 		{
 			name:                  "zero value kubernetesConfig",
-			kc:                    KubernetesConfig{},
+			config:                &NodeBootstrappingConfiguration{},
 			expected:              "",
 			expectedForPowershell: "",
 		},
 		// Some values
 		{
 			name: "expected values",
-			kc: KubernetesConfig{
+			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
 					"--address":                     "0.0.0.0",
 					"--allow-privileged":            "true",
@@ -2326,17 +2337,17 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		// Switch the "order" in the map, validate the same return string
 		{
 			name: "expected values re-ordered",
-			kc: KubernetesConfig{
+			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
 					"--address":                     "0.0.0.0",
 					"--allow-privileged":            "true",
-					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
+					"--anonymous-auth":              "false",
 					"--authorization-mode":          "Webhook",
+					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
 					"--pod-manifest-path":           "/etc/kubernetes/manifests",
 					"--cgroups-per-qos":             "true",
+					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
 					"--keep-terminated-pod-volumes": "false",
-					"--anonymous-auth":              "false",
 				},
 			},
 			expected:              alphabetizedString,
@@ -2348,8 +2359,8 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expectedForPowershell != c.kc.GetOrderedKubeletConfigStringForPowershell() {
-				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.kc.GetOrderedKubeletConfigStringForPowershell())
+			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell() {
+				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell())
 			}
 		})
 	}

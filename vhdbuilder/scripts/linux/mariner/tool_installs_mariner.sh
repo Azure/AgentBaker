@@ -25,3 +25,10 @@ forceEnableIpForward() {
     net.bridge.bridge-nf-call-iptables = 1
 EOF
 }
+
+# The default 99-dhcp-en config on Mariner attempts to assign an IP address
+# to the eth1 virtual function device, which delays cluster setup by 2 minutes.
+# This workaround makes it so that dhcp is only enabled on eth0.
+networkdWorkaround() {
+    sed -i "s/Name=e\*/Name=eth0/g" /etc/systemd/network/99-dhcp-en.network
+}

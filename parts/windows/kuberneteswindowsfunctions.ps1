@@ -215,17 +215,6 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
-function Register-NodeLabelSyncScriptTask {
-    Write-Log "Creating a periodical task to run windowsnodelabelsync.ps1"
-
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\windowsnodelabelsync.ps1`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    # trigger this task once(by `-Once) at the time being scheduled(by `-At (Get-Date).Date`) every 5 minutes(by `-RepetitionInterval 00:05:00`)
-    $trigger = New-JobTrigger -At  (Get-Date).Date -Once -RepetitionInterval 00:05:00 -RepeatIndefinitely
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "sync kubelet node labels"
-    Register-ScheduledTask -TaskName "sync-kubelet-node-label" -InputObject $definition
-}
-
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -316,7 +305,7 @@ function Check-APIServerConnectivity {
         [Parameter(Mandatory = $false)][int]
         $RetryInterval = 1,
         [Parameter(Mandatory = $false)][int]
-        $ConnectTimeout = 3,  #seconds
+        $ConnectTimeout = 10,  #seconds
         [Parameter(Mandatory = $false)][int]
         $MaxRetryCount = 100
     )

@@ -91,12 +91,10 @@ function Disable-WindowsUpdates {
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server 2019 with containerd"
-        # start containerd to pre-pull the images to disk on VHD
-        # CSE will configure and register containerd as a service at deployment time
-        Start-Job -Name containerd -ScriptBlock { containerd.exe }
         foreach ($image in $imagesToPull) {
+            Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & ctr.exe -n k8s.io images pull $image
+                & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
         Stop-Job  -Name containerd
@@ -105,6 +103,7 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
+            Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
                 docker pull $image
             } -ErrorMessage "Failed to pull image $image"
@@ -140,6 +139,10 @@ function Get-FilesToCacheOnVHD {
 }
 
 function Install-ContainerD {
+    # installing containerd during VHD building is to cache container images into the VHD,
+    # and the containerd to managed customer containers after provisioning the vm is not necessary
+    # the one used here, considering containerd version/package is configurable, and the first one
+    # is expected to override the later one
     Write-Log "Getting containerD binaries from $global:containerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
@@ -154,12 +157,25 @@ function Install-ContainerD {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
     } else {
         tar -xzf $containerdTmpDest --strip=1 -C $installDir
+        mv -Force $installDir\bin\* $installDir
+        Remove-Item -Path $installDir\bin -Force -Recurse
     }
     Remove-Item -Path $containerdTmpDest | Out-Null
 
-    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir;$installDir/bin"
+    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
     [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
-    $env:Path += ";$installDir;$installDir/bin"
+    $env:Path += ";$installDir"
+
+    $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
+    # enabling discard_unpacked_layers allows GC to remove layers from the content store after
+    # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
+    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+
+    Get-Content $containerdConfigPath
+
+    # start containerd to pre-pull the images to disk on VHD
+    # CSE will configure and register containerd as a service at deployment time
+    Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
 function Install-Docker {
@@ -266,7 +282,7 @@ function Update-Registry {
     # if multple LB policies are included for same endpoint then HNS hangs.
     # this fix forces an error
     Write-Log "Enable a HNS fix in 2021-2C"
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value 1 -Type DWORD
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value 3 -Type DWORD
 
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
