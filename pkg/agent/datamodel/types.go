@@ -115,14 +115,14 @@ const (
 )
 
 
-// KubeletType indicates whether node pool is container-based or Web Assembly-based.
+// KubeletType describes choices for the node agent: kubelet or krustlet-wasi, currently.
 type KubeletType string
 
 const (
-	// DefaultKubelet indicates that Kubelet will be used in the node pool.
-	DefaultKubelet KubeletType = "Kubelet"
-	// KrustletKubelet indicates that Krustlet will be used in the node pool.
-	KrustletKubelet KubeletType = "Krustlet"
+	// Kubelet indicates the default kubelet indication will be used.
+	Kubelet KubeletType = "Kubelet"
+	// Krustlet indicates Krustlet will be used.
+	Krustlet KubeletType = "Krustlet"
 )
 
 // Distro represents Linux distro to use for Linux VMs
