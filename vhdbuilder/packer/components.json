@@ -86,16 +86,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
-      "versions": [
-        "v1.2.8",
-        "v1.2.2_hotfix",
-        "v1.2.1",
-        "v1.1.8",
-        "v1.3.1"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:*",
       "versions": [
         "v1.0.30"
