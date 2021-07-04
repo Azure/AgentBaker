@@ -37,8 +37,8 @@ func IsSgxEnabledSKU(vmSize string) bool {
 }
 
 // IsMIGNode check if the node should be partitioned
-func IsMIGNode(migProfile string) bool {
-	return migProfile != ""
+func IsMIGNode(GPUInstanceProfile string) bool {
+	return GPUInstanceProfile != ""
 }
 
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size
