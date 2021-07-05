@@ -65,6 +65,8 @@ const (
 	DefaultEnableCSIProxyWindows = false
 	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
 	DefaultWindowsSSHEnabled = true
+	// DefaultWindowsSecureTlsEnabled is the default windowsProfile.WindowsSecureTlsEnabled value
+	DefaultWindowsSecureTlsEnabled = false
 )
 
 const (
