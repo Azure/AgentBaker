@@ -93,7 +93,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/5yPQUvDQBCF7/MrnkmPDTVakQolFzUErCmiJxHZJJNkINktyVqU0v8uycWCpg3CO+1bvu+NezZLRM8S1ZZELmuVVIxVFKI2GQdBQK7eSibKa2uBV0sBn8h9jm/jG3y0jFoKb6MayxkqSRrVfMEaZAa2ZHSFWDEaKrfc4LFHIZdPiAWtovB9/RTfRw93y8nO35PkeMVkd/C+xxJO5/ALB28gW7ImADhY1Y3y0kLgL6a/8vfnVEDE1RHfxY8Pw8L5tM+Q5ITjcoxjMR284QR+PgZ/9U/49Rj4+TF4y33LaWngaGOxVZVkCNcvEN1apVPGpjG5VOxQLt8BAAD//0zxvmypAgAA
+    H4sIAAAAAAAA/4TQUUvDMBAH8Pd8ir/tXpSWWZ3IHNIXtRQcHaLPkqbX9qBNRhOHMvbdpRNcYYWGe0nC7/7H+RfznPU8l7YWwict84awThO0pqA4joWvd1ywDG3LCFuuEAnhv2dP2QO+LKHlKtzKzlGBhvNOdj9wBoWBqwn9Bzs2GrJ01IEd2KLkb4h1mnxu3rKX9PX5cbaPDkJJS5jtB+8HsIYAAK9PiSrv8njrz2CofqZQVYxoGZzVP1itTp1uJjstgmON6tspvQzGYxdT8G6U3U+x6wHD38KuToJUbeBp4yCxkw0XSDYfYG2d1Iqw7UzJDXnDaLJSibMkxb8BAAD//1kPfV4sAgAA
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"
   encoding: gzip
