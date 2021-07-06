@@ -442,3 +442,5 @@ installAscBaseline
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
+
+apt-get remove snapd
