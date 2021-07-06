@@ -443,4 +443,5 @@ if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
 
-apt-get remove snapd
+apt-get remove snapd -y
+apt-get autoremove -y
