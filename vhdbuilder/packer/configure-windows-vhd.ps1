@@ -91,12 +91,10 @@ function Disable-WindowsUpdates {
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server 2019 with containerd"
-        # start containerd to pre-pull the images to disk on VHD
-        # CSE will configure and register containerd as a service at deployment time
-        Start-Job -Name containerd -ScriptBlock { containerd.exe }
         foreach ($image in $imagesToPull) {
+            Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & ctr.exe -n k8s.io images pull $image
+                & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
         Stop-Job  -Name containerd
@@ -105,6 +103,7 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
+            Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
                 docker pull $image
             } -ErrorMessage "Failed to pull image $image"
@@ -166,6 +165,17 @@ function Install-ContainerD {
     $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
     [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
     $env:Path += ";$installDir"
+
+    $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
+    # enabling discard_unpacked_layers allows GC to remove layers from the content store after
+    # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
+    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+
+    Get-Content $containerdConfigPath
+
+    # start containerd to pre-pull the images to disk on VHD
+    # CSE will configure and register containerd as a service at deployment time
+    Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
 function Install-Docker {
