@@ -27,7 +27,7 @@ $global:patchIDs = @("KB5003646")
 
 $global:containerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz"
 
-$global:defaultDockerVersion = "20.10.5"
+$global:defaultDockerVersion = "20.10.6"
 
 switch ($windowsSKU) {
     "2019" {
