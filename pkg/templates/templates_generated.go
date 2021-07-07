@@ -30,6 +30,8 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mig-partition.service
+// linux/cloud-init/artifacts/mig-partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -455,6 +457,7 @@ API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
+MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -852,6 +855,10 @@ ensureUpdateNodeLabels() {
     systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureMigPartition(){
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1136,6 +1143,8 @@ ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem 
 ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+
+ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1637,6 +1646,7 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+
 {{- if not NeedsContainerd}}
 cleanUpContainerd
 {{- end}}
@@ -1808,6 +1818,12 @@ else
         API_SERVER_CONN_RETRIES=100
     fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+fi
+
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    ensureMigPartition
 fi
 
 if $REBOOTREQUIRED; then
@@ -2674,6 +2690,75 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
+Description=Apply MIG configuration on Nvidia A100 GPU
+
+[Service]
+Restart=on-failure
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
+
+[Install]
+WantedBy=multi-user.target
+#EOF`)
+
+func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionService, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
+
+#TODO: use mig-parted library to do the partition after the issue is fixed 
+MIG_PROFILE=${1}
+case ${MIG_PROFILE} in 
+    "mig-1g")
+        nvidia-smi mig -cgi 19,19,19,19,19,19,19
+        ;;
+    "mig-2g")
+        nvidia-smi mig -cgi 14,14,14
+        ;;
+    "mig-3g")
+        nvidia-smi mig -cgi 9,9
+        ;;
+    "mig-4g")
+        nvidia-smi mig -cgi 5
+        ;;
+    "mig-7g")
+        nvidia-smi mig -cgi 0
+        ;;  
+    *)
+        echo "not a valid GPU instance profile"
+        exit ${ERR_MIG_PARTITION_FAILURE}
+        ;;
+esac
+nvidia-smi mig -cci`)
+
+func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionSh, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4063,6 +4148,22 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{- if IsMIGEnabledNode}}
+- path: /etc/systemd/system/mig-partition.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
+
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
+{{end}}
 
 {{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service
@@ -7662,6 +7763,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
+	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -7777,6 +7880,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
+				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
+				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":               &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":    &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":       &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
