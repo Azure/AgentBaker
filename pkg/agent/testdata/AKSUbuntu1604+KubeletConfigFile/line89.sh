@@ -1,9 +1,6 @@
 #!/bin/bash
 
-#enable MIG mode???
-#nvidia-smi -mig 1
-
-#TODO: use mig-parted library to do the partition after it is fix 
+#TODO: use mig-parted library to do the partition after the issue is fixed 
 MIG_PROFILE=${1}
 case ${MIG_PROFILE} in 
     "mig-1g")
@@ -23,6 +20,7 @@ case ${MIG_PROFILE} in
         ;;  
     *)
         echo "not a valid GPU instance profile"
+
         ;;
 esac
 nvidia-smi mig -cci

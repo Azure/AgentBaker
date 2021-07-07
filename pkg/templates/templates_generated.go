@@ -857,8 +857,8 @@ ensureUpdateNodeLabels() {
 }
 
 ensureMigPartition(){
-    systemctlEnableAndStart mig-enable #|| exit $ERR_MIG_PARTITION_FAILURE
-    systemctlEnableAndStart mig-partition #|| exit $ERR_MIG_PARTITION_FAILURE
+    #systemctlEnableAndStart mig-enable #|| exit $ERR_MIG_PARTITION_FAILURE
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
@@ -2756,16 +2756,13 @@ func linuxCloudInitArtifactsMigEnableService() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-After=mig-enable.service
+#After=mig-enable.service
 
 [Service]
-# Type=oneshot
-# RemainAfterExit=yes
 Restart=on-failure
 
-#ExecStartPre=/usr/bin/nvidia-smi -mig 1
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
-#TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target
@@ -2788,10 +2785,7 @@ func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
-#enable MIG mode???
-#nvidia-smi -mig 1
-
-#TODO: use mig-parted library to do the partition after it is fix 
+#TODO: use mig-parted library to do the partition after the issue is fixed 
 MIG_PROFILE=${1}
 case ${MIG_PROFILE} in 
     "mig-1g")
@@ -2811,6 +2805,7 @@ case ${MIG_PROFILE} in
         ;;  
     *)
         echo "not a valid GPU instance profile"
+
         ;;
 esac
 nvidia-smi mig -cci`)
