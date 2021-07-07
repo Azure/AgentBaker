@@ -443,5 +443,9 @@ if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
 
+# remove snapd, which is not used by container stack
 apt-get remove snapd -y
 apt-get autoremove -y
+
+# update message-of-the-day to start after default.target
+sed -i 's/After=network-online.target/After=default.target/g' /lib/systemd/system/motd-news.service
