@@ -35,7 +35,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"ensureNoDupEbtablesService":     getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
 			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
 			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
-			"migEnableSystemdService":        getBase64EncodedGzippedCustomScript(migEnableSystemdService, config),
 			"migPartitionSystemdService":     getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":             getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 		},

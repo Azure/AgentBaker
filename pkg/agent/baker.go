@@ -314,6 +314,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
 		},
+		"IsMIGEnabledNode": func() bool {
+			return config.GPUInstanceProfile != ""
+		},
 		"GetKubeletConfigFileContent": func() string {
 			if profile.KubernetesConfig == nil {
 				return ""

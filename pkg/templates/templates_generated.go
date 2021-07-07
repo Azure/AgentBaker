@@ -30,7 +30,6 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
-// linux/cloud-init/artifacts/mig-enable.service
 // linux/cloud-init/artifacts/mig-partition.service
 // linux/cloud-init/artifacts/mig-partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
@@ -857,7 +856,6 @@ ensureUpdateNodeLabels() {
 }
 
 ensureMigPartition(){
-    #systemctlEnableAndStart mig-enable #|| exit $ERR_MIG_PARTITION_FAILURE
     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -2727,40 +2725,11 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsMigEnableService = []byte(`[Unit]
-Description=Enable MIG configuration on Nvidia A100 GPU
-
-[Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStart=/usr/bin/nvidia-smi -mig 1
-
-[Install]
-WantedBy=multi-user.target
-#EOF`)
-
-func linuxCloudInitArtifactsMigEnableServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsMigEnableService, nil
-}
-
-func linuxCloudInitArtifactsMigEnableService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsMigEnableServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-enable.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
-#After=mig-enable.service
 
 [Service]
 Restart=on-failure
-
 ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
 
@@ -2805,7 +2774,7 @@ case ${MIG_PROFILE} in
         ;;  
     *)
         echo "not a valid GPU instance profile"
-
+        exit ${ERR_MIG_PARTITION_FAILURE}
         ;;
 esac
 nvidia-smi mig -cci`)
@@ -4211,14 +4180,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-#Question, need conditions?
-- path: /etc/systemd/system/mig-enable.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migEnableSystemdService"}}
-
+{{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
@@ -4232,6 +4194,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
+{{end}}
 
 {{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service
@@ -7843,7 +7806,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
-	"linux/cloud-init/artifacts/mig-enable.service":                        linuxCloudInitArtifactsMigEnableService,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
 	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
@@ -7961,7 +7923,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
-				"mig-enable.service":              &bintree{linuxCloudInitArtifactsMigEnableService, map[string]*bintree{}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
 				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":               &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
