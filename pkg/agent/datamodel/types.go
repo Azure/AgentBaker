@@ -616,55 +616,30 @@ type SysctlConfig struct {
 
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                                string               `json:"name"`
-	Count                               int                  `json:"count"`
-	VMSize                              string               `json:"vmSize"`
-	OSDiskSizeGB                        int                  `json:"osDiskSizeGB,omitempty"`
-	KubeletDiskType                     KubeletDiskType      `json:"kubeletDiskType,omitempty"`
-	DNSPrefix                           string               `json:"dnsPrefix,omitempty"`
-	OSType                              OSType               `json:"osType,omitempty"`
-	Ports                               []int                `json:"ports,omitempty"`
-	ProvisioningState                   ProvisioningState    `json:"provisioningState,omitempty"`
-	AvailabilityProfile                 string               `json:"availabilityProfile"`
-	ScaleSetPriority                    string               `json:"scaleSetPriority,omitempty"`
-	ScaleSetEvictionPolicy              string               `json:"scaleSetEvictionPolicy,omitempty"`
-	SpotMaxPrice                        *float64             `json:"spotMaxPrice,omitempty"`
-	StorageProfile                      string               `json:"storageProfile,omitempty"`
-	DiskSizesGB                         []int                `json:"diskSizesGB,omitempty"`
-	VnetSubnetID                        string               `json:"vnetSubnetID,omitempty"`
-	Subnet                              string               `json:"subnet"`
-	IPAddressCount                      int                  `json:"ipAddressCount,omitempty"`
-	Distro                              Distro               `json:"distro,omitempty"`
-	Role                                AgentPoolProfileRole `json:"role,omitempty"`
-	AcceleratedNetworkingEnabled        *bool                `json:"acceleratedNetworkingEnabled,omitempty"`
-	AcceleratedNetworkingEnabledWindows *bool                `json:"acceleratedNetworkingEnabledWindows,omitempty"`
-	VMSSOverProvisioningEnabled         *bool                `json:"vmssOverProvisioningEnabled,omitempty"`
-	FQDN                                string               `json:"fqdn,omitempty"`
-	CustomNodeLabels                    map[string]string    `json:"customNodeLabels,omitempty"`
-	PreprovisionExtension               *Extension           `json:"preProvisionExtension"`
-	Extensions                          []Extension          `json:"extensions"`
-	KubernetesConfig                    *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
-	OrchestratorVersion                 string               `json:"orchestratorVersion"`
-	ImageRef                            *ImageReference      `json:"imageReference,omitempty"`
-	MaxCount                            *int                 `json:"maxCount,omitempty"`
-	MinCount                            *int                 `json:"minCount,omitempty"`
-	EnableAutoScaling                   *bool                `json:"enableAutoScaling,omitempty"`
-	AvailabilityZones                   []string             `json:"availabilityZones,omitempty"`
-	PlatformFaultDomainCount            *int                 `json:"platformFaultDomainCount"`
-	PlatformUpdateDomainCount           *int                 `json:"platformUpdateDomainCount"`
-	SinglePlacementGroup                *bool                `json:"singlePlacementGroup,omitempty"`
-	VnetCidrs                           []string             `json:"vnetCidrs,omitempty"`
-	PreserveNodesProperties             *bool                `json:"preserveNodesProperties,omitempty"`
-	WindowsNameVersion                  string               `json:"windowsNameVersion,omitempty"`
-	EnableVMSSNodePublicIP              *bool                `json:"enableVMSSNodePublicIP,omitempty"`
-	LoadBalancerBackendAddressPoolIDs   []string             `json:"loadBalancerBackendAddressPoolIDs,omitempty"`
-	CustomVMTags                        map[string]string    `json:"customVMTags,omitempty"`
-	DiskEncryptionSetID                 string               `json:"diskEncryptionSetID,omitempty"`
-	UltraSSDEnabled                     *bool                `json:"ultraSSDEnabled,omitempty"`
-	EncryptionAtHost                    *bool                `json:"encryptionAtHost,omitempty"`
-	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
-	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
-	CustomLinuxOSConfig                 *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	Name                   string               `json:"name"`
+	Count                  int                  `json:"count"`
+	VMSize                 string               `json:"vmSize"`
+	OSDiskSizeGB           int                  `json:"osDiskSizeGB,omitempty"`
+	KubeletDiskType        KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	DNSPrefix              string               `json:"dnsPrefix,omitempty"`
+	OSType                 OSType               `json:"osType,omitempty"`
+	Ports                  []int                `json:"ports,omitempty"`
+	AvailabilityProfile    string               `json:"availabilityProfile"`
+	ScaleSetPriority       string               `json:"scaleSetPriority,omitempty"`
+	ScaleSetEvictionPolicy string               `json:"scaleSetEvictionPolicy,omitempty"`
+	StorageProfile         string               `json:"storageProfile,omitempty"`
+	DiskSizesGB            []int                `json:"diskSizesGB,omitempty"`
+	VnetSubnetID           string               `json:"vnetSubnetID,omitempty"`
+	Subnet                 string               `json:"subnet"`
+	Distro                 Distro               `json:"distro,omitempty"`
+	CustomNodeLabels       map[string]string    `json:"customNodeLabels,omitempty"`
+	PreprovisionExtension  *Extension           `json:"preProvisionExtension"`
+	KubernetesConfig       *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
+	AvailabilityZones      []string             `json:"availabilityZones,omitempty"`
+	VnetCidrs              []string             `json:"vnetCidrs,omitempty"`
+	WindowsNameVersion     string               `json:"windowsNameVersion,omitempty"`
+	CustomKubeletConfig    *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
+	CustomLinuxOSConfig    *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1345,7 +1320,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	if config.KubeletConfig == nil {
 		return ""
 	}
-	
+
 	keys := []string{}
 	for key := range config.KubeletConfig {
 		keys = append(keys, key)

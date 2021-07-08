@@ -76,8 +76,7 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 					"count": 3,
 					"vmSize": "Standard_D2_v2",
 					"distro": "ubuntu",
-					"availabilityProfile": "AvailabilitySet",
-					"AcceleratedNetworkingEnabled": false
+					"availabilityProfile": "AvailabilitySet"
 				}
 			],
 			"linuxProfile": {
@@ -276,7 +275,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					Count:     2,
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
-					FQDN:      "blueorange.westus2.com",
 					OSType:    "Linux",
 					Subnet:    "sampleSubnet",
 				},
@@ -285,16 +283,8 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					Count:     2,
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
-					FQDN:      "blueorange.westus2.com",
 					OSType:    "Linux",
 					Subnet:    "sampleSubnet",
-					ImageRef: &datamodel.ImageReference{
-						Name:           "testImage",
-						ResourceGroup:  "testRg",
-						SubscriptionID: "testSub",
-						Gallery:        "testGallery",
-						Version:        "0.0.1",
-					},
 				},
 			},
 		},

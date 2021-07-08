@@ -1435,12 +1435,10 @@ func TestHasStorageProfile(t *testing.T) {
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile:      ManagedDisks,
-						DiskEncryptionSetID: "DiskEncryptionSetID",
+						StorageProfile: ManagedDisks,
 					},
 					{
-						StorageProfile:      ManagedDisks,
-						DiskEncryptionSetID: "DiskEncryptionSetID",
+						StorageProfile: ManagedDisks,
 					},
 				},
 			},
@@ -1460,12 +1458,10 @@ func TestHasStorageProfile(t *testing.T) {
 				},
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						StorageProfile:   ManagedDisks,
-						EncryptionAtHost: to.BoolPtr(true),
+						StorageProfile: ManagedDisks,
 					},
 					{
-						StorageProfile:   ManagedDisks,
-						EncryptionAtHost: to.BoolPtr(true),
+						StorageProfile: ManagedDisks,
 					},
 				},
 			},
@@ -1488,12 +1484,6 @@ func TestHasStorageProfile(t *testing.T) {
 			}
 			if c.p.AgentPoolProfiles[0].HasDisks() != c.expectedHasDisks {
 				t.Fatalf("expected HasDisks() to return %t but instead returned %t", c.expectedHasDisks, c.p.AgentPoolProfiles[0].HasDisks())
-			}
-			if c.p.AgentPoolProfiles[0].DiskEncryptionSetID != c.expectedDesID {
-				t.Fatalf("expected DiskEncryptionSetID to return %s but instead returned %s", c.expectedDesID, c.p.AgentPoolProfiles[0].DiskEncryptionSetID)
-			}
-			if to.Bool(c.p.AgentPoolProfiles[0].EncryptionAtHost) != c.expectedEncryptionAtHost {
-				t.Fatalf("expected EncryptionAtHost to return %v but instead returned %v", c.expectedEncryptionAtHost, to.Bool(c.p.AgentPoolProfiles[0].EncryptionAtHost))
 			}
 		})
 	}
