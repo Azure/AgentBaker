@@ -114,6 +114,17 @@ const (
 	TempDisk KubeletDiskType = "Temporary"
 )
 
+
+// KubeletType describes choices for the node agent: kubelet or krustlet-wasi, currently.
+type KubeletType string
+
+const (
+	// Kubelet indicates the default kubelet indication will be used.
+	Kubelet KubeletType = "Kubelet"
+	// Krustlet indicates Krustlet will be used.
+	Krustlet KubeletType = "Krustlet"
+)
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -621,6 +632,7 @@ type AgentPoolProfile struct {
 	VMSize                              string               `json:"vmSize"`
 	OSDiskSizeGB                        int                  `json:"osDiskSizeGB,omitempty"`
 	KubeletDiskType                     KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	KubeletType                         KubeletType          `json:"kubeletType,omitempty"`
 	DNSPrefix                           string               `json:"dnsPrefix,omitempty"`
 	OSType                              OSType               `json:"osType,omitempty"`
 	Ports                               []int                `json:"ports,omitempty"`
