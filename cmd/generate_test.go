@@ -31,18 +31,11 @@ const (
 				{
 					"availabilityZones": null,
 					"count": 1,
-					"enableAutoScaling": null,
-					"maxCount": null,
-					"minCount": null,
 					"name": "nodepool1",
-					"orchestratorVersion": "1.19.3",
 					"osDiskSizeGb": 128,
 					"osType": "Linux",
-					"provisioningState": "Succeeded",
-					"proximityPlacementGroupId": null,
 					"scaleSetEvictionPolicy": null,
 					"scaleSetPriority": null,
-					"spotMaxPrice": null,
 					"vmSize": "Standard_DS2_v2"
 				}
 			],
