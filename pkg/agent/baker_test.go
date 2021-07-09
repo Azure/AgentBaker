@@ -28,9 +28,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    datamodel.Kubernetes,
 					OrchestratorVersion: k8sVersion,
-					KubernetesConfig: &datamodel.KubernetesConfig{
-
-					},
+					KubernetesConfig:    &datamodel.KubernetesConfig{},
 				},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{
 					DNSPrefix: "uttestdom",
@@ -38,13 +36,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "agent2",
-						Count:               3,
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-						Distro: datamodel.AKSUbuntu1604,
+						Distro:              datamodel.AKSUbuntu1604,
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -133,7 +130,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
 			FIPSEnabled:                   false,
-			KubeletConfig:				   kubeletConfig,
+			KubeletConfig:                 kubeletConfig,
 		}
 
 		if configUpdator != nil {
@@ -442,8 +439,8 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						ServiceCIDR:          "10.0.0.0/16",
 						EnableRbac:           to.BoolPtr(true),
 						EnableSecureKubelet:  to.BoolPtr(true),
-						UseInstanceMetadata: to.BoolPtr(true),
-						DNSServiceIP:        "10.0.0.10",
+						UseInstanceMetadata:  to.BoolPtr(true),
+						DNSServiceIP:         "10.0.0.10",
 					},
 				},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{
@@ -455,7 +452,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "wpool2",
-						Count:               3,
 						VMSize:              "Standard_D2s_v3",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Windows,
@@ -463,7 +459,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						WindowsNameVersion:  "v2",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						CustomNodeLabels:    map[string]string{"kubernetes.azure.com/node-image-version": "AKSWindows-2019-17763.1577.201111"},
-						Distro: datamodel.Distro("aks-windows-2019"),
+						Distro:              datamodel.Distro("aks-windows-2019"),
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -521,7 +517,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			HyperkubeImageURL:         hyperkubeImage,
 			WindowsPackageURL:         windowsPackage,
 		}
-		
+
 		kubeletConfig := map[string]string{
 			"--address":                           "0.0.0.0",
 			"--anonymous-auth":                    "false",
@@ -572,7 +568,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			EnableGPUDevicePluginIfNeeded: false,
 			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
-			KubeletConfig:				   kubeletConfig,
+			KubeletConfig:                 kubeletConfig,
 		}
 
 		if configUpdator != nil {
