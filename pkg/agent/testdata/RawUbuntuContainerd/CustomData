@@ -65,8 +65,6 @@ write_files:
 
 
 
-
-#
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
