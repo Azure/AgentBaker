@@ -1854,9 +1854,9 @@ EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
 START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
-KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g")
-GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g")
-SYSTEMD_SUMMARY=$(systemd-analyze)
+KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+SYSTEMD_SUMMARY=$(systemd-analyze || true)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
 
 JSON_STRING=$( jq -n \
