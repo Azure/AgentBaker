@@ -72,7 +72,6 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 			"agentPoolProfiles": [
 				{
 					"name": "linuxpool",
-					"osDiskSizeGB": 200,
 					"vmSize": "Standard_D2_v2",
 					"distro": "ubuntu",
 					"availabilityProfile": "AvailabilitySet"
@@ -274,14 +273,12 @@ func getDefaultContainerService() *datamodel.ContainerService {
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
 					OSType:    "Linux",
-					Subnet:    "sampleSubnet",
 				},
 				{
 					Name:      "sampleAgent-public",
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
 					OSType:    "Linux",
-					Subnet:    "sampleSubnet",
 				},
 			},
 		},
@@ -311,10 +308,6 @@ func TestLoadDefaultContainerServiceProperties(t *testing.T) {
 
 	if p.AgentPoolProfiles[0].VMSize != defaultVMSize {
 		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s AgentPoolProfiles[0].VMSize, instead got %s", defaultVMSize, p.AgentPoolProfiles[0].VMSize)
-	}
-
-	if p.AgentPoolProfiles[0].OSDiskSizeGB != defaultOSDiskSizeGB {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d AgentPoolProfiles[0].OSDiskSizeGB, instead got %d", defaultOSDiskSizeGB, p.AgentPoolProfiles[0].OSDiskSizeGB)
 	}
 
 	if p.LinuxProfile.AdminUsername != defaultAdminUser {
