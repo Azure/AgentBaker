@@ -215,39 +215,6 @@ func TestOSType(t *testing.T) {
 	}
 }
 
-func TestTotalNodes(t *testing.T) {
-	cases := []struct {
-		name     string
-		p        Properties
-		expected int
-	}{
-		{
-			name: "7 total nodes between 2 pools",
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count: 3,
-					},
-					{
-						Count: 4,
-					},
-				},
-			},
-			expected: 7,
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			if c.p.TotalNodes() != c.expected {
-				t.Fatalf("expected TotalNodes() to return %d but instead returned %d", c.expected, c.p.TotalNodes())
-			}
-		})
-	}
-}
-
 func TestHasAvailabilityZones(t *testing.T) {
 	cases := []struct {
 		p                Properties
@@ -258,11 +225,9 @@ func TestHasAvailabilityZones(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Count:             1,
 						AvailabilityZones: []string{"1", "2"},
 					},
 					{
-						Count:             1,
 						AvailabilityZones: []string{"1", "2"},
 					},
 				},
@@ -273,11 +238,8 @@ func TestHasAvailabilityZones(t *testing.T) {
 		{
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
+					{},
 					{
-						Count: 1,
-					},
-					{
-						Count:             1,
 						AvailabilityZones: []string{"1", "2"},
 					},
 				},
@@ -289,11 +251,9 @@ func TestHasAvailabilityZones(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Count:             1,
 						AvailabilityZones: []string{},
 					},
 					{
-						Count:             1,
 						AvailabilityZones: []string{"1", "2"},
 					},
 				},
@@ -531,7 +491,6 @@ func TestAnyAgentIsLinux(t *testing.T) {
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						Count:  2,
 						OSType: Linux,
 					},
 				},
@@ -545,7 +504,6 @@ func TestAnyAgentIsLinux(t *testing.T) {
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						Count:  2,
 						OSType: Windows,
 					},
 					{
@@ -564,12 +522,10 @@ func TestAnyAgentIsLinux(t *testing.T) {
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						Count:  2,
 					},
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						Count:  100,
 					},
 				},
 			},
@@ -582,12 +538,10 @@ func TestAnyAgentIsLinux(t *testing.T) {
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						Count:  2,
 					},
 					{
 						Name:   "agentpool1",
 						VMSize: "Standard_D2_v2",
-						Count:  100,
 						OSType: Windows,
 					},
 				},
@@ -652,7 +606,6 @@ func TestPropertiesHasDCSeriesSKU(t *testing.T) {
 				{
 					Name:   "agentpool",
 					VMSize: c.VMSKU,
-					Count:  1,
 				},
 			},
 			OrchestratorProfile: &OrchestratorProfile{
@@ -676,7 +629,6 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Count:  1,
 						Distro: AKSUbuntu1604,
 					},
 				},
@@ -687,7 +639,6 @@ func TestIsVHDDistroForAllNodes(t *testing.T) {
 			p: Properties{
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
-						Count:  1,
 						OSType: Windows,
 					},
 				},
@@ -821,7 +772,6 @@ func TestGetSubnetName(t *testing.T) {
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
-						Count:               1,
 						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
@@ -843,7 +793,6 @@ func TestGetSubnetName(t *testing.T) {
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
-						Count:               1,
 						AvailabilityProfile: VirtualMachineScaleSets,
 						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 					},
@@ -880,7 +829,6 @@ func TestGetRouteTableName(t *testing.T) {
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
-				Count:               1,
 				AvailabilityProfile: VirtualMachineScaleSets,
 			},
 		},
@@ -919,7 +867,6 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
-						Count:               1,
 						AvailabilityProfile: VirtualMachineScaleSets,
 						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 					},
@@ -942,7 +889,6 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 					{
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
-						Count:               1,
 						AvailabilityProfile: VirtualMachineScaleSets,
 					},
 				},
@@ -975,7 +921,6 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
-				Count:               1,
 				AvailabilityProfile: VirtualMachineScaleSets,
 				VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 			},
@@ -1003,7 +948,6 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
-				Count:               1,
 				AvailabilityProfile: AvailabilitySet,
 			},
 		},
@@ -1019,7 +963,6 @@ func TestGetPrimaryAvailabilitySetName(t *testing.T) {
 		{
 			Name:                "agentpool",
 			VMSize:              "Standard_D2_v2",
-			Count:               1,
 			AvailabilityProfile: VirtualMachineScaleSets,
 		},
 	}
@@ -1105,19 +1048,6 @@ func TestIsCustomVNET(t *testing.T) {
 				},
 			},
 			expectedAgent: true,
-		},
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Count: 1,
-					},
-					{
-						Count: 1,
-					},
-				},
-			},
-			expectedAgent: false,
 		},
 	}
 

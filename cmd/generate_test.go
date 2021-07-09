@@ -30,7 +30,6 @@ const (
 			"agentPoolProfiles": [
 				{
 					"availabilityZones": null,
-					"count": 1,
 					"name": "nodepool1",
 					"osDiskSizeGb": 128,
 					"osType": "Linux",

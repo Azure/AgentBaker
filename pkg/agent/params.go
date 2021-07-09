@@ -63,7 +63,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	// Agent parameters
 	isSetVnetCidrs := false
 	for _, agentProfile := range properties.AgentPoolProfiles {
-		addValue(parametersMap, fmt.Sprintf("%sCount", agentProfile.Name), agentProfile.Count)
 		addValue(parametersMap, fmt.Sprintf("%sVMSize", agentProfile.Name), agentProfile.VMSize)
 		if agentProfile.HasAvailabilityZones() {
 			addValue(parametersMap, fmt.Sprintf("%sAvailabilityZones", agentProfile.Name), agentProfile.AvailabilityZones)

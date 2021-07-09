@@ -30,7 +30,7 @@ const exampleAPIModel = `{
 			}
 		},
 		"hostedMasterProfile": { "dnsPrefix": "" },
-		"agentPoolProfiles": [ { "name": "linuxpool1", "count": 2, "vmSize": "Standard_D2_v2", "availabilityProfile": "AvailabilitySet" } ],
+		"agentPoolProfiles": [ { "name": "linuxpool1", "vmSize": "Standard_D2_v2", "availabilityProfile": "AvailabilitySet" } ],
 		"windowsProfile": { "adminUsername": "azureuser", "adminPassword": "replacepassword1234$" },
 		"linuxProfile": { "adminUsername": "azureuser", "ssh": { "publicKeys": [ { "keyData": "" } ] }
 		},
@@ -73,7 +73,6 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 				{
 					"name": "linuxpool",
 					"osDiskSizeGB": 200,
-					"count": 3,
 					"vmSize": "Standard_D2_v2",
 					"distro": "ubuntu",
 					"availabilityProfile": "AvailabilitySet"
@@ -272,7 +271,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
 					Name:      "sampleAgent",
-					Count:     2,
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
 					OSType:    "Linux",
@@ -280,7 +278,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 				},
 				{
 					Name:      "sampleAgent-public",
-					Count:     2,
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
 					OSType:    "Linux",
@@ -310,10 +307,6 @@ func TestLoadDefaultContainerServiceProperties(t *testing.T) {
 
 	if p.AgentPoolProfiles[0].Name != defaultAgentPoolName {
 		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s AgentPoolProfiles[0].Name, instead got %s", defaultAgentPoolName, p.AgentPoolProfiles[0].Name)
-	}
-
-	if p.AgentPoolProfiles[0].Count != defaultAgentCount {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d AgentPoolProfiles[0].Count, instead got %d", defaultAgentCount, p.AgentPoolProfiles[0].Count)
 	}
 
 	if p.AgentPoolProfiles[0].VMSize != defaultVMSize {

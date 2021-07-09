@@ -21,7 +21,6 @@ const (
 	defaultVMSize        = "Standard_DS2_v2"
 	defaultOSDiskSizeGB  = 200
 	defaultAgentPoolName = "agent"
-	defaultAgentCount    = 3
 	defaultAdminUser     = "azureuser"
 )
 
@@ -99,7 +98,6 @@ func LoadDefaultContainerServiceProperties() (datamodel.TypeMeta, *datamodel.Pro
 		AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 			{
 				Name:         defaultAgentPoolName,
-				Count:        defaultAgentCount,
 				VMSize:       defaultVMSize,
 				OSDiskSizeGB: defaultOSDiskSizeGB,
 			},

@@ -617,7 +617,6 @@ type SysctlConfig struct {
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
 	Name                   string               `json:"name"`
-	Count                  int                  `json:"count"`
 	VMSize                 string               `json:"vmSize"`
 	OSDiskSizeGB           int                  `json:"osDiskSizeGB,omitempty"`
 	KubeletDiskType        KubeletDiskType      `json:"kubeletDiskType,omitempty"`
@@ -723,15 +722,6 @@ func (p *Properties) HasWindows() bool {
 		}
 	}
 	return false
-}
-
-// TotalNodes returns the total number of nodes in the cluster configuration
-func (p *Properties) TotalNodes() int {
-	var totalNodes int
-	for _, pool := range p.AgentPoolProfiles {
-		totalNodes += pool.Count
-	}
-	return totalNodes
 }
 
 // HasAvailabilityZones returns true if the cluster contains a profile with zones
