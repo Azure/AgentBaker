@@ -447,5 +447,6 @@ fi
 apt-get remove snapd -y
 apt-get autoremove -y
 
-# update message-of-the-day to start after default.target
+# update message-of-the-day to start after multi-user.target
+# multi-user.target usually start at the end of the boot sequence
 sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
