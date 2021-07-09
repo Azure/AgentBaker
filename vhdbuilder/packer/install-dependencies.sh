@@ -448,4 +448,4 @@ apt-get remove snapd -y
 apt-get autoremove -y
 
 # update message-of-the-day to start after default.target
-sed -i 's/After=network-online.target/After=default.target/g' /lib/systemd/system/motd-news.service
+sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
