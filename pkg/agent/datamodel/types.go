@@ -1401,6 +1401,7 @@ type NodeBootstrappingConfiguration struct {
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
+	GPUInstanceProfile             string
 }
 
 // HTTPProxyConfig represents configurations of http proxy

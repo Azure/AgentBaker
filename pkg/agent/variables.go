@@ -35,6 +35,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"ensureNoDupEbtablesService":     getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
 			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
 			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":     getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":             getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 		},
 	}
 
@@ -121,6 +123,8 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
+		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"gpuInstanceProfile":              config.GPUInstanceProfile,
 	}
 }
 
