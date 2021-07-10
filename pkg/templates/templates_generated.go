@@ -1122,6 +1122,8 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for KRUSTLET downloads */}}
+
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1326,6 +1328,11 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
+{{- if IsKrustlet }}
+KRUSTLET_DOWNLOAD_DIR="/opt/KRUSTLET/downloads"
+KRUSTLET_BIN_DIR="/usr/local/bin"
+KRUSTLET_URL="https://krustlet.blob.core.windows.net/releases/krustlet-v0.7.0-linux-amd64.tar.gz"
+{{- end }}
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1352,6 +1359,18 @@ downloadCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
+
+{{- if IsKrustlet }}
+downloadKrustlet() {
+    mkdir -p $KRUSTLET_DOWNLOAD_DIR
+    KRUSTLET_TGZ_TMP=${KRUSTLET_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$KRUSTLET_DOWNLOAD_DIR/${KRUSTLET_TGZ_TMP}" ${KRUSTLET_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    mkdir -p $KRUSTLET_BIN_DIR
+    tar -xzf "$KRUSTLET_DOWNLOAD_DIR/${KRUSTLET_TGZ_TMP}" -C $KRUSTLET_BIN_DIR
+    chown -R root:root $KRUSTLET_BIN_DIR
+    chmod -R 755 $KRUSTLET_BIN_DIR
+}
+{{- end }}
 
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
@@ -1677,6 +1696,10 @@ installTeleportdPlugin
 {{- end}}
 
 installNetworkPlugin
+
+{{- if IsKrustlet }}
+    downloadKrustlet
+{{- end }}
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
@@ -2420,7 +2443,7 @@ Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
 Environment=KRUSTLET_DATA_DIR=/etc/krustlet
 Environment=RUST_LOG=wasi_provider=info,main=info
 Environment=KRUSTLET_BOOTSTRAP_FILE=/etc/krustlet/config/bootstrap.conf
-ExecStart=/usr/local/bin/krustlet-wasi
+ExecStart=/opt/krustlet/bin/krustlet-wasi
 User=krustlet
 Group=krustlet
 

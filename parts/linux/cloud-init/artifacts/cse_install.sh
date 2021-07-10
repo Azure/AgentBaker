@@ -13,6 +13,11 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
+{{- if IsKrustlet }}
+KRUSTLET_DOWNLOAD_DIR="/opt/KRUSTLET/downloads"
+KRUSTLET_BIN_DIR="/usr/local/bin"
+KRUSTLET_URL="https://krustlet.blob.core.windows.net/releases/krustlet-v0.7.0-linux-amd64.tar.gz"
+{{- end }}
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -39,6 +44,18 @@ downloadCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
+
+{{- if IsKrustlet }}
+downloadKrustlet() {
+    mkdir -p $KRUSTLET_DOWNLOAD_DIR
+    KRUSTLET_TGZ_TMP=${KRUSTLET_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$KRUSTLET_DOWNLOAD_DIR/${KRUSTLET_TGZ_TMP}" ${KRUSTLET_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    mkdir -p $KRUSTLET_BIN_DIR
+    tar -xzf "$KRUSTLET_DOWNLOAD_DIR/${KRUSTLET_TGZ_TMP}" -C $KRUSTLET_BIN_DIR
+    chown -R root:root $KRUSTLET_BIN_DIR
+    chmod -R 755 $KRUSTLET_BIN_DIR
+}
+{{- end }}
 
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
