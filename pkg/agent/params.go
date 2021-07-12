@@ -64,21 +64,11 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	isSetVnetCidrs := false
 	for _, agentProfile := range properties.AgentPoolProfiles {
 		addValue(parametersMap, fmt.Sprintf("%sVMSize", agentProfile.Name), agentProfile.VMSize)
-		if agentProfile.HasAvailabilityZones() {
-			addValue(parametersMap, fmt.Sprintf("%sAvailabilityZones", agentProfile.Name), agentProfile.AvailabilityZones)
-		}
 		if agentProfile.IsCustomVNET() {
 			addValue(parametersMap, fmt.Sprintf("%sVnetSubnetID", agentProfile.Name), agentProfile.VnetSubnetID)
-		} else {
-			addValue(parametersMap, fmt.Sprintf("%sSubnet", agentProfile.Name), agentProfile.Subnet)
 		}
 		if len(agentProfile.Ports) > 0 {
 			addValue(parametersMap, fmt.Sprintf("%sEndpointDNSNamePrefix", agentProfile.Name), agentProfile.DNSPrefix)
-		}
-
-		if !agentProfile.IsAvailabilitySets() && agentProfile.IsSpotScaleSet() {
-			addValue(parametersMap, fmt.Sprintf("%sScaleSetPriority", agentProfile.Name), agentProfile.ScaleSetPriority)
-			addValue(parametersMap, fmt.Sprintf("%sScaleSetEvictionPolicy", agentProfile.Name), agentProfile.ScaleSetEvictionPolicy)
 		}
 
 		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {

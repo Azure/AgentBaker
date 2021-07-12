@@ -618,7 +618,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "172.17.0.0/24"
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR = "172.17.255.0/24"
 			config.ContainerService.Properties.AgentPoolProfiles[0].VnetCidrs = []string{"172.17.0.0/16"}
-			config.ContainerService.Properties.AgentPoolProfiles[0].Subnet = "172.17.2.0/24"
 			config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet2"
 			config.KubeletConfig["--cluster-dns"] = "172.17.255.10"
 		}),

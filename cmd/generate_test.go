@@ -29,12 +29,8 @@ const (
 			},
 			"agentPoolProfiles": [
 				{
-					"availabilityZones": null,
 					"name": "nodepool1",
-					"osDiskSizeGb": 128,
 					"osType": "Linux",
-					"scaleSetEvictionPolicy": null,
-					"scaleSetPriority": null,
 					"vmSize": "Standard_DS2_v2"
 				}
 			],

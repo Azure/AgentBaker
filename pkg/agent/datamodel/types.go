@@ -616,29 +616,23 @@ type SysctlConfig struct {
 
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                   string               `json:"name"`
-	VMSize                 string               `json:"vmSize"`
-	OSDiskSizeGB           int                  `json:"osDiskSizeGB,omitempty"`
-	KubeletDiskType        KubeletDiskType      `json:"kubeletDiskType,omitempty"`
-	DNSPrefix              string               `json:"dnsPrefix,omitempty"`
-	OSType                 OSType               `json:"osType,omitempty"`
-	Ports                  []int                `json:"ports,omitempty"`
-	AvailabilityProfile    string               `json:"availabilityProfile"`
-	ScaleSetPriority       string               `json:"scaleSetPriority,omitempty"`
-	ScaleSetEvictionPolicy string               `json:"scaleSetEvictionPolicy,omitempty"`
-	StorageProfile         string               `json:"storageProfile,omitempty"`
-	DiskSizesGB            []int                `json:"diskSizesGB,omitempty"`
-	VnetSubnetID           string               `json:"vnetSubnetID,omitempty"`
-	Subnet                 string               `json:"subnet"`
-	Distro                 Distro               `json:"distro,omitempty"`
-	CustomNodeLabels       map[string]string    `json:"customNodeLabels,omitempty"`
-	PreprovisionExtension  *Extension           `json:"preProvisionExtension"`
-	KubernetesConfig       *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
-	AvailabilityZones      []string             `json:"availabilityZones,omitempty"`
-	VnetCidrs              []string             `json:"vnetCidrs,omitempty"`
-	WindowsNameVersion     string               `json:"windowsNameVersion,omitempty"`
-	CustomKubeletConfig    *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
-	CustomLinuxOSConfig    *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	Name                  string               `json:"name"`
+	VMSize                string               `json:"vmSize"`
+	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
+	OSType                OSType               `json:"osType,omitempty"`
+	Ports                 []int                `json:"ports,omitempty"`
+	AvailabilityProfile   string               `json:"availabilityProfile"`
+	StorageProfile        string               `json:"storageProfile,omitempty"`
+	VnetSubnetID          string               `json:"vnetSubnetID,omitempty"`
+	Distro                Distro               `json:"distro,omitempty"`
+	CustomNodeLabels      map[string]string    `json:"customNodeLabels,omitempty"`
+	PreprovisionExtension *Extension           `json:"preProvisionExtension"`
+	KubernetesConfig      *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
+	VnetCidrs             []string             `json:"vnetCidrs,omitempty"`
+	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
+	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
+	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -722,20 +716,6 @@ func (p *Properties) HasWindows() bool {
 		}
 	}
 	return false
-}
-
-// HasAvailabilityZones returns true if the cluster contains a profile with zones
-func (p *Properties) HasAvailabilityZones() bool {
-	hasZones := false
-	if p.AgentPoolProfiles != nil {
-		for _, agentPoolProfile := range p.AgentPoolProfiles {
-			if agentPoolProfile.HasAvailabilityZones() {
-				hasZones = true
-				break
-			}
-		}
-	}
-	return hasZones
 }
 
 // IsAKSCustomCloud checks if it's in AKS custom cloud
@@ -989,11 +969,6 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
 }
 
-// HasAvailabilityZones returns true if the agent pool has availability zones
-func (a *AgentPoolProfile) HasAvailabilityZones() bool {
-	return a.AvailabilityZones != nil && len(a.AvailabilityZones) > 0
-}
-
 // IsLinux returns true if the agent pool is linux
 func (a *AgentPoolProfile) IsLinux() bool {
 	return strings.EqualFold(string(a.OSType), string(Linux))
@@ -1017,11 +992,6 @@ func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
 // IsAvailabilitySets returns true if the customer specified disks
 func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, AvailabilitySet)
-}
-
-// IsSpotScaleSet returns true if the VMSS is Spot Scale Set
-func (a *AgentPoolProfile) IsSpotScaleSet() bool {
-	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets) && strings.EqualFold(a.ScaleSetPriority, ScaleSetPrioritySpot)
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
@@ -1057,11 +1027,6 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
 	}
 	return buf.String()
-}
-
-// HasDisks returns true if the customer specified disks
-func (a *AgentPoolProfile) HasDisks() bool {
-	return len(a.DiskSizesGB) > 0
 }
 
 // HasSecrets returns true if the customer specified secrets to install

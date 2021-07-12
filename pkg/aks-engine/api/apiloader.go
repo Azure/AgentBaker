@@ -19,7 +19,6 @@ const (
 	defaultAPIVersion    = VlabsAPIVersion
 	defaultMasterCount   = 3
 	defaultVMSize        = "Standard_DS2_v2"
-	defaultOSDiskSizeGB  = 200
 	defaultAgentPoolName = "agent"
 	defaultAdminUser     = "azureuser"
 )
@@ -97,9 +96,8 @@ func LoadDefaultContainerServiceProperties() (datamodel.TypeMeta, *datamodel.Pro
 		HostedMasterProfile: &datamodel.HostedMasterProfile{},
 		AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 			{
-				Name:         defaultAgentPoolName,
-				VMSize:       defaultVMSize,
-				OSDiskSizeGB: defaultOSDiskSizeGB,
+				Name:   defaultAgentPoolName,
+				VMSize: defaultVMSize,
 			},
 		},
 		LinuxProfile: &datamodel.LinuxProfile{AdminUsername: defaultAdminUser},
