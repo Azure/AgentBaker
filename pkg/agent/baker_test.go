@@ -131,6 +131,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			EnableNvidia:                  false,
 			FIPSEnabled:                   false,
 			KubeletConfig:                 kubeletConfig,
+			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
 		}
 
 		if configUpdator != nil {
@@ -569,6 +570,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
 			KubeletConfig:                 kubeletConfig,
+			PrimaryScaleSetName:           "akswpool2",
 		}
 
 		if configUpdator != nil {

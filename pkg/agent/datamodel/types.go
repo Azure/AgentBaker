@@ -908,16 +908,6 @@ func (p *Properties) GetPrimaryAvailabilitySetName() string {
 	return ""
 }
 
-// GetPrimaryScaleSetName returns the name of the primary scale set node of the cluster
-func (p *Properties) GetPrimaryScaleSetName() string {
-	if len(p.AgentPoolProfiles) > 0 {
-		if strings.EqualFold(p.AgentPoolProfiles[0].AvailabilityProfile, VirtualMachineScaleSets) {
-			return p.GetAgentVMPrefix(p.AgentPoolProfiles[0], 0)
-		}
-	}
-	return ""
-}
-
 // GetAgentVMPrefix returns the VM prefix for an agentpool.
 func (p *Properties) GetAgentVMPrefix(a *AgentPoolProfile, index int) string {
 	nameSuffix := p.GetClusterID()
@@ -1366,6 +1356,7 @@ type NodeBootstrappingConfiguration struct {
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
+	PrimaryScaleSetName            string
 }
 
 // HTTPProxyConfig represents configurations of http proxy
