@@ -100,7 +100,6 @@ type OSType string
 // the OSTypes supported by vlabs
 const (
 	Windows OSType = "Windows"
-	Linux   OSType = "Linux"
 )
 
 // KubeletDiskType describes options for placement of the primary kubelet partition,
@@ -556,9 +555,6 @@ type OrchestratorProfile struct {
 // ProvisioningState represents the current state of container service resource.
 type ProvisioningState string
 
-// AgentPoolProfileRole represents an agent role
-type AgentPoolProfileRole string
-
 // CustomKubeletConfig represents custom kubelet configurations for agent pool nodes
 type CustomKubeletConfig struct {
 	CPUManagerPolicy      string    `json:"cpuManagerPolicy,omitempty"`
@@ -753,16 +749,6 @@ func (p *Properties) GetClusterID() string {
 	return p.ClusterID
 }
 
-// AnyAgentIsLinux checks whether any of the agents in the AgentPools are linux
-func (p *Properties) AnyAgentIsLinux() bool {
-	for _, agentProfile := range p.AgentPoolProfiles {
-		if agentProfile.IsLinux() {
-			return true
-		}
-	}
-	return false
-}
-
 // AreAgentProfilesCustomVNET returns true if all of the agent profiles in the clusters are configured with VNET.
 func (p *Properties) AreAgentProfilesCustomVNET() bool {
 	if p.AgentPoolProfiles != nil {
@@ -908,27 +894,6 @@ func (p *Properties) GetPrimaryAvailabilitySetName() string {
 	return ""
 }
 
-// GetAgentVMPrefix returns the VM prefix for an agentpool.
-func (p *Properties) GetAgentVMPrefix(a *AgentPoolProfile, index int) string {
-	nameSuffix := p.GetClusterID()
-	vmPrefix := ""
-	if index != -1 {
-		if a.IsWindows() {
-			if strings.EqualFold(a.WindowsNameVersion, "v2") {
-				vmPrefix = p.K8sOrchestratorName() + a.Name
-			} else {
-				vmPrefix = nameSuffix[:4] + p.K8sOrchestratorName() + fmt.Sprintf("%02d", index)
-			}
-		} else {
-			vmPrefix = p.K8sOrchestratorName() + "-" + a.Name + "-" + nameSuffix + "-"
-			if a.IsVirtualMachineScaleSets() {
-				vmPrefix += "vmss"
-			}
-		}
-	}
-	return vmPrefix
-}
-
 // GetKubeProxyFeatureGatesWindowsArguments returns the feature gates string for the kube-proxy arguments in Windows nodes
 func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	featureGates := map[string]bool{}
@@ -957,11 +922,6 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 // IsVHDDistro returns true if the distro uses VHD SKUs
 func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
-}
-
-// IsLinux returns true if the agent pool is linux
-func (a *AgentPoolProfile) IsLinux() bool {
-	return strings.EqualFold(string(a.OSType), string(Linux))
 }
 
 // IsCustomVNET returns true if the customer brought their own VNET
@@ -1038,16 +998,6 @@ func (l *LinuxProfile) HasSearchDomain() bool {
 func (o *OrchestratorProfile) IsAzureCNI() bool {
 	if o.KubernetesConfig != nil {
 		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginAzure)
-	}
-	return false
-}
-
-// HasCustomNodesDNS returns true if the customer specified a dns server
-func (l *LinuxProfile) HasCustomNodesDNS() bool {
-	if l.CustomNodesDNS != nil {
-		if l.CustomNodesDNS.DNSServer != "" {
-			return true
-		}
 	}
 	return false
 }
@@ -1129,14 +1079,6 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
 	return strings.EqualFold(o.OrchestratorType, Kubernetes)
-}
-
-// IsPrivateCluster returns true if this deployment is a private cluster
-func (o *OrchestratorProfile) IsPrivateCluster() bool {
-	if !o.IsKubernetes() {
-		return false
-	}
-	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.Enabled)
 }
 
 // IsFeatureEnabled returns true if a feature flag is on for the provided feature
@@ -1344,7 +1286,6 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
-	Enable1804Chrony              bool
 	TeleportdPluginURL            string
 	ContainerdVersion             string
 	RuncVersion                   string
