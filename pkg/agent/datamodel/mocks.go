@@ -21,7 +21,6 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	agentPool := &AgentPoolProfile{}
 	agentPool.Name = "agentpool1"
 	agentPool.VMSize = "Standard_D2_v2"
-	agentPool.OSType = Linux
 	agentPool.AvailabilityProfile = "AvailabilitySet"
 	agentPool.StorageProfile = "StorageAccount"
 

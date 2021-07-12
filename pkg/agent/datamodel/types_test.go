@@ -180,10 +180,10 @@ func TestOSType(t *testing.T) {
 	p := Properties{
 		AgentPoolProfiles: []*AgentPoolProfile{
 			{
-				OSType: Linux,
+				OSType: "Linux",
 			},
 			{
-				OSType: Linux,
+				OSType: "Linux",
 				Distro: AKSUbuntu1604,
 			},
 		},
@@ -196,10 +196,6 @@ func TestOSType(t *testing.T) {
 		t.Fatalf("expected IsWindows() to return false but instead returned true")
 	}
 
-	if !p.AgentPoolProfiles[0].IsLinux() {
-		t.Fatalf("expected IsLinux() to return true but instead returned false")
-	}
-
 	p.AgentPoolProfiles[0].OSType = Windows
 
 	if !p.HasWindows() {
@@ -208,10 +204,6 @@ func TestOSType(t *testing.T) {
 
 	if !p.AgentPoolProfiles[0].IsWindows() {
 		t.Fatalf("expected IsWindows() to return true but instead returned false")
-	}
-
-	if p.AgentPoolProfiles[0].IsLinux() {
-		t.Fatalf("expected IsLinux() to return false but instead returned true")
 	}
 }
 
@@ -422,91 +414,6 @@ func TestGenerateClusterID(t *testing.T) {
 		})
 	}
 }
-
-func TestAnyAgentIsLinux(t *testing.T) {
-	tests := []struct {
-		name     string
-		p        *Properties
-		expected bool
-	}{
-		{
-			name: "one agent pool w/ Linux",
-			p: &Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-						OSType: Linux,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "two agent pools, one w/ Linux",
-			p: &Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-						OSType: Windows,
-					},
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-						OSType: Linux,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "two agent pools",
-			p: &Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-					},
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "two agent pools, one w/ Windows",
-			p: &Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-					},
-					{
-						Name:   "agentpool1",
-						VMSize: "Standard_D2_v2",
-						OSType: Windows,
-					},
-				},
-			},
-			expected: false,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			ret := test.p.AnyAgentIsLinux()
-			if test.expected != ret {
-				t.Errorf("expected %t, instead got : %t", test.expected, ret)
-			}
-		})
-	}
-}
-
 func TestAreAgentProfilesCustomVNET(t *testing.T) {
 	p := Properties{}
 	p.AgentPoolProfiles = []*AgentPoolProfile{
@@ -1357,8 +1264,8 @@ func TestHasStorageProfile(t *testing.T) {
 func TestLinuxProfile(t *testing.T) {
 	l := LinuxProfile{}
 
-	if l.HasSecrets() || l.HasSearchDomain() || l.HasCustomNodesDNS() {
-		t.Fatalf("Expected HasSecrets(), HasSearchDomain() and HasCustomNodesDNS() to return false when LinuxProfile is empty")
+	if l.HasSecrets() || l.HasSearchDomain() {
+		t.Fatalf("Expected HasSecrets() and HasSearchDomain() to return false when LinuxProfile is empty")
 	}
 
 	l = LinuxProfile{
@@ -1383,8 +1290,8 @@ func TestLinuxProfile(t *testing.T) {
 		},
 	}
 
-	if !(l.HasSecrets() && l.HasSearchDomain() && l.HasCustomNodesDNS()) {
-		t.Fatalf("Expected HasSecrets(), HasSearchDomain() and HasCustomNodesDNS() to return true")
+	if !(l.HasSecrets() && l.HasSearchDomain()) {
+		t.Fatalf("Expected HasSecrets() and HasSearchDomain() to return true")
 	}
 }
 
@@ -1621,65 +1528,6 @@ func TestOrchestrator(t *testing.T) {
 	for _, c := range cases {
 		if c.expectedIsKubernetes != c.p.OrchestratorProfile.IsKubernetes() {
 			t.Fatalf("Expected IsKubernetes() to be %t with OrchestratorType=%s", c.expectedIsKubernetes, c.p.OrchestratorProfile.OrchestratorType)
-		}
-	}
-}
-
-func TestIsPrivateCluster(t *testing.T) {
-	cases := []struct {
-		p        Properties
-		expected bool
-	}{
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &PrivateCluster{
-							Enabled: to.BoolPtr(true),
-						},
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &PrivateCluster{
-							Enabled: to.BoolPtr(false),
-						},
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			p: Properties{
-				OrchestratorProfile: &OrchestratorProfile{
-					OrchestratorType: Kubernetes,
-					KubernetesConfig: &KubernetesConfig{
-						PrivateCluster: &PrivateCluster{},
-					},
-				},
-			},
-			expected: false,
-		},
-	}
-
-	for _, c := range cases {
-		if c.p.OrchestratorProfile.IsPrivateCluster() != c.expected {
-			t.Fatalf("expected IsPrivateCluster() to return %t but instead got %t", c.expected, c.p.OrchestratorProfile.IsPrivateCluster())
 		}
 	}
 }
