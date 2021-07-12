@@ -100,6 +100,7 @@ type OSType string
 // the OSTypes supported by vlabs
 const (
 	Windows OSType = "Windows"
+	Linux   OSType = "Linux"
 )
 
 // KubeletDiskType describes options for placement of the primary kubelet partition,

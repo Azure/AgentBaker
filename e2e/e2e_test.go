@@ -91,7 +91,7 @@ func TestE2EBasic(t *testing.T) {
 					Name:                values.Name,
 					VMSize:              "Standard_DS1_v2",
 					StorageProfile:      "ManagedDisks",
-					OSType:              "Linux",
+					OSType:              datamodel.Linux,
 					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 					CustomNodeLabels: map[string]string{
 						"kubernetes.azure.com/node-image-version": values.NodeImageVersion,

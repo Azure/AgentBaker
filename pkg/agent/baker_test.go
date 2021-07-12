@@ -38,7 +38,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						Name:                "agent2",
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
-						OSType:              "Linux",
+						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						Distro:              datamodel.AKSUbuntu1604,
