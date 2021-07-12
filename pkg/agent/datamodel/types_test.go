@@ -215,61 +215,6 @@ func TestOSType(t *testing.T) {
 	}
 }
 
-func TestHasAvailabilityZones(t *testing.T) {
-	cases := []struct {
-		p                Properties
-		expectedAgent    bool
-		expectedAllZones bool
-	}{
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						AvailabilityZones: []string{"1", "2"},
-					},
-					{
-						AvailabilityZones: []string{"1", "2"},
-					},
-				},
-			},
-			expectedAgent:    true,
-			expectedAllZones: true,
-		},
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{},
-					{
-						AvailabilityZones: []string{"1", "2"},
-					},
-				},
-			},
-			expectedAgent:    false,
-			expectedAllZones: false,
-		},
-		{
-			p: Properties{
-				AgentPoolProfiles: []*AgentPoolProfile{
-					{
-						AvailabilityZones: []string{},
-					},
-					{
-						AvailabilityZones: []string{"1", "2"},
-					},
-				},
-			},
-			expectedAgent:    false,
-			expectedAllZones: false,
-		},
-	}
-
-	for _, c := range cases {
-		if c.p.AgentPoolProfiles[0].HasAvailabilityZones() != c.expectedAgent {
-			t.Fatalf("expected HasAvailabilityZones() to return %t but instead returned %t", c.expectedAgent, c.p.AgentPoolProfiles[0].HasAvailabilityZones())
-		}
-	}
-}
-
 func TestIsIPMasqAgentEnabled(t *testing.T) {
 	cases := []struct {
 		p                                            Properties
@@ -669,7 +614,6 @@ func TestAvailabilityProfile(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: VirtualMachineScaleSets,
-						ScaleSetPriority:    ScaleSetPrioritySpot,
 					},
 				},
 			},
@@ -685,7 +629,6 @@ func TestAvailabilityProfile(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: VirtualMachineScaleSets,
-						ScaleSetPriority:    ScaleSetPriorityLow,
 					},
 				},
 			},
@@ -701,7 +644,6 @@ func TestAvailabilityProfile(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						AvailabilityProfile: VirtualMachineScaleSets,
-						ScaleSetPriority:    ScaleSetPriorityRegular,
 					},
 					{
 						AvailabilityProfile: AvailabilitySet,
@@ -741,9 +683,6 @@ func TestAvailabilityProfile(t *testing.T) {
 		}
 		if c.p.AgentPoolProfiles[0].IsAvailabilitySets() != c.expectedIsAS {
 			t.Fatalf("expected IsAvailabilitySets() to return %t but instead returned %t", c.expectedIsAS, c.p.AgentPoolProfiles[0].IsAvailabilitySets())
-		}
-		if c.p.AgentPoolProfiles[0].IsSpotScaleSet() != c.expectedSpot {
-			t.Fatalf("expected IsSpotScaleSet() to return %t but instead returned %t", c.expectedSpot, c.p.AgentPoolProfiles[0].IsSpotScaleSet())
 		}
 		if c.p.GetVMType() != c.expectedVMType {
 			t.Fatalf("expected GetVMType() to return %s but instead returned %s", c.expectedVMType, c.p.GetVMType())
@@ -1212,7 +1151,6 @@ func TestHasStorageProfile(t *testing.T) {
 				AgentPoolProfiles: []*AgentPoolProfile{
 					{
 						StorageProfile: StorageAccount,
-						DiskSizesGB:    []int{5},
 					},
 					{
 						StorageProfile: StorageAccount,
@@ -1411,9 +1349,6 @@ func TestHasStorageProfile(t *testing.T) {
 			t.Parallel()
 			if c.p.OrchestratorProfile != nil && c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() != c.expectedPrivateJB {
 				t.Fatalf("expected PrivateJumpboxProvision() to return %t but instead returned %t", c.expectedPrivateJB, c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision())
-			}
-			if c.p.AgentPoolProfiles[0].HasDisks() != c.expectedHasDisks {
-				t.Fatalf("expected HasDisks() to return %t but instead returned %t", c.expectedHasDisks, c.p.AgentPoolProfiles[0].HasDisks())
 			}
 		})
 	}
