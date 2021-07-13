@@ -136,6 +136,11 @@ const (
 	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
 	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
+	RHEL                               Distro = "rhel"
+	CoreOS                             Distro = "coreos"
+	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
+	AKS1804Deprecated                  Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
+	AKSWindows2019PIR                  Distro = "aks-windows-2019-pir"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -1299,6 +1304,13 @@ type NodeBootstrappingConfiguration struct {
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
 	PrimaryScaleSetName            string
+}
+
+// NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
+type NodeBootstrapping struct {
+	CustomData    string
+	CSE           string
+	OSImageConfig AzureOSImageConfig
 }
 
 // HTTPProxyConfig represents configurations of http proxy
