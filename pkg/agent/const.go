@@ -114,10 +114,10 @@ const (
 	bindMountSystemdService                   = "linux/cloud-init/artifacts/bind-mount.service"
 
 	// scripts and service for enabling ipv6 dual stack
-	dhcpv6SystemdService       = "linux/cloud-init/artifacts/dhcpv6.service"
-	dhcpv6ConfigurationScript  = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
-	initAKSCustomCloudScript   = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
-	containerdSystemdService   = "linux/cloud-init/artifacts/containerd.service"
+	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
+	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
+	initAKSCustomCloudScript  = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
+
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 )
