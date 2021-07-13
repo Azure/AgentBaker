@@ -1708,6 +1708,10 @@ type CSEStatus struct {
 	KernelStartTime string `json:"kernelStartTime,omitempty"`
 	// SystemdSummary of current boot, output from systemd-analyze
 	SystemdSummary string `json:"systemdSummary,omitempty"`
+	// CSEStartTime indicate starttime of CSE
+	CSEStartTime string `json:"cseStartTime,omitempty"`
+	// GuestAgentStartTime indicate starttime of GuestAgent, output from systemctl show walinuxagent.service -p ExecMainStartTimestamp
+	GuestAgentStartTime string `json:"guestAgentStartTime,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string
