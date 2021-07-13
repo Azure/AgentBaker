@@ -1646,7 +1646,6 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-
 {{- if not NeedsContainerd}}
 cleanUpContainerd
 {{- end}}
@@ -2723,7 +2722,8 @@ func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
 
 var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
 
-#TODO: use mig-parted library to do the partition after the issue is fixed 
+#NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
+#TODO: Use mig-parted library to do the partition after the above issue is fixed 
 MIG_PROFILE=${1}
 case ${MIG_PROFILE} in 
     "mig-1g")
