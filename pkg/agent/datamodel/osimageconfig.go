@@ -32,13 +32,6 @@ var (
 		ImageVersion:   "latest",
 	}
 
-	CoreOSImageConfig = AzureOSImageConfig{
-		ImageOffer:     "CoreOS",
-		ImageSku:       "Stable",
-		ImagePublisher: "CoreOS",
-		ImageVersion:   "latest",
-	}
-
 	AKSUbuntu1604OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
 		ImageSku:       "aks-ubuntu-1604-2021-q3",
@@ -87,7 +80,6 @@ var (
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
-			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
 			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
 			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
@@ -99,7 +91,6 @@ var (
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
-			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     Ubuntu1604OSImageConfig,
 			AKS1604Deprecated: Ubuntu1604OSImageConfig, // for back-compat
 			AKSUbuntu1804:     Ubuntu1604OSImageConfig, // workaround for https://github.com/Azure/aks-engine/issues/761
@@ -111,7 +102,6 @@ var (
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
 			RHEL:              RHELOSImageConfig,
-			CoreOS:            CoreOSImageConfig,
 			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
 			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
 			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
@@ -123,7 +113,6 @@ var (
 			Ubuntu1804:                  Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:              Ubuntu1804Gen2OSImageConfig,
 			RHEL:                        RHELOSImageConfig,
-			CoreOS:                      CoreOSImageConfig,
 			AKSUbuntu1604:               AKSUbuntu1604OSImageConfig,
 			AKS1604Deprecated:           AKSUbuntu1604OSImageConfig, // for back-compat
 			AKSUbuntu1804:               AKSUbuntu1804OSImageConfig,
