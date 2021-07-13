@@ -310,6 +310,7 @@ done
 # v1.20.5
 # v1.20.7
 # v1.21.1
+# v1.21.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 KUBE_PROXY_IMAGE_VERSIONS="
 1.17.13
@@ -322,10 +323,10 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.18.10-hotfix.20210310.2
 1.18.14-hotfix.20210511
 1.18.14-hotfix.20210525
-1.18.17-hotfix.20210525
 1.18.17-hotfix.20210525.1
-1.18.19-hotfix.20210522
+1.18.17-hotfix.20210525.2
 1.18.19-hotfix.20210522.1
+1.18.19-hotfix.20210522.2
 1.19.1-hotfix.20200923
 1.19.1-hotfix.20200923.1
 1.19.3
@@ -333,19 +334,20 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.19.6-hotfix.20210310.1
 1.19.7-hotfix.20210511
 1.19.7-hotfix.20210525
-1.19.9-hotfix.20210526
 1.19.9-hotfix.20210526.1
-1.19.11-hotfix.20210526
+1.19.9-hotfix.20210526.2
 1.19.11-hotfix.20210526.1
+1.19.11-hotfix.20210526.2
 1.20.2
 1.20.2-hotfix.20210511
 1.20.2-hotfix.20210525
-1.20.5-hotfix.20210526
 1.20.5-hotfix.20210603
-1.20.7-hotfix.20210526
+1.20.5-hotfix.20210603.2
 1.20.7-hotfix.20210603
-1.21.1-hotfix.20210526
+1.20.7-hotfix.20210603.2
 1.21.1-hotfix.20210603
+1.21.1-hotfix.20210603.2
+1.21.2
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
@@ -379,11 +381,10 @@ done
 # v1.20.5
 # v1.20.7
 # v1.21.1
+# v1.21.2
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.17.13
-1.17.16
 1.18.8-hotfix.20200924
 1.18.10-hotfix.20210118
 1.18.14-hotfix.20210322
@@ -399,6 +400,7 @@ KUBE_BINARY_VERSIONS="
 1.20.5-hotfix.20210505
 1.20.7
 1.21.1
+1.21.2
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then

@@ -556,9 +556,6 @@ type OrchestratorProfile struct {
 // ProvisioningState represents the current state of container service resource.
 type ProvisioningState string
 
-// AgentPoolProfileRole represents an agent role
-type AgentPoolProfileRole string
-
 // CustomKubeletConfig represents custom kubelet configurations for agent pool nodes
 type CustomKubeletConfig struct {
 	CPUManagerPolicy      string    `json:"cpuManagerPolicy,omitempty"`
@@ -616,55 +613,23 @@ type SysctlConfig struct {
 
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                                string               `json:"name"`
-	Count                               int                  `json:"count"`
-	VMSize                              string               `json:"vmSize"`
-	OSDiskSizeGB                        int                  `json:"osDiskSizeGB,omitempty"`
-	KubeletDiskType                     KubeletDiskType      `json:"kubeletDiskType,omitempty"`
-	DNSPrefix                           string               `json:"dnsPrefix,omitempty"`
-	OSType                              OSType               `json:"osType,omitempty"`
-	Ports                               []int                `json:"ports,omitempty"`
-	ProvisioningState                   ProvisioningState    `json:"provisioningState,omitempty"`
-	AvailabilityProfile                 string               `json:"availabilityProfile"`
-	ScaleSetPriority                    string               `json:"scaleSetPriority,omitempty"`
-	ScaleSetEvictionPolicy              string               `json:"scaleSetEvictionPolicy,omitempty"`
-	SpotMaxPrice                        *float64             `json:"spotMaxPrice,omitempty"`
-	StorageProfile                      string               `json:"storageProfile,omitempty"`
-	DiskSizesGB                         []int                `json:"diskSizesGB,omitempty"`
-	VnetSubnetID                        string               `json:"vnetSubnetID,omitempty"`
-	Subnet                              string               `json:"subnet"`
-	IPAddressCount                      int                  `json:"ipAddressCount,omitempty"`
-	Distro                              Distro               `json:"distro,omitempty"`
-	Role                                AgentPoolProfileRole `json:"role,omitempty"`
-	AcceleratedNetworkingEnabled        *bool                `json:"acceleratedNetworkingEnabled,omitempty"`
-	AcceleratedNetworkingEnabledWindows *bool                `json:"acceleratedNetworkingEnabledWindows,omitempty"`
-	VMSSOverProvisioningEnabled         *bool                `json:"vmssOverProvisioningEnabled,omitempty"`
-	FQDN                                string               `json:"fqdn,omitempty"`
-	CustomNodeLabels                    map[string]string    `json:"customNodeLabels,omitempty"`
-	PreprovisionExtension               *Extension           `json:"preProvisionExtension"`
-	Extensions                          []Extension          `json:"extensions"`
-	KubernetesConfig                    *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
-	OrchestratorVersion                 string               `json:"orchestratorVersion"`
-	ImageRef                            *ImageReference      `json:"imageReference,omitempty"`
-	MaxCount                            *int                 `json:"maxCount,omitempty"`
-	MinCount                            *int                 `json:"minCount,omitempty"`
-	EnableAutoScaling                   *bool                `json:"enableAutoScaling,omitempty"`
-	AvailabilityZones                   []string             `json:"availabilityZones,omitempty"`
-	PlatformFaultDomainCount            *int                 `json:"platformFaultDomainCount"`
-	PlatformUpdateDomainCount           *int                 `json:"platformUpdateDomainCount"`
-	SinglePlacementGroup                *bool                `json:"singlePlacementGroup,omitempty"`
-	VnetCidrs                           []string             `json:"vnetCidrs,omitempty"`
-	PreserveNodesProperties             *bool                `json:"preserveNodesProperties,omitempty"`
-	WindowsNameVersion                  string               `json:"windowsNameVersion,omitempty"`
-	EnableVMSSNodePublicIP              *bool                `json:"enableVMSSNodePublicIP,omitempty"`
-	LoadBalancerBackendAddressPoolIDs   []string             `json:"loadBalancerBackendAddressPoolIDs,omitempty"`
-	CustomVMTags                        map[string]string    `json:"customVMTags,omitempty"`
-	DiskEncryptionSetID                 string               `json:"diskEncryptionSetID,omitempty"`
-	UltraSSDEnabled                     *bool                `json:"ultraSSDEnabled,omitempty"`
-	EncryptionAtHost                    *bool                `json:"encryptionAtHost,omitempty"`
-	ProximityPlacementGroupID           string               `json:"proximityPlacementGroupID,omitempty"`
-	CustomKubeletConfig                 *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
-	CustomLinuxOSConfig                 *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	Name                  string               `json:"name"`
+	VMSize                string               `json:"vmSize"`
+	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
+	OSType                OSType               `json:"osType,omitempty"`
+	Ports                 []int                `json:"ports,omitempty"`
+	AvailabilityProfile   string               `json:"availabilityProfile"`
+	StorageProfile        string               `json:"storageProfile,omitempty"`
+	VnetSubnetID          string               `json:"vnetSubnetID,omitempty"`
+	Distro                Distro               `json:"distro,omitempty"`
+	CustomNodeLabels      map[string]string    `json:"customNodeLabels,omitempty"`
+	PreprovisionExtension *Extension           `json:"preProvisionExtension"`
+	KubernetesConfig      *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
+	VnetCidrs             []string             `json:"vnetCidrs,omitempty"`
+	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
+	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
+	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -750,29 +715,6 @@ func (p *Properties) HasWindows() bool {
 	return false
 }
 
-// TotalNodes returns the total number of nodes in the cluster configuration
-func (p *Properties) TotalNodes() int {
-	var totalNodes int
-	for _, pool := range p.AgentPoolProfiles {
-		totalNodes += pool.Count
-	}
-	return totalNodes
-}
-
-// HasAvailabilityZones returns true if the cluster contains a profile with zones
-func (p *Properties) HasAvailabilityZones() bool {
-	hasZones := false
-	if p.AgentPoolProfiles != nil {
-		for _, agentPoolProfile := range p.AgentPoolProfiles {
-			if agentPoolProfile.HasAvailabilityZones() {
-				hasZones = true
-				break
-			}
-		}
-	}
-	return hasZones
-}
-
 // IsAKSCustomCloud checks if it's in AKS custom cloud
 func (p *Properties) IsAKSCustomCloud() bool {
 	return p.CustomCloudEnv != nil &&
@@ -806,16 +748,6 @@ func (p *Properties) GetClusterID() string {
 		mutex.Unlock()
 	}
 	return p.ClusterID
-}
-
-// AnyAgentIsLinux checks whether any of the agents in the AgentPools are linux
-func (p *Properties) AnyAgentIsLinux() bool {
-	for _, agentProfile := range p.AgentPoolProfiles {
-		if agentProfile.IsLinux() {
-			return true
-		}
-	}
-	return false
 }
 
 // AreAgentProfilesCustomVNET returns true if all of the agent profiles in the clusters are configured with VNET.
@@ -963,37 +895,6 @@ func (p *Properties) GetPrimaryAvailabilitySetName() string {
 	return ""
 }
 
-// GetPrimaryScaleSetName returns the name of the primary scale set node of the cluster
-func (p *Properties) GetPrimaryScaleSetName() string {
-	if len(p.AgentPoolProfiles) > 0 {
-		if strings.EqualFold(p.AgentPoolProfiles[0].AvailabilityProfile, VirtualMachineScaleSets) {
-			return p.GetAgentVMPrefix(p.AgentPoolProfiles[0], 0)
-		}
-	}
-	return ""
-}
-
-// GetAgentVMPrefix returns the VM prefix for an agentpool.
-func (p *Properties) GetAgentVMPrefix(a *AgentPoolProfile, index int) string {
-	nameSuffix := p.GetClusterID()
-	vmPrefix := ""
-	if index != -1 {
-		if a.IsWindows() {
-			if strings.EqualFold(a.WindowsNameVersion, "v2") {
-				vmPrefix = p.K8sOrchestratorName() + a.Name
-			} else {
-				vmPrefix = nameSuffix[:4] + p.K8sOrchestratorName() + fmt.Sprintf("%02d", index)
-			}
-		} else {
-			vmPrefix = p.K8sOrchestratorName() + "-" + a.Name + "-" + nameSuffix + "-"
-			if a.IsVirtualMachineScaleSets() {
-				vmPrefix += "vmss"
-			}
-		}
-	}
-	return vmPrefix
-}
-
 // GetKubeProxyFeatureGatesWindowsArguments returns the feature gates string for the kube-proxy arguments in Windows nodes
 func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	featureGates := map[string]bool{}
@@ -1024,16 +925,6 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
 }
 
-// HasAvailabilityZones returns true if the agent pool has availability zones
-func (a *AgentPoolProfile) HasAvailabilityZones() bool {
-	return a.AvailabilityZones != nil && len(a.AvailabilityZones) > 0
-}
-
-// IsLinux returns true if the agent pool is linux
-func (a *AgentPoolProfile) IsLinux() bool {
-	return strings.EqualFold(string(a.OSType), string(Linux))
-}
-
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -1052,11 +943,6 @@ func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
 // IsAvailabilitySets returns true if the customer specified disks
 func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, AvailabilitySet)
-}
-
-// IsSpotScaleSet returns true if the VMSS is Spot Scale Set
-func (a *AgentPoolProfile) IsSpotScaleSet() bool {
-	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets) && strings.EqualFold(a.ScaleSetPriority, ScaleSetPrioritySpot)
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
@@ -1094,11 +980,6 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 	return buf.String()
 }
 
-// HasDisks returns true if the customer specified disks
-func (a *AgentPoolProfile) HasDisks() bool {
-	return len(a.DiskSizesGB) > 0
-}
-
 // HasSecrets returns true if the customer specified secrets to install
 func (l *LinuxProfile) HasSecrets() bool {
 	return len(l.Secrets) > 0
@@ -1118,16 +999,6 @@ func (l *LinuxProfile) HasSearchDomain() bool {
 func (o *OrchestratorProfile) IsAzureCNI() bool {
 	if o.KubernetesConfig != nil {
 		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginAzure)
-	}
-	return false
-}
-
-// HasCustomNodesDNS returns true if the customer specified a dns server
-func (l *LinuxProfile) HasCustomNodesDNS() bool {
-	if l.CustomNodesDNS != nil {
-		if l.CustomNodesDNS.DNSServer != "" {
-			return true
-		}
 	}
 	return false
 }
@@ -1209,14 +1080,6 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
 	return strings.EqualFold(o.OrchestratorType, Kubernetes)
-}
-
-// IsPrivateCluster returns true if this deployment is a private cluster
-func (o *OrchestratorProfile) IsPrivateCluster() bool {
-	if !o.IsKubernetes() {
-		return false
-	}
-	return o.KubernetesConfig != nil && o.KubernetesConfig.PrivateCluster != nil && to.Bool(o.KubernetesConfig.PrivateCluster.Enabled)
 }
 
 // IsFeatureEnabled returns true if a feature flag is on for the provided feature
@@ -1345,7 +1208,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	if config.KubeletConfig == nil {
 		return ""
 	}
-	
+
 	keys := []string{}
 	for key := range config.KubeletConfig {
 		keys = append(keys, key)
@@ -1424,7 +1287,6 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
-	Enable1804Chrony              bool
 	TeleportdPluginURL            string
 	ContainerdVersion             string
 	RuncVersion                   string
@@ -1437,6 +1299,7 @@ type NodeBootstrappingConfiguration struct {
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
 	GPUInstanceProfile             string
+	PrimaryScaleSetName            string
 }
 
 // HTTPProxyConfig represents configurations of http proxy
@@ -1834,6 +1697,10 @@ type CSEStatus struct {
 	KernelStartTime string `json:"kernelStartTime,omitempty"`
 	// SystemdSummary of current boot, output from systemd-analyze
 	SystemdSummary string `json:"systemdSummary,omitempty"`
+	// CSEStartTime indicate starttime of CSE
+	CSEStartTime string `json:"cseStartTime,omitempty"`
+	// GuestAgentStartTime indicate starttime of GuestAgent, output from systemctl show walinuxagent.service -p ExecMainStartTimestamp
+	GuestAgentStartTime string `json:"guestAgentStartTime,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string

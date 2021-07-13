@@ -297,9 +297,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubernetesVersionGe": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
-		"IsKubernetesVersionLt": func(version string) bool {
-			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
-		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
 				false, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
@@ -383,9 +380,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsMariner": func() bool {
 			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
 		},
-		"IsPrivateCluster": func() bool {
-			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
-		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
@@ -404,9 +398,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				str += makeAgentExtensionScriptCommands(cs, profile)
 			}
 			return str
-		},
-		"GetLocation": func() string {
-			return cs.Location
 		},
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
@@ -449,17 +440,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return base64.StdEncoding.EncodeToString(buf.Bytes())
 		},
-		"AnyAgentIsLinux": func() bool {
-			return cs.Properties.AnyAgentIsLinux()
-		},
 		"IsNSeriesSKU": func() bool {
 			return config.EnableNvidia
-		},
-		"EnableChronyFor1804": func() bool {
-			return config.Enable1804Chrony
-		},
-		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
-			return profile.HasAvailabilityZones()
 		},
 		"HasCustomSearchDomain": func() bool {
 			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain()
@@ -491,37 +473,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasFlannelNetworkPlugin": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginFlannel
 		},
-		"HasCustomNodesDNS": func() bool {
-			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasCustomNodesDNS()
-		},
 		"WindowsSSHEnabled": func() bool {
 			return cs.Properties.WindowsProfile.GetSSHEnabled()
 		},
-		"UseCloudControllerManager": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager
-		},
-		"AdminGroupID": func() bool {
-			return cs.Properties.AADProfile != nil && cs.Properties.AADProfile.AdminGroupID != ""
-		},
-		"EnableDataEncryptionAtRest": func() bool {
-			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableDataEncryptionAtRest)
-		},
 		"EnableEncryptionWithExternalKms": func() bool {
 			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableEncryptionWithExternalKms)
-		},
-		"EnableAggregatedAPIs": func() bool {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.EnableAggregatedAPIs {
-				return true
-			} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.9.0") {
-				return true
-			}
-			return false
-		},
-		"EnablePodSecurityPolicy": func() bool {
-			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnablePodSecurityPolicy)
-		},
-		"IsCustomVNET": func() bool {
-			return cs.Properties.AreAgentProfilesCustomVNET()
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
@@ -547,9 +503,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
-		},
-		"HasContainerdVersion": func() bool {
-			return config.ContainerdVersion != ""
 		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
