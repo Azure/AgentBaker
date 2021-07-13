@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -27,10 +28,13 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 		CSE:        templateGenerator.GetNodeBootstrappingCmd(config),
 	}
 
-	if osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[config.CloudSpecConfig.CloudName]; hasCloud {
-		if osImageConfig, hasImage := osImageConfigMap[config.AgentPoolProfile.Distro]; hasImage {
-			nodeBootstrapping.OSImageConfig = osImageConfig
-		}
+	osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[config.CloudSpecConfig.CloudName]
+	if !hasCloud {
+		return nil, fmt.Errorf("don't have settings for cloud %s", config.CloudSpecConfig.CloudName)
+	}
+
+	if osImageConfig, hasImage := osImageConfigMap[config.AgentPoolProfile.Distro]; hasImage {
+		nodeBootstrapping.OSImageConfig = osImageConfig
 	}
 
 	return nodeBootstrapping, nil

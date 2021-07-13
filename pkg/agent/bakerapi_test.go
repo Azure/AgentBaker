@@ -9,11 +9,13 @@ import (
 )
 
 var _ = Describe("GetNodeBootstrapping", func() {
-	It("should return correct boot strapping data", func() {
-		agentBaker, err := NewAgentBaker()
-		Expect(err).NotTo(HaveOccurred())
+	var (
+		cs     *datamodel.ContainerService
+		config *datamodel.NodeBootstrappingConfiguration
+	)
 
-		cs := &datamodel.ContainerService{
+	BeforeEach(func() {
+		cs = &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
 			Properties: &datamodel.Properties{
@@ -101,7 +103,7 @@ var _ = Describe("GetNodeBootstrapping", func() {
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 		}
 
-		config := &datamodel.NodeBootstrappingConfiguration{
+		config = &datamodel.NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
 			K8sComponents:                 k8sComponents,
@@ -118,6 +120,11 @@ var _ = Describe("GetNodeBootstrapping", func() {
 			KubeletConfig:                 kubeletConfig,
 			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
 		}
+	})
+
+	It("should return correct boot strapping data", func() {
+		agentBaker, err := NewAgentBaker()
+		Expect(err).NotTo(HaveOccurred())
 
 		nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
 		Expect(err).NotTo(HaveOccurred())
@@ -131,5 +138,14 @@ var _ = Describe("GetNodeBootstrapping", func() {
 		Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
 		Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
 		Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.07.10"))
+	})
+
+	It("should return an error if cloud is not found", func() {
+		config.CloudSpecConfig.CloudName = "UnknownCloud"
+		agentBaker, err := NewAgentBaker()
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+		Expect(err).To(HaveOccurred())
 	})
 })
