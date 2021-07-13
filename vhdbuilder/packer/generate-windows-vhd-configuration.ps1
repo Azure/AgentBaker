@@ -1,7 +1,7 @@
 # MUST define global variable with "global"
 # This script is used to generate shared configuration for configure-windows-vhd.ps1 and windows-vhd-content-test.ps1.
 # MUST NOT add any shared functions in this script.
-$windowsConfig=@'
+$windowsConfig = @'
 $global:containerRuntime = $env:ContainerRuntime
 $validContainerRuntimes = @("containerd", "docker")
 if (-not ($validContainerRuntimes -contains $containerRuntime)) {
@@ -50,8 +50,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.1", # for k8s 1.21.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod04222021",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021-2")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -70,7 +70,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.4", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.1", # for k8s 1.21.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021-2")
     }
     default {
         throw "No valid windows SKU is specified $windowsSKU"
