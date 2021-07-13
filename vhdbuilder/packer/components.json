@@ -314,8 +314,6 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "versions": [
-        "prod_20201015.1",
-        "prod_20210216.1",
         "prod_20210325.1",
         "prod_20210713.1"
       ]
@@ -323,7 +321,6 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "versions": [
-        "prod_20200505.3",
         "prod_20210209.1",
         "prod_20210713.1"
       ]
