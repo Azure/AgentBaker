@@ -3,19 +3,22 @@ source e2e-helper.sh
 echo "Starting e2e tests"
 
 SUBSCRIPTION_ID="8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" #Azure Container Service - Test Subscription
-RESOURCE_GROUP_NAME="agentbaker-e2e-tests"
+RESOURCE_GROUP_NAME="tienle6-agentbaker-e2e-tests"
 LOCATION="eastus"
 CLUSTER_NAME="agentbaker-e2e-test-cluster"
 
 # Clear the kube/config file for any conflicts
 truncate -s 0 ~/.kube/config
 
+
+echo "Tien is here 1"
 # Create a resource group for the cluster
 if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID) == "false" ]; then
     echo "Creating resource group"
     az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID
 fi
 
+echo "Tien is here 2"
 # Create the aks cluster and get the credentials(kube/config populated) to kubectl 
 if [ -z $(az aks list -g $RESOURCE_GROUP_NAME | jq '.[].name') ]; then
     echo "Cluster doesnt exist, creating"
@@ -23,6 +26,11 @@ if [ -z $(az aks list -g $RESOURCE_GROUP_NAME | jq '.[].name') ]; then
     az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME
 fi
 
+
+
+
+
+echo "Tien is here 3"
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME > cluster_info.json
 
@@ -30,6 +38,9 @@ MC_RESOURCE_GROUP_NAME=$(jq -r '.nodeResourceGroup' < cluster_info.json)
 VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME | jq -r '.[length -1].name')
 CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
+
+
+echo "Tien is here 4"
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
 az vmss run-command invoke \
             -n $VMSS_NAME \
@@ -45,9 +56,14 @@ az vmss run-command invoke \
 #       an error saying that extension is still being applied. Need to introduce some delay before this piece of code is
 #       called and the file is ready to be read else the whole flow will break. 
 
+
+
+
+
+echo "Tien is here 5"
 declare -a files=("apiserver.crt" "ca.crt" "client.key" "client.crt")
 for file in "${files[@]}"; do
-    sleep 60s
+    echo "reading $file"
     content=$(az vmss run-command invoke \
                 -n $VMSS_NAME \
                 -g $MC_RESOURCE_GROUP_NAME \
@@ -58,9 +74,16 @@ for file in "${files[@]}"; do
                 awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
                 awk NF | base64 \
             )
+    echo "tien print: $content"
+    content=${content//[$'\t\r\n']}        
     addJsonToFile $file $content
+    sleep 60s
 done
 
+
+
+
+echo "Tien is here 6"
 # Add other relevant information needed by AgentBaker for bootstrapping later
 getAgentPoolProfileValues
 getFQDN
@@ -70,6 +93,8 @@ addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
+
+echo "Tien is here 7"
 # Check if TLS Bootstrapping is enabled(no client.crt in that case, retrieve the tlsbootstrap token)
 sleep 60s
 tlsbootstrap=$(az vmss run-command invoke \
@@ -89,6 +114,8 @@ else
     addJsonToFile "tlsbootstraptoken" $tlsbootstrap
 fi
 
+
+echo "Tien is here 8"
 # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
 
@@ -98,6 +125,9 @@ go test -run TestE2EBasic
 
 # TODO 4: Random name for the VMSS for when we have multiple scenarios to run
 
+
+
+echo "Tien is here 9"
 az vmss create -n agentbaker-test-vmss \
     -g $MC_RESOURCE_GROUP_NAME \
     --admin-username azureuser \
@@ -109,6 +139,8 @@ az vmss create -n agentbaker-test-vmss \
     --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
     --upgrade-policy-mode Automatic
 
+
+echo "Tien is here 10"
 # Get the name of the VM instance to later check with kubectl get nodes
 vmInstanceName=$(az vmss list-instances \
                 -n agentbaker-test-vmss \
@@ -120,6 +152,7 @@ export vmInstanceName
 # Generate the extension from cseCmd
 jq -Rs '{commandToExecute: . }' cseCmd > settings.json
 
+echo "Tien is here 11"
 # Apply extension to the VM
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --name CustomScript \
@@ -138,19 +171,21 @@ else
 	echo "Node did not join cluster"
 fi
 
-# Run a nginx pod on the node to check if pod runs
-( echo "cat <<EOF >pod-nginx.yaml";
-  cat pod-nginx-template.yaml;
-) >temp.yaml
-. temp.yaml
 
-kubectl apply -f pod-nginx.yaml
 
-# Sleep to let Pod Status=Running
-sleep 60s
+# # Run a nginx pod on the node to check if pod runs
+# ( echo "cat <<EOF >pod-nginx.yaml";
+#   cat pod-nginx-template.yaml;
+# ) >temp.yaml
+# . temp.yaml
 
-if kubectl get pods -o wide | grep -q 'Running'; then
-    echo "Pod ran successfully"
-else
-    echo "Pod pending/not running"
-fi
+# kubectl apply -f pod-nginx.yaml
+
+# # Sleep to let Pod Status=Running
+# sleep 60s
+
+# if kubectl get pods -o wide | grep -q 'Running'; then
+#     echo "Pod ran successfully"
+# else
+#     echo "Pod pending/not running"
+# fi
