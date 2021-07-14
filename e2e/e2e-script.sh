@@ -40,6 +40,8 @@ CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
 
 
+
+# =================================================================================
 echo "Tien is here 4"
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
 az vmss run-command invoke \
@@ -55,10 +57,6 @@ az vmss run-command invoke \
 # TODO 2: If TLS Bootstrapping is not enabled, the client.crt takes some time to be generated. The run-command throws
 #       an error saying that extension is still being applied. Need to introduce some delay before this piece of code is
 #       called and the file is ready to be read else the whole flow will break. 
-
-
-
-
 
 echo "Tien is here 5"
 declare -a files=("apiserver.crt" "ca.crt" "client.key" "client.crt")
@@ -79,9 +77,6 @@ for file in "${files[@]}"; do
     addJsonToFile $file $content
     sleep 60s
 done
-
-
-
 
 echo "Tien is here 6"
 # Add other relevant information needed by AgentBaker for bootstrapping later
@@ -114,7 +109,6 @@ else
     addJsonToFile "tlsbootstraptoken" $tlsbootstrap
 fi
 
-
 echo "Tien is here 8"
 # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
@@ -127,6 +121,9 @@ go test -run TestE2EBasic
 
 
 
+
+
+# ==================================================================================
 echo "Tien is here 9"
 az vmss create -n agentbaker-test-vmss \
     -g $MC_RESOURCE_GROUP_NAME \
@@ -141,18 +138,8 @@ az vmss create -n agentbaker-test-vmss \
 
 
 echo "Tien is here 10"
-# Get the name of the VM instance to later check with kubectl get nodes
-vmInstanceName=$(az vmss list-instances \
-                -n agentbaker-test-vmss \
-                -g $MC_RESOURCE_GROUP_NAME | \
-                jq -r '.[].osProfile.computerName'
-            )
-export vmInstanceName
-
 # Generate the extension from cseCmd
 jq -Rs '{commandToExecute: . }' cseCmd > settings.json
-
-echo "Tien is here 11"
 # Apply extension to the VM
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --name CustomScript \
@@ -161,8 +148,24 @@ az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --protected-settings settings.json \
     --version 2.0
 
+
+
+
+
+
+
+# =============================================================
 # Sleep to let the automatic upgrade of the VM finish
 sleep 60s
+
+
+# Get the name of the VM instance to later check with kubectl get nodes
+vmInstanceName=$(az vmss list-instances \
+                -n agentbaker-test-vmss \
+                -g $MC_RESOURCE_GROUP_NAME | \
+                jq -r '.[].osProfile.computerName'
+            )
+export vmInstanceName
 
 # Check if the node joined the cluster
 if kubectl get nodes | grep -q $vmInstanceName; then
