@@ -140,7 +140,20 @@ const (
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
 	AKS1804Deprecated                  Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
-	AKSWindows2019PIR                  Distro = "aks-windows-2019-pir"
+
+	// Windows string const
+	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker
+	AKSWindows2019 Distro = "aks-windows-2019"
+	// AKSWindows2019Containerd stands for distro for windows server 2019 SIG image with containerd
+	AKSWindows2019Containerd Distro = "aks-windows-2019-containerd"
+	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker
+	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
+	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
+
+	// USNatCloud is a const string reference identifier for USNat
+	USNatCloud = "USNatCloud"
+	// USSecCloud is a const string reference identifier for USSec
+	USSecCloud = "USSecCloud"
 )
 
 var AKSDistrosAvailableOnVHD []Distro = []Distro{
@@ -1304,13 +1317,15 @@ type NodeBootstrappingConfiguration struct {
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
 	PrimaryScaleSetName            string
+	SIGConfig                      SIGConfig
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
 type NodeBootstrapping struct {
-	CustomData    string
-	CSE           string
-	OSImageConfig AzureOSImageConfig
+	CustomData     string
+	CSE            string
+	OSImageConfig  *AzureOSImageConfig
+	SigImageConfig *SigImageConfig
 }
 
 // HTTPProxyConfig represents configurations of http proxy
