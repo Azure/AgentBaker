@@ -84,7 +84,7 @@ $global:ContainerdUrl = "https://k8swin.blob.core.windows.net/k8s-windows/contai
 $global:ContainerdSdnPluginUrl = ""
 
 ## Docker Version
-$global:DockerVersion = "19.03.14"
+$global:DockerVersion = "20.10.6"
 
 ## ContainerD Usage
 $global:ContainerRuntime = "docker"
