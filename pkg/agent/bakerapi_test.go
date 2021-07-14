@@ -10,8 +10,9 @@ import (
 
 var _ = Describe("GetNodeBootstrapping", func() {
 	var (
-		cs     *datamodel.ContainerService
-		config *datamodel.NodeBootstrappingConfiguration
+		cs        *datamodel.ContainerService
+		config    *datamodel.NodeBootstrappingConfiguration
+		sigConfig *datamodel.SIGConfig
 	)
 
 	BeforeEach(func() {
@@ -103,6 +104,26 @@ var _ = Describe("GetNodeBootstrapping", func() {
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 		}
 
+		galleries := map[string]datamodel.SIGGalleryConfig{
+			"AKSUbuntu": datamodel.SIGGalleryConfig{
+				GalleryName:   "aksubuntu",
+				ResourceGroup: "resourcegroup",
+			},
+			"AKSCBLMariner": datamodel.SIGGalleryConfig{
+				GalleryName:   "akscblmariner",
+				ResourceGroup: "resourcegroup",
+			},
+			"AKSWindows": datamodel.SIGGalleryConfig{
+				GalleryName:   "akswindows",
+				ResourceGroup: "resourcegroup",
+			},
+		}
+		sigConfig = &datamodel.SIGConfig{
+			TenantID:       "sometenantid",
+			SubscriptionID: "somesubid",
+			Galleries:      galleries,
+		}
+
 		config = &datamodel.NodeBootstrappingConfiguration{
 			ContainerService:              cs,
 			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
@@ -119,6 +140,7 @@ var _ = Describe("GetNodeBootstrapping", func() {
 			FIPSEnabled:                   false,
 			KubeletConfig:                 kubeletConfig,
 			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
+			SIGConfig:                     *sigConfig,
 		}
 	})
 
@@ -138,10 +160,24 @@ var _ = Describe("GetNodeBootstrapping", func() {
 		Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
 		Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
 		Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.07.10"))
+
+		Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
+		Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
+		Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.07.10"))
 	})
 
 	It("should return an error if cloud is not found", func() {
 		config.CloudSpecConfig.CloudName = "UnknownCloud"
+		agentBaker, err := NewAgentBaker()
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return an error if distro is neither found in PIR nor found in SIG", func() {
+		config.AgentPoolProfile.Distro = "unknown"
 		agentBaker, err := NewAgentBaker()
 		Expect(err).NotTo(HaveOccurred())
 
