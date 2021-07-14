@@ -305,34 +305,38 @@ function Get-SystemDriveDiskInfo {
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
-switch ($env:ProvisioningPhase) {
-    "1" {
-        Write-Log "Performing actions for provisioning phase 1"
-        Disable-WindowsUpdates
-        Set-WinRmServiceDelayedStart
-        Update-DefenderSignatures
-        Set-AllowedSecurityProtocols
-        Install-WindowsPatches
-        Install-OpenSSH
-        Update-WindowsFeatures
-    }
-    "2" {
-        Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
-        Set-WinRmServiceAutoStart
-        if ($containerRuntime -eq 'containerd') {
-            Install-ContainerD
-        } else {
-            Install-Docker
+try{
+    switch ($env:ProvisioningPhase) {
+        "1" {
+            Write-Log "Performing actions for provisioning phase 1"
+            Disable-WindowsUpdates
+            Set-WinRmServiceDelayedStart
+            Update-DefenderSignatures
+            Set-AllowedSecurityProtocols
+            Install-WindowsPatches
+            Install-OpenSSH
+            Update-WindowsFeatures
         }
-        Update-Registry
-        Get-ContainerImages
-        Get-FilesToCacheOnVHD
-        Remove-Item -Path c:\windows-vhd-configuration.ps1
-        Get-SystemDriveDiskInfo
-        (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+        "2" {
+            Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
+            Set-WinRmServiceAutoStart
+            if ($containerRuntime -eq 'containerd') {
+                Install-ContainerD
+            } else {
+                Install-Docker
+            }
+            Update-Registry
+            Get-ContainerImages
+            Get-FilesToCacheOnVHD
+            Remove-Item -Path c:\windows-vhd-configuration.ps1
+            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+        }
+        default {
+            Write-Log "Unable to determine provisiong phase... exiting"
+            exit 1
+        }
     }
-    default {
-        Write-Log "Unable to determine provisiong phase... exiting"
-        exit 1
-    }
+}
+finally {
+    Get-SystemDriveDiskInfo
 }
