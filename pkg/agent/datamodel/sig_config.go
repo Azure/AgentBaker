@@ -36,15 +36,6 @@ type SIGGalleryConfig struct {
 
 type SigImageConfigOpt func(*SigImageConfig)
 
-// GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
-// have their own data compliance regulations (China/Germany/USGov) or standard
-// Azure public cloud or air gapped clouds
-// NOTE(tonyxu)
-// Inside AKS RP repo, we should treat the USNat/USSec as different cloud because
-// 1) they have completely different infra, each of them has their own regions (USNatEast/USNatWest, etc)
-// 2) otherwise we will need to update the CloudEnvMap in EVERY service initialization, instead of using a
-// common static configured map for all services
-// Outside of AKS RP repo, we can call it akscustomcloud to hide the sensitive info and pass the specific cloud env in runtime.
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
