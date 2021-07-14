@@ -74,7 +74,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "versions": [
         "v1.3.3",
-        "v1.4.0"
+        "v1.4.5"
       ]
     },
     {
@@ -381,7 +381,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.0"
+        "1.4.5"
       ]
     },
     {
@@ -390,7 +390,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.0"
+        "1.4.5"
       ]
     },
     {
