@@ -93,7 +93,8 @@ $global:map = @{
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.12.zip",
-        "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.13.zip"
+        "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.13.zip",
+        "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.14.zip"
     );
     "c:\akse-cache\containerd\"   = @(
         $containerdPackageUrl
