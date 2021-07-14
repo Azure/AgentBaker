@@ -2443,7 +2443,7 @@ Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
 Environment=KRUSTLET_DATA_DIR=/etc/krustlet
 Environment=RUST_LOG=wasi_provider=info,main=info
 Environment=KRUSTLET_BOOTSTRAP_FILE=/etc/krustlet/config/bootstrap.conf
-ExecStart=/opt/krustlet/bin/krustlet-wasi
+ExecStart=/usr/local/bin/krustlet-wasi
 User=krustlet
 Group=krustlet
 
