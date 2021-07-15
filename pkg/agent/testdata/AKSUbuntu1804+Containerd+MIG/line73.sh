@@ -8,4 +8,3 @@ ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh mig-3g
 
 [Install]
 WantedBy=multi-user.target
-#EOF

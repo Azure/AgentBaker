@@ -23,7 +23,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/5RSXY/SQBR97684aUZpY8eCvpGAITAxuAKGlmQ3MWmG9gqV0qkz0xVW/O+Gj102aIjbp7bna+49E87zMpxLs0SoKhvKh1pTmKrSyrwkbcJKq/vc5Kp8a5bodhHeSx0WavHILGpjSfMzrVALvOu+bjnidhgn/clAdNgHx2yNpXVqC3BeKl7JBWnwAsZKWxus6jkVZP8ngKeGuKptVdtz1mQWf5nFHeYtSWbgKd43m024L/RyfSeKe9M4iYcj0WEepUsFlx3NXeyQ1hY8QyNogH8Db2GHY2DLd27EdCw+JweDk/48tFmqn+AVbkiXVMT5moyV6wo7GMrACXBNeAF2wvBworsoFqNBEs1Go9707sk247KUxfaBfEfciv4sHk7GyWA27e1fHg/PPI95mbSEN6+MD47TF8/gsvOs7gH2fd9xPkWTcRLF0+H4Y4d5+P4DvMRXB389nEu9AKVw2VPT7hWmqp6t8oqhhnsVzw6BlwNfk6wMXHZZzzWB2Qsu9v5vfuOX2OS2rzJqg1EaYHK4TG0wVQUQWiu9B3QAsaF0UGtpc1Xuf2XB6TJEVmq7L70NtjIBomO7Ub1eS71tgxnzuwHfOfb5rB6HNrnFefl/AgAA//9gURGjygMAAA==
+    H4sIAAAAAAAA/5ST0W/iOBDG3/NXfLJ8B9HFTXv3hkRPCCzE9YATCVIrnYTcZDZkG+Ks7bS0y/7vK6AtlEXRLk/E83m+8cxv+pFcRHFvFsejsezydqoc+V54n5fhvbJLhLpyoXqpDYWJLp3KSzI2rIx+zG2uywu7xPU1wkdlwkJnb8qito6MOMgKneHP69+vPHk7ihf96UB2+d+efbaOVokrIESpRaUyMhAFrFOutnio76kg9zMGIrEkdO2q2h28pvP4v3nc5e0lqRQiwV+Xl5dgv5iL+d6uQYvXDlGy1GB8n5xhg6R2EClaQQviE8QVNtgbXvnejZxN5L8fOnx4tF3qJ4gKN2RKKuJ8RdapVYUNLKUQBDAbngS7YZgxbDZwpibfG85lFC96QzmJm0yeVJGX9VplVLoLS+YxT2jrLNeUjFVeRk4Zd6YAZsPzkpMyorsoluPBIpqPx73Z3XsBqVClKp5f6CCVt7I/j0fTyWIwn/W2f956ytvtPX/44zfrQ+D1S6Rg/DACtgv7vu95/0TTySKKZ6PJsMvb+PwFosT/Hn74CaFMBkrA+DuArEGpq6MJNyQ0YI3xdGd4+uCmKw8WjJ9S03QhsQTGP6xxkzxTYPwsNU237LaqkyGf17e+ynXu+jqlDjglAaa7ReqA6yqANEabbcAEO/YGtVEu1+X2KA1eF+GdtA74gw3Qj+TxUWIpwLAm63pbnI9DmQoQ7cGL6tVKmecOuLXfWvC9PWJHxHi0zh0OPHwPAAD//69wCv4KBQAA
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
@@ -70,10 +70,10 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/0TOsWoCQRDG8X6fYiD1uUrqKwwxYpFEIpLiuGJcx3Vgb3aZnZWYpw9nk/bHn49vOArb6F6pBuVinKVfl5Lu8L7bQshy4dgUZ4cs8HHjMyOsV8slbPdH54YD6Y0Dje6LqqFan6W7IKem5DY/FA4z7pV636r6E4uXx0ZXJ4Zu4gir/65/BCesV/C5mMffpuRDFkMW0uonjl1BNZ4PLeoVZniOzg07qYYpje4bxej8cu+nloy7VkkXhhrJ3NPm8+0vAAD///4UOYLwAAAA
+    H4sIAAAAAAAA/0TOwWoCMRDG8XueYl5gjdJzDpYW8dAiFelh2cMYxziQnYTJRGqfvqyXXn/8+fjGk7BN7o1aVK7GRcK21vyAj/0OYpErp664OBSBzztfGGG7Wa9hdzg5Nx5J7xxpcl/UDNVCkeGKnLuSe/+heFzwoBR8b+rPLF6eG0ObGYaZE2z+u/AMzthu4Es1j79dyccihiykzc+chopqvBxatRss8JKcG/fSDHOe3DeK0eX1EeaejYfeSFeGmsj+AgAA//+jNhIw6wAAAA==
 
 - path: /opt/azure/containers/mig-partition.sh
-  permissions: "0744"
+  permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |

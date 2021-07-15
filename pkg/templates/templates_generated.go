@@ -2682,8 +2682,7 @@ ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
 
 [Install]
-WantedBy=multi-user.target
-#EOF`)
+WantedBy=multi-user.target`)
 
 func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionService, nil
@@ -4138,7 +4137,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
 
 - path: /opt/azure/containers/mig-partition.sh
-  permissions: "0744"
+  permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
