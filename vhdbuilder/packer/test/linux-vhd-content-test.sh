@@ -168,8 +168,10 @@ testKubeBinariesPresent() {
   1.19.6-hotfix.20210118
   1.19.7-hotfix.20210310
   1.19.9-hotfix.20210322
+  1.19.12
   1.20.2-hotfix.20210310
   1.20.5-hotfix.20210322
+  1.20.8
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -248,12 +250,14 @@ testKubeProxyImagesPulled() {
         "1.19.9-hotfix.20210526.2",
         "1.19.11-hotfix.20210526.1",
         "1.19.11-hotfix.20210526.2",
+        "1.19.12",
         "1.20.2-hotfix.20210511",
         "1.20.2-hotfix.20210525",
         "1.20.5-hotfix.20210603",
         "1.20.5-hotfix.20210603.2",
         "1.20.7-hotfix.20210603",
         "1.20.7-hotfix.20210603.2",
+        "1.20.8",
         "1.21.1-hotfix.20210603",
         "1.21.1-hotfix.20210603.2",
         "1.21.2"
@@ -278,6 +282,7 @@ containerdKubeProxyImages='
         "1.19.9-hotfix.20210505",
         "1.19.9-hotfix.20210526",
         "1.19.11",
+        "1.19.12",
         "1.19.11-hotfix.20210526",
         "1.20.2-hotfix.20210511",
         "1.20.2-hotfix.20210525",
@@ -285,6 +290,7 @@ containerdKubeProxyImages='
         "1.20.5-hotfix.20210526",
         "1.20.7",
         "1.20.7-hotfix.20210526",
+        "1.20.8",
         "1.21.1",
         "1.21.1-hotfix.20210526"
       ]
