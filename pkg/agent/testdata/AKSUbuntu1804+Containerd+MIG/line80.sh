@@ -4,19 +4,19 @@
 #TODO: Use mig-parted library to do the partition after the above issue is fixed 
 MIG_PROFILE=${1}
 case ${MIG_PROFILE} in 
-    "mig-1g")
+    "MIG1g")
         nvidia-smi mig -cgi 19,19,19,19,19,19,19
         ;;
-    "mig-2g")
+    "MIG2g")
         nvidia-smi mig -cgi 14,14,14
         ;;
-    "mig-3g")
+    "MIG3g")
         nvidia-smi mig -cgi 9,9
         ;;
-    "mig-4g")
+    "MIG4g")
         nvidia-smi mig -cgi 5
         ;;
-    "mig-7g")
+    "MIG7g")
         nvidia-smi mig -cgi 0
         ;;  
     *)
