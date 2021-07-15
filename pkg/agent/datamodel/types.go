@@ -387,6 +387,7 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
+	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -1093,6 +1094,14 @@ func (w *WindowsProfile) GetContainerdWindowsRuntimeHandlers() string {
 // IsAlwaysPullWindowsPauseImage returns true if the windows pause image always needs a force pull
 func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 	return w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage
+}
+
+// IsWindowsSecureTlsEnabled returns true if secure TLS should be enabled for Windows nodes
+func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
+	if w.WindowsSecureTlsEnabled != nil {
+		return *w.WindowsSecureTlsEnabled
+	}
+	return DefaultWindowsSecureTlsEnabled
 }
 
 // IsKubernetes returns true if this template is for Kubernetes orchestrator

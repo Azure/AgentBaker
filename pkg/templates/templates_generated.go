@@ -5437,6 +5437,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+$windowsSecureTlsEnabled = "{{GetVariable "windowsSecureTlsEnabled" }}"
 
 try
 {
@@ -5729,6 +5730,17 @@ try
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
         Update-DefenderPreferences
+
+        if ($windowsSecureTlsEnabled) {
+            Write-Host "Enable secure TLS protocols"
+            try {
+                . C:\k\windowssecuretls.ps1
+                Enable-SecureTls
+            }
+            catch {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+            }
+        }
 
         Check-APIServerConnectivity -MasterIP $MasterIP
 
@@ -6931,7 +6943,8 @@ $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
 $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
 $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
-$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21`)
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21
+$global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS=22`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
