@@ -6,7 +6,6 @@
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
-// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -364,29 +363,6 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsContainerdService = []byte(`[Unit]
-Description=containerd daemon
-[Service]
-ExecStart=/usr/bin/containerd
-[Install]
-WantedBy=multi-user.target
-#EOF`)
-
-func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsContainerdService, nil
-}
-
-func linuxCloudInitArtifactsContainerdService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1863,13 +1839,15 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
+/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
 START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
-KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g")
-SYSTEMD_SUMMARY=$(systemd-analyze)
+KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+SYSTEMD_SUMMARY=$(systemd-analyze || true)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
 
 JSON_STRING=$( jq -n \
@@ -1878,8 +1856,10 @@ JSON_STRING=$( jq -n \
                   --arg er "" \
                   --arg ed "$EXECUTION_DURATION" \
                   --arg ks "$KERNEL_STARTTIME" \
+                  --arg cse "$CSE_STARTTIME" \
+                  --arg ga "$GUEST_AGENT_STARTTIME" \
                   --arg ss "$SYSTEMD_SUMMARY" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, SystemdSummary: $ss}' )
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 
@@ -7739,7 +7719,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
-	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7854,7 +7833,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
-				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},

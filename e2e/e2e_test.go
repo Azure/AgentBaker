@@ -89,7 +89,6 @@ func TestE2EBasic(t *testing.T) {
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
 					Name:                values.Name,
-					Count:               1,
 					VMSize:              "Standard_DS1_v2",
 					StorageProfile:      "ManagedDisks",
 					OSType:              datamodel.Linux,

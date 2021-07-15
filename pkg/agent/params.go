@@ -5,33 +5,22 @@ package agent
 
 import (
 	"encoding/base64"
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	properties := cs.Properties
-	location := cs.Location
 	parametersMap := paramsMap{}
 	cloudSpecConfig := config.CloudSpecConfig
 
-	addValue(parametersMap, "bakerVersion", bakerVersion)
-	addValue(parametersMap, "location", location)
-
-	addValue(parametersMap, "nameSuffix", cs.Properties.GetClusterID())
-	addValue(parametersMap, "targetEnvironment", GetCloudTargetEnv(cs.Location))
 	linuxProfile := properties.LinuxProfile
 	if linuxProfile != nil {
 		addValue(parametersMap, "linuxAdminUsername", linuxProfile.AdminUsername)
-		if linuxProfile.CustomNodesDNS != nil {
-			addValue(parametersMap, "dnsServer", linuxProfile.CustomNodesDNS.DNSServer)
-		}
 	}
 	// masterEndpointDNSNamePrefix is the basis for storage account creation across dcos, swarm, and k8s
 	if properties.HostedMasterProfile != nil {
@@ -40,16 +29,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	}
 	if properties.HostedMasterProfile != nil {
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
-	}
-
-	if linuxProfile != nil {
-		addValue(parametersMap, "sshRSAPublicKey", linuxProfile.SSH.PublicKeys[0].KeyData)
-		for i, s := range linuxProfile.Secrets {
-			addValue(parametersMap, fmt.Sprintf("linuxKeyVaultID%d", i), s.SourceVault.ID)
-			for j, c := range s.VaultCertificates {
-				addValue(parametersMap, fmt.Sprintf("linuxKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
-			}
-		}
 	}
 
 	// Kubernetes Parameters
@@ -63,25 +42,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	// Agent parameters
 	isSetVnetCidrs := false
 	for _, agentProfile := range properties.AgentPoolProfiles {
-		addValue(parametersMap, fmt.Sprintf("%sCount", agentProfile.Name), agentProfile.Count)
-		addValue(parametersMap, fmt.Sprintf("%sVMSize", agentProfile.Name), agentProfile.VMSize)
-		if agentProfile.HasAvailabilityZones() {
-			addValue(parametersMap, fmt.Sprintf("%sAvailabilityZones", agentProfile.Name), agentProfile.AvailabilityZones)
-		}
-		if agentProfile.IsCustomVNET() {
-			addValue(parametersMap, fmt.Sprintf("%sVnetSubnetID", agentProfile.Name), agentProfile.VnetSubnetID)
-		} else {
-			addValue(parametersMap, fmt.Sprintf("%sSubnet", agentProfile.Name), agentProfile.Subnet)
-		}
-		if len(agentProfile.Ports) > 0 {
-			addValue(parametersMap, fmt.Sprintf("%sEndpointDNSNamePrefix", agentProfile.Name), agentProfile.DNSPrefix)
-		}
-
-		if !agentProfile.IsAvailabilitySets() && agentProfile.IsSpotScaleSet() {
-			addValue(parametersMap, fmt.Sprintf("%sScaleSetPriority", agentProfile.Name), agentProfile.ScaleSetPriority)
-			addValue(parametersMap, fmt.Sprintf("%sScaleSetEvictionPolicy", agentProfile.Name), agentProfile.ScaleSetEvictionPolicy)
-		}
-
 		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {
 			// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
 			// added into the ExceptionList of Windows nodes. Otherwise, the default value `10.0.0.0/8` will
@@ -97,17 +57,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
 		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation", properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
 		addValue(parametersMap, "containerdWindowsRuntimeHandlers", properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
-	}
-
-	for _, extension := range properties.ExtensionProfiles {
-		if extension.ExtensionParametersKeyVaultRef != nil {
-			addKeyvaultReference(parametersMap, fmt.Sprintf("%sParameters", extension.Name),
-				extension.ExtensionParametersKeyVaultRef.VaultID,
-				extension.ExtensionParametersKeyVaultRef.SecretName,
-				extension.ExtensionParametersKeyVaultRef.SecretVersion)
-		} else {
-			addValue(parametersMap, fmt.Sprintf("%sParameters", extension.Name), extension.ExtensionParameters)
-		}
 	}
 
 	return parametersMap
@@ -140,8 +89,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
 	generatorCode string) {
-	addValue(parametersMap, "generatorCode", generatorCode)
-
 	orchestratorProfile := properties.OrchestratorProfile
 
 	if orchestratorProfile.IsKubernetes() {
@@ -162,19 +109,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "kubernetesHyperkubeSpec", k8sComponents.HyperkubeImageURL)
 
 			addValue(parametersMap, "kubeDNSServiceIP", kubernetesConfig.DNSServiceIP)
-			if kubernetesConfig.IsAADPodIdentityEnabled() {
-				aadPodIdentityAddon := kubernetesConfig.GetAddonByName(AADPodIdentityAddonName)
-				aadIndex := aadPodIdentityAddon.GetAddonContainersIndexByName(AADPodIdentityAddonName)
-				if aadIndex > -1 {
-					addValue(parametersMap, "kubernetesAADPodIdentityEnabled", to.Bool(aadPodIdentityAddon.Enabled))
-				}
-			}
-			if kubernetesConfig.IsAddonEnabled(ACIConnectorAddonName) {
-				addValue(parametersMap, "kubernetesACIConnectorEnabled", true)
-			} else {
-				addValue(parametersMap, "kubernetesACIConnectorEnabled", false)
-			}
-			addValue(parametersMap, "kubernetesPodInfraContainerSpec", k8sComponents.PodInfraContainerImageURL)
 			addValue(parametersMap, "cloudproviderConfig", paramsMap{
 				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
 				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
@@ -199,10 +133,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
 			addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
 			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
-			addValue(parametersMap, "gchighthreshold", kubernetesConfig.GCHighThreshold)
-			addValue(parametersMap, "gclowthreshold", kubernetesConfig.GCLowThreshold)
-
-			addValue(parametersMap, "enableAggregatedAPIs", kubernetesConfig.EnableAggregatedAPIs)
 
 			if properties.HasWindows() {
 				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
@@ -228,18 +158,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			// base64 encoding is to escape special characters like quotes in service principal
 			// reference: https://github.com/Azure/aks-engine/pull/1174
 			addValue(parametersMap, "encodedServicePrincipalClientSecret", encodedServicePrincipalClientSecret)
-
-			if kubernetesConfig != nil && to.Bool(kubernetesConfig.EnableEncryptionWithExternalKms) {
-				if kubernetesConfig.KeyVaultSku != "" {
-					addValue(parametersMap, "clusterKeyVaultSku", kubernetesConfig.KeyVaultSku)
-				}
-				if !kubernetesConfig.UseManagedIdentity && servicePrincipalProfile.ObjectID != "" {
-					addValue(parametersMap, "servicePrincipalObjectId", servicePrincipalProfile.ObjectID)
-				}
-			}
 		}
-
-		addValue(parametersMap, "orchestratorName", properties.K8sOrchestratorName())
 
 		/**
 		 The following parameters could be either a plain text, or referenced to a secret in a keyvault:
@@ -277,20 +196,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addSecret(parametersMap, "caCertificate", certificateProfile.CaCertificate, true)
 			addSecret(parametersMap, "clientCertificate", certificateProfile.ClientCertificate, true)
 			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)
-			addSecret(parametersMap, "kubeConfigCertificate", certificateProfile.KubeConfigCertificate, true)
-			addSecret(parametersMap, "kubeConfigPrivateKey", certificateProfile.KubeConfigPrivateKey, true)
-		}
-
-		if properties.AADProfile != nil {
-			addValue(parametersMap, "aadTenantId", properties.AADProfile.TenantID)
-			if properties.AADProfile.AdminGroupID != "" {
-				addValue(parametersMap, "aadAdminGroupId", properties.AADProfile.AdminGroupID)
-			}
-		}
-
-		if kubernetesConfig != nil && kubernetesConfig.IsAddonEnabled(AppGwIngressAddonName) {
-			addValue(parametersMap, "appGwSku", kubernetesConfig.GetAddonByName(AppGwIngressAddonName).Config["appgw-sku"])
-			addValue(parametersMap, "appGwSubnet", kubernetesConfig.GetAddonByName(AppGwIngressAddonName).Config["appgw-subnet"])
 		}
 	}
 }

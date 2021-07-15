@@ -56,7 +56,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["containerdMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
 		cloudInitData["containerdMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
 		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
-		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
 	return cloudInitFiles
@@ -78,7 +77,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
 		"routeTableName":                       cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":                  cs.Properties.GetPrimaryScaleSetName(),
+		"primaryScaleSetName":                  config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":          useManagedIdentity(cs),
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
 		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
@@ -111,7 +110,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"virtualNetworkResourceGroupName": cs.Properties.GetVNetResourceGroupName(),
 		"routeTableName":                  cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":      cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":             cs.Properties.GetPrimaryScaleSetName(),
+		"primaryScaleSetName":             config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":     useManagedIdentity(cs),
 		"useInstanceMetadata":             useInstanceMetadata(cs),
 		"loadBalancerSku":                 cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
