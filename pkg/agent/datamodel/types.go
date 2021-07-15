@@ -115,14 +115,14 @@ const (
 )
 
 
-// KubeletType describes choices for the node agent: kubelet or krustlet-wasi, currently.
-type KubeletType string
+// WorkloadRuntime describes choices for the type of workload: container or wasm-wasi, currently.
+type WorkloadRuntime string
 
 const (
-	// Kubelet indicates the default kubelet indication will be used.
-	Kubelet KubeletType = "Kubelet"
-	// Krustlet indicates Krustlet will be used.
-	Krustlet KubeletType = "Krustlet"
+	// OCIContainer indicates the default kubelet indication will be used for a container workload.
+	OCIContainer WorkloadRuntime = "OCIContainer"
+	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
+	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
 // Distro represents Linux distro to use for Linux VMs
@@ -646,7 +646,7 @@ type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
 	VMSize                string               `json:"vmSize"`
 	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
-	KubeletType           string               `json:"kubeletType,omitempty"`
+	WorkloadRuntime       WorkloadRuntime      `json:"workloadRuntime,omitempty"`
 	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
 	OSType                OSType               `json:"osType,omitempty"`
 	Ports                 []int                `json:"ports,omitempty"`
