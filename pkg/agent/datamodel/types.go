@@ -1325,6 +1325,7 @@ type NodeBootstrappingConfiguration struct {
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
+	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 }

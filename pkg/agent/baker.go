@@ -305,6 +305,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
 				true, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
+		"GetGPUInstanceProfile": func() string {
+			return config.GPUInstanceProfile
+		},
+		"IsMIGEnabledNode": func() bool {
+			return config.GPUInstanceProfile != ""
+		},
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
