@@ -114,6 +114,17 @@ const (
 	TempDisk KubeletDiskType = "Temporary"
 )
 
+
+// WorkloadRuntime describes choices for the type of workload: container or wasm-wasi, currently.
+type WorkloadRuntime string
+
+const (
+	// OCIContainer indicates the default kubelet indication will be used for a container workload.
+	OCIContainer WorkloadRuntime = "OCIContainer"
+	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
+	WasmWasi WorkloadRuntime = "WasmWasi"
+)
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -635,6 +646,7 @@ type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
 	VMSize                string               `json:"vmSize"`
 	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	WorkloadRuntime       WorkloadRuntime      `json:"workloadRuntime,omitempty"`
 	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
 	OSType                OSType               `json:"osType,omitempty"`
 	Ports                 []int                `json:"ports,omitempty"`
