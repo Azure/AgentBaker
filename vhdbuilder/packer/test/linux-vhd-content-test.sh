@@ -260,6 +260,7 @@ testKubeProxyImagesPulled() {
         "1.20.8",
         "1.21.1-hotfix.20210603",
         "1.21.1-hotfix.20210603.2",
+        "1.21.1-hotfix.20210713",
         "1.21.2"
       ]
     }

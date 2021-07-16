@@ -65,6 +65,8 @@ const (
 	DefaultEnableCSIProxyWindows = false
 	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
 	DefaultWindowsSSHEnabled = true
+	// DefaultWindowsSecureTlsEnabled is the default windowsProfile.WindowsSecureTlsEnabled value
+	DefaultWindowsSecureTlsEnabled = false
 )
 
 const (
@@ -109,4 +111,9 @@ const (
 	// TempDiskContainerDataDir is the path used to mount docker images, emptyDir volumes, and kubelet data
 	// when KubeletDiskType == TempDisk.
 	TempDiskContainerDataDir = "/mnt/aks/containers"
+)
+
+const (
+	// Krustlet is the kubelet type specified as WasmWasi in the AgentBaker API that can run WASI workloads
+	Krustlet = "WasmWasi"
 )
