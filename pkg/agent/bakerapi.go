@@ -75,7 +75,7 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
 
 	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
 	if sigImageConfig == nil {
-		return nil, fmt.Errorf("can't find SIG image for distro %s in region %s", distro, region)
+		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, region)
 	}
 	return sigImageConfig, nil
 }
