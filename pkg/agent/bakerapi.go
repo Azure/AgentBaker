@@ -12,6 +12,7 @@ import (
 
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
+	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
 }
 
 func NewAgentBaker() (AgentBaker, error) {
@@ -63,4 +64,18 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	}
 
 	return nil
+}
+
+func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
+	sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error) {
+	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
+	if err != nil {
+		return nil, err
+	}
+
+	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
+	if sigImageConfig == nil {
+		return nil, fmt.Errorf("can't find SIG image for distro %s in region %s", distro, region)
+	}
+	return sigImageConfig, nil
 }
