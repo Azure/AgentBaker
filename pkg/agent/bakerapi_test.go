@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("GetNodeBootstrapping", func() {
+var _ = Describe("AgentBaker API implementation tests", func() {
 	var (
 		cs        *datamodel.ContainerService
 		config    *datamodel.NodeBootstrappingConfiguration
@@ -144,44 +144,69 @@ var _ = Describe("GetNodeBootstrapping", func() {
 		}
 	})
 
-	It("should return correct boot strapping data", func() {
-		agentBaker, err := NewAgentBaker()
-		Expect(err).NotTo(HaveOccurred())
+	Context("GetNodeBootstrapping", func() {
+		It("should return correct boot strapping data", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
 
-		nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
-		Expect(err).NotTo(HaveOccurred())
+			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
 
-		// baker_test.go tested the correctness of the generated Custom Data and CSE, so here
-		// we just do a sanity check of them not being empty.
-		Expect(nodeBootStrapping.CustomData).NotTo(Equal(""))
-		Expect(nodeBootStrapping.CSE).NotTo(Equal(""))
+			// baker_test.go tested the correctness of the generated Custom Data and CSE, so here
+			// we just do a sanity check of them not being empty.
+			Expect(nodeBootStrapping.CustomData).NotTo(Equal(""))
+			Expect(nodeBootStrapping.CSE).NotTo(Equal(""))
 
-		Expect(nodeBootStrapping.OSImageConfig.ImageOffer).To(Equal("aks"))
-		Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
-		Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
-		Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.07.10"))
+			Expect(nodeBootStrapping.OSImageConfig.ImageOffer).To(Equal("aks"))
+			Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
+			Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
+			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.07.10"))
 
-		Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
-		Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
-		Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.07.10"))
+			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
+			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.07.10"))
+		})
+
+		It("should return an error if cloud is not found", func() {
+			config.CloudSpecConfig.CloudName = "UnknownCloud"
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return an error if distro is neither found in PIR nor found in SIG", func() {
+			config.AgentPoolProfile.Distro = "unknown"
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
-	It("should return an error if cloud is not found", func() {
-		config.CloudSpecConfig.CloudName = "UnknownCloud"
-		agentBaker, err := NewAgentBaker()
-		Expect(err).NotTo(HaveOccurred())
+	Context("GetLatestSigImageConfig", func() {
+		It("should return correct value for existing distro", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
 
-		_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
-		Expect(err).To(HaveOccurred())
-	})
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, cs.Location, datamodel.AKSUbuntu1604)
+			Expect(err).NotTo(HaveOccurred())
 
-	It("should return an error if distro is neither found in PIR nor found in SIG", func() {
-		config.AgentPoolProfile.Distro = "unknown"
-		agentBaker, err := NewAgentBaker()
-		Expect(err).NotTo(HaveOccurred())
+			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(sigImageConfig.Definition).To(Equal("1604"))
+			Expect(sigImageConfig.Version).To(Equal("2021.07.10"))
+		})
 
-		_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
-		Expect(err).To(HaveOccurred())
+		It("should return error if image config not found for distro", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetLatestSigImageConfig(config.SIGConfig, cs.Location, "unknown")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })
