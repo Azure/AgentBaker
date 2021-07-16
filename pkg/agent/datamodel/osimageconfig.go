@@ -48,9 +48,9 @@ var (
 
 	AKSWindowsServer2019OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks-windows",
-		ImageSku:       "aks-2019-datacenter-core-smalldisk-2106",
+		ImageSku:       "aks-2019-datacenter-core-smalldisk-2107",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "17763.1999.210609",
+		ImageVersion:   "17763.2061.210714",
 	}
 
 	ACC1604OSImageConfig = AzureOSImageConfig{
