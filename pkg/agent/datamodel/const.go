@@ -112,3 +112,8 @@ const (
 	// when KubeletDiskType == TempDisk.
 	TempDiskContainerDataDir = "/mnt/aks/containers"
 )
+
+const (
+	// Krustlet is the kubelet type specified as WasmWasi in the AgentBaker API that can run WASI workloads
+	Krustlet = "WasmWasi"
+)
