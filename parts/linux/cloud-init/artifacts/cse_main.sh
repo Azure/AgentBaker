@@ -95,6 +95,10 @@ installTeleportdPlugin
 
 installNetworkPlugin
 
+{{- if IsKrustlet }}
+    downloadKrustlet
+{{- end }}
+
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -164,11 +168,15 @@ configureSwapFile
 {{- end}}
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+{{- if IsKrustlet}}
+systemctlEnableAndStart krustlet
+{{- else}}
+ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
+{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then

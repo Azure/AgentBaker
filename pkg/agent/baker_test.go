@@ -426,6 +426,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
 			config.EnableNvidia = true
 			config.GPUInstanceProfile = "mig-3g"
+		}),
+		
+		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
 		}))
 })
 

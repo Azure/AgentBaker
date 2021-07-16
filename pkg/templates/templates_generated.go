@@ -24,6 +24,8 @@
 // linux/cloud-init/artifacts/health-monitor.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
 // linux/cloud-init/artifacts/kms.service
+// linux/cloud-init/artifacts/krustlet-fix-ca.sh
+// linux/cloud-init/artifacts/krustlet.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
@@ -1121,6 +1123,8 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1350,6 +1354,22 @@ downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadKrustlet() {
+    local krustlet_version="v0.7.0"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/$krustlet_version/linux/amd64/krustlet-wasi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
+    if [[ -f "$krustlet_filepath" ]]; then
+        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
+        if [[ "$krustlet_version" == "$installed_version" ]]; then
+            echo "desired krustlet version exists on disk, skipping download."
+            return
+        fi
+        rm -rf "$krustlet_filepath"
+    fi
+    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
@@ -1712,6 +1732,10 @@ installTeleportdPlugin
 
 installNetworkPlugin
 
+{{- if IsKrustlet }}
+    downloadKrustlet
+{{- end }}
+
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -1781,11 +1805,15 @@ configureSwapFile
 {{- end}}
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+{{- if IsKrustlet}}
+systemctlEnableAndStart krustlet
+{{- else}}
+ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
+{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -2441,6 +2469,74 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsKrustletFixCaSh = []byte(`#!/usr/bin/env bash
+set -o nounset
+set -o pipefail
+set -x
+
+DONE="$(grep certificate-authority-data /var/lib/kubelet/bootstrap-kubeconfig)"
+
+if [ -n "$DONE" ]; then
+    echo "Found certificate-authority-data, will not modify bootstrap-kubeconfig"
+    exit 0
+fi
+
+# we don't want to fail if the above grep fails, only after that.
+set -o errexit
+
+# TODO(ace): always use /etc/kubernetes/certs/ca.crt?
+CA_FILE=$(grep certificate-authority /var/lib/kubelet/bootstrap-kubeconfig | cut -d" " -f6)
+CA_CONTENT="$(cat $CA_FILE | base64 -w 0)"
+sed -i "s~certificate-authority: /etc/kubernetes/certs/ca.crt~certificate-authority-data: $CA_CONTENT~g" /var/lib/kubelet/bootstrap-kubeconfig `)
+
+func linuxCloudInitArtifactsKrustletFixCaShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKrustletFixCaSh, nil
+}
+
+func linuxCloudInitArtifactsKrustletFixCaSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKrustletFixCaShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/krustlet-fix-ca.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsKrustletService = []byte(`[Unit]
+Description=Krustlet
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+Environment=KUBECONFIG=/var/lib/kubelet/kubeconfig
+Environment=KRUSTLET_CERT_FILE=/etc/kubernetes/certs/kubeletserver.crt
+Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
+Environment=KRUSTLET_DATA_DIR=/etc/krustlet
+Environment=RUST_LOG=wasi_provider=info,main=info
+Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+ExecStartPre=/bin/bash /opt/azure/containers/krustlet-fix-ca.sh
+ExecStart=/usr/local/bin/krustlet-wasi
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsKrustletServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKrustletService, nil
+}
+
+func linuxCloudInitArtifactsKrustletService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKrustletServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/krustlet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4159,12 +4255,27 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+ {{- if IsKrustlet}}
+- path: /etc/systemd/system/krustlet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
+- path: /opt/azure/containers/krustlet-fix-ca.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletFixCaScript"}}
+{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+{{- end}}
 
 {{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
@@ -4229,7 +4340,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
-{{- if NeedsContainerd}}
+{{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -7933,6 +8044,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
+	"linux/cloud-init/artifacts/krustlet-fix-ca.sh":                        linuxCloudInitArtifactsKrustletFixCaSh,
+	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
@@ -8047,6 +8160,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
+				"krustlet-fix-ca.sh":                        &bintree{linuxCloudInitArtifactsKrustletFixCaSh, map[string]*bintree{}},
+				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
