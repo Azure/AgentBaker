@@ -444,8 +444,7 @@ if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
 fi
 
 # remove snapd, which is not used by container stack
-apt-get remove snapd -y
-apt-get autoremove -y
+apt-get purge --auto-remove snapd -y
 
 # update message-of-the-day to start after multi-user.target
 # multi-user.target usually start at the end of the boot sequence
