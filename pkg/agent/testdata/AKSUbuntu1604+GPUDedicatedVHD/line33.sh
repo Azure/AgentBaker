@@ -84,7 +84,7 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        #systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         systemctlDisableAndStop nvidia-device-plugin
     fi
