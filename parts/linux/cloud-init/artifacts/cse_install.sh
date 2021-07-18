@@ -45,7 +45,6 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-{{- if IsKrustlet }}
 downloadKrustlet() {
     mkdir -p $KRUSTLET_DOWNLOAD_DIR
     KRUSTLET_TGZ_TMP=${KRUSTLET_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
@@ -55,7 +54,6 @@ downloadKrustlet() {
     chown -R root:root $KRUSTLET_BIN_DIR
     chmod -R 755 $KRUSTLET_BIN_DIR
 }
-{{- end }}
 
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
