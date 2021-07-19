@@ -138,13 +138,15 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	fmt.Printf("downloading artifact '%s' from build '%s'\n", artifactName, fl.build)
 
 	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", artifactName)
-	if err := cmd.Run(); err != nil {
-		errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %w", sku, err)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
 		return
 	}
 
 	if err := os.Rename(artifactFileIn, artifactFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %w", artifactFileIn, artifactFileOut, err)
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", artifactFileIn, artifactFileOut, err)
 		return
 	}
 }
