@@ -1122,7 +1122,7 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
-ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for KRUSTLET downloads */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
 
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
@@ -1331,7 +1331,7 @@ TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_DOWNLOAD_DIR="/opt/KRUSTLET/downloads"
 KRUSTLET_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.7.0"
-KRUSTLET_URL="https://krustlet.blob.core.windows.net/releases/krustlet-${KRUSTLET_VERSION}-linux-amd64.tar.gz"
+KRUSTLET_URL="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1360,13 +1360,11 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    mkdir -p $KRUSTLET_DOWNLOAD_DIR
-    KRUSTLET_TGZ_TMP=${KRUSTLET_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$KRUSTLET_DOWNLOAD_DIR/${KRUSTLET_TGZ_TMP}" ${KRUSTLET_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-    mkdir -p $KRUSTLET_BIN_DIR
-    tar -xzf "$KRUSTLET_DOWNLOAD_DIR/${KRUSTLET_TGZ_TMP}" -C $KRUSTLET_BIN_DIR
-    chown -R root:root $KRUSTLET_BIN_DIR
-    chmod -R 755 $KRUSTLET_BIN_DIR
+    local version="v0.7.0"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/$version/linux/amd64/krustlet-wasi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
+    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
