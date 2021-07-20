@@ -57,8 +57,4 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
 }
 
-listInstalledPackages() {
-    rpm -qa
-}
-
 #EOF

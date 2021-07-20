@@ -130,8 +130,4 @@ cleanUpGPUDrivers() {
     rm -f /etc/apt/sources.list.d/nvidia-docker.list
 }
 
-listInstalledPackages() {
-    apt list --installed
-}
-
 #EOF

@@ -2655,10 +2655,6 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
 }
 
-listInstalledPackages() {
-    rpm -qa
-}
-
 #EOF
 `)
 
@@ -3931,10 +3927,6 @@ ensureRunc() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
     rm -f /etc/apt/sources.list.d/nvidia-docker.list
-}
-
-listInstalledPackages() {
-    apt list --installed
 }
 
 #EOF
