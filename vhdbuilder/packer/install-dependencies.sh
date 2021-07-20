@@ -86,12 +86,12 @@ fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.4"
+  containerd_version="1.4.8"
   installStandaloneContainerd ${containerd_version}
   echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # also pre-cache containerd 1.5 for ACC as a local .deb file for Ubuntu OS SKUs
-    containerd_version="1.5.0-beta.git31a0f92df"
+    # also pre-cache containerd 1.4.4 (last used version)
+    containerd_version="1.4.4"
     downloadContainerd ${containerd_version}
     echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   fi
