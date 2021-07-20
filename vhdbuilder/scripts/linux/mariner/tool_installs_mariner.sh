@@ -32,3 +32,7 @@ EOF
 networkdWorkaround() {
     sed -i "s/Name=e\*/Name=eth0/g" /etc/systemd/network/99-dhcp-en.network
 }
+
+listInstalledPackages() {
+    rpm -qa
+}
