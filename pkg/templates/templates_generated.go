@@ -1361,7 +1361,7 @@ downloadCNI() {
 
 downloadKrustlet() {
     local version="v0.7.0"
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/$version/linux/amd64/krustlet-wasi"
+    local krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet/$version/linux/amd64/krustlet-wasi"
     local krustlet_filepath="/usr/local/bin/krustlet-wasi"
     retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
     chmod 755 "$krustlet_filepath"
