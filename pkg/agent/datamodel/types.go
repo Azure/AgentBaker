@@ -114,6 +114,17 @@ const (
 	TempDisk KubeletDiskType = "Temporary"
 )
 
+
+// WorkloadRuntime describes choices for the type of workload: container or wasm-wasi, currently.
+type WorkloadRuntime string
+
+const (
+	// OCIContainer indicates the default kubelet indication will be used for a container workload.
+	OCIContainer WorkloadRuntime = "OCIContainer"
+	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
+	WasmWasi WorkloadRuntime = "WasmWasi"
+)
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -387,6 +398,7 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
+	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -634,6 +646,7 @@ type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
 	VMSize                string               `json:"vmSize"`
 	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
+	WorkloadRuntime       WorkloadRuntime      `json:"workloadRuntime,omitempty"`
 	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
 	OSType                OSType               `json:"osType,omitempty"`
 	Ports                 []int                `json:"ports,omitempty"`
@@ -1095,6 +1108,14 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 	return w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage
 }
 
+// IsWindowsSecureTlsEnabled returns true if secure TLS should be enabled for Windows nodes
+func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
+	if w.WindowsSecureTlsEnabled != nil {
+		return *w.WindowsSecureTlsEnabled
+	}
+	return DefaultWindowsSecureTlsEnabled
+}
+
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
 	return strings.EqualFold(o.OrchestratorType, Kubernetes)
@@ -1316,6 +1337,7 @@ type NodeBootstrappingConfiguration struct {
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
 	EnableRuncShimV2               bool
+	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 }
