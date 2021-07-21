@@ -1328,10 +1328,6 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_DOWNLOAD_DIR="/opt/KRUSTLET/downloads"
-KRUSTLET_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v0.7.0"
-KRUSTLET_URL="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1360,8 +1356,8 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local version="v0.7.0"
-    local krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet/$version/linux/amd64/krustlet-wasi"
+    local krustlet_version="v0.7.0"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/$krustlet_version/linux/amd64/krustlet-wasi"
     local krustlet_filepath="/usr/local/bin/krustlet-wasi"
     retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
     chmod 755 "$krustlet_filepath"
