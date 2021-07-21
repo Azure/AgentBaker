@@ -1359,6 +1359,14 @@ downloadKrustlet() {
     local krustlet_version="v0.7.0"
     local krustlet_url="https://acs-mirror.azureedge.net/krustlet/$krustlet_version/linux/amd64/krustlet-wasi"
     local krustlet_filepath="/usr/local/bin/krustlet-wasi"
+    if [[ -f "$krustlet_filepath" ]]; then
+        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
+        if [[ "$krustlet_version" == "$installed_version" ]]; then
+            echo "desired krustlet version exists on disk, skipping download."
+            return
+        fi
+        rm -rf "$krustlet_filepath"
+    fi
     retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
     chmod 755 "$krustlet_filepath"
 }
