@@ -82,6 +82,35 @@ write_files:
 
 
 
+    
+
+- path: /etc/systemd/system/docker.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip=
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
+
+- path: /etc/docker/daemon.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {
+      "live-restore": true,
+      "log-driver": "json-file",
+      "log-opts":  {
+         "max-size": "50m",
+         "max-file": "5"
+      }
+    }
+
+
+
+
+
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0644"

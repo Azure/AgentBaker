@@ -97,6 +97,7 @@ write_files:
 
 
 
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -198,7 +199,6 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
-
 
 
 

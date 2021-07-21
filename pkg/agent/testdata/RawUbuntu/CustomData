@@ -101,6 +101,7 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/zSOQWrDMBBF9zrFXKBRewAtCs0FYroKWUzkbzRYlopm3Nq3L1jx7g3M+7z7dxF7uC9obPJjUktg6kyW2CgmxFlpXp/IMErgbIm4jNSgxs2UZKICjBjd52Ro4fV7UbRfiXD3ocPD3boSOP/xruc5IIaPd3fDwlKOiesmFnaou26Iw6H4VZvPNXL2Tym+d7wttYjVdtF0Fv4HAAD//zPpD7jRAAAA
 
+
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -114,7 +115,6 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/zSOMWoDQQxF+zmFILW9yQGmCGTTBrykMi6U2W9GeFcTJDmxbx/Yibsn0Pu846dKnNIbvJh8hzTNTJ0pKgeVinJxmlu5wKiCl6jEOpPBgy2c5EwKzJjT6zlgub/uHfYjBek4dTilQzcyL79898c5oeSX53TAyqLbwniTyHd4Gm8o06YMV7dhaYWX4Ut06Bm7talEs71XKk2DRWE7u2rIiv/i9DR+vKe/AAAA///aTgUk5gAAAA==
-
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
   encoding: gzip
@@ -139,6 +139,7 @@ write_files:
     APT::Periodic::Download-Upgradeable-Packages "0";
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
+
 
 
 
@@ -174,9 +175,6 @@ write_files:
          "max-file": "5"
       }
     }
-
-
-
 
 
 

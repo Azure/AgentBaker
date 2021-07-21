@@ -94,6 +94,7 @@ write_files:
 
 
 
+
     
 
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
@@ -119,9 +120,6 @@ write_files:
       },
       "data-root": "/mnt/aks/containers"
     }
-
-
-
 
 
 

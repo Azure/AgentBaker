@@ -4298,7 +4298,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
-{{- if not IsKrustlet}}
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
@@ -4327,7 +4326,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-{{end}}
 {{- end}}
 - path: /etc/systemd/system/kms.service
   permissions: "0644"
@@ -4410,7 +4408,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 {{end}}
 
-{{- if not IsKrustlet}}
 {{if RequiresDocker}}
     {{if not .IsVHDDistro}}
 - path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
@@ -4452,9 +4449,7 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 {{end}}
-{{end}}
 
-{{- if not IsKrustlet}}
 {{if NeedsContainerd}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
@@ -4637,7 +4632,6 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
-{{end}}
 
 {{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service

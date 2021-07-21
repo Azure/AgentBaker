@@ -101,6 +101,7 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/zSOQWrDMBBF9zrFXKBRewAtCs0FYroKWUzkbzRYlopm3Nq3L1jx7g3M+7z7dxF7uC9obPJjUktg6kyW2CgmxFlpXp/IMErgbIm4jNSgxs2UZKICjBjd52Ro4fV7UbRfiXD3ocPD3boSOP/xruc5IIaPd3fDwlKOiesmFnaou26Iw6H4VZvPNXL2Tym+d7wttYjVdtF0Fv4HAAD//zPpD7jRAAAA
 
+
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -138,6 +139,7 @@ write_files:
     APT::Periodic::Download-Upgradeable-Packages "0";
     APT::Periodic::AutocleanInterval "0";
     APT::Periodic::Unattended-Upgrade "0";
+
 
 
 
@@ -246,7 +248,6 @@ write_files:
     net.ipv4.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
-
 
 
 
