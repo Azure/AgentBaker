@@ -307,8 +307,10 @@ done
 # v1.18.19
 # v1.19.9
 # v1.19.11
+# v1.19.12
 # v1.20.5
 # v1.20.7
+# v1.20.8
 # v1.21.1
 # v1.21.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
@@ -338,6 +340,7 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.19.9-hotfix.20210526.2
 1.19.11-hotfix.20210526.1
 1.19.11-hotfix.20210526.2
+1.19.12
 1.20.2
 1.20.2-hotfix.20210511
 1.20.2-hotfix.20210525
@@ -345,6 +348,7 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.20.5-hotfix.20210603.2
 1.20.7-hotfix.20210603
 1.20.7-hotfix.20210603.2
+1.20.8
 1.21.1-hotfix.20210603.2
 1.21.1-hotfix.20210713
 1.21.2
@@ -378,8 +382,10 @@ done
 # v1.18.19
 # v1.19.9
 # v1.19.11
+# v1.19.12
 # v1.20.5
 # v1.20.7
+# v1.20.8
 # v1.21.1
 # v1.21.2
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
@@ -396,9 +402,11 @@ KUBE_BINARY_VERSIONS="
 1.19.7-hotfix.20210310
 1.19.9-hotfix.20210505
 1.19.11
+1.19.12
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210505
 1.20.7
+1.20.8
 1.21.1
 1.21.2
 "
