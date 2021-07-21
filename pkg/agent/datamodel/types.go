@@ -114,7 +114,6 @@ const (
 	TempDisk KubeletDiskType = "Temporary"
 )
 
-
 // WorkloadRuntime describes choices for the type of workload: container or wasm-wasi, currently.
 type WorkloadRuntime string
 
@@ -1336,7 +1335,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
-	EnableRuncShimV2               bool
+	EnableRuncShimV2               bool // Deprecated
 	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig

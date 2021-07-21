@@ -84,7 +84,6 @@ write_files:
 
 
 
-
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -108,7 +107,6 @@ write_files:
     [metrics]
       address = "0.0.0.0:10257"
     #EOF
-
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
