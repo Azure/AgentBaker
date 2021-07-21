@@ -87,6 +87,53 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+# CSE+VHD can dictate the containerd version, users don't care as long as it works
+installStandaloneContainerd() {
+    CONTAINERD_VERSION=$1
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    # v1.4.1 is our lowest supported version of containerd
+    
+    #if there is no containerd_version input from RP, use hardcoded version
+    if [[ -z ${CONTAINERD_VERSION} ]]; then
+        CONTAINERD_VERSION="1.4.4"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+    fi
+
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    else
+        echo "installing containerd version ${CONTAINERD_VERSION}"
+        removeMoby
+        removeContainerd
+        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+        # if no files found then try fetching from packages.microsoft repo
+        if [ -f $VHD_LOGS_FILEPATH ]; then
+            CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+            CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+            if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+                installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+                return 0
+            fi
+        fi
+        updateAptWithMicrosoftPkg
+        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+}
+
+downloadContainerd() {
+    CONTAINERD_VERSION=$1
+    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
+    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+}
+
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"

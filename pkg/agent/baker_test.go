@@ -430,6 +430,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
 		}))
 })
 

@@ -106,6 +106,7 @@ const (
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
 	krustletSystemdService                    = "linux/cloud-init/artifacts/krustlet.service"
+	krustletFixCaScript                       = "linux/cloud-init/artifacts/krustlet-fix-ca.sh"
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
 	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"
 	dockerClearMountPropagationFlags          = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"

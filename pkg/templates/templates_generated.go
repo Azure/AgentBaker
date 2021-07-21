@@ -1772,11 +1772,15 @@ configureSwapFile
 {{- end}}
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+{{- if IsKrustlet}}
+systemctlEnableAndStart krustlet
+{{- else}}
+ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
+{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -4226,6 +4230,12 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
+- path: /etc/systemd/system/krustlet-fix-ca.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletFixCaScript"}}
 {{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
