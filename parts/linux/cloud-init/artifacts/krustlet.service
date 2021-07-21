@@ -1,6 +1,7 @@
 [Unit]
 Description=Krustlet
 ConditionPathExists=/usr/local/bin/krustlet-wasi
+ConditionPathExists=/usr/local/bin/krustlet-fix-ca.sh
 
 [Service]
 Restart=on-failure
