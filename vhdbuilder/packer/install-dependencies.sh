@@ -3,6 +3,7 @@
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -314,46 +315,8 @@ done
 # v1.21.1
 # v1.21.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-KUBE_PROXY_IMAGE_VERSIONS="
-1.17.13
-1.17.13-hotfix.20210310.2
-1.17.16
-1.17.16-hotfix.20210310.2
-1.18.8-hotfix.20200924
-1.18.8-hotfix.20201112.2
-1.18.10-hotfix.20210118
-1.18.10-hotfix.20210310.2
-1.18.14-hotfix.20210511
-1.18.14-hotfix.20210525
-1.18.17-hotfix.20210525.1
-1.18.17-hotfix.20210525.2
-1.18.19-hotfix.20210522.1
-1.18.19-hotfix.20210522.2
-1.19.1-hotfix.20200923
-1.19.1-hotfix.20200923.1
-1.19.3
-1.19.6-hotfix.20210118
-1.19.6-hotfix.20210310.1
-1.19.7-hotfix.20210511
-1.19.7-hotfix.20210525
-1.19.9-hotfix.20210526.1
-1.19.9-hotfix.20210526.2
-1.19.11-hotfix.20210526.1
-1.19.11-hotfix.20210526.2
-1.19.12
-1.20.2
-1.20.2-hotfix.20210511
-1.20.2-hotfix.20210525
-1.20.5-hotfix.20210603
-1.20.5-hotfix.20210603.2
-1.20.7-hotfix.20210603
-1.20.7-hotfix.20210603.2
-1.20.8
-1.21.1-hotfix.20210713
-1.21.1-hotfix.20210713.1
-1.21.2
-1.21.2-hotfix.20210715.1
-"
+KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"

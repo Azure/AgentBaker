@@ -2,6 +2,7 @@
 git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -219,88 +220,9 @@ testKubeProxyImagesPulled() {
   test="testKubeProxyImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  dockerKubeProxyImages='
-{
-  "ContainerImages": [
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-      "versions": [
-        "1.17.13",
-        "1.17.13-hotfix.20210310.2",
-        "1.17.16",
-        "1.17.16-hotfix.20210310.2",
-        "1.18.8-hotfix.20200924",
-        "1.18.8-hotfix.20201112.2",
-        "1.18.10-hotfix.20210118",
-        "1.18.10-hotfix.20210310.2",
-        "1.18.14-hotfix.20210511",
-        "1.18.14-hotfix.20210525",
-        "1.18.17-hotfix.20210525.1",
-        "1.18.17-hotfix.20210525.2",
-        "1.18.19-hotfix.20210522.1",
-        "1.18.19-hotfix.20210522.2",
-        "1.19.1-hotfix.20200923",
-        "1.19.1-hotfix.20200923.1",
-        "1.19.3",
-        "1.19.6-hotfix.20210118",
-        "1.19.6-hotfix.20210310.1",
-        "1.19.7-hotfix.20210511",
-        "1.19.7-hotfix.20210525",
-        "1.19.9-hotfix.20210526.1",
-        "1.19.9-hotfix.20210526.2",
-        "1.19.11-hotfix.20210526.1",
-        "1.19.11-hotfix.20210526.2",
-        "1.19.12",
-        "1.20.2-hotfix.20210511",
-        "1.20.2-hotfix.20210525",
-        "1.20.5-hotfix.20210603",
-        "1.20.5-hotfix.20210603.2",
-        "1.20.7-hotfix.20210603",
-        "1.20.7-hotfix.20210603.2",
-        "1.20.8",
-        "1.21.1-hotfix.20210713",
-        "1.21.1-hotfix.20210713.1",
-        "1.21.2",
-        "1.21.2-hotfix.20210715.1"
-      ]
-    }
-  ]
-}
-'
-containerdKubeProxyImages='
-{
-  "ContainerImages": [
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-      "versions": [
-        "1.19.1-hotfix.20200923",
-        "1.19.1-hotfix.20200923.1",
-        "1.19.3",
-        "1.19.6-hotfix.20210118",
-        "1.19.6-hotfix.20210310.1",
-        "1.19.7-hotfix.20210511",
-        "1.19.7-hotfix.20210525",
-        "1.19.9-hotfix.20210505",
-        "1.19.9-hotfix.20210526",
-        "1.19.11",
-        "1.19.12",
-        "1.19.11-hotfix.20210526",
-        "1.20.2-hotfix.20210511",
-        "1.20.2-hotfix.20210525",
-        "1.20.5-hotfix.20210505",
-        "1.20.5-hotfix.20210526",
-        "1.20.7",
-        "1.20.7-hotfix.20210526",
-        "1.20.8",
-        "1.21.1-hotfix.20210713",
-        "1.21.1-hotfix.20210713.1",
-        "1.21.2",
-        "1.21.2-hotfix.20210715.1"
-      ]
-    }
-  ]
-}
-'
+  dockerKubeProxyImages=$(jq .dockerKubeProxyImages <"$THIS_DIR/kube-proxy-images.json")
+  containerdKubeProxyImages=$(jq .containerdKubeProxyImages <"$THIS_DIR/kube-proxy-images.json")
+
   if [ $containerRuntime == 'containerd' ]; then
     testImagesPulled containerd "$containerdKubeProxyImages"
   elif [ $containerRuntime == 'docker' ]; then
