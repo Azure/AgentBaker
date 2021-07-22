@@ -4845,7 +4845,7 @@ state = "C:\\ProgramData\\containerd\\state"
   level = "info"
 
 [metrics]
-  address = ""
+  address = "0.0.0.0:10257"
   grpc_histogram = false
 
 [cgroup]
