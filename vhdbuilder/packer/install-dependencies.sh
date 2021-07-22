@@ -349,9 +349,10 @@ KUBE_PROXY_IMAGE_VERSIONS="
 1.20.7-hotfix.20210603
 1.20.7-hotfix.20210603.2
 1.20.8
-1.21.1-hotfix.20210603.2
 1.21.1-hotfix.20210713
+1.21.1-hotfix.20210713.1
 1.21.2
+1.21.2-hotfix.20210715.1
 "
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
