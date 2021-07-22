@@ -2,6 +2,7 @@
 git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
