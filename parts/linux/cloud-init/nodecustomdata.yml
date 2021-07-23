@@ -110,7 +110,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
-- path: /etc/systemd/system/krustlet-fix-ca.sh
+- path: /opt/azure/containers/krustlet-fix-ca.sh
   permissions: "0544"
   encoding: gzip
   owner: root

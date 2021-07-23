@@ -2476,8 +2476,6 @@ func linuxCloudInitArtifactsKrustletFixCaSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsKrustletService = []byte(`[Unit]
 Description=Krustlet
-ConditionPathExists=/usr/local/bin/krustlet-wasi
-ConditionPathExists=/usr/local/bin/krustlet-fix-ca.sh
 
 [Service]
 Restart=on-failure
@@ -4230,7 +4228,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
-- path: /etc/systemd/system/krustlet-fix-ca.sh
+- path: /opt/azure/containers/krustlet-fix-ca.sh
   permissions: "0544"
   encoding: gzip
   owner: root

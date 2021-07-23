@@ -63,8 +63,8 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/5SSX6vaQBDF3/Mp+gEa96mP++CfvZegVEliSxEJm3W8Dq6zMjNJvf30RdFiSyjt0y6Hc34s5+xmTajbbAYSGM+KieycO9EImk0T7fAqrbwe3AVFxZpO2MQUfDQtkjnevfl3L/hfgT1e8uBHcsiyTQXcY4BtVoKoZ7WJ8r3H2DE8pAqC/SSZox450QlI7Xw9cdPl55fi1Zres4nYmmPXQgS9nSHRHt9+j5Trql64upm6sm5eioWzBjTc7EygICYAqzw4AtwDjwLrMGZVFl/GtWvm7tu/047wPkybjetxMyvKO+Uxw7P3am0Wy1d77bs5c+pxB2yR9unjySPdbsP0yXJZV3U5Xt1f+mdlbUoqyv6cP5d3gVBd+18x2NuArZfDB5POavyPjsGEROqRgGVo21/5v3+cbFOQqI9xm331pLCbvNtTFxXzToBH6vkN9GcAAAD//24tMCCrAgAA
-- path: /etc/systemd/system/krustlet-fix-ca.sh
+    H4sIAAAAAAAA/4yQwY7aMBBA7/6KfkCDTz36ECCgCNSgJLSqEIocM4ERxo7GkxT261dEwLIrDnuyZb15Gr/N2iFvxRSCIWwZvVML6gJbYCE2BVCPBrYih8CaWHkXNRptR3B/KsCoX0Ekrkfy7gSO1WI9TibZ71k6V7LXJC3W8tjVYIGH03jX4P7zSL4uymVSVpMkL6tZukyUBDYDTg4YgjRAHO6eANQDjQzxa80qT//EZVItkn/ftx3h8to2jcu4mqb5zXLv88xe0WqZzdV/HbBqyfe4A1LoGv/zpNENt9f2cZaVRZnHq9umX5PV3nNg0m30HO8Mprj2XxEoWaOTtQ6HH9K3LPVbRyCNd6zRAYXHxlGD58joUTh8zCvZBZLWG20HzYO9fkSITeoCa2u34q92DLvxRZ06yxh1AWjEmvbA7wEAAP//wHahN0QCAAA=
+- path: /opt/azure/containers/krustlet-fix-ca.sh
   permissions: "0544"
   encoding: gzip
   owner: root
