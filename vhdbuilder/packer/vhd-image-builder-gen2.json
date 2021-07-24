@@ -119,6 +119,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/kube-proxy-components.json",
+      "destination": "/home/packer/kube-proxy-components.json"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
     },
