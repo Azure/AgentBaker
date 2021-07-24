@@ -119,8 +119,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/kube-proxy-components.json",
-      "destination": "/home/packer/kube-proxy-components.json"
+      "source": "vhdbuilder/packer/kube-proxy-images.json",
+      "destination": "/home/packer/kube-proxy-images.json"
     },
     {
       "type": "file",
