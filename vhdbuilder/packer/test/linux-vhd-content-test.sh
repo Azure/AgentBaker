@@ -2,6 +2,7 @@
 git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
+KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 testFilesDownloaded() {
@@ -220,8 +221,8 @@ testKubeProxyImagesPulled() {
   test="testKubeProxyImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  dockerKubeProxyImages=$(jq .dockerKubeProxyImages <"$THIS_DIR/kube-proxy-images.json")
-  containerdKubeProxyImages=$(jq .containerdKubeProxyImages <"$THIS_DIR/kube-proxy-images.json")
+  dockerKubeProxyImages=$(jq .dockerKubeProxyImages < ${KUBE_PROXY_IMAGES_FILEPATH})
+  containerdKubeProxyImages=$(jq .containerdKubeProxyImages < ${KUBE_PROXY_IMAGES_FILEPATH})
 
   if [ $containerRuntime == 'containerd' ]; then
     testImagesPulled containerd "$containerdKubeProxyImages"
