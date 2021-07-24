@@ -22,7 +22,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
-cat kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
+cat ${THIS_DIR}/test/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
