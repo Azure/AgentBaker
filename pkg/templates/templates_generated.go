@@ -1881,11 +1881,11 @@ var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
-START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
+KUBELET_START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
-EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
+EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
@@ -1896,7 +1896,8 @@ JSON_STRING=$( jq -n \
                   --arg cse "$CSE_STARTTIME" \
                   --arg ga "$GUEST_AGENT_STARTTIME" \
                   --arg ss "$SYSTEMD_SUMMARY" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss}' )
+                  --arg kubelet "$KUBELET_START_TIME" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, Data: { KubeletStartTime: $kubelet }}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 
