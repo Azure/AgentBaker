@@ -259,7 +259,7 @@ function Install-GmsaPlugin {
     Write-Log "Getting the GMSA plugin package"
     DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile
     Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
-    if($LASTEXITCODE) {
+    if ($LASTEXITCODE) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
     }
     Remove-Item -Path $tempPluginZipFile -Force
@@ -273,19 +273,27 @@ function Install-GmsaPlugin {
     # Enable the logging manifest.
     Write-Log "Importing the CCGEvents manifest file"
     wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
-    if($LASTEXITCODE) {
+    if ($LASTEXITCODE) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file."
     }
 
     # Enable the PowerShell privilege to set the registry permissions.
     Write-Log "Enabling the PowerShell privilege"
-    $enablePrivilegeResponse = Retry-Command -Command "Enable-Privilege" -Args @{Privilege="SeTakeOwnershipPrivilege"} -Retries 5 -RetryDelaySeconds 5
+    $enablePrivilegeResponse=$false
+    for($i = 0; $i -lt 10; $i++) {
+        Write-Log "Retry $i : Trying to enable the PowerShell privilege"
+        $enablePrivilegeResponse = Enable-Privilege -Privilege "SeTakeOwnershipPrivilege"
+        if ($enablePrivilegeResponse) {
+            break
+        }
+        Start-Sleep 1
+    }
     if(!$enablePrivilegeResponse) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE -ErrorMessage "Failed to enable the PowerShell privilege."
     }
 
     # Set the registry permissions.
-    Write-Log "Setting the registry permissions"
+    Write-Log "Setting GMSA plugin registry permissions"
     try {
         $ccgKeyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
         $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
@@ -310,111 +318,19 @@ function Install-GmsaPlugin {
         $acl.SetAccessRule($rule)
         $key.SetAccessControl($acl)
     } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set the registry permissions."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
   
     # Set the appropriate registry values.
-    # Ignore errors, because it fails even though the registry changes are applied.
-    # We will validate everything below anyway.
     try {
         Write-Log "Setting the appropriate GMSA plugin registry values"
         reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
-        Write-Log "Setted GMSA plugin registry values successfully"
     } catch {
-        Write-Log "Error: $_"
-        $LASTEXITCODE = $null
-        Write-Log "Failed to set GMSA plugin registry values"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
     }
 
     Write-Log "Removing $tempInstallPackageFoler"
     Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
-
-    # Validate that we have the proper registry values
-    $tests = @(
-        @{
-            "Path" = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}"
-            "Validate" = {
-                $default = $_.'(default)'
-                $expected = "ICcgDomainAuthCredentials"
-                if($default -ne $expected) {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ICCG_DOMAIN_AUTH_CREDENTIALS -ErrorMessage "Default value at '$($_.PSPath)' is '$default', expected '$expected'."
-                }
-            }
-        },
-        @{
-            "Path" = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}\ProxyStubClsid32"
-            "Validate" = {
-                $default = $_.'(default)'
-                $expected = "{A6FF50C0-56C0-71CA-5732-BED303A59628}"
-                if($default -ne $expected) {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_PROXY_STUB_CLSID32 -ErrorMessage "Default value at '$($_.PSPath)' is '$default', expected '$expected'."
-                }
-            }
-        }
-        @{
-            "Path" = "HKLM:\Software\CLASSES\Appid\{557110E1-88BC-4583-8281-6AAC6F708584}"
-            "Validate" = {
-                $expected = @{
-                    "access" = [Byte[]] 1, 0, 4, 128, 68, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 2, 0, 48, 0, 2, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 11, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0
-                    "launch" = [Byte[]] 1, 0, 4, 128, 68, 0, 0, 0, 84, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 2, 0, 48, 0, 2, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0, 0, 0, 20, 0, 11, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 5, 11, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0, 1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0
-                }
-                $diff = Compare-Object $_.AccessPermission $expected["access"]
-                if($diff) {
-                    Write-Log $diff
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ACCESS_PERMISSION -ErrorMessage "The 'AccessPermission' at '$($_.PSPath)' is not the expected one."
-                }
-                $diff = Compare-Object $_.LaunchPermission $expected["launch"]
-                if($diff) {
-                    Write-Log $diff
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_LAUNCH_PERMISSION -ErrorMessage "The 'LaunchPermission' at '$($_.PSPath)' is not the expected one."
-                }
-                if($_.DllSurrogate -ne "") {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_DLLSURROGATE -ErrorMessage "Expected 'DDllSurrogate' at '$($_.PSPath)' to be empty value."
-                }
-            }
-        }
-        @{
-            "Path" = "HKLM:\SOFTWARE\CLASSES\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}"
-            "Validate" = {
-                $actual = $_.AppID
-                $expected = "{557110E1-88BC-4583-8281-6AAC6F708584}"
-                if($actual -ne $expected) {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_APPID -ErrorMessage "The 'AppID' at '$($_.PSPath) is '$actual'. Expected '$expected'."
-                }
-            }
-        }
-        @{
-            "Path" = "HKLM:\SOFTWARE\CLASSES\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}\InprocServer32"
-            "Validate" = {
-                $default = $_.'(default)'
-                $expected = "C:\Windows\System32\CCGAKVPlugin.dll"
-                if($default -ne $expected) {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_INPROCSERVER32 -ErrorMessage "Default value at '$($_.PSPath)' is '$default', expected '$expected'."
-                }
-                $threadingModel = $_.ThreadingModel
-                $expected = "Both"
-                if($threadingModel -ne $expected) {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_THREADING_MODEL -ErrorMessage "The 'ThreadingModel' at '$($_.PSPath)' is '$threadingModel', expected '$expected'."
-                }
-            }
-        }
-        @{
-            "Path" = "HKLM:\SYSTEM\CurrentControlSet\Control\CCG\COMClasses\{CCC2A336-D7F3-4818-A213-272B7924213E}"
-            "Validate" = {
-                $default = $_.'(default)'
-                if($default -ne "") {
-                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_CCG_COMCLASSES -ErrorMessage "The default value at '$($_.PSPath)' is not empty value."
-                }
-            }
-        }
-    )
-
-    Write-Log "Validating the GMSA plugin registry changes"
-    foreach($t in $tests) {
-        $item = Get-ItemProperty $t["Path"]
-        Write-Log "Validating $($t["Path"])"
-        $item | ForEach-Object $t["Validate"]
-    }
 
     Write-Log "Successfully installed the GMSA plugin"
 }

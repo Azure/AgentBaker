@@ -6832,7 +6832,7 @@ function Install-GmsaPlugin {
     Write-Log "Getting the GMSA plugin package"
     DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile
     Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
-    if($LASTEXITCODE) {
+    if ($LASTEXITCODE) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
     }
     Remove-Item -Path $tempPluginZipFile -Force
@@ -6846,19 +6846,27 @@ function Install-GmsaPlugin {
     # Enable the logging manifest.
     Write-Log "Importing the CCGEvents manifest file"
     wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
-    if($LASTEXITCODE) {
+    if ($LASTEXITCODE) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file."
     }
 
     # Enable the PowerShell privilege to set the registry permissions.
     Write-Log "Enabling the PowerShell privilege"
-    $enablePrivilegeResponse = Retry-Command -Command "Enable-Privilege" -Args @{Privilege="SeTakeOwnershipPrivilege"} -Retries 5 -RetryDelaySeconds 5
+    $enablePrivilegeResponse=$false
+    for($i = 0; $i -lt 10; $i++) {
+        Write-Log "Retry $i : Trying to enable the PowerShell privilege"
+        $enablePrivilegeResponse = Enable-Privilege -Privilege "SeTakeOwnershipPrivilege"
+        if ($enablePrivilegeResponse) {
+            break
+        }
+        Start-Sleep 1
+    }
     if(!$enablePrivilegeResponse) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE -ErrorMessage "Failed to enable the PowerShell privilege."
     }
 
     # Set the registry permissions.
-    Write-Log "Setting the registry permissions"
+    Write-Log "Setting GMSA plugin registry permissions"
     try {
         $ccgKeyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
         $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
@@ -6883,20 +6891,15 @@ function Install-GmsaPlugin {
         $acl.SetAccessRule($rule)
         $key.SetAccessControl($acl)
     } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set the registry permissions."
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
   
     # Set the appropriate registry values.
-    # Ignore errors, because it fails even though the registry changes are applied.
-    # We will validate everything below anyway.
     try {
         Write-Log "Setting the appropriate GMSA plugin registry values"
         reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
-        Write-Log "Setted GMSA plugin registry values successfully"
     } catch {
-        Write-Log "Error: $_"
-        $LASTEXITCODE = $null
-        Write-Log "Failed to set GMSA plugin registry values"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
     }
 
     Write-Log "Removing $tempInstallPackageFoler"
@@ -7221,17 +7224,9 @@ $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21
 $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS=22
 $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=24
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ICCG_DOMAIN_AUTH_CREDENTIALS=25
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_PROXY_STUB_CLSID32=26
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_ACCESS_PERMISSION=27
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_LAUNCH_PERMISSION=28
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_DLLSURROGATE=29
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_APPID=30
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_INPROCSERVER32=31
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_THREADING_MODEL=32
-$global:WINDOWS_CSE_ERROR_GMSA_REGISTRY_CCG_COMCLASSES=33
-$global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=34
-$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=35
+$global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=25
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=26
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=27
 `)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
