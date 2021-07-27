@@ -114,7 +114,6 @@ const (
 	TempDisk KubeletDiskType = "Temporary"
 )
 
-
 // WorkloadRuntime describes choices for the type of workload: container or wasm-wasi, currently.
 type WorkloadRuntime string
 
@@ -1749,6 +1748,8 @@ type CSEStatus struct {
 	CSEStartTime string `json:"cseStartTime,omitempty"`
 	// GuestAgentStartTime indicate starttime of GuestAgent, output from systemctl show walinuxagent.service -p ExecMainStartTimestamp
 	GuestAgentStartTime string `json:"guestAgentStartTime,omitempty"`
+	// Data contains key-value pairs passed out from CSE.
+	Data map[string]string `json:"data,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string
