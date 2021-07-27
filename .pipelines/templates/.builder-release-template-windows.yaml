@@ -136,3 +136,8 @@ steps:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'publishing-info-${{ parameters.artifactName }}'
+        targetPath: 'vhd-publishing-info.json'
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
