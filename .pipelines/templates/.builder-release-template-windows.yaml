@@ -9,6 +9,9 @@ steps:
       SIG_IMAGE_NAME="windows-2019-containerd" && \
       if [[ $(CONTAINER_RUNTIME) == "docker" ]]; then SIG_IMAGE_NAME="windows-2019"; fi && \
       SIG_IMAGE_VERSION=$(date +"%Y%m%d.%H%M") && \
+      echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
+      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
+      echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]$SIG_IMAGE_VERSION"
       echo "set SIG_IMAGE_VERSION to $SIG_IMAGE_VERSION"
     condition: eq(variables.RUN_AKS_E2E, 'True')
     displayName: Set SIG image for AKS E2E
