@@ -1,0 +1,48 @@
+# template to trigger aks e2e tests
+
+parameters:
+  - name: aksE2ESourceBranch
+    type: string
+    default: 'master'
+
+steps:
+  - task: TriggerBuild@3
+    inputs:
+      definitionIsInCurrentTeamProject: false
+      # tfsServer: ${E2E_PIPELINE_TFS_SERVER}
+      tfsServer: 'https://dev.azure.com/msazure'
+      teamProject: 'CloudNativeCompute'
+      # buildDefinition: ${E2E_PIPELINE_ID}
+      buildDefinition: '187941'
+      queueBuildForUserThatTriggeredBuild: false
+      ignoreSslCertificateErrors: false
+      useSameSourceVersion: false
+      useCustomSourceVersion: false
+      useSameBranch: false
+      branchToUse: "${{parameters.aksE2ESourceBranch}}"
+      waitForQueuedBuildsToFinish: true
+      waitForQueuedBuildsToFinishRefreshTime: '60'
+      failTaskIfBuildsNotSuccessful: true
+      cancelBuildsIfAnyFails: false
+      treatPartiallySucceededBuildAsSuccessful: false
+      downloadBuildArtifacts: false
+      storeInEnvironmentVariable: true
+      buildParameters: 'VSTS_OS_IMAGE_SUBSCRIPTION_ID:${BUILD_SUBSCRIPTION_ID},VSTS_OS_IMAGE_RESOURCE_GROUP:${BUILD_AZURE_RESOURCE_GROUP_NAME},VSTS_OS_IMAGE_GALLERY:${SIG_GALLERY_NAME},VSTS_OS_IMAGE_NAME:${SIG_IMAGE_NAME},VSTS_OS_IMAGE_VERSION:${SIG_IMAGE_VERSION},VSTS_TEST_STAGES:e2ev2_windowsvhd_containerd'
+      authenticationMethod: 'Personal Access Token'
+      password: '$(akse2etestsecret)'
+      enableBuildInQueueCondition: false
+      dependentOnSuccessfulBuildCondition: false
+      dependentOnFailedBuildCondition: false
+      checkbuildsoncurrentbranch: false
+      failTaskIfConditionsAreNotFulfilled: false
+    displayName: Trigger AKS e2e tests
+    condition: and(succeeded(), eq(variables['RUN_AKS_E2E'], 'True'), eq(variables['MODE'], 'sigMode'))
+
+  - task: PowerShell@2
+    inputs:
+      targetType: 'inline'
+      script: |
+            Write-Output "Fetching variable TriggeredBuildIds:"
+            Write-Output "$($env:TriggeredBuildIds)"
+    displayName: Post AKS tests
+    condition: and(eq(variables['RUN_AKS_E2E'], 'True'), eq(variables['MODE'], 'sigMode'))

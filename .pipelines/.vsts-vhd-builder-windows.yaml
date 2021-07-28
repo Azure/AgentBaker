@@ -35,6 +35,7 @@ phases:
       - template: ./templates/.builder-release-template-windows.yaml
         parameters:
           artifactName: 2019
+      - template: ./templates/.builder-aks-e2e-tests-windows.yaml
 
   - phase: build_vhd_2019_containerd
     condition: eq('${{ parameters.build2019containerd }}', true)
@@ -52,3 +53,4 @@ phases:
       - template: ./templates/.builder-release-template-windows.yaml
         parameters:
           artifactName: 2019-containerd
+      - template: ./templates/.builder-aks-e2e-tests-windows.yaml
