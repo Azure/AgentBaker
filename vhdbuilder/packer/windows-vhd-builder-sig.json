@@ -15,6 +15,7 @@
         "vm_size": "{{env `AZURE_VM_SIZE`}}",
         "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
+        "windows_image_url": "{{env `WINDOWS_IMAGE_URL`}}",
         "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
         "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
         "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
