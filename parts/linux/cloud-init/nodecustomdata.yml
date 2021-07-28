@@ -110,12 +110,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
-- path: /opt/azure/containers/krustlet-fix-ca.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "krustletFixCaScript"}}
 {{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
@@ -614,6 +608,7 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
+        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap

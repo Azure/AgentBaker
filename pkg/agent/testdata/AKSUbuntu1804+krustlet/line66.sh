@@ -10,7 +10,6 @@ Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
 Environment=KRUSTLET_DATA_DIR=/etc/krustlet
 Environment=RUST_LOG=wasi_provider=info,main=info
 Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-ExecStartPre=/bin/bash /opt/azure/containers/krustlet-fix-ca.sh
 ExecStart=/usr/local/bin/krustlet-wasi
 
 [Install]
