@@ -5,10 +5,10 @@ parameters:
 
 steps:
   - bash: |
-      SIG_GALLERY_NAME=AKSWindowsVHDE2E && \
-      SIG_IMAGE_NAME="windows-2019-containerd" && \
-      if [[ $(CONTAINER_RUNTIME) == "docker" ]]; then SIG_IMAGE_NAME="windows-2019"; fi && \
-      SIG_IMAGE_VERSION=$(date +"%Y%m%d.%H%M.%S") && \
+      SIG_GALLERY_NAME=${SIG_GALLERY_NAME:="AKSWindowsVHDE2E"} && \
+      SIG_IMAGE_NAME=${SIG_IMAGE_NAME:="windows-2019-containerd"} && \
+      if [[ $(CONTAINER_RUNTIME) == "docker" ]]; then SIG_IMAGE_NAME=${SIG_IMAGE_NAME:="windows-2019"}; else SIG_IMAGE_NAME=${SIG_IMAGE_NAME:="windows-2019-containerd"} fi && \
+      SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION:="$(date +"%Y%m%d.%H%M.%S")"} && \
       echo "set SIG_GALLERY_NAME to $SIG_GALLERY_NAME" && \
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME" && \
       echo "set SIG_IMAGE_NAME to $SIG_IMAGE_NAME" && \

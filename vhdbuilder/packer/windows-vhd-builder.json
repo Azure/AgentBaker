@@ -12,11 +12,7 @@
         "tenant_id": "{{env `AZURE_TENANT_ID`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
         "location": "{{env `AZURE_LOCATION`}}",
-        "vm_size": "{{env `AZURE_VM_SIZE`}}",
-        "windows_image_publisher": "{{env `WINDOWS_IMAGE_PUBLISHER`}}",
-        "windows_image_offer": "{{env `WINDOWS_IMAGE_OFFER`}}",
-        "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
-        "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}"
+        "vm_size": "{{env `AZURE_VM_SIZE`}}"
     },
     "builders": [
         {
