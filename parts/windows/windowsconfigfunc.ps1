@@ -184,10 +184,10 @@ function Enable-FIPSMode
 {
     Param(
         [Parameter(Mandatory = $true)][bool]
-        $fipsEnabled
+        $FipsEnabled
     )
 
-    if ( $fipsEnabled ) {
+    if ( $FipsEnabled ) {
         Write-Log "Set the registry to enable fips-mode"
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
     }
@@ -195,4 +195,142 @@ function Enable-FIPSMode
     {
         Write-Log "Leave FipsAlgorithmPolicy as it is."
     }
+}
+
+function Enable-Privilege {
+    param($Privilege)
+    $Definition = @'
+  using System;
+  using System.Runtime.InteropServices;
+  public class AdjPriv {
+    [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+    internal static extern bool AdjustTokenPrivileges(IntPtr htok, bool disall,
+      ref TokPriv1Luid newst, int len, IntPtr prev, IntPtr rele);
+    [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+    internal static extern bool OpenProcessToken(IntPtr h, int acc, ref IntPtr phtok);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    internal static extern bool LookupPrivilegeValue(string host, string name,
+      ref long pluid);
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    internal struct TokPriv1Luid {
+      public int Count;
+      public long Luid;
+      public int Attr;
+    }
+    internal const int SE_PRIVILEGE_ENABLED = 0x00000002;
+    internal const int TOKEN_QUERY = 0x00000008;
+    internal const int TOKEN_ADJUST_PRIVILEGES = 0x00000020;
+    public static bool EnablePrivilege(long processHandle, string privilege) {
+      bool retVal;
+      TokPriv1Luid tp;
+      IntPtr hproc = new IntPtr(processHandle);
+      IntPtr htok = IntPtr.Zero;
+      retVal = OpenProcessToken(hproc, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+        ref htok);
+      tp.Count = 1;
+      tp.Luid = 0;
+      tp.Attr = SE_PRIVILEGE_ENABLED;
+      retVal = LookupPrivilegeValue(null, privilege, ref tp.Luid);
+      retVal = AdjustTokenPrivileges(htok, false, ref tp, 0, IntPtr.Zero,
+        IntPtr.Zero);
+      return retVal;
+    }
+  }
+'@
+    $ProcessHandle = (Get-Process -id $pid).Handle
+    $type = Add-Type $definition -PassThru
+    $type[0]::EnablePrivilege($processHandle, $Privilege)
+}
+
+function Install-GmsaPlugin {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $GmsaPackageUrl
+    )
+
+    if ( $GmsaPackageUrl -eq "" ) {
+        Write-Log "GmsaPackageUrl is not set so skip installing GMSA plugin."
+        return
+    }
+
+    $tempInstallPackageFoler = $env:TEMP
+    $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
+
+    Write-Log "Getting the GMSA plugin package"
+    DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile
+    Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
+    }
+    Remove-Item -Path $tempPluginZipFile -Force
+
+    $tempInstallPackageFoler = [Io.path]::Combine($tempInstallPackageFoler, "CCGPlugin")
+
+    # Copy the plugin DLL file.
+    Write-Log "Installing the GMSA plugin"
+    Copy-Item -Force -Path "$tempInstallPackageFoler\CCGAKVPlugin.dll" -Destination "${env:SystemRoot}\System32\"
+
+    # Enable the logging manifest.
+    Write-Log "Importing the CCGEvents manifest file"
+    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file."
+    }
+
+    # Enable the PowerShell privilege to set the registry permissions.
+    Write-Log "Enabling the PowerShell privilege"
+    $enablePrivilegeResponse=$false
+    for($i = 0; $i -lt 10; $i++) {
+        Write-Log "Retry $i : Trying to enable the PowerShell privilege"
+        $enablePrivilegeResponse = Enable-Privilege -Privilege "SeTakeOwnershipPrivilege"
+        if ($enablePrivilegeResponse) {
+            break
+        }
+        Start-Sleep 1
+    }
+    if(!$enablePrivilegeResponse) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE -ErrorMessage "Failed to enable the PowerShell privilege."
+    }
+
+    # Set the registry permissions.
+    Write-Log "Setting GMSA plugin registry permissions"
+    try {
+        $ccgKeyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
+        $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
+
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $ccgKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::TakeOwnership)
+        $acl = $key.GetAccessControl()
+        $acl.SetOwner($owner)
+        $key.SetAccessControl($acl)
+        
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $ccgKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::ChangePermissions)
+        $acl = $key.GetAccessControl()
+        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+            $owner,
+            [System.Security.AccessControl.RegistryRights]::FullControl,
+            [System.Security.AccessControl.AccessControlType]::Allow)
+        $acl.SetAccessRule($rule)
+        $key.SetAccessControl($acl)
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
+    }
+  
+    # Set the appropriate registry values.
+    try {
+        Write-Log "Setting the appropriate GMSA plugin registry values"
+        reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
+    }
+
+    Write-Log "Removing $tempInstallPackageFoler"
+    Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
+
+    Write-Log "Successfully installed the GMSA plugin"
 }
