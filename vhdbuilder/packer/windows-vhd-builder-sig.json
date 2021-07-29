@@ -31,6 +31,8 @@
             "image_offer": "{{user `windows_image_offer`}}",
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
+            "managed_image_resource_group_name": "{{user `resource_group_name`}}",
+            "managed_image_name": "{{user `sig_image_name`}}",
             "custom_managed_image_name": "{{user `imported_image_name`}}",
             "custom_managed_image_resource_group_name": "{{user `resource_group_name`}}",
             "shared_image_gallery_destination": {
