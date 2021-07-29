@@ -165,11 +165,17 @@ fi
 
 # windows image sku and windows image version are recorded in code instead of pipeline variables
 # because a pr gives a better chance to take a review of the version changes.
+# Windows VHD can be built from a base image from either a custom VHD or
+# image_publisher, image_offer, image_sku and image_version combination
+WINDOWS_IMAGE_PUBLISHER=""
+WINDOWS_IMAGE_OFFER=""
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
 # shellcheck disable=SC2236
-if [ ! -z "${WINDOWS_SKU}" ]; then
+if [[ ! -z "${WINDOWS_SKU}" && -z "${WINDOWS_IMAGE_URL}" ]]; then
 	source $CDIR/windows-image.env
+	WINDOWS_IMAGE_PUBLISHER=$WINDOWS_2019_BASE_IMAGE_PUBLISHER
+	WINDOWS_IMAGE_OFFER=$WindowsServer
 	case "${WINDOWS_SKU}" in
 	"2019"|"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
@@ -193,6 +199,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
+  "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
+  "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
