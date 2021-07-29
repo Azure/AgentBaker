@@ -165,10 +165,11 @@ fi
 
 # Windows VHD can be built from a base image from either a custom managed image or
 # image_publisher, image_offer, image_sku and image_version combination
-if [[ -n "${WINDOWS_IMAGE_URL}" ]]; then
-	echo "echo $WINDOWS_IMAGE_URL is not empty, will use customized managed as the base image"
-	RAW_IMAGE_URL=$WINDOWS_IMAGE_URL
-	. ./${CDIR}/raw-image-to-sig.sh
+echo "${RAW_WINDOWS_IMAGE_BLOB_URL}"
+if [[ -n "${RAW_WINDOWS_IMAGE_BLOB_URL}" ]]; then
+	echo "echo $RAW_WINDOWS_IMAGE_BLOB_URL is not empty, will use customized managed as the base image"
+	RAW_IMAGE_BLOB_URL=$RAW_WINDOWS_IMAGE_BLOB_URL
+	. ./${CDIR}/vhd-to-managed-image.sh
 elif [[ -n "${WINDOWS_SKU}" ]]; then
 	# windows image sku and windows image version are recorded in code instead of pipeline variables
 	# because a pr gives a better chance to take a review of the version changes.
