@@ -173,6 +173,9 @@ $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 
+# GMSA
+$global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
+
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
@@ -199,6 +202,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
 
 try
 {
@@ -486,11 +490,24 @@ try
 
         Write-Log "Update service failure actions"
         Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
-
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
         Update-DefenderPreferences
+
+        if ($windowsSecureTlsEnabled) {
+            Write-Host "Enable secure TLS protocols"
+            try {
+                . C:\k\windowssecuretls.ps1
+                Enable-SecureTls
+            }
+            catch {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+            }
+        }
+
+        Enable-FIPSMode -FipsEnabled $fipsEnabled
+        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
 
         Check-APIServerConnectivity -MasterIP $MasterIP
 
@@ -516,9 +533,6 @@ try
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
             Remove-Item $kubeConfigFile
         }
-
-        # Enable FIPS-mode
-        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"

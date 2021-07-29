@@ -3,6 +3,7 @@
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -18,8 +19,10 @@ source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
+cat ${THIS_DIR}/test/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
@@ -86,12 +89,12 @@ fi
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.4"
+  containerd_version="1.4.8"
   installStandaloneContainerd ${containerd_version}
   echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # also pre-cache containerd 1.5 for ACC as a local .deb file for Ubuntu OS SKUs
-    containerd_version="1.5.0-beta.git31a0f92df"
+    # also pre-cache containerd 1.4.4 (last used version)
+    containerd_version="1.4.4"
     downloadContainerd ${containerd_version}
     echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   fi
@@ -179,6 +182,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
+1.4.7
 1.4.0
 1.2.7
 "
@@ -190,6 +194,7 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
+1.4.7
 1.4.0
 1.2.7
 "
@@ -307,46 +312,15 @@ done
 # v1.18.19
 # v1.19.9
 # v1.19.11
+# v1.19.12
 # v1.20.5
 # v1.20.7
+# v1.20.8
 # v1.21.1
+# v1.21.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-KUBE_PROXY_IMAGE_VERSIONS="
-1.17.13
-1.17.13-hotfix.20210310.2
-1.17.16
-1.17.16-hotfix.20210310.2
-1.18.8-hotfix.20200924
-1.18.8-hotfix.20201112.2
-1.18.10-hotfix.20210118
-1.18.10-hotfix.20210310.2
-1.18.14-hotfix.20210511
-1.18.14-hotfix.20210525
-1.18.17-hotfix.20210525
-1.18.17-hotfix.20210525.1
-1.18.19-hotfix.20210522
-1.18.19-hotfix.20210522.1
-1.19.1-hotfix.20200923
-1.19.1-hotfix.20200923.1
-1.19.3
-1.19.6-hotfix.20210118
-1.19.6-hotfix.20210310.1
-1.19.7-hotfix.20210511
-1.19.7-hotfix.20210525
-1.19.9-hotfix.20210526
-1.19.9-hotfix.20210526.1
-1.19.11-hotfix.20210526
-1.19.11-hotfix.20210526.1
-1.20.2
-1.20.2-hotfix.20210511
-1.20.2-hotfix.20210525
-1.20.5-hotfix.20210526
-1.20.5-hotfix.20210603
-1.20.7-hotfix.20210526
-1.20.7-hotfix.20210603
-1.21.1-hotfix.20210526
-1.21.1-hotfix.20210603
-"
+KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
@@ -376,14 +350,15 @@ done
 # v1.18.19
 # v1.19.9
 # v1.19.11
+# v1.19.12
 # v1.20.5
 # v1.20.7
+# v1.20.8
 # v1.21.1
+# v1.21.2
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.17.13
-1.17.16
 1.18.8-hotfix.20200924
 1.18.10-hotfix.20210118
 1.18.14-hotfix.20210322
@@ -395,10 +370,13 @@ KUBE_BINARY_VERSIONS="
 1.19.7-hotfix.20210310
 1.19.9-hotfix.20210505
 1.19.11
+1.19.12
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210505
 1.20.7
+1.20.8
 1.21.1
+1.21.2
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -415,6 +393,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
+
+echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}

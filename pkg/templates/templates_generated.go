@@ -6,7 +6,6 @@
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
-// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -30,6 +29,8 @@
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mig-partition.service
+// linux/cloud-init/artifacts/mig-partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -366,29 +367,6 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsContainerdService = []byte(`[Unit]
-Description=containerd daemon
-[Service]
-ExecStart=/usr/bin/containerd
-[Install]
-WantedBy=multi-user.target
-#EOF`)
-
-func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsContainerdService, nil
-}
-
-func linuxCloudInitArtifactsContainerdService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
@@ -455,6 +433,7 @@ API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
+MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -852,6 +831,10 @@ ensureUpdateNodeLabels() {
     systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureMigPartition(){
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1136,6 +1119,8 @@ ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem 
 ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+
+ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1468,9 +1453,44 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
+extractHyperkube() {
+    CLI_TOOL=$1
+    path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
+    pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
+    mkdir -p "$path"
+    if [[ "$CLI_TOOL" == "ctr" ]]; then
+        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
+            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
+            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
+        else
+            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
+        fi
+
+    else
+        if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
+            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
+            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
+        else
+            docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
+        fi
+    fi
+
+    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
+    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
+}
+
 installKubeletKubectlAndKubeProxy() {
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
+        #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+        if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+            extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
+        else
+            if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
+                extractHyperkube "ctr"
+            else
+                extractHyperkube "docker"
+            fi
+        fi
     fi
 
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
@@ -1709,7 +1729,9 @@ echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
+set +x
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+set -x
 {{end}}
 
 installKubeletKubectlAndKubeProxy
@@ -1810,6 +1832,12 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    ensureMigPartition
+fi
+
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -1848,13 +1876,15 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
+/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
 START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
-KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g")
-SYSTEMD_SUMMARY=$(systemd-analyze)
+KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+SYSTEMD_SUMMARY=$(systemd-analyze || true)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
 
 JSON_STRING=$( jq -n \
@@ -1863,8 +1893,10 @@ JSON_STRING=$( jq -n \
                   --arg er "" \
                   --arg ed "$EXECUTION_DURATION" \
                   --arg ks "$KERNEL_STARTTIME" \
+                  --arg cse "$CSE_STARTTIME" \
+                  --arg ga "$GUEST_AGENT_STARTTIME" \
                   --arg ss "$SYSTEMD_SUMMARY" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, SystemdSummary: $ss}' )
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 
@@ -2674,6 +2706,75 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
+Description=Apply MIG configuration on Nvidia A100 GPU
+
+[Service]
+Restart=on-failure
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionService, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
+
+#NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
+#TODO: Use mig-parted library to do the partition after the above issue is fixed 
+MIG_PROFILE=${1}
+case ${MIG_PROFILE} in 
+    "MIG1g")
+        nvidia-smi mig -cgi 19,19,19,19,19,19,19
+        ;;
+    "MIG2g")
+        nvidia-smi mig -cgi 14,14,14
+        ;;
+    "MIG3g")
+        nvidia-smi mig -cgi 9,9
+        ;;
+    "MIG4g")
+        nvidia-smi mig -cgi 5
+        ;;
+    "MIG7g")
+        nvidia-smi mig -cgi 0
+        ;;  
+    *)
+        echo "not a valid GPU instance profile"
+        exit ${ERR_MIG_PARTITION_FAILURE}
+        ;;
+esac
+nvidia-smi mig -cci`)
+
+func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionSh, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3783,7 +3884,7 @@ installStandaloneContainerd() {
     
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.4"
+        CONTAINERD_VERSION="1.4.8"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
@@ -4063,6 +4164,22 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+
+{{- if IsMIGEnabledNode}}
+- path: /etc/systemd/system/mig-partition.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
+
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
+{{end}}
 
 {{- if not .IsVHDDistro}}
 - path: /etc/systemd/system/update-node-labels.service
@@ -4765,7 +4882,7 @@ state = "C:\\ProgramData\\containerd\\state"
   level = "info"
 
 [metrics]
-  address = ""
+  address = "0.0.0.0:10257"
   grpc_histogram = false
 
 [cgroup]
@@ -5431,6 +5548,9 @@ $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 
+# GMSA
+$global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
+
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
@@ -5457,6 +5577,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
 
 try
 {
@@ -5744,11 +5865,24 @@ try
 
         Write-Log "Update service failure actions"
         Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
-
         Adjust-DynamicPortRange
         Register-LogsCleanupScriptTask
         Register-NodeResetScriptTask
         Update-DefenderPreferences
+
+        if ($windowsSecureTlsEnabled) {
+            Write-Host "Enable secure TLS protocols"
+            try {
+                . C:\k\windowssecuretls.ps1
+                Enable-SecureTls
+            }
+            catch {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+            }
+        }
+
+        Enable-FIPSMode -FipsEnabled $fipsEnabled
+        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
 
         Check-APIServerConnectivity -MasterIP $MasterIP
 
@@ -5774,9 +5908,6 @@ try
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
             Remove-Item $kubeConfigFile
         }
-
-        # Enable FIPS-mode
-        Enable-FIPSMode $fipsEnabled
 
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
@@ -6626,10 +6757,10 @@ function Enable-FIPSMode
 {
     Param(
         [Parameter(Mandatory = $true)][bool]
-        $fipsEnabled
+        $FipsEnabled
     )
 
-    if ( $fipsEnabled ) {
+    if ( $FipsEnabled ) {
         Write-Log "Set the registry to enable fips-mode"
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
     }
@@ -6637,6 +6768,144 @@ function Enable-FIPSMode
     {
         Write-Log "Leave FipsAlgorithmPolicy as it is."
     }
+}
+
+function Enable-Privilege {
+    param($Privilege)
+    $Definition = @'
+  using System;
+  using System.Runtime.InteropServices;
+  public class AdjPriv {
+    [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+    internal static extern bool AdjustTokenPrivileges(IntPtr htok, bool disall,
+      ref TokPriv1Luid newst, int len, IntPtr prev, IntPtr rele);
+    [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+    internal static extern bool OpenProcessToken(IntPtr h, int acc, ref IntPtr phtok);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    internal static extern bool LookupPrivilegeValue(string host, string name,
+      ref long pluid);
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    internal struct TokPriv1Luid {
+      public int Count;
+      public long Luid;
+      public int Attr;
+    }
+    internal const int SE_PRIVILEGE_ENABLED = 0x00000002;
+    internal const int TOKEN_QUERY = 0x00000008;
+    internal const int TOKEN_ADJUST_PRIVILEGES = 0x00000020;
+    public static bool EnablePrivilege(long processHandle, string privilege) {
+      bool retVal;
+      TokPriv1Luid tp;
+      IntPtr hproc = new IntPtr(processHandle);
+      IntPtr htok = IntPtr.Zero;
+      retVal = OpenProcessToken(hproc, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+        ref htok);
+      tp.Count = 1;
+      tp.Luid = 0;
+      tp.Attr = SE_PRIVILEGE_ENABLED;
+      retVal = LookupPrivilegeValue(null, privilege, ref tp.Luid);
+      retVal = AdjustTokenPrivileges(htok, false, ref tp, 0, IntPtr.Zero,
+        IntPtr.Zero);
+      return retVal;
+    }
+  }
+'@
+    $ProcessHandle = (Get-Process -id $pid).Handle
+    $type = Add-Type $definition -PassThru
+    $type[0]::EnablePrivilege($processHandle, $Privilege)
+}
+
+function Install-GmsaPlugin {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $GmsaPackageUrl
+    )
+
+    if ( $GmsaPackageUrl -eq "" ) {
+        Write-Log "GmsaPackageUrl is not set so skip installing GMSA plugin."
+        return
+    }
+
+    $tempInstallPackageFoler = $env:TEMP
+    $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
+
+    Write-Log "Getting the GMSA plugin package"
+    DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile
+    Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
+    }
+    Remove-Item -Path $tempPluginZipFile -Force
+
+    $tempInstallPackageFoler = [Io.path]::Combine($tempInstallPackageFoler, "CCGPlugin")
+
+    # Copy the plugin DLL file.
+    Write-Log "Installing the GMSA plugin"
+    Copy-Item -Force -Path "$tempInstallPackageFoler\CCGAKVPlugin.dll" -Destination "${env:SystemRoot}\System32\"
+
+    # Enable the logging manifest.
+    Write-Log "Importing the CCGEvents manifest file"
+    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file."
+    }
+
+    # Enable the PowerShell privilege to set the registry permissions.
+    Write-Log "Enabling the PowerShell privilege"
+    $enablePrivilegeResponse=$false
+    for($i = 0; $i -lt 10; $i++) {
+        Write-Log "Retry $i : Trying to enable the PowerShell privilege"
+        $enablePrivilegeResponse = Enable-Privilege -Privilege "SeTakeOwnershipPrivilege"
+        if ($enablePrivilegeResponse) {
+            break
+        }
+        Start-Sleep 1
+    }
+    if(!$enablePrivilegeResponse) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE -ErrorMessage "Failed to enable the PowerShell privilege."
+    }
+
+    # Set the registry permissions.
+    Write-Log "Setting GMSA plugin registry permissions"
+    try {
+        $ccgKeyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
+        $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
+
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $ccgKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::TakeOwnership)
+        $acl = $key.GetAccessControl()
+        $acl.SetOwner($owner)
+        $key.SetAccessControl($acl)
+        
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $ccgKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::ChangePermissions)
+        $acl = $key.GetAccessControl()
+        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+            $owner,
+            [System.Security.AccessControl.RegistryRights]::FullControl,
+            [System.Security.AccessControl.AccessControlType]::Allow)
+        $acl.SetAccessRule($rule)
+        $key.SetAccessControl($acl)
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
+    }
+  
+    # Set the appropriate registry values.
+    try {
+        Write-Log "Setting the appropriate GMSA plugin registry values"
+        reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
+    }
+
+    Write-Log "Removing $tempInstallPackageFoler"
+    Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
+
+    Write-Log "Successfully installed the GMSA plugin"
 }
 `)
 
@@ -6951,7 +7220,14 @@ $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
 $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
 $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
-$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21`)
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21
+$global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS=22
+$global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=24
+$global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=25
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=26
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=27
+`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
@@ -7638,7 +7914,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
-	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7662,6 +7937,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
+	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -7751,7 +8028,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
-				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
@@ -7777,6 +8053,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
+				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
+				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":               &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":    &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":       &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},

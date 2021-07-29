@@ -112,7 +112,9 @@ echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
+set +x
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+set -x
 {{end}}
 
 installKubeletKubectlAndKubeProxy
@@ -211,6 +213,12 @@ else
         API_SERVER_CONN_RETRIES=100
     fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+fi
+
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    ensureMigPartition
 fi
 
 if $REBOOTREQUIRED; then
