@@ -1749,6 +1749,8 @@ type CSEStatus struct {
 	CSEStartTime string `json:"cseStartTime,omitempty"`
 	// GuestAgentStartTime indicate starttime of GuestAgent, output from systemctl show walinuxagent.service -p ExecMainStartTimestamp
 	GuestAgentStartTime string `json:"guestAgentStartTime,omitempty"`
+	// BootDatapoints contains datapoints (key-value pair) from VM boot process.
+	BootDatapoints map[string]string `json:"data,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string
