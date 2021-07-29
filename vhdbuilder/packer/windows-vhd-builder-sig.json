@@ -37,6 +37,8 @@
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
+            "capture_container_name": "images",
+            "capture_name_prefix": "packer",
             "shared_image_gallery_destination": {
                 "resource_group": "{{user `resource_group_name`}}",
                 "gallery_name": "{{user `sig_gallery_name`}}",
