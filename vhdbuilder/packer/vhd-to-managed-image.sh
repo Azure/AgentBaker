@@ -11,7 +11,6 @@ set -x
 # correct input to create a managed image
 CREATE_TIME="$(date +%s)"
 IMPORTED_IMAGE_NAME="imported-$CREATE_TIME-$RANDOM"
-STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
 sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
 IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
