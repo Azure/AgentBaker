@@ -19,6 +19,6 @@ JSON_STRING=$( jq -n \
                   --arg ga "$GUEST_AGENT_STARTTIME" \
                   --arg ss "$SYSTEMD_SUMMARY" \
                   --arg kubelet "$KUBELET_START_TIME" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, Data: { KubeletStartTime: $kubelet }}' )
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KubeletStartTime: $kubelet }}' )
 echo $JSON_STRING
 exit $EXIT_CODE
