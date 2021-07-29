@@ -11,10 +11,6 @@ CREATE_TIME="$(date +%s)"
 
 IMPORTED_IMAGE_NAME="imported-$CREATE_TIME-$RANDOM"
 
-echo "Creating new image for a custom VHD to use ${RAW_IMAGE_URL}"
-az image create \
-    --resource-group $AZURE_RESOURCE_GROUP_NAME \
-    --name $IMPORTED_IMAGE_NAME \
-    --source $RAW_IMAGE_URL \
-    --hyper-v-generation ${HYPERV_GENERATION} \
-    --os-type ${OS_TYPE}
+echo "Creating new image for a custom VHD ${RAW_IMAGE_URL}"
+
+eval "az image create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --name ${IMPORTED_IMAGE_NAME} --os-type ${OS_TYPE} --hyper-v-generation ${hyperv_generation} --hyper-v-generation ${HYPERV_GENERATION} --source ${RAW_IMAGE_URL}"
