@@ -195,7 +195,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("true")
-$windowsSecureTlsEnabled = "false"
+$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("false");
 
 try
 {
