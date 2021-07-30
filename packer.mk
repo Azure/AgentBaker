@@ -29,7 +29,7 @@ endif
 build-packer-windows:
 ifeq (${MODE},sigMode)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
+	@packer build -debug -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
