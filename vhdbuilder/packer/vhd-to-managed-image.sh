@@ -1,5 +1,8 @@
 
 #!/bin/bash
+# publish the build image to Shared Image Gallery from a custom VHD is not supported by hashcrop packer, 
+# we use this script to create a custom managed image out of the custome VHD and build and publish the image
+# to Shared Image Gallery
 set -x
 
 [[ -z "${RAW_IMAGE_BLOB_URL}" ]] && echo "RAW_IMAGE_BLOB_URL is not set" && exit 1

@@ -36,7 +36,7 @@ steps:
       checkbuildsoncurrentbranch: false
       failTaskIfConditionsAreNotFulfilled: false
     displayName: Trigger AKS e2e tests
-    condition: and(succeeded(), eq(variables['RUN_AKS_E2E'], 'True'), eq(variables['MODE'], 'sigMode'))
+    condition: and(succeeded(), eq(variables['RUN_AKS_E2E'], 'True'))
 
   - task: PowerShell@2
     inputs:
@@ -45,4 +45,4 @@ steps:
             Write-Output "Fetching variable TriggeredBuildIds:"
             Write-Output "$($env:TriggeredBuildIds)"
     displayName: Post AKS tests
-    condition: and(eq(variables['RUN_AKS_E2E'], 'True'), eq(variables['MODE'], 'sigMode'))
+    condition: eq(variables['RUN_AKS_E2E'], 'True')
