@@ -81,6 +81,8 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
