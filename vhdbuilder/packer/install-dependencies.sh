@@ -433,5 +433,5 @@ for mcrImage in "${allMCRImages[@]}"; do
   # in mooncake, the mcr endpoint is: mcr.azk8s.cn
   # shellcheck disable=SC2001
   retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
-  retagContainerImage ${cliTool} ${mcrImage} ${mcrImage}
+  retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
 done
