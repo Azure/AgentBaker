@@ -85,8 +85,10 @@ testImagesPulled() {
 testImagesRetagged() {
   containerRuntime=$1
   if [ $containerRuntime == 'containerd' ]; then
+    # shellcheck disable=SC2207
     pulledImages=($(ctr -n k8s.io image ls))
   elif [ $containerRuntime == 'docker' ]; then
+    # shellcheck disable=SC2207
     pulledImages=($(docker images --format "{{.Repository}}:{{.Tag}}"))
   else
     err $test "unsupported container runtime $containerRuntime"
