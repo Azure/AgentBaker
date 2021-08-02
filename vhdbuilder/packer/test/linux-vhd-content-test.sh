@@ -279,3 +279,4 @@ testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
+testImagesRetagged $1
