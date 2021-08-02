@@ -1121,6 +1121,8 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1325,6 +1327,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
+KRUSTLET_VERSION="v0.7.0"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1350,6 +1353,21 @@ downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadKrustlet() {
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
+    if [[ -f "$krustlet_filepath" ]]; then
+        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
+        if [[ "${KRUSTLET_VERSION}" == "$installed_version" ]]; then
+            echo "desired krustlet version exists on disk, skipping download."
+            return
+        fi
+        rm -rf "$krustlet_filepath"
+    fi
+    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
@@ -1514,6 +1532,20 @@ pullContainerImage() {
         retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
     else
         retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+    fi
+}
+
+retagContainerImage() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE_URL=$2
+    RETAG_IMAGE_URL=$3
+    echo "retaging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then
+        crictl image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    else
+        docker image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
     fi
 }
 
@@ -1881,11 +1913,11 @@ var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
-START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
+KUBELET_START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
-EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
+EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
@@ -1896,7 +1928,8 @@ JSON_STRING=$( jq -n \
                   --arg cse "$CSE_STARTTIME" \
                   --arg ga "$GUEST_AGENT_STARTTIME" \
                   --arg ss "$SYSTEMD_SUMMARY" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss}' )
+                  --arg kubelet "$KUBELET_START_TIME" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 

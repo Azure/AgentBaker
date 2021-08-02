@@ -118,7 +118,7 @@ const (
 type WorkloadRuntime string
 
 const (
-	// OCIContainer indicates the default kubelet indication will be used for a container workload.
+	// OCIContainer indicates that kubelet will be used for a container workload.
 	OCIContainer WorkloadRuntime = "OCIContainer"
 	// WasmWasi indicates Krustlet will be used for a WebAssembly workload.
 	WasmWasi WorkloadRuntime = "WasmWasi"
@@ -1749,6 +1749,8 @@ type CSEStatus struct {
 	CSEStartTime string `json:"cseStartTime,omitempty"`
 	// GuestAgentStartTime indicate starttime of GuestAgent, output from systemctl show walinuxagent.service -p ExecMainStartTimestamp
 	GuestAgentStartTime string `json:"guestAgentStartTime,omitempty"`
+	// BootDatapoints contains datapoints (key-value pair) from VM boot process.
+	BootDatapoints map[string]string `json:"bootDatapoints,omitempty"`
 }
 
 type CSEStatusParsingErrorCode string

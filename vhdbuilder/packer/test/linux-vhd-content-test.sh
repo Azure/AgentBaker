@@ -81,6 +81,37 @@ testImagesPulled() {
   echo "$test:Finish"
 }
 
+# check all the mcr images retagged for mooncake
+testImagesRetagged() {
+  containerRuntime=$1
+  if [ $containerRuntime == 'containerd' ]; then
+    # shellcheck disable=SC2207
+    pulledImages=($(ctr -n k8s.io image ls))
+  elif [ $containerRuntime == 'docker' ]; then
+    # shellcheck disable=SC2207
+    pulledImages=($(docker images --format "{{.Repository}}:{{.Tag}}"))
+  else
+    err $test "unsupported container runtime $containerRuntime"
+    return
+  fi
+  mcrImagesNumber=0
+  mooncakeMcrImagesNumber=0
+  for pulledImage in ${pulledImages[@]}; do
+    if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
+      mcrImagesNumber=$((${mcrImagesNumber} + 1))
+    fi
+    if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
+      mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
+    fi
+  done
+  if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
+    echo "the number of the mcr images & mooncake mcr images are not the same."
+    echo "all the images are:"
+    echo "${pulledImages[@]}"
+    exit 1
+  fi
+}
+
 testAuditDNotPresent() {
   test="testAuditDNotPresent"
   echo "$test:Start"
@@ -250,3 +281,4 @@ testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
+testImagesRetagged $1

@@ -87,6 +87,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     networkdWorkaround
 fi
 
+downloadKrustlet
+echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
   containerd_version="1.4.8"
@@ -429,3 +432,13 @@ apt-get purge --auto-remove snapd -y
 # update message-of-the-day to start after multi-user.target
 # multi-user.target usually start at the end of the boot sequence
 sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+
+# retag all the mcr for mooncake
+# shellcheck disable=SC2207
+allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+for mcrImage in "${allMCRImages[@]}"; do
+  # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+  # shellcheck disable=SC2001
+  retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+  retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
+done
