@@ -425,3 +425,13 @@ installAscBaseline
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
+
+# retag all the mcr for mooncake
+# shellcheck disable=SC2207
+allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+for mcrImage in "${allMCRImages[@]}"; do
+  # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+  # shellcheck disable=SC2001
+  retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+  retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
+done

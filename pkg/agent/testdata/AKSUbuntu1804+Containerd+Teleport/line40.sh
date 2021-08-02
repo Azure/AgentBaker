@@ -215,6 +215,20 @@ pullContainerImage() {
     fi
 }
 
+retagContainerImage() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE_URL=$2
+    RETAG_IMAGE_URL=$3
+    echo "retaging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then
+        crictl image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    else
+        docker image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    fi
+}
+
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
