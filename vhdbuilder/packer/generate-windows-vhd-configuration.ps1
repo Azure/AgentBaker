@@ -99,10 +99,11 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.13.zip",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.14.zip"
     );
-    # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is
-    # installed during building the Windows VHD to cache container images.
+    # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
+    # during building the Windows VHD to cache container images.
     # We use the latest containerd package to start containerd then cache images, and the latest one is expected to be
-    # specified by AKS PR for most of the cases.
+    # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
+    # versions synced.
     "c:\akse-cache\containerd\"   = @(
         "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz",
         $defaultContainerdPackageUrl
