@@ -143,15 +143,15 @@ function Install-ContainerD {
     # and the containerd to managed customer containers after provisioning the vm is not necessary
     # the one used here, considering containerd version/package is configurable, and the first one
     # is expected to override the later one
-    Write-Log "Getting containerD binaries from $global:containerdPackageUrl"
+    Write-Log "Getting containerD binaries from $global:defaultContainerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
 
-    $containerdFilename=[IO.Path]::GetFileName($global:containerdPackageUrl)
+    $containerdFilename=[IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
-    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $containerdTmpDest
+    DownloadFileWithRetry -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
     if ($containerdFilename.endswith(".zip")) {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
