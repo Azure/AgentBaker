@@ -426,6 +426,13 @@ if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
 
+# remove snapd, which is not used by container stack
+apt-get purge --auto-remove snapd -y
+
+# update message-of-the-day to start after multi-user.target
+# multi-user.target usually start at the end of the boot sequence
+sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+
 # retag all the mcr for mooncake
 # shellcheck disable=SC2207
 allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
