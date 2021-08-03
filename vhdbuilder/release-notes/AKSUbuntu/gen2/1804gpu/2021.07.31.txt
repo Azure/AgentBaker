@@ -1,4 +1,4 @@
-Starting build on  Sat Jul 31 03:05:30 UTC 2021
+Starting build on  Sat Jul 31 03:05:59 UTC 2021
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -175,7 +175,13 @@ docker images pre-pulled:
   - /var/lib/kubelet/device-plugins
   - extracted nvidia-device-plugin...
 total 10380
--rwxr-xr-x 1 root root 10625472 Jul 31 03:30 nvidia-device-plugin
+-rwxr-xr-x 1 root root 10625472 Jul 31 03:25 nvidia-device-plugin
+  - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
+  - mcr.microsoft.com/aks/acc/sgx-plugin:0.2
+  - mcr.microsoft.com/aks/acc/sgx-plugin:0.4
+  - mcr.microsoft.com/aks/acc/sgx-webhook:0.6
+  - mcr.microsoft.com/aks/acc/sgx-webhook:0.9
+  - mcr.microsoft.com/aks/acc/sgx-attestation:2.0
   - nginx:1.13.12-alpine
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.17.13
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.17.13-hotfix.20210310.2
@@ -952,23 +958,24 @@ zlib1g/bionic,now 1:1.2.11.dfsg-0ubuntu2 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-udev             28G     0   28G   0% /dev
-tmpfs           5.5G  740K  5.5G   1% /run
-/dev/sdb1        29G   22G  6.9G  77% /
-tmpfs            28G     0   28G   0% /dev/shm
+udev             56G     0   56G   0% /dev
+tmpfs            12G  628K   12G   1% /run
+/dev/sda1        29G   23G  6.5G  78% /
+tmpfs            56G     0   56G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
-tmpfs            28G     0   28G   0% /sys/fs/cgroup
-/dev/sdb15      105M  6.6M   98M   7% /boot/efi
-/dev/sda1       334G   69M  317G   1% /mnt
-tmpfs           5.5G     0  5.5G   0% /run/user/1000
+tmpfs            56G     0   56G   0% /sys/fs/cgroup
+/dev/sda15      105M  6.6M   98M   7% /boot/efi
+/dev/sdb1       724G   73M  687G   1% /mnt
+tmpfs            12G     0   12G   0% /run/user/1000
+WARNING: 75% of /dev/sda1 is used
 Using kernel:
 Linux version 5.4.0-1055-azure (buildd@lcy01-amd64-025) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #57~18.04.1-Ubuntu SMP Fri Jul 16 19:40:19 UTC 2021
-Install completed successfully on  Sat Jul 31 03:38:23 UTC 2021
+Install completed successfully on  Sat Jul 31 03:33:44 UTC 2021
 VSTS Build NUMBER: 20210731.1_master_45141220
 VSTS Build ID: 45141220
 Commit: e63a8117a096aba4ce58a90b5ef287d64141321d
 Ubuntu version: 18.04
-Hyperv generation: V1
+Hyperv generation: V2
 Feature flags: fullgpudaemon
 Container runtime: docker
 FIPS enabled: 
