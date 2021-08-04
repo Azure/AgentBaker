@@ -329,8 +329,6 @@ else
   KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
 fi
 
-KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
-
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
