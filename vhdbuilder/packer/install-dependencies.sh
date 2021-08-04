@@ -322,13 +322,16 @@ done
 # v1.21.1
 # v1.21.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
+
+if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+else
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+fi
+
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
-    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
-    continue
-  fi
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
