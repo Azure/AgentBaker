@@ -248,11 +248,6 @@ function Install-GmsaPlugin {
         [String] $GmsaPackageUrl
     )
 
-    if ( $GmsaPackageUrl -eq "" ) {
-        Write-Log "GmsaPackageUrl is not set so skip installing GMSA plugin."
-        return
-    }
-
     $tempInstallPackageFoler = $env:TEMP
     $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
 
