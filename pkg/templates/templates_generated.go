@@ -5915,7 +5915,10 @@ try
         }
 
         Enable-FIPSMode -FipsEnabled $fipsEnabled
-        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+        if ($global:WindowsGmsaPackageUrl) {
+            Write-Log "Start to install Windows gmsa package"
+            Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+        }
 
         Check-APIServerConnectivity -MasterIP $MasterIP
 
@@ -6853,11 +6856,6 @@ function Install-GmsaPlugin {
         [Parameter(Mandatory=$true)]
         [String] $GmsaPackageUrl
     )
-
-    if ( $GmsaPackageUrl -eq "" ) {
-        Write-Log "GmsaPackageUrl is not set so skip installing GMSA plugin."
-        return
-    }
 
     $tempInstallPackageFoler = $env:TEMP
     $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")

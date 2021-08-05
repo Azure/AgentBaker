@@ -507,7 +507,10 @@ try
         }
 
         Enable-FIPSMode -FipsEnabled $fipsEnabled
-        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+        if ($global:WindowsGmsaPackageUrl) {
+            Write-Log "Start to install Windows gmsa package"
+            Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+        }
 
         Check-APIServerConnectivity -MasterIP $MasterIP
 
