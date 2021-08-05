@@ -1,21 +1,3 @@
-
-
-# TODO: remove - dead code?
-function
-Set-VnetPluginMode()
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
-        $AzureCNIConfDir,
-        [Parameter(Mandatory=$true)][string]
-        $Mode
-    )
-    # Sets Azure VNET CNI plugin operational mode.
-    $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
-    (Get-Content $fileName) | %{$_ -replace "`"mode`":.*", "`"mode`": `"$Mode`","} | Out-File -encoding ASCII -filepath $fileName
-}
-
-
 function
 Install-VnetPlugins
 {
@@ -42,14 +24,6 @@ Install-VnetPlugins
     # kernel automatically creates a loopback interface for each network namespace.
     # Copy CNI network config file and set bridge mode.
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
-}
-
-# TODO: remove - dead code?
-function
-Set-AzureNetworkPlugin()
-{
-    # Azure VNET network policy requires tunnel (hairpin) mode because policy is enforced in the host.
-    Set-VnetPluginMode "tunnel"
 }
 
 function

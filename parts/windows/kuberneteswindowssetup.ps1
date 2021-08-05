@@ -435,40 +435,29 @@ try
         Get-HnsPsm1 -HNSModule $global:HNSModule
         Import-Module $global:HNSModule
 
-        if ($global:NetworkPlugin -eq "azure") {
-            Write-Log "Installing Azure VNet plugins"
-            Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
-                -AzureCNIBinDir $global:AzureCNIBinDir `
-                -VNetCNIPluginsURL $global:VNetCNIPluginsURL
+        Write-Log "Installing Azure VNet plugins"
+        Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
+            -AzureCNIBinDir $global:AzureCNIBinDir `
+            -VNetCNIPluginsURL $global:VNetCNIPluginsURL
 
-            Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
-                -KubeDnsSearchPath $global:KubeDnsSearchPath `
-                -KubeClusterCIDR $global:KubeClusterCIDR `
-                -KubeServiceCIDR $global:KubeServiceCIDR `
-                -VNetCIDR $global:VNetCIDR `
-                -IsDualStackEnabled $global:IsDualStackEnabled
+        Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
+            -KubeDnsSearchPath $global:KubeDnsSearchPath `
+            -KubeClusterCIDR $global:KubeClusterCIDR `
+            -KubeServiceCIDR $global:KubeServiceCIDR `
+            -VNetCIDR $global:VNetCIDR `
+            -IsDualStackEnabled $global:IsDualStackEnabled
 
-            if ($TargetEnvironment -ieq "AzureStackCloud") {
-                GenerateAzureStackCNIConfig `
-                    -TenantId $global:TenantId `
-                    -SubscriptionId $global:SubscriptionId `
-                    -ResourceGroup $global:ResourceGroup `
-                    -AADClientId $AADClientId `
-                    -KubeDir $global:KubeDir `
-                    -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
-                    -NetworkAPIVersion $NetworkAPIVersion `
-                    -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `
-                    -IdentitySystem "{{ GetIdentitySystem }}"
-            }
-        }
-        elseif ($global:NetworkPlugin -eq "kubenet") {
-            Write-Log "Fetching additional files needed for kubenet"
-            if ($useContainerD) {
-                # TODO: CNI may need to move to c:\program files\containerd\cni\bin with ContainerD
-                Install-SdnBridge -Url $global:ContainerdSdnPluginUrl -CNIPath $global:CNIPath
-            } else {
-                Update-WinCNI -CNIPath $global:CNIPath
-            }
+        if ($TargetEnvironment -ieq "AzureStackCloud") {
+            GenerateAzureStackCNIConfig `
+                -TenantId $global:TenantId `
+                -SubscriptionId $global:SubscriptionId `
+                -ResourceGroup $global:ResourceGroup `
+                -AADClientId $AADClientId `
+                -KubeDir $global:KubeDir `
+                -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
+                -NetworkAPIVersion $NetworkAPIVersion `
+                -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `
+                -IdentitySystem "{{ GetIdentitySystem }}"
         }
 
         New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
