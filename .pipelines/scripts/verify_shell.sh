@@ -1,18 +1,28 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 #inspired by https://github.com/Azure/aks-engine/blob/master/scripts/validate-shell.sh
-installed=$(command -v shellcheck 2>&1 >/dev/null)
-if [[ ${installed} -ne 0 ]]; then
+echo "Checking for shellcheck"
+installed=$(command -v shellcheck 2>&1 >/dev/null; echo $?)
+
+# must be set after above, or else `command -v` failure exits whole script.
+set -e
+if [[ "${installed}" -ne 0 ]]; then
     echo "shellcheck not installed...trying to install."
-    DISTRO=$(uname | tr "[:upper:]" "[:lower:]")
+    DISTRO="$(uname | tr "[:upper:]" "[:lower:]")"
+    # override for custom kernels, wsl, etc.
+    if [[ "${DISTRO}" == "Linux" || "${DISTRO}" == "linux" ]]; then
+        DISTRO="$(grep ^ID= < /etc/os-release | cut -d= -f2)"
+    fi
     if [[ "${DISTRO}" == "ubuntu" ]]; then
-        apt-get install shellcheck
+        sudo apt-get install shellcheck -y
     elif [[ "${DISTRO}" == "darwin" ]]; then
         brew install cabal-install
     else 
         echo "distro ${DISTRO} not supported at this time. skipping shellcheck"
-        return
+        exit 1
     fi
+else
+    echo "shellcheck installed"
 fi
 
 filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*')

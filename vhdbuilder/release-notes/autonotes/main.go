@@ -39,7 +39,7 @@ func main() {
 	flag.StringVar(&fl.build, "build", "", "run ID for the VHD build.")
 	flag.StringVar(&fl.include, "include", "", "only include this list of VHD release notes.")
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
-	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of AKSUbuntu VHD notes")
+	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
 	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYY.MM.DD")
 
 	flag.Parse()
@@ -135,14 +135,18 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 		return
 	}
 
+	fmt.Printf("downloading artifact '%s' from build '%s'\n", artifactName, fl.build)
+
 	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", artifactName)
-	if err := cmd.Run(); err != nil {
-		errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %w", sku, err)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
 		return
 	}
 
 	if err := os.Rename(artifactFileIn, artifactFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %w", artifactFileIn, artifactFileOut, err)
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", artifactFileIn, artifactFileOut, err)
 		return
 	}
 }
@@ -166,21 +170,23 @@ type flags struct {
 	date    string // date of vhd build
 }
 
-var defaultPath = filepath.Join("vhdbuilder", "release-notes", "AKSUbuntu")
+var defaultPath = filepath.Join("vhdbuilder", "release-notes")
 var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
 
 var artifactToPath = map[string]string{
-	"1604":                          filepath.Join("gen1", "1604"),
-	"1804":                          filepath.Join("gen1", "1804"),
-	"1804-gen2":                     filepath.Join("gen2", "1804"),
-	"1804-gpu":                      filepath.Join("gen1", "1804gpu"),
-	"1804-gen2-gpu":                 filepath.Join("gen2", "1804gpu"),
-	"1804-containerd":               filepath.Join("gen1", "1804containerd"),
-	"1804-gen2-containerd":          filepath.Join("gen2", "1804containerd"),
-	"1804-gpu-containerd":           filepath.Join("gen1", "1804gpucontainerd"),
-	"1804-gen2-gpu-containerd":      filepath.Join("gen2", "1804gpucontainerd"),
-	"1804-fips-containerd":          filepath.Join("gen1", "1804fipscontainerd"),
-	"1804-fips-gen2-containerd":     filepath.Join("gen2", "1804fipscontainerd"),
-	"1804-fips-gpu-containerd":      filepath.Join("gen1", "1804fipsgpucontainerd"),
-	"1804-fips-gen2-gpu-containerd": filepath.Join("gen2", "1804fipsgpucontainerd"),
+	"1604":                          filepath.Join("AKSUbuntu", "gen1", "1604"),
+	"1804":                          filepath.Join("AKSUbuntu", "gen1", "1804"),
+	"1804-gen2":                     filepath.Join("AKSUbuntu", "gen2", "1804"),
+	"1804-gpu":                      filepath.Join("AKSUbuntu", "gen1", "1804gpu"),
+	"1804-gen2-gpu":                 filepath.Join("AKSUbuntu", "gen2", "1804gpu"),
+	"1804-containerd":               filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
+	"1804-gen2-containerd":          filepath.Join("AKSUbuntu", "gen2", "1804containerd"),
+	"1804-gpu-containerd":           filepath.Join("AKSUbuntu", "gen1", "1804gpucontainerd"),
+	"1804-gen2-gpu-containerd":      filepath.Join("AKSUbuntu", "gen2", "1804gpucontainerd"),
+	"1804-fips-containerd":          filepath.Join("AKSUbuntu", "gen1", "1804fipscontainerd"),
+	"1804-fips-gen2-containerd":     filepath.Join("AKSUbuntu", "gen2", "1804fipscontainerd"),
+	"1804-fips-gpu-containerd":      filepath.Join("AKSUbuntu", "gen1", "1804fipsgpucontainerd"),
+	"1804-fips-gen2-gpu-containerd": filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
+	"marinerv1":                     filepath.Join("AKSCBLMariner", "gen1"),
+	"marinerv1-gen2":                filepath.Join("AKSCBLMariner", "gen2"),
 }

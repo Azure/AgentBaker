@@ -186,6 +186,10 @@ ensureUpdateNodeLabels() {
     systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureMigPartition(){
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT

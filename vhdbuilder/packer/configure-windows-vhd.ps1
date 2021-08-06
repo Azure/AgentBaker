@@ -91,12 +91,10 @@ function Disable-WindowsUpdates {
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server 2019 with containerd"
-        # start containerd to pre-pull the images to disk on VHD
-        # CSE will configure and register containerd as a service at deployment time
-        Start-Job -Name containerd -ScriptBlock { containerd.exe }
         foreach ($image in $imagesToPull) {
+            Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
-                & ctr.exe -n k8s.io images pull $image
+                & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
         Stop-Job  -Name containerd
@@ -105,6 +103,7 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
+            Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
                 docker pull $image
             } -ErrorMessage "Failed to pull image $image"
@@ -144,15 +143,15 @@ function Install-ContainerD {
     # and the containerd to managed customer containers after provisioning the vm is not necessary
     # the one used here, considering containerd version/package is configurable, and the first one
     # is expected to override the later one
-    Write-Log "Getting containerD binaries from $global:containerdPackageUrl"
+    Write-Log "Getting containerD binaries from $global:defaultContainerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
 
-    $containerdFilename=[IO.Path]::GetFileName($global:containerdPackageUrl)
+    $containerdFilename=[IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
-    DownloadFileWithRetry -URL $global:containerdPackageUrl -Dest $containerdTmpDest
+    DownloadFileWithRetry -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
     if ($containerdFilename.endswith(".zip")) {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
@@ -166,6 +165,17 @@ function Install-ContainerD {
     $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
     [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
     $env:Path += ";$installDir"
+
+    $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
+    # enabling discard_unpacked_layers allows GC to remove layers from the content store after
+    # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
+    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+
+    Get-Content $containerdConfigPath
+
+    # start containerd to pre-pull the images to disk on VHD
+    # CSE will configure and register containerd as a service at deployment time
+    Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
 function Install-Docker {
@@ -295,34 +305,38 @@ function Get-SystemDriveDiskInfo {
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
-switch ($env:ProvisioningPhase) {
-    "1" {
-        Write-Log "Performing actions for provisioning phase 1"
-        Disable-WindowsUpdates
-        Set-WinRmServiceDelayedStart
-        Update-DefenderSignatures
-        Set-AllowedSecurityProtocols
-        Install-WindowsPatches
-        Install-OpenSSH
-        Update-WindowsFeatures
-    }
-    "2" {
-        Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
-        Set-WinRmServiceAutoStart
-        if ($containerRuntime -eq 'containerd') {
-            Install-ContainerD
-        } else {
-            Install-Docker
+try{
+    switch ($env:ProvisioningPhase) {
+        "1" {
+            Write-Log "Performing actions for provisioning phase 1"
+            Disable-WindowsUpdates
+            Set-WinRmServiceDelayedStart
+            Update-DefenderSignatures
+            Set-AllowedSecurityProtocols
+            Install-WindowsPatches
+            Install-OpenSSH
+            Update-WindowsFeatures
         }
-        Update-Registry
-        Get-ContainerImages
-        Get-FilesToCacheOnVHD
-        Remove-Item -Path c:\windows-vhd-configuration.ps1
-        Get-SystemDriveDiskInfo
-        (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+        "2" {
+            Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
+            Set-WinRmServiceAutoStart
+            if ($containerRuntime -eq 'containerd') {
+                Install-ContainerD
+            } else {
+                Install-Docker
+            }
+            Update-Registry
+            Get-ContainerImages
+            Get-FilesToCacheOnVHD
+            Remove-Item -Path c:\windows-vhd-configuration.ps1
+            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+        }
+        default {
+            Write-Log "Unable to determine provisiong phase... exiting"
+            exit 1
+        }
     }
-    default {
-        Write-Log "Unable to determine provisiong phase... exiting"
-        exit 1
-    }
+}
+finally {
+    Get-SystemDriveDiskInfo
 }

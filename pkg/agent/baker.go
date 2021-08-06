@@ -261,8 +261,8 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
 	if IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
-		if config.AgentPoolProfile.KubernetesConfig != nil && config.AgentPoolProfile.KubernetesConfig.KubeletConfig != nil {
-			kubeletFlags := config.AgentPoolProfile.KubernetesConfig.KubeletConfig
+		if config.KubeletConfig != nil {
+			kubeletFlags := config.KubeletConfig
 			delete(kubeletFlags, "--dynamic-config-dir")
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 		}
@@ -272,15 +272,12 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
-		if config.AgentPoolProfile != nil && config.AgentPoolProfile.KubernetesConfig != nil {
-			k8sConfig := config.AgentPoolProfile.KubernetesConfig
-			if k8sConfig.KubeletConfig == nil {
-				k8sConfig.KubeletConfig = make(map[string]string)
-			}
-
-			k8sConfig.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
-			k8sConfig.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
+		if config.KubeletConfig == nil {
+			config.KubeletConfig = make(map[string]string)
 		}
+
+		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
+		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
 }
 
@@ -300,9 +297,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubernetesVersionGe": func(version string) bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
-		"IsKubernetesVersionLt": func(version string) bool {
-			return cs.Properties.OrchestratorProfile.IsKubernetes() && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
-		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
 				false, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
@@ -311,11 +305,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
 				true, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
 		},
+		"GetGPUInstanceProfile": func() string {
+			return config.GPUInstanceProfile
+		},
+		"IsMIGEnabledNode": func() bool {
+			return config.GPUInstanceProfile != ""
+		},
 		"GetKubeletConfigFileContent": func() string {
-			if profile.KubernetesConfig == nil {
-				return ""
-			}
-			return GetKubeletConfigFileContent(profile.KubernetesConfig.KubeletConfig, profile.CustomKubeletConfig)
+			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
@@ -326,18 +323,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
-		"GetKubeletConfigKeyVals": func(kc *datamodel.KubernetesConfig) string {
-			if kc == nil {
-				return ""
-			}
-			return GetOrderedKubeletConfigFlagString(kc, cs, profile, config.EnableKubeletConfigFile)
+		"GetKubeletConfigKeyVals": func() string {
+			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
 		},
-		"GetKubeletConfigKeyValsPsh": func(kc *datamodel.KubernetesConfig) string {
-			if kc == nil {
-				return ""
-			}
-
-			return kc.GetOrderedKubeletConfigStringForPowershell()
+		"GetKubeletConfigKeyValsPsh": func() string {
+			return config.GetOrderedKubeletConfigStringForPowershell()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -390,9 +380,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsMariner": func() bool {
 			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
 		},
-		"IsPrivateCluster": func() bool {
-			return cs.Properties.OrchestratorProfile.IsPrivateCluster()
-		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
@@ -411,9 +398,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				str += makeAgentExtensionScriptCommands(cs, profile)
 			}
 			return str
-		},
-		"GetLocation": func() string {
-			return cs.Location
 		},
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
@@ -456,17 +440,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return base64.StdEncoding.EncodeToString(buf.Bytes())
 		},
-		"AnyAgentIsLinux": func() bool {
-			return cs.Properties.AnyAgentIsLinux()
-		},
 		"IsNSeriesSKU": func() bool {
 			return config.EnableNvidia
-		},
-		"EnableChronyFor1804": func() bool {
-			return config.Enable1804Chrony
-		},
-		"HasAvailabilityZones": func(profile *datamodel.AgentPoolProfile) bool {
-			return profile.HasAvailabilityZones()
 		},
 		"HasCustomSearchDomain": func() bool {
 			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain()
@@ -498,37 +473,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasFlannelNetworkPlugin": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginFlannel
 		},
-		"HasCustomNodesDNS": func() bool {
-			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasCustomNodesDNS()
-		},
 		"WindowsSSHEnabled": func() bool {
 			return cs.Properties.WindowsProfile.GetSSHEnabled()
 		},
-		"UseCloudControllerManager": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *cs.Properties.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager
-		},
-		"AdminGroupID": func() bool {
-			return cs.Properties.AADProfile != nil && cs.Properties.AADProfile.AdminGroupID != ""
-		},
-		"EnableDataEncryptionAtRest": func() bool {
-			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableDataEncryptionAtRest)
-		},
 		"EnableEncryptionWithExternalKms": func() bool {
 			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableEncryptionWithExternalKms)
-		},
-		"EnableAggregatedAPIs": func() bool {
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.EnableAggregatedAPIs {
-				return true
-			} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.9.0") {
-				return true
-			}
-			return false
-		},
-		"EnablePodSecurityPolicy": func() bool {
-			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnablePodSecurityPolicy)
-		},
-		"IsCustomVNET": func() bool {
-			return cs.Properties.AreAgentProfilesCustomVNET()
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
@@ -554,9 +503,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
-		},
-		"HasContainerdVersion": func() bool {
-			return config.ContainerdVersion != ""
 		},
 		"IsDockerContainerRuntime": func() bool {
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
@@ -596,6 +542,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return string(profile.KubeletDiskType)
 			}
 			return ""
+		},
+		"IsKrustlet": func() bool {
+			return strings.EqualFold(string(profile.WorkloadRuntime), string(datamodel.WasmWasi))
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
