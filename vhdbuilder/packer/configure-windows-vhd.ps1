@@ -119,9 +119,9 @@ function Get-FilesToCacheOnVHD {
 
         foreach ($URL in $map[$dir]) {
             $fileName = [IO.Path]::GetFileName($URL)
-            # Doesnot cache containerd package in docker image
+            # Do not cache containerd package on docker VHD
             if ($containerRuntime -ne 'containerd' -And $dir -eq "c:\akse-cache\containerd\") {
-                Write-Log "Skip to download $URL for docker image"
+                Write-Log "Skip to download $URL for docker VHD"
                 continue
             }
             # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
