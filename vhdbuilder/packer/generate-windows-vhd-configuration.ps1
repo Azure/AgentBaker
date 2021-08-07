@@ -17,9 +17,9 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
 # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 #
-# IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C: 
+# IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
-# SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU. 
+# SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 $global:patchUrls = @("http://download.windowsupdate.com/d/msdownload/update/software/secu/2021/07/windows10.0-kb5004244-x64_5685623313a6de061e0c42fed3391c29750a6b1b.msu")
 $global:patchIDs = @("kb5004244")
 
