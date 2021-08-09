@@ -142,11 +142,11 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
-        "ciprod03262021",
         "ciprod05202021",
         "ciprod06112021",
         "ciprod05202021-hotfix",
-        "ciprod06112021-1"
+        "ciprod06112021-1",
+        "ciprod08052021"
       ]
     },
     {
