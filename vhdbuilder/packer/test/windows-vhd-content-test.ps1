@@ -52,7 +52,7 @@ function Test-FilesToCacheOnVHD
 
             # Do not validate containerd package on docker VHD
             if ($containerRuntime -ne 'containerd' -And $dir -eq "c:\akse-cache\containerd\") {
-                Write-Log "Skip to validate $URL for docker VHD"
+                Write-Output "Skip to validate $URL for docker VHD"
                 continue
             }
 
