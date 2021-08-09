@@ -50,6 +50,13 @@ function Test-FilesToCacheOnVHD
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
+            # Do not validate containerd package on docker VHD
+            if ($containerRuntime -ne 'containerd' -And $dir -eq "c:\akse-cache\containerd\") {
+                Write-Output "Skip to validate $URL for docker VHD"
+                continue
+            }
+
+            # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
             if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s\") {
                 $k8sMajorVersion = $fileName.split(".",3)[0]
                 $k8sMinorVersion = $fileName.split(".",3)[1]
@@ -64,9 +71,9 @@ function Test-FilesToCacheOnVHD
                 $invalidFiles = $invalidFiles + $dest
                 continue
             }
+
             $remoteFileSize = (Invoke-WebRequest $URL -UseBasicParsing -Method Head).Headers.'Content-Length'
             $localFileSize = (Get-Item $dest).length
-
             if ($localFileSize -ne $remoteFileSize) {
                 Write-Error "$dest : Local file size is $localFileSize but remote file size is $remoteFileSize"
                 $invalidFiles = $invalidFiles + $dest
