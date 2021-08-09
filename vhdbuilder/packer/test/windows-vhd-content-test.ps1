@@ -56,7 +56,7 @@ function Test-FilesToCacheOnVHD
                 continue
             }
             # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
-            elseif if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s\") {
+            elseif ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s\") {
                 $k8sMajorVersion = $fileName.split(".",3)[0]
                 $k8sMinorVersion = $fileName.split(".",3)[1]
                 if ($k8sMinorVersion -lt "20" -And $k8sMajorVersion -eq "v1") {
