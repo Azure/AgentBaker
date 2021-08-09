@@ -72,7 +72,7 @@ configureEtcEnvironment() {
 
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA() {
-    openssl x509 -outform der -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
+    openssl x509 -outform pem -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
     rm -f /usr/local/share/ca-certificates/proxyCA.pem
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
 }
