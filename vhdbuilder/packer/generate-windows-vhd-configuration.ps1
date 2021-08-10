@@ -125,6 +125,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.11/windowszip/v1.19.11-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.11-hotfix.20210526/windowszip/v1.19.11-hotfix.20210526-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.12/windowszip/v1.19.12-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.19.13/windowszip/v1.19.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210428/windowszip/v1.20.2-hotfix.20210428-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.2-hotfix.20210511/windowszip/v1.20.2-hotfix.20210511-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210526/windowszip/v1.20.5-hotfix.20210526-1int.zip",
@@ -132,6 +133,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20210526/windowszip/v1.20.7-hotfix.20210526-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20210603/windowszip/v1.20.7-hotfix.20210603-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.8/windowszip/v1.20.8-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.20.9/windowszip/v1.20.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210526/windowszip/v1.21.1-hotfix.20210526-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210713/windowszip/v1.21.1-hotfix.20210713-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.2/windowszip/v1.21.2-1int.zip"
