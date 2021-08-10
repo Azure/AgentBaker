@@ -279,8 +279,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "versions": [
-        "v3.2.3",
-        "v3.4.1"
+        "v3.4.1",
+        "v3.5.2"
       ]
     },
     {
@@ -314,16 +314,16 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "versions": [
-        "prod_20210325.1",
         "prod_20210713.1",
-        "prod_20210719.1"
+        "prod_20210719.1",
+        "prod_20210806.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "versions": [
-        "prod_20210209.1",
-        "prod_20210713.1"
+        "prod_20210713.1",
+        "prod_20210806.1"
       ]
     },
     {
