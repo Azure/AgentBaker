@@ -202,9 +202,11 @@ testKubeBinariesPresent() {
   1.19.7-hotfix.20210310
   1.19.9-hotfix.20210322
   1.19.12
+  1.19.13
   1.20.2-hotfix.20210310
   1.20.5-hotfix.20210322
   1.20.8
+  1.20.9
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
