@@ -5,6 +5,7 @@ package agent
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -42,7 +43,11 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		if strings.EqualFold(string(config.OSSKU), string("CBLMariner")) {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
+		} else {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		}
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
