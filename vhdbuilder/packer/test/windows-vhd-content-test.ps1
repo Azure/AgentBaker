@@ -16,21 +16,6 @@ $env:WindowsSKU=$windowsSKU
 
 . c:\windows-vhd-configuration.ps1
 
-function Compare-AllowedSecurityProtocols {
-    $allowedProtocols = @()
-    $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
-
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
-        if ($insecureProtocols -notcontains $protocol) {
-            $allowedProtocols += $protocol
-        }
-    }
-    if([System.Net.ServicePointManager]::SecurityProtocol -ne $allowedProtocols) {
-        Write-Error "allowedSecurityProtocols '$([System.Net.ServicePointManager]::SecurityProtocol)', expecting '$allowedProtocols'"
-        exit 1
-    }
-}
-
 function Test-FilesToCacheOnVHD
 {
     $invalidFiles = @()
@@ -155,7 +140,6 @@ function Test-RegistryAdded {
     }
 }
 
-Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
