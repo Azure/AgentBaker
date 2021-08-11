@@ -3,6 +3,7 @@
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -18,8 +19,10 @@ source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
+cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
@@ -81,16 +84,20 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
     forceEnableIpForward
+    networkdWorkaround
 fi
+
+downloadKrustlet
+echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.4"
+  containerd_version="1.4.8"
   installStandaloneContainerd ${containerd_version}
   echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # also pre-cache containerd 1.5 for ACC as a local .deb file for Ubuntu OS SKUs
-    containerd_version="1.5.0-beta.git31a0f92df"
+    # also pre-cache containerd 1.4.4 (last used version)
+    containerd_version="1.4.4"
     downloadContainerd ${containerd_version}
     echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   fi
@@ -178,6 +185,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
+1.4.7
 1.4.0
 1.2.7
 "
@@ -189,6 +197,7 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
+1.4.7
 1.4.0
 1.2.7
 "
@@ -278,7 +287,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_QUOTE_HELPER_VERSIONS="1.0"
+    SGX_QUOTE_HELPER_VERSIONS="2.0"
     for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -306,51 +315,23 @@ done
 # v1.18.19
 # v1.19.9
 # v1.19.11
+# v1.19.12
+# v1.19.13
 # v1.20.5
 # v1.20.7
+# v1.20.8
+# v1.20.9
 # v1.21.1
+# v1.21.2
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-KUBE_PROXY_IMAGE_VERSIONS="
-1.17.13
-1.17.13-hotfix.20210310.2
-1.17.16
-1.17.16-hotfix.20210310.2
-1.18.8-hotfix.20200924
-1.18.8-hotfix.20201112.2
-1.18.10-hotfix.20210118
-1.18.10-hotfix.20210310.2
-1.18.14-hotfix.20210511
-1.18.14-hotfix.20210525
-1.18.17-hotfix.20210505
-1.18.17-hotfix.20210525
-1.18.19
-1.18.19-hotfix.20210522
-1.19.1-hotfix.20200923
-1.19.1-hotfix.20200923.1
-1.19.3
-1.19.6-hotfix.20210118
-1.19.6-hotfix.20210310.1
-1.19.7-hotfix.20210511
-1.19.7-hotfix.20210525
-1.19.9-hotfix.20210505
-1.19.9-hotfix.20210526
-1.19.11
-1.19.11-hotfix.20210526
-1.20.2
-1.20.2-hotfix.20210511
-1.20.2-hotfix.20210525
-1.20.5-hotfix.20210505
-1.20.5-hotfix.20210526
-1.20.7
-1.20.7-hotfix.20210526
-1.21.1
-1.21.1-hotfix.20210526
-"
+
+if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+else
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+fi
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
-    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
-    continue
-  fi
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -375,14 +356,17 @@ done
 # v1.18.19
 # v1.19.9
 # v1.19.11
+# v1.19.12
+# v1.19.13
 # v1.20.5
 # v1.20.7
+# v1.20.8
+# v1.20.9
 # v1.21.1
+# v1.21.2
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.17.13
-1.17.16
 1.18.8-hotfix.20200924
 1.18.10-hotfix.20210118
 1.18.14-hotfix.20210322
@@ -394,10 +378,15 @@ KUBE_BINARY_VERSIONS="
 1.19.7-hotfix.20210310
 1.19.9-hotfix.20210505
 1.19.11
+1.19.12
+1.19.13
 1.20.2-hotfix.20210310
 1.20.5-hotfix.20210505
 1.20.7
+1.20.8
+1.20.9
 1.21.1
+1.21.2
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -414,6 +403,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
+
+echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -441,3 +432,20 @@ installAscBaseline
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
+
+# remove snapd, which is not used by container stack
+apt-get purge --auto-remove snapd -y
+
+# update message-of-the-day to start after multi-user.target
+# multi-user.target usually start at the end of the boot sequence
+sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+
+# retag all the mcr for mooncake
+# shellcheck disable=SC2207
+allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+for mcrImage in "${allMCRImages[@]}"; do
+  # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+  # shellcheck disable=SC2001
+  retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+  retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
+done

@@ -35,6 +35,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"ensureNoDupEbtablesService":     getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
 			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
 			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":     getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":             getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 		},
 	}
 
@@ -54,7 +56,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["containerdMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
 		cloudInitData["containerdMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
 		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
-		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
 	return cloudInitFiles
@@ -76,7 +77,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
 		"routeTableName":                       cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":                  cs.Properties.GetPrimaryScaleSetName(),
+		"primaryScaleSetName":                  config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":          useManagedIdentity(cs),
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
 		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
@@ -88,6 +89,8 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
 		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
 		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
+		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
+		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 	}
 
 	return customData
@@ -109,7 +112,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"virtualNetworkResourceGroupName": cs.Properties.GetVNetResourceGroupName(),
 		"routeTableName":                  cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":      cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":             cs.Properties.GetPrimaryScaleSetName(),
+		"primaryScaleSetName":             config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":     useManagedIdentity(cs),
 		"useInstanceMetadata":             useInstanceMetadata(cs),
 		"loadBalancerSku":                 cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
@@ -121,6 +124,8 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
+		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"gpuInstanceProfile":              config.GPUInstanceProfile,
 	}
 }
 
