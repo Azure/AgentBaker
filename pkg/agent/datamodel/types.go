@@ -477,19 +477,6 @@ type KubernetesAddon struct {
 	Data       string                    `json:"data,omitempty"`
 }
 
-// KubeProxyMode is for iptables and ipvs (and future others)
-type KubeProxyMode string
-
-// We currently support ipvs and iptables
-const (
-	// KubeProxyModeIPTables is used to set the kube-proxy to iptables mode
-	KubeProxyModeIPTables KubeProxyMode = "iptables"
-	// KubeProxyModeIPVS is used to set the kube-proxy to ipvs mode
-	KubeProxyModeIPVS KubeProxyMode = "ipvs"
-	// DefaultKubeProxyMode is the default KubeProxyMode value
-	DefaultKubeProxyMode KubeProxyMode = KubeProxyModeIPTables
-)
-
 // KubernetesConfig contains the Kubernetes config structure, containing
 // Kubernetes specific configuration
 type KubernetesConfig struct {
@@ -508,37 +495,24 @@ type KubernetesConfig struct {
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
 	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
-	CustomKubeAPIServerImage          string            `json:"customKubeAPIServerImage,omitempty"`
-	CustomKubeControllerManagerImage  string            `json:"customKubeControllerManagerImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
-	CustomKubeSchedulerImage          string            `json:"customKubeSchedulerImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
-	DockerEngineVersion               string            `json:"dockerEngineVersion,omitempty"` // Deprecated
 	MobyVersion                       string            `json:"mobyVersion,omitempty"`
 	ContainerdVersion                 string            `json:"containerdVersion,omitempty"`
-	CustomCcmImage                    string            `json:"customCcmImage,omitempty"` // Image for cloud-controller-manager
-	UseCloudControllerManager         *bool             `json:"useCloudControllerManager,omitempty"`
-	CustomWindowsPackageURL           string            `json:"customWindowsPackageURL,omitempty"`
 	WindowsNodeBinariesURL            string            `json:"windowsNodeBinariesURL,omitempty"`
 	WindowsContainerdURL              string            `json:"windowsContainerdURL,omitempty"`
 	WindowsSdnPluginURL               string            `json:"windowsSdnPluginURL,omitempty"`
 	UseInstanceMetadata               *bool             `json:"useInstanceMetadata,omitempty"`
 	EnableRbac                        *bool             `json:"enableRbac,omitempty"`
 	EnableSecureKubelet               *bool             `json:"enableSecureKubelet,omitempty"`
-	EnableAggregatedAPIs              bool              `json:"enableAggregatedAPIs,omitempty"`
 	PrivateCluster                    *PrivateCluster   `json:"privateCluster,omitempty"`
 	GCHighThreshold                   int               `json:"gchighthreshold,omitempty"`
 	GCLowThreshold                    int               `json:"gclowthreshold,omitempty"`
-	EnableDataEncryptionAtRest        *bool             `json:"enableDataEncryptionAtRest,omitempty"`
 	EnableEncryptionWithExternalKms   *bool             `json:"enableEncryptionWithExternalKms,omitempty"`
-	EnablePodSecurityPolicy           *bool             `json:"enablePodSecurityPolicy,omitempty"`
 	Addons                            []KubernetesAddon `json:"addons,omitempty"`
 	ContainerRuntimeConfig            map[string]string `json:"containerRuntimeConfig,omitempty"`
 	ControllerManagerConfig           map[string]string `json:"controllerManagerConfig,omitempty"`
-	CloudControllerManagerConfig      map[string]string `json:"cloudControllerManagerConfig,omitempty"`
-	APIServerConfig                   map[string]string `json:"apiServerConfig,omitempty"`
 	SchedulerConfig                   map[string]string `json:"schedulerConfig,omitempty"`
-	PodSecurityPolicyConfig           map[string]string `json:"podSecurityPolicyConfig,omitempty"` // Deprecated
 	CloudProviderBackoffMode          string            `json:"cloudProviderBackoffMode"`
 	CloudProviderBackoff              *bool             `json:"cloudProviderBackoff,omitempty"`
 	CloudProviderBackoffRetries       int               `json:"cloudProviderBackoffRetries,omitempty"`
@@ -551,22 +525,13 @@ type KubernetesConfig struct {
 	CloudProviderRateLimitBucket      int               `json:"cloudProviderRateLimitBucket,omitempty"`
 	CloudProviderRateLimitBucketWrite int               `json:"cloudProviderRateLimitBucketWrite,omitempty"`
 	CloudProviderDisableOutboundSNAT  *bool             `json:"cloudProviderDisableOutboundSNAT,omitempty"`
-	NonMasqueradeCidr                 string            `json:"nonMasqueradeCidr,omitempty"`
 	NodeStatusUpdateFrequency         string            `json:"nodeStatusUpdateFrequency,omitempty"`
-	HardEvictionThreshold             string            `json:"hardEvictionThreshold,omitempty"`
-	CtrlMgrNodeMonitorGracePeriod     string            `json:"ctrlMgrNodeMonitorGracePeriod,omitempty"`
-	CtrlMgrPodEvictionTimeout         string            `json:"ctrlMgrPodEvictionTimeout,omitempty"`
-	CtrlMgrRouteReconciliationPeriod  string            `json:"ctrlMgrRouteReconciliationPeriod,omitempty"`
 	LoadBalancerSku                   string            `json:"loadBalancerSku,omitempty"`
 	ExcludeMasterFromStandardLB       *bool             `json:"excludeMasterFromStandardLB,omitempty"`
-	AzureCNIVersion                   string            `json:"azureCNIVersion,omitempty"`
 	AzureCNIURLLinux                  string            `json:"azureCNIURLLinux,omitempty"`
 	AzureCNIURLWindows                string            `json:"azureCNIURLWindows,omitempty"`
-	KeyVaultSku                       string            `json:"keyVaultSku,omitempty"`
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
-	ProxyMode                         KubeProxyMode     `json:"kubeProxyMode,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
-	OutboundRuleIdleTimeoutInMinutes  int32             `json:"outboundRuleIdleTimeoutInMinutes,omitempty"`
 }
 
 // CustomFile has source as the full absolute source path to a file and dest
