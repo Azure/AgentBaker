@@ -4,7 +4,7 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-
+echo "Hello"
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
