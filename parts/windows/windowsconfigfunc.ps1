@@ -226,7 +226,7 @@ function Install-GmsaPlugin {
         [String] $GmsaPackageUrl
     )
 
-    $tempInstallPackageFoler = $env:TEMP
+    $tempInstallPackageFoler = [Io.path]::Combine($env:TEMP, "CCGAKVPlugin")
     $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
 
     Write-Log "Getting the GMSA plugin package"
@@ -237,18 +237,9 @@ function Install-GmsaPlugin {
     }
     Remove-Item -Path $tempPluginZipFile -Force
 
-    $tempInstallPackageFoler = [Io.path]::Combine($tempInstallPackageFoler, "CCGPlugin")
-
     # Copy the plugin DLL file.
     Write-Log "Installing the GMSA plugin"
     Copy-Item -Force -Path "$tempInstallPackageFoler\CCGAKVPlugin.dll" -Destination "${env:SystemRoot}\System32\"
-
-    # Enable the logging manifest.
-    Write-Log "Importing the CCGEvents manifest file"
-    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
-    if ($LASTEXITCODE) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file."
-    }
 
     # Enable the PowerShell privilege to set the registry permissions.
     Write-Log "Enabling the PowerShell privilege"
