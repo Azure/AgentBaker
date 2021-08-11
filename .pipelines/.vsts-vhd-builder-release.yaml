@@ -66,6 +66,10 @@ parameters:
   displayName: Dry run
   type: boolean
   default: false
+- name: buildautotest
+  displayName: Automation Test run
+  type: boolean
+  default: true
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
@@ -347,3 +351,16 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-fips-gen2-gpu-containerd 
+  - phase: build_autotest
+    condition: eq('${{ parameters.buildautotest }}', true)
+    queue:
+      name: Auto test run
+      timeoutInMinutes: 1
+    steps:
+      - bash: |
+          echo Hello
+          echo World
+        displayName: Setup auto test run
+      - template: ./templates/.builder-release-template.yaml
+        parameters:
+          artifactName: build_autotest_v1
