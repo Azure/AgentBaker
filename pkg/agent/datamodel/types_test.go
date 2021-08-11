@@ -1280,9 +1280,6 @@ func TestLinuxProfile(t *testing.T) {
 				},
 			},
 		},
-		CustomNodesDNS: &CustomNodesDNS{
-			DNSServer: "testDNSServer",
-		},
 		CustomSearchDomain: &CustomSearchDomain{
 			Name:          "testName",
 			RealmPassword: "testRealmPassword",

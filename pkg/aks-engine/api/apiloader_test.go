@@ -200,9 +200,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 						},
 					},
 				},
-				CustomNodesDNS: &datamodel.CustomNodesDNS{
-					DNSServer: "SampleDNSServer",
-				},
 				CustomSearchDomain: &datamodel.CustomSearchDomain{
 					Name:          "FooCustomSearchDomain",
 					RealmUser:     "sampleRealmUser",
