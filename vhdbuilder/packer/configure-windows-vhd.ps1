@@ -233,20 +233,6 @@ function Install-WindowsPatches {
     }
 }
 
-function Set-AllowedSecurityProtocols {
-    $allowedProtocols = @()
-    $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
-
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
-        if ($insecureProtocols -notcontains $protocol) {
-            $allowedProtocols += $protocol
-        }
-    }
-
-    Write-Log "Settings allowed security protocols to: $allowedProtocols"
-    [System.Net.ServicePointManager]::SecurityProtocol = $allowedProtocols
-}
-
 function Set-WinRmServiceAutoStart {
     Write-Log "Setting WinRM service start to auto"
     sc.exe config winrm start=auto
@@ -317,7 +303,6 @@ try{
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
-            Set-AllowedSecurityProtocols
             Install-WindowsPatches
             Install-OpenSSH
             Update-WindowsFeatures
