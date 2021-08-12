@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 components=$(jq .ContainerImages[] --monochrome-output --compact-output < vhdbuilder/packer/components.json)

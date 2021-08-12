@@ -7,8 +7,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: |
-        make build
-      name: Build
-    - run: |
         make test
       name: Unit Test
