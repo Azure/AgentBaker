@@ -45,7 +45,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuGPU1804Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuGPU1804Gen2.Definition).To(Equal("1804gen2gpu"))
-		Expect(aksUbuntuGPU1804Gen2.Version).To(Equal("2021.07.10"))
+		Expect(aksUbuntuGPU1804Gen2.Version).To(Equal("2021.08.14"))
 
 		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(1))
 
@@ -53,7 +53,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(mariner.Gallery).To(Equal("akscblmariner"))
 		Expect(mariner.Definition).To(Equal("V1"))
-		Expect(mariner.Version).To(Equal("2021.07.10"))
+		Expect(mariner.Version).To(Equal("2021.08.14"))
 
 		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(2))
 
@@ -61,6 +61,6 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2019Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(windows2019Containerd.Gallery).To(Equal("akswindows"))
 		Expect(windows2019Containerd.Definition).To(Equal("windows-2019-containerd"))
-		Expect(windows2019Containerd.Version).To(Equal("17763.2061.210714"))
+		Expect(windows2019Containerd.Version).To(Equal("17763.2114.210811"))
 	})
 })
