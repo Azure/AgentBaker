@@ -313,11 +313,9 @@ done
 # below are the required to support versions
 # v1.18.17
 # v1.18.19
-# v1.19.9
 # v1.19.11
 # v1.19.12
 # v1.19.13
-# v1.20.5
 # v1.20.7
 # v1.20.8
 # v1.20.9
@@ -354,11 +352,9 @@ done
 # below are the required to support versions
 # v1.18.17
 # v1.18.19
-# v1.19.9
 # v1.19.11
 # v1.19.12
 # v1.19.13
-# v1.20.5
 # v1.20.7
 # v1.20.8
 # v1.20.9
