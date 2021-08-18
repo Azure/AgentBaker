@@ -82,6 +82,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			WindowsPackageURL:         windowsPackage,
 		}
 
+		storage := &datamodel.Storage{
+			KubeletDiskType: "",
+		}
+
 		kubeletConfig := map[string]string{
 			"--address":                           "0.0.0.0",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
@@ -132,6 +136,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			FIPSEnabled:                   false,
 			KubeletConfig:                 kubeletConfig,
 			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
+			Storage:                       storage,
 		}
 
 		if configUpdator != nil {
