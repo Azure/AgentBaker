@@ -612,12 +612,15 @@ type AgentPoolProfile struct {
 	VnetSubnetID          string               `json:"vnetSubnetID,omitempty"`
 	Distro                Distro               `json:"distro,omitempty"`
 	CustomNodeLabels      map[string]string    `json:"customNodeLabels,omitempty"`
-	PreprovisionExtension *Extension           `json:"preProvisionExtension"`
 	KubernetesConfig      *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
 	VnetCidrs             []string             `json:"vnetCidrs,omitempty"`
 	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+}
+
+type CSEConfiguration struct {
+	PreprovisionExtension *Extension           `json:"preProvisionExtension"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1272,6 +1275,7 @@ type NodeBootstrappingConfiguration struct {
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
 	K8sComponents                 *K8sComponents
 	AgentPoolProfile              *AgentPoolProfile
+	CSEConfiguration              *CSEConfiguration
 	TenantID                      string
 	SubscriptionID                string
 	ResourceGroupName             string

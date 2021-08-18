@@ -128,12 +128,12 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
 }
 
-func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) string {
+func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, cseconfig *datamodel.CSEConfiguration) string {
 	if profile.OSType == datamodel.Windows {
-		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
+		return makeWindowsExtensionScriptCommands(cseconfig.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
 	}
-	return makeExtensionScriptCommands(profile.PreprovisionExtension,
+	return makeExtensionScriptCommands(cseconfig.PreprovisionExtension,
 		"", cs.Properties.ExtensionProfiles)
 }
 

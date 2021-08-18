@@ -77,8 +77,8 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 
 	preprovisionCmd := ""
 
-	if profile.PreprovisionExtension != nil {
-		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
+	if config.CSEConfiguration.PreprovisionExtension != nil {
+		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile, config.CSEConfiguration)
 	}
 
 	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
@@ -393,9 +393,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""
-			if profile.PreprovisionExtension != nil {
+			if config.CSEConfiguration.PreprovisionExtension != nil {
 				str += "\n"
-				str += makeAgentExtensionScriptCommands(cs, profile)
+				str += makeAgentExtensionScriptCommands(cs, profile, config.CSEConfiguration)
 			}
 			return str
 		},
