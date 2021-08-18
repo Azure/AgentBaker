@@ -520,7 +520,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return true
 			}
-			if profile.KubeletDiskType == datamodel.TempDisk {
+			if config.Storage != nil && config.Storage.KubeletDiskType == datamodel.TempDisk {
 				return true
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
@@ -529,17 +529,17 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 			}
-			if profile.KubeletDiskType == datamodel.TempDisk {
+			if config.Storage != nil && config.Storage.KubeletDiskType == datamodel.TempDisk {
 				return datamodel.TempDiskContainerDataDir
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
 		"HasKubeletDiskType": func() bool {
-			return profile != nil && profile.KubeletDiskType != ""
+			return config.Storage != nil && config.Storage.KubeletDiskType != ""
 		},
 		"GetKubeletDiskType": func() string {
-			if profile != nil && profile.KubeletDiskType != "" {
-				return string(profile.KubeletDiskType)
+			if config.Storage != nil && config.Storage.KubeletDiskType != "" {
+				return string(config.Storage.KubeletDiskType)
 			}
 			return ""
 		},

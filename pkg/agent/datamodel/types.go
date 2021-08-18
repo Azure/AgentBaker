@@ -413,9 +413,9 @@ type LinuxProfile struct {
 	SSH           struct {
 		PublicKeys []PublicKey `json:"publicKeys"`
 	} `json:"ssh"`
-	Secrets               []KeyVaultSecrets   `json:"secrets,omitempty"`
-	Distro                Distro              `json:"distro,omitempty"`
-	CustomSearchDomain    *CustomSearchDomain `json:"customSearchDomain,omitempty"`
+	Secrets            []KeyVaultSecrets   `json:"secrets,omitempty"`
+	Distro             Distro              `json:"distro,omitempty"`
+	CustomSearchDomain *CustomSearchDomain `json:"customSearchDomain,omitempty"`
 }
 
 // Extension represents an extension definition in the master or agentPoolProfile
@@ -600,27 +600,30 @@ type SysctlConfig struct {
 
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                  string               `json:"name"`
-	VMSize                string               `json:"vmSize"`
-	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
-	WorkloadRuntime       WorkloadRuntime      `json:"workloadRuntime,omitempty"`
-	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
-	OSType                OSType               `json:"osType,omitempty"`
-	Ports                 []int                `json:"ports,omitempty"`
-	AvailabilityProfile   string               `json:"availabilityProfile"`
-	StorageProfile        string               `json:"storageProfile,omitempty"`
-	VnetSubnetID          string               `json:"vnetSubnetID,omitempty"`
-	Distro                Distro               `json:"distro,omitempty"`
-	CustomNodeLabels      map[string]string    `json:"customNodeLabels,omitempty"`
-	KubernetesConfig      *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
-	VnetCidrs             []string             `json:"vnetCidrs,omitempty"`
-	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
-	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
-	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	Name                string               `json:"name"`
+	VMSize              string               `json:"vmSize"`
+	WorkloadRuntime     WorkloadRuntime      `json:"workloadRuntime,omitempty"`
+	DNSPrefix           string               `json:"dnsPrefix,omitempty"`
+	OSType              OSType               `json:"osType,omitempty"`
+	Ports               []int                `json:"ports,omitempty"`
+	AvailabilityProfile string               `json:"availabilityProfile"`
+	StorageProfile      string               `json:"storageProfile,omitempty"`
+	VnetSubnetID        string               `json:"vnetSubnetID,omitempty"`
+	Distro              Distro               `json:"distro,omitempty"`
+	CustomNodeLabels    map[string]string    `json:"customNodeLabels,omitempty"`
+	KubernetesConfig    *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
+	VnetCidrs           []string             `json:"vnetCidrs,omitempty"`
+	WindowsNameVersion  string               `json:"windowsNameVersion,omitempty"`
+	CustomKubeletConfig *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
+	CustomLinuxOSConfig *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+}
+
+type Storage struct {
+	KubeletDiskType KubeletDiskType `json:"kubeletDiskType,omitempty"`
 }
 
 type CSEConfiguration struct {
-	PreprovisionExtension *Extension           `json:"preProvisionExtension"`
+	PreprovisionExtension *Extension `json:"preProvisionExtension"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1275,7 +1278,6 @@ type NodeBootstrappingConfiguration struct {
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
 	K8sComponents                 *K8sComponents
 	AgentPoolProfile              *AgentPoolProfile
-	CSEConfiguration              *CSEConfiguration
 	TenantID                      string
 	SubscriptionID                string
 	ResourceGroupName             string
@@ -1301,6 +1303,8 @@ type NodeBootstrappingConfiguration struct {
 	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
+	CSEConfiguration              *CSEConfiguration
+	Storage                       *Storage
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
