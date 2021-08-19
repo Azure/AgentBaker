@@ -1742,7 +1742,9 @@ installContainerRuntime
 installTeleportdPlugin
 {{- end}}
 
+{{- if not IsByoCNI }}
 installNetworkPlugin
+{{end}}
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
@@ -1785,7 +1787,9 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 
 configureK8s
 
+{{- if not IsByoCNI }}
 configureCNI
+{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}

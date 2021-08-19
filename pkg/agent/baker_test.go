@@ -427,12 +427,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableNvidia = true
 			config.GPUInstanceProfile = "mig-3g"
 		}),
-		
+
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
+		}),
+
+		Entry("AKSUbuntu1804 with ByoCNI", "AKSUbuntu1804+ByoCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = datamodel.NetworkPluginByo
 		}))
 })
 

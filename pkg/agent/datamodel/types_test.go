@@ -1499,6 +1499,35 @@ func TestIsAzureCNI(t *testing.T) {
 	}
 }
 
+func TestIsByoCNI(t *testing.T) {
+	k := &KubernetesConfig{
+		NetworkPlugin: NetworkPluginByo,
+	}
+
+	o := &OrchestratorProfile{
+		KubernetesConfig: k,
+	}
+	if !o.IsByoCNI() {
+		t.Fatalf("unable to detect orchestrator profile is using Byo CNI from NetworkPlugin=%s", o.KubernetesConfig.NetworkPlugin)
+	}
+
+	k = &KubernetesConfig{
+		NetworkPlugin: "none",
+	}
+
+	o = &OrchestratorProfile{
+		KubernetesConfig: k,
+	}
+	if o.IsByoCNI() {
+		t.Fatalf("unable to detect orchestrator profile is not using Byo CNI from NetworkPlugin=%s", o.KubernetesConfig.NetworkPlugin)
+	}
+
+	o = &OrchestratorProfile{}
+	if o.IsByoCNI() {
+		t.Fatalf("unable to detect orchestrator profile is not using Byo CNI from nil KubernetesConfig")
+	}
+}
+
 func TestOrchestrator(t *testing.T) {
 	cases := []struct {
 		p                    Properties

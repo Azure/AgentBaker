@@ -413,9 +413,9 @@ type LinuxProfile struct {
 	SSH           struct {
 		PublicKeys []PublicKey `json:"publicKeys"`
 	} `json:"ssh"`
-	Secrets               []KeyVaultSecrets   `json:"secrets,omitempty"`
-	Distro                Distro              `json:"distro,omitempty"`
-	CustomSearchDomain    *CustomSearchDomain `json:"customSearchDomain,omitempty"`
+	Secrets            []KeyVaultSecrets   `json:"secrets,omitempty"`
+	Distro             Distro              `json:"distro,omitempty"`
+	CustomSearchDomain *CustomSearchDomain `json:"customSearchDomain,omitempty"`
 }
 
 // Extension represents an extension definition in the master or agentPoolProfile
@@ -987,6 +987,14 @@ func (l *LinuxProfile) HasSearchDomain() bool {
 func (o *OrchestratorProfile) IsAzureCNI() bool {
 	if o.KubernetesConfig != nil {
 		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginAzure)
+	}
+	return false
+}
+
+// IsByoCNI returns true if Byo CNI network plugin is enabled
+func (o *OrchestratorProfile) IsByoCNI() bool {
+	if o.KubernetesConfig != nil {
+		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginByo)
 	}
 	return false
 }

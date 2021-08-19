@@ -377,6 +377,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
 		},
+		"IsByoCni": func() bool {
+			return cs.Properties.OrchestratorProfile.IsByoCNI()
+		},
 		"IsMariner": func() bool {
 			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
 		},
