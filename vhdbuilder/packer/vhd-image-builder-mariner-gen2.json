@@ -212,11 +212,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/kubelet.service",
-      "destination": "/home/packer/kubelet.service"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
