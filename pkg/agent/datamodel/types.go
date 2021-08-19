@@ -1000,6 +1000,14 @@ func (o *OrchestratorProfile) IsAzureCNI() bool {
 	return false
 }
 
+// IsByoCNI returns true if Byo CNI network plugin is enabled
+func (o *OrchestratorProfile) IsByoCNI() bool {
+	if o.KubernetesConfig != nil {
+		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginByo)
+	}
+	return false
+}
+
 // IsCSIProxyEnabled returns true if csi proxy service should be enable for Windows nodes
 func (w *WindowsProfile) IsCSIProxyEnabled() bool {
 	if w.EnableCSIProxy != nil {

@@ -54,6 +54,8 @@ const (
 const (
 	// NetworkPluginAzure is the string expression for Azure CNI plugin.
 	NetworkPluginAzure = "azure"
+	// NetworkPluginByo is the string expression for "bring your own" (byo) CNI plugin option.
+	NetworkPluginByo = "byo"
 	// VMSSVMType is the string const for the vmss VM Type
 	VMSSVMType = "vmss"
 	// StandardVMType is the string const for the standard VM Type

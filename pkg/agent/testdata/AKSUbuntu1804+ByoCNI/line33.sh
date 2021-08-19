@@ -78,9 +78,6 @@ else
 fi
 
 installContainerRuntime
-installNetworkPlugin
-
-    downloadKrustlet
 
 installKubeletKubectlAndKubeProxy
 
@@ -89,8 +86,6 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-configureCNI
-
 
 
 ensureContainerd 
@@ -99,7 +94,7 @@ ensureMonitorService
 
 ensureSysctl
 ensureJournal
-systemctlEnableAndStart krustlet
+ensureKubelet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
