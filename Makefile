@@ -55,7 +55,7 @@ export GO111MODULE=on
 # Add the tools bin to the front of the path
 export PATH := $(TOOLSBIN):$(PATH)
 
-all: build
+all: generate
 
 .PHONY: dev
 dev:
@@ -96,13 +96,6 @@ generate: bootstrap
 .PHONY: generate-azure-constants
 generate-azure-constants:
 	python pkg/helpers/generate_azure_constants.py
-
-.PHONY: build
-build: generate go-build
-
-.PHONY: go-build
-go-build:
-	$(GO) build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(PROJECT)$(EXTENSION) $(REPO_PATH)
 
 .PHONY: tidy
 tidy:
