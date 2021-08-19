@@ -1748,6 +1748,8 @@ installNetworkPlugin
 
 {{- if IsKrustlet }}
     downloadKrustlet
+    # this is baked into the VHD and needs to be removed.
+    sudo rm /etc/systemd/system/kubelet.service
 {{- end }}
 
 {{- if IsNSeriesSKU}}
