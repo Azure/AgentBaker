@@ -84,6 +84,16 @@ if ([System.Diagnostics.EventLog]::SourceExists("Docker")) {
 else {
   Write-Host "Docker events are not available"
 }
+
+# CCGPlugin (Windows gMSAv2)
+if ([System.Diagnostics.EventLog]::SourceExists("Containers-CCG")) {
+  get-eventlog -LogName Application -Source Containers-CCG | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_containers-ccg.csv"
+  $paths += "$ENV:TEMP\\$($timeStamp)_containers-ccg.csv"
+}
+else {
+  Write-Host "Containers-CCG events are not available"
+}
+
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
