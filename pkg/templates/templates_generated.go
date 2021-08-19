@@ -2503,7 +2503,8 @@ Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
 ExecStart=/usr/local/bin/krustlet-wasi
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsKrustletServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsKrustletService, nil
