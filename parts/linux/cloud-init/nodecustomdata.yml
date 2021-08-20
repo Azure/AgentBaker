@@ -607,8 +607,11 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
+        {{ if IsKrustlet -}}
         certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
+        {{- else -}}
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap
