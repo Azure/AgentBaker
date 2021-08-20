@@ -80,7 +80,6 @@ fi
 installContainerRuntime
 
 installNetworkPlugin
-    downloadKrustlet
 
 installKubeletKubectlAndKubeProxy
 
@@ -99,7 +98,8 @@ ensureMonitorService
 
 ensureSysctl
 ensureJournal
-systemctlEnableAndStart krustlet
+    downloadKrustlet
+    systemctlEnableAndStart krustlet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
