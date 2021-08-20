@@ -76,10 +76,10 @@ else
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
-az vm show -g $RESOURCE_GROUP_NAME -n $VM_NAME
+az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
 
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
-time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom "instanceView.vmAgent.statuses[?code=='ProvisioningState/succeeded']"
+timeout 10m az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]' || az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
