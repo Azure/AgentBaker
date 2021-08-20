@@ -77,7 +77,17 @@ else
 fi
 
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
-timeout 10m time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
+az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
+set +e
+DURATION="20m"
+timeout "$DURATION" time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
+WAIT_CODE="$?"
+set -e
+
+if [ "$WAIT_CODE" != "0" ]; then
+  az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
+  echo "failed to wait $DURATION for vm guest agent to be ready, exit code $WAIT_CODE"
+fi
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
