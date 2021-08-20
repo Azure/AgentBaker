@@ -132,7 +132,6 @@ write_files:
     - name: localcluster
       cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        certificate-authority-data: ""
         server: https://:443
     users:
     - name: kubelet-bootstrap
