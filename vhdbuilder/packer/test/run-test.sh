@@ -76,6 +76,8 @@ else
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
+az vm show -g $RESOURCE_GROUP_NAME -n $VM_NAME
+
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom provisioningState!='InProgress'
 
 FULL_PATH=$(realpath $0)
