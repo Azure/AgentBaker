@@ -326,6 +326,18 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
 		},
+		"GetKrustletFlags": func() string {
+			var sb strings.Builder
+			taints := config.KubeletConfig["--register-with-taints"]
+			maxPods := config.KubeletConfig["--max-pods"]
+			if taints != "" {
+				sb.WriteString(fmt.Sprintf("--register-with-taints=\"%s\"", taints))
+			}
+			if maxPods != "" {
+				sb.WriteString(fmt.Sprintf("--max-pods=\"%s\"", maxPods))
+			}
+			return sb.String()
+		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell()
 		},
