@@ -45,8 +45,6 @@ copyPackerFiles() {
   CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
   CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
   CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
-  KUBELET_SERVICE_SRC=/home/packer/kubelet.service
-  KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
@@ -82,7 +80,6 @@ copyPackerFiles() {
   cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
-  cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 644
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
