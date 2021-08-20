@@ -78,7 +78,8 @@ fi
 
 az vm show -g $RESOURCE_GROUP_NAME -n $VM_NAME
 
-time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom provisioningState!='InProgress'
+# wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
+time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom "instanceView.vmAgent.statuses[?code=='ProvisioningState/succeeded']"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
