@@ -433,6 +433,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
+			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+				CaCertificate:        "fooBarBaz",
+			}
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}))
 })
 

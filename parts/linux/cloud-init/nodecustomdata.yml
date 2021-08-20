@@ -103,12 +103,21 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+ {{- if IsKrustlet}}
+- path: /etc/systemd/system/krustlet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
+{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+{{- end}}
 
 {{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
@@ -173,7 +182,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
-{{- if NeedsContainerd}}
+{{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -598,7 +607,11 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
+        {{ if IsKrustlet -}}
+        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
+        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
+        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap

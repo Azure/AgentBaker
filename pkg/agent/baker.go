@@ -326,6 +326,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
 		},
+		"GetKrustletFlags": func() string {
+			maxPods := config.KubeletConfig["--max-pods"]
+			if maxPods != "" {
+				return fmt.Sprintf("--max-pods=\"%s\"", maxPods)
+			}
+			return ""
+		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell()
 		},
@@ -545,6 +552,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsKrustlet": func() bool {
 			return strings.EqualFold(string(profile.WorkloadRuntime), string(datamodel.WasmWasi))
+		},
+		"GetBase64CertificateAuthorityData": func() string {
+			if cs != nil && cs.Properties != nil && cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.CaCertificate != "" {
+				data := cs.Properties.CertificateProfile.CaCertificate
+				return base64.StdEncoding.EncodeToString([]byte(data))
+			}
+			return ""
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin

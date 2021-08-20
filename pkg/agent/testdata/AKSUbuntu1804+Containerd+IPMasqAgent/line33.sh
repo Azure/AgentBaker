@@ -98,8 +98,8 @@ ensureContainerd
 ensureMonitorService
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+ensureKubelet
 ensureNoDupOnPromiscuBridge
 
 if $FULL_INSTALL_REQUIRED; then
