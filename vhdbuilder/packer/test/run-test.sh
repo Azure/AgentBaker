@@ -78,15 +78,19 @@ fi
 
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
 az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
+SECONDS=0
 set +e
 DURATION="20m"
-timeout "$DURATION" time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
+time timeout "$DURATION" az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
 WAIT_CODE="$?"
 set -e
+duration=$SECONDS
+echo "$(($duration / 60)) minutes and $(($duration % 60)) seconds elapsed."
 
 if [ "$WAIT_CODE" != "0" ]; then
   az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
   echo "failed to wait $DURATION for vm guest agent to be ready, exit code $WAIT_CODE"
+  exit "$WAIT_CODE"
 fi
 
 FULL_PATH=$(realpath $0)
