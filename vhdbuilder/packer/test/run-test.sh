@@ -80,7 +80,7 @@ fi
 az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
 SECONDS=0
 set +e
-DURATION="20m"
+DURATION="60m"
 time timeout "$DURATION" az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
 WAIT_CODE="$?"
 set -e
