@@ -246,8 +246,12 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
+
+	parameters := getParameters(config, "", "")
+	variables := getCSECommandVariables(config)
+
 	// translate the parameters
-	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getBakerFuncMap(config, parameters, variables))
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug

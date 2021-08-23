@@ -47,7 +47,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	//get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
+		config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -69,7 +69,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	//get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		profile, t.getBakerFuncMap(config, parameters, variables))
+		profile, getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -103,7 +103,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
+		getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -125,7 +125,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	str, e := t.getSingleLine(
 		kubernetesWindowsAgentCSECommandPS1,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
+		getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -177,7 +177,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
