@@ -131,7 +131,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210526/windowszip/v1.21.1-hotfix.20210526-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210713/windowszip/v1.21.1-hotfix.20210713-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.2/windowszip/v1.21.2-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20210816/windowszip/v1.21.2-hotfix.20210816"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20210816/windowszip/v1.21.2-hotfix.20210816-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.2.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.7.zip",
