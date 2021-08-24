@@ -483,9 +483,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"WindowsSSHEnabled": func() bool {
 			return cs.Properties.WindowsProfile.GetSSHEnabled()
 		},
-		"EnableEncryptionWithExternalKms": func() bool {
-			return to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.EnableEncryptionWithExternalKms)
-		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
 		},

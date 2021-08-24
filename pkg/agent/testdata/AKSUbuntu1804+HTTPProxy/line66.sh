@@ -2,7 +2,6 @@
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
 
-
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
