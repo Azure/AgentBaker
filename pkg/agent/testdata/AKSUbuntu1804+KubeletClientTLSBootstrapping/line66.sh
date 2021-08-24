@@ -19,12 +19,12 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2  \
+        --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
         --kubeconfig /var/lib/kubelet/kubeconfig \
         --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
-        $KUBELET_FLAGS \
-        $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_FLAGS
 
 [Install]
 WantedBy=multi-user.target

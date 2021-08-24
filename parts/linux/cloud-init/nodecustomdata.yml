@@ -335,6 +335,12 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
