@@ -639,6 +639,12 @@ write_files:
       name: bootstrap-context
     current-context: bootstrap-context
     #EOF
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
 {{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"

@@ -127,6 +127,7 @@ const (
 	// drop ins
 	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
 	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
+	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
 )
 
 // cloud-init destination file references

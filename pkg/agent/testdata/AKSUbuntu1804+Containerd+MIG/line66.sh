@@ -21,6 +21,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_FLAGS \
