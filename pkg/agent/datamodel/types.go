@@ -1293,7 +1293,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
-	EnableRuncShimV2               bool
+	EnableRuncShimV2               bool // Deprecated
 	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
