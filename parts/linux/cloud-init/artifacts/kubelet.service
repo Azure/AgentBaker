@@ -1,10 +1,6 @@
 [Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-{{- if HasKubeletDiskType}}
-Requires=bind-mount.service
-After=bind-mount.service
-{{end}}
 
 [Service]
 Restart=always
