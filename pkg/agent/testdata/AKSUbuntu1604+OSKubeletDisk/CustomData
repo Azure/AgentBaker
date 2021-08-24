@@ -63,7 +63,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySTU/jPBDH7/4UVsXheQ7G+3ZDObTgshUVRUkQh1JFjjOlIxwna48L7LLffZUW2C1NV5tT4vn9X2LN/NohLdgZBOOxJWxcchFLsEDstHEVdidXmlbqEQOFRMbgpW2MtrJEJ+9fUJbCt4geQlKiq0TdREfHAfwaDbDhksD3DRibZ9vXBUshkPaUaPugnwJTbo2+cTU4GqOFRAIZWcFSR0tvqVk0BkJQj0gZaYoh+fjlM1OPYLLO68pDsmlZ6rDismlJ6u/RgzSNI40OfHi1Og6rHl19X6HnouVyrb20WL4l/wtrHB7qIgwf4JLP+dF/mxvhz/zOQ8tvB++Tbgf8mT8YLuz/XFjgH/iCn3BagePb2I1ciO5292ruH5zwJQ762r/Y1PoeRFhpD/tubFcnZOiUUJIuLQQuiDvdeVgM1Iti+x51sQaP5lX0W3Vgz/gt4y+PEOA6N9EtE/idiWsqEFaXYEMyOPpxcT1SU5UXl7MzVUyHIzXNfg52BOvk0+53Y2MNorXxDp2o0G/3r2vhHRAEuSW2QPhDe/Qalk+zYjSb5VmeDq+K8XR4nvVhp7PL8eS8GE+m6q9QPpxcqvTsMHNwkKrzSZardPP7Pcc3k/xr0dnnGWPziQukrV2wG+0IqtFTUkdLKGIAf0za3wGxXwEAAP//Gbm2fTMEAAA=
+    H4sIAAAAAAAA/4ySXW/aMBSG7/0rrKgX24Xrfd1VuYDWdFGjUpFUvQAUOc4BLBwnso8p3br/PoWPbhSYlrscP8/7HkseP1qNU3IDXjndom5sfBdKMIDkurGV7iYPEhdirT36mAfvuGmUNLzUli93KCHjDNxKK5iSEXiUDmNpnuWLJ8KutGtsDRYH2kDMARWvYCaDwTc/C0qB92KtMUOJwcefv30lYg0q67IeHMSbvlL6BeVNi1z+CA64aixKbcH5fdSlX5zw6mWlHWUt5SvpuNHlW/P/sMrqc7swRSM9o2N68aFugkX6SucOWjqJ3jdNIvpKnxVl5iNlBugnOqVXFBdg6bZ2ozNWalsdrXk8uKIzHZ3afhdTyyUwv5AOjtPIoce470woUZYGPGVIrewyjPZ4EtXte9SGGpxWe+mPdebF0Amhu48xsF0a8+BW4A5ObFMBM7IE4+Po4ufdY1+kIi/uhzeiSHt9kWa/ogNhFX85/G9MqIG1Jsy1ZZV22/fXbeEsIHi+JbaA/8u92JflaVb0h8M8y0e9h2KQ9m6zU9j18H6Q3BaDJBX/hPJeci9GN+eZswcjcZtkuRhtrn9i/JTk34suPs8IGSfWozRmSp6kRaj6L3EdDGoWPLhLlG4OSH4HAAD//0pNkcX9AwAA
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -77,6 +77,13 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/xzNMW7CQBCF4X5O4QuYPYGLoFCkBUUpLBdj+xFGWc+i2bcR5PQRrv9f+sZPN07yjrqE3WnFh6P52m2lObufNiOD3apUGS+IX1swyRmVGhyK91e13AJyxqbmb1ciTg/j8ESV0wPLZR/TbJ5mrbculTuT/rVAWopTzRH1ldd+Jw/1JjJ+eKXmPMmXOrEen8PWMq1vFXGgxjco/wEAAP//HvlBProAAAA=
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4oOzcssieUKSi0szSxKLbZNysxL0c3NL80r0StOLSrLTE7lckwrSS3CJgEIAAD//79NTUg8AAAA
 
 
 

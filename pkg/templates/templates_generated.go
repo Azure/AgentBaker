@@ -1,5 +1,6 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/10-bindmount.conf
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
@@ -122,6 +123,26 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifacts10BindmountConf = []byte(`[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+`)
+
+func linuxCloudInitArtifacts10BindmountConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10BindmountConf, nil
+}
+
+func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10BindmountConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
@@ -2632,10 +2653,6 @@ ConditionPathExists=/usr/local/bin/kubelet
 {{if EnableEncryptionWithExternalKms}}
 Requires=kms.service
 {{end}}
-{{- if HasKubeletDiskType}}
-Requires=bind-mount.service
-After=bind-mount.service
-{{end}}
 
 [Service]
 Restart=always
@@ -4353,6 +4370,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -7976,6 +8000,7 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
@@ -8094,6 +8119,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},

@@ -165,6 +165,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
