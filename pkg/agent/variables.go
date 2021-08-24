@@ -39,6 +39,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"migPartitionSystemdService":     getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":             getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 			"containerdKubeletDropin":        getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
+			"componentConfigDropin":          getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
 		},
 	}
 

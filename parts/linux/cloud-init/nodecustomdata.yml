@@ -603,6 +603,15 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{- if IsKubeletConfigFileEnabled}}
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
+{{ end }}
+
 {{if IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"

@@ -63,7 +63,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySz28aPxDF7/4rRisO3+/BuL9u0R4gbKooiETZRD0AQl7vAFO83pU9JqRN//dq+ZGWQKT65pn3ee8dZvzoiKdigMF4aphql97EAi2yuKxdSe3kTvMy21DgkKoYvLK10VYV5NRqLxVinKNfk8GpuMfA2nOq7ZN+DiJza/K1q9DxFVlMFbJRJc51tPzK59EYDCHbEOesOYb045fPItugyVuvO4/pNq/QYQmqbljpH9GjMrVjTQ59OFh1w/IMV61K8iAbUGvtlaXiNflftMbRe12kgYTmMIbOf1UdHcMLLDw2MEneJk0SeIEnA9L+D9IifIApXAAv0cEudotLWZArT2qeDi5gTsm59nubSq9QhqX2eOomjjmpQktiwbqwGEAyON16WAp8VkrNW6mLFXoyB+gP9c7FwETA/kmJrnWTAf0a/dHG1SVKqwu0IU06P28e+9kwe5iNbgfZbNjrZ8P8V3IErNNPx//axgplY+OCnCzJ7+6vbeEdMga1U+wE4Yg1tZvTAs4d7G7V/R5q9xfSOfS7vB099K5H2f1gdjXsfc3PabYLIcbXLrC2diq+acdY9p/TKlomGQP6Lmu/QP4dAAD//85nWU2kAwAA
+    H4sIAAAAAAAA/4ySTW/iPBSF9/4VV1EX77twPV+7KotSQoWKaNW0mgUg5DgXuMJxIvua0pnOfx+Fj85QQJrsYj/POWfh0bMjnoguBuOpYapdehcLtMjipnYltScPmhfZmgKHVMXgla2Ntqogp5Y7VIhRjn5FBifiEQNrz6m2L/o1iMytyNeuQsc9spgqZKNKnOlo+d3PozEYQrYmzllzDOnnb19FtkaTt1kPHtNNX6HDAlTdsNI/okdlaseaHPqwj7oMixNetSzJg2xArbRXlor35n9hjaNzW6SBhGYwgov/qjo6hjeYe2xgnHxsGifwBi8GpP0fpEX4BBO4Al6gg23tRpeyIFcezTw+uIIZJafW72IqvUQZFtrjcZo49KQKrYkF68JiAMngdJthKfBJlJqPqIsVejJ76Y915sXAWMDukxJdmyYD+hX6gxtXlyitLtCGNLn4effcyQbZ03R4382mg+tONsh/JQfCKv1y+F/bWKFsbJyTkyX57ftrV3iHjEFtiS0Q/nIv9mU398Ne/3ba6w+yaW9wfZufgZ6u+8PssXue2VwIMeq7wNraifiuHWPZeU2raJlkDOgvWfs5svgdAAD//w20zWmXAwAA
 
 
 
@@ -125,6 +125,13 @@ write_files:
   content: |
     
 
+
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7H1DnVy9XENiXf293PzdI938/RxjXfzcXQPtlXS1U3Oz0vLTFfQTy1J1k9JTUsszSnRzy5NSs1JLYFI6WUV5+cpcQECAAD//33DAeVbAAAA
 
 
 - path: /var/lib/kubelet/kubeconfig
