@@ -3,6 +3,7 @@
 // linux/cloud-init/artifacts/10-bindmount.conf
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
+// linux/cloud-init/artifacts/10-httpproxy.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
@@ -178,6 +179,25 @@ func linuxCloudInitArtifacts10ContainerdConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-containerd.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10HttpproxyConf = []byte(`[Service]
+EnvironmentFile=/etc/environment
+`)
+
+func linuxCloudInitArtifacts10HttpproxyConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10HttpproxyConf, nil
+}
+
+func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10HttpproxyConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-httpproxy.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2704,9 +2724,6 @@ ConditionPathExists=/usr/local/bin/kubelet
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
-{{- if ShouldConfigureHTTPProxy}}
-EnvironmentFile=/etc/environment
-{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -4433,6 +4450,13 @@ write_files:
     DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
     DefaultEnvironment="no_proxy={{GetNoProxy}}"
     {{- end}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
@@ -7953,6 +7977,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
+	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
@@ -8071,6 +8096,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
+				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
