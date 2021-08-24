@@ -193,14 +193,9 @@ testKubeBinariesPresent() {
   binaryDir=/usr/local/bin
   k8sVersions="
   1.18.17-hotfix.20210322
-  1.19.1-hotfix.20200923
-  1.19.3
-  1.19.6-hotfix.20210118
-  1.19.7-hotfix.20210310
   1.19.9-hotfix.20210322
-  1.19.12
+  1.19.11-hotfix.20210823
   1.19.13
-  1.20.2-hotfix.20210310
   1.20.5-hotfix.20210322
   1.20.7-hotfix.20210816
   1.20.8
