@@ -363,19 +363,11 @@ done
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210322
 1.18.17-hotfix.20210505
 1.18.19
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210310
 1.19.9-hotfix.20210505
-1.19.11
-1.19.12
+1.19.11-hotfix.20210823
 1.19.13
-1.20.2-hotfix.20210310
 1.20.5-hotfix.20210505
 1.20.7-hotfix.20210816
 1.20.8
