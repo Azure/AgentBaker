@@ -1,5 +1,6 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
@@ -119,6 +120,25 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
+Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+`)
+
+func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ContainerdConf, nil
+}
+
+func linuxCloudInitArtifacts10ContainerdConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ContainerdConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-containerd.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifactsAptPreferences = []byte(``)
@@ -2596,7 +2616,7 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
+        --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
         {{- if IsKubeletConfigFileEnabled}}
         --config /etc/default/kubeletconfig.json \
@@ -2605,6 +2625,7 @@ ExecStart=/usr/local/bin/kubelet \
         --kubeconfig /var/lib/kubelet/kubeconfig \
         --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
         {{- end}}
+        $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_FLAGS \
         $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
 
@@ -4466,6 +4487,12 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -7898,6 +7925,7 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
@@ -8013,6 +8041,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},

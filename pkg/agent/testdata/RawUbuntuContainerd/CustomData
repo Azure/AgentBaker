@@ -70,7 +70,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySz0/bThDF7/4rRhGH7/ewbOmPS5EPUAyNiCjCQRxChNbrgYyynnV3Z0No6f9emRAgYKT6ZM++z5vn1ZucM8k0O8BoA7VCnvPjVKFDyb55rqmbnBqZFUuKEnOdYtDOW+N0Raznj9Ism5QYFmRxmp1hFBMkN+7W3MWs4AUFzw2yHJLDXKNYXeO1SU6e+DJZizEWS5JSjKSY73z+lBVLtGXndRowf9hXmTgD7VvR5lcKqK1nMcQY4tpqO856uGZeUwDVgl6YoB1VT5v/RWuZ3suiLAzoGiaw9V/jEwvcw03AFi4HrzddDuAebi0o9z8oh/ABprALMkOG1doHXKmKuH4T8+1gF65p0Jf+0aYxc1RxZgK+dcs2OaVjR2IlpnIYQQmw6TwcRemVUvtayqnBQHYNPVPvNAYuM3h8lELu3FTEsMCwccK+RuVMhS7mg63fx+f7xagYX538OCiuRnv7xaj8M9gAFvlHUOqpFiokFmowD9h4QVDrgQr4M2EU1X34JPnOl6YPVMh164klT0zLr1rrkPi5dvWL1+3o7XwzjHepQdW6dEOsagqr8ndXEBgFo14pVoL4gt1a/+nhaO+o7Ds4K46G5bg4e7iLnvHFcPz9arw3PBmXWTYZchTj3DS7MCxY79/lTXJCKkUM22LCDcrfAAAA//8PqjOJCQQAAA==
+    H4sIAAAAAAAA/4ySy24iPRCF936KUiuL/184ntsu6kUunQwKIhFNlAUg5HYXUMLtbtllQmYy7z5qLpkhgDTeuep855xFDZ8c8VjcYDCeGqbapfexQIssrmtXUjt51DzPVhQ4pCoGr2xttFUFObXYSoUY5uiXZHAs+hhYe061fdGvQWRuSb52FTq+JYupQjaqxKmOlt/5PBqDIWQr4pw1x5B+/vZVZCs0eev16DFd5xU6zEHVDSv9I3pUpnasyaEPO6vzMD/CVYuSPMgG1FJ7Zal4T/4XrXF0qos0kNAUhnD2X1VHx/AGM48NjJKPSaME3uDFgLT/g7QIn2AMF8BzdLCJXeNSFuTKg5qHgwuYUnKs/dam0guUYa49HrqJfU6q0JJYsC4sBpAMTrcelgIflVLzUepihZ7MDvpDnbgYGAnYPinRtW4yoF+i39u4ukRpdYE2pMnZz/unq6ybDSa9h5ts0r28yrr5r2QPWKZf9v+1jRXKxsYZOVmS39xf28I7ZAxqo9gIwl/s2S7s+qE3uOz0sv7N5LZ7eZcf05xc9LO7Tj7I+uvKR8bPncH3SWs/yIUYdlxgbe1YPGvHWF69plW0TDIG9Oes/Qz5dwAAAP//0M/RbbADAAA=
 - path: /etc/systemd/system/update-node-labels.service
   permissions: "0644"
   encoding: gzip
@@ -146,6 +146,12 @@ write_files:
 
 
 
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/2yLsarCQBBF+3xFSD9veYWNsEXUVcQQwcRKJEgyxSA7o5PZ4OeLhWJhd+/hnFODOlGP5yzwRCockc3vjotQhbZb7uu23NbhsOrWVblpfAHQC9uFGBU0sVFErxjFMIc3AMV7wtHgdSSZ/5/F/EcIyMNNiM0npsfcOaeJ3UcbvubfKP21yJ4BAAD//2cSLE2uAAAA
 
 - path: /etc/containerd/config.toml
   permissions: "0644"

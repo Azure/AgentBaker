@@ -123,6 +123,9 @@ const (
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
+
+	// drop ins
+	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
 )
 
 // cloud-init destination file references
