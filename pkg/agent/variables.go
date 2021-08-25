@@ -27,6 +27,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
 			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"krustletSystemdService":       getBase64EncodedGzippedCustomScript(krustletSystemdService, config),
 			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"ensureNoDupEbtablesScript":    getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
@@ -35,6 +36,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountSystemdService":      getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
 			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
+			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
 		},
 	}
 

@@ -319,11 +319,6 @@ ensureMonitorService() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {

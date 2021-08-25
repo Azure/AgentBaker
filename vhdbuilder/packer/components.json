@@ -105,9 +105,7 @@
       "versions": [
         "master.210623.2",
         "master.210721.1",
-        "master.210802.2",
-        "master.210803.2",
-        "master.210810.1"
+        "master.210819.1"
       ]
     },
     {
@@ -129,15 +127,15 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "versions": [
-        "v0.0.19",
-        "v0.0.21"
+        "v0.0.21",
+        "v0.0.21.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "versions": [
-        "0.0.12",
-        "0.0.14"
+        "0.0.14",
+        "0.0.14.3"
       ]
     },
     {
@@ -339,8 +337,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "versions": [
-        "v1.7.4",
-        "v1.7.5"
+        "v1.7.5",
+        "v1.7.5.3"
       ]
     },
     {
@@ -382,7 +380,8 @@
       "versions": [
         "1.2.7",
         "1.4.0",
-        "1.4.7"
+        "1.4.7",
+        "1.4.9"
       ]
     },
     {
@@ -392,7 +391,8 @@
       "versions": [
         "1.2.7",
         "1.4.0",
-        "1.4.7"
+        "1.4.7",
+        "1.4.9"
       ]
     },
     {
