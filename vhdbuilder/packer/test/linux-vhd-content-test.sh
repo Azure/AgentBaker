@@ -4,6 +4,7 @@ source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.s
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+SINGLE_VERSION=${SINGLE_VERSION:=false}
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -26,10 +27,12 @@ testFilesDownloaded() {
       continue
     fi
 
-    for version in ${versions}; do
-      file_Name=$(string_replace $fileName $version)
+    sorted=$(echo ${versions} | sort -V | rev)
+    highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f1 | rev)
+    if [ "${SINGLE_VERSION}" == "true" ]; then
+      file_Name=$(string_replace $fileName $highestVersion)
       dest="$downloadLocation/${file_Name}"
-      downloadURL=$(string_replace $download_URL $version)/$file_Name
+      downloadURL=$(string_replace $download_URL $highestVersion)/$file_Name
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
@@ -39,9 +42,25 @@ testFilesDownloaded() {
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
         err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
-        continue
-      fi
-    done
+        co
+    else
+      for version in ${versions}; do
+        file_Name=$(string_replace $fileName $version)
+        dest="$downloadLocation/${file_Name}"
+        downloadURL=$(string_replace $download_URL $version)/$file_Name
+        if [ ! -s $dest ]; then
+          err $test "File ${dest} does not exist"
+          continue
+        fi
+        # -L since some urls are redirects (i.e github)
+        fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
+        if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+          err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+          continue
+        fi
+      done
+    fi
 
     echo "---"
   done
@@ -66,15 +85,27 @@ testImagesPulled() {
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
-    for version in ${versions}; do
-      download_URL=$(string_replace $downloadURL $version)
-
+    sorted=$(echo ${versions} | sort -V | rev)
+    highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f1 | rev)
+    if [ "${SINGLE_VERSION}" == "true" ]; then
+      download_URL=$(string_replace $downloadURL $highestVersion)
       if [[ $pulledImages =~ $downloadURL ]]; then
         echo "Image ${download_URL} pulled"
       else
         err $test "Image ${download_URL} has NOT been pulled"
       fi
-    done
+    else
+       for version in ${versions}; do
+        download_URL=$(string_replace $downloadURL $version)
+
+        if [[ $pulledImages =~ $downloadURL ]]; then
+          echo "Image ${download_URL} pulled"
+        else
+          err $test "Image ${download_URL} has NOT been pulled"
+        fi
+      done
+    fi
+   
 
     echo "---"
   done
