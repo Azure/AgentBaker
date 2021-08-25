@@ -798,11 +798,6 @@ ensureMonitorService() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
@@ -2589,9 +2584,6 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-{{if EnableEncryptionWithExternalKms}}
-Requires=kms.service
-{{end}}
 {{- if HasKubeletDiskType}}
 Requires=bind-mount.service
 After=bind-mount.service
@@ -4362,12 +4354,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 {{- end}}
-- path: /etc/systemd/system/kms.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
