@@ -34,6 +34,7 @@ if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
     --source "${OS_DISK_URI}" \
+    --size-gb 512 \
     --query id
   az vm create --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
