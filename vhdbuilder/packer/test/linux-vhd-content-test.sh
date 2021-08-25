@@ -216,7 +216,13 @@ testKubeBinariesPresent() {
   1.20.9
   1.21.2-hotfix.20210816
   "
+  highestVersion=$(echo ${k8sVersions} | sort -V | rev | cut -d' ' -f1 | rev)
   for patchedK8sVersion in ${k8sVersions}; do
+    if [ "${SINGLE_VERSION}" == "true" ]; then
+      if [ "${version}" != "${highestVersion}" ]; then
+        continue
+      fi
+    fi
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
       continue
