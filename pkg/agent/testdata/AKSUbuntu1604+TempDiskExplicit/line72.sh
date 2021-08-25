@@ -13,10 +13,7 @@ set -x
 # kubelet thinks it's located on the temp disk (/dev/sdb). This results
 # in correct calculation of ephemeral-storage capacity.
 
-
 MOUNT_POINT="/mnt/aks"
-
-
 KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
 KUBELET_DIR="/var/lib/kubelet"
 

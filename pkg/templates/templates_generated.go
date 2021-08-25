@@ -280,10 +280,7 @@ set -x
 # kubelet thinks it's located on the temp disk (/dev/sdb). This results
 # in correct calculation of ephemeral-storage capacity.
 
-{{if eq GetKubeletDiskType "Temporary"}}
 MOUNT_POINT="/mnt/aks"
-{{end}}
-
 KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
 KUBELET_DIR="/var/lib/kubelet"
 
@@ -300,7 +297,8 @@ fi
 # location before kubelet itself may start.
 mkdir -p "${KUBELET_DIR}"
 mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}" 
-chmod a+w "${KUBELET_DIR}"`)
+chmod a+w "${KUBELET_DIR}"
+`)
 
 func linuxCloudInitArtifactsBindMountShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsBindMountSh, nil
