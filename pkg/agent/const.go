@@ -68,8 +68,6 @@ const (
 	kubernetesDockerMonitorSystemdService     = "linux/cloud-init/artifacts/docker-monitor.service"
 	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
 	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
-	updateNodeLabelsScript                    = "linux/cloud-init/artifacts/update-node-labels.sh"
-	updateNodeLabelsSystemdService            = "linux/cloud-init/artifacts/update-node-labels.service"
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
 	krustletSystemdService                    = "linux/cloud-init/artifacts/krustlet.service"

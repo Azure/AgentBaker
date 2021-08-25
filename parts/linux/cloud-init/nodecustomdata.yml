@@ -135,22 +135,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
 {{end}}
 
-{{- if not .IsVHDDistro}}
-- path: /etc/systemd/system/update-node-labels.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
-
-- path: /opt/azure/containers/update-node-labels.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
-{{end}}
-
 {{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
