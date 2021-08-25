@@ -76,6 +76,7 @@ phases:
           -e IMPORT_IMAGE_URL_GEN2=${IMPORT_IMAGE_URL_GEN2} \
           -e IMPORT_IMAGE_SAS=${IMPORT_IMAGE_SAS} \
           -e ENABLE_FIPS=${ENABLE_FIPS} \
+          -e SINGLE_VERSION=${SINGLE_VERSION:-"true"} \
           ${CONTAINER_IMAGE} make -f packer.mk run-packer
         displayName: Building VHD
       - script: |

@@ -4,7 +4,7 @@ source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.s
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-SINGLE_VERSION=${SINGLE_VERSION:=false}
+SINGLE_VERSION=${SINGLE_VERSION:=true}
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
