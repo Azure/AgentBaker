@@ -2605,8 +2605,7 @@ ExecStart=/usr/local/bin/kubelet \
         --kubeconfig /var/lib/kubelet/kubeconfig \
         --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
         {{- end}}
-        $KUBELET_FLAGS \
-        $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
+        $KUBELET_FLAGS 
 
 [Install]
 WantedBy=multi-user.target`)
