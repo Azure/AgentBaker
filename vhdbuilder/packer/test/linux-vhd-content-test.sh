@@ -29,10 +29,15 @@ testFilesDownloaded() {
 
     sorted=$(echo ${versions} | sort -V | rev)
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f1 | rev)
-    if [ "${SINGLE_VERSION}" == "true" ]; then
-      file_Name=$(string_replace $fileName $highestVersion)
+    for version in ${versions}; do
+      if [ "${SINGLE_VERSION}" == "true" ]; then
+        if [ "${version}" != "${highestVersion}" ]; then
+          continue
+        fi
+      fi
+      file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
-      downloadURL=$(string_replace $download_URL $highestVersion)/$file_Name
+      downloadURL=$(string_replace $download_URL $version)/$file_Name
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
@@ -42,25 +47,9 @@ testFilesDownloaded() {
       fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
         err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
-        co
-    else
-      for version in ${versions}; do
-        file_Name=$(string_replace $fileName $version)
-        dest="$downloadLocation/${file_Name}"
-        downloadURL=$(string_replace $download_URL $version)/$file_Name
-        if [ ! -s $dest ]; then
-          err $test "File ${dest} does not exist"
-          continue
-        fi
-        # -L since some urls are redirects (i.e github)
-        fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
-        if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-          err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
-          continue
-        fi
-      done
-    fi
+        continue
+      fi
+    done
 
     echo "---"
   done
@@ -87,28 +76,22 @@ testImagesPulled() {
     versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
     sorted=$(echo ${versions} | sort -V | rev)
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f1 | rev)
-    if [ "${SINGLE_VERSION}" == "true" ]; then
-      download_URL=$(string_replace $downloadURL $highestVersion)
+    for version in ${versions}; do
+      if [ "${SINGLE_VERSION}" == "true" ]; then
+        if [ "${version}" != "${highestVersion}" ]; then
+          continue
+        fi
+      fi
+      download_URL=$(string_replace $downloadURL $version)
       if [[ $pulledImages =~ $downloadURL ]]; then
         echo "Image ${download_URL} pulled"
       else
         err $test "Image ${download_URL} has NOT been pulled"
       fi
-    else
-       for version in ${versions}; do
-        download_URL=$(string_replace $downloadURL $version)
-
-        if [[ $pulledImages =~ $downloadURL ]]; then
-          echo "Image ${download_URL} pulled"
-        else
-          err $test "Image ${download_URL} has NOT been pulled"
-        fi
-      done
-    fi
-   
-
+    done
     echo "---"
   done
+
   echo "$test:Finish"
 }
 
