@@ -50,8 +50,6 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
-// linux/cloud-init/artifacts/update-node-labels.service
-// linux/cloud-init/artifacts/update-node-labels.sh
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
 // windows/csecmd.ps1
@@ -818,17 +816,6 @@ ensureKubelet() {
         sleep 3
     done
     {{end}}
-}
-
-# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
-ensureUpdateNodeLabels() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureMigPartition(){
@@ -4017,75 +4004,6 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsUpdateNodeLabelsService = []byte(`[Unit]
-Description=Updates Labels for Kubernetes node
-After=kubelet.service
-[Service]
-Restart=on-failure
-RestartSec=30
-EnvironmentFile=/etc/default/kubelet
-ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsService, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsUpdateNodeLabelsSh = []byte(`#!/usr/bin/env bash
-
-# Updates Labels for this Kubernetes node (adds any missing, updates others to newest values, but never removes labels)
-
-set -euo pipefail
-
-NODE_NAME=$(echo $(hostname) | tr "[:upper:]" "[:lower:]")
-
-echo "updating labels for ${NODE_NAME}"
-
-FORMATTED_CURRENT_NODE_LABELS=$(kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --list=true node $NODE_NAME | sort)
-
-echo "current node labels (sorted): ${FORMATTED_CURRENT_NODE_LABELS}"
-
-FORMATTED_NODE_LABELS_TO_UPDATE=$(echo $KUBELET_NODE_LABELS | tr ',' '\n' | sort)
-
-echo "node labels to update (formatted+sorted): ${FORMATTED_NODE_LABELS_TO_UPDATE}"
-
-MISSING_LABELS=$(comm -32 <(echo $FORMATTED_NODE_LABELS_TO_UPDATE | tr ' ' '\n') <(echo $FORMATTED_CURRENT_NODE_LABELS | tr ' ' '\n') | tr '\n' ' ')
-
-echo "missing labels: ${MISSING_LABELS}"
-
-if [ ! -z "$MISSING_LABELS" ]; then
-  kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --overwrite node $NODE_NAME $MISSING_LABELS
-fi
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsSh, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -4212,22 +4130,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
-{{end}}
-
-{{- if not .IsVHDDistro}}
-- path: /etc/systemd/system/update-node-labels.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
-
-- path: /opt/azure/containers/update-node-labels.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
 {{end}}
 
 {{- if HasKubeletDiskType}}
@@ -7892,8 +7794,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
-	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
-	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
@@ -8010,8 +7910,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
-				"update-node-labels.service": &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
-				"update-node-labels.sh":      &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
