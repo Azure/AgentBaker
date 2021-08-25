@@ -1,7 +1,6 @@
 [Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-
 Requires=bind-mount.service
 After=bind-mount.service
 

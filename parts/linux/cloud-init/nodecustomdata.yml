@@ -211,12 +211,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 {{- end}}
-- path: /etc/systemd/system/kms.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
