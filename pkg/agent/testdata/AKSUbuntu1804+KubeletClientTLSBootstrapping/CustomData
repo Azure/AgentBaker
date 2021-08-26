@@ -63,7 +63,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySTW/iMBCG7/4VVsRh9+B6v25VDlBChYpo1bTaAyDkOAOMcOzIHlO62/3vq/DRlgKrzS2e53nnTeTRo0WasC4E7bEmdDa9iQUYIHblbInNyZ2iRbbGQCGVMXhpnFZGFmjlcoeyUQ5+hRom7B4CKU+pMk/qObDMrtA7W4GlHhpIJZCWJcxUNPSq51FrCCFbI+WkKIb064/vLFuDzpusOw/pZl2hwoJLV5NUv6IHqZ0lhRZ82EddhMUJr1qW6LmouVwpLw0Wr5v/h9UWz3URmic44yPe+lS5aIm/8LmHmo+Tj5vGCX/hT5oL85kLA/wLn/BLTguwfLt2owtRoC2Pah4fXPIZJqfa72IqtQQRFsrDcRo79IQMjQkFqcJA4IK4VU2GwUAnUaw/ojZW4FHvpTfrzIXhY8Z3jxBgmzQRwK/AH0ysK0EYVYAJadL6ffPYyQbZw3R4282mg3YnG+R/kgNhlX47fHcmViBqE+doRYl+e/+aFt4CQZBbYguEA7eBtLMznB/9Qflu9l4pnKNAXtX/lE9SbzGt/Wde3Q57/etprz/Ipr1B+zo/Az20+8Psvnue2QwYG/VtIGXMhP1UlqDsPKdVNIQiBvAXpPwciP0NAAD//9IkbdYQBAAA
+    H4sIAAAAAAAA/4yST2/aMBjG7/4UVtTDdnC9f7cqByihQo0AEaodACHHeYFXOE5kv6Z06777FP50o8C03GL/fs/zHDx5skgz1gGvHdaElY0fQw4GiN1XtsDmZKholWzRk49l8E6aSisjc7RyfUDZJAO3QQ0zNgJPylGszLN68SyxG3SVLcFSFw3EEkjLAhYqGHrTs6A1eJ9skTJSFHz8+dtXlmxBZ03W0EG8q8uVX3FZ1STVj+BA6sqSQgvOH6Nu/eqCV64LdFzUXG6Ukwbzt+b/YbXFa1uE5hEu+ITffCirYIm/8qWDmk+j903TiL/yZ82F+ciFAf6Jz/gdpxVYvq/d6ULkaIuzmecHd3yB0aX1h5hSrUH4lXJwnsZOPSF9Y0JOKjfguSBuVZNh0NNFFOv3qA0lONRH6Y915cHwKeOHTwiwTZrw4DbgTm5sVYAwKgfj4+jm5+NTO0mT8bw/6CTztNVO0uxXdCJs4i+n/5UJJYjahCVaUaDbv79mhbNA4OWe2AP+L/fmWDZOs3l7MBhn41FrOO+mrYfsEnY/6Hd7D/NuL03+CY1bvX4y6lxndheMTXrWkzJmxr4rS1C0X+IyGEIRPLhbUm4JxH4HAAD//+ixAZu9AwAA
 
 
 
@@ -144,6 +144,12 @@ write_files:
       name: bootstrap-context
     current-context: bootstrap-context
     #EOF
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7H1DnVy9XENiQ/xCY538vcPCQ4JcgyId/NxdA+2VdLVzS5NSk3Oz0vLTFfQL0ss0s/JTNIHieWklugjyenqJuXnlxSXFCUW4NWCTZUSFyAAAP//T/4r1JoAAAA=
 
 
 - path: /etc/default/kubelet
