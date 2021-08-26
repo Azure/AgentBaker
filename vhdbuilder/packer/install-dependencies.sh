@@ -87,7 +87,8 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     networkdWorkaround
 fi
 
-downloadKrustlet
+KRUSTLET_VERSION="v1.0.0-alpha.1"
+downloadKrustlet ${KRUSTLET_VERSION}
 echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
@@ -115,7 +116,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
+  installTeleportdPlugin
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.14"

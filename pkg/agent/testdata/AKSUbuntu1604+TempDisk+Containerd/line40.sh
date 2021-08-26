@@ -13,7 +13,6 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v1.0.0-alpha.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -40,11 +39,19 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
+    INPUT_VERSION=$1
+    #if there is no version input from script, use hardcoded version
+    if [[ -z ${INPUT_VERSION} ]]; then
+        INPUT_VERSION="v1.0.0-alpha.1"
+        echo "Krustlet Version not specified, using default version: ${INPUT_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${INPUT_VERSION}"
+    fi
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${INPUT_VERSION}/linux/amd64/krustlet-wasi"
     local krustlet_filepath="/usr/local/bin/krustlet-wasi"
     if [[ -f "$krustlet_filepath" ]]; then
         installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
-        if [[ "${KRUSTLET_VERSION}" == "$installed_version" ]]; then
+        if [[ "${INPUT_VERSION}" == "$installed_version" ]]; then
             echo "desired krustlet version exists on disk, skipping download."
             return
         fi

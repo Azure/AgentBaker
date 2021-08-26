@@ -18,12 +18,17 @@ source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
 # NEW VARIABLES FOR SINGLE VERSION BUILD
+CONTAINERD_VERSION="1.4.8"
 CRICTL_VERSIONS="1.21.0"
 RUNC_VERSIONS="1.0.0-rc95"
+CONTAINER_RUNTIME="containerd"
+MOBY_VERSION="19.03.14"
+KRUSTLET_VERSION="v1.0.0-alpha.1"
 VNET_CNI_VERSIONS="1.4.7"
 SWIFT_CNI_VERSIONS="1.4.7" # merge with above after two more version releases
 CNI_PLUGIN_VERSIONS="0.8.6"
 NVIDIA_DEVICE_PLUGIN_VERSIONS="v0.9.0"
+SGX_DEVICE_PLUGIN_VERSIONS="1.0"
 SGX_PLUGIN_VERSIONS="0.4"
 SGX_WEBHOOK_VERSIONS="0.9"
 SGX_QUOTE_HELPER_VERSIONS="2.0"
@@ -107,9 +112,8 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.8"
-  installStandaloneContainerd ${containerd_version}
-  echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+  installStandaloneContainerd ${CONTAINERD_VERSION}
+  echo "  - [installed] containerd v${CONTAINERD_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -120,10 +124,8 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   cliTool="ctr"
 
   # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
+  installTeleportdPlugin
 else
-  CONTAINER_RUNTIME="docker"
-  MOBY_VERSION="19.03.14"
   installMoby
   echo "VHD will be built with docker as container runtime"
   echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -233,13 +235,11 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 
   installSGX=${SGX_INSTALL:-"False"}
   if [[ ${installSGX} == "True" ]]; then
-      SGX_DEVICE_PLUGIN_VERSIONS="1.0"
       for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
           CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
           pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
           echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
       done
-
 
       for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
           CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
