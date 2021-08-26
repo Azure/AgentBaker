@@ -22,6 +22,7 @@ ExecStart=/usr/local/bin/kubelet \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
         --kubeconfig /var/lib/kubelet/kubeconfig \
         --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+        $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_FLAGS
 

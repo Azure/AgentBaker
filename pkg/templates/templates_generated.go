@@ -1,5 +1,6 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
@@ -119,6 +120,25 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
+Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+`)
+
+func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ComponentconfigConf, nil
+}
+
+func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ComponentconfigConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-componentconfig.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
@@ -2665,18 +2685,17 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsKubeletConfigFileEnabled}}
-        --config /etc/default/kubeletconfig.json \
-        {{- end}}
         {{- if IsKubeletClientTLSBootstrappingEnabled}}
         --kubeconfig /var/lib/kubelet/kubeconfig \
         --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
         {{- end}}
+        $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_FLAGS
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsKubeletServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsKubeletService, nil
@@ -4709,6 +4728,15 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
+
+{{- if IsKubeletConfigFileEnabled}}
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
+{{ end }}
 
 {{if IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
@@ -7875,6 +7903,7 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
@@ -7990,6 +8019,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
