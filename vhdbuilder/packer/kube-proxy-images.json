@@ -33,7 +33,10 @@
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "versions": []
+        "versions": [
+          "1.21.2-hotfix.20210715.2",
+          "1.21.2-hotfix.20210816"
+        ]
       }
     ]
   }
