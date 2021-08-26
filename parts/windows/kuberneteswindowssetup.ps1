@@ -206,11 +206,12 @@ $windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSe
 
 try
 {
-    # Set to false for debugging.  This will output the start script to
-    # c:\AzureData\CustomDataSetupScript.log, and then you can RDP
-    # to the windows machine, and run the script manually to watch
-    # the output.
-    if ($true) {
+        # Exit early if the script has been executed
+        if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+            Write-Log "The script has been executed before, will exit without doing anything."
+            return
+        }
+
         Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
         if ($global:EnableTelemetry) {
@@ -529,12 +530,6 @@ try
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
         Postpone-RestartComputer
-    }
-    else
-    {
-        # keep for debugging purposes
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AgentKey $AgentKey -AADClientId $AADClientId -AADClientSecret $AADClientSecret -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
-    }
 }
 catch
 {
