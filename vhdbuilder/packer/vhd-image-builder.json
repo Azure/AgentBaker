@@ -182,16 +182,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update-node-labels.sh",
-      "destination": "/home/packer/update-node-labels.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update-node-labels.service",
-      "destination": "/home/packer/update-node-labels.service"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },
