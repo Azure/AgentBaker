@@ -189,6 +189,18 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
+      "versions": [
+        "1.10.3"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
+      "versions": [
+        "1.10.3.1"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
         "v1.15.1",
