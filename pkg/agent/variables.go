@@ -41,6 +41,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
 			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
 			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
+			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 		},
 	}
 

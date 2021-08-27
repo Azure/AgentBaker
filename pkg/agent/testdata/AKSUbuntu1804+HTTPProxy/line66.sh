@@ -5,7 +5,6 @@ ConditionPathExists=/usr/local/bin/kubelet
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
-EnvironmentFile=/etc/environment
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet

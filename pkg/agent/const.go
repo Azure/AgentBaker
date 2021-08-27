@@ -95,6 +95,7 @@ const (
 	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
 	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
+	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 )
 
 // cloud-init destination file references
