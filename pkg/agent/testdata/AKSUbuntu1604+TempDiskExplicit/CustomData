@@ -63,7 +63,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySTW/iPBSF9/4VVtTF+y6M52tXZQElHVVFtCKtZgEIOc4FrnCcjO81pTOd/z4KH52hUGmyin3Pc86RdcePHnkq+kA2YMNY+/Q2FuCAxVXtS2xv7g0vsw0SU6ojBe1qa5wu0OvVXjqC7xEDUFqgL1VVR88dgrBGC6I7ZwjnBkKM893vVIyA2AROjXsyzyQyv8ZQ+wo8X6ODVANbXcLcRMevoXm0FoiyDXLOhiOlH798FtkGbN563QdItyULQ0up64a1+REDaFt7Nugh0MGqQ8szXLUqMUjVSL02QTssXpP/RWs9vtdFWZngXI7lxX/bF5EvchGgkZPkbdIkkS/yyUrl/pfKgfwgp/JS8hK83MVucaXa1z2peXpxKeeYnGu/t6nMChQtTYBTN3HMKU0tCQWbwgFJxdKb1sMh8VkpNm+lPlYQ0B6gP9Q7ayYnQu4/pcC3bqpdJghHE1+XoJwpwFGaXPy8fexlg+xhNrzrZ7NBt5cN8l/JEbBOPx2faxcrUI2LC/SqxLDbv7ZF8MBAeqfYCegv9uIQdnU3fOjeDLNRf3Y96H7Nz2m2AyHGN57YODcV34xnKHvPaRUdo4oEocMmLIB/BwAA//9aIhUypgMAAA==
+    H4sIAAAAAAAA/4yST2/aMBjG7/4UVtTDdnC9f7cqByihQo0AEaodACHHeYFXOE5kv6Z06777FP50o8C03GL/fs/zHDx5skgz1gGvHdaElY0fQw4GiN1XtsDmZKholWzRk49l8E6aSisjc7RyfUDZJAO3QQ0zNgJPylGszLN68SyxG3SVLcFSFw3EEkjLAhYqGHrTs6A1eJ9skTJSFHz8+dtXlmxBZ03W0EG8q8uVX3FZ1STVj+BA6sqSQgvOH6Nu/eqCV64LdFzUXG6Ukwbzt+b/YbXFa1uE5hEu+ITffCirYIm/8qWDmk+j903TiL/yZ82F+ciFAf6Jz/gdpxVYvq/d6ULkaIuzmecHd3yB0aX1h5hSrUH4lXJwnsZOPSF9Y0JOKjfguSBuVZNh0NNFFOv3qA0lONRH6Y915cHwKeOHTwiwTZrw4DbgTm5sVYAwKgfj4+jm5+NTO0mT8bw/6CTztNVO0uxXdCJs4i+n/5UJJYjahCVaUaDbv79mhbNA4OWe2AP+L/fmWDZOs3l7MBhn41FrOO+mrYfsEnY/6Hd7D/NuL03+CY1bvX4y6lxndheMTXrWkzJmxr4rS1C0X+IyGEIRPLhbUm4JxH4HAAD//+ixAZu9AwAA
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -77,6 +77,13 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/xzNMW7CQBCF4X5O4QuYPYGLoFCkBUUpLBdj+xFGWc+i2bcR5PQRrv9f+sZPN07yjrqE3WnFh6P52m2lObufNiOD3apUGS+IX1swyRmVGhyK91e13AJyxqbmb1ciTg/j8ESV0wPLZR/TbJ5mrbculTuT/rVAWopTzRH1ldd+Jw/1JjJ+eKXmPMmXOrEen8PWMq1vFXGgxjco/wEAAP//HvlBProAAAA=
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4oOzcssieUKSi0szSxKLbZNysxL0c3NL80r0StOLSrLTE7lckwrSS3CJgEIAAD//79NTUg8AAAA
 
 
 

@@ -5,6 +5,7 @@ package agent
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -37,12 +38,20 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
+			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
+			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
+			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
+			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		if strings.EqualFold(string(config.OSSKU), string("CBLMariner")) {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
+		} else {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		}
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {

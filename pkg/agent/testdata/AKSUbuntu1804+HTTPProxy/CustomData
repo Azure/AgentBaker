@@ -63,7 +63,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4ySTW/aQBCG7/srRhaH9rDZft0iHyA4VRREojhRD4DQej3AiPXa2p0lpE3/e2U+SglEqm+efZ5538OMnhzxRPQxGE8NU+3S21igRRZXtSupndxrXmRrChxSFYNXtjbaqoKcWu5QMcrRr8jgRDxgYO051fZZvwSRuRX52lXo+JospgrZqBJnOlr+q5+F8DAUeTQGQ8jWxDlrjiH9/O2ryNZo8jbs3mO66VPosABVN6z0z+hRmdqxJoc+7LMuwuKMVy1L8iAbUCvtlaXiUO0/WOPovS7SQEIzGEHnQ1VHx/AKc48NjJO3SeMEXuHZgLQfQVqETzCBS+AFOtjGbnQpC3LlSc3TwSXMKDnXfrem0kuUYaE9nm4Tx55UoTWxYF1YDCAZnG53WAp8FqXmLepihZ7MXjpY71wUjAXsPinRtdtkQL9Cf/Ti6hKl1QXakCadX7dPvWyQPU6Hd/1sOuj2skH+OzkSVumX4//axgplY+OcnCzJb2+vbeEdMga1JbZA+Mft7MOu7oaP3Zth9tCfXg+63/NzzOZBiNGNC6ytnYgf2jGWvZe0ipZJxoD+grWfI/8JAAD//8QVTN+RAwAA
+    H4sIAAAAAAAA/4yST2/aMBjG7/4UVtTDdnC9f7cqByihQo0AEaodACHHeYFXOE5kv6Z06777FP50o8C03GL/fs/zHDx5skgz1gGvHdaElY0fQw4GiN1XtsDmZKholWzRk49l8E6aSisjc7RyfUDZJAO3QQ0zNgJPylGszLN68SyxG3SVLcFSFw3EEkjLAhYqGHrTs6A1eJ9skTJSFHz8+dtXlmxBZ03W0EG8q8uVX3FZ1STVj+BA6sqSQgvOH6Nu/eqCV64LdFzUXG6Ukwbzt+b/YbXFa1uE5hEu+ITffCirYIm/8qWDmk+j903TiL/yZ82F+ciFAf6Jz/gdpxVYvq/d6ULkaIuzmecHd3yB0aX1h5hSrUH4lXJwnsZOPSF9Y0JOKjfguSBuVZNh0NNFFOv3qA0lONRH6Y915cHwKeOHTwiwTZrw4DbgTm5sVYAwKgfj4+jm5+NTO0mT8bw/6CTztNVO0uxXdCJs4i+n/5UJJYjahCVaUaDbv79mhbNA4OWe2AP+L/fmWDZOs3l7MBhn41FrOO+mrYfsEnY/6Hd7D/NuL03+CY1bvX4y6lxndheMTXrWkzJmxr4rS1C0X+IyGEIRPLhbUm4JxH4HAAD//+ixAZu9AwAA
 
 
 
@@ -95,6 +95,13 @@ write_files:
     DefaultEnvironment="https_proxy=https://myproxy.server.com:8080/"
     DefaultEnvironment="NO_PROXY=localhost,127.0.0.1"
     DefaultEnvironment="no_proxy=localhost,127.0.0.1"
+
+- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK3HLzEm11U8tSdZPRQhyAQIAAP//gGvmJysAAAA=
 - path: /usr/local/share/ca-certificates/proxyCA.pem
   permissions: "0644"
   owner: root

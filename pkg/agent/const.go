@@ -82,15 +82,20 @@ const (
 	migPartitionSystemdService                = "linux/cloud-init/artifacts/mig-partition.service"
 
 	// scripts and service for enabling ipv6 dual stack
-	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
-	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
-	initAKSCustomCloudScript  = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
+	dhcpv6SystemdService            = "linux/cloud-init/artifacts/dhcpv6.service"
+	dhcpv6ConfigurationScript       = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
+	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
+	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
 
 	// drop ins
 	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
+	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
+	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
+	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
+	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 )
 
 // cloud-init destination file references

@@ -5,7 +5,6 @@ ConditionPathExists=/usr/local/bin/kubelet
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
-EnvironmentFile=/etc/environment
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -21,6 +20,8 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_FLAGS
 
