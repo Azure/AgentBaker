@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -807,7 +808,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"ToJSON": func(v interface{}) string {
 			output, _ := json.Marshal(v)
-			return string(output)
+			return strconv.Quote(string(output))
 		},
 	}
 }
