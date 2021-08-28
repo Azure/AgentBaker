@@ -15,8 +15,8 @@ rm /var/lib/cloud/instance/sem/config_write_files || true
 rm /var/lib/cloud/instance/sem/config_runcmd || true
 rm /var/lib/cloud/instance/sem/config_scripts_user || true
 echo "rerunning cc_write_files"
-base64 -d /var/lib/cloud/instance/user-data.txt > tmp
-mv tmp /var/lib/cloud/instance/user-data.txt
+base64 -d /var/lib/cloud/instance/user-data.txt > /tmp/new-user-data
+mv /tmp/new-user-data /var/lib/cloud/instance/user-data.txt
 cp /var/lib/cloud/instance/user-data.txt /var/lib/cloud/instance/cloud-config.txt
 mv /var/lib/cloud/instance/scripts/part-001 /tmp/old-001
 cloud-init single -n write_files
