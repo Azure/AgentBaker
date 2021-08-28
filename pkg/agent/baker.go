@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/Masterminds/sprig"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -70,11 +70,6 @@ func (t *TemplateGenerator) getVersionedLinuxNodeCustomDataJSONObject(config *da
 	parameters := getParameters(config, registry, version)
 	//get variable cloudInit
 	variables := getCustomDataVariables(config)
-	funcMap := sprig.TxtFuncMap()
-	overrides := t.getBakerFuncMap(config, parameters, variables)
-	for k := range overrides {
-		funcMap[k] = overrides[k]
-	}
 	str, e := t.getSingleLineForTemplate(kubernetesVersionedNodeCustomDataYaml,
 		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
 
@@ -153,16 +148,11 @@ func (t *TemplateGenerator) getVersionedLinuxNodeCSECommand(config *datamodel.No
 	parameters := getParameters(config, registry, version)
 	//get variable
 	variables := getCSECommandVariables(config)
-	funcMap := sprig.TxtFuncMap()
-	overrides := t.getBakerFuncMap(config, parameters, variables)
-	for k := range overrides {
-		funcMap[k] = overrides[k]
-	}
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesCSEVersionedString,
 		config,
-		funcMap,
+		t.getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -814,6 +804,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"FIPSEnabled": func() bool {
 			return config.FIPSEnabled
+		},
+		"ToPrettyJson": func(v interface{}) string {
+			output, _ := json.MarshalIndent(v, "", "  ")
+			return string(output)
 		},
 	}
 }
