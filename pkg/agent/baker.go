@@ -71,7 +71,7 @@ func (t *TemplateGenerator) getVersionedLinuxNodeCustomDataJSONObject(config *da
 	//get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesVersionedNodeCustomDataYaml,
-		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
+		config, t.getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -131,7 +131,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
-		config.AgentPoolProfile,
+		config,
 		t.getBakerFuncMap(config, parameters, variables),
 	)
 
