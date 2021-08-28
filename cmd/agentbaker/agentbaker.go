@@ -48,7 +48,7 @@ func run(in string) (reterr error) {
 	csePayload := gen.GetNodeBootstrappingPayload(&config)
 	cseCmd := gen.GetNodeBootstrappingCmd(&config)
 
-	if err := ioutil.WriteFile("/opt/azure/containers/cse_payload.txt", []byte(csePayload), 0644); err != nil {
+	if err := ioutil.WriteFile("/var/lib/cloud/instance/user-data.txt", []byte(csePayload), 0644); err != nil {
 		return fmt.Errorf("failed to write cse payload. %w", err)
 	}
 	if err := ioutil.WriteFile("/opt/azure/containers/cse_regen.sh", []byte(cseCmd), 0544); err != nil {

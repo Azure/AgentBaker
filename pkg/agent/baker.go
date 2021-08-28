@@ -805,8 +805,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"FIPSEnabled": func() bool {
 			return config.FIPSEnabled
 		},
-		"ToPrettyJson": func(v interface{}) string {
-			output, _ := json.MarshalIndent(v, "", "  ")
+		"ToJSON": func(v interface{}) string {
+			output, _ := json.Marshal(v)
 			return string(output)
 		},
 	}

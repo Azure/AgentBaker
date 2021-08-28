@@ -14,7 +14,7 @@
 
 # RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o baker ./cmd/agentbaker
 
-FROM gcr.io/distroless/base:nonroot
+FROM gcr.io/distroless/base:latest
 # COPY --from=builder /workspace/baker /usr/local/bin/baker
 COPY baker /usr/local/bin/baker
 
