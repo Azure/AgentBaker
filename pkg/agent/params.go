@@ -11,12 +11,15 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, bakerRegistry, bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	properties := cs.Properties
 	parametersMap := paramsMap{}
 	cloudSpecConfig := config.CloudSpecConfig
+
+	addValue(parametersMap, "bakerRegistry", bakerRegistry)
+	addValue(parametersMap, "bakerVersion", bakerVersion)
 
 	linuxProfile := properties.LinuxProfile
 	if linuxProfile != nil {
@@ -33,9 +36,9 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, bakerRegistry)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, bakerRegistry, config)
 		}
 	}
 

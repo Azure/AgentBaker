@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -eux
 
-systemctl is-active containerd
-if [ "$?" != 1 ]; then 
+if systemctl is-active containerd; then 
   echo "containerd not running"
   exit 1
 fi
