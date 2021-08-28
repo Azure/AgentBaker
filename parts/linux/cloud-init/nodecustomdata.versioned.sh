@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -eux
+
+systemctl is-active containerd
+if [ "$?" != 1 ]; then 
+  echo "containerd not running"
+  exit 1
+fi
+
+echo "regenerating payload"
+ctr run --rm {{ GetParameter "bakerRegisry" }}/baker:{{ GetParameter "bakerVersion" }} baker /usr/local/bin/baker {{toPrettyJson .}}
+echo "removing semaphores"
+rm /var/lib/cloud/instance/sem/config_cc_write_files
+rm /var/lib/cloud/instance/sem/config_runcmd
+rm /var/lib/cloud/instance/sem/config_scripts_user
+echo "rerunning cc_write_files"
+cloud-init --file /opt/azure/containers/cse_payload.txt single -n cc_write_files
+echo "rerunning runcmd"
+cloud-init --file /opt/azure/containers/cse_payload.txt single -n runcmd
+echo "rerunning cc_write_files"
+cloud-init --file /opt/azure/containers/cse_payload.txt single -n scripts_user
+"executing regenerated CSE file"
+bash /opt/azure/containers/cse_regen.sh

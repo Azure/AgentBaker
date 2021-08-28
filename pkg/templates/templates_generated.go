@@ -17,6 +17,7 @@
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
 // linux/cloud-init/artifacts/cse_start.sh
+// linux/cloud-init/artifacts/cse_versioned.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/docker-monitor.service
 // linux/cloud-init/artifacts/docker-monitor.timer
@@ -57,6 +58,7 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
+// linux/cloud-init/nodecustomdata.versioned.sh
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
 // windows/csecmd.ps1
@@ -2037,6 +2039,44 @@ func linuxCloudInitArtifactsCse_startSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_start.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCse_versionedSh = []byte(`#!/usr/bin/env bash
+ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+wait_for_file() {
+    retries=$1; wait_sleep=$2; filepath=$3
+    paved=/opt/azure/cloud-init-files.paved
+    grep -Fq "${filepath}" $paved && return 0
+    for i in $(seq 1 $retries); do
+        grep -Fq '#EOF' $filepath && break
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    sed -i "/#EOF/d" $filepath
+    echo $filepath >> $paved
+}
+
+SCRIPT="{{GetVersionedCSEScriptFilepath}}"
+wait_for_file 1200 1 "$SCRIPT" || exit $ERR_FILE_WATCH_TIMEOUT
+/usr/bin/nohup /bin/bash -c "/bin/bash '$SCRIPT'"
+`)
+
+func linuxCloudInitArtifactsCse_versionedShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_versionedSh, nil
+}
+
+func linuxCloudInitArtifactsCse_versionedSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_versionedShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_versioned.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4193,6 +4233,46 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitNodecustomdataVersionedSh = []byte(`#!/usr/bin/env bash
+set -eux
+
+systemctl is-active containerd
+if [ "$?" != 1 ]; then 
+  echo "containerd not running"
+  exit 1
+fi
+
+echo "regenerating payload"
+ctr run --rm {{ GetParameter "bakerRegisry" }}/baker:{{ GetParameter "bakerVersion" }} baker /usr/local/bin/baker {{toPrettyJson .}}
+echo "removing semaphores"
+rm /var/lib/cloud/instance/sem/config_cc_write_files
+rm /var/lib/cloud/instance/sem/config_runcmd
+rm /var/lib/cloud/instance/sem/config_scripts_user
+echo "rerunning cc_write_files"
+cloud-init --file /opt/azure/containers/cse_payload.txt single -n cc_write_files
+echo "rerunning runcmd"
+cloud-init --file /opt/azure/containers/cse_payload.txt single -n runcmd
+echo "rerunning cc_write_files"
+cloud-init --file /opt/azure/containers/cse_payload.txt single -n scripts_user
+"executing regenerated CSE file"
+bash /opt/azure/containers/cse_regen.sh
+`)
+
+func linuxCloudInitNodecustomdataVersionedShBytes() ([]byte, error) {
+	return _linuxCloudInitNodecustomdataVersionedSh, nil
+}
+
+func linuxCloudInitNodecustomdataVersionedSh() (*asset, error) {
+	bytes, err := linuxCloudInitNodecustomdataVersionedShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/nodecustomdata.versioned.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7991,6 +8071,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
+	"linux/cloud-init/artifacts/cse_versioned.sh":                          linuxCloudInitArtifactsCse_versionedSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
@@ -8031,6 +8112,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
+	"linux/cloud-init/nodecustomdata.versioned.sh":                         linuxCloudInitNodecustomdataVersionedSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
@@ -8110,6 +8192,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
+				"cse_versioned.sh":                          &bintree{linuxCloudInitArtifactsCse_versionedSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
@@ -8155,7 +8238,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
 			}},
-			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
+			"nodecustomdata.versioned.sh": &bintree{linuxCloudInitNodecustomdataVersionedSh, map[string]*bintree{}},
+			"nodecustomdata.yml":          &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
 	}},
 	"windows": &bintree{nil, map[string]*bintree{

@@ -49,19 +49,21 @@ const (
 
 // cloud-init (i.e. ARM customData) source file references
 const (
-	kubernetesNodeCustomDataYaml      = "linux/cloud-init/nodecustomdata.yml"
-	kubernetesCSECommandString        = "linux/cloud-init/artifacts/cse_cmd.sh"
-	kubernetesCSEStartScript          = "linux/cloud-init/artifacts/cse_start.sh"
-	kubernetesCSEMainScript           = "linux/cloud-init/artifacts/cse_main.sh"
-	kubernetesCSEHelpersScript        = "linux/cloud-init/artifacts/cse_helpers.sh"
-	kubernetesCSEHelpersScriptUbuntu  = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
-	kubernetesCSEHelpersScriptMariner = "linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
-	kubernetesCSEInstall              = "linux/cloud-init/artifacts/cse_install.sh"
-	kubernetesCSEInstallUbuntu        = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
-	kubernetesCSEInstallMariner       = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
-	kubernetesCSEConfig               = "linux/cloud-init/artifacts/cse_config.sh"
-	kubernetesCISScript               = "linux/cloud-init/artifacts/cis.sh"
-	kubernetesHealthMonitorScript     = "linux/cloud-init/artifacts/health-monitor.sh"
+	kubernetesNodeCustomDataYaml          = "linux/cloud-init/nodecustomdata.yml"
+	kubernetesVersionedNodeCustomDataYaml = "linux/cloud-init/nodecustomdata.versioned.sh"
+	kubernetesCSEVersionedString          = "linux/cloud-init/artifacts/cse_versioned.sh"
+	kubernetesCSECommandString            = "linux/cloud-init/artifacts/cse_cmd.sh"
+	kubernetesCSEStartScript              = "linux/cloud-init/artifacts/cse_start.sh"
+	kubernetesCSEMainScript               = "linux/cloud-init/artifacts/cse_main.sh"
+	kubernetesCSEHelpersScript            = "linux/cloud-init/artifacts/cse_helpers.sh"
+	kubernetesCSEHelpersScriptUbuntu      = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+	kubernetesCSEHelpersScriptMariner     = "linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+	kubernetesCSEInstall                  = "linux/cloud-init/artifacts/cse_install.sh"
+	kubernetesCSEInstallUbuntu            = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+	kubernetesCSEInstallMariner           = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+	kubernetesCSEConfig                   = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCISScript                   = "linux/cloud-init/artifacts/cis.sh"
+	kubernetesHealthMonitorScript         = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
 	kubernetesKubeletMonitorSystemdService    = "linux/cloud-init/artifacts/kubelet-monitor.service"
 	kubernetesDockerMonitorSystemdTimer       = "linux/cloud-init/artifacts/docker-monitor.timer"
@@ -101,6 +103,7 @@ const (
 // cloud-init destination file references
 const (
 	customCloudConfigCSEScriptFilepath   = "/opt/azure/containers/provision_configs_custom_cloud.sh"
+	cseVersionedScriptFilepath           = "/opt/azure/containers/provision_versioned.sh"
 	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
 	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"

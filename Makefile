@@ -105,8 +105,9 @@ tidy:
 vendor: tidy
 	$(GO) mod vendor
 
+.PHONY: build-binary
 build-binary: generate
-	go build $(GOFLAGS) -v -ldflags "$(LDFLAGS)" -o $(BINARY_DEST_DIR)/baker .
+	go build $(GOFLAGS) -a -v -ldflags "$(LDFLAGS)" -o $(BINARY_DEST_DIR)/baker ./cmd/agentbaker
 
 # usage: make clean build-cross dist VERSION=v0.4.0
 .PHONY: build-cross
@@ -137,12 +138,10 @@ checksum:
 	done
 
 .PHONY: build-container
-build-container:
+build-container: build-binary
 	docker build --no-cache --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		--build-arg AGENTBAKER_VERSION="$(VERSION)" -t microsoft/baker:$(VERSION) \
-		--file ./releases/Dockerfile.linux ./releases || \
-	echo 'This target works only for published releases. For example, "VERSION=0.32.0 make build-container".'
-
+		--file ./Dockerfile ./bin
 .PHONY: clean
 clean: tools-clean
 	@rm -rf $(BINDIR) ./_dist ./pkg/helpers/unit_tests

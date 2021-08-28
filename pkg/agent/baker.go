@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Masterminds/sprig"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -37,6 +38,12 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
+// GetVersionedNodeBootstrappingPayload get node bootstrapping data
+func (t *TemplateGenerator) GetVersionedNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration, registry, version string) string {
+	customData := getCustomDataFromJSON(t.getVersionedLinuxNodeCustomDataJSONObject(config, registry, version))
+	return base64.StdEncoding.EncodeToString([]byte(customData))
+}
+
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -47,6 +54,28 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	//get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
+		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
+
+	if e != nil {
+		panic(e)
+	}
+
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+}
+
+func (t *TemplateGenerator) getVersionedLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration, registry, version string) string {
+	// validate and fix input
+	validateAndSetLinuxNodeBootstrappingConfiguration(config)
+	//get parameters
+	parameters := getParameters(config, registry, version)
+	//get variable cloudInit
+	variables := getCustomDataVariables(config)
+	funcMap := sprig.TxtFuncMap()
+	overrides := t.getBakerFuncMap(config, parameters, variables)
+	for k := range overrides {
+		funcMap[k] = overrides[k]
+	}
+	str, e := t.getSingleLineForTemplate(kubernetesVersionedNodeCustomDataYaml,
 		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
@@ -93,6 +122,11 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootst
 	return t.getLinuxNodeCSECommand(config)
 }
 
+// GetVersionedNodeBootstrappingCmd get node bootstrapping cmd
+func (t *TemplateGenerator) GetVersionedNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration, registry, version string) string {
+	return t.getVersionedLinuxNodeCSECommand(config, registry, version)
+}
+
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	//get parameters
@@ -104,6 +138,31 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
 		t.getBakerFuncMap(config, parameters, variables),
+	)
+
+	if e != nil {
+		panic(e)
+	}
+	// NOTE: we break the one-line CSE command into different lines in a file for better management
+	// so we need to combine them into one line here
+	return strings.Replace(str, "\n", " ", -1)
+}
+
+func (t *TemplateGenerator) getVersionedLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration, registry, version string) string {
+	//get parameters
+	parameters := getParameters(config, registry, version)
+	//get variable
+	variables := getCSECommandVariables(config)
+	funcMap := sprig.TxtFuncMap()
+	overrides := t.getBakerFuncMap(config, parameters, variables)
+	for k := range overrides {
+		funcMap[k] = overrides[k]
+	}
+	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+	str, e := t.getSingleLine(
+		kubernetesCSEVersionedString,
+		config,
+		funcMap,
 	)
 
 	if e != nil {
@@ -658,6 +717,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"AKSCustomCloudResourceIdentifiersStorage": func() string {
 			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Storage
+		},
+		"GetVersionedCSEScriptFilepath": func() string {
+			return cseVersionedScriptFilepath
 		},
 		"GetCSEHelpersScriptFilepath": func() string {
 			return cseHelpersScriptFilepath
