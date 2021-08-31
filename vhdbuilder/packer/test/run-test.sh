@@ -72,13 +72,14 @@ else
     --name $VM_NAME \
     --image $IMG_DEF \
     --admin-username $TEST_VM_ADMIN_USERNAME \
-    --admin-password $TEST_VM_ADMIN_PASSWORD \
-    --public-ip-address ""
+    --admin-password $TEST_VM_ADMIN_PASSWORD | tee vm.json
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
+cat vm.json
+
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
-az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
+az vm show -g $RESOURCE_GROUP_NAME -n $VM_NAME
 SECONDS=0
 set +e
 DURATION="5m"
