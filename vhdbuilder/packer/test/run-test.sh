@@ -29,10 +29,13 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
+STORAGE_NAME="$(echo "${RESOURCE_GROUP_NAME}" | tr -d '-')"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+
+az storage account create -n $STORAGE_NAME -g $RESOURCE_GROUP_NAME -l ${AZURE_LOCATION} --tags 'source=AgentBaker' --sku Standard_LRS
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
@@ -44,7 +47,8 @@ if [ "$MODE" == "default" ]; then
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
-    --public-ip-address "" \
+    --public-ip-address "" \ 
+    --boot-diagnostics-storage $STORAGE_NAME \
     --custom-data @$SCRIPT_PATH
 else 
   if [ "$MODE" == "sigMode" ]; then
@@ -78,9 +82,12 @@ else
     --image $IMG_DEF \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
+    --boot-diagnostics-storage $STORAGE_NAME \
     --custom-data @$SCRIPT_PATH
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
+
+az storage container list --account-name $STORAGE_NAME
 
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
@@ -89,15 +96,6 @@ if [ "$OS_TYPE" == "Linux" ]; then
   if [[ -z "${ENABLE_FIPS// }" ]]; then
     ENABLE_FIPS="false"
   fi
-
-  for i in $(seq 1 3); do
-    ret=$(az vm run-command invoke --command-id RunShellScript \
-      --name $VM_NAME \
-      --resource-group $RESOURCE_GROUP_NAME \
-      --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS}) && break
-    echo "${i}: retrying az vm run-command"
-  done
   # The error message for a Linux VM run-command is as follows:
   #  "value": [
   #    {
