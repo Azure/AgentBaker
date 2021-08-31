@@ -47,7 +47,7 @@ if [ "$MODE" == "default" ]; then
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
-    --public-ip-address "" \ 
+    --public-ip-address "" \
     --boot-diagnostics-storage $STORAGE_NAME \
     --custom-data @$SCRIPT_PATH
 else 
