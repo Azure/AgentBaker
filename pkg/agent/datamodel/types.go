@@ -1105,7 +1105,7 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 	return false
 }
 
-// IsValid returns true if ImageRefernce contains at least Name and ResourceGroups
+// IsValid returns true if ImageRefernce contains at least Name and ResourceGroup
 func (i *ImageReference) IsValid() bool {
 	return len(i.Name) > 0 && len(i.ResourceGroup) > 0
 }
