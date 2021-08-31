@@ -376,8 +376,8 @@ KUBE_BINARY_VERSIONS="
 1.20.7-hotfix.20210816
 1.20.8
 1.20.9-hotfix.20210830
-1.21.1
-1.21.2-hotfix.20210816
+1.21.1-hotfix.20210827
+1.21.2-hotfix.20210830
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
