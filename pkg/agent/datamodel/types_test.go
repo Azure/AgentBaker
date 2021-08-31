@@ -923,7 +923,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name:          "vanilla pool profile, no deprecated labels",
@@ -932,7 +932,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    false,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "with managed disk",
@@ -943,7 +943,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "N series",
@@ -954,7 +954,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: true,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,accelerator=nvidia,kubernetes.azure.com/accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "with custom labels",
@@ -968,7 +968,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
 			name: "with custom labels, no deprecated labels",
@@ -982,7 +982,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    false,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
 			name: "with custom labels and FIPS enabled",
@@ -996,7 +996,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    false,
 			nvidiaEnabled: false,
 			fipsEnabled:   true,
-			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
 			name: "N series and managed disk with custom labels and FIPS enabled",
@@ -1012,7 +1012,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: true,
 			fipsEnabled:   true,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,storageprofile=managed,storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,storageprofile=managed,storagetier=Standard_LRS,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/accelerator=nvidia,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 		{
 			name:          "with osSKU set",
@@ -1022,7 +1022,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
 			osSku:         "CBLMariner",
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/os-sku=CBLMariner,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/os-sku=CBLMariner,kubernetes.azure.com/cluster=my-resource-group",
 		},
 	}
 
