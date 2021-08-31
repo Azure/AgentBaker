@@ -942,13 +942,17 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(",kubernetes.io/role=agent")
 	}
 	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
+	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+
 	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
 		storagetier, _ := GetStorageAccountType(a.VMSize)
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=%s", storagetier))
 	}
 	if nvidiaEnabled {
 		accelerator := "nvidia"
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/accelerator=%s", accelerator))
 	}
 	if fipsEnabled {
 		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
@@ -1101,7 +1105,7 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 	return false
 }
 
-// IsValid returns true if ImageRefernce contains at least Name and ResourceGroup
+// IsValid returns true if ImageRefernce contains at least Name and ResourceGroups
 func (i *ImageReference) IsValid() bool {
 	return len(i.Name) > 0 && len(i.ResourceGroup) > 0
 }
