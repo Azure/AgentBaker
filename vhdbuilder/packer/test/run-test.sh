@@ -30,6 +30,10 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
+FULL_PATH=$(realpath $0)
+CDIR=$(dirname $FULL_PATH)
+SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
@@ -40,7 +44,8 @@ if [ "$MODE" == "default" ]; then
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
-    --public-ip-address ""
+    --public-ip-address "" \
+    --custom-data @$SCRIPT_PATH
 else 
   if [ "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -72,40 +77,19 @@ else
     --name $VM_NAME \
     --image $IMG_DEF \
     --admin-username $TEST_VM_ADMIN_USERNAME \
-    --admin-password $TEST_VM_ADMIN_PASSWORD | tee vm.json
+    --admin-password $TEST_VM_ADMIN_PASSWORD \
+    --custom-data @$SCRIPT_PATH
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
-cat vm.json
-
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
-az vm show -g $RESOURCE_GROUP_NAME -n $VM_NAME
-SECONDS=0
-set +e
-DURATION="5m"
-time timeout "$DURATION" az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
-time timeout "$DURATION" az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
-time timeout "$DURATION" az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --custom 'instanceView.vmAgent.statuses[?code=="ProvisioningState/succeeded"]'
-WAIT_CODE="$?"
-set -e
-duration=$SECONDS
-echo "$(($duration / 60)) minutes and $(($duration % 60)) seconds elapsed."
-
-if [ "$WAIT_CODE" != "0" ]; then
-  az vm get-instance-view -g $RESOURCE_GROUP_NAME -n $VM_NAME
-  echo "failed to wait $DURATION for vm guest agent to be ready, exit code $WAIT_CODE"
-  exit "$WAIT_CODE"
-fi
-
-FULL_PATH=$(realpath $0)
-CDIR=$(dirname $FULL_PATH)
+time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
 
 if [ "$OS_TYPE" == "Linux" ]; then
   if [[ -z "${ENABLE_FIPS// }" ]]; then
     ENABLE_FIPS="false"
   fi
 
-  SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name $VM_NAME \
