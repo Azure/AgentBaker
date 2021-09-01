@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 variables:
-  CONTAINER_IMAGE: 'mcr.microsoft.com/oss/azcu/go-dev:v1.28.5'
+  CONTAINER_IMAGE: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
 
 phases:
   - phase: create_sku_and_publish_2019_image
