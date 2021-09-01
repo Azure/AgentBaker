@@ -200,3 +200,8 @@ phases:
           artifactName: 'publishing-info'
           targetPath: 'vhd-publishing-info.json'
         condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+      - task: PublishPipelineArtifact@1
+        inputs:
+          artifactName: 'boot-diagnostics'
+          targetPath: 'boot-diagnostics'
+        condition: always()

@@ -87,7 +87,11 @@ else
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
-az storage container list --account-name $STORAGE_NAME
+az storage container list --account-name $STORAGE_NAME > containers.json
+STORAGE_CONTAINER="$(jq -r '.[0].name' containers.json)"
+mkdir boot-diagnostics && pushd boot-diagnostics
+az storage blob download-batch -d . -s "$STORAGE_CONTAINER" --pattern *
+popd
 
 # wait for guest agent to be ready or else run commands may time out, even though the VM is ready.
 time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
@@ -108,11 +112,11 @@ if [ "$OS_TYPE" == "Linux" ]; then
   #    }
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
-  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
-  echo $errMsg
-  if [[ $errMsg != '' ]]; then
-    exit 1
-  fi
+    # errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
+    # echo $errMsg
+    # if [[ $errMsg != '' ]]; then
+    #   exit 1
+    # fi
 else
   SCRIPT_PATH="$CDIR/../$WIN_CONFIGURATION_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
