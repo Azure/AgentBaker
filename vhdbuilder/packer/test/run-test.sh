@@ -90,6 +90,7 @@ fi
 az storage container list --account-name $STORAGE_NAME > containers.json
 STORAGE_CONTAINER="$(jq -r '.[0].name' containers.json)"
 mkdir boot-diagnostics && pushd boot-diagnostics
+sleep 600
 az storage blob download-batch --account-name $STORAGE_NAME -d . -s "$STORAGE_CONTAINER" --pattern "*"
 popd
 
