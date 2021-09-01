@@ -185,6 +185,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
+1.4.9
 1.4.7
 1.4.0
 1.2.7
@@ -197,6 +198,7 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
+1.4.9
 1.4.7
 1.4.0
 1.2.7
@@ -313,11 +315,9 @@ done
 # below are the required to support versions
 # v1.18.17
 # v1.18.19
-# v1.19.9
 # v1.19.11
 # v1.19.12
 # v1.19.13
-# v1.20.5
 # v1.20.7
 # v1.20.8
 # v1.20.9
@@ -354,11 +354,9 @@ done
 # below are the required to support versions
 # v1.18.17
 # v1.18.19
-# v1.19.9
 # v1.19.11
 # v1.19.12
 # v1.19.13
-# v1.20.5
 # v1.20.7
 # v1.20.8
 # v1.20.9
@@ -367,26 +365,17 @@ done
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.18.8-hotfix.20200924
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210322
 1.18.17-hotfix.20210505
 1.18.19
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210310
 1.19.9-hotfix.20210505
-1.19.11
-1.19.12
-1.19.13
-1.20.2-hotfix.20210310
+1.19.11-hotfix.20210823
+1.19.13-hotfix.20210830
 1.20.5-hotfix.20210505
-1.20.7
+1.20.7-hotfix.20210816
 1.20.8
-1.20.9
-1.21.1
-1.21.2
+1.20.9-hotfix.20210830
+1.21.1-hotfix.20210827
+1.21.2-hotfix.20210830
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then

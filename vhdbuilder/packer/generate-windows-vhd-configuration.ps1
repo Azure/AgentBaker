@@ -84,7 +84,8 @@ $global:map = @{
         "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
-        "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.14.zip"
+        "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.14.zip",
+        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.0/binaries/windows-gmsa-ccgakvplugin-v1.1.0.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -122,21 +123,24 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.18.19-hotfix.20210519/windowszip/v1.18.19-hotfix.20210519-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210526/windowszip/v1.19.9-hotfix.20210526-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.11-hotfix.20210526/windowszip/v1.19.11-hotfix.20210526-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.19.11-hotfix.20210823/windowszip/v1.19.11-hotfix.20210823-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.12/windowszip/v1.19.12-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.19.13/windowszip/v1.19.13-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.19.13-hotfix.20210830/windowszip/v1.19.13-hotfix.20210830-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.5-hotfix.20210603/windowszip/v1.20.5-hotfix.20210603-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20210526/windowszip/v1.20.7-hotfix.20210526-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20210603/windowszip/v1.20.7-hotfix.20210603-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20210816/windowszip/v1.20.7-hotfix.20210816-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.8/windowszip/v1.20.8-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.9/windowszip/v1.20.9-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210526/windowszip/v1.21.1-hotfix.20210526-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.20.9-hotfix.20210830/windowszip/v1.20.9-hotfix.20210830-1int.zip"
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210713/windowszip/v1.21.1-hotfix.20210713-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2/windowszip/v1.21.2-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210827/windowszip/v1.21.1-hotfix.20210827-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20210816/windowszip/v1.21.2-hotfix.20210816-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20210830/windowszip/v1.21.2-hotfix.20210830-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        "https://acs-mirror.azureedge.net/azure-cni/v1.2.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.2.7.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.0.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.7/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.7.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.9/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.9.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.19.0/binaries/calico-windows-v3.19.0.zip",

@@ -135,28 +135,16 @@ ensureMonitorService() {
 
 
 
-
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+    wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     
     
-}
-
-# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
-ensureUpdateNodeLabels() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureMigPartition(){

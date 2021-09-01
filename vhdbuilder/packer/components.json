@@ -105,17 +105,14 @@
       "versions": [
         "master.210623.2",
         "master.210721.1",
-        "master.210802.2",
-        "master.210803.2",
-        "master.210810.1"
+        "master.210819.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
-        "v0.0.19",
-        "v0.0.17",
-        "v0.0.16"
+        "v0.0.24",
+        "v0.0.19"
       ]
     },
     {
@@ -129,15 +126,15 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "versions": [
-        "v0.0.19",
-        "v0.0.21"
+        "v0.0.21",
+        "v0.0.21.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "versions": [
-        "0.0.12",
-        "0.0.14"
+        "0.0.14",
+        "0.0.14.3"
       ]
     },
     {
@@ -160,9 +157,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "versions": [
-        "v3.17.2",
         "v3.18.1",
         "v3.19.0",
+        "v3.20.0",
         "v3.8.9.2",
         "v3.8.9.5"
       ]
@@ -170,9 +167,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
       "versions": [
-        "v3.17.2",
         "v3.18.1",
         "v3.19.0",
+        "v3.20.0",
         "v3.8.9"
       ]
     },
@@ -185,17 +182,29 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "versions": [
-        "v3.17.2",
         "v3.18.1",
-        "v3.19.0"
+        "v3.19.0",
+        "v3.20.0"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
+      "versions": [
+        "1.10.3"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
+      "versions": [
+        "1.10.3.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
-        "v1.13.5",
         "v1.15.1",
-        "v1.17.1"
+        "v1.17.1",
+        "v1.20.0"
       ]
     },
     {
@@ -340,8 +349,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "versions": [
-        "v1.7.4",
-        "v1.7.5"
+        "v1.7.5",
+        "v1.7.5.3"
       ]
     },
     {
@@ -383,7 +392,8 @@
       "versions": [
         "1.2.7",
         "1.4.0",
-        "1.4.7"
+        "1.4.7",
+        "1.4.9"
       ]
     },
     {
@@ -393,7 +403,8 @@
       "versions": [
         "1.2.7",
         "1.4.0",
-        "1.4.7"
+        "1.4.7",
+        "1.4.9"
       ]
     },
     {

@@ -200,7 +200,8 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2021.07.10"
+	LinuxSIGImageVersion   string = "2021.08.31"
+	WindowsSIGImageVersion string = "17763.2114.210811"
 )
 
 // SIG config Template
@@ -306,13 +307,13 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019",
-		Version:       "17763.2061.210714",
+		Version:       WindowsSIGImageVersion,
 	}
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
-		Version:       "17763.2061.210714",
+		Version:       WindowsSIGImageVersion,
 	}
 )
 

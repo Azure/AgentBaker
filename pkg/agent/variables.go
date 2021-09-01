@@ -5,6 +5,7 @@ package agent
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -14,35 +15,43 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
-			"provisionScript":                getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
-			"provisionSource":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
-			"provisionSourceUbuntu":          getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
-			"provisionSourceMariner":         getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
-			"provisionInstalls":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
-			"provisionInstallsUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
-			"provisionInstallsMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
-			"provisionConfigs":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
-			"customSearchDomainsScript":      getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
-			"dhcpv6SystemdService":           getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
-			"dhcpv6ConfigurationScript":      getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":          getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"reconcilePrivateHostsScript":    getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService":   getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
-			"updateNodeLabelsSystemdService": getBase64EncodedGzippedCustomScript(updateNodeLabelsSystemdService, config),
-			"updateNodeLabelsScript":         getBase64EncodedGzippedCustomScript(updateNodeLabelsScript, config),
-			"ensureNoDupEbtablesScript":      getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
-			"ensureNoDupEbtablesService":     getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
-			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
-			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
-			"migPartitionSystemdService":     getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
-			"migPartitionScript":             getBase64EncodedGzippedCustomScript(migPartitionScript, config),
+			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
+			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionSourceUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
+			"provisionSourceMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
+			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
+			"provisionInstallsUbuntu":      getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
+			"provisionInstallsMariner":     getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
+			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"krustletSystemdService":       getBase64EncodedGzippedCustomScript(krustletSystemdService, config),
+			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
+			"ensureNoDupEbtablesScript":    getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
+			"ensureNoDupEbtablesService":   getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
+			"bindMountScript":              getBase64EncodedGzippedCustomScript(bindMountScript, config),
+			"bindMountSystemdService":      getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
+			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
+			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
+			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
+			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
+			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		if strings.EqualFold(string(config.OSSKU), string("CBLMariner")) {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
+		} else {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		}
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {

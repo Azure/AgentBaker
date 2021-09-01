@@ -1,5 +1,10 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/10-bindmount.conf
+// linux/cloud-init/artifacts/10-componentconfig.conf
+// linux/cloud-init/artifacts/10-containerd.conf
+// linux/cloud-init/artifacts/10-httpproxy.conf
+// linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
@@ -22,8 +27,10 @@
 // linux/cloud-init/artifacts/etc-issue
 // linux/cloud-init/artifacts/etc-issue.net
 // linux/cloud-init/artifacts/health-monitor.sh
+// linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
 // linux/cloud-init/artifacts/kms.service
+// linux/cloud-init/artifacts/krustlet.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
@@ -50,8 +57,6 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
-// linux/cloud-init/artifacts/update-node-labels.service
-// linux/cloud-init/artifacts/update-node-labels.sh
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
 // windows/csecmd.ps1
@@ -118,6 +123,102 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifacts10BindmountConf = []byte(`[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+`)
+
+func linuxCloudInitArtifacts10BindmountConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10BindmountConf, nil
+}
+
+func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10BindmountConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
+Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+`)
+
+func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ComponentconfigConf, nil
+}
+
+func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ComponentconfigConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-componentconfig.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
+Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+`)
+
+func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ContainerdConf, nil
+}
+
+func linuxCloudInitArtifacts10ContainerdConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ContainerdConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-containerd.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10HttpproxyConf = []byte(`[Service]
+EnvironmentFile=/etc/environment
+`)
+
+func linuxCloudInitArtifacts10HttpproxyConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10HttpproxyConf, nil
+}
+
+func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10HttpproxyConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-httpproxy.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
+Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+`)
+
+func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10TlsbootstrapConf, nil
+}
+
+func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10TlsbootstrapConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-tlsbootstrap.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifactsAptPreferences = []byte(``)
@@ -777,11 +878,6 @@ ensureMonitorService() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
@@ -818,17 +914,6 @@ ensureKubelet() {
         sleep 3
     done
     {{end}}
-}
-
-# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
-ensureUpdateNodeLabels() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureMigPartition(){
@@ -1327,7 +1412,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v0.7.0"
+KRUSTLET_VERSION="v1.0.0-alpha.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1744,6 +1829,10 @@ installTeleportdPlugin
 
 installNetworkPlugin
 
+{{- if IsKrustlet }}
+    downloadKrustlet
+{{- end }}
+
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -1813,11 +1902,15 @@ configureSwapFile
 {{- end}}
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+{{- if IsKrustlet}}
+systemctlEnableAndStart krustlet
+{{- else}}
+ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
+{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -2335,6 +2428,73 @@ func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh = []byte(`#!/bin/bash
+mkdir -p /root/AzureCACertificates
+# http://168.63.129.16 is a constant for the host's wireserver endpoint
+certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+IFS_backup=$IFS
+IFS=$'\r\n'
+certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
+certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+for i in ${!certBodies[@]}; do
+    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed 's/.cer/.crt/g')"
+done
+IFS=$IFS_backup
+
+cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
+/usr/bin/update-ca-trust
+
+cloud-init status --wait
+
+# TODO - Set the repoDepotEndpoint in a .repo file if package update becomes necessary
+
+# Set the chrony config to use the PHC /dev/ptp0 clock
+cat > /etc/chrony.conf <<EOF
+# This directive specify the location of the file containing ID/key pairs for
+# NTP authentication.
+keyfile /etc/chrony.keys
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/drift
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics
+
+# Log files location.
+logdir /var/log/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+makestep 1.0 -1
+EOF
+
+systemctl restart chronyd
+
+#EOF`)
+
+func linuxCloudInitArtifactsInitAksCustomCloudMarinerShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, nil
+}
+
+func linuxCloudInitArtifactsInitAksCustomCloudMarinerSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsInitAksCustomCloudMarinerShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsInitAksCustomCloudSh = []byte(`#!/bin/bash
 mkdir -p /root/AzureCACertificates
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
@@ -2477,6 +2637,40 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsKrustletService = []byte(`[Unit]
+Description=Krustlet
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+EnvironmentFile=/etc/default/kubelet
+Environment=KUBECONFIG=/var/lib/kubelet/kubeconfig
+Environment=KRUSTLET_CERT_FILE=/etc/kubernetes/certs/kubeletserver.crt
+Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
+Environment=KRUSTLET_DATA_DIR=/etc/krustlet
+Environment=RUST_LOG=wasi_provider=info,main=info
+Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+ExecStart=/usr/local/bin/krustlet-wasi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsKrustletServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKrustletService, nil
+}
+
+func linuxCloudInitArtifactsKrustletService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKrustletServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/krustlet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsKubeletMonitorService = []byte(`[Unit]
 Description=a script that checks kubelet health and restarts if needed
 After=kubelet.service
@@ -2526,20 +2720,10 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-{{if EnableEncryptionWithExternalKms}}
-Requires=kms.service
-{{end}}
-{{- if HasKubeletDiskType}}
-Requires=bind-mount.service
-After=bind-mount.service
-{{end}}
 
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
-{{- if ShouldConfigureHTTPProxy}}
-EnvironmentFile=/etc/environment
-{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -2553,20 +2737,16 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
+        --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsKubeletConfigFileEnabled}}
-        --config /etc/default/kubeletconfig.json \
-        {{- end}}
-        {{- if IsKubeletClientTLSBootstrappingEnabled}}
-        --kubeconfig /var/lib/kubelet/kubeconfig \
-        --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
-        {{- end}}
-        $KUBELET_FLAGS \
-        $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_FLAGS
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsKubeletServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsKubeletService, nil
@@ -4017,75 +4197,6 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsUpdateNodeLabelsService = []byte(`[Unit]
-Description=Updates Labels for Kubernetes node
-After=kubelet.service
-[Service]
-Restart=on-failure
-RestartSec=30
-EnvironmentFile=/etc/default/kubelet
-ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsService, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsUpdateNodeLabelsSh = []byte(`#!/usr/bin/env bash
-
-# Updates Labels for this Kubernetes node (adds any missing, updates others to newest values, but never removes labels)
-
-set -euo pipefail
-
-NODE_NAME=$(echo $(hostname) | tr "[:upper:]" "[:lower:]")
-
-echo "updating labels for ${NODE_NAME}"
-
-FORMATTED_CURRENT_NODE_LABELS=$(kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --list=true node $NODE_NAME | sort)
-
-echo "current node labels (sorted): ${FORMATTED_CURRENT_NODE_LABELS}"
-
-FORMATTED_NODE_LABELS_TO_UPDATE=$(echo $KUBELET_NODE_LABELS | tr ',' '\n' | sort)
-
-echo "node labels to update (formatted+sorted): ${FORMATTED_NODE_LABELS_TO_UPDATE}"
-
-MISSING_LABELS=$(comm -32 <(echo $FORMATTED_NODE_LABELS_TO_UPDATE | tr ' ' '\n') <(echo $FORMATTED_CURRENT_NODE_LABELS | tr ' ' '\n') | tr '\n' ' ')
-
-echo "missing labels: ${MISSING_LABELS}"
-
-if [ ! -z "$MISSING_LABELS" ]; then
-  kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --overwrite node $NODE_NAME $MISSING_LABELS
-fi
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsSh, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -4191,12 +4302,21 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+ {{- if IsKrustlet}}
+- path: /etc/systemd/system/krustlet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
+{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+{{- end}}
 
 {{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
@@ -4214,22 +4334,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
 {{end}}
 
-{{- if not .IsVHDDistro}}
-- path: /etc/systemd/system/update-node-labels.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
-
-- path: /opt/azure/containers/update-node-labels.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
-{{end}}
-
 {{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
@@ -4244,6 +4348,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -4261,7 +4372,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
-{{- if NeedsContainerd}}
+{{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -4290,12 +4401,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 {{- end}}
-- path: /etc/systemd/system/kms.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
@@ -4345,6 +4450,13 @@ write_files:
     DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
     DefaultEnvironment="no_proxy={{GetNoProxy}}"
     {{- end}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
@@ -4414,6 +4526,12 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -4676,6 +4794,15 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{- if IsKubeletConfigFileEnabled}}
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
+{{ end }}
+
 {{if IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
@@ -4686,7 +4813,11 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
+        {{ if IsKrustlet -}}
+        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
+        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
+        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap
@@ -4699,6 +4830,12 @@ write_files:
       name: bootstrap-context
     current-context: bootstrap-context
     #EOF
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
 {{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
@@ -5614,11 +5751,12 @@ $windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSe
 
 try
 {
-    # Set to false for debugging.  This will output the start script to
-    # c:\AzureData\CustomDataSetupScript.log, and then you can RDP
-    # to the windows machine, and run the script manually to watch
-    # the output.
-    if ($true) {
+        # Exit early if the script has been executed
+        if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+            Write-Log "The script has been executed before, will exit without doing anything."
+            return
+        }
+
         Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
         if ($global:EnableTelemetry) {
@@ -5937,12 +6075,6 @@ try
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
         Postpone-RestartComputer
-    }
-    else
-    {
-        # keep for debugging purposes
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AgentKey $AgentKey -AADClientId $AADClientId -AADClientSecret $AADClientSecret -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
-    }
 }
 catch
 {
@@ -7842,6 +7974,11 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
+	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
+	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
+	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
@@ -7864,8 +8001,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
+	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
+	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
@@ -7892,8 +8031,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
-	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
-	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
@@ -7956,6 +8093,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
+				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
+				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
+				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
@@ -7978,8 +8120,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
+				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
+				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
@@ -8010,8 +8154,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
-				"update-node-labels.service": &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
-				"update-node-labels.sh":      &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
