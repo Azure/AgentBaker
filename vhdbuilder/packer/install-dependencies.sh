@@ -85,6 +85,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdIptables
     forceEnableIpForward
     networkdWorkaround
+    enableSystemdAuditd
 fi
 
 downloadKrustlet
