@@ -26,7 +26,7 @@ endif
 
 else ifeq (${OS_SKU},CVM)
 	@echo "${MODE}: Building with CVM VM and save to Shared Image Gallery"
-	@packer build -on-error=abort -debug build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig-cvm.json
+	@packer build -on-error=abort -debug build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig-cvm2.json
 
 else
 	$(error OS_SKU was invalid ${OS_SKU})
