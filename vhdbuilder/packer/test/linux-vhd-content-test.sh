@@ -196,7 +196,6 @@ testKubeBinariesPresent() {
   1.18.14-hotfix.20210322
   1.18.17-hotfix.20210322
   1.19.11-hotfix.20210823
-  1.19.12
   1.19.13-hotfix.20210830
   1.20.7-hotfix.20210816
   1.20.9-hotfix.20210830
