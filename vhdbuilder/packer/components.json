@@ -72,8 +72,8 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "versions": [
-        "v1.3.3",
-        "v1.4.0"
+        "v1.4.0",
+        "v1.4.9"
       ]
     },
     {
