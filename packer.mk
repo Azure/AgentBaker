@@ -2,15 +2,15 @@ SHELL=/bin/bash -o pipefail
 
 build-packer:
 ifeq (${OS_SKU},Ubuntu)
-ifeq (${MODE},gen2Mode)
-	@echo "${MODE}: Building with Hyper-v generation 2 VM"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
-else ifeq (${MODE},sigMode)
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
-else
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+	ifeq (${MODE},gen2Mode)
+		@echo "${MODE}: Building with Hyper-v generation 2 VM"
+		@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
+	else ifeq (${MODE},sigMode)
+		@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
+		@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
+	else
+		@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
+		@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
 
 else ifeq (${OS_SKU},CBLMariner)
@@ -26,7 +26,7 @@ endif
 
 else ifeq (${OS_SKU},CVM)
 	@echo "${MODE}: Building with CVM VM and save to Shared Image Gallery"
-	@packer build -on-error=abort -debug build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig-cvm2.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
 
 else
 	$(error OS_SKU was invalid ${OS_SKU})
