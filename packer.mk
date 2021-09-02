@@ -12,6 +12,7 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
+
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
@@ -22,6 +23,11 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
+
+else ifeq (${OS_SKU},CVM)
+	@echo "${MODE}: Building with CVM VM and save to Shared Image Gallery"
+	@packer build -on-error=abort -debug build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig-cvm.json
+
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
