@@ -429,7 +429,7 @@ sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/sy
 # shellcheck disable=SC2207
 if [[ ${cliTool} == "ctr" ]]; then
   # shellcheck disable=SC2016
-  allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' awk '{print $1}'))
+  allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
 else
   # shellcheck disable=SC2016
   allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
