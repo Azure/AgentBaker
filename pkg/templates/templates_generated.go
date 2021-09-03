@@ -6976,6 +6976,13 @@ function Install-GmsaPlugin {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
     }
 
+    # Enable the logging manifest.
+    Write-Log "Importing the CCGEvents manifest file"
+    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file. $LASTEXITCODE"
+    }
+
     Write-Log "Removing $tempInstallPackageFoler"
     Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
 
@@ -7300,6 +7307,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
 $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=24
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
 `)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
