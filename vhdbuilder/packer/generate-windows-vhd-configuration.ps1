@@ -116,8 +116,6 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.17.13-hotfix.20210118/windowszip/v1.17.13-hotfix.20210118-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.17.16-hotfix.20210118/windowszip/v1.17.16-hotfix.20210118-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.18.14-hotfix.20210511/windowszip/v1.18.14-hotfix.20210511-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.18.17-hotfix.20210519/windowszip/v1.18.17-hotfix.20210519-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.18.19-hotfix.20210519/windowszip/v1.18.19-hotfix.20210519-1int.zip",
