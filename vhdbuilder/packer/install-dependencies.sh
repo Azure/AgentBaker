@@ -427,7 +427,19 @@ sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/sy
 
 # retag all the mcr for mooncake
 # shellcheck disable=SC2207
-allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+
+if [[ ${CLI_TOOL} == "ctr" ]]; then
+  ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+  allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' awk '{print $1}'))
+elif [[ ${CLI_TOOL} == "crictl" ]]; then
+  allMCRImages=($(crictl images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+else
+  allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+fi
+if [[ "${allMCRImages}" == "" ]]; then
+  echo "we must find some mcr images"
+  exit 1
+fi
 for mcrImage in "${allMCRImages[@]}"; do
   # in mooncake, the mcr endpoint is: mcr.azk8s.cn
   # shellcheck disable=SC2001
