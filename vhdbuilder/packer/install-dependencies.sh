@@ -314,8 +314,6 @@ done
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
 # v1.19.11
 # v1.19.12
 # v1.19.13
