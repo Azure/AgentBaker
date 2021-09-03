@@ -427,10 +427,10 @@ sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/sy
 
 # retag all the mcr for mooncake
 # shellcheck disable=SC2207
-if [[ ${CLI_TOOL} == "ctr" ]]; then
+if [[ ${cliTool} == "ctr" ]]; then
   # shellcheck disable=SC2016
   allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' awk '{print $1}'))
-elif [[ ${CLI_TOOL} == "crictl" ]]; then
+elif [[ ${cliTool} == "crictl" ]]; then
   # shellcheck disable=SC2016
   allMCRImages=($(crictl images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
 else
