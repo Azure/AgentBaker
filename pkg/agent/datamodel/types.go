@@ -943,14 +943,21 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(",node-role.kubernetes.io/agent=")
 		buf.WriteString(",kubernetes.io/role=agent")
 	}
+	// label key agentpool will be depreated soon
 	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
+	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+
 	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
 		storagetier, _ := GetStorageAccountType(a.VMSize)
+		// label key storageprofile and storagetier will be depreated soon
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=%s", storagetier))
 	}
 	if nvidiaEnabled {
 		accelerator := "nvidia"
+		// label key accelerator will be depreated soon
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/accelerator=%s", accelerator))
 	}
 	if fipsEnabled {
 		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
