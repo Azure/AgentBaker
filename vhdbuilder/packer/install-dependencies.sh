@@ -314,8 +314,6 @@ done
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
 # v1.19.11
 # v1.19.12
 # v1.19.13
@@ -353,8 +351,6 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
 # v1.19.11
 # v1.19.13
 # v1.20.7
@@ -364,8 +360,6 @@ done
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.18.17-hotfix.20210505
-1.18.19
 1.19.11-hotfix.20210823
 1.19.13-hotfix.20210830
 1.20.7-hotfix.20210816
