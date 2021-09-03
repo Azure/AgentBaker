@@ -283,6 +283,8 @@ type HostedMasterProfile struct {
 	// Not used during PUT, returned as part of GETFQDN
 	FQDN      string `json:"fqdn,omitempty"`
 	DNSPrefix string `json:"dnsPrefix"`
+	// FQDNSubdomain is used by private cluster without dnsPrefix so they have fixed FQDN
+	FQDNSubdomain string `json:"fqdnSubdomain"`
 	// Subnet holds the CIDR which defines the Azure Subnet in which
 	// Agents will be provisioned. This is stored on the HostedMasterProfile
 	// and will become `masterSubnet` in the compiled template.
@@ -413,9 +415,9 @@ type LinuxProfile struct {
 	SSH           struct {
 		PublicKeys []PublicKey `json:"publicKeys"`
 	} `json:"ssh"`
-	Secrets               []KeyVaultSecrets   `json:"secrets,omitempty"`
-	Distro                Distro              `json:"distro,omitempty"`
-	CustomSearchDomain    *CustomSearchDomain `json:"customSearchDomain,omitempty"`
+	Secrets            []KeyVaultSecrets   `json:"secrets,omitempty"`
+	Distro             Distro              `json:"distro,omitempty"`
+	CustomSearchDomain *CustomSearchDomain `json:"customSearchDomain,omitempty"`
 }
 
 // Extension represents an extension definition in the master or agentPoolProfile
