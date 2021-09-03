@@ -192,7 +192,6 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.18.17-hotfix.20210322
   1.19.11-hotfix.20210823
   1.19.13-hotfix.20210830
   1.20.7-hotfix.20210816
