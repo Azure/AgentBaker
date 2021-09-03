@@ -2857,7 +2857,7 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates cifs-utils conntrack-tools cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq lsof nmap-ncat nfs-utils pam pigz psmisc socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in blobfuse ca-certificates cifs-utils conntrack-tools cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc socat sysstat traceroute util-linux xz zip; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -5838,6 +5838,13 @@ try
         Initialize-DataDirectories
 
         Create-Directory -FullPath "c:\k"
+        Write-Log "Remove `+"`"+`"NT AUTHORITY\Authenticated Users`+"`"+`" write permissions on files in c:\k"
+        icacls.exe "c:\k" /inheritance:r
+        icacls.exe "c:\k" /grant:r SYSTEM:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
+        icacls.exe "c:\k" /grant:r BUILTIN\Administrators:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
+        icacls.exe "c:\k" /grant:r BUILTIN\Users:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(RX`+"`"+`)
+        Write-Log "c:\k permissions: "
+        icacls.exe "c:\k"
         Get-ProvisioningScripts
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
@@ -6969,6 +6976,13 @@ function Install-GmsaPlugin {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
     }
 
+    # Enable the logging manifest.
+    Write-Log "Importing the CCGEvents manifest file"
+    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file. $LASTEXITCODE"
+    }
+
     Write-Log "Removing $tempInstallPackageFoler"
     Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
 
@@ -7293,6 +7307,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
 $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=24
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
 `)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {

@@ -36,3 +36,9 @@ networkdWorkaround() {
 listInstalledPackages() {
     rpm -qa
 }
+
+# By default the audit service is disabled on Mariner.
+# Ensure that it is enabled explicitly to satisfy ASC scanning rules.
+enableSystemdAuditd() {
+    systemctlEnableAndStart auditd || exit $ERR_SYSTEMCTL_START_FAIL
+}

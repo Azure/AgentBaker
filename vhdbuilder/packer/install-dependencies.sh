@@ -85,6 +85,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdIptables
     forceEnableIpForward
     networkdWorkaround
+    enableSystemdAuditd
 fi
 
 downloadKrustlet
@@ -355,10 +356,8 @@ done
 # v1.18.17
 # v1.18.19
 # v1.19.11
-# v1.19.12
 # v1.19.13
 # v1.20.7
-# v1.20.8
 # v1.20.9
 # v1.21.1
 # v1.21.2
@@ -367,12 +366,9 @@ done
 KUBE_BINARY_VERSIONS="
 1.18.17-hotfix.20210505
 1.18.19
-1.19.9-hotfix.20210505
 1.19.11-hotfix.20210823
 1.19.13-hotfix.20210830
-1.20.5-hotfix.20210505
 1.20.7-hotfix.20210816
-1.20.8
 1.20.9-hotfix.20210830
 1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
@@ -431,7 +427,17 @@ sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/sy
 
 # retag all the mcr for mooncake
 # shellcheck disable=SC2207
-allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+if [[ ${cliTool} == "ctr" ]]; then
+  # shellcheck disable=SC2016
+  allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+else
+  # shellcheck disable=SC2016
+  allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+fi
+if [[ "${allMCRImages}" == "" ]]; then
+  echo "we must find some mcr images"
+  exit 1
+fi
 for mcrImage in "${allMCRImages[@]}"; do
   # in mooncake, the mcr endpoint is: mcr.azk8s.cn
   # shellcheck disable=SC2001
