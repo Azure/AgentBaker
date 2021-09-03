@@ -322,7 +322,7 @@ done
 # v1.20.9
 # v1.21.1
 # v1.21.2
-# v1.22.2 (preview)
+# v1.22.1 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
