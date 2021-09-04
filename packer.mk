@@ -1,5 +1,6 @@
 SHELL=/bin/bash -o pipefail
 
+
 build-packer:
 ifeq (${OS_SKU},Ubuntu)
 ifeq (${MODE},gen2Mode)
