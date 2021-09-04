@@ -93,7 +93,7 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  if [ ${KUBERNETES_VERSION} ==  "1.22.1" ]; 
+  if [[ ${KUBERNETES_VERSION} ==  "1.22.1" ]]; 
     then
       containerd_version="1.5.5"
     else

@@ -98,7 +98,7 @@ installStandaloneContainerd() {
     
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        if [${KUBERNETES_VERSION} ==  "1.22.1"]; 
+        if [[${KUBERNETES_VERSION} ==  "1.22.1"]]; 
             then
                 CONTAINERD_VERSION="1.5.5"
             else
