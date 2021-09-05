@@ -420,24 +420,27 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-fi
 
-# retag all the mcr for mooncake
-# shellcheck disable=SC2207
-if [[ ${cliTool} == "ctr" ]]; then
-  # shellcheck disable=SC2016
-  allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
-else
-  # shellcheck disable=SC2016
-  allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+  # TODO(ace): this apparently doesn't do anything for Mariner,
+  # which likely means images aren't cached at all? 
+  #
+  # retag all the mcr for mooncake
+  # shellcheck disable=SC2207
+  if [[ ${cliTool} == "ctr" ]]; then
+    # shellcheck disable=SC2016
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+  else
+    # shellcheck disable=SC2016
+    allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+  fi
+  if [[ "${allMCRImages}" == "" ]]; then
+    echo "we must find some mcr images"
+    exit 1
+  fi
+  for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
+    # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+    # shellcheck disable=SC2001
+    retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+    retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
+  done
 fi
-if [[ "${allMCRImages}" == "" && "$OS" == "$UBUNTU_OS_NAME" ]]; then
-  echo "we must find some mcr images"
-  exit 1
-fi
-for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
-  # in mooncake, the mcr endpoint is: mcr.azk8s.cn
-  # shellcheck disable=SC2001
-  retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
-  retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
-done
