@@ -92,6 +92,7 @@ $global:map = @{
         $defaultContainerdPackageUrl
     );
     "c:\akse-cache\csi-proxy\"    = @(
+        "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
         "https://acs-mirror.azureedge.net/csi-proxy/v1.0.0/binaries/csi-proxy-v1.0.0.tar.gz"
     );
     # When to remove depracted Kubernetes Windows packages:
