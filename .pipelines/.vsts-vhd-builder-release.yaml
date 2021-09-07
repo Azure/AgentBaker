@@ -110,7 +110,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804
-    - stage: build_vhd_1804_gen2
+  - stage: build_vhd_1804_gen2
     condition: eq('${{ parameters.build1804gen2 }}', true)
     jobs:
     - job: build
@@ -128,7 +128,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2
-    - stage: build_vhd_1804_gpu
+  - stage: build_vhd_1804_gpu
     condition: eq('${{ parameters.build1804gpu }}', true)
     jobs:
     - job: build
@@ -146,7 +146,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gpu
-    - stage: build_vhd_1804_gen2_gpu
+  - stage: build_vhd_1804_gen2_gpu
     condition: eq('${{ parameters.build1804gen2gpu }}', true)
     jobs:
     - job: build
@@ -164,7 +164,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-gpu
-    - stage: build_vhd_1804_containerd
+  - stage: build_vhd_1804_containerd
     condition: eq('${{ parameters.build1804containerd }}', true)
     jobs:
     - job: build
@@ -182,7 +182,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-containerd
-    - stage: build_vhd_1804_gen2_containerd
+  - stage: build_vhd_1804_gen2_containerd
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
     jobs:
     - job: build
@@ -200,7 +200,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-containerd
-    - stage: build_vhd_1804_gpu_containerd
+  - stage: build_vhd_1804_gpu_containerd
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
     jobs:
     - job: build
@@ -218,7 +218,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gpu-containerd
-    - stage: build_vhd_1804_gen2_gpu_containerd
+  - stage: build_vhd_1804_gen2_gpu_containerd
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
     jobs:
     - job: build
@@ -236,7 +236,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-gpu-containerd
-    - stage: build_vhd_marinerv1
+  - stage: build_vhd_marinerv1
     condition: eq('${{ parameters.buildMarinerV1 }}', true)
     jobs:
     - job: build
