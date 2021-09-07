@@ -37,16 +37,13 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.3.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.2.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.5", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.2", # for k8s 1.21.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021-2")
     }
     "2019-containerd" {
@@ -85,7 +82,7 @@ $global:map = @{
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.14.zip",
-        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.0/binaries/windows-gmsa-ccgakvplugin-v1.1.0.zip"
+        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.1/binaries/windows-gmsa-ccgakvplugin-v1.1.1.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -93,7 +90,6 @@ $global:map = @{
     # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
-        "https://acs-mirror.azureedge.net/containerd/windows/v0.0.41/binaries/containerd-v0.0.41-windows-amd64.tar.gz",
         $defaultContainerdPackageUrl
     );
     "c:\akse-cache\csi-proxy\"    = @(
@@ -129,10 +125,10 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.9/windowszip/v1.20.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.9-hotfix.20210830/windowszip/v1.20.9-hotfix.20210830-1int.zip"
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20210827/windowszip/v1.21.1-hotfix.20210827-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20210830/windowszip/v1.21.2-hotfix.20210830-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20210830/windowszip/v1.21.2-hotfix.20210830-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.1/windowszip/v1.22.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.0/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.0.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.9/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.9.zip"
     );
     "c:\akse-cache\calico\" = @(
