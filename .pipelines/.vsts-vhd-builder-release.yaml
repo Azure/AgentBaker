@@ -75,6 +75,7 @@ variables:
 
 stages:
   - stage: build_vhd
+    dependsOn: []
     condition: eq('${{ parameters.build1604 }}', true)
     jobs:
     - job: build
@@ -93,6 +94,7 @@ stages:
           parameters:
             artifactName: 1604
   - stage: build_vhd_1804
+    dependsOn: []
     condition: eq('${{ parameters.build1804 }}', true)
     jobs:
     - job: build
@@ -111,6 +113,7 @@ stages:
           parameters:
             artifactName: 1804
   - stage: build_vhd_1804_gen2
+    dependsOn: []
     condition: eq('${{ parameters.build1804gen2 }}', true)
     jobs:
     - job: build
@@ -129,6 +132,7 @@ stages:
           parameters:
             artifactName: 1804-gen2
   - stage: build_vhd_1804_gpu
+    dependsOn: []
     condition: eq('${{ parameters.build1804gpu }}', true)
     jobs:
     - job: build
@@ -147,6 +151,7 @@ stages:
           parameters:
             artifactName: 1804-gpu
   - stage: build_vhd_1804_gen2_gpu
+    dependsOn: []
     condition: eq('${{ parameters.build1804gen2gpu }}', true)
     jobs:
     - job: build
@@ -165,6 +170,7 @@ stages:
           parameters:
             artifactName: 1804-gen2-gpu
   - stage: build_vhd_1804_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804containerd }}', true)
     jobs:
     - job: build
@@ -183,6 +189,7 @@ stages:
           parameters:
             artifactName: 1804-containerd
   - stage: build_vhd_1804_gen2_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
     jobs:
     - job: build
@@ -201,6 +208,7 @@ stages:
           parameters:
             artifactName: 1804-gen2-containerd
   - stage: build_vhd_1804_gpu_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
     jobs:
     - job: build
@@ -219,6 +227,7 @@ stages:
           parameters:
             artifactName: 1804-gpu-containerd
   - stage: build_vhd_1804_gen2_gpu_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
     jobs:
     - job: build
@@ -237,6 +246,7 @@ stages:
           parameters:
             artifactName: 1804-gen2-gpu-containerd
   - stage: build_vhd_marinerv1
+    dependsOn: []
     condition: eq('${{ parameters.buildMarinerV1 }}', true)
     jobs:
     - job: build
@@ -256,6 +266,7 @@ stages:
           parameters:
             artifactName: marinerv1
   - stage: build_vhd_marinerv1_gen2
+    dependsOn: []
     condition: eq('${{ parameters.buildMarinerV1gen2 }}', true)
     jobs:
     - job: build
@@ -275,6 +286,7 @@ stages:
           parameters:
             artifactName: marinerv1-gen2
   - stage: build_vhd_1804_fips_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
     jobs:
     - job: build
@@ -294,6 +306,7 @@ stages:
           parameters:
             artifactName: 1804-fips-containerd
   - stage: build_vhd_1804_fips_gen2_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
     jobs:
     - job: build
@@ -313,6 +326,7 @@ stages:
           parameters:
             artifactName: 1804-fips-gen2-containerd
   - stage: build_vhd_1804_fips_gpu_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804fipsgpucontainerd }}', true)
     jobs:
     - job: build
@@ -332,6 +346,7 @@ stages:
           parameters:
             artifactName: 1804-fips-gpu-containerd
   - stage: build_vhd_1804_fips_gen2_gpu_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build1804fipsgen2gpucontainerd }}', true)
     jobs:
     - job: build
