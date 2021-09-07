@@ -1,6 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
 trigger: none
 
+pool:
+  vmImage: ubuntu-18.04
+
 # Three modes in prioritized order
 # gen2Mode: Hyper-Generation V2 mode
 #    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
@@ -29,8 +32,6 @@ variables:
 
 stages:
   - stage: build_vhd
-    pool:
-      vmImage: ubuntu-18.04
     jobs:
     - job: build
       timeoutInMinutes: 180

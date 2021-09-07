@@ -1,6 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
+pool:
+  vmImage: ubuntu-18.04
+
 parameters:
 - name: build1604
   displayName: Build 1604
@@ -70,30 +73,28 @@ parameters:
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
 
-phases:
-  - phase: build_vhd_1604
+stages:
+  - stage: build_vhd
     condition: eq('${{ parameters.build1604 }}', true)
-    queue:
-      name: ubuntu-18.04
+    jobs:
+    - job: build
       timeoutInMinutes: 180
-    steps:
-      - bash: |
-          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-          echo '##vso[task.setvariable variable=OS_VERSION]16.04'
-          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
-          echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-          echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
-        displayName: Setup Build Variables
-      - template: ./templates/.builder-release-template.yaml
-        parameters:
-          artifactName: 1604
-  - phase: build_vhd_1804
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]16.04'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 1604
+  - stage: build_vhd_1804
     condition: eq('${{ parameters.build1804 }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -107,11 +108,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804
-  - phase: build_vhd_1804_gen2
+  - stage: build_vhd_1804_gen2
     condition: eq('${{ parameters.build1804gen2 }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -125,11 +124,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gen2
-  - phase: build_vhd_1804_gpu
+  - stage: build_vhd_1804_gpu
     condition: eq('${{ parameters.build1804gpu }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -143,11 +140,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gpu
-  - phase: build_vhd_1804_gen2_gpu
+  - stage: build_vhd_1804_gen2_gpu
     condition: eq('${{ parameters.build1804gen2gpu }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -161,11 +156,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gen2-gpu
-  - phase: build_vhd_1804_containerd
+  - stage: build_vhd_1804_containerd
     condition: eq('${{ parameters.build1804containerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -179,11 +172,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-containerd
-  - phase: build_vhd_1804_gen2_containerd
+  - stage: build_vhd_1804_gen2_containerd
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -197,11 +188,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gen2-containerd
-  - phase: build_vhd_1804_gpu_containerd
+  - stage: build_vhd_1804_gpu_containerd
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -215,11 +204,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gpu-containerd
-  - phase: build_vhd_1804_gen2_gpu_containerd
+  - stage: build_vhd_1804_gen2_gpu_containerd
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -233,11 +220,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-gen2-gpu-containerd
-  - phase: build_vhd_marinerv1
+  - stage: build_vhd_marinerv1
     condition: eq('${{ parameters.buildMarinerV1 }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -252,11 +237,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: marinerv1
-  - phase: build_vhd_marinerv1_gen2
+  - stage: build_vhd_marinerv1_gen2
     condition: eq('${{ parameters.buildMarinerV1gen2 }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -271,11 +254,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: marinerv1-gen2
-  - phase: build_vhd_1804_fips_containerd
+  - stage: build_vhd_1804_fips_containerd
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -290,11 +271,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-fips-containerd
-  - phase: build_vhd_1804_fips_gen2_containerd
+  - stage: build_vhd_1804_fips_gen2_containerd
     condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -309,11 +288,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-fips-gen2-containerd
-  - phase: build_vhd_1804_fips_gpu_containerd
+  - stage: build_vhd_1804_fips_gpu_containerd
     condition: eq('${{ parameters.build1804fipsgpucontainerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
@@ -328,11 +305,9 @@ phases:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: 1804-fips-gpu-containerd
-  - phase: build_vhd_1804_fips_gen2_gpu_containerd
+  - stage: build_vhd_1804_fips_gen2_gpu_containerd
     condition: eq('${{ parameters.build1804fipsgen2gpucontainerd }}', true)
-    queue:
-      name: ubuntu-18.04
-      timeoutInMinutes: 180
+    timeoutInMinutes: 180
     steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
