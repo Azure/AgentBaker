@@ -93,21 +93,16 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  if semverCompare $(KUBERNETES_VERSION) "1.22.0";
-    then
-      containerd_version="1.5.5"
-    else
-      containerd_version="1.4.8"
-  fi
   installStandaloneContainerd ${containerd_version}
   echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # also pre-cache containerd 1.4.4 (last used version)
     containerd_version="1.4.8"
     downloadContainerd ${containerd_version}
+    echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
     updated_containerd_version="1.5.5"
     downloadContainerd ${updated_containerd_version}
-    echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+    echo "  - [cached] updated containerd v${updated_containerd_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
   1.19.0
