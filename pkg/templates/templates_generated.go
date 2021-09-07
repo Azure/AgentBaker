@@ -4094,14 +4094,14 @@ installStandaloneContainerd() {
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
-    
+    CURRENT_KUBERNETES_VERSION=$(kubectl -version)
+    echo "Current version of kubernetes used is: $CURRENT_KUBERNETES_VERSION"
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        if [[${KUBERNETES_VERSION} ==  "1.22.1"]]; 
-            then
-                CONTAINERD_VERSION="1.5.5"
-            else
-                CONTAINERD_VERSION="1.4.8"
+        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+            CONTAINERD_VERSION="1.5.5"
+        else
+            CONTAINERD_VERSION="1.4.8"
         fi
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
     else
