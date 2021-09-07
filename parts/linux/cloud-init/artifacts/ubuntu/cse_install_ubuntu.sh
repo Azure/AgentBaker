@@ -98,11 +98,10 @@ installStandaloneContainerd() {
     
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        if [[${KUBERNETES_VERSION} ==  "1.22.1"]]; 
-            then
-                CONTAINERD_VERSION="1.5.5"
-            else
-                CONTAINERD_VERSION="1.4.8"
+        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+            CONTAINERD_VERSION="1.5.5"
+        else
+            CONTAINERD_VERSION="1.4.8"
         fi
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
     else
