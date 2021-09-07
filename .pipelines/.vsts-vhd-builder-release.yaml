@@ -74,7 +74,7 @@ phases:
   - phase: build_vhd_1604
     condition: eq('${{ parameters.build1604 }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -92,7 +92,7 @@ phases:
   - phase: build_vhd_1804
     condition: eq('${{ parameters.build1804 }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -110,7 +110,7 @@ phases:
   - phase: build_vhd_1804_gen2
     condition: eq('${{ parameters.build1804gen2 }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -128,7 +128,7 @@ phases:
   - phase: build_vhd_1804_gpu
     condition: eq('${{ parameters.build1804gpu }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -146,7 +146,7 @@ phases:
   - phase: build_vhd_1804_gen2_gpu
     condition: eq('${{ parameters.build1804gen2gpu }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -164,7 +164,7 @@ phases:
   - phase: build_vhd_1804_containerd
     condition: eq('${{ parameters.build1804containerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -182,7 +182,7 @@ phases:
   - phase: build_vhd_1804_gen2_containerd
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -200,7 +200,7 @@ phases:
   - phase: build_vhd_1804_gpu_containerd
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -218,7 +218,7 @@ phases:
   - phase: build_vhd_1804_gen2_gpu_containerd
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -236,7 +236,7 @@ phases:
   - phase: build_vhd_marinerv1
     condition: eq('${{ parameters.buildMarinerV1 }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -255,7 +255,7 @@ phases:
   - phase: build_vhd_marinerv1_gen2
     condition: eq('${{ parameters.buildMarinerV1gen2 }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -274,7 +274,7 @@ phases:
   - phase: build_vhd_1804_fips_containerd
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -293,7 +293,7 @@ phases:
   - phase: build_vhd_1804_fips_gen2_containerd
     condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -312,7 +312,7 @@ phases:
   - phase: build_vhd_1804_fips_gpu_containerd
     condition: eq('${{ parameters.build1804fipsgpucontainerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
@@ -331,7 +331,7 @@ phases:
   - phase: build_vhd_1804_fips_gen2_gpu_containerd
     condition: eq('${{ parameters.build1804fipsgen2gpucontainerd }}', true)
     queue:
-      name: Hosted Ubuntu 1804
+      name: ubuntu-18.04
       timeoutInMinutes: 180
     steps:
       - bash: |
