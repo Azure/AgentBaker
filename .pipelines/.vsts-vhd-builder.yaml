@@ -27,10 +27,10 @@ trigger: none
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
 
-phases:
-  - phase: build_vhd
-    queue:
-      name: Hosted Ubuntu 1604
+stages:
+  - stage: build_vhd
+    jobs:
+    - job: build
       timeoutInMinutes: 180
     steps:
       - bash: |
