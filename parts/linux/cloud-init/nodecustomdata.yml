@@ -359,13 +359,13 @@ write_files:
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/nvidia-container-runtime"
         {{- else}}
-        default_runtime_name = "kata"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-          runtime_type = "io.containerd.kata.v2"
+        default_runtime_name = "runc"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
