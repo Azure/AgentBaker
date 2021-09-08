@@ -86,6 +86,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     forceEnableIpForward
     networkdWorkaround
     enableSystemdAuditd
+    enableDNFAutomatic
 fi
 
 downloadKrustlet
