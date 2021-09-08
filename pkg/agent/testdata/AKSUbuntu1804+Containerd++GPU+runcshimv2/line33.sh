@@ -106,6 +106,7 @@ configureK8s
 configureCNI
 
 
+downloadKataContainers
 ensureContainerd 
 
 ensureMonitorService

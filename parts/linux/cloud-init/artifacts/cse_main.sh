@@ -148,6 +148,7 @@ ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
+downloadKataContainers
 ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
 ensureDocker

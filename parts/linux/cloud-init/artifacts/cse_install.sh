@@ -56,6 +56,17 @@ downloadKrustlet() {
     chmod 755 "$krustlet_filepath"
 }
 
+downloadKataContainers() {
+    KATA_VERSION="2.2.0"
+    kata_url="https://github.com/kata-containers/kata-containers/releases/download/${KATA_VERSION}/kata-static-${KATA_VERSION}-x86_64.tar.xz"
+    KATA_DOWNLOADS_DIR="/opt/kata/downloads"
+    mkdir -p $KATA_DOWNLOADS_DIR
+    KATA_TGZ_TMP="${kata_url##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_curl_file 10 5 60 "$KATA_DOWNLOADS_DIR/${KATA_TGZ_TMP}" "${kata_url}" || exit $ERR_KATA_INSTALL_TIMEOUT
+    tar -xvf "${KATA_DOWNLOADS_DIR}/kata-static-${KATA_VERSION}-x86_64.tar.xz" -C /
+    cp -a /opt/kata/bin/. /usr/local/bin/ # move into path
+}
+
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
