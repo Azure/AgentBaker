@@ -21,7 +21,12 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     
-        installStandaloneContainerd ${CONTAINERD_VERSION}
+        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+            CONTAINERD_VERSION="1.5.5"
+            installStandaloneContainerd ${CONTAINERD_VERSION}
+        else
+            installStandaloneContainerd ${CONTAINERD_VERSION}
+        fi
     
 }
 
