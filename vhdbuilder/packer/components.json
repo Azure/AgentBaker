@@ -77,8 +77,7 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "versions": [
-        "v1.1.8",
-        "v1.3.1"
+        "v1.4.9"
       ]
     },
     {
@@ -91,7 +90,7 @@
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
         "master.210819.1",
-        "master.210903.4"
+        "master.210906.1"
       ]
     },
     {
