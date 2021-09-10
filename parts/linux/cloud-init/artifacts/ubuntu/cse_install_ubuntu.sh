@@ -98,14 +98,8 @@ installStandaloneContainerd() {
     CURRENT_KUBERNETES_VERSION=$(kubectl -version)
     echo "Current version of kubernetes used is: $CURRENT_KUBERNETES_VERSION"
     #if there is no containerd_version input from RP, use hardcoded version
-    #echo "(for all cases): KUBERNETES_VERSION IS ${KUBERNETES_VERSION}"
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        #echo "(in the case without containerd version from RP) KUBERNETES_VERSION IS ${KUBERNETES_VERSION}"
-        #if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-        #    CONTAINERD_VERSION="1.5.5"
-        #else
-        #    CONTAINERD_VERSION="1.4.8"
-        #fi
+        CONTAINERD_VERSION="1.4.8"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
