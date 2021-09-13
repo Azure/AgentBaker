@@ -456,8 +456,18 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "subnet": "{{`{{.PodCIDR}}`}}",
-                "routes": [{ "dst": "0.0.0.0/0" }]
+                "ranges": [
+                  [
+                    { "subnet": "{{`{{.PodCIDR}}`}}" }
+                  ],
+                  [
+                    { "subnet": "{{`{{.PodCIDRIPv6}}`}}" }
+                  ]
+                ]
+                "routes": [
+                  { "dst": "0.0.0.0/0" },
+                  { "dst": "::/0" }
+                ]
             }
           },
           {
