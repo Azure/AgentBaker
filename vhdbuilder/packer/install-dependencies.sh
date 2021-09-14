@@ -86,6 +86,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     forceEnableIpForward
     networkdWorkaround
     enableSystemdAuditd
+    enableDNFAutomatic
 fi
 
 downloadKrustlet
@@ -101,6 +102,9 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
     containerd_version="1.4.4"
     downloadContainerd ${containerd_version}
     echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+    updated_containerd_version="1.5.5"
+    downloadContainerd ${updated_containerd_version}
+    echo "  - [cached] updated containerd v${updated_containerd_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
   1.19.0
@@ -314,8 +318,6 @@ done
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
 # v1.19.11
 # v1.19.12
 # v1.19.13
@@ -324,6 +326,7 @@ done
 # v1.20.9
 # v1.21.1
 # v1.21.2
+# v1.22.1 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -353,8 +356,6 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
 # v1.19.11
 # v1.19.13
 # v1.20.7
@@ -364,14 +365,13 @@ done
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.18.17-hotfix.20210505
-1.18.19
 1.19.11-hotfix.20210823
 1.19.13-hotfix.20210830
 1.20.7-hotfix.20210816
 1.20.9-hotfix.20210830
 1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
+1.22.1
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -418,19 +418,33 @@ if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
 fi
 
-# remove snapd, which is not used by container stack
-apt-get purge --auto-remove snapd -y
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt-get purge --auto-remove snapd -y
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 
-# update message-of-the-day to start after multi-user.target
-# multi-user.target usually start at the end of the boot sequence
-sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-
-# retag all the mcr for mooncake
-# shellcheck disable=SC2207
-allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
-for mcrImage in "${allMCRImages[@]}"; do
-  # in mooncake, the mcr endpoint is: mcr.azk8s.cn
-  # shellcheck disable=SC2001
-  retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
-  retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
-done
+  # TODO(ace): this apparently doesn't do anything for Mariner,
+  # which likely means images aren't cached at all? 
+  #
+  # retag all the mcr for mooncake
+  # shellcheck disable=SC2207
+  if [[ ${cliTool} == "ctr" ]]; then
+    # shellcheck disable=SC2016
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+  else
+    # shellcheck disable=SC2016
+    allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+  fi
+  if [[ "${allMCRImages}" == "" ]]; then
+    echo "we must find some mcr images"
+    exit 1
+  fi
+  for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
+    # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+    # shellcheck disable=SC2001
+    retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+    retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
+  done
+fi

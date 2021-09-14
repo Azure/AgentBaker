@@ -64,27 +64,6 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/4yST2/aMBjG7/4UVtTDdnC9f7cqByihQo0AEaodACHHeYFXOE5kv6Z06777FP50o8C03GL/fs/zHDx5skgz1gGvHdaElY0fQw4GiN1XtsDmZKholWzRk49l8E6aSisjc7RyfUDZJAO3QQ0zNgJPylGszLN68SyxG3SVLcFSFw3EEkjLAhYqGHrTs6A1eJ9skTJSFHz8+dtXlmxBZ03W0EG8q8uVX3FZ1STVj+BA6sqSQgvOH6Nu/eqCV64LdFzUXG6Ukwbzt+b/YbXFa1uE5hEu+ITffCirYIm/8qWDmk+j903TiL/yZ82F+ciFAf6Jz/gdpxVYvq/d6ULkaIuzmecHd3yB0aX1h5hSrUH4lXJwnsZOPSF9Y0JOKjfguSBuVZNh0NNFFOv3qA0lONRH6Y915cHwKeOHTwiwTZrw4DbgTm5sVYAwKgfj4+jm5+NTO0mT8bw/6CTztNVO0uxXdCJs4i+n/5UJJYjahCVaUaDbv79mhbNA4OWe2AP+L/fmWDZOs3l7MBhn41FrOO+mrYfsEnY/6Hd7D/NuL03+CY1bvX4y6lxndheMTXrWkzJmxr4rS1C0X+IyGEIRPLhbUm4JxH4HAAD//+ixAZu9AwAA
-- path: /opt/azure/containers/bind-mount.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/3ST32rbTBDF7/cpTiTD95Xa1gOUXDTUBdPEKa3Tm1LCancULV7tip2RY7fk3Yus+F9ML4edOTq/M6P8qug4FaULBYU1Ss21YhJMIigl2jjZlyF2gelQtq6lSjs/1Bulcty4YNHELghWXUmeBBJBbU0NJe3BEpN+IsQAFp2ka8fQjECGmHXaTlWucixrx6jchhg6wDF3hGcn9V7zP4YunXey7dUtCRmB9j4aLbr0pHIY3WrTN1QxYREtHU1MXk1McR/w8XeXaHz5qHJwHTtvYWJKxG0Mtv+Y1AShpoV1vIKroPHjDrVmxEDTwTmb5FpBo1fEKofUWiCpI5RblIeAXHh6oyYRxVqnwruyeCUdg6PKj1nWLqwYrk9gR0u2j/Jc5v/C0rpgW7579ZOIOy+9FRcGHCMw2pvOa3ExIFaXARwSnCql1JeHm9ntbPl4d/+wWD5+vZ8vltfZ6M9J+bK3nB2aP82/XWdviTKlmpV1CZMWbxSy/oJi8Fs0cU07qj24db3pmHYL114oBS00ZLAjCKhcYkEZo0zV99liOV/Mbh8/z29n11kRWyl0v+nCxCDaBUrcH7ydMPWbIJ8pV+EnrjAhZKOz+Qy/PvRmggKAZo1sdEKYIRudQGS7JomdqS90VOUGQtCa0nbndXxyEf8gLrVZ7U+PNi0ZIavyI3tJVUzHQSdMvkKjt8MvNj3L+8T5S6aGz04mOw8nr2dbuRiDMnUTLfT754u3vwEAAP//z6y97k0EAAA=
-
-- path: /etc/systemd/system/bind-mount.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/xzNMW7CQBCF4X5O4QuYPYGLoFCkBUUpLBdj+xFGWc+i2bcR5PQRrv9f+sZPN07yjrqE3WnFh6P52m2lObufNiOD3apUGS+IX1swyRmVGhyK91e13AJyxqbmb1ciTg/j8ESV0wPLZR/TbJ5mrbculTuT/rVAWopTzRH1ldd+Jw/1JjJ+eKXmPMmXOrEen8PWMq1vFXGgxjco/wEAAP//HvlBProAAAA=
-
-- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/4oOzcssieUKSi0szSxKLbZNysxL0c3NL80r0StOLSrLTE7lckwrSS3CJgEIAAD//79NTUg8AAAA
-
 
 
 
@@ -183,7 +162,7 @@ write_files:
     KUBELET_IMAGE=hyperkube-amd64:v1.15.7
 
 
-    KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName
+    KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=agent2,kubernetes.azure.com/agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName
 
     #EOF
 
