@@ -120,6 +120,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
+$global:KubeproxyConfigArgs = @( {{GetKubeproxyConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 

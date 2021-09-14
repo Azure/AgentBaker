@@ -1226,6 +1226,33 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
+// GetOrderedKubeproxyConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringForPowershell() string {
+	// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/
+	// --metrics-bind-address ipport     Default: 127.0.0.1:10249
+	// 	The IP address with port for the metrics server to serve on (set to '0.0.0.0:10249' for all IPv4 interfaces and '[::]:10249' for all IPv6 interfaces). Set empty to disable.
+	// This only works with Windows provisioning package v0.0.15+.
+	// https://github.com/Azure/aks-engine/blob/master/docs/topics/windows-provisioning-scripts-release-notes.md#v0015
+	if config.KubeproxyConfig == nil {
+		return "\"--metrics-bind-address=0.0.0.0:10249\""
+	}
+
+	if _, ok := config.KubeproxyConfig["--metrics-bind-address"]; !ok {
+		config.KubeproxyConfig["--metrics-bind-address"] = "0.0.0.0:10249"
+	}
+
+	keys := []string{}
+	for key := range config.KubeproxyConfig {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config.KubeproxyConfig[key]))
+	}
+	return strings.TrimSuffix(buf.String(), ", ")
+}
+
 // IsEnabled returns true if the addon is enabled
 func (a *KubernetesAddon) IsEnabled() bool {
 	if a.Enabled == nil {
@@ -1302,6 +1329,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
+	KubeproxyConfig                map[string]string
 	EnableRuncShimV2               bool
 	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
