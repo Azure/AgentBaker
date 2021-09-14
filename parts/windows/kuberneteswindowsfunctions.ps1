@@ -43,9 +43,11 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
-        if ($LASTEXITCODE) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+        try {
+            $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
+            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Failed in downloading $Url. Error: $_"
         }
         $downloadTimer.Stop()
 
@@ -139,11 +141,15 @@ function Retry-Command {
         $RetryDelaySeconds
     )
 
-    for ($i = 0; $i -lt $Retries; $i++) {
+    for ($i = 0; ; ) {
         try {
             return & $Command @Args
         }
         catch {
+            $i++
+            if ($i -ge $Retries) {
+                throw $_
+            }
             Start-Sleep $RetryDelaySeconds
         }
     }
@@ -343,9 +349,10 @@ function Get-CACertificates {
 
         Write-Log "Download CA certificates rawdata"
         # This is required when the root CA certs are different for some clouds.
-        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
-        if ([string]::IsNullOrEmpty($rawData)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
+        try {
+            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata. Error: $_"
         }
 
         Write-Log "Convert CA certificates rawdata"
