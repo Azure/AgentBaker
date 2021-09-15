@@ -270,7 +270,8 @@ function Write-KubeClusterConfig {
             ConfigArgs = $global:KubeletConfigArgs
         };
         Kubeproxy    = @{
-            FeatureGates = $global:KubeproxyFeatureGates
+            FeatureGates = $global:KubeproxyFeatureGates;
+            ConfigArgs   = $global:KubeproxyConfigArgs
         };
     }
 
