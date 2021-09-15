@@ -5438,7 +5438,8 @@ function Write-KubeClusterConfig {
             ConfigArgs = $global:KubeletConfigArgs
         };
         Kubeproxy    = @{
-            FeatureGates = $global:KubeproxyFeatureGates
+            FeatureGates = $global:KubeproxyFeatureGates;
+            ConfigArgs   = $global:KubeproxyConfigArgs
         };
     }
 
@@ -5680,6 +5681,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
+$global:KubeproxyConfigArgs = @( {{GetKubeproxyConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
