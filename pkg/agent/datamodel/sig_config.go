@@ -201,7 +201,7 @@ const (
 
 const (
 	LinuxSIGImageVersion   string = "2021.09.11"
-	WindowsSIGImageVersion string = "17763.2114.210811"
+	WindowsSIGImageVersion string = "17763.2183.210915"
 )
 
 // SIG config Template
