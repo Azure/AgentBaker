@@ -20,8 +20,8 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
-$global:patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/secu/2021/08/windows10.0-kb5005030-x64_222160abfb75f543a693ca773dbcd0553ace6f03.msu")
-$global:patchIDs = @("KB5005030")
+$global:patchUrls = @("http://download.windowsupdate.com/d/msdownload/update/software/secu/2021/09/windows10.0-kb5005568-x64_417d4c6ae0067fcbe682dec671d0111a731a0550.msu")
+$global:patchIDs = @("KB5005568")
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.42/binaries/containerd-v0.0.42-windows-amd64.tar.gz"
