@@ -87,6 +87,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     networkdWorkaround
     enableSystemdAuditd
     enableDNFAutomatic
+    fixCBLMarinerPermissions
 fi
 
 downloadKrustlet
