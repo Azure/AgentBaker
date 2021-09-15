@@ -542,10 +542,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
 		"HasKubeletDiskType": func() bool {
-			return profile != nil && profile.KubeletDiskType != ""
+			return profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk
 		},
 		"GetKubeletDiskType": func() string {
-			if profile != nil && profile.KubeletDiskType != "" {
+			if profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk {
 				return string(profile.KubeletDiskType)
 			}
 			return ""
