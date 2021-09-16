@@ -4663,8 +4663,8 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
-                "routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
+                "ranges": [{{`+"`"+`{{range $i, $range := .PodCIDRRanges}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}[{"subnet": "{{`+"`"+`{{$range}}`+"`"+`}}"}]{{`+"`"+`{{end}}`+"`"+`}}],
+                "routes": [{{`+"`"+`{{range $i, $route := .Routes}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}{"dst": "{{`+"`"+`{{$route}}`+"`"+`}}"}{{`+"`"+`{{end}}`+"`"+`}}]
             }
           },
           {
