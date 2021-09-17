@@ -328,6 +328,7 @@ done
 # v1.21.1
 # v1.21.2
 # v1.22.1 (preview)
+# v1.22.2 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -362,7 +363,8 @@ done
 # v1.20.7
 # v1.20.9
 # v1.21.1
-# v1.21.2
+# v1.21.2 (preview)
+# v1.22.2 (preview)
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
@@ -373,6 +375,7 @@ KUBE_BINARY_VERSIONS="
 1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
 1.22.1
+1.22.2
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
