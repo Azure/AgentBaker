@@ -76,7 +76,7 @@ variables:
 stages:
   - stage: build_vhd
     dependsOn: []
-    condition: eq('${{ parameters.build1604 }}', true)
+    condition: eq(variables.TEST_VAR, 'True')
     jobs:
     - job: build
       timeoutInMinutes: 180
