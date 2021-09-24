@@ -2,4 +2,3 @@ steps:
   - bash: |
         echo "Hello"
         echo "This is test run"
-  - template: .vsts-vhd-builder-release.yaml
