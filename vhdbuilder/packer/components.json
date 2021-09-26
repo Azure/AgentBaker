@@ -169,7 +169,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "versions": [
-        "1.10.3.2"
+        "1.10.3.2",
+        "1.10.3.3"
       ]
     },
     {
@@ -216,7 +217,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "versions": [
-        "v2.5.0.6"
+        "v2.5.0.6",
+        "v2.5.0.7"
       ]
     },
     {
@@ -230,7 +232,8 @@
       "versions": [
         "v1.2.0.5",
         "v1.5.0",
-        "v1.7.0"
+        "v1.7.0",
+        "v1.7.0.1"
       ]
     },
     {

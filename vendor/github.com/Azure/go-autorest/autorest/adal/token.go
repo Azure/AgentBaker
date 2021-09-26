@@ -26,9 +26,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -63,12 +63,6 @@ const (
 
 	// the default number of attempts to refresh an MSI authentication token
 	defaultMaxMSIRefreshAttempts = 5
-
-	// asMSIEndpointEnv is the environment variable used to store the endpoint on App Service and Functions
-	asMSIEndpointEnv = "MSI_ENDPOINT"
-
-	// asMSISecretEnv is the environment variable used to store the request secret on App Service and Functions
-	asMSISecretEnv = "MSI_SECRET"
 )
 
 // OAuthTokenProvider is an interface which should be implemented by an access token retriever
@@ -640,31 +634,6 @@ func GetMSIVMEndpoint() (string, error) {
 	return msiEndpoint, nil
 }
 
-func isAppService() bool {
-	_, asMSIEndpointEnvExists := os.LookupEnv(asMSIEndpointEnv)
-	_, asMSISecretEnvExists := os.LookupEnv(asMSISecretEnv)
-
-	return asMSIEndpointEnvExists && asMSISecretEnvExists
-}
-
-// GetMSIAppServiceEndpoint get the MSI endpoint for App Service and Functions
-func GetMSIAppServiceEndpoint() (string, error) {
-	asMSIEndpoint, asMSIEndpointEnvExists := os.LookupEnv(asMSIEndpointEnv)
-
-	if asMSIEndpointEnvExists {
-		return asMSIEndpoint, nil
-	}
-	return "", errors.New("MSI endpoint not found")
-}
-
-// GetMSIEndpoint get the appropriate MSI endpoint depending on the runtime environment
-func GetMSIEndpoint() (string, error) {
-	if isAppService() {
-		return GetMSIAppServiceEndpoint()
-	}
-	return GetMSIVMEndpoint()
-}
-
 // NewServicePrincipalTokenFromMSI creates a ServicePrincipalToken via the MSI VM Extension.
 // It will use the system assigned identity when creating the token.
 func NewServicePrincipalTokenFromMSI(msiEndpoint, resource string, callbacks ...TokenRefreshCallback) (*ServicePrincipalToken, error) {
@@ -697,12 +666,7 @@ func newServicePrincipalTokenFromMSI(msiEndpoint, resource string, userAssignedI
 
 	v := url.Values{}
 	v.Set("resource", resource)
-	// App Service MSI currently only supports token API version 2017-09-01
-	if isAppService() {
-		v.Set("api-version", "2017-09-01")
-	} else {
-		v.Set("api-version", "2018-02-01")
-	}
+	v.Set("api-version", "2018-02-01")
 	if userAssignedID != nil {
 		v.Set("client_id", *userAssignedID)
 	}
@@ -829,7 +793,7 @@ func isIMDS(u url.URL) bool {
 	if err != nil {
 		return false
 	}
-	return (u.Host == imds.Host && u.Path == imds.Path) || isAppService()
+	return u.Host == imds.Host && u.Path == imds.Path
 }
 
 func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource string) error {
@@ -838,11 +802,6 @@ func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource 
 		return fmt.Errorf("adal: Failed to build the refresh request. Error = '%v'", err)
 	}
 	req.Header.Add("User-Agent", UserAgent())
-	// Add header when runtime is on App Service or Functions
-	if isAppService() {
-		asMSISecret, _ := os.LookupEnv(asMSISecretEnv)
-		req.Header.Add("Secret", asMSISecret)
-	}
 	req = req.WithContext(ctx)
 	if !isIMDS(spt.inner.OauthConfig.TokenEndpoint) {
 		v := url.Values{}
@@ -887,8 +846,7 @@ func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource 
 		resp, err = spt.sender.Do(req)
 	}
 	if err != nil {
-		// don't return a TokenRefreshError here; this will allow retry logic to apply
-		return fmt.Errorf("adal: Failed to execute the refresh request. Error = '%v'", err)
+		return newTokenRefreshError(fmt.Sprintf("adal: Failed to execute the refresh request. Error = '%v'", err), nil)
 	}
 
 	defer resp.Body.Close()
@@ -955,8 +913,10 @@ func retryForIMDS(sender Sender, req *http.Request, maxAttempts int) (resp *http
 
 	for attempt < maxAttempts {
 		resp, err = sender.Do(req)
-		// we want to retry if err is not nil or the status code is in the list of retry codes
-		if err == nil && !responseHasStatusCode(resp, retries...) {
+		// retry on temporary network errors, e.g. transient network failures.
+		// if we don't receive a response then assume we can't connect to the
+		// endpoint so we're likely not running on an Azure VM so don't retry.
+		if (err != nil && !isTemporaryNetworkError(err)) || resp == nil || resp.StatusCode == http.StatusOK || !containsInt(retries, resp.StatusCode) {
 			return
 		}
 
@@ -980,12 +940,20 @@ func retryForIMDS(sender Sender, req *http.Request, maxAttempts int) (resp *http
 	return
 }
 
-func responseHasStatusCode(resp *http.Response, codes ...int) bool {
-	if resp != nil {
-		for _, i := range codes {
-			if i == resp.StatusCode {
-				return true
-			}
+// returns true if the specified error is a temporary network error or false if it's not.
+// if the error doesn't implement the net.Error interface the return value is true.
+func isTemporaryNetworkError(err error) bool {
+	if netErr, ok := err.(net.Error); !ok || (ok && netErr.Temporary()) {
+		return true
+	}
+	return false
+}
+
+// returns true if slice ints contains the value n
+func containsInt(ints []int, n int) bool {
+	for _, i := range ints {
+		if i == n {
+			return true
 		}
 	}
 	return false
