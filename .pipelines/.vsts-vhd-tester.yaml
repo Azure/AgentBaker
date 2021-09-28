@@ -4,4 +4,4 @@ steps:
         echo "This is test run"
         ls
         pwd
-        sh /vhdbuilder/scripts/bump.sh
+        sh vhdbuilder/scripts/bump.sh
