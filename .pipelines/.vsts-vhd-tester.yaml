@@ -1,5 +1,5 @@
 steps:
-  - script: |
+  - bash: |
         echo "Hello"
         echo "This is test run"
         ls
