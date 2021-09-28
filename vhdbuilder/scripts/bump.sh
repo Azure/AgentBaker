@@ -37,7 +37,11 @@ done < $filepath
 echo $image_version
 sed -i "s/${image_version}/${new_version}/g" $filepath
 
+git config --global user.email "amaheshwari@microsoft.com"
+git config --global user.name "Anuj Maheshwari"
+
 git status
 git add .
-git commit -m"will this work?"
+git commit -m "will this work?"
+
 git push -u origin testBranch00
