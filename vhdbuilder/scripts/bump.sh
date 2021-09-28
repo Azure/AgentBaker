@@ -29,6 +29,6 @@ while read p; do
 done < $filepath
 
 echo $image_version
-sed -i '' "s/${image_version}/${new_version}/g" $filepath
+sed -i "s/${image_version}/${new_version}/g" $filepath
 
 git status
