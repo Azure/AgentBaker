@@ -5,9 +5,12 @@ echo "Starting script"
 
 git branch
 git status
+git log --pretty=oneline
+
 git checkout master
 git pull
 git checkout -b testBranch00
+git log --pretty=oneline
 
 filepath=pkg/agent/datamodel/osimageconfig.go
 flag=0
@@ -35,3 +38,6 @@ echo $image_version
 sed -i "s/${image_version}/${new_version}/g" $filepath
 
 git status
+git add .
+git commit -m"will this work?"
+git push -u origin testBranch00
