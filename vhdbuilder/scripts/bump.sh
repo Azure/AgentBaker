@@ -5,6 +5,9 @@ echo "Starting script"
 
 git branch
 git status
+git checkout master
+git pull
+git checkout -b testBranch00
 
 filepath=pkg/agent/datamodel/osimageconfig.go
 flag=0
