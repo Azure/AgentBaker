@@ -2,6 +2,10 @@
 set -x
 
 echo "Starting script"
+
+git branch
+git status
+
 filepath=pkg/agent/datamodel/osimageconfig.go
 flag=0
 image_version=""
@@ -25,4 +29,6 @@ while read p; do
 done < $filepath
 
 echo $image_version
+sed -i '' "s/${image_version}/${new_version}/g" $filepath
+
 git status
