@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -x
 
 echo "Starting script"
 filepath=pkg/agent/datamodel/osimageconfig.go
