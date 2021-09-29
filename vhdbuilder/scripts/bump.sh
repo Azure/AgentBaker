@@ -43,7 +43,7 @@ git config --global user.email "amaheshwari@microsoft.com"
 git config --global user.name "anujmaheshwari1"
 #git config --global github.user "anujmaheshwari1"
 #git config --global url."git@github.com:".insteadOf "https://github.com/"
-git remote set-url origin https://anujmaheshwari1:xyz@github.com/Azure/AgentBaker.git
+git remote set-url origin https://anujmaheshwari1:$1@github.com/Azure/AgentBaker.git
 git config --list
 
 git status
