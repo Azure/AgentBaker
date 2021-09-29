@@ -2,7 +2,7 @@
 set -x
 
 echo "Starting script"
-
+echo "First arg is $1"
 git branch
 git status
 git log --pretty=oneline
