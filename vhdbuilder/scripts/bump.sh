@@ -7,6 +7,8 @@ git branch
 git status
 git log --pretty=oneline
 
+git config --list
+
 git checkout master
 git pull
 git checkout -b testBranch00
@@ -40,8 +42,8 @@ sed -i "s/${image_version}/${new_version}/g" $filepath
 git config --global user.email "amaheshwari@microsoft.com"
 git config --global user.name "Anuj Maheshwari"
 
+git config --list
+
 git status
 git add .
 git commit -m "will this work?"
-
-git push -u origin testBranch00
