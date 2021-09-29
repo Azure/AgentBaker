@@ -100,11 +100,12 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # also pre-cache containerd 1.4.4 (last used version)
     containerd_version="1.4.4"
-    downloadContainerd ${containerd_version}
-    echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+    containerd_patch_version="3"
+    downloadContainerd ${containerd_version} ${containerd_patch_version}
+    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
     updated_containerd_version="1.5.5"
-    downloadContainerd ${updated_containerd_version}
-    echo "  - [cached] updated containerd v${updated_containerd_version}" >> ${VHD_LOGS_FILEPATH}
+    downloadContainerd ${updated_containerd_version} ${containerd_patch_version}
+    echo "  - [cached] updated containerd v${updated_containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
   1.19.0
