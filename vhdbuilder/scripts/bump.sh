@@ -41,7 +41,7 @@ sed -i "s/${image_version}/${new_version}/g" $filepath
 
 git config --global user.email "amaheshwari@microsoft.com"
 git config --global user.name "anujmaheshwari1"
-git config --global user.password "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"
+git config --global user.password "testpass"
 git config --list
 
 git status
