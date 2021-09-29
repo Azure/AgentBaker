@@ -192,9 +192,9 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
+1.4.12
 1.4.9
 1.4.7
-1.4.0
 1.2.7
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
@@ -205,9 +205,9 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
+1.4.12
 1.4.9
 1.4.7
-1.4.0
 1.2.7
 "
 
