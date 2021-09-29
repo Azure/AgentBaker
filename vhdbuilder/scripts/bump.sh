@@ -42,6 +42,7 @@ sed -i "s/${image_version}/${new_version}/g" $filepath
 git config --global user.email "amaheshwari@microsoft.com"
 git config --global user.name "anujmaheshwari1"
 git config --global github.user "anujmaheshwari1"
+git config --global url."git@github.com:".insteadOf "https://github.com/"
 git config --list
 
 git status

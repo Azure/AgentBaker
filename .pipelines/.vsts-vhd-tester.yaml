@@ -4,4 +4,7 @@ steps:
         echo "This is test run"
         ls
         pwd
+        testVar1=$(testVar)
+        echo $testVar11
         /bin/bash vhdbuilder/scripts/bump.sh
+        
