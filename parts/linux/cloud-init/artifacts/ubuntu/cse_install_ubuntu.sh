@@ -97,7 +97,7 @@ installStandaloneContainerd() {
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
     # v1.4.1 is our lowest supported version of containerd
     
-    # we always default to the .1 patch version
+    # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="1"
 
     #if there is no containerd_version input from RP, use hardcoded version
@@ -109,7 +109,7 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    if [ semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION} ] && [ "${CURRENT_VERSION}" != "${CONTAINERD_VERSION}" ]; then
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"

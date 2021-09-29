@@ -103,7 +103,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
     containerd_patch_version="3"
     downloadContainerd ${containerd_version} ${containerd_patch_version}
     echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-    updated_containerd_version="1.5.5"
+    updated_containerd_version="1.5.5" # also .3 revision
     downloadContainerd ${updated_containerd_version} ${containerd_patch_version}
     echo "  - [cached] updated containerd v${updated_containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   fi
