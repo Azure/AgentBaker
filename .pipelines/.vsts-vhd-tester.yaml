@@ -5,6 +5,10 @@ steps:
         ls
         pwd
         testVar1=$[variables.TEST_VAR]
-        echo "this is ${testVar11}"
+        testVar2=${{ variables.TEST_VAR }}
+        testVar3=$TEST_VAR
+        echo "this is ${testVar1}"
+        echo "this is ${testVar2}"
+        echo "this is ${testVar3}"
         /bin/bash vhdbuilder/scripts/bump.sh
         
