@@ -1412,7 +1412,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v1.0.0-alpha.1"
+KRUSTLET_VERSION="v0.0.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1449,18 +1449,12 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
-    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
-    if [[ -f "$krustlet_filepath" ]]; then
-        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
-        if [[ "${KRUSTLET_VERSION}" == "$installed_version" ]]; then
-            echo "desired krustlet version exists on disk, skipping download."
-            return
-        fi
-        rm -rf "$krustlet_filepath"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [ ! -f "$krustlet_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$krustlet_filepath"    
     fi
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
@@ -2658,7 +2652,7 @@ Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
 Environment=KRUSTLET_DATA_DIR=/etc/krustlet
 Environment=RUST_LOG=wasi_provider=info,main=info
 Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-ExecStart=/usr/local/bin/krustlet-wasi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
+ExecStart=/usr/local/bin/krustlet-wagi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
 
 [Install]
 WantedBy=multi-user.target
