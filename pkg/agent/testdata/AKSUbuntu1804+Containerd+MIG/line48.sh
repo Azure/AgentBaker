@@ -92,14 +92,19 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
     # v1.4.1 is our lowest supported version of containerd
     
+    # we always default to the .1 patch versons
+    CONTAINERD_PATCH_VERSION="1"
+
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.8"
-        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+        CONTAINERD_VERSION="1.4.9"
+        CONTAINERD_PATCH_VERSION="3"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
-        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
@@ -111,7 +116,7 @@ installStandaloneContainerd() {
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
         if [ -f $VHD_LOGS_FILEPATH ]; then
-            CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+            CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
             CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
             if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
                 installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -127,7 +132,8 @@ installStandaloneContainerd() {
 downloadContainerd() {
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+    CONTAINER_PATCH_VERSION="${2:-'1'}"
+    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
