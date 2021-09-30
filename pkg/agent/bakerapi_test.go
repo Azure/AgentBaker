@@ -160,12 +160,12 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.OSImageConfig.ImageOffer).To(Equal("aks"))
 			Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
 			Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
-			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.09.25"))
+			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.09.27"))
 
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
-			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.09.25"))
+			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.09.27"))
 		})
 
 		It("should return an error if cloud is not found", func() {
@@ -198,7 +198,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(sigImageConfig.Definition).To(Equal("1604"))
-			Expect(sigImageConfig.Version).To(Equal("2021.09.25"))
+			Expect(sigImageConfig.Version).To(Equal("2021.09.27"))
 		})
 
 		It("should return error if image config not found for distro", func() {
