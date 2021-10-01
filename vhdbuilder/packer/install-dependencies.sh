@@ -97,6 +97,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   containerd_version="1.4.9"
   containerd_patch_version="3"
   downloadContainerd ${containerd_version} ${containerd_patch_version}
+  installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # also pre-cache containerd 1.4.4 (last used version)
