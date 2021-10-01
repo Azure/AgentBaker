@@ -4106,7 +4106,7 @@ installStandaloneContainerd() {
     # v1.4.1 is our lowest supported version of containerd
     
     # we always default to the .1 patch versons
-    CONTAINERD_PATCH_VERSION="1"
+    CONTAINERD_PATCH_VERSION="${2:-1}"
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
