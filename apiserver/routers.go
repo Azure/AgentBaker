@@ -25,9 +25,9 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 	// healthz should not require authentication
 	router.
 		Methods("POST").
-		Path(RoutePathNodeBootstrapConfig).
-		Name("GetNodeBootstrappingConfig").
-		HandlerFunc(api.GetNodeBootstrappingConfig)
+		Path(RoutePathNodeBootstrapData).
+		Name("GetNodeBootstrapData").
+		HandlerFunc(api.GetNodeBootstrapData)
 
 	return router
 }
