@@ -1000,6 +1000,14 @@ func (o *OrchestratorProfile) IsAzureCNI() bool {
 	return false
 }
 
+// IsNoneCNI returns true if network plugin none is enabled
+func (o *OrchestratorProfile) IsNoneCNI() bool {
+	if o.KubernetesConfig != nil {
+		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginNone)
+	}
+	return false
+}
+
 // IsCSIProxyEnabled returns true if csi proxy service should be enable for Windows nodes
 func (w *WindowsProfile) IsCSIProxyEnabled() bool {
 	if w.EnableCSIProxy != nil {
