@@ -78,7 +78,7 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "versions": [
-        "v1.4.9"
+        "v1.4.12"
       ]
     },
     {
