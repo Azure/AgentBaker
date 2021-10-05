@@ -14,54 +14,63 @@ import (
 
 const (
 	// RoutePathNodeBootstrapping the route path to get node bootstrapping data.
-	RoutePathNodeBootstrapConfig string = "/nodebootstrapconfig"
+	RoutePathNodeBootstrapData string = "/getnodebootstrapdata"
 )
 
-func handleError(err error, w http.ResponseWriter) {
+func handleError(err error) Result {
 	log.Println(err.Error())
-	http.Error(w, err.Error(), http.StatusBadRequest)
+	return Result{"", err}
 }
 
 // GetNodeBootstrapConfig endpoint for getting node bootstrapping data.
-func (api *APIServer) GetNodeBootstrappingConfig(w http.ResponseWriter, r *http.Request) {
+func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	processResult := make(chan string)
+	processResult := make(chan Result)
 	go func() {
 		var config datamodel.NodeBootstrappingConfiguration
 
 		err := json.NewDecoder(r.Body).Decode(&config)
 		if err != nil {
-			handleError(err, w)
+			handleError(err)
 			return
 		}
 
 		agentBaker, err := agent.NewAgentBaker()
 		if err != nil {
-			handleError(err, w)
+			processResult <- handleError(err)
 			return
 		}
 		nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
 		if err != nil {
-			handleError(err, w)
+			processResult <- handleError(err)
 			return
 		}
 		result, err := json.Marshal(nodeBootStrapping)
 		if err != nil {
-			handleError(err, w)
+			processResult <- handleError(err)
 			return
 		}
-		processResult <- string(result)
+		processResult <- Result{string(result), nil}
 	}()
 
 	select {
 	case <-ctx.Done():
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "process timeout"}`))
+		http.Error(w, "process timeout", http.StatusInternalServerError)
 	case result := <-processResult:
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, string(result))
+		if result.Error != nil {
+			http.Error(w, result.Error.Error(), http.StatusBadRequest)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, result.Message)
+		}
+
 	}
+}
+
+type Result struct {
+	Message string
+	Error   error
 }
