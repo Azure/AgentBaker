@@ -90,6 +90,7 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
+        "master.210927.1",
         "master.210819.1",
         "master.210906.1"
       ]
