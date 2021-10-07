@@ -314,7 +314,8 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
       "versions": [
-        "1.4.0"
+        "1.4.0",
+        "1.5.0-rc1"
       ]
     },
     {
