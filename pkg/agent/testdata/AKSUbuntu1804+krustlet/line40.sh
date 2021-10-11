@@ -255,6 +255,27 @@ cleanUpKubeProxyImages() {
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
+cleanupRetaggedImages() {
+    if [[ "AzurePublicCloud" != "AzureChinaCloud" ]]; then
+        
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        fi
+        
+        if [[ "${images_to_delete}" != "" ]]; then
+            echo "${images_to_delete}" | while read image; do
+                
+                removeContainerImage ${CLI_TOOL} ${image}
+                
+            done
+        fi
+    else
+        echo "skipping container cleanup for AzureChinaCloud"
+    fi
+}
+
 cleanUpContainerImages() {
     # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION

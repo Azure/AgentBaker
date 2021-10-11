@@ -158,6 +158,10 @@ ensureDocker
 {{- end}}
 
 ensureMonitorService
+# must run before kubelet starts to avoid race in container status using wrong image
+# https://github.com/kubernetes/kubernetes/issues/51017
+# can remove when fixed
+cleanupRetaggedImages
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
