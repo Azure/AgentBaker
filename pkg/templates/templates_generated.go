@@ -6907,6 +6907,18 @@ function Install-GmsaPlugin {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file. $LASTEXITCODE"
     }
 
+    # Enable the CCGAKVPlugin logging manifest.
+    # Introduced since v1.1.3
+    if (Test-Path -Path "$tempInstallPackageFoler\CCGAKVPluginEvents.man" -PathType Leaf) {
+        Write-Log "Importing the CCGAKVPluginEvents manifest file"
+        wevtutil.exe im "$tempInstallPackageFoler\CCGAKVPluginEvents.man"
+        if ($LASTEXITCODE) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS -ErrorMessage "Failed to import the CCGAKVPluginEvents.man manifest file. $LASTEXITCODE"
+        }
+    } else {
+        Write-Log "CCGAKVPluginEvents.man does not exist in the package"
+    }
+
     Write-Log "Removing $tempInstallPackageFoler"
     Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
 
@@ -7232,6 +7244,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=24
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 `)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
