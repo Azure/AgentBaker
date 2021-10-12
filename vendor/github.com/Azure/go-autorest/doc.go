@@ -1,4 +1,7 @@
-package date
+/*
+Package go-autorest provides an HTTP request client for use with Autorest-generated API client packages.
+*/
+package go_autorest
 
 // Copyright 2017 Microsoft Corporation
 //
@@ -13,13 +16,3 @@ package date
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-
-import (
-	"strings"
-	"time"
-)
-
-// ParseTime to parse Time string to specified format.
-func ParseTime(format string, t string) (d time.Time, err error) {
-	return time.Parse(format, strings.ToUpper(t))
-}
