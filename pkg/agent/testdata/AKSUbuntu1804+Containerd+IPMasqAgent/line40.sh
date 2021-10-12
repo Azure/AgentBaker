@@ -294,7 +294,9 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 
-                removeContainerImage ${CLI_TOOL} ${image}
+                # always use ctr, even if crictl is installed.
+                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                removeContainerImage "ctr" ${image}
                 
             done
         fi
