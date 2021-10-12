@@ -7,10 +7,10 @@ ifeq (${MODE},gen2Mode)
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
 else ifeq (${MODE},sigMode)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sigminimal.json
 else
-	@echo "${MODE}: Building with Hyper-v generation 1 minimal VM and save to Classic Storage Account"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-minimal.json
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
 endif
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${MODE},gen2Mode)

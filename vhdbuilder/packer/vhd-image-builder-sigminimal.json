@@ -12,6 +12,9 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
+    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}"
@@ -23,10 +26,6 @@
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
-      "resource_group_name": "{{user `resource_group_name`}}",
-      "storage_account": "{{user `storage_account_name`}}",
-      "capture_container_name": "aks-vhds",
-      "capture_name_prefix": "aks-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "Canonical",
@@ -39,7 +38,19 @@
         "createdBy": "aks-vhd-pipeline"
       },
       "location": "{{user `location`}}",
-      "vm_size": "{{user `vm_size`}}"
+      "vm_size": "{{user `vm_size`}}",
+      "managed_image_resource_group_name": "{{user `resource_group_name`}}",
+      "managed_image_name": "{{user `sig_image_name`}}",
+      "polling_duration_timeout": "1h",
+      "shared_image_gallery_destination": {
+        "resource_group": "{{user `resource_group_name`}}",
+        "gallery_name": "{{user `sig_gallery_name`}}",
+        "image_name": "{{user `sig_image_name`}}",
+        "image_version": "{{user `sig_image_version`}}",
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
+      }
     }
   ],
   "provisioners": [
