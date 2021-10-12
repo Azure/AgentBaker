@@ -3,8 +3,7 @@ module github.com/Azure/agentbaker
 go 1.12
 
 require (
-	github.com/Azure/go-autorest/autorest v0.9.2 // indirect
-	github.com/Azure/go-autorest/autorest/to v0.3.0
+	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Jeffail/gabs v1.1.1
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-cmp v0.5.5
