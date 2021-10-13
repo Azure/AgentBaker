@@ -232,17 +232,16 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
         "v1.2.0.5",
-        "v1.5.0",
-        "v1.7.0",
-        "v1.7.0.1"
+        "v1.7.0.1",
+        "v1.8.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "versions": [
         "v1.2.0",
-        "v1.5.0",
-        "v1.6.0"
+        "v1.6.0",
+        "v1.7.0"
       ]
     },
     {
