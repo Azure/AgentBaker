@@ -20,8 +20,8 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
-$global:patchUrls = @("http://download.windowsupdate.com/c/msdownload/update/software/updt/2021/09/windows10.0-kb5005625-x64_9a7d6abe389d940e08d759243c981670c33c71f5.msu")
-$global:patchIDs = @("KB5005625")
+$global:patchUrls = @()
+$global:patchIDs = @()
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.42/binaries/containerd-v0.0.42-windows-amd64.tar.gz"
@@ -38,10 +38,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.2.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.7.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.8.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.6.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.7.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
@@ -60,10 +60,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.2.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.7.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.8.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.6.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.7.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.5", # for k8s 1.20.x
