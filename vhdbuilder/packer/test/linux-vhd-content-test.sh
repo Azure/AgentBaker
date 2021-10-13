@@ -269,6 +269,13 @@ testCriticalTools() {
   else
     echo $test "nc is installed"
   fi
+
+  if [[ ! $(nslookup -version) ]]; then
+    err $test "nslookup is not installed, as expected"
+  else
+    echo $test "nslookup is installed"
+  fi
+
   echo "$test:Finish"
 }
 
