@@ -262,11 +262,14 @@ testKubeProxyImagesPulled() {
 }
 
 testCriticalTools() {
+  test="testCriticalTools"
+  echo "$test:Start"
   if [[ ! $(nc --help) ]]; then
-    echo $test "ntp is removed, as expected"
+    err $test "nc is not installed, as expected"
   else
-    err $test "ntp is active with status ${status}"
+    echo $test "nc is installed"
   fi
+  echo "$test:Finish"
 }
 
 err() {
@@ -280,6 +283,7 @@ string_replace() {
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
+testCriticalTools
 testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1
