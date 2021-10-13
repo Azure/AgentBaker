@@ -328,13 +328,6 @@
         "master.210524.9",
         "master.211013.1"
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/command/init:*",
-      "versions": [
-        "master.210524.9",
-        "master.211013.1"
-      ]
     }
   ],
   "DownloadFiles": [
