@@ -29,7 +29,7 @@
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "Canonical",
-      "image_offer": "UbuntuServer",
+      "image_offer": "0001-com-ubuntu-minimal-hirsute-daily",
       "image_sku": "minimal-21_04-daily",
       "image_version": "latest",
       "azure_tags": {
