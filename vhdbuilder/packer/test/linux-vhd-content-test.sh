@@ -261,6 +261,14 @@ testKubeProxyImagesPulled() {
   echo "$test:Finish"
 }
 
+testCriticalTools() {
+  if [[ ! $(nc --help) ]]; then
+    echo $test "ntp is removed, as expected"
+  else
+    err $test "ntp is active with status ${status}"
+  fi
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
