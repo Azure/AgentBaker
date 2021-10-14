@@ -266,7 +266,6 @@ testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
   if ! nc -h 2> /dev/null; then
-    echo $(which nc)
     err $test "nc is not installed"
   else
     echo $test "nc is installed"
