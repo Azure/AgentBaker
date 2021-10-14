@@ -264,13 +264,13 @@ testKubeProxyImagesPulled() {
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
-  if [[ ! $(nc -h) ]]; then
+  if ! nc -h; then
     err $test "nc is not installed"
   else
     echo $test "nc is installed"
   fi
 
-  if [[ ! $(nslookup -version) ]]; then
+  if ! nslookup -version; then
     err $test "nslookup is not installed"
   else
     echo $test "nslookup is installed"
