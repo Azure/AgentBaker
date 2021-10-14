@@ -261,6 +261,7 @@ testKubeProxyImagesPulled() {
   echo "$test:Finish"
 }
 
+# nc and nslookup is used in CSE to check connectivity
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
@@ -287,10 +288,10 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+testCriticalTools
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
-testCriticalTools
 testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1
