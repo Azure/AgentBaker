@@ -65,8 +65,9 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - traceroute
   - util-linux
   - xz-utils
-  - zip
   - netcat
+  - dnsutils
+  - zip
 EOF
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
