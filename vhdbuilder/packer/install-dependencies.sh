@@ -195,10 +195,8 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
-1.4.12
-1.4.9
-1.4.7
 1.2.7
+1.4.13
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -208,10 +206,9 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
-1.4.12
-1.4.9
-1.4.7
 1.2.7
+1.4.12
+1.4.13
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do

@@ -90,9 +90,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
-        "master.210927.1",
-        "master.210819.1",
-        "master.210906.1"
+        "master.210906.1",
+        "master.211013.1"
       ]
     },
     {
@@ -232,17 +231,16 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
         "v1.2.0.5",
-        "v1.5.0",
-        "v1.7.0",
-        "v1.7.0.1"
+        "v1.7.0.1",
+        "v1.8.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "versions": [
         "v1.2.0",
-        "v1.5.0",
-        "v1.6.0"
+        "v1.6.0",
+        "v1.7.0"
       ]
     },
     {
@@ -327,13 +325,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/command/runtime:*",
       "versions": [
-        "master.210524.9"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/command/init:*",
-      "versions": [
-        "master.210524.9"
+        "master.210524.9",
+        "master.211013.1"
       ]
     }
   ],
@@ -362,9 +355,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.7",
-        "1.4.9",
-        "1.4.12"
+        "1.4.13"
       ]
     },
     {
@@ -373,9 +364,8 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.7",
-        "1.4.9",
-        "1.4.12"
+        "1.4.12",
+        "1.4.13"
       ]
     },
     {
