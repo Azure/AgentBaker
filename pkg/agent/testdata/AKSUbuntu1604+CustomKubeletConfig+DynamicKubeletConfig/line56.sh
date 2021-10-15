@@ -152,6 +152,7 @@ EOF
     "protectKernelDefaults": true,
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
+        "DynamicKubeletConfig": false,
         "PodPriority": true,
         "RotateKubeletServerCertificate": true,
         "TopologyManager": true,
