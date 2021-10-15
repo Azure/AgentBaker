@@ -134,12 +134,16 @@ EOF
     ],
     "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
-    "imageGCHighThresholdPercent": 85,
-    "imageGCLowThresholdPercent": 80,
+    "imageGCHighThresholdPercent": 90,
+    "imageGCLowThresholdPercent": 70,
     "cgroupsPerQOS": true,
+    "cpuManagerPolicy": "static",
+    "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
-    "podPidsLimit": -1,
+    "podPidsLimit": 12345,
     "resolvConf": "/etc/resolv.conf",
+    "cpuCFSQuota": false,
+    "cpuCFSQuotaPeriod": "200ms",
     "evictionHard": {
         "memory.available": "750Mi",
         "nodefs.available": "10%",
@@ -147,11 +151,15 @@ EOF
     },
     "protectKernelDefaults": true,
     "featureGates": {
+        "CustomCPUCFSQuotaPeriod": true,
         "PodPriority": true,
         "RotateKubeletServerCertificate": true,
+        "TopologyManager": true,
         "a": false,
         "x": false
     },
+    "containerLogMaxSize": "1000M",
+    "containerLogMaxFiles": 99,
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"
@@ -162,6 +170,10 @@ EOF
     },
     "enforceNodeAllocatable": [
         "pods"
+    ],
+    "allowedUnsafeSysctls": [
+        "kernel.msg*",
+        "net.ipv4.route.min_pmtu"
     ]
 }
 EOF

@@ -354,6 +354,7 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	if k == nil {
 		return ""
 	}
+	// Always force remove of dynamic-config-dir.
 	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
 	keys := []string{}
 	for key := range k {
