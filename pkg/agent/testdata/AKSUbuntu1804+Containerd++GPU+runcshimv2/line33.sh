@@ -78,8 +78,8 @@ else
 fi
 
 installContainerRuntime
-
 installNetworkPlugin
+
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
@@ -102,8 +102,8 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-
 configureCNI
+
 
 
 ensureContainerd 

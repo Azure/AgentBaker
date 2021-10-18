@@ -79,8 +79,8 @@ fi
 
 installContainerRuntime
 installTeleportdPlugin
-
 installNetworkPlugin
+
 
 installKubeletKubectlAndKubeProxy
 
@@ -89,8 +89,8 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-
 configureCNI
+
 
 
 ensureContainerd 

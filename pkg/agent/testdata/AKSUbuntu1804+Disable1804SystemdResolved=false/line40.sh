@@ -13,7 +13,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v1.0.0-alpha.1"
+KRUSTLET_VERSION="v0.0.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -24,7 +24,8 @@ installContainerRuntime() {
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
             CONTAINERD_VERSION="1.5.5"
-            installStandaloneContainerd ${CONTAINERD_VERSION}
+            CONTAINERD_PATCH_VERSION="3"
+            installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
             echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
         else
             installStandaloneContainerd ${CONTAINERD_VERSION}
@@ -48,18 +49,12 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
-    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
-    if [[ -f "$krustlet_filepath" ]]; then
-        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
-        if [[ "${KRUSTLET_VERSION}" == "$installed_version" ]]; then
-            echo "desired krustlet version exists on disk, skipping download."
-            return
-        fi
-        rm -rf "$krustlet_filepath"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [ ! -f "$krustlet_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$krustlet_filepath"    
     fi
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
