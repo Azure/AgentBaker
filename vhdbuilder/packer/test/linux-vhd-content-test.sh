@@ -261,6 +261,25 @@ testKubeProxyImagesPulled() {
   echo "$test:Finish"
 }
 
+# nc and nslookup is used in CSE to check connectivity
+testCriticalTools() {
+  test="testCriticalTools"
+  echo "$test:Start"
+  if ! nc -h 2> /dev/null; then
+    err $test "nc is not installed"
+  else
+    echo $test "nc is installed"
+  fi
+
+  if ! nslookup -version 2> /dev/null; then
+    err $test "nslookup is not installed"
+  else
+    echo $test "nslookup is installed"
+  fi
+
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -269,6 +288,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+testCriticalTools
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony
