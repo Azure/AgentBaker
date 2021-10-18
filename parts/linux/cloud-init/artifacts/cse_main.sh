@@ -93,7 +93,9 @@ installContainerRuntime
 installTeleportdPlugin
 {{- end}}
 
+{{- if not IsNoneCNI }}
 installNetworkPlugin
+{{end}}
 
 {{- if IsKrustlet }}
     downloadKrustlet
@@ -140,7 +142,9 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 
 configureK8s
 
+{{- if not IsNoneCNI }}
 configureCNI
+{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}

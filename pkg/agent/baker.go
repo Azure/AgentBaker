@@ -336,6 +336,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell()
 		},
+		"GetKubeproxyConfigKeyValsPsh": func() string {
+			return config.GetOrderedKubeproxyConfigStringForPowershell()
+		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
 		},
@@ -383,6 +386,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
+		},
+		"IsNoneCNI": func() bool {
+			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
 			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
@@ -539,10 +545,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 		},
 		"HasKubeletDiskType": func() bool {
-			return profile != nil && profile.KubeletDiskType != ""
+			return profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk
 		},
 		"GetKubeletDiskType": func() string {
-			if profile != nil && profile.KubeletDiskType != "" {
+			if profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk {
 				return string(profile.KubeletDiskType)
 			}
 			return ""

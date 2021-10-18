@@ -76,8 +76,8 @@ else
 fi
 
 installContainerRuntime
-
 installNetworkPlugin
+
 
 installKubeletKubectlAndKubeProxy
 
@@ -86,8 +86,8 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-
 configureCNI
+
 
 
 ensureDocker

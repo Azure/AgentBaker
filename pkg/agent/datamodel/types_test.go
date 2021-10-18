@@ -1499,6 +1499,35 @@ func TestIsAzureCNI(t *testing.T) {
 	}
 }
 
+func TestIsNoneCNI(t *testing.T) {
+	k := &KubernetesConfig{
+		NetworkPlugin: NetworkPluginNone,
+	}
+
+	o := &OrchestratorProfile{
+		KubernetesConfig: k,
+	}
+	if !o.IsNoneCNI() {
+		t.Fatalf("unable to detect orchestrator profile is using None CNI from NetworkPlugin=%s", o.KubernetesConfig.NetworkPlugin)
+	}
+
+	k = &KubernetesConfig{
+		NetworkPlugin: "some",
+	}
+
+	o = &OrchestratorProfile{
+		KubernetesConfig: k,
+	}
+	if o.IsNoneCNI() {
+		t.Fatalf("unable to detect orchestrator profile is not using None CNI from NetworkPlugin=%s", o.KubernetesConfig.NetworkPlugin)
+	}
+
+	o = &OrchestratorProfile{}
+	if o.IsNoneCNI() {
+		t.Fatalf("unable to detect orchestrator profile is not using None CNI from nil KubernetesConfig")
+	}
+}
+
 func TestOrchestrator(t *testing.T) {
 	cases := []struct {
 		p                    Properties
