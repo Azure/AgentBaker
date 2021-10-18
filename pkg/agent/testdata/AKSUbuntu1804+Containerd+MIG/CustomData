@@ -270,7 +270,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS=
+    KUBELET_FLAGS=--feature-gates=DynamicKubeletConfig=false 
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
 
