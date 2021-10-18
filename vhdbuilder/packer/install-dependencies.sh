@@ -65,6 +65,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - traceroute
   - util-linux
   - xz-utils
+  - netcat
+  - dnsutils
   - zip
 EOF
 
