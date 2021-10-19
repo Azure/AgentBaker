@@ -1,5 +1,10 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/10-bindmount.conf
+// linux/cloud-init/artifacts/10-componentconfig.conf
+// linux/cloud-init/artifacts/10-containerd.conf
+// linux/cloud-init/artifacts/10-httpproxy.conf
+// linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
@@ -22,6 +27,7 @@
 // linux/cloud-init/artifacts/etc-issue
 // linux/cloud-init/artifacts/etc-issue.net
 // linux/cloud-init/artifacts/health-monitor.sh
+// linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
 // linux/cloud-init/artifacts/kms.service
 // linux/cloud-init/artifacts/krustlet.service
@@ -51,8 +57,6 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
-// linux/cloud-init/artifacts/update-node-labels.service
-// linux/cloud-init/artifacts/update-node-labels.sh
 // linux/cloud-init/nodecustomdata.yml
 // windows/containerdtemplate.toml
 // windows/csecmd.ps1
@@ -119,6 +123,102 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifacts10BindmountConf = []byte(`[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+`)
+
+func linuxCloudInitArtifacts10BindmountConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10BindmountConf, nil
+}
+
+func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10BindmountConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
+Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+`)
+
+func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ComponentconfigConf, nil
+}
+
+func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ComponentconfigConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-componentconfig.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
+Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+`)
+
+func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ContainerdConf, nil
+}
+
+func linuxCloudInitArtifacts10ContainerdConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ContainerdConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-containerd.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10HttpproxyConf = []byte(`[Service]
+EnvironmentFile=/etc/environment
+`)
+
+func linuxCloudInitArtifacts10HttpproxyConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10HttpproxyConf, nil
+}
+
+func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10HttpproxyConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-httpproxy.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
+Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+`)
+
+func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10TlsbootstrapConf, nil
+}
+
+func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10TlsbootstrapConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-tlsbootstrap.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifactsAptPreferences = []byte(``)
@@ -778,11 +878,6 @@ ensureMonitorService() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
@@ -819,17 +914,6 @@ ensureKubelet() {
         sleep 3
     done
     {{end}}
-}
-
-# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
-ensureUpdateNodeLabels() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureMigPartition(){
@@ -1328,7 +1412,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v1.0.0-alpha.1"
+KRUSTLET_VERSION="v0.0.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1336,7 +1420,16 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     {{if NeedsContainerd}}
-        installStandaloneContainerd ${CONTAINERD_VERSION}
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+            CONTAINERD_VERSION="1.5.5"
+            CONTAINERD_PATCH_VERSION="3"
+            installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
+            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+        else
+            installStandaloneContainerd ${CONTAINERD_VERSION}
+            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+        fi
     {{else}}
         installMoby
     {{end}}
@@ -1357,18 +1450,12 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
-    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
-    if [[ -f "$krustlet_filepath" ]]; then
-        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
-        if [[ "${KRUSTLET_VERSION}" == "$installed_version" ]]; then
-            echo "desired krustlet version exists on disk, skipping download."
-            return
-        fi
-        rm -rf "$krustlet_filepath"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [ ! -f "$krustlet_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$krustlet_filepath"    
     fi
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
@@ -1743,7 +1830,9 @@ installContainerRuntime
 installTeleportdPlugin
 {{- end}}
 
+{{- if not IsNoneCNI }}
 installNetworkPlugin
+{{end}}
 
 {{- if IsKrustlet }}
     downloadKrustlet
@@ -1790,7 +1879,9 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 
 configureK8s
 
+{{- if not IsNoneCNI }}
 configureCNI
+{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
@@ -1922,9 +2013,9 @@ var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
-KUBELET_START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
@@ -2344,6 +2435,73 @@ func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh = []byte(`#!/bin/bash
+mkdir -p /root/AzureCACertificates
+# http://168.63.129.16 is a constant for the host's wireserver endpoint
+certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+IFS_backup=$IFS
+IFS=$'\r\n'
+certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
+certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+for i in ${!certBodies[@]}; do
+    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed 's/.cer/.crt/g')"
+done
+IFS=$IFS_backup
+
+cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
+/usr/bin/update-ca-trust
+
+cloud-init status --wait
+
+# TODO - Set the repoDepotEndpoint in a .repo file if package update becomes necessary
+
+# Set the chrony config to use the PHC /dev/ptp0 clock
+cat > /etc/chrony.conf <<EOF
+# This directive specify the location of the file containing ID/key pairs for
+# NTP authentication.
+keyfile /etc/chrony.keys
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/drift
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics
+
+# Log files location.
+logdir /var/log/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+makestep 1.0 -1
+EOF
+
+systemctl restart chronyd
+
+#EOF`)
+
+func linuxCloudInitArtifactsInitAksCustomCloudMarinerShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, nil
+}
+
+func linuxCloudInitArtifactsInitAksCustomCloudMarinerSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsInitAksCustomCloudMarinerShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsInitAksCustomCloudSh = []byte(`#!/bin/bash
 mkdir -p /root/AzureCACertificates
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
@@ -2499,7 +2657,7 @@ Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
 Environment=KRUSTLET_DATA_DIR=/etc/krustlet
 Environment=RUST_LOG=wasi_provider=info,main=info
 Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-ExecStart=/usr/local/bin/krustlet-wasi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
+ExecStart=/usr/local/bin/krustlet-wagi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
 
 [Install]
 WantedBy=multi-user.target
@@ -2569,20 +2727,10 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-{{if EnableEncryptionWithExternalKms}}
-Requires=kms.service
-{{end}}
-{{- if HasKubeletDiskType}}
-Requires=bind-mount.service
-After=bind-mount.service
-{{end}}
 
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
-{{- if ShouldConfigureHTTPProxy}}
-EnvironmentFile=/etc/environment
-{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -2596,20 +2744,16 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
+        --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsKubeletConfigFileEnabled}}
-        --config /etc/default/kubeletconfig.json \
-        {{- end}}
-        {{- if IsKubeletClientTLSBootstrappingEnabled}}
-        --kubeconfig /var/lib/kubelet/kubeconfig \
-        --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
-        {{- end}}
-        $KUBELET_FLAGS \
-        $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_FLAGS
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsKubeletServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsKubeletService, nil
@@ -2720,7 +2864,7 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates cifs-utils conntrack-tools cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq lsof nmap-ncat nfs-utils pam pigz psmisc socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in blobfuse ca-certificates check-restart cifs-utils conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -3880,7 +4024,13 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in apache2-utils apt-transport-https blobfuse=1.3.7 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
+    BLOBFUSE_VERSION="1.4.1"
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    if [ "${OSVERSION}" == "16.04" ]; then
+        BLOBFUSE_VERSION="1.3.7"
+    fi
+    for apt_package in apache2-utils apt-transport-https blobfuse=${BLOBFUSE_VERSION} ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -3956,14 +4106,19 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
     # v1.4.1 is our lowest supported version of containerd
     
+    # we always default to the .1 patch versons
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.8"
-        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+        CONTAINERD_VERSION="1.4.9"
+        CONTAINERD_PATCH_VERSION="3"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
-        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
@@ -3974,13 +4129,11 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        if [ -f $VHD_LOGS_FILEPATH ]; then
-            CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
-            CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
-            if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-                installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-                return 0
-            fi
+        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
+        CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            return 0
         fi
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -3991,7 +4144,8 @@ installStandaloneContainerd() {
 downloadContainerd() {
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
@@ -4056,75 +4210,6 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsUpdateNodeLabelsService = []byte(`[Unit]
-Description=Updates Labels for Kubernetes node
-After=kubelet.service
-[Service]
-Restart=on-failure
-RestartSec=30
-EnvironmentFile=/etc/default/kubelet
-ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsService, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsUpdateNodeLabelsSh = []byte(`#!/usr/bin/env bash
-
-# Updates Labels for this Kubernetes node (adds any missing, updates others to newest values, but never removes labels)
-
-set -euo pipefail
-
-NODE_NAME=$(echo $(hostname) | tr "[:upper:]" "[:lower:]")
-
-echo "updating labels for ${NODE_NAME}"
-
-FORMATTED_CURRENT_NODE_LABELS=$(kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --list=true node $NODE_NAME | sort)
-
-echo "current node labels (sorted): ${FORMATTED_CURRENT_NODE_LABELS}"
-
-FORMATTED_NODE_LABELS_TO_UPDATE=$(echo $KUBELET_NODE_LABELS | tr ',' '\n' | sort)
-
-echo "node labels to update (formatted+sorted): ${FORMATTED_NODE_LABELS_TO_UPDATE}"
-
-MISSING_LABELS=$(comm -32 <(echo $FORMATTED_NODE_LABELS_TO_UPDATE | tr ' ' '\n') <(echo $FORMATTED_CURRENT_NODE_LABELS | tr ' ' '\n') | tr '\n' ' ')
-
-echo "missing labels: ${MISSING_LABELS}"
-
-if [ ! -z "$MISSING_LABELS" ]; then
-  kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --overwrite node $NODE_NAME $MISSING_LABELS
-fi
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsSh, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4266,22 +4351,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
 {{end}}
 
-{{- if not .IsVHDDistro}}
-- path: /etc/systemd/system/update-node-labels.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
-
-- path: /opt/azure/containers/update-node-labels.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
-{{end}}
-
 {{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
@@ -4296,6 +4365,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -4342,12 +4418,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 {{- end}}
-- path: /etc/systemd/system/kms.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
@@ -4397,6 +4467,13 @@ write_files:
     DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
     DefaultEnvironment="no_proxy={{GetNoProxy}}"
     {{- end}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
@@ -4466,6 +4543,12 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -4728,6 +4811,15 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{- if IsKubeletConfigFileEnabled}}
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
+{{ end }}
+
 {{if IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
@@ -4755,6 +4847,12 @@ write_files:
       name: bootstrap-context
     current-context: bootstrap-context
     #EOF
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
 {{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
@@ -5122,9 +5220,11 @@ function DownloadFileOverHttp {
         $ProgressPreference = 'SilentlyContinue'
 
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
-        if ($LASTEXITCODE) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
+        try {
+            $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
+            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Failed in downloading $Url. Error: $_"
         }
         $downloadTimer.Stop()
 
@@ -5218,11 +5318,15 @@ function Retry-Command {
         $RetryDelaySeconds
     )
 
-    for ($i = 0; $i -lt $Retries; $i++) {
+    for ($i = 0; ; ) {
         try {
             return & $Command @Args
         }
         catch {
+            $i++
+            if ($i -ge $Retries) {
+                throw $_
+            }
             Start-Sleep $RetryDelaySeconds
         }
     }
@@ -5343,7 +5447,8 @@ function Write-KubeClusterConfig {
             ConfigArgs = $global:KubeletConfigArgs
         };
         Kubeproxy    = @{
-            FeatureGates = $global:KubeproxyFeatureGates
+            FeatureGates = $global:KubeproxyFeatureGates;
+            ConfigArgs   = $global:KubeproxyConfigArgs
         };
     }
 
@@ -5422,9 +5527,10 @@ function Get-CACertificates {
 
         Write-Log "Download CA certificates rawdata"
         # This is required when the root CA certs are different for some clouds.
-        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
-        if ([string]::IsNullOrEmpty($rawData)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
+        try {
+            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata. Error: $_"
         }
 
         Write-Log "Convert CA certificates rawdata"
@@ -5584,6 +5690,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
+$global:KubeproxyConfigArgs = @( {{GetKubeproxyConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
@@ -5616,10 +5723,6 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
-
-# Telemetry settings
-$global:EnableTelemetry = [System.Convert]::ToBoolean("{{GetVariable "enableTelemetry" }}");
-$global:TelemetryKey = "{{GetVariable "applicationInsightsKey" }}";
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
@@ -5670,84 +5773,27 @@ $windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSe
 
 try
 {
-    # Set to false for debugging.  This will output the start script to
-    # c:\AzureData\CustomDataSetupScript.log, and then you can RDP
-    # to the windows machine, and run the script manually to watch
-    # the output.
-    if ($true) {
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
-
-        if ($global:EnableTelemetry) {
-            $global:globalTimer = [System.Diagnostics.Stopwatch]::StartNew()
-
-            $configAppInsightsClientTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            # Get app insights binaries and set up app insights client
-            Create-Directory -FullPath c:\k\appinsights -DirectoryUsage "storing appinsights"
-            DownloadFileOverHttp -Url "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg" -DestinationPath "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip"
-            Expand-Archive -Path "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip" -DestinationPath "c:\k\appinsights"
-            $appInsightsDll = "c:\k\appinsights\lib\net46\Microsoft.ApplicationInsights.dll"
-            [Reflection.Assembly]::LoadFile($appInsightsDll)
-            $conf = New-Object "Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration"
-            $conf.DisableTelemetry = -not $global:EnableTelemetry
-            $conf.InstrumentationKey = $global:TelemetryKey
-            $global:AppInsightsClient = New-Object "Microsoft.ApplicationInsights.TelemetryClient"($conf)
-
-            $global:AppInsightsClient.Context.Properties["correlation_id"] = New-Guid
-            $global:AppInsightsClient.Context.Properties["cri"] = $global:ContainerRuntime
-            # TODO: Update once containerd versioning story is decided
-            $global:AppInsightsClient.Context.Properties["cri_version"] = if ($global:ContainerRuntime -eq "docker") { $global:DockerVersion } else { "" }
-            $global:AppInsightsClient.Context.Properties["k8s_version"] = $global:KubeBinariesVersion
-            $global:AppInsightsClient.Context.Properties["lb_sku"] = $global:LoadBalancerSku
-            $global:AppInsightsClient.Context.Properties["location"] = $Location
-            $global:AppInsightsClient.Context.Properties["os_type"] = "windows"
-            $global:AppInsightsClient.Context.Properties["os_version"] = Get-WindowsVersion
-            $global:AppInsightsClient.Context.Properties["network_plugin"] = $global:NetworkPlugin
-            $global:AppInsightsClient.Context.Properties["network_plugin_version"] = Get-CniVersion
-            $global:AppInsightsClient.Context.Properties["network_mode"] = $global:NetworkMode
-            $global:AppInsightsClient.Context.Properties["subscription_id"] = $global:SubscriptionId
-
-            $vhdId = ""
-            if (Test-Path "c:\vhd-id.txt") {
-                $vhdId = Get-Content "c:\vhd-id.txt"
-            }
-            $global:AppInsightsClient.Context.Properties["vhd_id"] = $vhdId
-
-            $imdsProperties = Get-InstanceMetadataServiceTelemetry
-            foreach ($key in $imdsProperties.keys) {
-                $global:AppInsightsClient.Context.Properties[$key] = $imdsProperties[$key]
-            }
-
-            $configAppInsightsClientTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("Config-AppInsightsClient", $configAppInsightsClientTimer.Elapsed.TotalSeconds)
+        # Exit early if the script has been executed
+        if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+            Write-Log "The script has been executed before, will exit without doing anything."
+            return
         }
+
+        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
         # Install OpenSSH if SSH enabled
         $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
         if ( $sshEnabled ) {
             Write-Log "Install OpenSSH"
-            if ($global:EnableTelemetry) {
-                $installOpenSSHTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            }
             Install-OpenSSH -SSHKeys $SSHKeys
-            if ($global:EnableTelemetry) {
-                $installOpenSSHTimer.Stop()
-                $global:AppInsightsClient.TrackMetric("Install-OpenSSH", $installOpenSSHTimer.Elapsed.TotalSeconds)
-            }
         }
 
         Write-Log "Apply telemetry data setting"
         Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
         Write-Log "Resize os drive if possible"
-        if ($global:EnableTelemetry) {
-            $resizeTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        }
         Resize-OSDrive
-        if ($global:EnableTelemetry) {
-            $resizeTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("Resize-OSDrive", $resizeTimer.Elapsed.TotalSeconds)
-        }
 
         Write-Log "Initialize data disks"
         Initialize-DataDisks
@@ -5756,6 +5802,13 @@ try
         Initialize-DataDirectories
 
         Create-Directory -FullPath "c:\k"
+        Write-Log "Remove `+"`"+`"NT AUTHORITY\Authenticated Users`+"`"+`" write permissions on files in c:\k"
+        icacls.exe "c:\k" /inheritance:r
+        icacls.exe "c:\k" /grant:r SYSTEM:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
+        icacls.exe "c:\k" /grant:r BUILTIN\Administrators:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
+        icacls.exe "c:\k" /grant:r BUILTIN\Users:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(RX`+"`"+`)
+        Write-Log "c:\k permissions: "
+        icacls.exe "c:\k"
         Get-ProvisioningScripts
 
         Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
@@ -5774,9 +5827,6 @@ try
 
         if ($useContainerD) {
             Write-Log "Installing ContainerD"
-            if ($global:EnableTelemetry) {
-                $containerdTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            }
             $cniBinPath = $global:AzureCNIBinDir
             $cniConfigPath = $global:AzureCNIConfDir
             if ($global:NetworkPlugin -eq "kubenet") {
@@ -5784,21 +5834,10 @@ try
                 $cniConfigPath = $global:CNIConfigPath
             }
             Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
-            if ($global:EnableTelemetry) {
-                $containerdTimer.Stop()
-                $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
-            }
         } else {
             Write-Log "Install docker"
-            if ($global:EnableTelemetry) {
-                $dockerTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            }
             Install-Docker -DockerVersion $global:DockerVersion
             Set-DockerLogFileOptions
-            if ($global:EnableTelemetry) {
-                $dockerTimer.Stop()
-                $global:AppInsightsClient.TrackMetric("Install-Docker", $dockerTimer.Elapsed.TotalSeconds)
-            }
         }
 
         # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
@@ -5872,14 +5911,7 @@ try
          }
 
         Write-Log "Create the Pause Container kubletwin/pause"
-        if ($global:EnableTelemetry) {
-            $infraContainerTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        }
         New-InfraContainer -KubeDir $global:KubeDir -ContainerRuntime $global:ContainerRuntime
-        if ($global:EnableTelemetry) {
-            $infraContainerTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("New-InfraContainer", $infraContainerTimer.Elapsed.TotalSeconds)
-        }
 
         if (-not (Test-ContainerImageExists -Image "kubletwin/pause" -ContainerRuntime $global:ContainerRuntime)) {
             Write-Log "Could not find container with name kubletwin/pause"
@@ -5978,12 +6010,6 @@ try
             Remove-Item $CacheDir -Recurse -Force
         }
 
-        if ($global:EnableTelemetry) {
-            $global:globalTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("TotalDuration", $global:globalTimer.Elapsed.TotalSeconds)
-            $global:AppInsightsClient.Flush()
-        }
-
         if ($global:TLSBootstrapToken) {
             Write-Log "Removing temporary kube config"
             $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
@@ -5993,22 +6019,9 @@ try
         # Postpone restart-computer so we can generate CSE response before restarting computer
         Write-Log "Setup Complete, reboot computer"
         Postpone-RestartComputer
-    }
-    else
-    {
-        # keep for debugging purposes
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AgentKey $AgentKey -AADClientId $AADClientId -AADClientSecret $AADClientSecret -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
-    }
 }
 catch
 {
-    if ($global:EnableTelemetry) {
-        $exceptionTelemtry = New-Object "Microsoft.ApplicationInsights.DataContracts.ExceptionTelemetry"
-        $exceptionTelemtry.Exception = $_.Exception
-        $global:AppInsightsClient.TrackException($exceptionTelemtry)
-        $global:AppInsightsClient.Flush()
-    }
-
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
@@ -6220,10 +6233,10 @@ function GetSubnetPrefix
     $uri = "$($ResourceManagerEndpoint)$($SubnetId)?api-version=$NetworkAPIVersion"
     $headers = @{Authorization="Bearer $Token"}
 
-    $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=$headers} -Retries 5 -RetryDelaySeconds 10
-
-    if(!$response) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage 'Error getting subnet prefix'
+    try {
+        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=$headers} -Retries 5 -RetryDelaySeconds 10
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage "Error getting subnet prefix. Error: $_"
     }
 
     $response.properties.addressPrefix
@@ -6281,10 +6294,10 @@ function GenerateAzureStackCNIConfig
 
     $body = "grant_type=client_credentials&client_id=$AADClientId&client_secret=$encodedSecret&resource=$($azureEnvironment.serviceManagementEndpoint)"
     $args = @{Uri=$tokenURL; Method="Post"; Body=$body; ContentType='application/x-www-form-urlencoded'}
-    $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
-
-    if(!$tokenResponse) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage 'Error generating token for Azure Resource Manager'
+    try {
+        $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage "Error generating token for Azure Resource Manager. Error: $_"
     }
 
     $token = $tokenResponse | Select-Object -ExpandProperty access_token
@@ -6294,10 +6307,10 @@ function GenerateAzureStackCNIConfig
     $interfacesUri = "$($azureEnvironment.resourceManagerEndpoint)subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Network/networkInterfaces?api-version=$NetworkAPIVersion"
     $headers = @{Authorization="Bearer $token"}
     $args = @{Uri=$interfacesUri; Method="Get"; ContentType="application/json"; Headers=$headers; OutFile=$networkInterfacesFile}
-    Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
-
-    if(!$(Test-Path $networkInterfacesFile)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage 'Error fetching network interface configuration for node'
+    try {
+        Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage "Error fetching network interface configuration for node. Error: $_"
     }
 
     Write-Log "Generating Azure CNI interface file"
@@ -6893,6 +6906,25 @@ function Install-GmsaPlugin {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
     }
 
+    # Enable the logging manifest.
+    Write-Log "Importing the CCGEvents manifest file"
+    wevtutil.exe im "$tempInstallPackageFoler\CCGEvents.man"
+    if ($LASTEXITCODE) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS -ErrorMessage "Failed to import the CCGEvents.man manifest file. $LASTEXITCODE"
+    }
+
+    # Enable the CCGAKVPlugin logging manifest.
+    # Introduced since v1.1.3
+    if (Test-Path -Path "$tempInstallPackageFoler\CCGAKVPluginEvents.man" -PathType Leaf) {
+        Write-Log "Importing the CCGAKVPluginEvents manifest file"
+        wevtutil.exe im "$tempInstallPackageFoler\CCGAKVPluginEvents.man"
+        if ($LASTEXITCODE) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS -ErrorMessage "Failed to import the CCGAKVPluginEvents.man manifest file. $LASTEXITCODE"
+        }
+    } else {
+        Write-Log "CCGAKVPluginEvents.man does not exist in the package"
+    }
+
     Write-Log "Removing $tempInstallPackageFoler"
     Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
 
@@ -7217,6 +7249,8 @@ $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
 $global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=24
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 `)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
@@ -7898,6 +7932,11 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
+	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
+	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
+	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
@@ -7920,6 +7959,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
+	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
 	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
@@ -7949,8 +7989,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
-	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
-	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
@@ -8013,6 +8051,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
+				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
+				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
+				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
@@ -8035,6 +8078,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
+				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
 				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
@@ -8068,8 +8112,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
-				"update-node-labels.service": &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
-				"update-node-labels.sh":      &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},

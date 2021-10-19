@@ -283,6 +283,8 @@ type HostedMasterProfile struct {
 	// Not used during PUT, returned as part of GETFQDN
 	FQDN      string `json:"fqdn,omitempty"`
 	DNSPrefix string `json:"dnsPrefix"`
+	// FQDNSubdomain is used by private cluster without dnsPrefix so they have fixed FQDN
+	FQDNSubdomain string `json:"fqdnSubdomain"`
 	// Subnet holds the CIDR which defines the Azure Subnet in which
 	// Agents will be provisioned. This is stored on the HostedMasterProfile
 	// and will become `masterSubnet` in the compiled template.
@@ -413,9 +415,9 @@ type LinuxProfile struct {
 	SSH           struct {
 		PublicKeys []PublicKey `json:"publicKeys"`
 	} `json:"ssh"`
-	Secrets               []KeyVaultSecrets   `json:"secrets,omitempty"`
-	Distro                Distro              `json:"distro,omitempty"`
-	CustomSearchDomain    *CustomSearchDomain `json:"customSearchDomain,omitempty"`
+	Secrets            []KeyVaultSecrets   `json:"secrets,omitempty"`
+	Distro             Distro              `json:"distro,omitempty"`
+	CustomSearchDomain *CustomSearchDomain `json:"customSearchDomain,omitempty"`
 }
 
 // Extension represents an extension definition in the master or agentPoolProfile
@@ -941,14 +943,21 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(",node-role.kubernetes.io/agent=")
 		buf.WriteString(",kubernetes.io/role=agent")
 	}
+	// label key agentpool will be depreated soon
 	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
+	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+
 	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
 		storagetier, _ := GetStorageAccountType(a.VMSize)
+		// label key storageprofile and storagetier will be depreated soon
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=%s", storagetier))
 	}
 	if nvidiaEnabled {
 		accelerator := "nvidia"
+		// label key accelerator will be depreated soon
 		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/accelerator=%s", accelerator))
 	}
 	if fipsEnabled {
 		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
@@ -987,6 +996,14 @@ func (l *LinuxProfile) HasSearchDomain() bool {
 func (o *OrchestratorProfile) IsAzureCNI() bool {
 	if o.KubernetesConfig != nil {
 		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginAzure)
+	}
+	return false
+}
+
+// IsNoneCNI returns true if network plugin none is enabled
+func (o *OrchestratorProfile) IsNoneCNI() bool {
+	if o.KubernetesConfig != nil {
+		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginNone)
 	}
 	return false
 }
@@ -1217,6 +1234,33 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
+// GetOrderedKubeproxyConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringForPowershell() string {
+	// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/
+	// --metrics-bind-address ipport     Default: 127.0.0.1:10249
+	// 	The IP address with port for the metrics server to serve on (set to '0.0.0.0:10249' for all IPv4 interfaces and '[::]:10249' for all IPv6 interfaces). Set empty to disable.
+	// This only works with Windows provisioning package v0.0.15+.
+	// https://github.com/Azure/aks-engine/blob/master/docs/topics/windows-provisioning-scripts-release-notes.md#v0015
+	if config.KubeproxyConfig == nil {
+		return "\"--metrics-bind-address=0.0.0.0:10249\""
+	}
+
+	if _, ok := config.KubeproxyConfig["--metrics-bind-address"]; !ok {
+		config.KubeproxyConfig["--metrics-bind-address"] = "0.0.0.0:10249"
+	}
+
+	keys := []string{}
+	for key := range config.KubeproxyConfig {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config.KubeproxyConfig[key]))
+	}
+	return strings.TrimSuffix(buf.String(), ", ")
+}
+
 // IsEnabled returns true if the addon is enabled
 func (a *KubernetesAddon) IsEnabled() bool {
 	if a.Enabled == nil {
@@ -1293,6 +1337,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string
+	KubeproxyConfig                map[string]string
 	EnableRuncShimV2               bool
 	GPUInstanceProfile             string
 	PrimaryScaleSetName            string

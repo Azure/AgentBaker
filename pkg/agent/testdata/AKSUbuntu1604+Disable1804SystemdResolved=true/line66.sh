@@ -2,7 +2,6 @@
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
 
-
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
@@ -19,10 +18,12 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2  \
+        --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        $KUBELET_FLAGS \
-        $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_FLAGS
 
 [Install]
 WantedBy=multi-user.target

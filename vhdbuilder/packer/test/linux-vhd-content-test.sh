@@ -192,15 +192,14 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.18.17-hotfix.20210322
-  1.19.9-hotfix.20210322
-  1.19.12
-  1.19.13
-  1.20.5-hotfix.20210322
+  1.19.11-hotfix.20210823
+  1.19.13-hotfix.20210830
   1.20.7-hotfix.20210816
-  1.20.8
-  1.20.9
-  1.21.2-hotfix.20210816
+  1.20.9-hotfix.20210830
+  1.21.1-hotfix.20210827
+  1.21.2-hotfix.20210830
+  1.22.1
+  1.22.2
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -262,6 +261,25 @@ testKubeProxyImagesPulled() {
   echo "$test:Finish"
 }
 
+# nc and nslookup is used in CSE to check connectivity
+testCriticalTools() {
+  test="testCriticalTools"
+  echo "$test:Start"
+  if ! nc -h 2> /dev/null; then
+    err $test "nc is not installed"
+  else
+    echo $test "nc is installed"
+  fi
+
+  if ! nslookup -version 2> /dev/null; then
+    err $test "nslookup is not installed"
+  else
+    echo $test "nslookup is installed"
+  fi
+
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -270,6 +288,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+testCriticalTools
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony

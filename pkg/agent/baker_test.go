@@ -327,6 +327,92 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 
+		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config", "AKSUbuntu1604+CustomKubeletConfig+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+				CPUManagerPolicy:      "static",
+				CPUCfsQuota:           to.BoolPtr(false),
+				CPUCfsQuotaPeriod:     "200ms",
+				ImageGcHighThreshold:  to.Int32Ptr(90),
+				ImageGcLowThreshold:   to.Int32Ptr(70),
+				TopologyManagerPolicy: "best-effort",
+				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+				ContainerLogMaxFiles:  to.Int32Ptr(99),
+				PodMaxPids:            to.Int32Ptr(12345),
+			}
+			config.KubeletConfig = map[string]string{
+				"--address":                           "0.0.0.0",
+				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+				"--cloud-provider":                    "azure",
+				"--cloud-config":                      "/etc/kubernetes/azure.json",
+				"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+				"--cluster-domain":                    "cluster.local",
+				"--cluster-dns":                       "10.0.0.10",
+				"--cgroups-per-qos":                   "true",
+				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+				"--max-pods":                          "110",
+				"--node-status-update-frequency":      "10s",
+				"--image-gc-high-threshold":           "85",
+				"--image-gc-low-threshold":            "80",
+				"--event-qps":                         "0",
+				"--pod-max-pids":                      "-1",
+				"--enforce-node-allocatable":          "pods",
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--rotate-certificates":               "true",
+				"--read-only-port":                    "10255",
+				"--protect-kernel-defaults":           "true",
+				"--resolv-conf":                       "/etc/resolv.conf",
+				"--anonymous-auth":                    "false",
+				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+				"--authentication-token-webhook":      "true",
+				"--authorization-mode":                "Webhook",
+				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+				"--system-reserved":                   "cpu=2,memory=1Gi",
+				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+				"--dynamic-config-dir":                "",
+			}
+		}),
+
+		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed", "AKSUbuntu1604+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletConfig = map[string]string{
+				"--address":                           "0.0.0.0",
+				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+				"--cloud-provider":                    "azure",
+				"--cloud-config":                      "/etc/kubernetes/azure.json",
+				"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+				"--cluster-domain":                    "cluster.local",
+				"--cluster-dns":                       "10.0.0.10",
+				"--cgroups-per-qos":                   "true",
+				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+				"--max-pods":                          "110",
+				"--node-status-update-frequency":      "10s",
+				"--image-gc-high-threshold":           "85",
+				"--image-gc-low-threshold":            "80",
+				"--event-qps":                         "0",
+				"--pod-max-pids":                      "-1",
+				"--enforce-node-allocatable":          "pods",
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--rotate-certificates":               "true",
+				"--read-only-port":                    "10255",
+				"--protect-kernel-defaults":           "true",
+				"--resolv-conf":                       "/etc/resolv.conf",
+				"--anonymous-auth":                    "false",
+				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+				"--authentication-token-webhook":      "true",
+				"--authorization-mode":                "Webhook",
+				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+				"--system-reserved":                   "cpu=2,memory=1Gi",
+				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+				"--dynamic-config-dir":                "",
+			}
+		}),
+
 		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -427,16 +513,21 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableNvidia = true
 			config.GPUInstanceProfile = "mig-3g"
 		}),
-		
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
-				CaCertificate:        "fooBarBaz",
+				CaCertificate: "fooBarBaz",
 			}
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+		}),
+		Entry("AKSUbuntu1804 with NoneCNI", "AKSUbuntu1804+NoneCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = datamodel.NetworkPluginNone
 		}))
 })
 

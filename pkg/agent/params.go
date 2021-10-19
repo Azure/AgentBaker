@@ -23,9 +23,19 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		addValue(parametersMap, "linuxAdminUsername", linuxProfile.AdminUsername)
 	}
 	// masterEndpointDNSNamePrefix is the basis for storage account creation across dcos, swarm, and k8s
+	// looks like masterEndpointDNSNamePrefix is only used in windows cse kubeconfig cluster/context name and it's not
+	// required since linux uses static value for that.
 	if properties.HostedMasterProfile != nil {
 		// Agents only, use cluster DNS prefix
-		addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
+		if properties.HostedMasterProfile.DNSPrefix != "" {
+			addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
+		} else if properties.HostedMasterProfile.FQDNSubdomain != "" {
+			addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.FQDNSubdomain)
+		} else {
+			// should not happen but just in case, we fill in value "localcluster" just like linux
+			addValue(parametersMap, "masterEndpointDNSNamePrefix", "localcluster")
+		}
+
 	}
 	if properties.HostedMasterProfile != nil {
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
