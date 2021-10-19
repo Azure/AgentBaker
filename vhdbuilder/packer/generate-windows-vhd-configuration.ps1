@@ -49,7 +49,7 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.2", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.1", # for k8s 1.22.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021-2",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10112021")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -69,7 +69,7 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.5", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.2", # for k8s 1.21.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06112021-2",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10112021")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021")
     }
     default {
         throw "No valid windows SKU is specified $windowsSKU"
