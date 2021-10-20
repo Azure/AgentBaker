@@ -25,7 +25,7 @@ stages:
   - stage: build_vhd_2019
     condition: eq('${{ parameters.build2019 }}', true)
     jobs:
-    - job: Hosted Ubuntu 1604
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -42,7 +42,7 @@ stages:
   - stage: build_vhd_2019_containerd
     condition: eq('${{ parameters.build2019containerd }}', true)
     jobs:
-    - job: Hosted Ubuntu 1604
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |

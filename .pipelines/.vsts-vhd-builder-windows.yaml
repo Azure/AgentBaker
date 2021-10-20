@@ -25,7 +25,7 @@ stages:
   - stage: build_vhd_2019
     condition: eq('${{ parameters.build2019 }}', true)
     jobs:
-    - name: build
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
