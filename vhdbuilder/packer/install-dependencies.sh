@@ -65,6 +65,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - traceroute
   - util-linux
   - xz-utils
+  - netcat
+  - dnsutils
   - zip
 EOF
 
@@ -307,12 +309,7 @@ fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ "${cliTool}" == "ctr" ]]; then
-      # containerd/ctr doesn't auto-resolve to docker.io
-      CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"
-    else
-      CONTAINER_IMAGE="nginx:${NGINX_VERSION}"
-    fi
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done

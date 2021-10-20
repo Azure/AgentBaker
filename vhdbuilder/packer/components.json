@@ -270,7 +270,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
       "versions": [
         "v0.8.0",
-        "v0.6.0-hotfix-20200228"
+        "v0.6.0-hotfix-20200228",
+        "v0.10.0"
       ]
     },
     {
@@ -283,7 +284,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
       "versions": [
         "0.47.0",
-        "0.19.0"
+        "0.19.0",
+        "1.0.4"
       ]
     },
     {
