@@ -373,7 +373,7 @@
     {
       "fileName": "crictl-v*-linux-amd64.tar.gz",
       "downloadLocation": "/opt/crictl/downloads",
-      "downloadURL": "https://github.com/kubernetes-sigs/cri-tools/releases/download/v*",
+      "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
         "1.19.0",
         "1.20.0",
