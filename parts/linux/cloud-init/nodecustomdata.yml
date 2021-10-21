@@ -456,8 +456,8 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "subnet": "{{`{{.PodCIDR}}`}}",
-                "routes": [{ "dst": "0.0.0.0/0" }]
+                "ranges": [{{`{{range $i, $range := .PodCIDRRanges}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}[{"subnet": "{{`{{$range}}`}}"}]{{`{{end}}`}}],
+                "routes": [{{`{{range $i, $route := .Routes}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}{"dst": "{{`{{$route}}`}}"}{{`{{end}}`}}]
             }
           },
           {
@@ -512,6 +512,7 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
+    net.ipv6.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
