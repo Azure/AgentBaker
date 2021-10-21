@@ -23,6 +23,7 @@ variables:
 
 stages:
   - stage: build_vhd_2019
+    dependsOn: []
     condition: eq('${{ parameters.build2019 }}', true)
     jobs:
     - job: build
@@ -40,6 +41,7 @@ stages:
             artifactName: 2019
 
   - stage: build_vhd_2019_containerd
+    dependsOn: []
     condition: eq('${{ parameters.build2019containerd }}', true)
     jobs:
     - job: build
