@@ -1468,7 +1468,7 @@ downloadAzureCNI() {
 downloadCrictl() {
     CRICTL_VERSION=$1
     mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
     retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
@@ -4703,8 +4703,8 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
-                "routes": [{ "dst": "0.0.0.0/0" }]
+                "ranges": [{{`+"`"+`{{range $i, $range := .PodCIDRRanges}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}[{"subnet": "{{`+"`"+`{{$range}}`+"`"+`}}"}]{{`+"`"+`{{end}}`+"`"+`}}],
+                "routes": [{{`+"`"+`{{range $i, $route := .Routes}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}{"dst": "{{`+"`"+`{{$route}}`+"`"+`}}"}{{`+"`"+`{{end}}`+"`"+`}}]
             }
           },
           {
@@ -4759,6 +4759,7 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
+    net.ipv6.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
