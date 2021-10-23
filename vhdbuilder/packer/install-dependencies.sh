@@ -402,20 +402,6 @@ df -h >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 99 {print}') ] || exit 1
 
-echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
-tee -a ${VHD_LOGS_FILEPATH} < /proc/version
-{
-  echo "Install completed successfully on " $(date)
-  echo "VSTS Build NUMBER: ${BUILD_NUMBER}"
-  echo "VSTS Build ID: ${BUILD_ID}"
-  echo "Commit: ${COMMIT}"
-  echo "Ubuntu version: ${UBUNTU_RELEASE}"
-  echo "Hyperv generation: ${HYPERV_GENERATION}"
-  echo "Feature flags: ${FEATURE_FLAGS}"
-  echo "Container runtime: ${CONTAINER_RUNTIME}"
-  echo "FIPS enabled: ${ENABLE_FIPS}"
-} >> ${VHD_LOGS_FILEPATH}
-
 installAscBaseline
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
@@ -452,3 +438,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
   done
 fi
+
+nohup shutdown -r now < /dev/null > /dev/null 2>&1 &
+exit 0
