@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+rm -f /tmp/script*
+
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
