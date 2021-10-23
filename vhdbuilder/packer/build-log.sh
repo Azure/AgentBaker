@@ -1,7 +1,7 @@
 #!/bin/bash
-set -euo pipefail
+set -euxo pipefail
 
-rm -f /tmp/script*
+echo "Final logging"
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
