@@ -1,0 +1,6 @@
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script: echo, hello
+  displayName: 'test pipeline setup'
