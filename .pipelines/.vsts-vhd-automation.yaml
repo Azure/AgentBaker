@@ -2,5 +2,10 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-- script: echo, hello
+- bash: |
+        echo "Starting pipeline"
+        echo "This is a test run"
+        ls
+        pwd
+        /bin/bash vhdbuilder/scripts/automate.sh
   displayName: 'test pipeline setup'
