@@ -7,5 +7,9 @@ steps:
         echo "This is a test run"
         ls
         pwd
-        /bin/bash vhdbuilder/scripts/automate.sh
+        token=$GITHUB_PAT
+        version=$IMAGE_VERSION
+        echo $token
+        echo $version
+        #/bin/bash vhdbuilder/scripts/automate.sh 
   displayName: 'test pipeline setup'
