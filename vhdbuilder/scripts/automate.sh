@@ -3,10 +3,12 @@ set -x
 
 echo "Starting script"
 echo "New image version: $1"
-
+echo "PAT is $2"
 current_image_version=""
 new_image_version=$1
+pat=$2
 
+echo "PAT again is $2"
 find_current_image_version() {
     filepath=$1
     flag=0
@@ -50,15 +52,16 @@ create_bump_branch() {
 }
 
 create_pull_request() {
-    git remote set-url origin https://anujmaheshwari1:$2@github.com/Azure/AgentBaker.git
+    echo "pat in creating PR is $pat"
+    git remote set-url origin https://anujmaheshwari1:$pat@github.com/Azure/AgentBaker.git
     git add .
     git commit -m "Bumping image version to ${new_image_version}"
     git push -u origin imageBump/$new_image_version
     curl \
         -X POST \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
-        -d '{"head" : "imageBump/$new_image_version", "base" : "master", "title" : "Automated PR for version bump"}'
-        -u "anujmaheshwari1:$2"
+        -d '{"head" : "imageBump/'$new_image_version'", "base" : "master", "title" : "Automated PR for version bump"}'
+        -u "anujmaheshwari1:$pat"
 }
 
 find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
