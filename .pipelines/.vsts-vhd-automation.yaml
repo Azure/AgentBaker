@@ -3,24 +3,10 @@ pool:
 
 steps:
 - bash: |
-        echo "Starting pipeline"
-        echo "This is a test run"
-        ls
-        pwd
-        token=$GITHUB_PAT
-        version=$IMAGE_VERSION
-        echo $token
-        echo $version
-        /bin/bash vhdbuilder/scripts/automate.sh $version $token
-  displayName: 'Image verison bumping'
+        echo "PR for Image Bumping"
+        #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT
+  displayName: 'Image Version Bumping'
 - bash: |
-        echo "next stage for release notes"
-        token=$GITHUB_PAT
-        version=$IMAGE_VERSION
-        echo $token
-        echo $version
-        az extension add -n azure-devops
-        az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
-        go run vhdbuilder/release-notes/autonotes/main.go --build 48161034
-        git status
+        echo "PR for Release Notes"
+        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION $BUILD_ID $GITHUB_PAT
   displayName: 'Release Notes'
