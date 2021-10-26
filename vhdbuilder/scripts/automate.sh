@@ -37,6 +37,12 @@ update_image_version() {
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config_test.go
 }
 
+set_git_config() {
+    git config --global user.email "amaheshwari@microsoft.com"
+    git config --global user.name "anujmaheshwari1"
+    git config --list
+}
+
 create_bump_branch() {
     git checkout master
     git pull
@@ -56,6 +62,7 @@ create_pull_request() {
 }
 
 find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
+set_git_config
 create_bump_branch
 update_image_version
 create_pull_request
