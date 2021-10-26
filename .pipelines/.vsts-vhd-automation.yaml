@@ -13,3 +13,11 @@ steps:
         echo $version
         #/bin/bash vhdbuilder/scripts/automate.sh 
   displayName: 'test pipeline setup'
+- bash: |
+        echo "next stage for release notes"
+        token=$GITHUB_PAT
+        version=$IMAGE_VERSION
+        echo $token
+        echo $version
+        go run vhdbuilder/release-notes/autonotes/main.go --build 48161034
+        git status
