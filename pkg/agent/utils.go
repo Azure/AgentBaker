@@ -354,6 +354,7 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	if k == nil {
 		return ""
 	}
+	// Always force remove of dynamic-config-dir.
 	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
 	keys := []string{}
 	for key := range k {
@@ -582,6 +583,7 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 	for k := range fgMap {
 		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 	pairs := make([]string, 0, len(keys))
 	for _, k := range keys {
 		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
