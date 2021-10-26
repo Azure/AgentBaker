@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euxo pipefail
 
+echo "Cleaning temporary packer scripts"
+
+rm /tmp/script*
+
 echo "Final logging"
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
