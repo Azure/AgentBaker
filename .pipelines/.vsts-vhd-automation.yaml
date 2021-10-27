@@ -14,7 +14,7 @@ steps:
   displayName: 'Release Notes'
 - bash: |
         echo "Triggering ev2 artifacts pipeline"
-        /bin/bash vhdbuilder/scripts/automate_eve2pipeline_trigger.sh $BUILD_ID $ACCESS_TOKEN
+        /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh $BUILD_ID $ACCESS_TOKEN
   env: 
     ACCESS_TOKEN: $(System.AccessToken)
   displayName: 'ev2 Artifact Pipeline Trigger'
