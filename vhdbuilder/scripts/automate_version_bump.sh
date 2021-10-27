@@ -59,6 +59,7 @@ create_pull_request() {
         https://api.github.com/repos/Azure/AgentBaker/pulls \
         -d '{"head" : "imageBump/'$new_image_version'", "base" : "master", "title" : "Automated PR for version bump"}' \
         -u "anujmaheshwari1:$pat"
+    git checkout amaheshwari/automationPipeline #checkout to master when merged to master
 }
 
 find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
