@@ -12,7 +12,7 @@ steps:
   env: 
     ACCESS_TOKEN: $(System.AccessToken)
   displayName: 'Release Notes'
--bash: |
+- bash: |
         echo "Triggering ev2 artifacts pipeline"
         /bin/bash vhdbuilder/scripts/automate_eve2pipeline_trigger.sh $BUILD_ID $ACCESS_TOKEN
   env: 
