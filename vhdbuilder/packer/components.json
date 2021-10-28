@@ -99,7 +99,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
         "v0.0.19",
-        "v0.0.24"
+        "v0.0.24",
+        "v0.0.24-hotfix.20211027"
       ]
     },
     {
