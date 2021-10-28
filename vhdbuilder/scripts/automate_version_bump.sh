@@ -10,7 +10,7 @@ new_image_version=$1
 github_access_token=$2
 
 branch_name=imageBump/$new_image_version
-pr_title="Automated PR for version bump"
+pr_title="VersionBump"
 
 find_current_image_version() {
     filepath=$1

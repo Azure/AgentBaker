@@ -11,7 +11,7 @@ github_access_token=$3
 system_access_token=$4
 
 branch_name=releaseNotes/$1
-pr_title="Automated PR for release notes"
+pr_title="ReleaseNotes"
 
 generate_release_notes() {
     go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version

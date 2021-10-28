@@ -24,15 +24,15 @@ create_pull_request() {
     echo "Image Version is $1"
     echo "Auth Token is $2"
     echo "Branch Name is $3"
-    echo "PR Title is $4"
+    echo "PR is for $4"
     git remote set-url origin https://anujmaheshwari1:$2@github.com/Azure/AgentBaker.git
     git add .
     git commit -m "Bumping image version to $1"
-    git push -u origin imageBump/$1
+    git push -u $3
     curl \
         -X POST \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
-        -d '{"head" : "'$3'", "base" : "master", "title" : "'$4'"}' \
+        -d '{"head" : "'$3'", "base" : "master", "title" : "Automated PR for '$4'"}' \
         -u "anujmaheshwari1:$2"
     git checkout amaheshwari/automationPipeline # checkout to master when merged to master
 }
