@@ -6,6 +6,8 @@ source vhdbuilder/scripts/automate_helpers.sh
 echo "Triggering ev2 artifact pipeline with Build ID $1"
 
 build_id=$1
+
+set +x
 system_access_token=$2
 
 trigger_pipeline() {
@@ -14,4 +16,6 @@ trigger_pipeline() {
 }
 
 configure_az_devops $system_access_token
+set -x
+
 trigger_pipeline

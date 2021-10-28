@@ -7,7 +7,10 @@ echo "New image version: $1"
 
 current_image_version=""
 new_image_version=$1
+
+set +x
 github_access_token=$2
+set -x
 
 branch_name=imageBump/$new_image_version
 pr_title="VersionBump"
@@ -48,4 +51,6 @@ find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
 set_git_config
 create_branch $branch_name
 update_image_version
+
+set +x
 create_pull_request $new_image_version $github_access_token $branch_name $pr_title
