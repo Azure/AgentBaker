@@ -1,11 +1,16 @@
 #!/bin/bash
 set -x
 
-echo "Starting script"
+source vhdbuilder/scripts/automate_helpers.sh
+
 echo "New image version: $1"
+
 current_image_version=""
 new_image_version=$1
-pat=$2
+github_access_token=$2
+
+branch_name=imageBump/$new_image_version
+pr_title="Automated PR for version bump"
 
 find_current_image_version() {
     filepath=$1
@@ -37,33 +42,8 @@ update_image_version() {
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config_test.go
 }
 
-set_git_config() {
-    git config --global user.email "amaheshwari@microsoft.com"
-    git config --global user.name "anujmaheshwari1"
-    git config --list
-}
-
-create_bump_branch() {
-    git checkout master
-    git pull
-    git checkout -b imageBump/$new_image_version
-}
-
-create_pull_request() {
-    git remote set-url origin https://anujmaheshwari1:$pat@github.com/Azure/AgentBaker.git
-    git add .
-    git commit -m "Bumping image version to ${new_image_version}"
-    git push -u origin imageBump/$new_image_version
-    curl \
-        -X POST \
-        https://api.github.com/repos/Azure/AgentBaker/pulls \
-        -d '{"head" : "imageBump/'$new_image_version'", "base" : "master", "title" : "Automated PR for version bump"}' \
-        -u "anujmaheshwari1:$pat"
-    git checkout amaheshwari/automationPipeline #checkout to master when merged to master
-}
-
 find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
 set_git_config
-create_bump_branch
+create_branch $branch_name
 update_image_version
-create_pull_request
+create_pull_request $new_image_version $github_access_token $branch_name $pr_title
