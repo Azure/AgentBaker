@@ -12,10 +12,11 @@ github_access_token=$2
 branch_name=imageBump/$new_image_version
 pr_title="VersionBump"
 
+# This function finds the current SIG Image version from pkg/agent/datamodelosimageconfig.go
 find_current_image_version() {
     filepath=$1
     flag=0
-    while read p; do
+    while read -r p; do
         if [[ $p == *":"* ]]; then
             image_variable=$(echo $p | awk -F: '{print $1}')
             image_value=$(echo $p | awk -F'\"' '{print $2}')
@@ -35,6 +36,7 @@ find_current_image_version() {
     echo "Current image version is: ${current_image_version}"
 }
 
+# This function replaces the old image version with the new input image version for all relevant files
 update_image_version() {
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/osimageconfig.go
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/bakerapi_test.go
