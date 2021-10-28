@@ -85,6 +85,7 @@ else {
   Write-Host "Docker events are not available"
 }
 
+Write-Host "Collecting gMSAv2 related logs"
 # CCGPlugin (Windows gMSAv2)
 $EventSession = [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession
 $EventProviderNames = $EventSession.GetProviderNames()
