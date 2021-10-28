@@ -4,11 +4,11 @@ pool:
 steps:
 - bash: |
         echo "PR for Image Bumping"
-        #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT
+        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT
   displayName: 'Image Version Bumping'
 - bash: |
         echo "PR for Release Notes"
-        #/bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION $BUILD_ID $GITHUB_PAT $ACCESS_TOKEN
+        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION $BUILD_ID $GITHUB_PAT $ACCESS_TOKEN
   env: 
     ACCESS_TOKEN: $(System.AccessToken)
   displayName: 'Release Notes'
