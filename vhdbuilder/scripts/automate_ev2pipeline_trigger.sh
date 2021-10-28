@@ -7,7 +7,7 @@ system_access_token=$2
 
 configure_az_devops() {
     az extension add -n azure-devops
-    echo ${system_access_token} | az devops login
+    echo ${system_access_token} | az devops login --organization=https://dev.azure.com/msazure
     az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
 }
 
