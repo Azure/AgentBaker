@@ -28,7 +28,7 @@ create_pull_request() {
     git remote set-url origin https://anujmaheshwari1:$2@github.com/Azure/AgentBaker.git
     git add .
     git commit -m "Bumping image version to $1"
-    git push -u $3
+    git push -u origin $3
     curl \
         -X POST \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
