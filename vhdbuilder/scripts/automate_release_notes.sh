@@ -23,11 +23,13 @@ generate_release_notes() {
         included_skus=""
         artifacts=($(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'))
         for artifact in "${artifacts[@]}"; do
-            sku=$(echo $artifact | cut -d "-" -f4-)
-            included_skus+=",$sku"
+            if [[ $artifact == *"vhd-release-notes"* ]]; then
+                sku=$(echo $artifact | cut -d "-" -f4-)
+                included_skus+=",$sku"
+            fi
         done
         echo "skus for release notes are $included_skus"
-        go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version --include $included_skus
+        go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version --include ${included_skus%?}
     done
     #go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version
 }
@@ -38,4 +40,4 @@ create_branch $branch_name
 generate_release_notes
 
 set +x
-create_pull_request $image_version $github_access_token $branch_name $pr_title
+#create_pull_request $image_version $github_access_token $branch_name $pr_title
