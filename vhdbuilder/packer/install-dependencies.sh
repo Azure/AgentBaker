@@ -368,14 +368,14 @@ done
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.19.11-hotfix.20210823
-1.19.13-hotfix.20210830
-1.20.7-hotfix.20210816
-1.20.9-hotfix.20210830
-1.21.1-hotfix.20210827
-1.21.2-hotfix.20210830
-1.22.1
-1.22.2
+1.19.11-hotfix.20211101
+1.19.13-hotfix.20211101
+1.20.7-hotfix.20211101
+1.20.9-hotfix.20211101
+1.21.1-hotfix.20211101
+1.21.2-hotfix.20211101
+1.22.1-hotfix.20211101
+1.22.2-hotfix.20211101
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
