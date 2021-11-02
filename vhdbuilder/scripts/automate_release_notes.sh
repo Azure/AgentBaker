@@ -20,8 +20,7 @@ generate_release_notes() {
     for build_id in $build_ids; do
         echo $build_id
         included_skus=""
-        artifacts=($(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name')) # Retrieve what artifacts were published
-        for artifact in "${artifacts[@]}"; do
+        for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
             if [[ $artifact == *"vhd-release-notes"* ]]; then
                 sku=$(echo $artifact | cut -d "-" -f4-) # Format of artifact is vhd-release-notes-<name of sku>
                 included_skus+="$sku,"
