@@ -78,6 +78,8 @@ else
 fi
 
 installContainerRuntime
+
+setupCNIDirs
 installNetworkPlugin
 
     downloadKrustlet

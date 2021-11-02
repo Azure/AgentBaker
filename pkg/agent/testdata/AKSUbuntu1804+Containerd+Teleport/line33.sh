@@ -79,6 +79,8 @@ fi
 
 installContainerRuntime
 installTeleportdPlugin
+
+setupCNIDirs
 installNetworkPlugin
 
 

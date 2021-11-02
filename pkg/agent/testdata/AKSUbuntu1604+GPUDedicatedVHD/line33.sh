@@ -75,6 +75,8 @@ else
 fi
 
 installContainerRuntime
+
+setupCNIDirs
 installNetworkPlugin
 
 echo $(date),$(hostname), "Start configuring GPU drivers"

@@ -76,6 +76,8 @@ else
 fi
 
 installContainerRuntime
+
+setupCNIDirs
 installNetworkPlugin
 
 
