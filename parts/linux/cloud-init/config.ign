@@ -1,0 +1,8 @@
+{
+    "TODO": "POPULATE_ME",
+    "HELPFUL_DATA": {
+        "server": "https://{{GetKubernetesEndpoint}}:443",
+        "token": "{{GetTLSBootstrapTokenForKubeConfig}}"
+    },
+    "I_KNOW_THIS_ISNT_REAL_IGNITION": true
+}

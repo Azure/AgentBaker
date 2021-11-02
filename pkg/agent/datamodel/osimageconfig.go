@@ -74,8 +74,16 @@ var (
 		ImageVersion:   "2021.05.01",
 	}
 
+	AKSFlatcarOSImageConfig = AzureOSImageConfig{
+		ImageOffer:     "flatcar-container-linux-free",
+		ImageSku:       "stable",
+		ImagePublisher: "kinvolk",
+		ImageVersion:   "latest",
+	}
+
 	AzureCloudToOSImageMap = map[string]map[Distro]AzureOSImageConfig{
 		AzureChinaCloud: {
+			AKSFlatcar:                  AKSFlatcarOSImageConfig,
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
@@ -87,6 +95,7 @@ var (
 			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
 		},
 		AzureGermanCloud: {
+			AKSFlatcar:                  AKSFlatcarOSImageConfig,
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
@@ -98,6 +107,7 @@ var (
 			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
 		},
 		AzureUSGovernmentCloud: {
+			AKSFlatcar:                  AKSFlatcarOSImageConfig,
 			Ubuntu:            Ubuntu1604OSImageConfig,
 			Ubuntu1804:        Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
@@ -109,6 +119,7 @@ var (
 			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
 		},
 		AzurePublicCloud: {
+			AKSFlatcar:                  AKSFlatcarOSImageConfig,
 			Ubuntu:                      Ubuntu1604OSImageConfig,
 			Ubuntu1804:                  Ubuntu1804OSImageConfig,
 			Ubuntu1804Gen2:              Ubuntu1804Gen2OSImageConfig,

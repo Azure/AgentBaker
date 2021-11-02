@@ -56,6 +56,33 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
+// TODO(ace): add a template with for cloud-config/ignition.
+// TODO(ace): these funcs use Go templates to pass in stuff like apiserver endpoint + TLS bootstrap token.
+// TODO(ace): apiserver: https://{{GetKubernetesEndpoint}}:443
+// TODO(ace): token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+// as used in bootstrap kubeconfig in nodecustomdata.yml
+//
+// probably don't need a totally separate func, but you get the idea for a poc. 
+
+// GetFlatcarLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
+// { "customData": "<customData string>" }
+func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// validate and fix input
+	validateAndSetLinuxNodeBootstrappingConfiguration(config)
+	//get parameters
+	parameters := getParameters(config, "baker", "1.0")
+	//get variable cloudInit
+	variables := getCustomDataVariables(config)
+	str, e := t.getSingleLineForTemplate(kubernetesFlatcarCustomData, 
+		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
+
+	if e != nil {
+		panic(e)
+	}
+
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+}
+
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -91,6 +118,29 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
+}
+
+
+// TODO(ace): does flatcar even need CSE? i'm skeptical.
+// getFlatcarLinuxNodeCSECommand returns Linux node custom script extension execution command
+func (t *TemplateGenerator) getFlatcarLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
+	//get parameters
+	parameters := getParameters(config, "", "")
+	//get variable
+	variables := getCSECommandVariables(config)
+	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+	str, e := t.getSingleLine(
+		kubernetesCSECommandString,
+		config.AgentPoolProfile,
+		t.getBakerFuncMap(config, parameters, variables),
+	)
+
+	if e != nil {
+		panic(e)
+	}
+	// NOTE: we break the one-line CSE command into different lines in a file for better management
+	// so we need to combine them into one line here
+	return strings.Replace(str, "\n", " ", -1)
 }
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
