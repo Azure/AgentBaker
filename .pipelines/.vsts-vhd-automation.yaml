@@ -3,14 +3,17 @@ pool:
 
 steps:
 - bash: |
+        az extension add -n azure-devops
+        echo $ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
+        az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
+  displayName: 'az devops login'
+- bash: |
         echo "PR for Image Bumping"
-        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT
+        #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT
   displayName: 'Image Version Bumping'
 - bash: |
         echo "PR for Release Notes"
-        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION "${BUILD_ID[@]}" $GITHUB_PAT $ACCESS_TOKEN
-  env: 
-    ACCESS_TOKEN: $(System.AccessToken)
+        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION "${BUILD_ID[@]}" $GITHUB_PAT
   displayName: 'Release Notes'
 - bash: |
         echo "Triggering ev2 artifacts pipeline"

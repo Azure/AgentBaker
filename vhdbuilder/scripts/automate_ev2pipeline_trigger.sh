@@ -15,7 +15,7 @@ trigger_pipeline() {
     az pipelines run --id 165939  # 165939 is the pipeline ID for ev2 artifacts pipeline
 }
 
-configure_az_devops $system_access_token
+#configure_az_devops $system_access_token
 set -x
 
 trigger_pipeline

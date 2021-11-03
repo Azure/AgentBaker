@@ -10,7 +10,7 @@ build_ids=$2
 
 set +x
 github_access_token=$3
-system_access_token=$4
+#system_access_token=$4
 set -x
 
 branch_name=releaseNotes/$1
@@ -31,10 +31,10 @@ generate_release_notes() {
     done
 }
 
-configure_az_devops $system_access_token
+#configure_az_devops $system_access_token
 set_git_config
 create_branch $branch_name
 generate_release_notes
-
+git status
 set +x
-create_pull_request $image_version $github_access_token $branch_name $pr_title
+#create_pull_request $image_version $github_access_token $branch_name $pr_title
