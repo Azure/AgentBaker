@@ -78,6 +78,8 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 	str, e := t.getSingleLineForTemplate(kubernetesFlatcarCustomData, 
 		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
 
+	fmt.Println(str)
+
 	if e != nil {
 		panic(e)
 	}

@@ -527,6 +527,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
 				CaCertificate: "fooBarBaz",
 			}
+			config.ContainerService.Properties.HostedMasterProfile.FQDN = "foobarbaz.hcp.southcentralus.azmk8s.io"
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 			config.OSSKU = "Flatcar"
 		}),
