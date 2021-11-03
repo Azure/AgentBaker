@@ -523,6 +523,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}),
+		Entry("Flatcar", "Flatcar", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+				CaCertificate: "fooBarBaz",
+			}
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+			config.OSSKU = "Flatcar"
+		}),
 		Entry("AKSUbuntu1804 with NoneCNI", "AKSUbuntu1804+NoneCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,

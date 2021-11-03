@@ -1262,6 +1262,10 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
+func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
+	return strings.EqualFold(config.OSSKU, "Flatcar")
+}
+
 // IsEnabled returns true if the addon is enabled
 func (a *KubernetesAddon) IsEnabled() bool {
 	if a.Enabled == nil {

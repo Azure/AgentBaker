@@ -31,6 +31,8 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
 		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+	} else if config.IsFlatcar() {
+		customData = getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
