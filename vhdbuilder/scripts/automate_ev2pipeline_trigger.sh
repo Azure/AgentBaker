@@ -12,7 +12,7 @@ trigger_pipeline() {
     for build_id in $build_ids; do
         echo "Build ID for the release is $build_id"
         az pipelines variable update --name VHD_PIPELINE_RUN_ID --pipeline-id $pipeline_id --value $build_id  # Update the VHD_PIPELINE_RUN_ID with the build ID
-        if [[ $build_id != $(az pipelines variable list --pipline-id $pipeline_id | jq -r '.VHD_PIPELINE_RUN_ID.value') ]]; then
+        if [[ $build_id != $(az pipelines variable list --pipeline-id $pipeline_id | jq -r '.VHD_PIPELINE_RUN_ID.value') ]]; then
             echo "Build ID failed to update, cancel operation"
             exit 1
         else
