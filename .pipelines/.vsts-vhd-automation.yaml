@@ -13,7 +13,7 @@ steps:
   displayName: 'Image Version Bumping'
 - bash: |
         echo "PR for Release Notes"
-        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION "${BUILD_ID[@]}" $GITHUB_PAT
+        #/bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION "${BUILD_ID[@]}" $GITHUB_PAT
   displayName: 'Release Notes'
 - bash: |
         echo "Triggering ev2 artifacts pipeline"

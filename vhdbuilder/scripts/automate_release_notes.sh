@@ -3,7 +3,7 @@ set -x
 
 source vhdbuilder/scripts/automate_helpers.sh
 
-echo "Build ID for release notes is $1"
+echo "Image version for release notes is $1"
 
 image_version=$1
 build_ids=$2
