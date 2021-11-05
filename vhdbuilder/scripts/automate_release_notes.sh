@@ -3,14 +3,13 @@ set -x
 
 source vhdbuilder/scripts/automate_helpers.sh
 
-echo "Build is for release notes is $1"
+echo "Image version for release notes is $1"
 
 image_version=$1
 build_ids=$2
 
 set +x
 github_access_token=$3
-system_access_token=$4
 set -x
 
 branch_name=releaseNotes/$1
@@ -31,10 +30,9 @@ generate_release_notes() {
     done
 }
 
-configure_az_devops $system_access_token
 set_git_config
 create_branch $branch_name
 generate_release_notes
-
+git status
 set +x
 create_pull_request $image_version $github_access_token $branch_name $pr_title
