@@ -29,8 +29,8 @@
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "Canonical",
-      "image_offer": "0001-com-ubuntu-confidential-vm-experimental",
-      "image_sku": "20_04-gen2",
+      "image_offer": "0001-com-ubuntu-confidential-vm-focal",
+      "image_sku": "20_04-lts-gen2",
       "image_version": "latest",
       "azure_tags": {
         "os": "Linux",
