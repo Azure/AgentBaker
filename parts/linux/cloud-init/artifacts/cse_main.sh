@@ -93,6 +93,8 @@ installContainerRuntime
 installTeleportdPlugin
 {{- end}}
 
+setupCNIDirs
+
 {{- if not IsNoneCNI }}
 installNetworkPlugin
 {{end}}
