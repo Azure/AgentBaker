@@ -3,10 +3,10 @@ set -euxo pipefail
 source e2e-helper.sh
 echo "Starting e2e tests"
 
-SUBSCRIPTION_ID="8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" #Azure Container Service - Test Subscription
-RESOURCE_GROUP_NAME="agentbaker-e2e-tests"
-LOCATION="eastus"
-CLUSTER_NAME="agentbaker-e2e-test-cluster"
+: "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
+: "${RESOURCE_GROUP_NAME:=agentbaker-e2e-tests}"
+: "${LOCATION:=eastus}"
+: "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
 
 # Create a resource group for the cluster
 if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson) == "false" ]; then
