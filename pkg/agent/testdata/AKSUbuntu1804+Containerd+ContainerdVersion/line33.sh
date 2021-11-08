@@ -80,8 +80,8 @@ fi
 installContainerRuntime
 
 setupCNIDirs
-installNetworkPlugin
 
+installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy
 
