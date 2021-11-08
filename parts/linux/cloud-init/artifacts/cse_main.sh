@@ -95,9 +95,7 @@ installTeleportdPlugin
 
 setupCNIDirs
 
-{{- if not IsNoneCNI }}
 installNetworkPlugin
-{{end}}
 
 {{- if IsKrustlet }}
     downloadKrustlet

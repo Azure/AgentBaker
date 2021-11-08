@@ -81,6 +81,8 @@ installContainerRuntime
 
 setupCNIDirs
 
+installNetworkPlugin
+
 installKubeletKubectlAndKubeProxy
 
 ensureRPC

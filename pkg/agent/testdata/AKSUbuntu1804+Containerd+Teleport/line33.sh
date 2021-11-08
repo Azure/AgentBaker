@@ -81,8 +81,8 @@ installContainerRuntime
 installTeleportdPlugin
 
 setupCNIDirs
-installNetworkPlugin
 
+installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy
 
