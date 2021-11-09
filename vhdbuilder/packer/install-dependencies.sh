@@ -222,7 +222,6 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 CNI_PLUGIN_VERSIONS="
-0.8.7
 0.7.6
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
@@ -231,6 +230,7 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
 0.8.7
 "
