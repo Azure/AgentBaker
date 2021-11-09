@@ -93,9 +93,9 @@ installContainerRuntime
 installTeleportdPlugin
 {{- end}}
 
-{{- if not IsNoneCNI }}
+setupCNIDirs
+
 installNetworkPlugin
-{{end}}
 
 {{- if IsKrustlet }}
     downloadKrustlet
