@@ -224,7 +224,6 @@ done
 CNI_PLUGIN_VERSIONS="
 0.8.7
 0.7.6
-0.7.5
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
