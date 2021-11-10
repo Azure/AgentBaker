@@ -1,0 +1,20 @@
+resources:
+  repositories:
+  - repository: Azure/AgentBaker 
+    type: github
+    endpoint: MyGitHubServiceConnection
+    name: AgentBaker
+  - repository: aks-rp
+    endpoint: MyAzureReposGitServiceConnection
+    type: git
+    name: OtherProject/MyAzureReposGitRepo
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+- checkout: Azure/AgentBaker
+- checkout: aks-rp
+
+- script: dir $(Build.SourcesDirectory)
