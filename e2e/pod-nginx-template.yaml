@@ -10,4 +10,4 @@ spec:
     image: nginx
     imagePullPolicy: IfNotPresent
   nodeSelector:
-    kubernetes.io/hostname: ${computerName}
+    kubernetes.io/hostname: ${vmInstanceName}
