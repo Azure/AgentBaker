@@ -48,7 +48,9 @@ az vmss run-command invoke \
 
 declare -a files=("apiserver.crt" "ca.crt" "client.key")
 for file in "${files[@]}"; do
-    content=$(az vmss run-command invoke \
+    for i in $(seq 1 10); do
+        set +e
+        content=$(az vmss run-command invoke \
                 -n $VMSS_NAME \
                 -g $MC_RESOURCE_GROUP_NAME \
                 --command-id RunShellScript \
@@ -58,8 +60,18 @@ for file in "${files[@]}"; do
                 jq -r '.value[].message' | \
                 awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
                 awk NF \
-            )
-    addJsonToFile $file $content
+        )
+        retval=$?
+        set -e
+        if [ "$retval" -ne 0 ]; then
+            echo "retrying attempt $i"
+            sleep 10s
+            continue
+        fi
+        break;
+    done
+    [ "$retval" -eq 0 ]
+    addJsonToFile "$file" "$content"
 done
 
 # Add other relevant information needed by AgentBaker for bootstrapping later
@@ -73,8 +85,9 @@ addJsonToFile "subID" $SUBSCRIPTION_ID
 
 # TODO(ace): generate fresh bootstrap token since one on node will expire.
 # Check if TLS Bootstrapping is enabled(no client.crt in that case, retrieve the tlsbootstrap token)
-sleep 30s
-tlsbootstrap=$(az vmss run-command invoke \
+for i in $(seq 1 10); do
+    set +e
+    tlsbootstrap=$(az vmss run-command invoke \
                 -n $VMSS_NAME \
                 -g $MC_RESOURCE_GROUP_NAME \
                 --command-id RunShellScript \
@@ -84,7 +97,17 @@ tlsbootstrap=$(az vmss run-command invoke \
                 jq -r '.value[].message' | \
                 grep "token" | \
                 cut -f2 -d ":" | tr -d '"'
-            )
+    )
+    retval=$?
+    set -e
+    if [ "$retval" -ne 0 ]; then
+        echo "retrying attempt $i"
+        sleep 10s
+        continue
+    fi
+    break;
+done
+[ "$retval" -eq 0 ]
 
 if [[ -z "${tlsbootstrap}" ]]; then
     echo "TLS Bootstrap disabled"
