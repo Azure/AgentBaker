@@ -85,7 +85,7 @@ tlsbootstrap=$(az vmss run-command invoke \
                 cut -f2 -d ":" | tr -d '"'
             )
 
-if [[ -z ${tlsbootstrap} ]]; then
+if [[ -z "${tlsbootstrap}" ]]; then
     echo "TLS Bootstrap disabled"
 else
     addJsonToFile "tlsbootstraptoken" $tlsbootstrap
@@ -99,8 +99,8 @@ go test -run TestE2EBasic
 #       However, how to incorporate chaning quarters?
 
 # TODO 4: Random name for the VMSS for when we have multiple scenarios to run
-RAND_NAME="$(tr -dc '[:lower:]' < /dev/urandom | fold -w 8 | head -n 1)"
-VMSS_NAME="abtest-$RAND_NAME"
+export RAND_NAME="$(tr -dc '[:lower:]' < /dev/urandom | fold -w 8 | head -n 1)"
+export VMSS_NAME="abtest-$RAND_NAME"
 
 az vmss create -n ${VMSS_NAME} \
     -g $MC_RESOURCE_GROUP_NAME \
