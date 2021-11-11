@@ -348,8 +348,6 @@
       "downloadURL": "https://acs-mirror.azureedge.net/cni",
       "versions": [
         "0.7.6",
-        "0.7.5",
-        "0.7.1"
       ]
     },
     {
@@ -357,7 +355,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.8.6"
+        "0.8.7"
       ]
     },
     {
