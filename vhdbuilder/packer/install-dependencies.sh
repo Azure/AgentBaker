@@ -473,7 +473,3 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
   done
 fi
-
-systemctl stop sshd.service
-nohup shutdown -r now < /dev/null > /dev/null 2>&1 &
-exit 0
