@@ -61,6 +61,6 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2019Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(windows2019Containerd.Gallery).To(Equal("akswindows"))
 		Expect(windows2019Containerd.Definition).To(Equal("windows-2019-containerd"))
-		Expect(windows2019Containerd.Version).To(Equal("17763.2237.211014"))
+		Expect(windows2019Containerd.Version).To(Equal("17763.2300.211110"))
 	})
 })
