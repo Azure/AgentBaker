@@ -8,9 +8,12 @@ echo "New image version: $1"
 current_image_version=""
 new_image_version=$1
 
-set +x
-github_access_token=$2
-set -x
+# set +x
+# github_access_token=$2
+# set -x
+
+build_id=$3
+official_tag=$4
 
 branch_name=imageBump/$new_image_version
 pr_title="VersionBump"
@@ -47,10 +50,25 @@ update_image_version() {
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config_test.go
 }
 
-find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
-set_git_config
-create_branch $branch_name
-update_image_version
+create_image_bump_pr() {
+    create_branch $branch_name
+    update_image_version
 
-set +x
-create_pull_request $new_image_version $github_access_token $branch_name $pr_title
+    set +x
+    create_pull_request $new_image_version $github_access_token $branch_name $pr_title
+    set -x
+}
+
+cut_official_branch() {
+    commit_hash=$(az pipelines runs show --id $build_id | jq -r '.sourceVersion')
+    git checkout -b official/v$new_image_version $commit_hash
+    update_image_version
+    git add .
+    git commit -m"Update image version in official branch"
+    git tag $official_tag
+    git push
+}
+
+set_git_config
+find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
+create_image_bump_pr
