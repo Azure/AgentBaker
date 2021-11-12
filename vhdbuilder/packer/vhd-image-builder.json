@@ -274,7 +274,8 @@
     {
       "inline": "sudo reboot",
       "type": "shell",
-      "expect_disconnect": true
+      "expect_disconnect": true,
+      "skip_clean": true
     },
     {
       "type": "shell",
