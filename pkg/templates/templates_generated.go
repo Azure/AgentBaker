@@ -1205,9 +1205,7 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
-ERR_MIG_PARTITION_FAILURE=180 {{/* Error creating MIG instances on MIG node */}}
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
-
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1876,11 +1874,33 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
+            wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
+        fi
         systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    STATUS=`+"`"+`systemctl is-active nvidia-fabricmanager`+"`"+`
+    if [ ${STATUS} = 'active' ]; then
+        echo "Fabric Manager service is running, no need to install."
+    else
+        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
+            pushd /opt/azure/fabricmanager-${GPU_DV}
+            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
+            systemctlEnableAndStart nvidia-fabricmanager
+            popd
+        else
+            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
+        fi
+    fi
+    ensureMigPartition
+fi
+
 echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
@@ -1996,12 +2016,6 @@ else
         API_SERVER_CONN_RETRIES=100
     fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-fi
-
-# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
-if [[ "${MIG_NODE}" == "true" ]]; then
-    REBOOTREQUIRED=true
-    ensureMigPartition
 fi
 
 if $REBOOTREQUIRED; then
@@ -3013,7 +3027,7 @@ case ${MIG_PROFILE} in
         ;;  
     *)
         echo "not a valid GPU instance profile"
-        exit ${ERR_MIG_PARTITION_FAILURE}
+        exit 1
         ;;
 esac
 nvidia-smi mig -cci`)
@@ -3071,7 +3085,7 @@ var _linuxCloudInitArtifactsNvidiaDevicePluginService = []byte(`[Unit]
 Description=Run nvidia device plugin
 [Service]
 RemainAfterExit=true
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target`)
@@ -4382,7 +4396,17 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
+
+- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="MIG_STRATEGY=--mig-strategy single"
+    ExecStart=
+    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+    #EOF
 {{end}}
 
 {{- if HasKubeletDiskType}}

@@ -2,7 +2,7 @@
 Description=Run nvidia device plugin
 [Service]
 RemainAfterExit=true
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target
