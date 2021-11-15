@@ -210,7 +210,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1604",
-		Version:       "2021.10.30",
+		Version:       "2021.11.06",
 	}
 	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
