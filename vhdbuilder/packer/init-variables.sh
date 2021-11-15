@@ -7,6 +7,8 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+echo "$(wget -nv -q -O- https://ifconfig.me)"
+echo "$(curl https://ifconfig.me/)"
 PUBLIC_IP="$(curl https://ifconfig.me/)"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
