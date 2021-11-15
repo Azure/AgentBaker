@@ -213,7 +213,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "arm64_sig_resource_group_name": "${ARM64_SIG_RESOURCE_GROUP_NAME}",
   "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
   "arm64_sig_image_name": "${ARM64_SIG_IMAGE_NAME}",
-  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}"
+  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}",
+  "allowed_ip": "${PUBLIC_IP}"
 }
 EOF
 
