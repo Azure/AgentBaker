@@ -7,6 +7,7 @@ rm /tmp/script*
 
 echo "Final logging"
 
+UBUNTU_RELEASE=$(lsb_release -r -s)
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
