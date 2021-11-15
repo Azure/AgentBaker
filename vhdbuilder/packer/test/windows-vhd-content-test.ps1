@@ -121,6 +121,14 @@ function Test-ImagesPulled {
 }
 
 function Test-RegistryAdded {
+    Write-Output "Get the registry for the HNS"
+    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
+    if ($result.HNSControlFlag -eq 12) {
+        Write-Output "The registry for the HNS fix is added"
+    } else {
+        Write-Error "The registry for the HNS fix is not added"
+        exit 1
+    }
     if ($containerRuntime -eq 'containerd') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
         if ($result.EnableCompartmentNamespace -eq 1) {
