@@ -396,6 +396,7 @@ type WindowsProfile struct {
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
 	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
 	WindowsGmsaPackageUrl         string                     `json:"windowsGmsaPackageUrl,omitempty"`
+	CseScriptsPackageURL          string                     `json:"cseScriptsPackageURL,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes

@@ -415,18 +415,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
 			var parts = []string{
-				kubernetesWindowsAgentFunctionsPS1,
-				kubernetesWindowsConfigFunctionsPS1,
-				kubernetesWindowsContainerdFunctionsPS1,
-				kubernetesWindowsCsiProxyFunctionsPS1,
-				kubernetesWindowsKubeletFunctionsPS1,
-				kubernetesWindowsCniFunctionsPS1,
-				kubernetesWindowsAzureCniFunctionsPS1,
-				kubernetesWindowsHostsConfigAgentFunctionsPS1,
-				kubernetesWindowsOpenSSHFunctionPS1,
-				kubernetesWindowsCalicoFunctionPS1,
 				kubernetesWindowsCSEHelperPS1,
-				kubernetesWindowsHypervtemplatetoml,
 			}
 
 			// Create a buffer, new zip
