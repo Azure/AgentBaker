@@ -204,6 +204,7 @@ var (
 			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
 			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 			AlwaysPullWindowsPauseImage:          false,
+			CseScriptsPackageURL:                 "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
 		},
 
 		EndpointConfig: AzureEndpointConfig{
