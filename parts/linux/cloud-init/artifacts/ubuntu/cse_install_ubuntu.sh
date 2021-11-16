@@ -43,42 +43,8 @@ installGPUDrivers() {
     retrycmd_if_failure_no_stats 120 5 25 cat $GPU_DEST/tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     apt_get_update
     retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    pushd ${GPU_DEST} || exit
-    sh ${GPU_DEST}/nvidia-drivers-${GPU_DV} --add-this-kernel || exit
-    # ls -al 
-    # sleep 3
-    # echo -e "break \n\n\n break"
-    # sleep 3
-    # ls -al NVIDIA-Linux-x86_64-${GPU_DV}
-    # sleep 3
-    # pushd NVIDIA-Linux-x86_64-${GPU_DV}/kernel/ || exit
-    # modules=`head -n 4 ../.manifest | tail -n 1`
-    # interface_files=`for module in $modules; do
-    #     echo $module | grep -v nvidia-uvm |
-    #     sed -e 's/nvidia/nv/' -e 's/$/-linux.o/'
-    # done`
-    # make $interface_files
-    # for interface in $interface_files; do
-    #     nv_stem=`echo $interface | sed 's/-linux.o$//'`
-    #     module_name=`echo $nv_stem | sed 's/nv/nvidia/'`
-    #     ../mkprecompiled --pack precompiled-mykernel \
-    #         --driver-version ${GPU_DV} \
-    #         --proc-version-string "`cat /proc/version`" \
-    #         --description "This is not an interesting description" \
-    #         --kernel-interface $interface \
-    #         --linked-module-name $module_name.ko \
-    #         --core-object-name $module_name/$nv_stem-kernel.o_binary \
-    #         --target-directory .
-    # done
-    # if [ -f nvidia-uvm.ko ]; then
-    #     ../mkprecompiled --pack precompiled-mykernel \
-    #         --kernel-module nvidia-uvm.ko \
-    #         --target-directory .
-    # fi
-    # mkdir -p precompiled
-    # mv precompiled-mykernel precompiled
-    # ls -al
+    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/${GPU_DV}/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    sh ${GPU_DEST}/nvidia-drivers-${GPU_DV} -s --add-this-kernel || exit
     tmpDir=$GPU_DEST/tmp
     if ! (
       set -e -o pipefail
