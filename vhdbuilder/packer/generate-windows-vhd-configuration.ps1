@@ -98,7 +98,8 @@ $global:map = @{
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.15.zip",
-        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.3/binaries/windows-gmsa-ccgakvplugin-v1.1.3.zip"
+        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.3/binaries/windows-gmsa-ccgakvplugin-v1.1.3.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.1.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
