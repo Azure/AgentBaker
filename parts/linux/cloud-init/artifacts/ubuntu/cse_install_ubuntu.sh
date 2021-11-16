@@ -58,7 +58,7 @@ installGPUDrivers() {
         nv_stem=`echo $interface | sed 's/-linux.o$//'`
         module_name=`echo $nv_stem | sed 's/nv/nvidia/'`
         ../mkprecompiled --pack precompiled-mykernel \
-            --driver-version XXX.YY \
+            --driver-version ${GPU_DV} \
             --proc-version-string "`cat /proc/version`" \
             --description "This is not an interesting description" \
             --kernel-interface $interface \
