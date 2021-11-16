@@ -46,7 +46,12 @@ installGPUDrivers() {
     retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     pushd ${GPU_DEST} || exit
     sh ${GPU_DEST}/nvidia-drivers-${GPU_DV} --extract-only
-    ls -al
+    ls -al 
+    sleep 3
+    echo -e "break \n\n\n break"
+    sleep 3
+    ls -al NVIDIA-Linux-x86_64-${GPU_DV}
+    sleep 3
     pushd NVIDIA-Linux-x86_64-${GPU_DV}/kernel/ || exit
     modules=`head -n 4 ../.manifest | tail -n 1`
     interface_files=`for module in $modules; do
@@ -78,7 +83,7 @@ installGPUDrivers() {
     popd || exit
     KERNEL_NAME=$(uname -r)
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
-    sh ./NVIDIA-Linux-x86_64-${GPU_DV}/nvidia-installer -s \
+    ${GPU_DEST}/NVIDIA-Linux-x86_64-${GPU_DV}/nvidia-installer -s \
         -k=$KERNEL_NAME \
         --log-file-name=${log_file_name} \
         -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
