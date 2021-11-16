@@ -44,10 +44,10 @@ installGPUDrivers() {
     apt_get_update
     retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    cd ${GPU_DEST}
+    pushd ${GPU_DEST} || exit
     sh ${GPU_DEST}/nvidia-drivers-${GPU_DV} --extract-only
     ls -al
-    cd NVIDIA-Linux-x86_64-${GPU_DV}/kernel/
+    pushd NVIDIA-Linux-x86_64-${GPU_DV}/kernel/ || exit
     modules=`head -n 4 ../.manifest | tail -n 1`
     interface_files=`for module in $modules; do
         echo $module | grep -v nvidia-uvm |
@@ -75,6 +75,13 @@ installGPUDrivers() {
     mv precompiled-mykernel precompiled
     ls -al
     tmpDir=$GPU_DEST/tmp
+    popd || exit
+    KERNEL_NAME=$(uname -r)
+    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
+    sh ./NVIDIA-Linux-x86_64-${GPU_DV}/nvidia-installer -s \
+        -k=$KERNEL_NAME \
+        --log-file-name=${log_file_name} \
+        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
     if ! (
       set -e -o pipefail
       cd "${tmpDir}"
