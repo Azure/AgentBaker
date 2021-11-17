@@ -8,22 +8,19 @@ RESOURCE_GROUP_NAME="agentbaker-e2e-tests"
 LOCATION="eastus"
 CLUSTER_NAME="agentbaker-e2e-test-cluster"
 
-# Clear the kube/config file for any conflicts
-truncate -s 0 ~/.kube/config
-
 # Create a resource group for the cluster
 if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID) == "false" ]; then
     echo "Creating resource group"
     az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID
 fi
 
-# Create the aks cluster and get the credentials(kube/config populated) to kubectl 
+# Create the AKS cluster and get the kubeconfig
 if [ -z $(az aks list -g $RESOURCE_GROUP_NAME | jq '.[].name') ]; then
     echo "Cluster doesnt exist, creating"
     az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys
 fi
 
-az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME
+az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
 
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME > cluster_info.json
@@ -134,6 +131,8 @@ az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
 
 # Sleep to let the automatic upgrade of the VM finish
 sleep 60s
+
+KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
 # Check if the node joined the cluster
 if kubectl get nodes | grep -q $vmInstanceName; then
