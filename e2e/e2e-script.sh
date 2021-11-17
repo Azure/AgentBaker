@@ -9,24 +9,24 @@ LOCATION="eastus"
 CLUSTER_NAME="agentbaker-e2e-test-cluster"
 
 # Create a resource group for the cluster
-if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID) == "false" ]; then
+if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson) == "false" ]; then
     echo "Creating resource group"
-    az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID
+    az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
 fi
 
 # Create the AKS cluster and get the kubeconfig
-if [ -z $(az aks list -g $RESOURCE_GROUP_NAME | jq '.[].name') ]; then
+if [ -z $(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name') ]; then
     echo "Cluster doesnt exist, creating"
-    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys
+    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys -ojson
 fi
 
 az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
 
 # Store the contents of az aks show to a file to reduce API call overhead
-az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME > cluster_info.json
+az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
 
 MC_RESOURCE_GROUP_NAME=$(jq -r '.nodeResourceGroup' < cluster_info.json)
-VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME | jq -r '.[length -1].name')
+VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME -ojson | jq -r '.[length -1].name')
 CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
@@ -35,7 +35,9 @@ az vmss run-command invoke \
             -g $MC_RESOURCE_GROUP_NAME \
             --command-id RunShellScript \
             --instance-id 0 \
-            --scripts "cat /etc/kubernetes/azure.json" | jq -r '.value[].message' | awk '/{/{flag=1}/}/{print;flag=0}flag' \
+            --scripts "cat /etc/kubernetes/azure.json" \
+            -ojson | \
+            jq -r '.value[].message' | awk '/{/{flag=1}/}/{print;flag=0}flag' \
             > fields.json
 
 # Retrieve the keys and certificates
@@ -51,7 +53,8 @@ for file in "${files[@]}"; do
                 -g $MC_RESOURCE_GROUP_NAME \
                 --command-id RunShellScript \
                 --instance-id 0 \
-                --scripts "cat /etc/kubernetes/certs/$file | base64 -w 0" | \
+                --scripts "cat /etc/kubernetes/certs/$file | base64 -w 0" \
+                -ojson | \
                 jq -r '.value[].message' | \
                 awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
                 awk NF \
@@ -76,7 +79,8 @@ tlsbootstrap=$(az vmss run-command invoke \
                 -g $MC_RESOURCE_GROUP_NAME \
                 --command-id RunShellScript \
                 --instance-id 0 \
-                --scripts "cat /var/lib/kubelet/bootstrap-kubeconfig" | \
+                --scripts "cat /var/lib/kubelet/bootstrap-kubeconfig" \
+                -ojson | \
                 jq -r '.value[].message' | \
                 grep "token" | \
                 cut -f2 -d ":" | tr -d '"'
@@ -108,12 +112,14 @@ az vmss create -n ${VMSS_NAME} \
     --instance-count 1 \
     --assign-identity $msiResourceID \
     --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
-    --upgrade-policy-mode Automatic
+    --upgrade-policy-mode Automatic \
+    -ojson
 
 # Get the name of the VM instance to later check with kubectl get nodes
 vmInstanceName=$(az vmss list-instances \
                 -n ${VMSS_NAME} \
-                -g $MC_RESOURCE_GROUP_NAME | \
+                -g $MC_RESOURCE_GROUP_NAME \
+                -ojson | \
                 jq -r '.[].osProfile.computerName'
             )
 export vmInstanceName
@@ -127,7 +133,8 @@ az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --vmss-name ${VMSS_NAME} \
     --publisher Microsoft.Azure.Extensions \
     --protected-settings settings.json \
-    --version 2.0
+    --version 2.0 \
+    -ojson
 
 # Sleep to let the automatic upgrade of the VM finish
 sleep 60s
