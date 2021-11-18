@@ -748,5 +748,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"FIPSEnabled": func() bool {
 			return config.FIPSEnabled
 		},
+		"GetMessageOfTheDay": func() string {
+			return config.MessageOfTheDay
+		},
+		"HasMessageOfTheDay": func() bool {
+			return config.MessageOfTheDay != ""
+		},
 	}
 }

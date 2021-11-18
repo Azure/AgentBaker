@@ -1341,6 +1341,7 @@ type NodeBootstrappingConfiguration struct {
 	KubeproxyConfig                map[string]string
 	EnableRuncShimV2               bool
 	GPUInstanceProfile             string
+	MessageOfTheDay                string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 }
