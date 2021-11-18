@@ -5644,6 +5644,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
 $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
