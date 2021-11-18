@@ -1,6 +1,10 @@
 # AKS Windows CSE Scripts Package
 All files except *_test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.2
+
+- Support accelerated networking
+
 ## v0.0.1
 
 - The first package
