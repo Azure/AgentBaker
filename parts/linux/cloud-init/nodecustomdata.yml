@@ -132,7 +132,17 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}  
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
+
+- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="MIG_STRATEGY=--mig-strategy single"
+    ExecStart=
+    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+    #EOF
 {{end}}
 
 {{- if HasKubeletDiskType}}
@@ -266,6 +276,15 @@ write_files:
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+{{- end}}
+
+{{- if HasMessageOfTheDay}}
+- path: /etc/motd
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetMessageOfTheDay}}
 {{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}

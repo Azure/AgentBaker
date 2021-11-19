@@ -396,6 +396,7 @@ type WindowsProfile struct {
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
 	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
 	WindowsGmsaPackageUrl         string                     `json:"windowsGmsaPackageUrl,omitempty"`
+	CseScriptsPackageURL          string                     `json:"cseScriptsPackageURL,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -620,6 +621,7 @@ type AgentPoolProfile struct {
 	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
