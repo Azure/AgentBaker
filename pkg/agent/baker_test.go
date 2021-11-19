@@ -487,7 +487,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}),
 
 		Entry("AKSUbuntu1804 with containerd and motd", "AKSUbuntu1804+Containerd+MotD", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
+			config.ContainerService.Properties.AgentPoolProfiles[0].MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
 		}),
 
 		Entry("AKSUbuntu1804containerd with custom runc verison", "AKSUbuntu1804Containerd+RuncVersion", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
