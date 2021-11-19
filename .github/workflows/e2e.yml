@@ -1,13 +1,12 @@
 name: Run Agentbaker E2E
 on:
-  push:
   pull_request:
     branches:
       - main
   workflow_dispatch: {}
 
 permissions:
-  id-token: read
+  id-token: write
   contents: read
 jobs: 
   build-and-deploy:
