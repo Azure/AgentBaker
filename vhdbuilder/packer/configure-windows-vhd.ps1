@@ -281,18 +281,26 @@ function Install-WindowsPrivatePatch {
     $sfpCopyUrl = "https://milzhang.blob.core.windows.net/arp/sfpcopy.exe"
     $fullSfpCopyPath = "C:\sfpcopy.exe"
 
+    $stagingCopyUrl = "https://milzhang.blob.core.windows.net/arp/StagingTool.exe"
+    $fullStagingCopyPath = "C:\StagingTool.exe"
+
     Write-Log "Downloading windows patch dll from $patchUrl to $fullPatchPath"
     Invoke-WebRequest -UseBasicParsing $patchUrl -OutFile $fullPatchPath
 
     Write-Log "Downloading sfpcopy.exe from $sfpCopyUrl to $fullSfpCopyPath"
     Invoke-WebRequest -UseBasicParsing $sfpCopyUrl -OutFile $fullSfpCopyPath
 
+    Write-Log "Downloading StagingTool.exe from $stagingCopyUrl to $fullStagingCopyPath"
+    Invoke-WebRequest -UseBasicParsing $stagingCopyUrl -OutFile $fullStagingCopyPath
+
     Write-Log "Add test registry for HNS service"
     reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\hns\State /v HNSControlFlag /t REG_DWORD /d 12 /f
 
     Write-Log "Copying Windows private patch"
     C:\sfpcopy.exe $fullPatchPath C:\windows\system32\hostnetsvc.dll
-    Remove-Item $fullSfpCopyPath
+
+    Write-Log "disable KIR"
+    C:\StagingTool.exe /disable 33707967
 }
 
 function Update-Registry {

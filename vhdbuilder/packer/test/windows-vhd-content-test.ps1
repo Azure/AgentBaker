@@ -140,8 +140,20 @@ function Test-RegistryAdded {
     }
 }
 
+function Test-KirStatus {
+    Write-Output "Get the status of KIR"
+    $result = (C:\StagingTool.exe /query 33707967)
+    if ($result[2] -match "disabled"){
+        Write-Output "The KIR is disabled"
+    } else {
+        Write-Output "The KIR is enabled"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
+Test-KirStatus
 Remove-Item -Path c:\windows-vhd-configuration.ps1
