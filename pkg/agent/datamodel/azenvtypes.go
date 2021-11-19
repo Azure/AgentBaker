@@ -39,6 +39,7 @@ type KubernetesSpecConfig struct {
 	WindowsProvisioningScriptsPackageURL string `json:"windowsProvisioningScriptsPackageURL,omitempty"`
 	WindowsPauseImageURL                 string `json:"windowsPauseImageURL,omitempty"`
 	AlwaysPullWindowsPauseImage          bool   `json:"alwaysPullWindowsPauseImage,omitempty"`
+	CseScriptsPackageURL                 string `json:"cseScriptsPackageURL,omitempty"`
 }
 
 //AzureEndpointConfig describes an Azure endpoint
