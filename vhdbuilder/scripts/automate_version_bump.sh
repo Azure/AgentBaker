@@ -63,7 +63,7 @@ cut_official_branch() {
     official_branch_name="official/v${new_image_version//.}"
     official_tag="v0.${new_image_version//.}.0"
     final_commit_hash=""
-    for $build_id in $build_ids; do
+    for build_id in $build_ids; do
         current_build_commit_hash=$(az pipelines runs show --id $build_id | jq -r '.sourceVersion')
         if [[ -z "$final_commit_hash" ]]; then
             final_commit_hash=$current_build_commit_hash
