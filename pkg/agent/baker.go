@@ -749,10 +749,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.FIPSEnabled
 		},
 		"GetMessageOfTheDay": func() string {
-			return config.MessageOfTheDay
+			return profile.MessageOfTheDay
 		},
 		"HasMessageOfTheDay": func() bool {
-			return config.MessageOfTheDay != ""
+			return profile.MessageOfTheDay != ""
 		},
 	}
 }
