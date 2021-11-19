@@ -8,12 +8,11 @@ echo "New image version: $1"
 current_image_version=""
 new_image_version=$1
 
-# set +x
-# github_access_token=$2
-# set -x
+set +x
+github_access_token=$2
+set -x
 
-build_id=$3
-official_tag=$4
+build_ids=$3
 
 branch_name=imageBump/$new_image_version
 pr_title="VersionBump"
@@ -59,16 +58,38 @@ create_image_bump_pr() {
     set -x
 }
 
+# This function cuts the official branch based off the commit ID that the builds were triggered from and tags it
 cut_official_branch() {
-    commit_hash=$(az pipelines runs show --id $build_id | jq -r '.sourceVersion')
-    git checkout -b official/v$new_image_version $commit_hash
+    official_branch_name="official/v${new_image_version//.}"
+    official_tag="v0.${new_image_version//.}.0"
+    final_commit_hash=""
+    for $build_id in $build_ids; do
+        current_build_commit_hash=$(az pipelines runs show --id $build_id | jq -r '.sourceVersion')
+        if [[ -z "$final_commit_hash" ]]; then
+            final_commit_hash=$current_build_commit_hash
+        else
+            if [[ $final_commit_hash != $current_build_commit_hash ]]; then
+                echo "Builds are not triggered off the same commit, exit"
+                exit 1
+            fi
+        fi
+    done
+    echo "All builds are based off the same commit"
+
+    # Checkout branch and commit the image bump file diff to official branch too
+    git checkout -b $official_branch_name $commit_hash
     update_image_version
     git add .
     git commit -m"Update image version in official branch"
+    git push -u origin $official_branch_name
+
     git tag $official_tag
-    git push
+    git push origin tag $official_tag
+    git checkout master
+
 }
 
 set_git_config
 find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
 create_image_bump_pr
+cut_official_branch
