@@ -1,5 +1,6 @@
 name: Run Agentbaker E2E
 on:
+  push:
   pull_request:
     branches:
       - main
