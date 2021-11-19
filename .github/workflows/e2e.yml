@@ -6,8 +6,8 @@ on:
   workflow_dispatch: {}
 
 permissions:
-      id-token: read
-      contents: read
+  id-token: write
+  contents: read
 jobs: 
   build-and-deploy:
     runs-on: ubuntu-latest
