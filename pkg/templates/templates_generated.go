@@ -4530,6 +4530,15 @@ write_files:
 {{GetHTTPProxyCA}}
 {{- end}}
 
+{{- if HasMessageOfTheDay}}
+- path: /etc/motd
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetMessageOfTheDay}}
+{{- end}}
+
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"

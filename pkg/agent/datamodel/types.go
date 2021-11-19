@@ -621,6 +621,7 @@ type AgentPoolProfile struct {
 	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
+	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
