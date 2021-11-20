@@ -141,8 +141,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.14/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.14.zip"
     );
     "c:\akse-cache\calico\" = @(
-        "https://acs-mirror.azureedge.net/calico-node/v3.19.0/binaries/calico-windows-v3.19.0.zip",
-        "https://acs-mirror.azureedge.net/calico-node/v3.20.0/binaries/calico-windows-v3.20.0.zip"
+        "https://acs-mirror.azureedge.net/calico-node/v3.20.0/binaries/calico-windows-v3.20.0.zip",
+        "https://acs-mirror.azureedge.net/calico-node/v3.21.0/binaries/calico-windows-v3.21.0.zip"
     )
 }
 '@
