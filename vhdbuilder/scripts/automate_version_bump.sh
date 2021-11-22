@@ -77,7 +77,7 @@ cut_official_branch() {
     echo "All builds are based off the same commit"
 
     # Checkout branch and commit the image bump file diff to official branch too
-    git checkout -b $official_branch_name $commit_hash
+    git checkout -b $official_branch_name $final_commit_hash
     update_image_version
     git add .
     git commit -m"Update image version in official branch"
