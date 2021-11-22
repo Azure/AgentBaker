@@ -200,7 +200,7 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion   string = "2021.11.06"
+	LinuxSIGImageVersion   string = "3030.40.50"
 	WindowsSIGImageVersion string = "17763.2300.211110"
 )
 
@@ -210,7 +210,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1604",
-		Version:       "2021.11.06",
+		Version:       "3030.40.50",
 	}
 	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
