@@ -122,7 +122,6 @@ go test -run TestE2EBasic
 # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
 #       However, how to incorporate chaning quarters?
 
-# TODO 4: Random name for the VMSS for when we have multiple scenarios to run
 VMSS_NAME="$(mktemp --dry-run abtest-XXXXXXX | tr '[A-Z]' '[a-z]')"
 
 az vmss create -n ${VMSS_NAME} \
