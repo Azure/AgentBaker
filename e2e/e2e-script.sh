@@ -164,9 +164,9 @@ KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
 # Check if the node joined the cluster
 if kubectl get nodes | grep -q $vmInstanceName; then
-	echo "Test succeeded, node joined the cluster"
+    echo "Test succeeded, node joined the cluster"
 else
-	echo "Node did not join cluster"
+    echo "Node did not join cluster"
 fi
 
 # Run a nginx pod on the node to check if pod runs
