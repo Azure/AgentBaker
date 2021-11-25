@@ -167,6 +167,7 @@ if kubectl get nodes | grep -q $vmInstanceName; then
     echo "Test succeeded, node joined the cluster"
 else
     echo "Node did not join cluster"
+    exit 1
 fi
 
 # Run a nginx pod on the node to check if pod runs
@@ -180,4 +181,5 @@ if kubectl get pods -o wide | grep -q 'Running'; then
     echo "Pod ran successfully"
 else
     echo "Pod pending/not running"
+    exit 1
 fi
