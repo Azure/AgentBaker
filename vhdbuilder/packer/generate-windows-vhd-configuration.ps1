@@ -24,7 +24,7 @@ $global:patchUrls = @()
 $global:patchIDs = @()
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.42/binaries/containerd-v0.0.42-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.43/binaries/containerd-v0.0.43-windows-amd64.tar.gz"
 
 $global:defaultDockerVersion = "20.10.6"
 
