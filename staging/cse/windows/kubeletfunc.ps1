@@ -1,7 +1,5 @@
-function
-Write-AzureConfig {
+function Write-AzureConfig {
     Param(
-
         [Parameter(Mandatory = $true)][string]
         $AADClientId,
         [Parameter(Mandatory = $true)][string]
@@ -80,8 +78,7 @@ Write-AzureConfig {
 }
 
 
-function
-Write-CACert {
+function Write-CACert {
     Param(
         [Parameter(Mandatory = $true)][string]
         $CACertificate,
@@ -92,8 +89,7 @@ Write-CACert {
     [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($CACertificate)) | Out-File -Encoding ascii $caFile
 }
 
-function
-Write-KubeConfig {
+function Write-KubeConfig {
     Param(
         [Parameter(Mandatory = $true)][string]
         $CACertificate,
@@ -135,8 +131,7 @@ users:
     $kubeConfig | Out-File -encoding ASCII -filepath "$kubeConfigFile"
 }
 
-function
-Write-BootstrapKubeConfig {
+function Write-BootstrapKubeConfig {
     Param(
         [Parameter(Mandatory = $true)][string]
         $CACertificate,
@@ -175,8 +170,7 @@ users:
     $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
 }
 
-function
-Test-ContainerImageExists {
+function Test-ContainerImageExists {
     Param(
         [Parameter(Mandatory = $true)][string]
         $Image,
@@ -200,8 +194,7 @@ Test-ContainerImageExists {
     }
 }
 
-function
-Build-PauseContainer {
+function Build-PauseContainer {
     Param(
         [Parameter(Mandatory = $true)][string]
         $WindowsBase,
@@ -222,8 +215,7 @@ Build-PauseContainer {
     }
 }
 
-function
-New-InfraContainer {
+function New-InfraContainer {
     Param(
         [Parameter(Mandatory = $true)][string]
         $KubeDir,
@@ -262,35 +254,9 @@ New-InfraContainer {
     }
 }
 
-function
-Test-ContainerImageExists {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $Image,
-        [Parameter(Mandatory = $false)][string]
-        $Tag,
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-
-    $target = $Image
-    if ($Tag) {
-        $target += ":$Tag"
-    }
-
-    if ($ContainerRuntime -eq "docker") {
-        $images = docker image list $target --format "{{json .}}"
-        return $images.Count -gt 0
-    }
-    else {
-        return ( (ctr.exe -n k8s.io images list) | Select-String $target) -ne $Null
-    }
-}
-
 # TODO: Deprecate this and replace with methods that get individual components instead of zip containing everything
 # This expects the ZIP file created by Azure Pipelines.
-function
-Get-KubePackage {
+function Get-KubePackage {
     Param(
         [Parameter(Mandatory = $true)][string]
         $KubeBinariesSASURL
@@ -310,8 +276,7 @@ Get-KubePackage {
     Remove-Item $zipfile
 }
 
-function
-Get-KubeBinaries {
+function Get-KubeBinaries {
     Param(
         [Parameter(Mandatory = $true)][string]
         $KubeBinariesURL
@@ -343,8 +308,7 @@ Get-KubeBinaries {
 }
 
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration
-function
-New-NSSMService {
+function New-NSSMService {
     Param(
         [string]
         [Parameter(Mandatory = $true)]
@@ -410,8 +374,7 @@ New-NSSMService {
 }
 
 # Renamed from Write-KubernetesStartFiles
-function
-Install-KubernetesServices {
+function Install-KubernetesServices {
     param(
         [Parameter(Mandatory = $true)][string]
         $KubeDir,

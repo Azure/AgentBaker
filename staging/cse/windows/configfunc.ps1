@@ -317,3 +317,120 @@ function Install-GmsaPlugin {
 
     Write-Log "Successfully installed the GMSA plugin"
 }
+
+function Install-OpenSSH {
+    Param(
+        [Parameter(Mandatory = $true)][string[]] 
+        $SSHKeys
+    )
+
+    $adminpath = "c:\ProgramData\ssh"
+    $adminfile = "administrators_authorized_keys"
+
+    $sshdService = Get-Service | ? Name -like 'sshd'
+    if ($sshdService.Count -eq 0)
+    {
+        Write-Log "Installing OpenSSH"
+        $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
+
+        if (!$isAvailable) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED -ErrorMessage "OpenSSH is not available on this machine"
+        }
+
+        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+    }
+    else
+    {
+        Write-Log "OpenSSH Server service detected - skipping online install..."
+    }
+
+    Start-Service sshd
+
+    if (!(Test-Path "$adminpath")) {
+        Write-Log "Created new file and text content added"
+        New-Item -path $adminpath -name $adminfile -type "file" -value ""
+    }
+
+    Write-Log "$adminpath found."
+    Write-Log "Adding keys to: $adminpath\$adminfile ..."
+    $SSHKeys | foreach-object {
+        Add-Content $adminpath\$adminfile $_
+    }
+
+    Write-Log "Setting required permissions..."
+    icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
+    icacls $adminpath\$adminfile /inheritance:r
+    icacls $adminpath\$adminfile /grant SYSTEM:`(F`)
+    icacls $adminpath\$adminfile /grant BUILTIN\Administrators:`(F`)
+
+    Write-Log "Restarting sshd service..."
+    Restart-Service sshd
+    # OPTIONAL but recommended:
+    Set-Service -Name sshd -StartupType 'Automatic'
+
+    # Confirm the Firewall rule is configured. It should be created automatically by setup. 
+    $firewall = Get-NetFirewallRule -Name *ssh*
+
+    if (!$firewall) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
+    }
+    Write-Log "OpenSSH installed and configured successfully"
+}
+
+function New-CsiProxyService {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $CsiProxyPackageUrl,
+        [Parameter(Mandatory = $true)][string]
+        $KubeDir
+    )
+
+    $tempdir = New-TemporaryDirectory
+    $binaryPackage = "$tempdir\csiproxy.tar"
+
+    DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage
+
+    tar -xzf $binaryPackage -C $tempdir
+    cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
+
+    del $tempdir -Recurse
+
+    & "$KubeDir\nssm.exe" install csi-proxy "$KubeDir\csi-proxy.exe" | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppDirectory "$KubeDir" | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppRestartDelay 5000 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy Description csi-proxy | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy Start SERVICE_DEMAND_START | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy ObjectName LocalSystem | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppThrottle 1500 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppStdout "$KubeDir\csi-proxy.log" | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppStderr "$KubeDir\csi-proxy.err.log" | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppStdoutCreationDisposition 4 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppStderrCreationDisposition 4 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppRotateFiles 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppRotateOnline 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppRotateSeconds 86400 | RemoveNulls
+    & "$KubeDir\nssm.exe" set csi-proxy AppRotateBytes 10485760 | RemoveNulls
+}
+
+function New-HostsConfigService {
+    $HostsConfigParameters = [io.path]::Combine($KubeDir, "hostsconfigagent.ps1")
+
+    & "$KubeDir\nssm.exe" install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppDirectory "$KubeDir" | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppParameters $HostsConfigParameters | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppRestartDelay 5000 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent Description hosts-config-agent | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent Start SERVICE_DEMAND_START | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent ObjectName LocalSystem | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppThrottle 1500 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdout "$KubeDir\hosts-config-agent.log" | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderr "$KubeDir\hosts-config-agent.err.log" | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdoutCreationDisposition 4 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderrCreationDisposition 4 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateFiles 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateOnline 1 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateSeconds 86400 | RemoveNulls
+    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
+}

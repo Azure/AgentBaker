@@ -32,19 +32,7 @@ const (
 	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
 	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
 	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
-
-	kubernetesWindowsAgentFunctionsPS1            = "windows/kuberneteswindowsfunctions.ps1"
-	kubernetesWindowsConfigFunctionsPS1           = "windows/windowsconfigfunc.ps1"
-	kubernetesWindowsContainerdFunctionsPS1       = "windows/windowscontainerdfunc.ps1"
-	kubernetesWindowsCsiProxyFunctionsPS1         = "windows/windowscsiproxyfunc.ps1"
-	kubernetesWindowsKubeletFunctionsPS1          = "windows/windowskubeletfunc.ps1"
-	kubernetesWindowsCniFunctionsPS1              = "windows/windowscnifunc.ps1"
-	kubernetesWindowsAzureCniFunctionsPS1         = "windows/windowsazurecnifunc.ps1"
-	kubernetesWindowsHostsConfigAgentFunctionsPS1 = "windows/windowshostsconfigagentfunc.ps1"
-	kubernetesWindowsOpenSSHFunctionPS1           = "windows/windowsinstallopensshfunc.ps1"
-	kubernetesWindowsCalicoFunctionPS1            = "windows/windowscalicofunc.ps1"
-	kubernetesWindowsCSEHelperPS1                 = "windows/windowscsehelper.ps1"
-	kubernetesWindowsHypervtemplatetoml           = "windows/containerdtemplate.toml"
+	kubernetesWindowsCSEHelperPS1 = "windows/windowscsehelper.ps1"
 )
 
 // cloud-init (i.e. ARM customData) source file references

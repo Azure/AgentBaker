@@ -8,7 +8,7 @@ parameters:
 - name: build1604
   displayName: Build 1604
   type: boolean
-  default: true
+  default: false
 - name: build1804
   displayName: Build 1804
   type: boolean

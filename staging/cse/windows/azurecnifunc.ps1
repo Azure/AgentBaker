@@ -1,5 +1,4 @@
-function
-Install-VnetPlugins
+function Install-VnetPlugins
 {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -26,8 +25,7 @@ Install-VnetPlugins
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
 }
 
-function
-Set-AzureCNIConfig
+function Set-AzureCNIConfig
 {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -298,15 +296,36 @@ function New-ExternalHnsNetwork
 
     Write-Log "Creating new HNS network `"ext`""
     $externalNetwork = "ext"
-    $na = @(Get-NetAdapter -Physical)
+    $nas = @(Get-NetAdapter -Physical)
 
-    if ($na.Count -eq 0) {
+    if ($nas.Count -eq 0) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
     }
 
-    # If there is more than one adapter, use the first adapter.
-    $managementIP = (Get-NetIPAddress -ifIndex $na[0].ifIndex -AddressFamily IPv4).IPAddress
-    $adapterName = $na[0].Name
+    # If there is more than one adapter, use the first adapter that is assigned an ipaddress.
+    foreach($na in $nas)
+    {
+        $netIP = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
+        if ($netIP)
+        {
+            $managementIP = $netIP.IPAddress
+            $adapterName = $na.Name
+            break
+        }
+        else {
+            Write-Log "No IPv4 found on the network adapter $($na.Name); trying the next adapter ..."
+            if ($netIPErr) {
+                Write-Log "error when retrieving IPAddress: $netIPErr"
+                $netIPErr.Clear()
+            }
+        }
+    }
+
+    if(-Not $managementIP)
+    {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP -ErrorMessage "None of the physical network adapters has an IP address"
+    }
+
     Write-Log "Using adapter $adapterName with IP address $managementIP"
     $mgmtIPAfterNetworkCreate
 
@@ -334,4 +353,15 @@ function New-ExternalHnsNetwork
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
     Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
+}
+
+function Get-HnsPsm1
+{
+    Param(
+        [string]
+        $HnsUrl = "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
+        [Parameter(Mandatory=$true)][string]
+        $HNSModule
+    )
+    DownloadFileOverHttp -Url $HnsUrl -DestinationPath "$HNSModule"
 }

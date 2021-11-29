@@ -7,8 +7,8 @@ steps:
         az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
   displayName: 'az devops login'
 - bash: |
-        echo "PR for Image Bumping"
-        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT
+        echo "PR for Image Bumping, Official Branch Cutting"
+        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $GITHUB_PAT "${BUILD_ID[@]}"
   displayName: 'Image Version Bumping'
 - bash: |
         echo "PR for Release Notes"

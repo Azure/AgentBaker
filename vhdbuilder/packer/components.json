@@ -63,8 +63,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "versions": [
         "v1.4.9",
-        "v1.4.12",
-        "v1.4.14"
+        "v1.4.15"
       ]
     },
     {
@@ -142,6 +141,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "versions": [
         "v3.20.0",
+        "v3.21.0",
         "v3.8.9.5"
       ]
     },
@@ -149,6 +149,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
       "versions": [
         "v3.20.0",
+        "v3.21.0",
         "v3.8.9"
       ]
     },
@@ -161,7 +162,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "versions": [
-        "v3.20.0"
+        "v3.20.0",
+        "v3.21.0"
       ]
     },
     {
@@ -180,8 +182,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
-        "v1.17.1",
-        "v1.20.0"
+        "v1.20.0",
+        "v1.23.1"
       ]
     },
     {
@@ -224,8 +226,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "versions": [
-        "v2.5.0.6",
-        "v2.5.0.7"
+        "v2.5.0.7",
+        "v2.5.0.8"
       ]
     },
     {
@@ -238,33 +240,32 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
         "v1.2.0.5",
-        "v1.7.0.1",
-        "v1.8.0",
-        "v1.8.0.1"
+        "v1.8.0.1",
+        "v1.9.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "versions": [
         "v1.2.0",
-        "v1.6.0",
-        "v1.7.0"
+        "v1.7.0",
+        "v1.8.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "versions": [
         "v2.2.0",
-        "v2.3.0",
-        "v2.4.0"
+        "v2.4.0",
+        "v2.5.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "versions": [
         "v2.0.1",
-        "v2.2.0",
-        "v2.3.0"
+        "v2.3.0",
+        "v2.4.0"
       ]
     },
     {
@@ -347,9 +348,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni",
       "versions": [
-        "0.7.6",
-        "0.7.5",
-        "0.7.1"
+        "0.7.6"
       ]
     },
     {
@@ -357,7 +356,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.8.6"
+        "0.8.7"
       ]
     },
     {
