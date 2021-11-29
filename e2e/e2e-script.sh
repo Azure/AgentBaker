@@ -9,13 +9,12 @@ echo "Starting e2e tests"
 : "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
 
 # Create a resource group for the cluster
-if [ $(az group exists -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson) == "false" ]; then
-    echo "Creating resource group"
-    az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
-fi
+echo "Creating resource group"
+az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
 
 # Create the AKS cluster and get the kubeconfig
-if [ -z $(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name') ]; then
+out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
+if [ -z "$out" ]; then
     echo "Cluster doesnt exist, creating"
     az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys -ojson
 fi
