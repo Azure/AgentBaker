@@ -198,7 +198,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(sigImageConfig.Definition).To(Equal("1604"))
-			Expect(sigImageConfig.Version).To(Equal("2021.11.27"))
+			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
 		})
 
 		It("should return error if image config not found for distro", func() {
