@@ -13,7 +13,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v1.0.0-alpha.1"
+KRUSTLET_VERSION="v0.0.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -21,7 +21,16 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     
-        installStandaloneContainerd ${CONTAINERD_VERSION}
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+            CONTAINERD_VERSION="1.5.5"
+            CONTAINERD_PATCH_VERSION="3"
+            installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
+            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+        else
+            installStandaloneContainerd ${CONTAINERD_VERSION}
+            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+        fi
     
 }
 
@@ -40,18 +49,12 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet/${KRUSTLET_VERSION}/linux/amd64/krustlet-wasi"
-    local krustlet_filepath="/usr/local/bin/krustlet-wasi"
-    if [[ -f "$krustlet_filepath" ]]; then
-        installed_version="$("$krustlet_filepath" --version | cut -d' ' -f2)"
-        if [[ "${KRUSTLET_VERSION}" == "$installed_version" ]]; then
-            echo "desired krustlet version exists on disk, skipping download."
-            return
-        fi
-        rm -rf "$krustlet_filepath"
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [ ! -f "$krustlet_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$krustlet_filepath"    
     fi
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-    chmod 755 "$krustlet_filepath"
 }
 
 downloadAzureCNI() {
@@ -63,7 +66,7 @@ downloadAzureCNI() {
 downloadCrictl() {
     CRICTL_VERSION=$1
     mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
     retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
@@ -89,15 +92,22 @@ installCrictl() {
     rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
 
+setupCNIDirs() {
+    mkdir -p $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
+    chmod -R 755 $CNI_BIN_DIR
+
+    mkdir -p $CNI_CONFIG_DIR
+    chown -R root:root $CNI_CONFIG_DIR
+    chmod 755 $CNI_CONFIG_DIR
+}
+
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
         downloadCNI
     fi
-    mkdir -p $CNI_BIN_DIR
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
-    chown -R root:root $CNI_BIN_DIR
-    chmod -R 755 $CNI_BIN_DIR
 }
 
 installAzureCNI() {
@@ -105,10 +115,6 @@ installAzureCNI() {
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
         downloadAzureCNI
     fi
-    mkdir -p $CNI_CONFIG_DIR
-    chown -R root:root $CNI_CONFIG_DIR
-    chmod 755 $CNI_CONFIG_DIR
-    mkdir -p $CNI_BIN_DIR
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
 }
 
@@ -250,6 +256,29 @@ cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
+}
+
+cleanupRetaggedImages() {
+    if [[ "AzurePublicCloud" != "AzureChinaCloud" ]]; then
+        
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        fi
+        
+        if [[ "${images_to_delete}" != "" ]]; then
+            echo "${images_to_delete}" | while read image; do
+                
+                # always use ctr, even if crictl is installed.
+                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                removeContainerImage "ctr" ${image}
+                
+            done
+        fi
+    else
+        echo "skipping container cleanup for AzureChinaCloud"
+    fi
 }
 
 cleanUpContainerImages() {

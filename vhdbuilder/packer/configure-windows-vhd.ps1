@@ -270,11 +270,6 @@ function Update-WindowsFeatures {
 }
 
 function Update-Registry {
-    # if multple LB policies are included for same endpoint then HNS hangs.
-    # this fix forces an error
-    Write-Log "Enable a HNS fix in 2021-2C"
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value 3 -Type DWORD
-
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
     if ($containerRuntime -eq 'containerd') {

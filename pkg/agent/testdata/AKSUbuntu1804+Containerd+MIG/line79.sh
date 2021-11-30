@@ -21,7 +21,7 @@ case ${MIG_PROFILE} in
         ;;  
     *)
         echo "not a valid GPU instance profile"
-        exit ${ERR_MIG_PARTITION_FAILURE}
+        exit 1
         ;;
 esac
 nvidia-smi mig -cci

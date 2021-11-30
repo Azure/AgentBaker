@@ -76,6 +76,8 @@ fi
 
 installContainerRuntime
 
+setupCNIDirs
+
 installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy
@@ -85,13 +87,17 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-
 configureCNI
+
 
 
 ensureDocker
 
 ensureMonitorService
+# must run before kubelet starts to avoid race in container status using wrong image
+# https://github.com/kubernetes/kubernetes/issues/51017
+# can remove when fixed
+cleanupRetaggedImages
 configPrivateClusterHosts
 
 ensureSysctl
@@ -130,12 +136,6 @@ else
         API_SERVER_CONN_RETRIES=100
     fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-fi
-
-# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
-if [[ "${MIG_NODE}" == "true" ]]; then
-    REBOOTREQUIRED=true
-    ensureMigPartition
 fi
 
 if $REBOOTREQUIRED; then

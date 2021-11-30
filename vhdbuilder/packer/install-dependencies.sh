@@ -65,6 +65,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - traceroute
   - util-linux
   - xz-utils
+  - netcat
+  - dnsutils
   - zip
 EOF
 
@@ -85,8 +87,8 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdIptables
     forceEnableIpForward
     networkdWorkaround
-    enableSystemdAuditd
     enableDNFAutomatic
+    fixCBLMarinerPermissions
 fi
 
 downloadKrustlet
@@ -94,19 +96,27 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.8"
-  installStandaloneContainerd ${containerd_version}
-  echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+  containerd_version="1.4.9"
+  containerd_patch_version="3"
+  downloadContainerd ${containerd_version} ${containerd_patch_version}
+  installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
+  echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # also pre-cache containerd 1.4.4 (last used version)
     containerd_version="1.4.4"
-    downloadContainerd ${containerd_version}
-    echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+    containerd_patch_version="1"
+    downloadContainerd ${containerd_version} ${containerd_patch_version}
+    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+    containerd_patch_version="3"
+    updated_containerd_version="1.5.5" # also .3 revision
+    downloadContainerd ${updated_containerd_version} ${containerd_patch_version}
+    echo "  - [cached] updated containerd v${updated_containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
   1.21.0
+  1.22.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -148,11 +158,16 @@ echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
 installGPUDrivers
+retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
+tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
+mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" >> ${VHD_LOGS_FILEPATH}
-echo "  - nvidia-gpu-driver-version=${GPU_DV}" >> ${VHD_LOGS_FILEPATH}
-
+{
+  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1";
+  echo "  - nvidia-gpu-driver-version=${GPU_DV}";
+  echo "  - nvidia-fabricmanager=${GPU_DV}";
+} >> ${VHD_LOGS_FILEPATH}
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
     ensureGPUDrivers
@@ -187,10 +202,9 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
-1.4.9
-1.4.7
-1.4.0
 1.2.7
+1.4.13
+1.4.14
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -200,10 +214,10 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
-1.4.9
-1.4.7
-1.4.0
 1.2.7
+1.4.12
+1.4.13
+1.4.14
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -214,8 +228,6 @@ done
 
 CNI_PLUGIN_VERSIONS="
 0.7.6
-0.7.5
-0.7.1
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
@@ -223,8 +235,9 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
-0.8.6
+0.8.7
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
@@ -260,6 +273,10 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
+  pushd /opt/azure/fabricmanager-${GPU_DV} || exit
+  /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
+  systemctlEnableAndStart nvidia-fabricmanager
+  popd || exit
 fi
 
 installSGX=${SGX_INSTALL:-"False"}
@@ -302,12 +319,7 @@ fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ "${cliTool}" == "ctr" ]]; then
-      # containerd/ctr doesn't auto-resolve to docker.io
-      CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"
-    else
-      CONTAINER_IMAGE="nginx:${NGINX_VERSION}"
-    fi
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -324,6 +336,7 @@ done
 # v1.21.1
 # v1.21.2
 # v1.22.1 (preview)
+# v1.22.2 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -358,7 +371,8 @@ done
 # v1.20.7
 # v1.20.9
 # v1.21.1
-# v1.21.2
+# v1.21.2 (preview)
+# v1.22.2 (preview)
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
@@ -366,9 +380,13 @@ KUBE_BINARY_VERSIONS="
 1.19.13-hotfix.20210830
 1.20.7-hotfix.20210816
 1.20.9-hotfix.20210830
+1.20.13
 1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
+1.21.7
 1.22.1
+1.22.2
+1.22.4
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then

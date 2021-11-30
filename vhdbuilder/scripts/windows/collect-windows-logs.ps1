@@ -85,13 +85,24 @@ else {
   Write-Host "Docker events are not available"
 }
 
+Write-Host "Collecting gMSAv2 related logs"
 # CCGPlugin (Windows gMSAv2)
-if ([System.Diagnostics.EventLog]::SourceExists("Containers-CCG")) {
-  get-eventlog -LogName Application -Source Containers-CCG | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_containers-ccg.csv"
-  $paths += "$ENV:TEMP\\$($timeStamp)_containers-ccg.csv"
+$EventSession = [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession
+$EventProviderNames = $EventSession.GetProviderNames()
+if ($EventProviderNames -contains "Microsoft-Windows-Containers-CCG") {
+  cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-Windows-Containers-CCG%4Admin.evtx" "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+  $paths += "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
 }
 else {
-  Write-Host "Containers-CCG events are not available"
+  Write-Host "Microsoft-Windows-Containers-CCG events are not available"
+}
+# Introduced from CCGAKVPlugin v1.1.3
+if ($EventProviderNames -contains "Microsoft-AKSGMSAPlugin") {
+  cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-AKSGMSAPlugin%4Admin.evtx" "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+  $paths += "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+}
+else {
+  Write-Host "AKSGMSAPlugin events are not available"
 }
 
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
