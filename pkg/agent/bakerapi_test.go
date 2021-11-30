@@ -165,7 +165,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
-			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.11.27"))
+			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.11.06"))
 		})
 
 		It("should return an error if cloud is not found", func() {
