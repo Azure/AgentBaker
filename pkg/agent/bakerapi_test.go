@@ -160,7 +160,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.OSImageConfig.ImageOffer).To(Equal("aks"))
 			Expect(nodeBootStrapping.OSImageConfig.ImageSku).To(Equal("aks-ubuntu-1604-2021-q3"))
 			Expect(nodeBootStrapping.OSImageConfig.ImagePublisher).To(Equal("microsoft-aks"))
-			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.11.27"))
+			Expect(nodeBootStrapping.OSImageConfig.ImageVersion).To(Equal("2021.11.06"))
 
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
