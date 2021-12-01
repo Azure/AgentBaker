@@ -36,7 +36,7 @@ var (
 		ImageOffer:     "aks",
 		ImageSku:       "aks-ubuntu-1604-2021-q3",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2021.11.27",
+		ImageVersion:   "2021.11.06",
 	}
 
 	AKSUbuntu1804OSImageConfig = AzureOSImageConfig{
