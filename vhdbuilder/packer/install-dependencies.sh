@@ -205,6 +205,7 @@ VNET_CNI_VERSIONS="
 1.2.7
 1.4.13
 1.4.14
+1.4.16
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -218,6 +219,7 @@ SWIFT_CNI_VERSIONS="
 1.4.12
 1.4.13
 1.4.14
+1.4.16
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
