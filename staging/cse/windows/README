@@ -1,9 +1,13 @@
 # AKS Windows CSE Scripts Package
 All files except *_test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.3
+
+- fix: Update Windows dynamic port range #1352
+
 ## v0.0.2
 
-- Support accelerated networking
+- Add accelerated networking support for Windows in CSE scripts #1325
 
 ## v0.0.1
 
