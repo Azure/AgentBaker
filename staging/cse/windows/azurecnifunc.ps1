@@ -93,6 +93,14 @@ function Set-AzureCNIConfig
         $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $KubeServiceCIDR
     }
 
+    if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
+        Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"
+        $jsonContent = [PSCustomObject]@{
+            'enableLoopbackDSR' = $True
+        }
+        $configJson.plugins[0]|Add-Member -Name "windowsSettings" -Value $jsonContent -MemberType NoteProperty
+    }
+
     $aclRule1 = [PSCustomObject]@{
         Type = 'ACL'
         Protocols = '6'
