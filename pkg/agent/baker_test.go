@@ -28,9 +28,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    datamodel.Kubernetes,
 					OrchestratorVersion: k8sVersion,
-					KubernetesConfig: &datamodel.KubernetesConfig{
-
-					},
+					KubernetesConfig:    &datamodel.KubernetesConfig{},
 				},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{
 					DNSPrefix: "uttestdom",
@@ -38,13 +36,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "agent2",
-						Count:               3,
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Linux,
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-						Distro: datamodel.AKSUbuntu1604,
+						Distro:              datamodel.AKSUbuntu1604,
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -133,7 +130,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
 			FIPSEnabled:                   false,
-			KubeletConfig:				   kubeletConfig,
+			KubeletConfig:                 kubeletConfig,
+			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
 		}
 
 		if configUpdator != nil {
@@ -329,6 +327,92 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 
+		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config", "AKSUbuntu1604+CustomKubeletConfig+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+				CPUManagerPolicy:      "static",
+				CPUCfsQuota:           to.BoolPtr(false),
+				CPUCfsQuotaPeriod:     "200ms",
+				ImageGcHighThreshold:  to.Int32Ptr(90),
+				ImageGcLowThreshold:   to.Int32Ptr(70),
+				TopologyManagerPolicy: "best-effort",
+				AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+				ContainerLogMaxFiles:  to.Int32Ptr(99),
+				PodMaxPids:            to.Int32Ptr(12345),
+			}
+			config.KubeletConfig = map[string]string{
+				"--address":                           "0.0.0.0",
+				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+				"--cloud-provider":                    "azure",
+				"--cloud-config":                      "/etc/kubernetes/azure.json",
+				"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+				"--cluster-domain":                    "cluster.local",
+				"--cluster-dns":                       "10.0.0.10",
+				"--cgroups-per-qos":                   "true",
+				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+				"--max-pods":                          "110",
+				"--node-status-update-frequency":      "10s",
+				"--image-gc-high-threshold":           "85",
+				"--image-gc-low-threshold":            "80",
+				"--event-qps":                         "0",
+				"--pod-max-pids":                      "-1",
+				"--enforce-node-allocatable":          "pods",
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--rotate-certificates":               "true",
+				"--read-only-port":                    "10255",
+				"--protect-kernel-defaults":           "true",
+				"--resolv-conf":                       "/etc/resolv.conf",
+				"--anonymous-auth":                    "false",
+				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+				"--authentication-token-webhook":      "true",
+				"--authorization-mode":                "Webhook",
+				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+				"--system-reserved":                   "cpu=2,memory=1Gi",
+				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+				"--dynamic-config-dir":                "",
+			}
+		}),
+
+		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed", "AKSUbuntu1604+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletConfig = map[string]string{
+				"--address":                           "0.0.0.0",
+				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+				"--cloud-provider":                    "azure",
+				"--cloud-config":                      "/etc/kubernetes/azure.json",
+				"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+				"--cluster-domain":                    "cluster.local",
+				"--cluster-dns":                       "10.0.0.10",
+				"--cgroups-per-qos":                   "true",
+				"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+				"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+				"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+				"--max-pods":                          "110",
+				"--node-status-update-frequency":      "10s",
+				"--image-gc-high-threshold":           "85",
+				"--image-gc-low-threshold":            "80",
+				"--event-qps":                         "0",
+				"--pod-max-pids":                      "-1",
+				"--enforce-node-allocatable":          "pods",
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--rotate-certificates":               "true",
+				"--read-only-port":                    "10255",
+				"--protect-kernel-defaults":           "true",
+				"--resolv-conf":                       "/etc/resolv.conf",
+				"--anonymous-auth":                    "false",
+				"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+				"--authentication-token-webhook":      "true",
+				"--authorization-mode":                "Webhook",
+				"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+				"--system-reserved":                   "cpu=2,memory=1Gi",
+				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+				"--dynamic-config-dir":                "",
+			}
+		}),
+
 		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -402,6 +486,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableRuncShimV2 = true
 		}),
 
+		Entry("AKSUbuntu1804 with containerd and motd", "AKSUbuntu1804+Containerd+MotD", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
+		}),
+
 		Entry("AKSUbuntu1804containerd with custom runc verison", "AKSUbuntu1804Containerd+RuncVersion", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -418,6 +506,32 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableNvidia = true
 			config.EnableRuncShimV2 = true
 			config.KubeletConfig = map[string]string{}
+		}),
+
+		Entry("AKSUbuntu1804 containerd with multi-instance GPU", "AKSUbuntu1804+Containerd+MIG", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.KubeletConfig = map[string]string{}
+			config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
+			config.EnableNvidia = true
+			config.GPUInstanceProfile = "mig-3g"
+		}),
+		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+				CaCertificate: "fooBarBaz",
+			}
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+		}),
+		Entry("AKSUbuntu1804 with NoneCNI", "AKSUbuntu1804+NoneCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = datamodel.NetworkPluginNone
 		}))
 })
 
@@ -442,8 +556,8 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						ServiceCIDR:          "10.0.0.0/16",
 						EnableRbac:           to.BoolPtr(true),
 						EnableSecureKubelet:  to.BoolPtr(true),
-						UseInstanceMetadata: to.BoolPtr(true),
-						DNSServiceIP:        "10.0.0.10",
+						UseInstanceMetadata:  to.BoolPtr(true),
+						DNSServiceIP:         "10.0.0.10",
 					},
 				},
 				HostedMasterProfile: &datamodel.HostedMasterProfile{
@@ -455,7 +569,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "wpool2",
-						Count:               3,
 						VMSize:              "Standard_D2s_v3",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Windows,
@@ -463,7 +576,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						WindowsNameVersion:  "v2",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						CustomNodeLabels:    map[string]string{"kubernetes.azure.com/node-image-version": "AKSWindows-2019-17763.1577.201111"},
-						Distro: datamodel.Distro("aks-windows-2019"),
+						Distro:              datamodel.Distro("aks-windows-2019"),
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -521,7 +634,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			HyperkubeImageURL:         hyperkubeImage,
 			WindowsPackageURL:         windowsPackage,
 		}
-		
+
 		kubeletConfig := map[string]string{
 			"--address":                           "0.0.0.0",
 			"--anonymous-auth":                    "false",
@@ -572,7 +685,8 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			EnableGPUDevicePluginIfNeeded: false,
 			EnableKubeletConfigFile:       false,
 			EnableNvidia:                  false,
-			KubeletConfig:				   kubeletConfig,
+			KubeletConfig:                 kubeletConfig,
+			PrimaryScaleSetName:           "akswpool2",
 		}
 
 		if configUpdator != nil {
@@ -622,7 +736,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "172.17.0.0/24"
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ServiceCIDR = "172.17.255.0/24"
 			config.ContainerService.Properties.AgentPoolProfiles[0].VnetCidrs = []string{"172.17.0.0/16"}
-			config.ContainerService.Properties.AgentPoolProfiles[0].Subnet = "172.17.2.0/24"
 			config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet2"
 			config.KubeletConfig["--cluster-dns"] = "172.17.255.10"
 		}),

@@ -3,6 +3,7 @@
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -18,8 +19,10 @@ source /home/packer/packer_source.sh
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
+cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
@@ -62,6 +65,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - traceroute
   - util-linux
   - xz-utils
+  - netcat
+  - dnsutils
   - zip
 EOF
 
@@ -81,23 +86,37 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
     forceEnableIpForward
+    networkdWorkaround
+    enableDNFAutomatic
+    fixCBLMarinerPermissions
 fi
+
+downloadKrustlet
+echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.4"
-  installStandaloneContainerd ${containerd_version}
-  echo "  - [installed] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+  containerd_version="1.4.9"
+  containerd_patch_version="3"
+  downloadContainerd ${containerd_version} ${containerd_patch_version}
+  installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
+  echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # also pre-cache containerd 1.5 for ACC as a local .deb file for Ubuntu OS SKUs
-    containerd_version="1.5.0-beta.git31a0f92df"
-    downloadContainerd ${containerd_version}
-    echo "  - [cached] containerd v${containerd_version}" >> ${VHD_LOGS_FILEPATH}
+    # also pre-cache containerd 1.4.4 (last used version)
+    containerd_version="1.4.4"
+    containerd_patch_version="1"
+    downloadContainerd ${containerd_version} ${containerd_patch_version}
+    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+    containerd_patch_version="3"
+    updated_containerd_version="1.5.5" # also .3 revision
+    downloadContainerd ${updated_containerd_version} ${containerd_patch_version}
+    echo "  - [cached] updated containerd v${updated_containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
   1.21.0
+  1.22.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -139,11 +158,16 @@ echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
 installGPUDrivers
+retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
+tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
+mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
 retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" >> ${VHD_LOGS_FILEPATH}
-echo "  - nvidia-gpu-driver-version=${GPU_DV}" >> ${VHD_LOGS_FILEPATH}
-
+{
+  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1";
+  echo "  - nvidia-gpu-driver-version=${GPU_DV}";
+  echo "  - nvidia-fabricmanager=${GPU_DV}";
+} >> ${VHD_LOGS_FILEPATH}
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
     ensureGPUDrivers
@@ -178,8 +202,10 @@ for imageToBePulled in ${ContainerImages[*]}; do
 done
 
 VNET_CNI_VERSIONS="
-1.4.0
 1.2.7
+1.4.13
+1.4.14
+1.4.16
 "
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
@@ -189,8 +215,11 @@ done
 
 # merge with above after two more version releases
 SWIFT_CNI_VERSIONS="
-1.4.0
 1.2.7
+1.4.12
+1.4.13
+1.4.14
+1.4.16
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -201,8 +230,6 @@ done
 
 CNI_PLUGIN_VERSIONS="
 0.7.6
-0.7.5
-0.7.1
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
@@ -210,8 +237,9 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
-0.8.6
+0.8.7
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
@@ -247,6 +275,10 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
+  pushd /opt/azure/fabricmanager-${GPU_DV} || exit
+  /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
+  systemctlEnableAndStart nvidia-fabricmanager
+  popd || exit
 fi
 
 installSGX=${SGX_INSTALL:-"False"}
@@ -278,7 +310,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_QUOTE_HELPER_VERSIONS="1.0"
+    SGX_QUOTE_HELPER_VERSIONS="2.0"
     for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -289,12 +321,7 @@ fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ "${cliTool}" == "ctr" ]]; then
-      # containerd/ctr doesn't auto-resolve to docker.io
-      CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"
-    else
-      CONTAINER_IMAGE="nginx:${NGINX_VERSION}"
-    fi
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -302,55 +329,25 @@ done
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
-# v1.19.9
 # v1.19.11
-# v1.20.5
+# v1.19.12
+# v1.19.13
 # v1.20.7
+# v1.20.8
+# v1.20.9
 # v1.21.1
+# v1.21.2
+# v1.22.1 (preview)
+# v1.22.2 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-KUBE_PROXY_IMAGE_VERSIONS="
-1.17.13
-1.17.13-hotfix.20210310.2
-1.17.16
-1.17.16-hotfix.20210310.2
-1.18.8-hotfix.20200924
-1.18.8-hotfix.20201112.2
-1.18.10-hotfix.20210118
-1.18.10-hotfix.20210310.2
-1.18.14-hotfix.20210511
-1.18.14-hotfix.20210525
-1.18.17-hotfix.20210525
-1.18.17-hotfix.20210525.1
-1.18.19-hotfix.20210522
-1.18.19-hotfix.20210522.1
-1.19.1-hotfix.20200923
-1.19.1-hotfix.20200923.1
-1.19.3
-1.19.6-hotfix.20210118
-1.19.6-hotfix.20210310.1
-1.19.7-hotfix.20210511
-1.19.7-hotfix.20210525
-1.19.9-hotfix.20210526
-1.19.9-hotfix.20210526.1
-1.19.11-hotfix.20210526
-1.19.11-hotfix.20210526.1
-1.20.2
-1.20.2-hotfix.20210511
-1.20.2-hotfix.20210525
-1.20.5-hotfix.20210526
-1.20.5-hotfix.20210603
-1.20.7-hotfix.20210526
-1.20.7-hotfix.20210603
-1.21.1-hotfix.20210526
-1.21.1-hotfix.20210603
-"
+
+if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+else
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+fi
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  if [[ ${CONTAINER_RUNTIME} == "containerd" ]] && (($(echo ${KUBE_PROXY_IMAGE_VERSION} | cut -d"." -f2) < 19)) ; then
-    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
-    continue
-  fi
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -371,33 +368,27 @@ done
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # below are the required to support versions
-# v1.18.17
-# v1.18.19
-# v1.19.9
 # v1.19.11
-# v1.20.5
+# v1.19.13
 # v1.20.7
+# v1.20.9
 # v1.21.1
+# v1.21.2 (preview)
+# v1.22.2 (preview)
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 KUBE_BINARY_VERSIONS="
-1.17.13
-1.17.16
-1.18.8-hotfix.20200924
-1.18.10-hotfix.20210118
-1.18.14-hotfix.20210322
-1.18.17-hotfix.20210505
-1.18.19
-1.19.1-hotfix.20200923
-1.19.3
-1.19.6-hotfix.20210118
-1.19.7-hotfix.20210310
-1.19.9-hotfix.20210505
-1.19.11
-1.20.2-hotfix.20210310
-1.20.5-hotfix.20210505
-1.20.7
-1.21.1
+1.19.11-hotfix.20210823
+1.19.13-hotfix.20210830
+1.20.7-hotfix.20210816
+1.20.9-hotfix.20210830
+1.20.13
+1.21.1-hotfix.20210827
+1.21.2-hotfix.20210830
+1.21.7
+1.22.1
+1.22.2
+1.22.4
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -414,6 +405,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
+
+echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -440,4 +433,35 @@ installAscBaseline
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   relinkResolvConf
+fi
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt-get purge --auto-remove snapd -y
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+
+  # TODO(ace): this apparently doesn't do anything for Mariner,
+  # which likely means images aren't cached at all? 
+  #
+  # retag all the mcr for mooncake
+  # shellcheck disable=SC2207
+  if [[ ${cliTool} == "ctr" ]]; then
+    # shellcheck disable=SC2016
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+  else
+    # shellcheck disable=SC2016
+    allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+  fi
+  if [[ "${allMCRImages}" == "" ]]; then
+    echo "we must find some mcr images"
+    exit 1
+  fi
+  for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
+    # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+    # shellcheck disable=SC2001
+    retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+    retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
+  done
 fi

@@ -30,7 +30,7 @@ const exampleAPIModel = `{
 			}
 		},
 		"hostedMasterProfile": { "dnsPrefix": "" },
-		"agentPoolProfiles": [ { "name": "linuxpool1", "count": 2, "vmSize": "Standard_D2_v2", "availabilityProfile": "AvailabilitySet" } ],
+		"agentPoolProfiles": [ { "name": "linuxpool1", "vmSize": "Standard_D2_v2", "availabilityProfile": "AvailabilitySet" } ],
 		"windowsProfile": { "adminUsername": "azureuser", "adminPassword": "replacepassword1234$" },
 		"linuxProfile": { "adminUsername": "azureuser", "ssh": { "publicKeys": [ { "keyData": "" } ] }
 		},
@@ -72,12 +72,9 @@ func TestLoadContainerServiceWithEmptyLocationPublicCloud(t *testing.T) {
 			"agentPoolProfiles": [
 				{
 					"name": "linuxpool",
-					"osDiskSizeGB": 200,
-					"count": 3,
 					"vmSize": "Standard_D2_v2",
 					"distro": "ubuntu",
-					"availabilityProfile": "AvailabilitySet",
-					"AcceleratedNetworkingEnabled": false
+					"availabilityProfile": "AvailabilitySet"
 				}
 			],
 			"linuxProfile": {
@@ -203,9 +200,6 @@ func getDefaultContainerService() *datamodel.ContainerService {
 						},
 					},
 				},
-				CustomNodesDNS: &datamodel.CustomNodesDNS{
-					DNSServer: "SampleDNSServer",
-				},
 				CustomSearchDomain: &datamodel.CustomSearchDomain{
 					Name:          "FooCustomSearchDomain",
 					RealmUser:     "sampleRealmUser",
@@ -273,28 +267,15 @@ func getDefaultContainerService() *datamodel.ContainerService {
 			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 				{
 					Name:      "sampleAgent",
-					Count:     2,
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
-					FQDN:      "blueorange.westus2.com",
 					OSType:    "Linux",
-					Subnet:    "sampleSubnet",
 				},
 				{
 					Name:      "sampleAgent-public",
-					Count:     2,
 					VMSize:    "sampleVM",
 					DNSPrefix: "blueorange",
-					FQDN:      "blueorange.westus2.com",
 					OSType:    "Linux",
-					Subnet:    "sampleSubnet",
-					ImageRef: &datamodel.ImageReference{
-						Name:           "testImage",
-						ResourceGroup:  "testRg",
-						SubscriptionID: "testSub",
-						Gallery:        "testGallery",
-						Version:        "0.0.1",
-					},
 				},
 			},
 		},
@@ -322,16 +303,8 @@ func TestLoadDefaultContainerServiceProperties(t *testing.T) {
 		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s AgentPoolProfiles[0].Name, instead got %s", defaultAgentPoolName, p.AgentPoolProfiles[0].Name)
 	}
 
-	if p.AgentPoolProfiles[0].Count != defaultAgentCount {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d AgentPoolProfiles[0].Count, instead got %d", defaultAgentCount, p.AgentPoolProfiles[0].Count)
-	}
-
 	if p.AgentPoolProfiles[0].VMSize != defaultVMSize {
 		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %s AgentPoolProfiles[0].VMSize, instead got %s", defaultVMSize, p.AgentPoolProfiles[0].VMSize)
-	}
-
-	if p.AgentPoolProfiles[0].OSDiskSizeGB != defaultOSDiskSizeGB {
-		t.Errorf("Expected LoadDefaultContainerServiceProperties() to return %d AgentPoolProfiles[0].OSDiskSizeGB, instead got %d", defaultOSDiskSizeGB, p.AgentPoolProfiles[0].OSDiskSizeGB)
 	}
 
 	if p.LinuxProfile.AdminUsername != defaultAdminUser {

@@ -79,6 +79,8 @@ fi
 
 installContainerRuntime
 
+setupCNIDirs
+
 installNetworkPlugin
 
 installKubeletKubectlAndKubeProxy
@@ -88,17 +90,21 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-
 configureCNI
+
 
 
 ensureContainerd 
 
 ensureMonitorService
+# must run before kubelet starts to avoid race in container status using wrong image
+# https://github.com/kubernetes/kubernetes/issues/51017
+# can remove when fixed
+cleanupRetaggedImages
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+ensureKubelet
 ensureNoDupOnPromiscuBridge
 
 if $FULL_INSTALL_REQUIRED; then

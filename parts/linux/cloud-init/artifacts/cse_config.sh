@@ -72,7 +72,7 @@ configureEtcEnvironment() {
 
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA() {
-    openssl x509 -outform der -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
+    openssl x509 -outform pem -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
     rm -f /usr/local/share/ca-certificates/proxyCA.pem
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
 }
@@ -319,11 +319,6 @@ ensureMonitorService() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
@@ -362,15 +357,8 @@ ensureKubelet() {
     {{end}}
 }
 
-# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
-ensureUpdateNodeLabels() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
+ensureMigPartition(){
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {

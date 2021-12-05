@@ -79,6 +79,8 @@ fi
 
 installContainerRuntime
 
+setupCNIDirs
+
 installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -87,11 +89,33 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
+            wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
+        fi
         systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    STATUS=`systemctl is-active nvidia-fabricmanager`
+    if [ ${STATUS} = 'active' ]; then
+        echo "Fabric Manager service is running, no need to install."
+    else
+        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
+            pushd /opt/azure/fabricmanager-${GPU_DV}
+            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
+            systemctlEnableAndStart nvidia-fabricmanager
+            popd
+        else
+            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
+        fi
+    fi
+    ensureMigPartition
+fi
+
 echo $(date),$(hostname), "End configuring GPU drivers"
 
 
@@ -102,17 +126,21 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-
 configureCNI
+
 
 
 ensureContainerd 
 
 ensureMonitorService
+# must run before kubelet starts to avoid race in container status using wrong image
+# https://github.com/kubernetes/kubernetes/issues/51017
+# can remove when fixed
+cleanupRetaggedImages
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+ensureKubelet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then

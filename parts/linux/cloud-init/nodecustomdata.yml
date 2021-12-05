@@ -103,27 +103,46 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+ {{- if IsKrustlet}}
+- path: /etc/systemd/system/krustlet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
+{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+{{- end}}
 
-{{- if not .IsVHDDistro}}
-- path: /etc/systemd/system/update-node-labels.service
+{{- if IsMIGEnabledNode}}
+- path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
 
-- path: /opt/azure/containers/update-node-labels.sh
-  permissions: "0744"
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
+
+- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="MIG_STRATEGY=--mig-strategy single"
+    ExecStart=
+    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+    #EOF
 {{end}}
 
 {{- if HasKubeletDiskType}}
@@ -140,6 +159,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -157,7 +183,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
-{{- if NeedsContainerd}}
+{{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -186,12 +212,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 {{- end}}
-- path: /etc/systemd/system/kms.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
@@ -241,6 +261,13 @@ write_files:
     DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
     DefaultEnvironment="no_proxy={{GetNoProxy}}"
     {{- end}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
@@ -249,6 +276,15 @@ write_files:
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+{{- end}}
+
+{{- if HasMessageOfTheDay}}
+- path: /etc/motd
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetMessageOfTheDay}}
 {{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
@@ -310,6 +346,12 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -433,8 +475,8 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "subnet": "{{`{{.PodCIDR}}`}}",
-                "routes": [{ "dst": "0.0.0.0/0" }]
+                "ranges": [{{`{{range $i, $range := .PodCIDRRanges}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}[{"subnet": "{{`{{$range}}`}}"}]{{`{{end}}`}}],
+                "routes": [{{`{{range $i, $route := .Routes}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}{"dst": "{{`{{$route}}`}}"}{{`{{end}}`}}]
             }
           },
           {
@@ -489,6 +531,7 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
+    net.ipv6.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
@@ -572,6 +615,15 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{- if IsKubeletConfigFileEnabled}}
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
+{{ end }}
+
 {{if IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
@@ -582,7 +634,11 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
+        {{ if IsKrustlet -}}
+        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
+        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
+        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap
@@ -595,6 +651,12 @@ write_files:
       name: bootstrap-context
     current-context: bootstrap-context
     #EOF
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
 {{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"

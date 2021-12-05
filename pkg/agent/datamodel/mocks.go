@@ -19,10 +19,8 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 
 	cs.Properties.AgentPoolProfiles = []*AgentPoolProfile{}
 	agentPool := &AgentPoolProfile{}
-	agentPool.Count = agentCount
 	agentPool.Name = "agentpool1"
 	agentPool.VMSize = "Standard_D2_v2"
-	agentPool.OSType = Linux
 	agentPool.AvailabilityProfile = "AvailabilitySet"
 	agentPool.StorageProfile = "StorageAccount"
 
@@ -88,7 +86,6 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
-				Count:               1,
 				AvailabilityProfile: AvailabilitySet,
 			},
 		},
@@ -103,7 +100,6 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 			{
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
-				Count:               1,
 				AvailabilityProfile: AvailabilitySet,
 				OSType:              Windows,
 			},
@@ -190,13 +186,13 @@ var (
 		},
 		//KubernetesSpecConfig is the default kubernetes container image url.
 		KubernetesSpecConfig: KubernetesSpecConfig{
-			KubernetesImageBase:                  "k8s.gcr.io/",
-			TillerImageBase:                      "gcr.io/kubernetes-helm/",
-			ACIConnectorImageBase:                "microsoft/",
-			NVIDIAImageBase:                      "nvidia/",
-			CalicoImageBase:                      "calico/",
-			AzureCNIImageBase:                    "mcr.microsoft.com/containernetworking/",
-			MCRKubernetesImageBase:               "mcr.microsoft.com/",
+			KubernetesImageBase:    "k8s.gcr.io/",
+			TillerImageBase:        "gcr.io/kubernetes-helm/",
+			ACIConnectorImageBase:  "microsoft/",
+			NVIDIAImageBase:        "nvidia/",
+			CalicoImageBase:        "calico/",
+			AzureCNIImageBase:      "mcr.microsoft.com/containernetworking/",
+			MCRKubernetesImageBase: "mcr.microsoft.com/",
 
 			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
@@ -208,6 +204,7 @@ var (
 			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
 			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 			AlwaysPullWindowsPauseImage:          false,
+			CseScriptsPackageURL:                 "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
 		},
 
 		EndpointConfig: AzureEndpointConfig{

@@ -1,0 +1,2 @@
+`registerplugin.reg` is used for registering `CCGAKVPlugin.dll`. This file will be downloaded by AKS build pipeline to build `windows-gmsa-ccgakvplugin-[VERSION].zip` with `CCGAKVPlugin.dll`.
+`CCGEvents.man` is used for configuring system events for `CCGAKVPlugin.dll`. This file will be downloaded by AKS build pipeline to build `windows-gmsa-ccgakvplugin-[VERSION].zip` with `CCGAKVPlugin.dll`.

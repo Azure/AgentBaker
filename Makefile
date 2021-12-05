@@ -26,7 +26,7 @@ ifeq ($(GITTAG),)
 GITTAG := $(VERSION_SHORT)
 endif
 
-DEV_ENV_IMAGE := mcr.microsoft.com/oss/azcu/go-dev:v1.28.5
+DEV_ENV_IMAGE := mcr.microsoft.com/oss/azcu/go-dev:v1.34.0
 DEV_ENV_WORK_DIR := /baker
 DEV_ENV_OPTS := --rm -v $(GOPATH)/pkg/mod:/go/pkg/mod -v $(CURDIR):$(DEV_ENV_WORK_DIR) -w $(DEV_ENV_WORK_DIR) $(DEV_ENV_VARS)
 DEV_ENV_CMD := docker run $(DEV_ENV_OPTS) $(DEV_ENV_IMAGE)
@@ -55,7 +55,7 @@ export GO111MODULE=on
 # Add the tools bin to the front of the path
 export PATH := $(TOOLSBIN):$(PATH)
 
-all: build
+all: generate
 
 .PHONY: dev
 dev:
@@ -96,13 +96,6 @@ generate: bootstrap
 .PHONY: generate-azure-constants
 generate-azure-constants:
 	python pkg/helpers/generate_azure_constants.py
-
-.PHONY: build
-build: generate go-build
-
-.PHONY: go-build
-go-build:
-	$(GO) build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(PROJECT)$(EXTENSION) $(REPO_PATH)
 
 .PHONY: tidy
 tidy:

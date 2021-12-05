@@ -9,24 +9,18 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "versions": [
-        "v2.0.0-beta8",
-        "v2.0.0-rc3",
-        "v2.0.0-rc7",
         "v2.0.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-scraper:*",
       "versions": [
-        "v1.0.2",
-        "v1.0.3",
         "v1.0.4"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/exechealthz:*",
       "versions": [
-        "1.2",
         "1.2_v0.0.5"
       ]
     },
@@ -34,8 +28,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "versions": [
         "1.8.5",
-        "1.8.4",
-        "1.8.1",
         "1.7"
       ]
     },
@@ -55,8 +47,6 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
       "versions": [
-        "1.2.0",
-        "1.3.1",
         "1.4.0",
         "3.5"
       ]
@@ -64,17 +54,17 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
       "versions": [
-        "1.8.3",
-        "1.7.1",
         "1.6.6",
-        "1.6.5"
+        "1.8.3",
+        "1.8.6"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "versions": [
-        "v1.3.3",
-        "v1.4.0"
+        "v1.4.9",
+        "v1.4.15",
+        "v1.4.16"
       ]
     },
     {
@@ -86,6 +76,13 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
+      "versions": [
+        "v1.4.9",
+        "v1.4.12"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:*",
       "versions": [
         "v1.0.30"
@@ -94,70 +91,66 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "versions": [
-        "master.210427.1",
-        "master.210524.1"
+        "master.211013.1",
+        "master.211104.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "versions": [
         "v0.0.19",
-        "v0.0.17",
-        "v0.0.16"
+        "v0.0.24",
+        "v0.0.24-hotfix.20211027"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "versions": [
-        "master.210427.1",
-        "master.210524.1"
+        "master.210623.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "versions": [
-        "v0.0.19",
-        "v0.0.21"
+        "v0.0.21.3",
+        "v0.0.21.4",
+        "v1.0.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "versions": [
-        "0.0.12",
-        "0.0.14"
+        "0.0.14.3",
+        "0.0.14.4",
+        "v1.0.0-rc.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "versions": [
-        "ciprod03262021",
-        "ciprod05202021",
-        "ciprod06112021"
+        "ciprod08052021-1",
+        "ciprod10132021"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
       "versions": [
-        "v3.8.9.2",
         "v3.8.9.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "versions": [
-        "v3.17.2",
-        "v3.18.1",
-        "v3.19.0",
-        "v3.8.9.2",
+        "v3.20.0",
+        "v3.21.0",
         "v3.8.9.5"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
       "versions": [
-        "v3.17.2",
-        "v3.18.1",
-        "v3.19.0",
+        "v3.20.0",
+        "v3.21.0",
         "v3.8.9"
       ]
     },
@@ -170,17 +163,28 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "versions": [
-        "v3.17.2",
-        "v3.18.1",
-        "v3.19.0"
+        "v3.20.0",
+        "v3.21.0"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
+      "versions": [
+        "1.10.3"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
+      "versions": [
+        "1.10.3.2",
+        "1.10.3.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
-        "v1.13.5",
-        "v1.15.1",
-        "v1.17.1"
+        "v1.20.0",
+        "v1.23.1"
       ]
     },
     {
@@ -192,18 +196,18 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "versions": [
-        "v0.5.1.2",
-        "v0.5.1.3",
         "v0.6.0",
-        "v0.7.4",
-        "v1.0.0"
+        "v0.7.5",
+        "v0.7.9",
+        "v1.0.2",
+        "v1.0.6",
+        "v1.1.1",
+        "v1.1.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "versions": [
-        "1.3.0_v0.0.5",
-        "1.7.1",
         "1.7.1-hotfix.20200403",
         "1.8.3"
       ]
@@ -223,8 +227,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "versions": [
-        "v2.5.0.4",
-        "v2.5.0.5"
+        "v2.5.0.7",
+        "v2.5.0.8"
       ]
     },
     {
@@ -236,43 +240,49 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
-        "v1.2.0",
-        "v1.4.0"
+        "v1.2.0.5",
+        "v1.2.0.6",
+        "v1.8.0.1",
+        "v1.9.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "versions": [
         "v1.2.0",
-        "v1.4.0"
+        "v1.7.0",
+        "v1.8.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "versions": [
         "v2.2.0",
-        "v2.3.0"
+        "v2.4.0",
+        "v2.5.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "versions": [
-        "v2.1.0",
-        "v2.2.0"
+        "v2.0.1",
+        "v2.3.0",
+        "v2.4.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "versions": [
-        "v3.1.3",
-        "v3.2.3"
+        "v3.4.1",
+        "v3.5.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
       "versions": [
         "v0.8.0",
-        "v0.6.0-hotfix-20200228"
+        "v0.6.0-hotfix-20200228",
+        "v0.10.0"
       ]
     },
     {
@@ -285,58 +295,52 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
       "versions": [
         "0.47.0",
-        "0.19.0"
+        "0.19.0",
+        "1.0.4",
+        "0.49.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "versions": [
-        "1.3.3",
-        "1.3.4",
-        "1.3.5"
+        "1.4.0",
+        "1.4.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "versions": [
-        "prod_20201015.1",
-        "prod_20210216.1",
-        "prod_20210325.1"
+        "prod_20210719.1",
+        "prod_20210909.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "versions": [
-        "prod_20200505.3",
-        "prod_20210209.1"
+        "prod_20210713.1",
+        "prod_20210714.1",
+        "prod_20210909.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
       "versions": [
-        "1.0.1-rc3",
-        "1.2.0",
-        "1.3.0",
-        "1.4.0"
+        "1.4.0",
+        "1.5.0-rc1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "versions": [
-        "v1.7.4",
-        "v1.7.5"
+        "v1.7.5.3",
+        "v1.7.5.4"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/command/runtime:*",
       "versions": [
-        "master.210524.9"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/command/init:*",
-      "versions": [
-        "master.210524.9"
+        "master.210524.9",
+        "master.211013.1"
       ]
     }
   ],
@@ -346,9 +350,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni",
       "versions": [
-        "0.7.6",
-        "0.7.5",
-        "0.7.1"
+        "0.7.6"
       ]
     },
     {
@@ -356,7 +358,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.8.6"
+        "0.8.7"
       ]
     },
     {
@@ -365,7 +367,9 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.0"
+        "1.4.13",
+        "1.4.14",
+        "1.4.16"
       ]
     },
     {
@@ -374,16 +378,21 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.0"
+        "1.4.12",
+        "1.4.13",
+        "1.4.14",
+        "1.4.16"
       ]
     },
     {
       "fileName": "crictl-v*-linux-amd64.tar.gz",
       "downloadLocation": "/opt/crictl/downloads",
-      "downloadURL": "https://github.com/kubernetes-sigs/cri-tools/releases/download/v*",
+      "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
         "1.19.0",
-        "1.20.0"
+        "1.20.0",
+        "1.21.0",
+        "1.22.0"
       ],
       "targetContainerRuntime": "containerd"
     }

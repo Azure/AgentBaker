@@ -84,6 +84,27 @@ if ([System.Diagnostics.EventLog]::SourceExists("Docker")) {
 else {
   Write-Host "Docker events are not available"
 }
+
+Write-Host "Collecting gMSAv2 related logs"
+# CCGPlugin (Windows gMSAv2)
+$EventSession = [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession
+$EventProviderNames = $EventSession.GetProviderNames()
+if ($EventProviderNames -contains "Microsoft-Windows-Containers-CCG") {
+  cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-Windows-Containers-CCG%4Admin.evtx" "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+  $paths += "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+}
+else {
+  Write-Host "Microsoft-Windows-Containers-CCG events are not available"
+}
+# Introduced from CCGAKVPlugin v1.1.3
+if ($EventProviderNames -contains "Microsoft-AKSGMSAPlugin") {
+  cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-AKSGMSAPlugin%4Admin.evtx" "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+  $paths += "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+}
+else {
+  Write-Host "AKSGMSAPlugin events are not available"
+}
+
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"

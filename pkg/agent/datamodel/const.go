@@ -11,7 +11,7 @@ const (
 
 const (
 	// KubernetesWindowsDockerVersion is the default version for docker on Windows nodes in kubernetes
-	KubernetesWindowsDockerVersion = "19.03.14"
+	KubernetesWindowsDockerVersion = "20.10.6"
 	// KubernetesDefaultWindowsSku is the default SKU for Windows VMs in kubernetes
 	KubernetesDefaultWindowsSku = "Datacenter-Core-1809-with-Containers-smalldisk"
 	// KubernetesDefaultContainerdWindowsSandboxIsolation is the default containerd handler for windows pods
@@ -54,6 +54,8 @@ const (
 const (
 	// NetworkPluginAzure is the string expression for Azure CNI plugin.
 	NetworkPluginAzure = "azure"
+	// NetworkPluginNone is the string expression for no CNI plugin.
+	NetworkPluginNone = "none"
 	// VMSSVMType is the string const for the vmss VM Type
 	VMSSVMType = "vmss"
 	// StandardVMType is the string const for the standard VM Type
@@ -65,11 +67,19 @@ const (
 	DefaultEnableCSIProxyWindows = false
 	// DefaultWindowsSSHEnabled is the default windowsProfile.sshEnabled value
 	DefaultWindowsSSHEnabled = true
+	// DefaultWindowsSecureTlsEnabled is the default windowsProfile.WindowsSecureTlsEnabled value
+	DefaultWindowsSecureTlsEnabled = false
 )
 
 const (
+	// AzurePublicCloud is a const string reference identifier for public cloud
+	AzurePublicCloud = "AzurePublicCloud"
 	// AzureChinaCloud is a const string reference identifier for china cloud
 	AzureChinaCloud = "AzureChinaCloud"
+	// AzureGermanCloud is a const string reference identifier for german cloud
+	AzureGermanCloud = "AzureGermanCloud"
+	// AzureUSGovernmentCloud is a const string reference identifier for us government cloud
+	AzureUSGovernmentCloud = "AzureUSGovernmentCloud"
 	// AzureStackCloud is a const string reference identifier for Azure Stack cloud
 	AzureStackCloud = "AzureStackCloud"
 )

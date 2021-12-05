@@ -16,21 +16,6 @@ $env:WindowsSKU=$windowsSKU
 
 . c:\windows-vhd-configuration.ps1
 
-function Compare-AllowedSecurityProtocols {
-    $allowedProtocols = @()
-    $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
-
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
-        if ($insecureProtocols -notcontains $protocol) {
-            $allowedProtocols += $protocol
-        }
-    }
-    if([System.Net.ServicePointManager]::SecurityProtocol -ne $allowedProtocols) {
-        Write-Error "allowedSecurityProtocols '$([System.Net.ServicePointManager]::SecurityProtocol)', expecting '$allowedProtocols'"
-        exit 1
-    }
-}
-
 function Test-FilesToCacheOnVHD
 {
     $invalidFiles = @()
@@ -50,6 +35,13 @@ function Test-FilesToCacheOnVHD
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
+            # Do not validate containerd package on docker VHD
+            if ($containerRuntime -ne 'containerd' -And $dir -eq "c:\akse-cache\containerd\") {
+                Write-Output "Skip to validate $URL for docker VHD"
+                continue
+            }
+
+            # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
             if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s\") {
                 $k8sMajorVersion = $fileName.split(".",3)[0]
                 $k8sMinorVersion = $fileName.split(".",3)[1]
@@ -64,9 +56,9 @@ function Test-FilesToCacheOnVHD
                 $invalidFiles = $invalidFiles + $dest
                 continue
             }
+
             $remoteFileSize = (Invoke-WebRequest $URL -UseBasicParsing -Method Head).Headers.'Content-Length'
             $localFileSize = (Get-Item $dest).length
-
             if ($localFileSize -ne $remoteFileSize) {
                 Write-Error "$dest : Local file size is $localFileSize but remote file size is $remoteFileSize"
                 $invalidFiles = $invalidFiles + $dest
@@ -129,14 +121,6 @@ function Test-ImagesPulled {
 }
 
 function Test-RegistryAdded {
-    Write-Output "Get the registry for the HNS fix in 2021-2C"
-    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
-    if ($result.HNSControlFlag -eq 3) {
-        Write-Output "The registry for the HNS fix is added"
-    } else {
-        Write-Error "The registry for the HNS fix is not added"
-        exit 1
-    }
     if ($containerRuntime -eq 'containerd') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
         if ($result.EnableCompartmentNamespace -eq 1) {
@@ -148,7 +132,6 @@ function Test-RegistryAdded {
     }
 }
 
-Compare-AllowedSecurityProtocols
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled

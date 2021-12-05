@@ -5,6 +5,7 @@ package agent
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -14,33 +15,43 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":           getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
-			"provisionScript":                getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
-			"provisionSource":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
-			"provisionSourceUbuntu":          getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
-			"provisionSourceMariner":         getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
-			"provisionInstalls":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
-			"provisionInstallsUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
-			"provisionInstallsMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
-			"provisionConfigs":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
-			"customSearchDomainsScript":      getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
-			"dhcpv6SystemdService":           getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
-			"dhcpv6ConfigurationScript":      getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":          getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"reconcilePrivateHostsScript":    getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService":   getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
-			"updateNodeLabelsSystemdService": getBase64EncodedGzippedCustomScript(updateNodeLabelsSystemdService, config),
-			"updateNodeLabelsScript":         getBase64EncodedGzippedCustomScript(updateNodeLabelsScript, config),
-			"ensureNoDupEbtablesScript":      getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
-			"ensureNoDupEbtablesService":     getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
-			"bindMountScript":                getBase64EncodedGzippedCustomScript(bindMountScript, config),
-			"bindMountSystemdService":        getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
+			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
+			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionSourceUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
+			"provisionSourceMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
+			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
+			"provisionInstallsUbuntu":      getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
+			"provisionInstallsMariner":     getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
+			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"krustletSystemdService":       getBase64EncodedGzippedCustomScript(krustletSystemdService, config),
+			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
+			"ensureNoDupEbtablesScript":    getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
+			"ensureNoDupEbtablesService":   getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
+			"bindMountScript":              getBase64EncodedGzippedCustomScript(bindMountScript, config),
+			"bindMountSystemdService":      getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
+			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
+			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
+			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
+			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
+			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		if strings.EqualFold(string(config.OSSKU), string("CBLMariner")) {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
+		} else {
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+		}
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
@@ -54,7 +65,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["containerdMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
 		cloudInitData["containerdMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
 		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
-		cloudInitData["containerdSystemdService"] = getBase64EncodedGzippedCustomScript(containerdSystemdService, config)
 	}
 
 	return cloudInitFiles
@@ -76,7 +86,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
 		"routeTableName":                       cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":                  cs.Properties.GetPrimaryScaleSetName(),
+		"primaryScaleSetName":                  config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":          useManagedIdentity(cs),
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
 		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
@@ -88,6 +98,9 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
 		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
 		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
+		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
+		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
+		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
 	}
 
 	return customData
@@ -109,7 +122,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"virtualNetworkResourceGroupName": cs.Properties.GetVNetResourceGroupName(),
 		"routeTableName":                  cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":      cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":             cs.Properties.GetPrimaryScaleSetName(),
+		"primaryScaleSetName":             config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":     useManagedIdentity(cs),
 		"useInstanceMetadata":             useInstanceMetadata(cs),
 		"loadBalancerSku":                 cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
@@ -121,6 +134,8 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
+		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"gpuInstanceProfile":              config.GPUInstanceProfile,
 	}
 }
 
@@ -155,15 +170,15 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 	}
 	registry := ""
 	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
-		registry = `gcr.azk8s.cn 443`
+		registry = `gcr.azk8s.cn`
 	} else if cs.IsAKSCustomCloud() {
-		registry = cs.Properties.CustomCloudEnv.McrURL + " 443"
+		registry = cs.Properties.CustomCloudEnv.McrURL
 	} else {
-		registry = `mcr.microsoft.com 443`
+		registry = `mcr.microsoft.com`
 	}
 
 	if registry == "" {
 		return ""
 	}
-	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 nc -vz ` + registry + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz ` + registry + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
+	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 curl -v --insecure --proxy-insecure https://` + registry + `/v2/ >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time curl -v --insecure --proxy-insecure https://` + registry + `/v2/ || exit $ERR_OUTBOUND_CONN_FAIL;`
 }

@@ -1,12 +1,16 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// linux/cloud-init/artifacts/10-bindmount.conf
+// linux/cloud-init/artifacts/10-componentconfig.conf
+// linux/cloud-init/artifacts/10-containerd.conf
+// linux/cloud-init/artifacts/10-httpproxy.conf
+// linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
-// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -23,13 +27,17 @@
 // linux/cloud-init/artifacts/etc-issue
 // linux/cloud-init/artifacts/etc-issue.net
 // linux/cloud-init/artifacts/health-monitor.sh
+// linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
 // linux/cloud-init/artifacts/kms.service
+// linux/cloud-init/artifacts/krustlet.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mig-partition.service
+// linux/cloud-init/artifacts/mig-partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
@@ -49,24 +57,10 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
-// linux/cloud-init/artifacts/update-node-labels.service
-// linux/cloud-init/artifacts/update-node-labels.sh
 // linux/cloud-init/nodecustomdata.yml
-// windows/containerdtemplate.toml
 // windows/csecmd.ps1
-// windows/kuberneteswindowsfunctions.ps1
 // windows/kuberneteswindowssetup.ps1
-// windows/windowsazurecnifunc.ps1
-// windows/windowsazurecnifunc.tests.ps1
-// windows/windowscalicofunc.ps1
-// windows/windowscnifunc.ps1
-// windows/windowsconfigfunc.ps1
-// windows/windowscontainerdfunc.ps1
 // windows/windowscsehelper.ps1
-// windows/windowscsiproxyfunc.ps1
-// windows/windowshostsconfigagentfunc.ps1
-// windows/windowsinstallopensshfunc.ps1
-// windows/windowskubeletfunc.ps1
 package templates
 
 import (
@@ -117,6 +111,102 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _linuxCloudInitArtifacts10BindmountConf = []byte(`[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+`)
+
+func linuxCloudInitArtifacts10BindmountConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10BindmountConf, nil
+}
+
+func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10BindmountConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
+Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+`)
+
+func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ComponentconfigConf, nil
+}
+
+func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ComponentconfigConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-componentconfig.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
+Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+`)
+
+func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10ContainerdConf, nil
+}
+
+func linuxCloudInitArtifacts10ContainerdConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10ContainerdConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-containerd.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10HttpproxyConf = []byte(`[Service]
+EnvironmentFile=/etc/environment
+`)
+
+func linuxCloudInitArtifacts10HttpproxyConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10HttpproxyConf, nil
+}
+
+func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10HttpproxyConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-httpproxy.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
+Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+`)
+
+func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10TlsbootstrapConf, nil
+}
+
+func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10TlsbootstrapConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-tlsbootstrap.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _linuxCloudInitArtifactsAptPreferences = []byte(``)
@@ -366,29 +456,6 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsContainerdService = []byte(`[Unit]
-Description=containerd daemon
-[Service]
-ExecStart=/usr/bin/containerd
-[Install]
-WantedBy=multi-user.target
-#EOF`)
-
-func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsContainerdService, nil
-}
-
-func linuxCloudInitArtifactsContainerdService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 {{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
@@ -455,6 +522,7 @@ API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
+MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -551,7 +619,7 @@ configureEtcEnvironment() {
 
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA() {
-    openssl x509 -outform der -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
+    openssl x509 -outform pem -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
     rm -f /usr/local/share/ca-certificates/proxyCA.pem
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
 }
@@ -798,11 +866,6 @@ ensureMonitorService() {
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{if EnableEncryptionWithExternalKms}}
-ensureKMS() {
-    systemctlEnableAndStart kms || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
@@ -841,15 +904,8 @@ ensureKubelet() {
     {{end}}
 }
 
-# The update-node-labels.service updates the labels for the kubernetes node. Runs until successful on startup
-ensureUpdateNodeLabels() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SCRIPT_FILE=/opt/azure/containers/update-node-labels.sh
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    UPDATE_NODE_LABELS_SYSTEMD_FILE=/etc/systemd/system/update-node-labels.service
-    wait_for_file 1200 1 $UPDATE_NODE_LABELS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart update-node-labels || exit $ERR_SYSTEMCTL_START_FAIL
+ensureMigPartition(){
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
@@ -1137,12 +1193,14 @@ ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy 
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV=450.51.06
+export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.0.3
 DOCKER_VERSION=1.13.1-1
@@ -1340,6 +1398,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
+KRUSTLET_VERSION="v0.0.1"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1347,7 +1406,16 @@ cleanupContainerdDlFiles() {
 
 installContainerRuntime() {
     {{if NeedsContainerd}}
-        installStandaloneContainerd ${CONTAINERD_VERSION}
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+            CONTAINERD_VERSION="1.5.5"
+            CONTAINERD_PATCH_VERSION="3"
+            installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
+            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+        else
+            installStandaloneContainerd ${CONTAINERD_VERSION}
+            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+        fi
     {{else}}
         installMoby
     {{end}}
@@ -1367,6 +1435,15 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadKrustlet() {
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
+    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [ ! -f "$krustlet_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$krustlet_filepath"    
+    fi
+}
+
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
@@ -1377,7 +1454,7 @@ downloadAzureCNI() {
 downloadCrictl() {
     CRICTL_VERSION=$1
     mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://github.com/kubernetes-sigs/cri-tools/releases/download/v${CRICTL_VERSION}/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
     retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
@@ -1433,15 +1510,22 @@ installTeleportdPlugin() {
 {{- end}}
 {{- end}}
 
+setupCNIDirs() {
+    mkdir -p $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
+    chmod -R 755 $CNI_BIN_DIR
+
+    mkdir -p $CNI_CONFIG_DIR
+    chown -R root:root $CNI_CONFIG_DIR
+    chmod 755 $CNI_CONFIG_DIR
+}
+
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
         downloadCNI
     fi
-    mkdir -p $CNI_BIN_DIR
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
-    chown -R root:root $CNI_BIN_DIR
-    chmod -R 755 $CNI_BIN_DIR
 }
 
 installAzureCNI() {
@@ -1449,10 +1533,6 @@ installAzureCNI() {
     if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
         downloadAzureCNI
     fi
-    mkdir -p $CNI_CONFIG_DIR
-    chown -R root:root $CNI_CONFIG_DIR
-    chmod 755 $CNI_CONFIG_DIR
-    mkdir -p $CNI_BIN_DIR
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
 }
 
@@ -1532,6 +1612,20 @@ pullContainerImage() {
     fi
 }
 
+retagContainerImage() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE_URL=$2
+    RETAG_IMAGE_URL=$3
+    echo "retaging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
+    if [[ ${CLI_TOOL} == "ctr" ]]; then
+        ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    elif [[ ${CLI_TOOL} == "crictl" ]]; then
+        crictl image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    else
+        docker image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    fi
+}
+
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
@@ -1584,6 +1678,33 @@ cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
+}
+
+cleanupRetaggedImages() {
+    if [[ "{{GetTargetEnvironment}}" != "AzureChinaCloud" ]]; then
+        {{if NeedsContainerd}}
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        fi
+        {{else}}
+        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        {{end}}
+        if [[ "${images_to_delete}" != "" ]]; then
+            echo "${images_to_delete}" | while read image; do
+                {{if NeedsContainerd}}
+                # always use ctr, even if crictl is installed.
+                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                removeContainerImage "ctr" ${image}
+                {{else}}
+                removeContainerImage "docker" ${image}
+                {{end}}
+            done
+        fi
+    else
+        echo "skipping container cleanup for AzureChinaCloud"
+    fi
 }
 
 cleanUpContainerImages() {
@@ -1725,7 +1846,13 @@ installContainerRuntime
 installTeleportdPlugin
 {{- end}}
 
+setupCNIDirs
+
 installNetworkPlugin
+
+{{- if IsKrustlet }}
+    downloadKrustlet
+{{- end }}
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
@@ -1735,16 +1862,40 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
+            wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
+        fi
         systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         systemctlDisableAndStop nvidia-device-plugin
     fi
 fi
+# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+if [[ "${MIG_NODE}" == "true" ]]; then
+    REBOOTREQUIRED=true
+    STATUS=`+"`"+`systemctl is-active nvidia-fabricmanager`+"`"+`
+    if [ ${STATUS} = 'active' ]; then
+        echo "Fabric Manager service is running, no need to install."
+    else
+        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
+            pushd /opt/azure/fabricmanager-${GPU_DV}
+            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
+            systemctlEnableAndStart nvidia-fabricmanager
+            popd
+        else
+            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
+        fi
+    fi
+    ensureMigPartition
+fi
+
 echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
+set +x
 docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+set -x
 {{end}}
 
 installKubeletKubectlAndKubeProxy
@@ -1766,7 +1917,9 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 
 configureK8s
 
+{{- if not IsNoneCNI }}
 configureCNI
+{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
@@ -1780,6 +1933,10 @@ ensureDocker
 {{- end}}
 
 ensureMonitorService
+# must run before kubelet starts to avoid race in container status using wrong image
+# https://github.com/kubernetes/kubernetes/issues/51017
+# can remove when fixed
+cleanupRetaggedImages
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
@@ -1794,11 +1951,15 @@ configureSwapFile
 {{- end}}
 
 ensureSysctl
-ensureKubelet
 ensureJournal
+{{- if IsKrustlet}}
+systemctlEnableAndStart krustlet
+{{- else}}
+ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
+{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -1883,19 +2044,28 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_startSh = []byte(`/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
+/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
-START_TIME=$(echo "$OUTPUT" | cut -d ',' -f -1 | head -1)
-EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$START_TIME" +%s))))
+KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+SYSTEMD_SUMMARY=$(systemd-analyze || true)
+EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
                   --arg op "$OUTPUT" \
                   --arg er "" \
                   --arg ed "$EXECUTION_DURATION" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed}' )
+                  --arg ks "$KERNEL_STARTTIME" \
+                  --arg cse "$CSE_STARTTIME" \
+                  --arg ga "$GUEST_AGENT_STARTTIME" \
+                  --arg ss "$SYSTEMD_SUMMARY" \
+                  --arg kubelet "$KUBELET_START_TIME" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 echo $JSON_STRING
 exit $EXIT_CODE`)
 
@@ -2301,6 +2471,73 @@ func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh = []byte(`#!/bin/bash
+mkdir -p /root/AzureCACertificates
+# http://168.63.129.16 is a constant for the host's wireserver endpoint
+certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+IFS_backup=$IFS
+IFS=$'\r\n'
+certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
+certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+for i in ${!certBodies[@]}; do
+    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed 's/.cer/.crt/g')"
+done
+IFS=$IFS_backup
+
+cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
+/usr/bin/update-ca-trust
+
+cloud-init status --wait
+
+# TODO - Set the repoDepotEndpoint in a .repo file if package update becomes necessary
+
+# Set the chrony config to use the PHC /dev/ptp0 clock
+cat > /etc/chrony.conf <<EOF
+# This directive specify the location of the file containing ID/key pairs for
+# NTP authentication.
+keyfile /etc/chrony.keys
+
+# This directive specify the file into which chronyd will store the rate
+# information.
+driftfile /var/lib/chrony/drift
+
+# Uncomment the following line to turn logging on.
+#log tracking measurements statistics
+
+# Log files location.
+logdir /var/log/chrony
+
+# Stop bad estimates upsetting machine clock.
+maxupdateskew 100.0
+
+# This directive enables kernel synchronisation (every 11 minutes) of the
+# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+rtcsync
+
+# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+makestep 1.0 -1
+EOF
+
+systemctl restart chronyd
+
+#EOF`)
+
+func linuxCloudInitArtifactsInitAksCustomCloudMarinerShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, nil
+}
+
+func linuxCloudInitArtifactsInitAksCustomCloudMarinerSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsInitAksCustomCloudMarinerShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsInitAksCustomCloudSh = []byte(`#!/bin/bash
 mkdir -p /root/AzureCACertificates
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
@@ -2443,6 +2680,40 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsKrustletService = []byte(`[Unit]
+Description=Krustlet
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+EnvironmentFile=/etc/default/kubelet
+Environment=KUBECONFIG=/var/lib/kubelet/kubeconfig
+Environment=KRUSTLET_CERT_FILE=/etc/kubernetes/certs/kubeletserver.crt
+Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
+Environment=KRUSTLET_DATA_DIR=/etc/krustlet
+Environment=RUST_LOG=wasi_provider=info,main=info
+Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+ExecStart=/usr/local/bin/krustlet-wagi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsKrustletServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsKrustletService, nil
+}
+
+func linuxCloudInitArtifactsKrustletService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsKrustletServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/krustlet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsKubeletMonitorService = []byte(`[Unit]
 Description=a script that checks kubelet health and restarts if needed
 After=kubelet.service
@@ -2492,20 +2763,10 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-{{if EnableEncryptionWithExternalKms}}
-Requires=kms.service
-{{end}}
-{{- if HasKubeletDiskType}}
-Requires=bind-mount.service
-After=bind-mount.service
-{{end}}
 
 [Service]
 Restart=always
 EnvironmentFile=/etc/default/kubelet
-{{- if ShouldConfigureHTTPProxy}}
-EnvironmentFile=/etc/environment
-{{- end}}
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -2519,20 +2780,16 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 {{if NeedsContainerd}}--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock{{end}} \
+        --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        {{- if IsKubeletConfigFileEnabled}}
-        --config /etc/default/kubeletconfig.json \
-        {{- end}}
-        {{- if IsKubeletClientTLSBootstrappingEnabled}}
-        --kubeconfig /var/lib/kubelet/kubeconfig \
-        --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
-        {{- end}}
-        $KUBELET_FLAGS \
-        $KUBELET_REGISTER_NODE $KUBELET_REGISTER_WITH_TAINTS
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_FLAGS
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsKubeletServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsKubeletService, nil
@@ -2643,7 +2900,7 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates cifs-utils conntrack-tools cracklib ebtables ethtool fuse git iotop iproute ipset iptables jq nmap-ncat nfs-utils pam pigz socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in blobfuse ca-certificates check-restart cifs-utils conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -2709,6 +2966,75 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
+Description=Apply MIG configuration on Nvidia A100 GPU
+
+[Service]
+Restart=on-failure
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionService, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMigPartitionSh = []byte(`#!/bin/bash
+
+#NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
+#TODO: Use mig-parted library to do the partition after the above issue is fixed 
+MIG_PROFILE=${1}
+case ${MIG_PROFILE} in 
+    "MIG1g")
+        nvidia-smi mig -cgi 19,19,19,19,19,19,19
+        ;;
+    "MIG2g")
+        nvidia-smi mig -cgi 14,14,14
+        ;;
+    "MIG3g")
+        nvidia-smi mig -cgi 9,9
+        ;;
+    "MIG4g")
+        nvidia-smi mig -cgi 5
+        ;;
+    "MIG7g")
+        nvidia-smi mig -cgi 0
+        ;;  
+    *)
+        echo "not a valid GPU instance profile"
+        exit 1
+        ;;
+esac
+nvidia-smi mig -cci`)
+
+func linuxCloudInitArtifactsMigPartitionShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMigPartitionSh, nil
+}
+
+func linuxCloudInitArtifactsMigPartitionSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMigPartitionShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mig-partition.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsModprobeCisConf = []byte(`# 3.5.1 Ensure DCCP is disabled
 install dccp /bin/true
 # 3.5.2 Ensure SCTP is disabled
@@ -2747,7 +3073,7 @@ var _linuxCloudInitArtifactsNvidiaDevicePluginService = []byte(`[Unit]
 Description=Run nvidia device plugin
 [Service]
 RemainAfterExit=true
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target`)
@@ -3734,7 +4060,13 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for apt_package in apache2-utils apt-transport-https blobfuse=1.3.7 ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils zip; do
+    BLOBFUSE_VERSION="1.4.1"
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    if [ "${OSVERSION}" == "16.04" ]; then
+        BLOBFUSE_VERSION="1.3.7"
+    fi
+    for apt_package in apache2-utils apt-transport-https blobfuse=${BLOBFUSE_VERSION} ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -3810,14 +4142,19 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
     # v1.4.1 is our lowest supported version of containerd
     
+    # we always default to the .1 patch versons
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.4"
-        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}"
+        CONTAINERD_VERSION="1.4.9"
+        CONTAINERD_PATCH_VERSION="3"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
-        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}"
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
@@ -3828,13 +4165,11 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        if [ -f $VHD_LOGS_FILEPATH ]; then
-            CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
-            CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
-            if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-                installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-                return 0
-            fi
+        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
+        CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            return 0
         fi
         updateAptWithMicrosoftPkg
         apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -3845,7 +4180,8 @@ installStandaloneContainerd() {
 downloadContainerd() {
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_DOWNLOAD_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-1_amd64.deb"
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
@@ -3910,75 +4246,6 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsUpdateNodeLabelsService = []byte(`[Unit]
-Description=Updates Labels for Kubernetes node
-After=kubelet.service
-[Service]
-Restart=on-failure
-RestartSec=30
-EnvironmentFile=/etc/default/kubelet
-ExecStart=/bin/bash /opt/azure/containers/update-node-labels.sh
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsService, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsUpdateNodeLabelsSh = []byte(`#!/usr/bin/env bash
-
-# Updates Labels for this Kubernetes node (adds any missing, updates others to newest values, but never removes labels)
-
-set -euo pipefail
-
-NODE_NAME=$(echo $(hostname) | tr "[:upper:]" "[:lower:]")
-
-echo "updating labels for ${NODE_NAME}"
-
-FORMATTED_CURRENT_NODE_LABELS=$(kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --list=true node $NODE_NAME | sort)
-
-echo "current node labels (sorted): ${FORMATTED_CURRENT_NODE_LABELS}"
-
-FORMATTED_NODE_LABELS_TO_UPDATE=$(echo $KUBELET_NODE_LABELS | tr ',' '\n' | sort)
-
-echo "node labels to update (formatted+sorted): ${FORMATTED_NODE_LABELS_TO_UPDATE}"
-
-MISSING_LABELS=$(comm -32 <(echo $FORMATTED_NODE_LABELS_TO_UPDATE | tr ' ' '\n') <(echo $FORMATTED_CURRENT_NODE_LABELS | tr ' ' '\n') | tr '\n' ' ')
-
-echo "missing labels: ${MISSING_LABELS}"
-
-if [ ! -z "$MISSING_LABELS" ]; then
-  kubectl label --kubeconfig /var/lib/kubelet/kubeconfig --overwrite node $NODE_NAME $MISSING_LABELS
-fi
-#EOF
-`)
-
-func linuxCloudInitArtifactsUpdateNodeLabelsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdateNodeLabelsSh, nil
-}
-
-func linuxCloudInitArtifactsUpdateNodeLabelsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdateNodeLabelsShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update-node-labels.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4088,27 +4355,46 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
+ {{- if IsKrustlet}}
+- path: /etc/systemd/system/krustlet.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
+{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+{{- end}}
 
-{{- if not .IsVHDDistro}}
-- path: /etc/systemd/system/update-node-labels.service
+{{- if IsMIGEnabledNode}}
+- path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsSystemdService"}}
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
 
-- path: /opt/azure/containers/update-node-labels.sh
-  permissions: "0744"
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "updateNodeLabelsScript"}}  
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
+
+- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="MIG_STRATEGY=--mig-strategy single"
+    ExecStart=
+    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+    #EOF
 {{end}}
 
 {{- if HasKubeletDiskType}}
@@ -4125,6 +4411,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
 {{if not .IsVHDDistro}}
@@ -4142,7 +4435,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
-{{- if NeedsContainerd}}
+{{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -4171,12 +4464,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
 {{- end}}
-- path: /etc/systemd/system/kms.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kmsSystemdService"}}
 
 - path: /etc/apt/preferences
   permissions: "0644"
@@ -4226,6 +4513,13 @@ write_files:
     DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
     DefaultEnvironment="no_proxy={{GetNoProxy}}"
     {{- end}}
+
+- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
@@ -4234,6 +4528,15 @@ write_files:
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+{{- end}}
+
+{{- if HasMessageOfTheDay}}
+- path: /etc/motd
+  permissions: "0644"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetMessageOfTheDay}}
 {{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
@@ -4295,6 +4598,12 @@ write_files:
 {{end}}
 
 {{if NeedsContainerd}}
+- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 {{if UseRuncShimV2}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -4418,8 +4727,8 @@ write_files:
             "hairpinMode": false,
             "ipam": {
                 "type": "host-local",
-                "subnet": "{{`+"`"+`{{.PodCIDR}}`+"`"+`}}",
-                "routes": [{ "dst": "0.0.0.0/0" }]
+                "ranges": [{{`+"`"+`{{range $i, $range := .PodCIDRRanges}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}[{"subnet": "{{`+"`"+`{{$range}}`+"`"+`}}"}]{{`+"`"+`{{end}}`+"`"+`}}],
+                "routes": [{{`+"`"+`{{range $i, $route := .Routes}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}{"dst": "{{`+"`"+`{{$route}}`+"`"+`}}"}{{`+"`"+`{{end}}`+"`"+`}}]
             }
           },
           {
@@ -4474,6 +4783,7 @@ write_files:
   content: |
     net.ipv4.ip_forward = 1
     net.ipv4.conf.all.forwarding = 1
+    net.ipv6.conf.all.forwarding = 1
     net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
@@ -4557,6 +4867,15 @@ write_files:
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 {{end}}
 
+{{- if IsKubeletConfigFileEnabled}}
+- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
+{{ end }}
+
 {{if IsKubeletClientTLSBootstrappingEnabled -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
@@ -4567,7 +4886,11 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
+        {{ if IsKrustlet -}}
+        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
+        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
+        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap
@@ -4580,6 +4903,12 @@ write_files:
       name: bootstrap-context
     current-context: bootstrap-context
     #EOF
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
 {{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
@@ -4780,91 +5109,6 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 	return a, nil
 }
 
-var _windowsContainerdtemplateToml = []byte(`root = "C:\\ProgramData\\containerd\\root"
-state = "C:\\ProgramData\\containerd\\state"
-
-[grpc]
-  address = "\\\\.\\pipe\\containerd-containerd"
-  max_recv_message_size = 16777216
-  max_send_message_size = 16777216
-
-[ttrpc]
-  address = ""
-
-[debug]
-  address = ""
-  level = "info"
-
-[metrics]
-  address = ""
-  grpc_histogram = false
-
-[cgroup]
-  path = ""
-
-[plugins]
-  [plugins.cri]
-    stream_server_address = "127.0.0.1"
-    stream_server_port = "0"
-    enable_selinux = false
-    sandbox_image = "{{pauseImage}}-windows-{{currentversion}}-amd64"
-    stats_collect_period = 10
-    systemd_cgroup = false
-    enable_tls_streaming = false
-    max_container_log_line_size = 16384
-    disable_http2_client = false
-    [plugins.cri.containerd]
-      snapshotter = "windows"
-      discard_unpacked_layers = true
-      no_pivot = false
-      [plugins.cri.containerd.default_runtime]
-        runtime_type = "io.containerd.runhcs.v1"
-        [plugins.cri.containerd.default_runtime.options]
-          Debug = false
-          DebugType = 0
-          SandboxImage = "{{pauseImage}}-windows-{{currentversion}}-amd64"
-          SandboxPlatform = "windows/amd64"
-          SandboxIsolation = {{sandboxIsolation}}
-      [plugins.cri.containerd.runtimes]
-        [plugins.cri.containerd.runtimes.runhcs-wcow-process]
-          runtime_type = "io.containerd.runhcs.v1"
-          [plugins.cri.containerd.runtimes.runhcs-wcow-process.options]
-            Debug = true
-            DebugType = 2
-            SandboxImage = "{{pauseImage}}-windows-{{currentversion}}-amd64"
-            SandboxPlatform = "windows/amd64"
-{{hypervisors}}
-    [plugins.cri.cni]
-      bin_dir = "{{cnibin}}"
-      conf_dir = "{{cniconf}}"
-    [plugins.cri.registry]
-      [plugins.cri.registry.mirrors]
-        [plugins.cri.registry.mirrors."docker.io"]
-          endpoint = ["https://registry-1.docker.io"]
-  [plugins.diff-service]
-    default = ["windows"]
-  [plugins.scheduler]
-    pause_threshold = 0.02
-    deletion_threshold = 0
-    mutation_threshold = 100
-    schedule_delay = "0s"
-    startup_delay = "100ms"`)
-
-func windowsContainerdtemplateTomlBytes() ([]byte, error) {
-	return _windowsContainerdtemplateToml, nil
-}
-
-func windowsContainerdtemplateToml() (*asset, error) {
-	bytes, err := windowsContainerdtemplateTomlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/containerdtemplate.toml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _windowsCsecmdPs1 = []byte(`powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
 -MasterIP {{ GetKubernetesEndpoint }}
@@ -4902,391 +5146,6 @@ func windowsCsecmdPs1() (*asset, error) {
 	return a, nil
 }
 
-var _windowsKuberneteswindowsfunctionsPs1 = []byte(`# This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
-filter RemoveNulls { $_ -replace '\0', '' }
-
-filter Timestamp { "$(Get-Date -Format o): $_" }
-
-function Write-Log($message) {
-    $msg = $message | Timestamp
-    Write-Output $msg
-}
-
-function DownloadFileOverHttp {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $Url,
-        [Parameter(Mandatory = $true)][string]
-        $DestinationPath
-    )
-
-    # First check to see if a file with the same name is already cached on the VHD
-    $fileName = [IO.Path]::GetFileName($Url)
-
-    $search = @()
-    if (Test-Path $global:CacheDir) {
-        $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
-    }
-
-    if ($search.Count -ne 0) {
-        Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"
-        Copy-Item -Path $search[0] -Destination $DestinationPath -Force
-    }
-    else {
-        $secureProtocols = @()
-        $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
-
-        foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
-            if ($insecureProtocols -notcontains $protocol) {
-                $secureProtocols += $protocol
-            }
-        }
-        [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
-
-        $oldProgressPreference = $ProgressPreference
-        $ProgressPreference = 'SilentlyContinue'
-
-        $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        curl.exe -f --retry 5 --retry-delay 0 -L $Url -o $DestinationPath
-        if ($LASTEXITCODE) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Curl exited with '$LASTEXITCODE' while attemping to downlaod '$Url'"
-        }
-        $downloadTimer.Stop()
-
-        if ($global:AppInsightsClient -ne $null) {
-            $event = New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
-            $event.Name = "FileDownload"
-            $event.Properties["FileName"] = $fileName
-            $event.Metrics["DurationMs"] = $downloadTimer.ElapsedMilliseconds
-            $global:AppInsightsClient.TrackEvent($event)
-        }
-
-        $ProgressPreference = $oldProgressPreference
-        Write-Log "Downloaded file $Url to $DestinationPath"
-    }
-}
-
-function Get-ProvisioningScripts {
-    Write-Log "Getting provisioning scripts"
-    DownloadFileOverHttp -Url $global:ProvisioningScriptsPackageUrl -DestinationPath 'c:\k\provisioningscripts.zip'
-    Expand-Archive -Path 'c:\k\provisioningscripts.zip' -DestinationPath 'c:\k' -Force
-    Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force
-}
-
-function Get-WindowsVersion {
-    $systemInfo = Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-    return "$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR)"
-}
-
-function Get-CniVersion {
-    switch ($global:NetworkPlugin) {
-        "azure" {
-            if ($global:VNetCNIPluginsURL -match "(v[0-9`+"`"+`.]+).(zip|tar)") {
-                return $matches[1]
-            }
-            else {
-                return ""
-            }
-            break;
-        }
-        default {
-            return ""
-        }
-    }
-}
-
-function Get-InstanceMetadataServiceTelemetry {
-    $keys = @{ }
-
-    try {
-        # Write-Log "Querying instance metadata service..."
-        # Note: 2019-04-30 is latest api available in all clouds
-        $metadata = Invoke-RestMethod -Headers @{"Metadata" = "true" } -URI "http://169.254.169.254/metadata/instance?api-version=2019-04-30" -Method get
-        # Write-Log ($metadata | ConvertTo-Json)
-
-        $keys.Add("vm_size", $metadata.compute.vmSize)
-    }
-    catch {
-        Write-Log "Error querying instance metadata service."
-    }
-
-    return $keys
-}
-
-# https://stackoverflow.com/a/34559554/697126
-function New-TemporaryDirectory {
-    $parent = [System.IO.Path]::GetTempPath()
-    [string] $name = [System.Guid]::NewGuid()
-    New-Item -ItemType Directory -Path (Join-Path $parent $name)
-}
-
-function Initialize-DataDirectories {
-    # Some of the Kubernetes tests that were designed for Linux try to mount /tmp into a pod
-    # On Windows, Go translates to c:\tmp. If that path doesn't exist, then some node tests fail
-
-    $requiredPaths = 'c:\tmp'
-
-    $requiredPaths | ForEach-Object {
-        Create-Directory -FullPath $_
-    }
-}
-
-function Retry-Command {
-    Param(
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]
-        $Command,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][hashtable]
-        $Args,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
-        $Retries,
-        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
-        $RetryDelaySeconds
-    )
-
-    for ($i = 0; $i -lt $Retries; $i++) {
-        try {
-            return & $Command @Args
-        }
-        catch {
-            Start-Sleep $RetryDelaySeconds
-        }
-    }
-}
-
-function Invoke-Executable {
-    Param(
-        [string]
-        $Executable,
-        [string[]]
-        $ArgList,
-        [int[]]
-        $AllowedExitCodes = @(0),
-        [int]
-        $Retries = 1,
-        [int]
-        $RetryDelaySeconds = 1
-    )
-
-    for ($i = 0; $i -lt $Retries; $i++) {
-        Write-Log "Running $Executable $ArgList ..."
-        & $Executable $ArgList
-        if ($LASTEXITCODE -notin $AllowedExitCodes) {
-            Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
-            Start-Sleep -Seconds $RetryDelaySeconds
-            continue
-        }
-        else {
-            Write-Log "$Executable returned successfully"
-            return
-        }
-    }
-
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
-}
-
-function Get-LogCollectionScripts {
-    Write-Log "Getting various log collect scripts and depencencies"
-    Create-Directory -FullPath 'c:\k\debug' -DirectoryUsage "storing debug scripts"
-    DownloadFileOverHttp -Url 'https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1' -DestinationPath 'c:\k\debug\collect-windows-logs.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1' -DestinationPath 'c:\k\debug\collectlogs.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1' -DestinationPath 'c:\k\debug\dumpVfpPolicies.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/portReservationTest.ps1' -DestinationPath 'c:\k\debug\portReservationTest.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.cmd' -DestinationPath 'c:\k\debug\starthnstrace.cmd'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.cmd' -DestinationPath 'c:\k\debug\startpacketcapture.cmd'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/stoppacketcapture.cmd' -DestinationPath 'c:\k\debug\stoppacketcapture.cmd'
-    DownloadFileOverHttp -Url 'https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/VFP.psm1' -DestinationPath 'c:\k\debug\VFP.psm1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1' -DestinationPath 'c:\k\debug\helper.psm1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1' -DestinationPath 'c:\k\debug\hns.psm1'
-}
-
-function Register-LogsCleanupScriptTask {
-    Write-Log "Creating a scheduled task to run windowslogscleanup.ps1"
-
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowslogscleanup.ps1`+"`"+`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    $trigger = New-JobTrigger -Daily -At "00:00" -DaysInterval 1
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "log-cleanup-task"
-    Register-ScheduledTask -TaskName "log-cleanup-task" -InputObject $definition
-}
-
-function Register-NodeResetScriptTask {
-    Write-Log "Creating a startup task to run windowsnodereset.ps1"
-
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `+"`"+`"c:\k\windowsnodereset.ps1`+"`"+`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    $trigger = New-JobTrigger -AtStartup -RandomDelay 00:00:05
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "k8s-restart-job"
-    Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
-}
-
-# TODO ksubrmnn parameterize this fully
-function Write-KubeClusterConfig {
-    param(
-        [Parameter(Mandatory = $true)][string]
-        $MasterIP,
-        [Parameter(Mandatory = $true)][string]
-        $KubeDnsServiceIp
-    )
-
-    $Global:ClusterConfiguration = [PSCustomObject]@{ }
-
-    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Cri -Value @{
-        Name   = $global:ContainerRuntime;
-        Images = @{
-            # e.g. "mcr.microsoft.com/oss/kubernetes/pause:1.4.1"
-            "Pause" = $global:WindowsPauseImageURL
-        }
-    }
-
-    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Cni -Value @{
-        Name   = $global:NetworkPlugin;
-        Plugin = @{
-            Name = "bridge";
-        };
-    }
-
-    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Csi -Value @{
-        EnableProxy = $global:EnableCsiProxy
-    }
-
-    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Kubernetes -Value @{
-        Source       = @{
-            Release = $global:KubeBinariesVersion;
-        };
-        ControlPlane = @{
-            IpAddress    = $MasterIP;
-            Username     = "azureuser"
-            MasterSubnet = $global:MasterSubnet
-        };
-        Network      = @{
-            ServiceCidr = $global:KubeServiceCIDR;
-            ClusterCidr = $global:KubeClusterCIDR;
-            DnsIp       = $KubeDnsServiceIp
-        };
-        Kubelet      = @{
-            NodeLabels = $global:KubeletNodeLabels;
-            ConfigArgs = $global:KubeletConfigArgs
-        };
-        Kubeproxy    = @{
-            FeatureGates = $global:KubeproxyFeatureGates
-        };
-    }
-
-    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Install -Value @{
-        Destination = "c:\k";
-    }
-
-    $Global:ClusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
-}
-
-function Assert-FileExists {
-    Param(
-        [Parameter(Mandatory = $true, Position = 0)][string]
-        $Filename
-    )
-
-    if (-Not (Test-Path $Filename)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
-    }
-}
-
-function Update-DefenderPreferences {
-    Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
-
-    if ($global:EnableCsiProxy) {
-        Add-MpPreference -ExclusionProcess "c:\k\csi-proxy-server.exe"
-    }
-
-    if ($global:ContainerRuntime -eq 'containerd') {
-        Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
-    }
-}
-
-function Check-APIServerConnectivity {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $MasterIP,
-        [Parameter(Mandatory = $false)][int]
-        $RetryInterval = 1,
-        [Parameter(Mandatory = $false)][int]
-        $ConnectTimeout = 10,  #seconds
-        [Parameter(Mandatory = $false)][int]
-        $MaxRetryCount = 100
-    )
-    $retryCount=0
-
-    do {
-        try {
-            $tcpClient=New-Object Net.Sockets.TcpClient
-            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
-            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
-            if ($tcpClient.Connected) {
-                $tcpClient.Close()
-                Write-Log "Retry $retryCount : Connected to API server successfully"
-                return
-            }
-            $tcpClient.Close()
-        } catch {
-            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
-        }
-        $retryCount++
-        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
-        Sleep $RetryInterval
-    } while ($retryCount -lt $MaxRetryCount)
-
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
-}
-
-function Get-CACertificates {
-    try {
-        Write-Log "Get CA certificates"
-        $caFolder = "C:\ca"
-        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
-
-        Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
-
-        Write-Log "Download CA certificates rawdata"
-        # This is required when the root CA certs are different for some clouds.
-        $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
-        if ([string]::IsNullOrEmpty($rawData)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata"
-        }
-
-        Write-Log "Convert CA certificates rawdata"
-        $caCerts=($rawData.Content) | ConvertFrom-Json
-        if ([string]::IsNullOrEmpty($caCerts)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
-        }
-
-        $certificates = $caCerts.Certificates
-        for ($index = 0; $index -lt $certificates.Length ; $index++) {
-            $name=$certificates[$index].Name
-            $certFilePath = Join-Path $caFolder $name
-            Write-Log "Write certificate $name to $certFilePath"
-            $certificates[$index].CertBody > $certFilePath
-        }
-    }
-    catch {
-        # Catch all exceptions in this function. NOTE: exit cannot be caught.
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
-    }
-}`)
-
-func windowsKuberneteswindowsfunctionsPs1Bytes() ([]byte, error) {
-	return _windowsKuberneteswindowsfunctionsPs1, nil
-}
-
-func windowsKuberneteswindowsfunctionsPs1() (*asset, error) {
-	bytes, err := windowsKuberneteswindowsfunctionsPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/kuberneteswindowsfunctions.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _windowsKuberneteswindowssetupPs1 = []byte(`<#
     .SYNOPSIS
         Provisions VM as a Kubernetes agent.
@@ -5300,6 +5159,11 @@ var _windowsKuberneteswindowssetupPs1 = []byte(`<#
         - This file extension is PS1, but it is actually used as a template from pkg/engine/template_generator.go
         - All of the lines that have braces in them will be modified. Please do not change them here, change them in the Go sources
         - Single quotes are forbidden, they are reserved to delineate the different members for the ARM template concat() call
+        - windowscsehelper.ps1 contains basic util functions. It will be compressed to a zip file and then be converted to base64 encoding
+          string and stored in $zippedFiles. Reason: This script is a template and has some limitations.
+        - All other scripts will be packaged and published in a single package. It will be downloaded in provisioning VM.
+          Reason: CustomData has length limitation 87380.
+        - ProvisioningScriptsPackage contains scripts to start kubelet, kubeproxy, etc. The source is https://github.com/Azure/aks-engine/tree/master/staging/provisioning/windows
 #>
 [CmdletBinding(DefaultParameterSetName="Standard")]
 param(
@@ -5409,6 +5273,7 @@ $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 $global:KubeletConfigArgs = @( {{GetKubeletConfigKeyValsPsh}} )
+$global:KubeproxyConfigArgs = @( {{GetKubeproxyConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
@@ -5442,10 +5307,6 @@ $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 
-# Telemetry settings
-$global:EnableTelemetry = [System.Convert]::ToBoolean("{{GetVariable "enableTelemetry" }}");
-$global:TelemetryKey = "{{GetVariable "applicationInsightsKey" }}";
-
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -5453,6 +5314,10 @@ $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
 # Hosts Config Agent settings
 $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConfigAgent }}");
 
+# These scripts are used by cse
+$global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
+
+# These scripts are used after node is provisioned
 $global:ProvisioningScriptsPackageUrl = "{{GetVariable "windowsProvisioningScriptsPackageURL" }}";
 
 # PauseImage
@@ -5462,372 +5327,294 @@ $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 
+# GMSA
+$global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
+
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
-# Extract ZIP from script
+# Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 
-# Dot-source scripts with functions that are called in this script
-. c:\AzureData\windows\kuberneteswindowsfunctions.ps1
-. c:\AzureData\windows\windowsconfigfunc.ps1
-. c:\AzureData\windows\windowskubeletfunc.ps1
-. c:\AzureData\windows\windowscnifunc.ps1
-. c:\AzureData\windows\windowsazurecnifunc.ps1
-. c:\AzureData\windows\windowscsiproxyfunc.ps1
-. c:\AzureData\windows\windowsinstallopensshfunc.ps1
-. c:\AzureData\windows\windowscontainerdfunc.ps1
-. c:\AzureData\windows\windowshostsconfigagentfunc.ps1
-. c:\AzureData\windows\windowscalicofunc.ps1
+# Dot-source windowscsehelper.ps1 with functions that are called in this script
 . c:\AzureData\windows\windowscsehelper.ps1
+# util functions only can be used after this line, for example, Write-Log
+
+# Download CSE function scripts
+Write-Log "Getting CSE scripts"
+$tempfile = 'c:\csescripts.zip'
+DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile
+Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
+Remove-Item -Path $tempfile -Force
+
+# Dot-source cse scripts with functions that are called in this script
+. c:\AzureData\windows\azurecnifunc.ps1
+. c:\AzureData\windows\calicofunc.ps1
+. c:\AzureData\windows\configfunc.ps1
+. c:\AzureData\windows\containerdfunc.ps1
+. c:\AzureData\windows\kubeletfunc.ps1
+. c:\AzureData\windows\kubernetesfunc.ps1
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
 
 try
 {
-    # Set to false for debugging.  This will output the start script to
-    # c:\AzureData\CustomDataSetupScript.log, and then you can RDP
-    # to the windows machine, and run the script manually to watch
-    # the output.
-    if ($true) {
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+    # Exit early if the script has been executed
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
 
-        if ($global:EnableTelemetry) {
-            $global:globalTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-            $configAppInsightsClientTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            # Get app insights binaries and set up app insights client
-            Create-Directory -FullPath c:\k\appinsights -DirectoryUsage "storing appinsights"
-            DownloadFileOverHttp -Url "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg" -DestinationPath "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip"
-            Expand-Archive -Path "c:\k\appinsights\microsoft.applicationinsights.2.11.0.zip" -DestinationPath "c:\k\appinsights"
-            $appInsightsDll = "c:\k\appinsights\lib\net46\Microsoft.ApplicationInsights.dll"
-            [Reflection.Assembly]::LoadFile($appInsightsDll)
-            $conf = New-Object "Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration"
-            $conf.DisableTelemetry = -not $global:EnableTelemetry
-            $conf.InstrumentationKey = $global:TelemetryKey
-            $global:AppInsightsClient = New-Object "Microsoft.ApplicationInsights.TelemetryClient"($conf)
+    # Install OpenSSH if SSH enabled
+    $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
-            $global:AppInsightsClient.Context.Properties["correlation_id"] = New-Guid
-            $global:AppInsightsClient.Context.Properties["cri"] = $global:ContainerRuntime
-            # TODO: Update once containerd versioning story is decided
-            $global:AppInsightsClient.Context.Properties["cri_version"] = if ($global:ContainerRuntime -eq "docker") { $global:DockerVersion } else { "" }
-            $global:AppInsightsClient.Context.Properties["k8s_version"] = $global:KubeBinariesVersion
-            $global:AppInsightsClient.Context.Properties["lb_sku"] = $global:LoadBalancerSku
-            $global:AppInsightsClient.Context.Properties["location"] = $Location
-            $global:AppInsightsClient.Context.Properties["os_type"] = "windows"
-            $global:AppInsightsClient.Context.Properties["os_version"] = Get-WindowsVersion
-            $global:AppInsightsClient.Context.Properties["network_plugin"] = $global:NetworkPlugin
-            $global:AppInsightsClient.Context.Properties["network_plugin_version"] = Get-CniVersion
-            $global:AppInsightsClient.Context.Properties["network_mode"] = $global:NetworkMode
-            $global:AppInsightsClient.Context.Properties["subscription_id"] = $global:SubscriptionId
+    if ( $sshEnabled ) {
+        Write-Log "Install OpenSSH"
+        Install-OpenSSH -SSHKeys $SSHKeys
+    }
 
-            $vhdId = ""
-            if (Test-Path "c:\vhd-id.txt") {
-                $vhdId = Get-Content "c:\vhd-id.txt"
-            }
-            $global:AppInsightsClient.Context.Properties["vhd_id"] = $vhdId
+    Write-Log "Apply telemetry data setting"
+    Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
-            $imdsProperties = Get-InstanceMetadataServiceTelemetry
-            foreach ($key in $imdsProperties.keys) {
-                $global:AppInsightsClient.Context.Properties[$key] = $imdsProperties[$key]
-            }
+    Write-Log "Resize os drive if possible"
+    Resize-OSDrive
 
-            $configAppInsightsClientTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("Config-AppInsightsClient", $configAppInsightsClientTimer.Elapsed.TotalSeconds)
+    Write-Log "Initialize data disks"
+    Initialize-DataDisks
+
+    Write-Log "Create required data directories as needed"
+    Initialize-DataDirectories
+
+    Create-Directory -FullPath "c:\k"
+    Write-Log "Remove `+"`"+`"NT AUTHORITY\Authenticated Users`+"`"+`" write permissions on files in c:\k"
+    icacls.exe "c:\k" /inheritance:r
+    icacls.exe "c:\k" /grant:r SYSTEM:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
+    icacls.exe "c:\k" /grant:r BUILTIN\Administrators:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
+    icacls.exe "c:\k" /grant:r BUILTIN\Users:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(RX`+"`"+`)
+    Write-Log "c:\k permissions: "
+    icacls.exe "c:\k"
+    Get-ProvisioningScripts
+
+    Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    Write-Log "Download kubelet binaries and unzip"
+    Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
+
+    # This overwrites the binaries that are downloaded from the custom packge with binaries.
+    # The custom package has a few files that are necessary for future steps (nssm.exe)
+    # this is a temporary work around to get the binaries until we depreciate
+    # custom package and nssm.exe as defined in aks-engine#3851.
+    if ($global:WindowsKubeBinariesURL){
+        Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
+        Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
+    }
+
+    if ($useContainerD) {
+        Write-Log "Installing ContainerD"
+        $cniBinPath = $global:AzureCNIBinDir
+        $cniConfigPath = $global:AzureCNIConfDir
+        if ($global:NetworkPlugin -eq "kubenet") {
+            $cniBinPath = $global:CNIPath
+            $cniConfigPath = $global:CNIConfigPath
         }
+        Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
+    } else {
+        Write-Log "Install docker"
+        Install-Docker -DockerVersion $global:DockerVersion
+        Set-DockerLogFileOptions
+    }
 
-        # Install OpenSSH if SSH enabled
-        $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
+    # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
+    Write-Log "Write Azure cloud provider config"
+    Write-AzureConfig `+"`"+`
+        -KubeDir $global:KubeDir `+"`"+`
+        -AADClientId $AADClientId `+"`"+`
+        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
+        -TenantId $global:TenantId `+"`"+`
+        -SubscriptionId $global:SubscriptionId `+"`"+`
+        -ResourceGroup $global:ResourceGroup `+"`"+`
+        -Location $Location `+"`"+`
+        -VmType $global:VmType `+"`"+`
+        -SubnetName $global:SubnetName `+"`"+`
+        -SecurityGroupName $global:SecurityGroupName `+"`"+`
+        -VNetName $global:VNetName `+"`"+`
+        -RouteTableName $global:RouteTableName `+"`"+`
+        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `+"`"+`
+        -PrimaryScaleSetName $global:PrimaryScaleSetName `+"`"+`
+        -UseManagedIdentityExtension $global:UseManagedIdentityExtension `+"`"+`
+        -UserAssignedClientID $UserAssignedClientID `+"`"+`
+        -UseInstanceMetadata $global:UseInstanceMetadata `+"`"+`
+        -LoadBalancerSku $global:LoadBalancerSku `+"`"+`
+        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `+"`"+`
+        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}} 
 
-        if ( $sshEnabled ) {
-            Write-Log "Install OpenSSH"
-            if ($global:EnableTelemetry) {
-                $installOpenSSHTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            }
-            Install-OpenSSH -SSHKeys $SSHKeys
-            if ($global:EnableTelemetry) {
-                $installOpenSSHTimer.Stop()
-                $global:AppInsightsClient.TrackMetric("Install-OpenSSH", $installOpenSSHTimer.Elapsed.TotalSeconds)
-            }
-        }
+    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
+    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
+    {{if IsAKSCustomCloud}}
+    $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
+    $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
+    [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
 
-        Write-Log "Apply telemetry data setting"
-        Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
+    Get-CACertificates
+    {{end}}
 
-        Write-Log "Resize os drive if possible"
-        if ($global:EnableTelemetry) {
-            $resizeTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        }
-        Resize-OSDrive
-        if ($global:EnableTelemetry) {
-            $resizeTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("Resize-OSDrive", $resizeTimer.Elapsed.TotalSeconds)
-        }
+    Write-Log "Write ca root"
+    Write-CACert -CACertificate $global:CACertificate `+"`"+`
+        -KubeDir $global:KubeDir
 
-        Write-Log "Initialize data disks"
-        Initialize-DataDisks
+    if ($global:EnableCsiProxy) {
+        New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
+    }
 
-        Write-Log "Create required data directories as needed"
-        Initialize-DataDirectories
-
-        Create-Directory -FullPath "c:\k"
-        Get-ProvisioningScripts
-
-        Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-
-        Write-Log "Download kubelet binaries and unzip"
-        Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-        # This overwrites the binaries that are downloaded from the custom packge with binaries.
-        # The custom package has a few files that are necessary for future steps (nssm.exe)
-        # this is a temporary work around to get the binaries until we depreciate
-        # custom package and nssm.exe as defined in aks-engine#3851.
-        if ($global:WindowsKubeBinariesURL){
-            Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-            Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
-        }
-
-        if ($useContainerD) {
-            Write-Log "Installing ContainerD"
-            if ($global:EnableTelemetry) {
-                $containerdTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            }
-            $cniBinPath = $global:AzureCNIBinDir
-            $cniConfigPath = $global:AzureCNIConfDir
-            if ($global:NetworkPlugin -eq "kubenet") {
-                $cniBinPath = $global:CNIPath
-                $cniConfigPath = $global:CNIConfigPath
-            }
-            Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
-            if ($global:EnableTelemetry) {
-                $containerdTimer.Stop()
-                $global:AppInsightsClient.TrackMetric("Install-ContainerD", $containerdTimer.Elapsed.TotalSeconds)
-            }
-        } else {
-            Write-Log "Install docker"
-            if ($global:EnableTelemetry) {
-                $dockerTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            }
-            Install-Docker -DockerVersion $global:DockerVersion
-            Set-DockerLogFileOptions
-            if ($global:EnableTelemetry) {
-                $dockerTimer.Stop()
-                $global:AppInsightsClient.TrackMetric("Install-Docker", $dockerTimer.Elapsed.TotalSeconds)
-            }
-        }
-
-        # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
-        Write-Log "Write Azure cloud provider config"
-        Write-AzureConfig `+"`"+`
-            -KubeDir $global:KubeDir `+"`"+`
-            -AADClientId $AADClientId `+"`"+`
-            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
-            -TenantId $global:TenantId `+"`"+`
-            -SubscriptionId $global:SubscriptionId `+"`"+`
-            -ResourceGroup $global:ResourceGroup `+"`"+`
-            -Location $Location `+"`"+`
-            -VmType $global:VmType `+"`"+`
-            -SubnetName $global:SubnetName `+"`"+`
-            -SecurityGroupName $global:SecurityGroupName `+"`"+`
-            -VNetName $global:VNetName `+"`"+`
-            -RouteTableName $global:RouteTableName `+"`"+`
-            -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `+"`"+`
-            -PrimaryScaleSetName $global:PrimaryScaleSetName `+"`"+`
-            -UseManagedIdentityExtension $global:UseManagedIdentityExtension `+"`"+`
-            -UserAssignedClientID $UserAssignedClientID `+"`"+`
-            -UseInstanceMetadata $global:UseInstanceMetadata `+"`"+`
-            -LoadBalancerSku $global:LoadBalancerSku `+"`"+`
-            -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `+"`"+`
-            -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}} 
-
-        # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
-        # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
-        {{if IsAKSCustomCloud}}
-        $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
-        $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
-        [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
-
-        Get-CACertificates
-        {{end}}
-
-        Write-Log "Write ca root"
-        Write-CACert -CACertificate $global:CACertificate `+"`"+`
-            -KubeDir $global:KubeDir
-
-        if ($global:EnableCsiProxy) {
-            New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
-        }
-
-        if ($global:TLSBootstrapToken) {
-            Write-Log "Write TLS bootstrap kubeconfig"
-            Write-BootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
-                -KubeDir $global:KubeDir `+"`"+`
-                -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
-                -MasterIP $MasterIP `+"`"+`
-                -TLSBootstrapToken $global:TLSBootstrapToken
-
-            # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
-            #       This kubeconfig will deleted after calico installation.
-            # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
-            Write-Log "Write temporary kube config"
-        } else {
-            Write-Log "Write kube config"
-        }
-
-        Write-KubeConfig -CACertificate $global:CACertificate `+"`"+`
+    if ($global:TLSBootstrapToken) {
+        Write-Log "Write TLS bootstrap kubeconfig"
+        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
             -KubeDir $global:KubeDir `+"`"+`
             -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
             -MasterIP $MasterIP `+"`"+`
-            -AgentKey $AgentKey `+"`"+`
-            -AgentCertificate $global:AgentCertificate
+            -TLSBootstrapToken $global:TLSBootstrapToken
 
-        if ($global:EnableHostsConfigAgent) {
-             Write-Log "Starting hosts config agent"
-             New-HostsConfigService
-         }
+        # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
+        #       This kubeconfig will deleted after calico installation.
+        # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
+        Write-Log "Write temporary kube config"
+    } else {
+        Write-Log "Write kube config"
+    }
 
-        Write-Log "Create the Pause Container kubletwin/pause"
-        if ($global:EnableTelemetry) {
-            $infraContainerTimer = [System.Diagnostics.Stopwatch]::StartNew()
-        }
-        New-InfraContainer -KubeDir $global:KubeDir -ContainerRuntime $global:ContainerRuntime
-        if ($global:EnableTelemetry) {
-            $infraContainerTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("New-InfraContainer", $infraContainerTimer.Elapsed.TotalSeconds)
-        }
+    Write-KubeConfig -CACertificate $global:CACertificate `+"`"+`
+        -KubeDir $global:KubeDir `+"`"+`
+        -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
+        -MasterIP $MasterIP `+"`"+`
+        -AgentKey $AgentKey `+"`"+`
+        -AgentCertificate $global:AgentCertificate
 
-        if (-not (Test-ContainerImageExists -Image "kubletwin/pause" -ContainerRuntime $global:ContainerRuntime)) {
-            Write-Log "Could not find container with name kubletwin/pause"
-            if ($useContainerD) {
-                $o = ctr -n k8s.io image list
-                Write-Log $o
-            } else {
-                $o = docker image list
-                Write-Log $o
-            }
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
+    if ($global:EnableHostsConfigAgent) {
+            Write-Log "Starting hosts config agent"
+            New-HostsConfigService
         }
 
-        Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
+    Write-Log "Create the Pause Container kubletwin/pause"
+    New-InfraContainer -KubeDir $global:KubeDir -ContainerRuntime $global:ContainerRuntime
 
-        # Configure network policy.
-        Get-HnsPsm1 -HNSModule $global:HNSModule
-        Import-Module $global:HNSModule
-
-        if ($global:NetworkPlugin -eq "azure") {
-            Write-Log "Installing Azure VNet plugins"
-            Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
-                -AzureCNIBinDir $global:AzureCNIBinDir `+"`"+`
-                -VNetCNIPluginsURL $global:VNetCNIPluginsURL
-
-            Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
-                -KubeDnsSearchPath $global:KubeDnsSearchPath `+"`"+`
-                -KubeClusterCIDR $global:KubeClusterCIDR `+"`"+`
-                -KubeServiceCIDR $global:KubeServiceCIDR `+"`"+`
-                -VNetCIDR $global:VNetCIDR `+"`"+`
-                -IsDualStackEnabled $global:IsDualStackEnabled
-
-            if ($TargetEnvironment -ieq "AzureStackCloud") {
-                GenerateAzureStackCNIConfig `+"`"+`
-                    -TenantId $global:TenantId `+"`"+`
-                    -SubscriptionId $global:SubscriptionId `+"`"+`
-                    -ResourceGroup $global:ResourceGroup `+"`"+`
-                    -AADClientId $AADClientId `+"`"+`
-                    -KubeDir $global:KubeDir `+"`"+`
-                    -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
-                    -NetworkAPIVersion $NetworkAPIVersion `+"`"+`
-                    -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `+"`"+`
-                    -IdentitySystem "{{ GetIdentitySystem }}"
-            }
+    if (-not (Test-ContainerImageExists -Image "kubletwin/pause" -ContainerRuntime $global:ContainerRuntime)) {
+        Write-Log "Could not find container with name kubletwin/pause"
+        if ($useContainerD) {
+            $o = ctr -n k8s.io image list
+            Write-Log $o
+        } else {
+            $o = docker image list
+            Write-Log $o
         }
-        elseif ($global:NetworkPlugin -eq "kubenet") {
-            Write-Log "Fetching additional files needed for kubenet"
-            if ($useContainerD) {
-                # TODO: CNI may need to move to c:\program files\containerd\cni\bin with ContainerD
-                Install-SdnBridge -Url $global:ContainerdSdnPluginUrl -CNIPath $global:CNIPath
-            } else {
-                Update-WinCNI -CNIPath $global:CNIPath
-            }
-        }
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
+    }
 
-        New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+    Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 
-        Install-KubernetesServices `+"`"+`
+    # Configure network policy.
+    Get-HnsPsm1 -HNSModule $global:HNSModule
+    Import-Module $global:HNSModule
+
+    Write-Log "Installing Azure VNet plugins"
+    Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
+        -AzureCNIBinDir $global:AzureCNIBinDir `+"`"+`
+        -VNetCNIPluginsURL $global:VNetCNIPluginsURL
+
+    Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
+        -KubeDnsSearchPath $global:KubeDnsSearchPath `+"`"+`
+        -KubeClusterCIDR $global:KubeClusterCIDR `+"`"+`
+        -KubeServiceCIDR $global:KubeServiceCIDR `+"`"+`
+        -VNetCIDR $global:VNetCIDR `+"`"+`
+        -IsDualStackEnabled $global:IsDualStackEnabled
+
+    if ($TargetEnvironment -ieq "AzureStackCloud") {
+        GenerateAzureStackCNIConfig `+"`"+`
+            -TenantId $global:TenantId `+"`"+`
+            -SubscriptionId $global:SubscriptionId `+"`"+`
+            -ResourceGroup $global:ResourceGroup `+"`"+`
+            -AADClientId $AADClientId `+"`"+`
             -KubeDir $global:KubeDir `+"`"+`
-            -ContainerRuntime $global:ContainerRuntime
-
-        Get-LogCollectionScripts
-
-        Write-Log "Disable Internet Explorer compat mode and set homepage"
-        Set-Explorer
-
-        Write-Log "Adjust pagefile size"
-        Adjust-PageFileSize
-
-        Write-Log "Start preProvisioning script"
-        PREPROVISION_EXTENSION
-
-        Write-Log "Update service failure actions"
-        Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
-
-        Adjust-DynamicPortRange
-        Register-LogsCleanupScriptTask
-        Register-NodeResetScriptTask
-        Update-DefenderPreferences
-
-        Check-APIServerConnectivity -MasterIP $MasterIP
-
-        if ($global:WindowsCalicoPackageURL) {
-            Write-Log "Start calico installation"
-            Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
-        }
-
-        if (Test-Path $CacheDir)
-        {
-            Write-Log "Removing aks-engine bits cache directory"
-            Remove-Item $CacheDir -Recurse -Force
-        }
-
-        if ($global:EnableTelemetry) {
-            $global:globalTimer.Stop()
-            $global:AppInsightsClient.TrackMetric("TotalDuration", $global:globalTimer.Elapsed.TotalSeconds)
-            $global:AppInsightsClient.Flush()
-        }
-
-        if ($global:TLSBootstrapToken) {
-            Write-Log "Removing temporary kube config"
-            $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-            Remove-Item $kubeConfigFile
-        }
-
-        # Enable FIPS-mode
-        Enable-FIPSMode $fipsEnabled
-
-        # Postpone restart-computer so we can generate CSE response before restarting computer
-        Write-Log "Setup Complete, reboot computer"
-        Postpone-RestartComputer
+            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
+            -NetworkAPIVersion $NetworkAPIVersion `+"`"+`
+            -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `+"`"+`
+            -IdentitySystem "{{ GetIdentitySystem }}"
     }
-    else
+
+    New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+
+    Install-KubernetesServices `+"`"+`
+        -KubeDir $global:KubeDir `+"`"+`
+        -ContainerRuntime $global:ContainerRuntime
+
+    Get-LogCollectionScripts
+
+    Write-Log "Disable Internet Explorer compat mode and set homepage"
+    Set-Explorer
+
+    Write-Log "Adjust pagefile size"
+    Adjust-PageFileSize
+
+    Write-Log "Start preProvisioning script"
+    PREPROVISION_EXTENSION
+
+    Write-Log "Update service failure actions"
+    Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
+    Adjust-DynamicPortRange
+    Register-LogsCleanupScriptTask
+    Register-NodeResetScriptTask
+    Update-DefenderPreferences
+
+    if ($windowsSecureTlsEnabled) {
+        Write-Host "Enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+        }
+    }
+
+    Enable-FIPSMode -FipsEnabled $fipsEnabled
+    if ($global:WindowsGmsaPackageUrl) {
+        Write-Log "Start to install Windows gmsa package"
+        Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+    }
+
+    Check-APIServerConnectivity -MasterIP $MasterIP
+
+    if ($global:WindowsCalicoPackageURL) {
+        Write-Log "Start calico installation"
+        Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+    }
+
+    if (Test-Path $CacheDir)
     {
-        # keep for debugging purposes
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AgentKey $AgentKey -AADClientId $AADClientId -AADClientSecret $AADClientSecret -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+        Write-Log "Removing aks-engine bits cache directory"
+        Remove-Item $CacheDir -Recurse -Force
     }
+
+    if ($global:TLSBootstrapToken) {
+        Write-Log "Removing temporary kube config"
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Remove-Item $kubeConfigFile
+    }
+
+    # Postpone restart-computer so we can generate CSE response before restarting computer
+    Write-Log "Setup Complete, reboot computer"
+    Postpone-RestartComputer
 }
 catch
 {
-    if ($global:EnableTelemetry) {
-        $exceptionTelemtry = New-Object "Microsoft.ApplicationInsights.DataContracts.ExceptionTelemetry"
-        $exceptionTelemtry.Exception = $_.Exception
-        $global:AppInsightsClient.TrackException($exceptionTelemtry)
-        $global:AppInsightsClient.Flush()
-    }
-
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
@@ -5861,1063 +5648,105 @@ func windowsKuberneteswindowssetupPs1() (*asset, error) {
 	return a, nil
 }
 
-var _windowsWindowsazurecnifuncPs1 = []byte(`
+var _windowsWindowscsehelperPs1 = []byte(`# This script is used to define basic util functions
+# It is better to define functions in the scripts under staging/cse/windows.
 
-# TODO: remove - dead code?
-function
-Set-VnetPluginMode()
-{
+# Define all exit codes in Windows CSE
+$global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
+$global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
+$global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST=4
+$global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY=5
+$global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST=6
+$global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX=7
+$global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM=8
+$global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST=9
+$global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST=10
+$global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST=11
+$global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST=12
+$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED=13
+$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
+$global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
+$global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
+$global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
+$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
+$global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
+$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21
+$global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS=22
+$global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE=23
+$global:WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE=24
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION=25
+$global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
+$global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
+
+# This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
+filter RemoveNulls { $_ -replace '\0', '' }
+
+filter Timestamp { "$(Get-Date -Format o): $_" }
+
+function Write-Log($message) {
+    $msg = $message | Timestamp
+    Write-Output $msg
+}
+
+function DownloadFileOverHttp {
     Param(
-        [Parameter(Mandatory=$true)][string]
-        $AzureCNIConfDir,
-        [Parameter(Mandatory=$true)][string]
-        $Mode
-    )
-    # Sets Azure VNET CNI plugin operational mode.
-    $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
-    (Get-Content $fileName) | %{$_ -replace "`+"`"+`"mode`+"`"+`":.*", "`+"`"+`"mode`+"`"+`": `+"`"+`"$Mode`+"`"+`","} | Out-File -encoding ASCII -filepath $fileName
-}
-
-
-function
-Install-VnetPlugins
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
-        $AzureCNIConfDir,
-        [Parameter(Mandatory=$true)][string]
-        $AzureCNIBinDir,
-        [Parameter(Mandatory=$true)][string]
-        $VNetCNIPluginsURL
-    )
-    # Create CNI directories.
-    Create-Directory -FullPath $AzureCNIBinDir -DirectoryUsage "storing Azure CNI binaries"
-    Create-Directory -FullPath $AzureCNIConfDir -DirectoryUsage "storing Azure CNI configuration"
-
-    # Download Azure VNET CNI plugins.
-    # Mirror from https://github.com/Azure/azure-container-networking/releases
-    $zipfile =  [Io.path]::Combine("$AzureCNIDir", "azure-vnet.zip")
-    DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile
-    Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
-    del $zipfile
-
-    # Windows does not need a separate CNI loopback plugin because the Windows
-    # kernel automatically creates a loopback interface for each network namespace.
-    # Copy CNI network config file and set bridge mode.
-    move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
-}
-
-# TODO: remove - dead code?
-function
-Set-AzureNetworkPlugin()
-{
-    # Azure VNET network policy requires tunnel (hairpin) mode because policy is enforced in the host.
-    Set-VnetPluginMode "tunnel"
-}
-
-function
-Set-AzureCNIConfig
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
-        $AzureCNIConfDir,
-        [Parameter(Mandatory=$true)][string]
-        $KubeDnsSearchPath,
-        [Parameter(Mandatory=$true)][string]
-        $KubeClusterCIDR,
-        [Parameter(Mandatory=$true)][string]
-        $KubeServiceCIDR,
-        [Parameter(Mandatory=$true)][string]
-        $VNetCIDR,
-        [Parameter(Mandatory=$true)][bool]
-        $IsDualStackEnabled
-    )
-    # Fill in DNS information for kubernetes.
-    if ($IsDualStackEnabled){
-        $subnetToPass = $KubeClusterCIDR -split ","
-        $exceptionAddresses = @($subnetToPass[0])
-    }
-    else {
-        $exceptionAddresses = @($KubeClusterCIDR)
-    }
-    $vnetCIDRs = $VNetCIDR -split ","
-    foreach ($cidr in $vnetCIDRs) {
-        $exceptionAddresses += $cidr
-    }
-
-    $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
-    $configJson = Get-Content $fileName | ConvertFrom-Json
-    $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
-    $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
-
-    $osBuildNumber = (get-wmiobject win32_operatingsystem).BuildNumber
-    if ($osBuildNumber -le 17763){
-        # In WS2019 and below rules in the exception list are generated by dropping the prefix lenght and removing duplicate rules.
-        # If multiple execptions are specified with different ranges we should only include the broadest range for each address.
-        # This issue has been addressed in 19h1+ builds
-
-        $processedExceptions = GetBroadestRangesForEachAddress $exceptionAddresses
-        Write-Log "Filtering CNI config exception list values to work around WS2019 issue processing rules. Original exception list: $exceptionAddresses, processed exception list: $processedExceptions"
-        $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $processedExceptions
-    }
-    else {
-        $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
-    }
-
-    if ($IsDualStackEnabled){
-        $configJson.plugins[0]|Add-Member -Name "ipv6Mode" -Value "ipv6nat" -MemberType NoteProperty
-        $serviceCidr = $KubeServiceCIDR -split ","
-        $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $serviceCidr[0]
-        $valueObj = [PSCustomObject]@{
-            Type = 'ROUTE'
-            DestinationPrefix = $serviceCidr[1]
-            NeedEncap = $True
-        }
-
-        $jsonContent = [PSCustomObject]@{
-            Name = 'EndpointPolicy'
-            Value = $valueObj
-        }
-        $configJson.plugins[0].AdditionalArgs += $jsonContent
-    }
-    else {
-        $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $KubeServiceCIDR
-    }
-
-    $aclRule1 = [PSCustomObject]@{
-        Type = 'ACL'
-        Protocols = '6'
-        Action = 'Block'
-        Direction = 'Out'
-        RemoteAddresses = '168.63.129.16/32'
-        RemotePorts = '80'
-        Priority = 200
-        RuleType = 'Switch'
-    }
-    $aclRule2 = [PSCustomObject]@{
-        Type = 'ACL'
-        Action = 'Allow'
-        Direction = 'In'
-        Priority = 65500
-    }
-    $aclRule3 = [PSCustomObject]@{
-        Type = 'ACL'
-        Action = 'Allow'
-        Direction = 'Out'
-        Priority = 65500
-    }
-    $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
-        Value = $aclRule1
-    }
-    $configJson.plugins[0].AdditionalArgs += $jsonContent
-    $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
-        Value = $aclRule2
-    }
-    $configJson.plugins[0].AdditionalArgs += $jsonContent
-    $jsonContent = [PSCustomObject]@{
-        Name = 'EndpointPolicy'
-        Value = $aclRule3
-    }
-    $configJson.plugins[0].AdditionalArgs += $jsonContent
-
-    $configJson | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $fileName
-}
-
-function GetBroadestRangesForEachAddress{
-    param([string[]] $values)
-
-    # Create a map of range values to IP addresses
-    $map = @{}
-
-    foreach ($value in $Values) {
-        if ($value -match '([0-9\.]+)\/([0-9]+)') {
-            if (!$map.contains($matches[1])) {
-                $map.Add($matches[1], @())
-            }
-
-            $map[$matches[1]] += [int]$matches[2]
-        }
-    }
-
-    # For each IP address select the range with the lagest scope (smallest value)
-    $returnValues = @()
-    foreach ($ip in $map.Keys) {
-        $range = $map[$ip] | Sort-Object | Select-Object -First 1
-
-        $returnValues += $ip + "/" + $range
-    }
-
-    # prefix $returnValues with common to ensure single values get returned as an array otherwise invalid json may be generated
-    return ,$returnValues
-}
-
-function GetSubnetPrefix
-{
-    Param(
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $Token,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $SubnetId,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $ResourceManagerEndpoint,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $NetworkAPIVersion
-    )
-
-    $uri = "$($ResourceManagerEndpoint)$($SubnetId)?api-version=$NetworkAPIVersion"
-    $headers = @{Authorization="Bearer $Token"}
-
-    $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=$headers} -Retries 5 -RetryDelaySeconds 10
-
-    if(!$response) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX -ErrorMessage 'Error getting subnet prefix'
-    }
-
-    $response.properties.addressPrefix
-}
-
-function GenerateAzureStackCNIConfig
-{
-    Param(
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $TenantId,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $SubscriptionId,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $AADClientId,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $AADClientSecret,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $ResourceGroup,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $NetworkAPIVersion,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $AzureEnvironmentFilePath,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $IdentitySystem,
-        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $KubeDir
-
-    )
-
-    $networkInterfacesFile = "$KubeDir\network-interfaces.json"
-    $azureCNIConfigFile = "$KubeDir\interfaces.json"
-    $azureEnvironment = Get-Content $AzureEnvironmentFilePath | ConvertFrom-Json
-
-    Write-Log "------------------------------------------------------------------------"
-    Write-Log "Parameters"
-    Write-Log "------------------------------------------------------------------------"
-    Write-Log "TenantId:                  $TenantId"
-    Write-Log "SubscriptionId:            $SubscriptionId"
-    Write-Log "AADClientId:               ..."
-    Write-Log "AADClientSecret:           ..."
-    Write-Log "ResourceGroup:             $ResourceGroup"
-    Write-Log "NetworkAPIVersion:         $NetworkAPIVersion"
-    Write-Log "ServiceManagementEndpoint: $($azureEnvironment.serviceManagementEndpoint)"
-    Write-Log "ActiveDirectoryEndpoint:   $($azureEnvironment.activeDirectoryEndpoint)"
-    Write-Log "ResourceManagerEndpoint:   $($azureEnvironment.resourceManagerEndpoint)"
-    Write-Log "------------------------------------------------------------------------"
-    Write-Log "Variables"
-    Write-Log "------------------------------------------------------------------------"
-    Write-Log "azureCNIConfigFile: $azureCNIConfigFile"
-    Write-Log "networkInterfacesFile: $networkInterfacesFile"
-    Write-Log "------------------------------------------------------------------------"
-
-    Write-Log "Generating token for Azure Resource Manager"
-
-    $tokenURL = ""
-    if($IdentitySystem -ieq "adfs") {
-        $tokenURL = "$($azureEnvironment.activeDirectoryEndpoint)adfs/oauth2/token"
-    } else {
-        $tokenURL = "$($azureEnvironment.activeDirectoryEndpoint)$TenantId/oauth2/token"
-    }
-
-    Add-Type -AssemblyName System.Web
-    $encodedSecret = [System.Web.HttpUtility]::UrlEncode($AADClientSecret)
-
-    $body = "grant_type=client_credentials&client_id=$AADClientId&client_secret=$encodedSecret&resource=$($azureEnvironment.serviceManagementEndpoint)"
-    $args = @{Uri=$tokenURL; Method="Post"; Body=$body; ContentType='application/x-www-form-urlencoded'}
-    $tokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
-
-    if(!$tokenResponse) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM -ErrorMessage 'Error generating token for Azure Resource Manager'
-    }
-
-    $token = $tokenResponse | Select-Object -ExpandProperty access_token
-
-    Write-Log "Fetching network interface configuration for node"
-
-    $interfacesUri = "$($azureEnvironment.resourceManagerEndpoint)subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Network/networkInterfaces?api-version=$NetworkAPIVersion"
-    $headers = @{Authorization="Bearer $token"}
-    $args = @{Uri=$interfacesUri; Method="Get"; ContentType="application/json"; Headers=$headers; OutFile=$networkInterfacesFile}
-    Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
-
-    if(!$(Test-Path $networkInterfacesFile)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST -ErrorMessage 'Error fetching network interface configuration for node'
-    }
-
-    Write-Log "Generating Azure CNI interface file"
-
-    $localNics = Get-NetAdapter | Select-Object -ExpandProperty MacAddress | ForEach-Object {$_ -replace "-",""}
-
-    $sdnNics = Get-Content $networkInterfacesFile `+"`"+`
-        | ConvertFrom-Json `+"`"+`
-        | Select-Object -ExpandProperty value `+"`"+`
-        | Where-Object { $localNics.Contains($_.properties.macAddress) } `+"`"+`
-        | Where-Object { $_.properties.ipConfigurations.Count -gt 0}
-
-    $interfaces = @{
-        Interfaces = @( $sdnNics | ForEach-Object { @{
-            MacAddress = $_.properties.macAddress
-            IsPrimary = $_.properties.primary
-            IPSubnets = @(@{
-                Prefix = GetSubnetPrefix `+"`"+`
-                            -Token $token `+"`"+`
-                            -SubnetId $_.properties.ipConfigurations[0].properties.subnet.id `+"`"+`
-                            -NetworkAPIVersion $NetworkAPIVersion `+"`"+`
-                            -ResourceManagerEndpoint $($azureEnvironment.resourceManagerEndpoint)
-                IPAddresses = $_.properties.ipConfigurations | ForEach-Object { @{
-                    Address = $_.properties.privateIPAddress
-                    IsPrimary = $_.properties.primary
-                }}
-            })
-        }})
-    }
-
-    ConvertTo-Json $interfaces -Depth 6 | Out-File -FilePath $azureCNIConfigFile -Encoding ascii
-
-    Set-ItemProperty -Path $azureCNIConfigFile -Name IsReadOnly -Value $true
-}
-
-function New-ExternalHnsNetwork
-{
-    param (
-        [Parameter(Mandatory=$true)][bool]
-        $IsDualStackEnabled
-    )
-
-    Write-Log "Creating new HNS network `+"`"+`"ext`+"`"+`""
-    $externalNetwork = "ext"
-    $na = @(Get-NetAdapter -Physical)
-
-    if ($na.Count -eq 0) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
-    }
-
-    # If there is more than one adapter, use the first adapter.
-    $managementIP = (Get-NetIPAddress -ifIndex $na[0].ifIndex -AddressFamily IPv4).IPAddress
-    $adapterName = $na[0].Name
-    Write-Log "Using adapter $adapterName with IP address $managementIP"
-    $mgmtIPAfterNetworkCreate
-
-    $stopWatch = New-Object System.Diagnostics.Stopwatch
-    $stopWatch.Start()
-
-    # Fixme : use a smallest range possible, that will not collide with any pod space
-    if ($IsDualStackEnabled) {
-        New-HNSNetwork -Type $global:NetworkMode -AddressPrefix @("192.168.255.0/30","192:168:255::0/127") -Gateway @("192.168.255.1","192:168:255::1") -AdapterName $adapterName -Name $externalNetwork -Verbose
-    }
-    else {
-        New-HNSNetwork -Type $global:NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -AdapterName $adapterName -Name $externalNetwork -Verbose
-    }
-    # Wait for the switch to be created and the ip address to be assigned.
-    for ($i = 0; $i -lt 60; $i++) {
-        $mgmtIPAfterNetworkCreate = Get-NetIPAddress $managementIP -ErrorAction SilentlyContinue
-        if ($mgmtIPAfterNetworkCreate) {
-            break
-        }
-        Start-Sleep -Milliseconds 500
-    }
-
-    $stopWatch.Stop()
-    if (-not $mgmtIPAfterNetworkCreate) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
-    }
-    Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
-}
-`)
-
-func windowsWindowsazurecnifuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowsazurecnifuncPs1, nil
-}
-
-func windowsWindowsazurecnifuncPs1() (*asset, error) {
-	bytes, err := windowsWindowsazurecnifuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowsazurecnifunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowsazurecnifuncTestsPs1 = []byte(`. $PSScriptRoot\windowsazurecnifunc.ps1
-
-Describe 'GetBroadestRangesForEachAddress' {
-
-    It "Values '<Values>' should return '<Expected>'" -TestCases @(
-        @{ Values = @('10.240.0.0/12', '10.0.0.0/8'); Expected = @('10.0.0.0/8', '10.240.0.0/12')}
-        @{ Values = @('10.0.0.0/8', '10.0.0.0/16'); Expected = @('10.0.0.0/8')}
-        @{ Values = @('10.0.0.0/16', '10.240.0.0/12', '10.0.0.0/8' ); Expected = @('10.0.0.0/8', '10.240.0.0/12')}
-        @{ Values = @(); Expected = @()}
-        @{ Values = @('foobar'); Expected = @()}
-    ){
-        param ($Values, $Expected)
-
-        $actual = GetBroadestRangesForEachAddress -values $Values
-        $actual | Should -Be $Expected
-    }
-}`)
-
-func windowsWindowsazurecnifuncTestsPs1Bytes() ([]byte, error) {
-	return _windowsWindowsazurecnifuncTestsPs1, nil
-}
-
-func windowsWindowsazurecnifuncTestsPs1() (*asset, error) {
-	bytes, err := windowsWindowsazurecnifuncTestsPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowsazurecnifunc.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowscalicofuncPs1 = []byte(`function Get-CalicoPackage {
-    param(
-        [parameter(Mandatory=$true)] $RootDir
-    )
-
-    Write-Log "Getting Calico package"
-    DownloadFileOverHttp -Url $global:WindowsCalicoPackageURL -DestinationPath 'c:\calicowindows.zip'
-    Expand-Archive -Path 'c:\calicowindows.zip' -DestinationPath $RootDir -Force
-    Remove-Item -Path 'c:\calicowindows.zip' -Force
-}
-
-function Set-CalicoStaticRules {
-    param(
-        [parameter(Mandatory=$true)] $CalicoRootDir
-    )
-    $fileName  = [Io.path]::Combine("$CalicoRootDir", "static-rules.json")
-    echo '{
-    "Provider": "AKS",
-    "Rules": [
-        {
-            "Name": "EndpointPolicy",
-            "Rule": {
-                "Action": "Block",
-                "Direction": "Out",
-                "Id": "block-wireserver",
-                "Priority": 200,
-                "Protocol": 6,
-                "RemoteAddresses": "168.63.129.16/32",
-                "RemotePorts": "80",
-                "RuleType": "Switch",
-                "Type": "ACL"
-            }
-        }
-    ],
-    "version": "0.1.0"
-}' | Out-File -encoding ASCII -filepath $fileName
-}
-
-function SetConfigParameters {
-    param(
-        [parameter(Mandatory=$true)] $RootDir,
-        [parameter(Mandatory=$true)] $OldString,
-        [parameter(Mandatory=$true)] $NewString
-    )
-
-    (Get-Content $RootDir\config.ps1).replace($OldString, $NewString) | Set-Content $RootDir\config.ps1 -Force
-}
-
-function GetCalicoKubeConfig {
-    param(
-        [parameter(Mandatory=$true)] $RootDir,
-        [parameter(Mandatory=$true)] $CalicoNamespace,
-        [parameter(Mandatory=$false)] $SecretName = "calico-node",
-        [parameter(Mandatory=$false)] $KubeConfigPath = "c:\\k\\config"
-    )
-
-    # When creating Windows agent pools with the system Linux agent pool, the service account for calico may not be available in provisioning Windows agent nodes.
-    # So we need to wait here until the service account for calico is available
-    $name=""
-    $retryCount=0
-    $retryInterval=5
-    $maxRetryCount=120 # 10 minutes
-
-    do {
-        try {
-            Write-Log "Retry $retryCount : Trying to get service account $SecretName"
-            $name=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret -n $CalicoNamespace --field-selector=type=kubernetes.io/service-account-token --no-headers -o custom-columns=":metadata.name" | findstr $SecretName | select -first 1
-            if (![string]::IsNullOrEmpty($name)) {
-                break
-            }
-        } catch {
-            Write-Log "Retry $retryCount : Failed to get service account $SecretName. Error: $_"
-        }
-        $retryCount++
-        Write-Log "Retry $retryCount : Sleep $retryInterval and then retry to get service account $SecretName"
-        Sleep $retryInterval
-    } while ($retryCount -lt $maxRetryCount)
-
-    if ([string]::IsNullOrEmpty($name)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST -ErrorMessage "$SecretName service account does not exist."
-    }
-
-    $ca=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.ca\.crt}' -n $CalicoNamespace
-    $tokenBase64=c:\k\kubectl.exe --kubeconfig=$KubeConfigPath get secret/$name -o jsonpath='{.data.token}' -n $CalicoNamespace
-    $token=[System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($tokenBase64))
-
-    $server=findstr https:// $KubeConfigPath
-
-    (Get-Content $RootDir\calico-kube-config.template).replace('<ca>', $ca).replace('<server>', $server.Trim()).replace('<token>', $token) | Set-Content $RootDir\calico-kube-config -Force
-}
-
-function Start-InstallCalico {
-    param(
-        [parameter(Mandatory=$true)] $RootDir,
-        [parameter(Mandatory=$true)] $KubeServiceCIDR,
-        [parameter(Mandatory=$true)] $KubeDnsServiceIp,
-        [parameter(Mandatory=$false)] $CalicoNs = "calico-system"
-    )
-
-    Write-Log "Download Calico"
-    Get-CalicoPackage -RootDir $RootDir
-
-    $CalicoDir  = [Io.path]::Combine("$RootDir", "CalicoWindows")
-
-    Set-CalicoStaticRules -CalicoRootDir $CalicoDir
-
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your datastore type>" -NewString "kubernetes"
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd endpoints>" -NewString ""
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd key>" -NewString ""
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd cert>" -NewString ""
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd ca cert>" -NewString ""
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your service cidr>" -NewString $KubeServiceCIDR
-    SetConfigParameters -RootDir $CalicoDir -OldString "<your dns server ips>" -NewString $KubeDnsServiceIp
-    SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`+"`"+`"vxlan`+"`"+`"" -NewString "CALICO_NETWORKING_BACKEND=`+"`"+`"none`+"`"+`""
-    SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `+"`"+`"Calico.*`+"`"+`"" -NewString "KUBE_NETWORK = `+"`"+`"azure.*`+"`"+`""
-
-    GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
-
-    Write-Log "Install Calico"
-
-    pushd $CalicoDir
-    .\install-calico.ps1
-    popd
-}
-`)
-
-func windowsWindowscalicofuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowscalicofuncPs1, nil
-}
-
-func windowsWindowscalicofuncPs1() (*asset, error) {
-	bytes, err := windowsWindowscalicofuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowscalicofunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowscnifuncPs1 = []byte(`function Get-HnsPsm1
-{
-    Param(
-        [string]
-        $HnsUrl = "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
-        [Parameter(Mandatory=$true)][string]
-        $HNSModule
-    )
-    DownloadFileOverHttp -Url $HnsUrl -DestinationPath "$HNSModule"
-}
-
-function Update-WinCNI
-{
-    Param(
-        [string]
-        $WinCniUrl = "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/win-bridge.exe",
-        [Parameter(Mandatory=$true)][string]
-        $CNIPath
-    )
-    $wincni = "win-bridge.exe"
-    $wincniFile = [Io.path]::Combine($CNIPath, $wincni)
-    DownloadFileOverHttp -Url $WinCniUrl -DestinationPath $wincniFile
-}
-
-function Install-SdnBridge
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
+        [Parameter(Mandatory = $true)][string]
         $Url,
-        [Parameter(Mandatory=$true)][string]
-        $CNIPath
-    )
-
-    $cnizip = [Io.path]::Combine($CNIPath, "cni.zip")
-    DownloadFileOverHttp -Url $Url -DestinationPath $cnizip
-    Expand-Archive -path $cnizip -DestinationPath $CNIPath
-    del $cnizip
-}
-
-# TODO: Move the code that creates the wincni configuration file out of windowskubeletfunc.ps1 and put it here`)
-
-func windowsWindowscnifuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowscnifuncPs1, nil
-}
-
-func windowsWindowscnifuncPs1() (*asset, error) {
-	bytes, err := windowsWindowscnifuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowscnifunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowsconfigfuncPs1 = []byte(`
-
-# Set the service telemetry GUID. This is used with Windows Analytics https://docs.microsoft.com/en-us/sccm/core/clients/manage/monitor-windows-analytics
-function Set-TelemetrySetting
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
-        $WindowsTelemetryGUID
-    )
-    Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "CommercialId" -Value $WindowsTelemetryGUID -Force
-}
-
-# Resize the system partition to the max available size. Azure can resize a managed disk, but the VM still needs to extend the partition boundary
-function Resize-OSDrive
-{
-    $osDrive = ((Get-WmiObject Win32_OperatingSystem).SystemDrive).TrimEnd(":")
-    $size = (Get-Partition -DriveLetter $osDrive).Size
-    $maxSize = (Get-PartitionSupportedSize -DriveLetter $osDrive).SizeMax
-    if ($size -lt $maxSize)
-    {
-        Resize-Partition -DriveLetter $osDrive -Size $maxSize
-    }
-}
-
-# https://docs.microsoft.com/en-us/powershell/module/storage/new-partition
-function Initialize-DataDisks
-{
-    Get-Disk | Where-Object PartitionStyle -eq 'raw' | Initialize-Disk -PartitionStyle MBR -PassThru | New-Partition -UseMaximumSize -AssignDriveLetter | Format-Volume -FileSystem NTFS -Force
-}
-
-# Set the Internet Explorer to use the latest rendering mode on all sites
-# https://docs.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-ie-internetexplorer-intranetcompatibilitymode
-# (This only affects installations with UI)
-function Set-Explorer
-{
-    New-Item -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer"
-    New-Item -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\BrowserEmulation"
-    New-ItemProperty -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\BrowserEmulation" -Name IntranetCompatibilityMode -Value 0 -Type DWord
-    New-Item -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\Main"
-    New-ItemProperty -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\Main" -Name "Start Page" -Type String -Value http://bing.com
-}
-
-function Install-Docker
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
-        $DockerVersion
-    )
-
-    # DOCKER_API_VERSION needs to be set for Docker versions older than 18.09.0 EE
-    # due to https://github.com/kubernetes/kubernetes/issues/69996
-    # this issue was fixed by https://github.com/kubernetes/kubernetes/issues/69996#issuecomment-438499024
-    # Note: to get a list of all versions, use this snippet
-    # $versions = (curl.exe -L "https://go.microsoft.com/fwlink/?LinkID=825636&clcid=0x409" | ConvertFrom-Json).Versions | Get-Member -Type NoteProperty | Select-Object Name
-    # Docker version to API version decoder: https://docs.docker.com/develop/sdk/#api-version-matrix
-
-    switch ($DockerVersion.Substring(0,5))
-    {
-        "17.06" {
-            Write-Log "Docker 17.06 found, setting DOCKER_API_VERSION to 1.30"
-            [System.Environment]::SetEnvironmentVariable('DOCKER_API_VERSION', '1.30', [System.EnvironmentVariableTarget]::Machine)
-        }
-
-        "18.03" {
-            Write-Log "Docker 18.03 found, setting DOCKER_API_VERSION to 1.37"
-            [System.Environment]::SetEnvironmentVariable('DOCKER_API_VERSION', '1.37', [System.EnvironmentVariableTarget]::Machine)
-        }
-
-        default {
-            Write-Log "Docker version $DockerVersion found, clearing DOCKER_API_VERSION"
-            [System.Environment]::SetEnvironmentVariable('DOCKER_API_VERSION', $null, [System.EnvironmentVariableTarget]::Machine)
-        }
-    }
-
-    try {
-        $installDocker = $true
-        $dockerService = Get-Service | ? Name -like 'docker'
-        if ($dockerService.Count -eq 0) {
-            Write-Log "Docker is not installed. Install docker version($DockerVersion)."
-        }
-        else {
-            $dockerServerVersion = docker version --format '{{.Server.Version}}'
-            Write-Log "Docker service is installed with docker version($dockerServerVersion)."
-            if ($dockerServerVersion -eq $DockerVersion) {
-                $installDocker = $false
-                Write-Log "Same version docker installed will skip installing docker version($dockerServerVersion)."
-            }
-            else {
-                Write-Log "Same version docker is not installed. Will install docker version($DockerVersion)."
-            }
-        }
-
-        if ($installDocker) {
-            Find-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $DockerVersion -ErrorAction Stop
-            Write-Log "Found version $DockerVersion. Installing..."
-            Install-Package -Name Docker -ProviderName DockerMsftProvider -Update -Force -RequiredVersion $DockerVersion
-            net start docker
-            Write-Log "Installed version $DockerVersion"
-        }
-    } catch {
-        Write-Log "Error while installing package: $_.Exception.Message"
-        $currentDockerVersion = (Get-Package -Name Docker -ProviderName DockerMsftProvider).Version
-        Write-Log "Not able to install docker version. Using default version $currentDockerVersion"
-    }
-}
-
-function Set-DockerLogFileOptions {
-    Write-Log "Updating log file options in docker config"
-    $dockerConfigPath = "C:\ProgramData\docker\config\daemon.json"
-
-    if (-not (Test-Path $dockerConfigPath)) {
-        "{}" | Out-File $dockerConfigPath
-    }
-
-    $dockerConfig = Get-Content $dockerConfigPath | ConvertFrom-Json
-    $dockerConfig | Add-Member -Name "log-driver" -Value "json-file" -MemberType NoteProperty
-    $logOpts = @{ "max-size" = "50m"; "max-file" = "5" }
-    $dockerConfig | Add-Member -Name "log-opts" -Value $logOpts -MemberType NoteProperty
-    $dockerConfig = $dockerConfig | ConvertTo-Json -Depth 10
-
-    Write-Log "New docker config:"
-    Write-Log $dockerConfig
-
-    # daemon.json MUST be encoded as UTF8-no-BOM!
-    Remove-Item $dockerConfigPath
-    $fileEncoding = New-Object System.Text.UTF8Encoding $false
-    [IO.File]::WriteAllLInes($dockerConfigPath, $dockerConfig, $fileEncoding)
-
-    Restart-Service docker
-}
-
-# Pagefile adjustments
-function Adjust-PageFileSize()
-{
-    wmic pagefileset set InitialSize=8096,MaximumSize=8096
-}
-
-function Adjust-DynamicPortRange()
-{
-    # Kube-proxy reserves 63 ports per service which limits clusters with Windows nodes
-    # to ~225 services if default port reservations are used.
-    # https://docs.microsoft.com/en-us/virtualization/windowscontainers/kubernetes/common-problems#load-balancers-are-plumbed-inconsistently-across-the-cluster-nodes
-    # Kube-proxy load balancing should be set to DSR mode when it releases with future versions of the OS
-
-    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "16385", "49151")
-}
-
-# TODO: should this be in this PR?
-# Service start actions. These should be split up later and included in each install step
-function Update-ServiceFailureActions
-{
-    Param(
         [Parameter(Mandatory = $true)][string]
-        $ContainerRuntime
-    )
-    sc.exe failure "kubelet" actions= restart/60000/restart/60000/restart/60000 reset= 900
-    sc.exe failure "kubeproxy" actions= restart/60000/restart/60000/restart/60000 reset= 900
-    sc.exe failure $ContainerRuntime actions= restart/60000/restart/60000/restart/60000 reset= 900
-}
-
-function Add-SystemPathEntry
-{
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $Directory
-    )
-    # update the path variable if it doesn't have the needed paths
-    $path = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
-    $updated = $false
-    if(-not ($path -match $Directory.Replace("\","\\")+"(;|$)"))
-    {
-        $path += ";"+$Directory
-        $updated = $true
-    }
-    if($updated)
-    {
-        Write-Log "Updating path, added $Directory"
-        [Environment]::SetEnvironmentVariable("Path", $path, [EnvironmentVariableTarget]::Machine)
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-    }
-}
-
-function Enable-FIPSMode
-{
-    Param(
-        [Parameter(Mandatory = $true)][bool]
-        $fipsEnabled
+        $DestinationPath
     )
 
-    if ( $fipsEnabled ) {
-        Write-Log "Set the registry to enable fips-mode"
-        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force
+    # First check to see if a file with the same name is already cached on the VHD
+    $fileName = [IO.Path]::GetFileName($Url)
+
+    $search = @()
+    if (Test-Path $global:CacheDir) {
+        $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
     }
-    else
-    {
-        Write-Log "Leave FipsAlgorithmPolicy as it is."
-    }
-}
-`)
 
-func windowsWindowsconfigfuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowsconfigfuncPs1, nil
-}
-
-func windowsWindowsconfigfuncPs1() (*asset, error) {
-	bytes, err := windowsWindowsconfigfuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowsconfigfunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowscontainerdfuncPs1 = []byte(`# this is $global to persist across all functions since this is dot-sourced
-$global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
-$global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
-
-function RegisterContainerDService {
-  Param(
-    [Parameter(Mandatory = $true)][string]
-    $kubedir
-  )
-
-  Assert-FileExists $global:Containerdbinary
-
-  # in the past service was not installed via nssm so remove it in case
-  $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    sc.exe delete containerd
-  }
-
-  Write-Log "Registering containerd as a service"
-  # setup containerd
-  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
-
-  $retryCount=0
-  $retryInterval=10
-  $maxRetryCount=6 # 1 minutes
-
-  do {
-    $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
-    if ($null -eq $svc) {
-      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED -ErrorMessage "containerd.exe did not get installed as a service correctly."
-    }
-    if ($svc.Status -eq "Running") {
-      break
-    }
-    Write-Log "Starting containerd, current status: $svc.Status"
-    Start-Service containerd
-    $retryCount++
-    Write-Log "Retry $retryCount : Sleep $retryInterval and check containerd status"
-    Sleep $retryInterval
-  } while ($retryCount -lt $maxRetryCount)
-
-  if ($svc.Status -ne "Running") {
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING -ErrorMessage "containerd service is not running"
-  }
-
-}
-
-function CreateHypervisorRuntime {
-  Param(
-    [Parameter(Mandatory = $true)][string]
-    $image,
-    [Parameter(Mandatory = $true)][string]
-    $version,
-    [Parameter(Mandatory = $true)][string]
-    $buildNumber
-  )
-
-  return @"
-        [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber]
-          runtime_type = "io.containerd.runhcs.v1"
-          [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber.options]
-            Debug = true
-            DebugType = 2
-            SandboxImage = "$image-windows-$version-amd64"
-            SandboxPlatform = "windows/amd64"
-            SandboxIsolation = 1
-            ScaleCPULimitsToSandbox = true
-"@
-}
-
-function CreateHypervisorRuntimes {
-  Param(
-    [Parameter(Mandatory = $true)][string[]]
-    $builds,
-    [Parameter(Mandatory = $true)][string]
-    $image
-  )
-  
-  Write-Log "Adding hyperv runtimes $builds"
-  $hypervRuntimes = ""
-  ForEach ($buildNumber in $builds) {
-    $windowsVersion = Select-Windows-Version -buildNumber $buildNumber
-    $runtime = createHypervisorRuntime -image $pauseImage -version $windowsVersion -buildNumber $buildNumber
-    if ($hypervRuntimes -eq "") {
-      $hypervRuntimes = $runtime
+    if ($search.Count -ne 0) {
+        Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"
+        Copy-Item -Path $search[0] -Destination $DestinationPath -Force
     }
     else {
-      $hypervRuntimes = $hypervRuntimes + "`+"`"+`r`+"`"+`n" + $runtime
+        $secureProtocols = @()
+        $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
+
+        foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
+            if ($insecureProtocols -notcontains $protocol) {
+                $secureProtocols += $protocol
+            }
+        }
+        [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
+
+        $oldProgressPreference = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+
+        $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
+            Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Failed in downloading $Url. Error: $_"
+        }
+        $downloadTimer.Stop()
+
+        if ($global:AppInsightsClient -ne $null) {
+            $event = New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
+            $event.Name = "FileDownload"
+            $event.Properties["FileName"] = $fileName
+            $event.Metrics["DurationMs"] = $downloadTimer.ElapsedMilliseconds
+            $global:AppInsightsClient.TrackEvent($event)
+        }
+
+        $ProgressPreference = $oldProgressPreference
+        Write-Log "Downloaded file $Url to $DestinationPath"
     }
-  }
-
-  return $hypervRuntimes
 }
-
-function Select-Windows-Version {
-  param (
-    [Parameter()]
-    [string]
-    $buildNumber
-  )
-
-  switch ($buildNumber) {
-    "17763" { return "1809" }
-    "18362" { return "1903" }
-    "18363" { return "1909" }
-    "19041" { return "2004" }
-    Default { return "" } 
-  }
-}
-
-function Enable-Logging {
-  if ((Test-Path "$global:ContainerdInstallLocation\diag.ps1") -And (Test-Path "$global:ContainerdInstallLocation\ContainerPlatform.wprp")) {
-    $logs = Join-path $pwd.drive.Root logs
-    Write-Log "Containerd hyperv logging enabled; temp location $logs"
-    $diag = Join-Path $global:ContainerdInstallLocation diag.ps1
-    Create-Directory -FullPath $logs -DirectoryUsage "storing containerd logs"
-    # !ContainerPlatformPersistent profile is made to work with long term and boot tracing
-    & $diag -Start -ProfilePath "$global:ContainerdInstallLocation\ContainerPlatform.wprp!ContainerPlatformPersistent" -TempPath $logs
-  }
-  else {
-    Write-Log "Containerd hyperv logging script not avalaible"
-  }
-}
-
-function Install-Containerd {
-  Param(
-    [Parameter(Mandatory = $true)][string]
-    $ContainerdUrl,
-    [Parameter(Mandatory = $true)][string]
-    $CNIBinDir,
-    [Parameter(Mandatory = $true)][string]
-    $CNIConfDir,
-    [Parameter(Mandatory = $true)][string]
-    $KubeDir
-  )
-
-  $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
-  if ($null -ne $svc) {
-    Write-Log "Stoping containerd service"
-    $svc | Stop-Service
-  }
-
-  # TODO: check if containerd is already installed and is the same version before this.
-  
-  # Extract the package
-  if ($ContainerdUrl.endswith(".zip")) {
-    $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
-    Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    Remove-Item -Path $zipfile -Force
-  }
-  elseif ($ContainerdUrl.endswith(".tar.gz")) {
-    # upstream containerd package is a tar 
-    $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
-    Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
-    tar -xzf $tarfile -C $global:ContainerdInstallLocation
-
-    mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    Remove-Item -Path $tarfile -Force
-    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
-  }
-
-  # get configuration options
-  Add-SystemPathEntry $global:ContainerdInstallLocation
-  $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
-  $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-  $pauseImage = $clusterConfig.Cri.Images.Pause
-  $formatedbin = $(($CNIBinDir).Replace("\", "/"))
-  $formatedconf = $(($CNIConfDir).Replace("\", "/"))
-  $sandboxIsolation = 0
-  $windowsVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId
-  $hypervRuntimes = ""
-  $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
-
-  # configure
-  if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
-    Write-Log "default runtime for containerd set to hyperv"
-    $sandboxIsolation = 1
-  }
-
-  $template = Get-Content -Path "c:\AzureData\windows\containerdtemplate.toml" 
-  if ($sandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
-    # remove the value hypervisor place holder
-    $template = $template | Select-String -Pattern 'hypervisors' -NotMatch | Out-String
-  }
-  else {
-    $hypervRuntimes = CreateHypervisorRuntimes -builds @($hypervHandlers) -image $pauseImage
-  }
-
-  $template.Replace('{{sandboxIsolation}}', $sandboxIsolation).
-  Replace('{{pauseImage}}', $pauseImage).
-  Replace('{{hypervisors}}', $hypervRuntimes).
-  Replace('{{cnibin}}', $formatedbin).
-  Replace('{{cniconf}}', $formatedconf).
-  Replace('{{currentversion}}', $windowsVersion) | `+"`"+`
-    Out-File -FilePath "$configFile" -Encoding ascii
-
-  RegisterContainerDService -KubeDir $KubeDir
-  Enable-Logging
-}
-`)
-
-func windowsWindowscontainerdfuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowscontainerdfuncPs1, nil
-}
-
-func windowsWindowscontainerdfuncPs1() (*asset, error) {
-	bytes, err := windowsWindowscontainerdfuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowscontainerdfunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowscsehelperPs1 = []byte(`# Define all exit codes in Windows CSE
 
 function Set-ExitCode
 {
@@ -6962,27 +5791,81 @@ function Create-Directory
     }
 }
 
-$global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
-$global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
-$global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST=4
-$global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY=5
-$global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST=6
-$global:WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX=7
-$global:WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM=8
-$global:WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST=9
-$global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST=10
-$global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST=11
-$global:WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST=12
-$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED=13
-$global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING=14
-$global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED=15
-$global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED=16
-$global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG=17
-$global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER=18
-$global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES=19
-$global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES=20
-$global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES=21`)
+# https://stackoverflow.com/a/34559554/697126
+function New-TemporaryDirectory {
+    $parent = [System.IO.Path]::GetTempPath()
+    [string] $name = [System.Guid]::NewGuid()
+    New-Item -ItemType Directory -Path (Join-Path $parent $name)
+}
+
+function Retry-Command {
+    Param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]
+        $Command,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][hashtable]
+        $Args,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
+        $Retries,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][int]
+        $RetryDelaySeconds
+    )
+
+    for ($i = 0; ; ) {
+        try {
+            return & $Command @Args
+        }
+        catch {
+            $i++
+            if ($i -ge $Retries) {
+                throw $_
+            }
+            Start-Sleep $RetryDelaySeconds
+        }
+    }
+}
+
+function Invoke-Executable {
+    Param(
+        [string]
+        $Executable,
+        [string[]]
+        $ArgList,
+        [int[]]
+        $AllowedExitCodes = @(0),
+        [int]
+        $Retries = 1,
+        [int]
+        $RetryDelaySeconds = 1
+    )
+
+    for ($i = 0; $i -lt $Retries; $i++) {
+        Write-Log "Running $Executable $ArgList ..."
+        & $Executable $ArgList
+        if ($LASTEXITCODE -notin $AllowedExitCodes) {
+            Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
+            Start-Sleep -Seconds $RetryDelaySeconds
+            continue
+        }
+        else {
+            Write-Log "$Executable returned successfully"
+            return
+        }
+    }
+
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
+}
+
+function Assert-FileExists {
+    Param(
+        [Parameter(Mandatory = $true, Position = 0)][string]
+        $Filename
+    )
+
+    if (-Not (Test-Path $Filename)) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
+    }
+}
+`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
@@ -6995,618 +5878,6 @@ func windowsWindowscsehelperPs1() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "windows/windowscsehelper.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowscsiproxyfuncPs1 = []byte(`function New-CsiProxyService {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $CsiProxyPackageUrl,
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir
-    )
-
-    $tempdir = New-TemporaryDirectory
-    $binaryPackage = "$tempdir\csiproxy.tar"
-
-    DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage
-
-    tar -xzf $binaryPackage -C $tempdir
-    cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
-
-    del $tempdir -Recurse
-
-    & "$KubeDir\nssm.exe" install csi-proxy "$KubeDir\csi-proxy.exe" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppDirectory "$KubeDir" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Description csi-proxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStdout "$KubeDir\csi-proxy.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStderr "$KubeDir\csi-proxy.err.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateBytes 10485760 | RemoveNulls
-}`)
-
-func windowsWindowscsiproxyfuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowscsiproxyfuncPs1, nil
-}
-
-func windowsWindowscsiproxyfuncPs1() (*asset, error) {
-	bytes, err := windowsWindowscsiproxyfuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowscsiproxyfunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowshostsconfigagentfuncPs1 = []byte(`function New-HostsConfigService {
-    $HostsConfigParameters = [io.path]::Combine($KubeDir, "hostsconfigagent.ps1")
-
-    & "$KubeDir\nssm.exe" install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppDirectory "$KubeDir" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppParameters $HostsConfigParameters | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Description hosts-config-agent | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdout "$KubeDir\hosts-config-agent.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderr "$KubeDir\hosts-config-agent.err.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
-}`)
-
-func windowsWindowshostsconfigagentfuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowshostsconfigagentfuncPs1, nil
-}
-
-func windowsWindowshostsconfigagentfuncPs1() (*asset, error) {
-	bytes, err := windowsWindowshostsconfigagentfuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowshostsconfigagentfunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowsinstallopensshfuncPs1 = []byte(`function
-Install-OpenSSH {
-    Param(
-        [Parameter(Mandatory = $true)][string[]] 
-        $SSHKeys
-    )
-
-    $adminpath = "c:\ProgramData\ssh"
-    $adminfile = "administrators_authorized_keys"
-
-    $sshdService = Get-Service | ? Name -like 'sshd'
-    if ($sshdService.Count -eq 0)
-    {
-        Write-Log "Installing OpenSSH"
-        $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
-
-        if (!$isAvailable) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED -ErrorMessage "OpenSSH is not available on this machine"
-        }
-
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-    }
-    else
-    {
-        Write-Log "OpenSSH Server service detected - skipping online install..."
-    }
-
-    Start-Service sshd
-
-    if (!(Test-Path "$adminpath")) {
-        Write-Log "Created new file and text content added"
-        New-Item -path $adminpath -name $adminfile -type "file" -value ""
-    }
-
-    Write-Log "$adminpath found."
-    Write-Log "Adding keys to: $adminpath\$adminfile ..."
-    $SSHKeys | foreach-object {
-        Add-Content $adminpath\$adminfile $_
-    }
-
-    Write-Log "Setting required permissions..."
-    icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
-    icacls $adminpath\$adminfile /inheritance:r
-    icacls $adminpath\$adminfile /grant SYSTEM:`+"`"+`(F`+"`"+`)
-    icacls $adminpath\$adminfile /grant BUILTIN\Administrators:`+"`"+`(F`+"`"+`)
-
-    Write-Log "Restarting sshd service..."
-    Restart-Service sshd
-    # OPTIONAL but recommended:
-    Set-Service -Name sshd -StartupType 'Automatic'
-
-    # Confirm the Firewall rule is configured. It should be created automatically by setup. 
-    $firewall = Get-NetFirewallRule -Name *ssh*
-
-    if (!$firewall) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
-    }
-    Write-Log "OpenSSH installed and configured successfully"
-}
-`)
-
-func windowsWindowsinstallopensshfuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowsinstallopensshfuncPs1, nil
-}
-
-func windowsWindowsinstallopensshfuncPs1() (*asset, error) {
-	bytes, err := windowsWindowsinstallopensshfuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowsinstallopensshfunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _windowsWindowskubeletfuncPs1 = []byte(`function
-Write-AzureConfig {
-    Param(
-
-        [Parameter(Mandatory = $true)][string]
-        $AADClientId,
-        [Parameter(Mandatory = $true)][string]
-        $AADClientSecret,
-        [Parameter(Mandatory = $true)][string]
-        $TenantId,
-        [Parameter(Mandatory = $true)][string]
-        $SubscriptionId,
-        [Parameter(Mandatory = $true)][string]
-        $ResourceGroup,
-        [Parameter(Mandatory = $true)][string]
-        $Location,
-        [Parameter(Mandatory = $true)][string]
-        $VmType,
-        [Parameter(Mandatory = $true)][string]
-        $SubnetName,
-        [Parameter(Mandatory = $true)][string]
-        $SecurityGroupName,
-        [Parameter(Mandatory = $true)][string]
-        $VNetName,
-        [Parameter(Mandatory = $true)][string]
-        $RouteTableName,
-        [Parameter(Mandatory = $false)][string] # Need one of these configured
-        $PrimaryAvailabilitySetName,
-        [Parameter(Mandatory = $false)][string] # Need one of these configured
-        $PrimaryScaleSetName,
-        [Parameter(Mandatory = $true)][string]
-        $UseManagedIdentityExtension,
-        [string]
-        $UserAssignedClientID,
-        [Parameter(Mandatory = $true)][string]
-        $UseInstanceMetadata,
-        [Parameter(Mandatory = $true)][string]
-        $LoadBalancerSku,
-        [Parameter(Mandatory = $true)][string]
-        $ExcludeMasterFromStandardLB,
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir,
-        [Parameter(Mandatory = $true)][string]
-        $TargetEnvironment,
-        [Parameter(Mandatory = $false)][bool]
-        $UseContainerD = $false
-    )
-
-    if ( -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG -ErrorMessage "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
-    }
-
-    $azureConfigFile = [io.path]::Combine($KubeDir, "azure.json")
-
-    $azureConfig = @"
-{
-    "cloud": "$TargetEnvironment",
-    "tenantId": "$TenantId",
-    "subscriptionId": "$SubscriptionId",
-    "aadClientId": "$AADClientId",
-    "aadClientSecret": "$AADClientSecret",
-    "resourceGroup": "$ResourceGroup",
-    "location": "$Location",
-    "vmType": "$VmType",
-    "subnetName": "$SubnetName",
-    "securityGroupName": "$SecurityGroupName",
-    "vnetName": "$VNetName",
-    "routeTableName": "$RouteTableName",
-    "primaryAvailabilitySetName": "$PrimaryAvailabilitySetName",
-    "primaryScaleSetName": "$PrimaryScaleSetName",
-    "useManagedIdentityExtension": $UseManagedIdentityExtension,
-    "userAssignedIdentityID": "$UserAssignedClientID",
-    "useInstanceMetadata": $UseInstanceMetadata,
-    "loadBalancerSku": "$LoadBalancerSku",
-    "excludeMasterFromStandardLB": $ExcludeMasterFromStandardLB
-}
-"@
-
-    $azureConfig | Out-File -encoding ASCII -filepath "$azureConfigFile"
-}
-
-
-function
-Write-CACert {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $CACertificate,
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir
-    )
-    $caFile = [io.path]::Combine($KubeDir, "ca.crt")
-    [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($CACertificate)) | Out-File -Encoding ascii $caFile
-}
-
-function
-Write-KubeConfig {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $CACertificate,
-        [Parameter(Mandatory = $true)][string]
-        $MasterFQDNPrefix,
-        [Parameter(Mandatory = $true)][string]
-        $MasterIP,
-        [Parameter(Mandatory = $true)][string]
-        $AgentKey,
-        [Parameter(Mandatory = $true)][string]
-        $AgentCertificate,
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir
-    )
-    $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-
-    $kubeConfig = @"
----
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: "$CACertificate"
-    server: https://${MasterIP}:443
-  name: "$MasterFQDNPrefix"
-contexts:
-- context:
-    cluster: "$MasterFQDNPrefix"
-    user: "$MasterFQDNPrefix-admin"
-  name: "$MasterFQDNPrefix"
-current-context: "$MasterFQDNPrefix"
-kind: Config
-users:
-- name: "$MasterFQDNPrefix-admin"
-  user:
-    client-certificate-data: "$AgentCertificate"
-    client-key-data: "$AgentKey"
-"@
-
-    $kubeConfig | Out-File -encoding ASCII -filepath "$kubeConfigFile"
-}
-
-function
-Write-BootstrapKubeConfig {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $CACertificate,
-        [Parameter(Mandatory = $true)][string]
-        $MasterFQDNPrefix,
-        [Parameter(Mandatory = $true)][string]
-        $MasterIP,
-        [Parameter(Mandatory = $true)][string]
-        $TLSBootstrapToken,
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir
-    )
-    $bootstrapKubeConfigFile = [io.path]::Combine($KubeDir, "bootstrap-config")
-
-    $bootstrapKubeConfig = @"
----
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: "$CACertificate"
-    server: https://${MasterIP}:443
-  name: "$MasterFQDNPrefix"
-contexts:
-- context:
-    cluster: "$MasterFQDNPrefix"
-    user: "kubelet-bootstrap"
-  name: "$MasterFQDNPrefix"
-current-context: "$MasterFQDNPrefix"
-kind: Config
-users:
-- name: "kubelet-bootstrap"
-  user:
-    token: "$TLSBootstrapToken"
-"@
-
-    $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
-}
-
-function
-Test-ContainerImageExists {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $Image,
-        [Parameter(Mandatory = $false)][string]
-        $Tag,
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-
-    $target = $Image
-    if ($Tag) {
-        $target += ":$Tag"
-    }
-
-    if ($ContainerRuntime -eq "docker") {
-        $images = docker image list $target --format "{{json .}}"
-        return $images.Count -gt 0
-    }
-    else {
-        return ( (ctr.exe -n k8s.io images list) | Select-String $target) -ne $Null
-    }
-}
-
-function
-Build-PauseContainer {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $WindowsBase,
-        $DestinationTag,
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-    # Future work: This needs to build wincat - see https://github.com/Azure/aks-engine/issues/1461
-    # Otherwise, delete this code and require a prebuilt pause image (or override with one from an Azure Container Registry instance)
-    # ContainerD can't build, so doing the builds outside of node deployment is probably the right long-term solution.
-    "FROM $($WindowsBase)" | Out-File -encoding ascii -FilePath Dockerfile
-    "CMD cmd /c ping -t localhost" | Out-File -encoding ascii -FilePath Dockerfile -Append
-    if ($ContainerRuntime -eq "docker") {
-        Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".")
-    }
-    else {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER -ErrorMessage "Cannot build pause container without Docker"
-    }
-}
-
-function
-New-InfraContainer {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir,
-        $DestinationTag = "kubletwin/pause",
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-    cd $KubeDir
-    $windowsVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId
-
-    # Reference for these tags: curl -L https://mcr.microsoft.com/v2/k8s/core/pause/tags/list
-    # Then docker run --rm mplatform/manifest-tool inspect mcr.microsoft.com/k8s/core/pause:<tag>
-
-    $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-    $defaultPauseImage = $clusterConfig.Cri.Images.Pause
-
-    $pauseImageVersions = @("1809", "1903", "1909", "2004", "2009", "20h2")
-
-    if ($pauseImageVersions -icontains $windowsVersion) {
-        if ($ContainerRuntime -eq "docker") {
-            if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-                Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
-            }
-            Invoke-Executable -Executable "docker" -ArgList @("tag", "$defaultPauseImage", "$DestinationTag")
-        }
-        else {
-            # containerd
-            if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-                Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
-            }
-            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag")
-        }
-    }
-    else {
-        Build-PauseContainer -WindowsBase "mcr.microsoft.com/nanoserver-insider" -DestinationTag $DestinationTag -ContainerRuntime $ContainerRuntime
-    }
-}
-
-function
-Test-ContainerImageExists {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $Image,
-        [Parameter(Mandatory = $false)][string]
-        $Tag,
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-
-    $target = $Image
-    if ($Tag) {
-        $target += ":$Tag"
-    }
-
-    if ($ContainerRuntime -eq "docker") {
-        $images = docker image list $target --format "{{json .}}"
-        return $images.Count -gt 0
-    }
-    else {
-        return ( (ctr.exe -n k8s.io images list) | Select-String $target) -ne $Null
-    }
-}
-
-# TODO: Deprecate this and replace with methods that get individual components instead of zip containing everything
-# This expects the ZIP file created by Azure Pipelines.
-function
-Get-KubePackage {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $KubeBinariesSASURL
-    )
-
-    $zipfile = "c:\k.zip"
-    for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile
-        if ($?) {
-            break
-        }
-        else {
-            Write-Log $Error[0].Exception.Message
-        }
-    }
-    Expand-Archive -path $zipfile -DestinationPath C:\
-    Remove-Item $zipfile
-}
-
-function
-Get-KubeBinaries {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $KubeBinariesURL
-    )
-
-    $tempdir = New-TemporaryDirectory
-    $binaryPackage = "$tempdir\k.tar.gz"
-    for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesURL -DestinationPath $binaryPackage
-        if ($?) {
-            break
-        }
-        else {
-            Write-Log $Error[0].Exception.Message
-        }
-    }
-
-    # using tar to minimize dependencies
-    # tar should be avalible on 1803+
-    tar -xzf $binaryPackage -C $tempdir
-
-    # copy binaries over to kube folder
-    $windowsbinariespath = "c:\k\"
-    Create-Directory -FullPath $windowsbinariespath
-    cp $tempdir\kubernetes\node\bin\* $windowsbinariespath -Recurse
-
-    #remove temp folder created when unzipping
-    del $tempdir -Recurse
-}
-
-# TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration
-function
-New-NSSMService {
-    Param(
-        [string]
-        [Parameter(Mandatory = $true)]
-        $KubeDir,
-        [string]
-        [Parameter(Mandatory = $true)]
-        $KubeletStartFile,
-        [string]
-        [Parameter(Mandatory = $true)]
-        $KubeProxyStartFile,
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-
-    $kubeletDependOnServices = $ContainerRuntime
-    if ($global:EnableCsiProxy) {
-        $kubeletDependOnServices += " csi-proxy"
-    }
-    if ($global:EnableHostsConfigAgent) {
-        $kubeletDependOnServices += " hosts-config-agent"
-    }
-
-    # setup kubelet
-    & "$KubeDir\nssm.exe" install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppDirectory $KubeDir | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppParameters $KubeletStartFile | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet DisplayName Kubelet | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet Description Kubelet | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStdout C:\k\kubelet.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStderr C:\k\kubelet.err.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateBytes 10485760 | RemoveNulls
-    # Do not use & when calling DependOnService since 'docker csi-proxy'
-    # is parsed as a single string instead of two separate strings
-    Invoke-Expression "$KubeDir\nssm.exe set Kubelet DependOnService $kubeletDependOnServices | RemoveNulls"
-
-    # setup kubeproxy
-    & "$KubeDir\nssm.exe" install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppDirectory $KubeDir | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppParameters $KubeProxyStartFile | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy DisplayName Kubeproxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy DependOnService Kubelet | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy Description Kubeproxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppStdout C:\k\kubeproxy.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppStderr C:\k\kubeproxy.err.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateBytes 10485760 | RemoveNulls
-}
-
-# Renamed from Write-KubernetesStartFiles
-function
-Install-KubernetesServices {
-    param(
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir,
-        [Parameter(Mandatory = $false)][string]
-        $ContainerRuntime = "docker"
-    )
-
-    # TODO ksbrmnn fix callers to this function
-
-    $KubeletStartFile = [io.path]::Combine($KubeDir, "kubeletstart.ps1")
-    $KubeProxyStartFile = [io.path]::Combine($KubeDir, "kubeproxystart.ps1")
-
-    New-NSSMService -KubeDir $KubeDir `+"`"+`
-        -KubeletStartFile $KubeletStartFile `+"`"+`
-        -KubeProxyStartFile $KubeProxyStartFile `+"`"+`
-        -ContainerRuntime $ContainerRuntime
-}
-`)
-
-func windowsWindowskubeletfuncPs1Bytes() ([]byte, error) {
-	return _windowsWindowskubeletfuncPs1, nil
-}
-
-func windowsWindowskubeletfuncPs1() (*asset, error) {
-	bytes, err := windowsWindowskubeletfuncPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowskubeletfunc.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7663,13 +5934,17 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
+	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
+	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
+	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
-	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7686,13 +5961,17 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
+	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
+	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
+	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
@@ -7712,24 +5991,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
-	"linux/cloud-init/artifacts/update-node-labels.service":                linuxCloudInitArtifactsUpdateNodeLabelsService,
-	"linux/cloud-init/artifacts/update-node-labels.sh":                     linuxCloudInitArtifactsUpdateNodeLabelsSh,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
-	"windows/containerdtemplate.toml":                                      windowsContainerdtemplateToml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
-	"windows/kuberneteswindowsfunctions.ps1":                               windowsKuberneteswindowsfunctionsPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
-	"windows/windowsazurecnifunc.ps1":                                      windowsWindowsazurecnifuncPs1,
-	"windows/windowsazurecnifunc.tests.ps1":                                windowsWindowsazurecnifuncTestsPs1,
-	"windows/windowscalicofunc.ps1":                                        windowsWindowscalicofuncPs1,
-	"windows/windowscnifunc.ps1":                                           windowsWindowscnifuncPs1,
-	"windows/windowsconfigfunc.ps1":                                        windowsWindowsconfigfuncPs1,
-	"windows/windowscontainerdfunc.ps1":                                    windowsWindowscontainerdfuncPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
-	"windows/windowscsiproxyfunc.ps1":                                      windowsWindowscsiproxyfuncPs1,
-	"windows/windowshostsconfigagentfunc.ps1":                              windowsWindowshostsconfigagentfuncPs1,
-	"windows/windowsinstallopensshfunc.ps1":                                windowsWindowsinstallopensshfuncPs1,
-	"windows/windowskubeletfunc.ps1":                                       windowsWindowskubeletfuncPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -7776,13 +6041,17 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
+				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
+				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
+				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
+				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
-				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
@@ -7799,8 +6068,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
+				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
+				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
@@ -7808,6 +6079,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
+				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
+				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
 				"modprobe-CIS.conf":               &bintree{linuxCloudInitArtifactsModprobeCisConf, map[string]*bintree{}},
 				"nvidia-device-plugin.service":    &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":       &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
@@ -7829,28 +6102,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
-				"update-node-labels.service": &bintree{linuxCloudInitArtifactsUpdateNodeLabelsService, map[string]*bintree{}},
-				"update-node-labels.sh":      &bintree{linuxCloudInitArtifactsUpdateNodeLabelsSh, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
 	}},
 	"windows": &bintree{nil, map[string]*bintree{
-		"containerdtemplate.toml":         &bintree{windowsContainerdtemplateToml, map[string]*bintree{}},
-		"csecmd.ps1":                      &bintree{windowsCsecmdPs1, map[string]*bintree{}},
-		"kuberneteswindowsfunctions.ps1":  &bintree{windowsKuberneteswindowsfunctionsPs1, map[string]*bintree{}},
-		"kuberneteswindowssetup.ps1":      &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
-		"windowsazurecnifunc.ps1":         &bintree{windowsWindowsazurecnifuncPs1, map[string]*bintree{}},
-		"windowsazurecnifunc.tests.ps1":   &bintree{windowsWindowsazurecnifuncTestsPs1, map[string]*bintree{}},
-		"windowscalicofunc.ps1":           &bintree{windowsWindowscalicofuncPs1, map[string]*bintree{}},
-		"windowscnifunc.ps1":              &bintree{windowsWindowscnifuncPs1, map[string]*bintree{}},
-		"windowsconfigfunc.ps1":           &bintree{windowsWindowsconfigfuncPs1, map[string]*bintree{}},
-		"windowscontainerdfunc.ps1":       &bintree{windowsWindowscontainerdfuncPs1, map[string]*bintree{}},
-		"windowscsehelper.ps1":            &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
-		"windowscsiproxyfunc.ps1":         &bintree{windowsWindowscsiproxyfuncPs1, map[string]*bintree{}},
-		"windowshostsconfigagentfunc.ps1": &bintree{windowsWindowshostsconfigagentfuncPs1, map[string]*bintree{}},
-		"windowsinstallopensshfunc.ps1":   &bintree{windowsWindowsinstallopensshfuncPs1, map[string]*bintree{}},
-		"windowskubeletfunc.ps1":          &bintree{windowsWindowskubeletfuncPs1, map[string]*bintree{}},
+		"csecmd.ps1":                 &bintree{windowsCsecmdPs1, map[string]*bintree{}},
+		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
+		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
 	}},
 }}
 
