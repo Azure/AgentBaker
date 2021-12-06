@@ -1,6 +1,10 @@
 # AKS Windows CSE Scripts Package
 All files except *_test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.4
+
+- fix: Set loopbackdsr in Azure CNI conflist for WinDSR (#1356)
+
 ## v0.0.3
 
 - fix: Update Windows dynamic port range #1352
