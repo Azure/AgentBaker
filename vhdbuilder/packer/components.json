@@ -241,6 +241,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
         "v1.2.0.5",
+        "v1.2.0.6",
         "v1.8.0.1",
         "v1.9.0"
       ]
