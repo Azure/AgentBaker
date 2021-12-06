@@ -63,7 +63,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "versions": [
         "v1.4.9",
-        "v1.4.15"
+        "v1.4.15",
+        "v1.4.16"
       ]
     },
     {
@@ -240,6 +241,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "versions": [
         "v1.2.0.5",
+        "v1.2.0.6",
         "v1.8.0.1",
         "v1.9.0"
       ]
@@ -367,7 +369,8 @@
       "versions": [
         "1.2.7",
         "1.4.13",
-        "1.4.14"
+        "1.4.14",
+        "1.4.16"
       ]
     },
     {
@@ -378,7 +381,8 @@
         "1.2.7",
         "1.4.12",
         "1.4.13",
-        "1.4.14"
+        "1.4.14",
+        "1.4.16"
       ]
     },
     {
