@@ -143,6 +143,7 @@
       "versions": [
         "v3.20.0",
         "v3.21.0",
+        "v3.21.2",
         "v3.8.9.5"
       ]
     },
@@ -151,6 +152,7 @@
       "versions": [
         "v3.20.0",
         "v3.21.0",
+        "v3.21.2",
         "v3.8.9"
       ]
     },
@@ -164,7 +166,8 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "versions": [
         "v3.20.0",
-        "v3.21.0"
+        "v3.21.0",
+        "v3.21.2"
       ]
     },
     {
@@ -184,7 +187,8 @@
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "versions": [
         "v1.20.0",
-        "v1.23.1"
+        "v1.23.1",
+        "v1.23.3"
       ]
     },
     {
