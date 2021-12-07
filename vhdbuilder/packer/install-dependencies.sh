@@ -389,6 +389,7 @@ KUBE_BINARY_VERSIONS="
 1.22.1
 1.22.2
 1.22.4
+1.23.0
 "
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
