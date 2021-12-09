@@ -108,6 +108,8 @@ write_files:
           runtime_type = "io.containerd.runtime.v1.linux"
           runtime_engine = "/usr/bin/nvidia-container-runtime"
       
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
