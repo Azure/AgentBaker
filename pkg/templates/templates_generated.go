@@ -5336,6 +5336,11 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
+$useContainerD = ($global:ContainerRuntime -eq "containerd")
+$global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
+$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -5344,36 +5349,30 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
-# Download CSE function scripts
-Write-Log "Getting CSE scripts"
-$tempfile = 'c:\csescripts.zip'
-DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile
-Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
-Remove-Item -Path $tempfile -Force
-
-# Dot-source cse scripts with functions that are called in this script
-. c:\AzureData\windows\azurecnifunc.ps1
-. c:\AzureData\windows\calicofunc.ps1
-. c:\AzureData\windows\configfunc.ps1
-. c:\AzureData\windows\containerdfunc.ps1
-. c:\AzureData\windows\kubeletfunc.ps1
-. c:\AzureData\windows\kubernetesfunc.ps1
-
-$useContainerD = ($global:ContainerRuntime -eq "containerd")
-$global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
-$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
-$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
-
 try
 {
+    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+
+    # Download CSE function scripts
+    Write-Log "Getting CSE scripts"
+    $tempfile = 'c:\csescripts.zip'
+    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile
+    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
+    Remove-Item -Path $tempfile -Force
+
+    # Dot-source cse scripts with functions that are called in this script
+    . c:\AzureData\windows\azurecnifunc.ps1
+    . c:\AzureData\windows\calicofunc.ps1
+    . c:\AzureData\windows\configfunc.ps1
+    . c:\AzureData\windows\containerdfunc.ps1
+    . c:\AzureData\windows\kubeletfunc.ps1
+    . c:\AzureData\windows\kubernetesfunc.ps1
+
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
         Write-Log "The script has been executed before, will exit without doing anything."
         return
     }
-
-    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
-
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
@@ -5812,6 +5811,8 @@ function Retry-Command {
 
     for ($i = 0; ; ) {
         try {
+            # Do not log Args since Args may contain sensitive data
+            Write-Log "Retry $i : $command"
             return & $Command @Args
         }
         catch {
