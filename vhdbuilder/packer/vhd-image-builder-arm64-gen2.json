@@ -30,6 +30,11 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
+      "azure_tags": {
+        "os": "Linux",
+        "now": "{{user `create_time`}}",
+        "createdBy": "aks-vhd-pipeline"
+      },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "shared_image_gallery": {
