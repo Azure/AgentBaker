@@ -182,6 +182,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	esac
 fi
 
+# no source image on marketplace, use MSFT/AME SIG as source image
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   ARM64_SIG_SUBSCRIPTION_ID="a84c0852-ea2d-4359-88e4-11a80a4fb6b9"
   ARM64_SIG_RESOURCE_GROUP_NAME="ARM64_External_RG"
