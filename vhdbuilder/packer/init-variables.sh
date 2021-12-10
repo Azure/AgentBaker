@@ -208,11 +208,11 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
-  "arm64_sig_subscription_id": ${ARM64_SIG_SUBSCRIPTION_ID},
-  "arm64_sig_resource_group_name": ${ARM64_SIG_RESOURCE_GROUP_NAME},
-  "arm64_sig_gallery_name": ${ARM64_SIG_GALLERY_NAME},
-  "arm64_sig_image_name": ${ARM64_SIG_IMAGE_NAME},
-  "arm64_sig_image_version": ${ARM64_SIG_IMAGE_VERSION}
+  "arm64_sig_subscription_id": "${ARM64_SIG_SUBSCRIPTION_ID}",
+  "arm64_sig_resource_group_name": "${ARM64_SIG_RESOURCE_GROUP_NAME}",
+  "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
+  "arm64_sig_image_name": "${ARM64_SIG_IMAGE_NAME}",
+  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}"
 }
 EOF
 
