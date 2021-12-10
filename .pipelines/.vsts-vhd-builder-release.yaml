@@ -382,6 +382,7 @@ stages:
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8darm_V3'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'

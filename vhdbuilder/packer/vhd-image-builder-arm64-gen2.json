@@ -33,7 +33,7 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "shared_image_gallery": {
-        "subscription": "{{user `arm64_sig_subscription_id}}",
+        "subscription": "{{user `arm64_sig_subscription_id`}}",
         "resource_group": "{{user `arm64_sig_resource_group_name`}}",
         "gallery_name": "{{user `arm64_sig_gallery_name`}}",
         "image_name": "{{user `arm64_sig_image_name`}}",
