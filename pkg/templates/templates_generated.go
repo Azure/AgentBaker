@@ -4646,10 +4646,10 @@ write_files:
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
       {{- end}}
-      {{if IsKubernetesVersionGe "1.22.0"}}
+      {{- if IsKubernetesVersionGe "1.22.0"}}
       [plugins."io.containerd.grpc.v1.cri".registry]
         config_path = "/etc/containerd/certs.d"
-      {{end}}
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
@@ -4697,10 +4697,10 @@ write_files:
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
       {{ end}}
-      {{if IsKubernetesVersionGe "1.22.0"}}
+      {{- if IsKubernetesVersionGe "1.22.0"}}
       [plugins."io.containerd.grpc.v1.cri".registry]
         config_path = "/etc/containerd/certs.d"
-      {{end}}
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
