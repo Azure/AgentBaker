@@ -84,6 +84,11 @@ if [[ ${CPU_ARCH,,} == "arm64" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
   fi
+
+  if [[ ${CONTAINER_RUNTIME,,} == "docker" ]]; then
+    echo "No dockerd is allowed on arm64 vhd, exiting..."
+    exit 1
+  fi
 fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
@@ -263,7 +268,7 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH,,} != "arm64"]]; then  # no ARM64 SKU with GPU so far
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.9.0
 "

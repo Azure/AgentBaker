@@ -51,7 +51,12 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        return
+    fi
+
+    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/${CPU_ARCH}/krustlet-wagi"
     local krustlet_filepath="/usr/local/bin/krustlet-wagi"
     if [ ! -f "$krustlet_filepath" ]; then
         retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
@@ -68,13 +73,15 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
     retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
 
 installCrictl() {
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
@@ -82,7 +89,7 @@ installCrictl() {
     else
         # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
         # if the vhd does not have crictl pre-baked, return early
-        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
         if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
             rm -rf ${CRICTL_DOWNLOAD_DIR}
             echo "pre-cached crictl not found: skipping installCrictl"
@@ -98,6 +105,13 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
     if [[ -z ${DOWNLOAD_URL} ]]; then
         echo "download url parameter for downloadTeleportdPlugin was not given"
         exit $ERR_TELEPORTD_DOWNLOAD_ERR
@@ -111,6 +125,12 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
     local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
