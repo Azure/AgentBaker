@@ -5,6 +5,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+CPU_ARCH=${CPU_ARCH,,}
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -71,7 +72,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - zip
 EOF
 
-if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+if [[ ${CPU_ARCH} == "arm64" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     echo "No FIPS support on arm64, exiting..."
     exit 1
@@ -167,17 +168,23 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   1.0.0-rc92
   1.0.0-rc95
   "
+
+  if [[ ${CPU_ARCH} == "arm64" ]]; then
+    RUNC_VERSIONS="
+    1.0.3+azure-1
+    "
+  fi
+
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
     echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
 fi
 
-
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64"]]; then  # no ARM64 SKU with GPU now
 installGPUDrivers
 retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
@@ -222,53 +229,75 @@ for imageToBePulled in ${ContainerImages[*]}; do
   done
 done
 
-VNET_CNI_VERSIONS="
+#Azure CNI has binaries and container images for ARM64 from 1.4.12
+AMD64_ONLY_CNI_VERSIONS="
 1.2.7
+"
+MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.13
 1.4.14
 1.4.16
 "
+
+if [[ ${CPU_ARCH} == "arm64"]]; then
+  VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
+else
+  VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS}${MULTI_ARCH_VNET_CNI_VERSIONS}"
+fi
+
+
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # merge with above after two more version releases
-SWIFT_CNI_VERSIONS="
+#Azure SWIFT CNI has binaries and container images for ARM64 from 1.4.12
+AMD64_ONLY_SWIFT_CNI_VERSIONS="
 1.2.7
+"
+MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.12
 1.4.13
 1.4.14
 1.4.16
 "
 
+if [[ ${CPU_ARCH} == "arm64"]]; then
+  SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
+else
+  SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS}${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
+fi
+
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-CNI_PLUGIN_VERSIONS="
-0.7.6
-"
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+if [[ ${CPU_ARCH} != "arm64"]]; then  #v0.7.6 has no ARM64 binaries
+  CNI_PLUGIN_VERSIONS="
+  0.7.6
+  "
+  for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
+  done
+fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
 0.8.7
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH,,} != "arm64"]]; then  # no ARM64 SKU with GPU so far
+if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64"]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.9.0
 "
@@ -451,13 +480,13 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
-if [[ ${CPU_ARCH,,} != "arm64" ]]; then
+if [[ ${CPU_ARCH} != "arm64" ]]; then
   # no asc-baseline-1.0.0-35.arm64.deb
   installAscBaseline
 fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH,,} == "arm64" ]]; then
+  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi
 fi
