@@ -15,6 +15,7 @@ removeContainerd() {
 installDeps() {
     CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
     if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        wait_for_apt_locks # Internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for some time when the VM boots.
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT

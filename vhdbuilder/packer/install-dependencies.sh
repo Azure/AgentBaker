@@ -184,7 +184,7 @@ fi
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64"]]; then  # no ARM64 SKU with GPU now
+if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64" ]]; then  # no ARM64 SKU with GPU now
 installGPUDrivers
 retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
