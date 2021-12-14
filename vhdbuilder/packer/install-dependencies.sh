@@ -239,7 +239,7 @@ MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.16
 "
 
-if [[ ${CPU_ARCH} == "arm64"]]; then
+if [[ ${CPU_ARCH} == "arm64" ]]; then
   VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
 else
   VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS}${MULTI_ARCH_VNET_CNI_VERSIONS}"
@@ -264,7 +264,7 @@ MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.16
 "
 
-if [[ ${CPU_ARCH} == "arm64"]]; then
+if [[ ${CPU_ARCH} == "arm64" ]]; then
   SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 else
   SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS}${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
@@ -276,7 +276,7 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ ${CPU_ARCH} != "arm64"]]; then  #v0.7.6 has no ARM64 binaries
+if [[ ${CPU_ARCH} != "arm64" ]]; then  #v0.7.6 has no ARM64 binaries
   CNI_PLUGIN_VERSIONS="
   0.7.6
   "
@@ -297,7 +297,7 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64"]]; then  # no ARM64 SKU with GPU now
+if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64" ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.9.0
 "
