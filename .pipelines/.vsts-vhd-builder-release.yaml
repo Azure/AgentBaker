@@ -65,6 +65,10 @@ parameters:
   displayName: Build 1804 FIPS Gen2 GPU+containerd
   type: boolean
   default: true
+- name: build1804arm64gen2containerd
+  displayName: Build 1804 ARM64 Gen2 containerd
+  type: boolean
+  default: false
 - name: dryrun
   displayName: Dry run
   type: boolean
@@ -365,3 +369,24 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-fips-gen2-gpu-containerd 
+  - stage: build_vhd_1804_arm64_gen2_containerd
+    dependsOn: []
+    condition: eq('${{ parameters.build1804arm64gen2containerd }}', true)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8darm_V3'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 1804-arm64-gen2-containerd

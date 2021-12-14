@@ -182,6 +182,18 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	esac
 fi
 
+# no source image on marketplace, use MSFT/AME SIG as source image
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  ARM64_SIG_SUBSCRIPTION_ID="a84c0852-ea2d-4359-88e4-11a80a4fb6b9"
+  ARM64_SIG_RESOURCE_GROUP_NAME="ARM64_External_RG"
+  ARM64_SIG_GALLERY_NAME="SantaClaraSIG"
+  ARM64_SIG_IMAGE_NAME="Ubuntu-18.04-LSG"
+  ARM64_SIG_IMAGE_VERSION="20210930.0.0"
+  if [[ ${TENANT_ID,,} == "72f988bf-86f1-41af-91ab-2d7cd011db47" ]]; then # MSFT Tenant
+    ARM64_SIG_SUBSCRIPTION_ID="6f358ff9-e667-4ae9-b6a0-a57b49aca59c"
+  fi
+fi
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -196,7 +208,12 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
-  "sig_image_name":  "${SIG_IMAGE_NAME}"
+  "sig_image_name":  "${SIG_IMAGE_NAME}",
+  "arm64_sig_subscription_id": "${ARM64_SIG_SUBSCRIPTION_ID}",
+  "arm64_sig_resource_group_name": "${ARM64_SIG_RESOURCE_GROUP_NAME}",
+  "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
+  "arm64_sig_image_name": "${ARM64_SIG_IMAGE_NAME}",
+  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}"
 }
 EOF
 
