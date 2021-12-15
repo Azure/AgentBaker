@@ -163,17 +163,12 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64" ]]; then
+  # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
   RUNC_VERSIONS="
   1.0.0-rc92
   1.0.0-rc95
   "
-
-  if [[ ${CPU_ARCH} == "arm64" ]]; then
-    RUNC_VERSIONS="
-    1.0.3+azure-1
-    "
-  fi
 
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
@@ -233,6 +228,7 @@ done
 AMD64_ONLY_CNI_VERSIONS="
 1.2.7
 "
+#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.13
 1.4.14
@@ -257,6 +253,7 @@ done
 AMD64_ONLY_SWIFT_CNI_VERSIONS="
 1.2.7
 "
+#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.12
 1.4.13
