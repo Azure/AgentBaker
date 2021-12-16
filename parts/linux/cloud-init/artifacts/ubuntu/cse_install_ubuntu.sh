@@ -54,6 +54,12 @@ installDeps() {
 }
 
 installGPUDrivers() {
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        # no gpu on arm64 SKU
+        return
+    fi
+
     mkdir -p $GPU_DEST/tmp
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
@@ -76,6 +82,12 @@ installGPUDrivers() {
 }
 
 installSGXDrivers() {
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        # no intel sgx on arm64
+        return
+    fi
+
     echo "Installing SGX driver"
     local VERSION
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -107,7 +119,13 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
-    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    else
+        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    fi
+
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
@@ -189,6 +207,12 @@ installMoby() {
 }
 
 ensureRunc() {
+    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+        # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
+        return
+    fi
+
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.0-rc95"
