@@ -4,8 +4,7 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-CPU_ARCH=${CPU_ARCH,,}
+CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh

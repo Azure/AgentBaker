@@ -51,11 +51,11 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
     local krustlet_filepath="/usr/local/bin/krustlet-wagi"
 
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
     fi
 
@@ -74,7 +74,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -82,7 +82,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
@@ -106,9 +106,9 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # no arm64 teleport binaries according to owner
         return
     fi
@@ -126,8 +126,8 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # no arm64 teleport binaries according to owner
         return
     fi

@@ -13,8 +13,8 @@ removeContainerd() {
 }
 
 installDeps() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         wait_for_apt_locks # internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for ~20 minutes when the VM boots first time.
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
@@ -22,10 +22,7 @@ installDeps() {
     fi
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
-    if [[ ${CPU_ARCH,,} != "arm64" ]]; then
-        #walinuxagent is installed on arm64 ubuntu vhd, but not as apt package
-        aptmarkWALinuxAgent hold
-    fi
+    aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     BLOBFUSE_VERSION="1.4.1"
@@ -35,7 +32,7 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ ${CPU_ARCH,,} != "arm64" ]]; then
+    if [[ ${CPU_ARCH} != "arm64" ]]; then
       # no blobfuse package in arm64 ubuntu repo
       for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
         if ! apt_get_install 30 1 600 $apt_package; then
@@ -54,8 +51,8 @@ installDeps() {
 }
 
 installGPUDrivers() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # no gpu on arm64 SKU
         return
     fi
@@ -82,8 +79,8 @@ installGPUDrivers() {
 }
 
 installSGXDrivers() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # no intel sgx on arm64
         return
     fi
@@ -119,8 +116,8 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -136,7 +133,7 @@ updateAptWithMicrosoftPkg() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
@@ -177,7 +174,7 @@ installStandaloneContainerd() {
 
 downloadContainerd() {
     #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
@@ -207,8 +204,8 @@ installMoby() {
 }
 
 ensureRunc() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi

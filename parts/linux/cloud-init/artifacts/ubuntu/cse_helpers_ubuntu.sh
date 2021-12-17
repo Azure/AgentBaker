@@ -4,6 +4,10 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
+        #walinuxagent is installed on arm64 ubuntu vhd, but not as apt package
+        return
+    fi
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \

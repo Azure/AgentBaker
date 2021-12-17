@@ -518,8 +518,8 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi
@@ -544,8 +544,8 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
-    if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi
