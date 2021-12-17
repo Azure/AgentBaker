@@ -7,8 +7,9 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
-
-
+curl -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | jq
+PUBLIC_IP="$(wget -nv -q -O- https://ifconfig.me)"
+echo "$PUBLIC_IP"
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
 
@@ -213,7 +214,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "arm64_sig_resource_group_name": "${ARM64_SIG_RESOURCE_GROUP_NAME}",
   "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
   "arm64_sig_image_name": "${ARM64_SIG_IMAGE_NAME}",
-  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}"
+  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}",
+  "allowed_ip": "${PUBLIC_IP}"
 }
 EOF
 

@@ -14,11 +14,13 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "enable_fips": "{{env `ENABLE_FIPS`}}"
+    "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "allowed_ip": "{{env `PUBLIC_IP`}}"
   },
   "builders": [
     {
       "type": "azure-arm",
+      "allowed_inbound_ip_addresses": ["{{user `allowed_ip`}}"],
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
@@ -104,6 +106,11 @@
       "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/build-log.sh",
+      "destination": "/home/packer/build-log.sh"
     },
     {
       "type": "file",
@@ -264,6 +271,20 @@
       "type": "shell",
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+      ]
+    },
+    {
+      "inline": "sudo reboot",
+      "type": "shell",
+      "expect_disconnect": true,
+      "skip_clean": true
+    },
+    {
+      "type": "shell",
+      "pause_before": "60s",
+      "max_retries": 20,
+      "inline": [
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/build-log.sh"
       ]
     },
     {
