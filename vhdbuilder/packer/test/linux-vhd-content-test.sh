@@ -65,7 +65,9 @@ testImagesPulled() {
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
+    amd64OnlyVersions=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r | jq -r ".[]")
+    multiArchVersions=$(echo "${imageToBePulled}" | jq .multiArchVersions -r | jq -r ".[]")
+    versions="${amd64OnlyVersions} ${multiArchVersions}"
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 

@@ -258,10 +258,10 @@ done
 #Azure SWIFT CNI has binaries and container images for ARM64 from 1.4.12
 AMD64_ONLY_SWIFT_CNI_VERSIONS="
 1.2.7
-"
-#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.12
+"
+#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
+MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.13
 1.4.14
 1.4.16
@@ -375,7 +375,7 @@ fi
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
     if [[ ${CPU_ARCH} == "arm64" ]]; then
-        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull if from docker.io
+        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull it from docker.io now
     else
         CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
     fi
@@ -465,7 +465,7 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
     continue
   fi
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
 # shellcheck disable=SC2129
