@@ -88,8 +88,7 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/networkmonitor:*",
       "amd64OnlyVersions": [
-        "v1.1.8_hotfix",
-        "v1.1.8post2"
+        "v1.1.8_hotfix"
       ],
       "multiArchVersions": []
     },
@@ -150,7 +149,6 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [
-        "ciprod08052021-1",
         "ciprod10132021"
       ],
       "multiArchVersions": []
@@ -243,7 +241,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [
         "v0.6.0",
-        "v0.7.5",
         "v1.0.2",
         "v1.1.1"
       ],
@@ -302,7 +299,6 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [
-        "v1.2.0.5",
         "v1.2.0.6",
         "v1.8.0.1"
       ],
@@ -391,7 +387,6 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [
-        "prod_20210719.1",
         "prod_20210909.1"
       ],
       "multiArchVersions": []
@@ -399,7 +394,6 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [
-        "prod_20210713.1",
         "prod_20210714.1",
         "prod_20210909.1"
       ],
