@@ -252,7 +252,7 @@ downloadDebPkgToFile() {
     # shellcheck disable=SC2164
     popd
 }
-getCPUArch(){
+getCPUArch() {
     arch=$(uname -m)
     if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
         echo "arm64"

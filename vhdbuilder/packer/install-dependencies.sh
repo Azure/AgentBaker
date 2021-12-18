@@ -4,7 +4,6 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -18,6 +17,7 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
+CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
@@ -214,7 +214,14 @@ string_replace() {
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
+  amd64OnlyVersions=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r | jq -r ".[]")
+  multiArchVersions=$(echo "${imageToBePulled}" | jq .multiArchVersions -r | jq -r ".[]")
+
+  if [[ ${CPU_ARCH} == "arm64" ]]; then
+    versions="${multiArchVersions}"
+  else
+    versions="${amd64OnlyVersions} ${multiArchVersions}"
+  fi
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
@@ -367,7 +374,11 @@ fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
+        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull if from docker.io
+    else
+        CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    fi
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -423,20 +434,31 @@ done
 # v1.22.2 (preview)
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-KUBE_BINARY_VERSIONS="
+
+AMD64_ONLY_KUBE_BINARY_VERSIONS="
 1.19.11-hotfix.20210823
 1.19.13-hotfix.20210830
 1.20.7-hotfix.20210816
 1.20.9-hotfix.20210830
-1.20.13
 1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
+"
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 support. For versions with arm64, please add it blow
+MULTI_ARCH_KUBE_BINARY_VERSIONS="
+1.20.13
 1.21.7
 1.22.1
 1.22.2
 1.22.4
 1.23.0
 "
+
+if [[ ${CPU_ARCH} == "arm64" ]]; then
+  KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+else
+  KUBE_BINARY_VERSIONS="${AMD64_ONLY_KUBE_BINARY_VERSIONS}${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+fi
+
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
