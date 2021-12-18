@@ -279,11 +279,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
-      "amd64OnlyVersions": [
-        "v2.5.0.7"
-       ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.5.0.8"
+        "v2.5.0.8",
+        "v2.5.0.9"
       ]
     },
     {
