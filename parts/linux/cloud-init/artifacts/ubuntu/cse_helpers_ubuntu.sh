@@ -4,6 +4,7 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     if [[ ${CPU_ARCH} == "arm64" ]]; then
         #walinuxagent is installed on arm64 ubuntu vhd, but not as apt package
         return
