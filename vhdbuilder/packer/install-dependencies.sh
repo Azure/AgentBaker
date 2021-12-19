@@ -214,8 +214,17 @@ string_replace() {
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  amd64OnlyVersions=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r | jq -r ".[]")
-  multiArchVersions=$(echo "${imageToBePulled}" | jq .multiArchVersions -r | jq -r ".[]")
+  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
+  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+
+  amd64OnlyVersions=""
+  if [[ ${amd64OnlyVersionsStr} != null ]]; then
+    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
+  fi
+  multiArchVersions=""
+  if [[ ${multiArchVersionsStr} != null ]]; then
+    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
+  fi
 
   if [[ ${CPU_ARCH} == "arm64" ]]; then
     versions="${multiArchVersions}"
@@ -399,9 +408,9 @@ done
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 else
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 fi
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
