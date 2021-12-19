@@ -40,8 +40,13 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
     local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [[ ${CPU_ARCH} == "arm64" ]]; then
+        krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
+    fi
+
     if [ ! -f "$krustlet_filepath" ]; then
         retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         chmod 755 "$krustlet_filepath"    
