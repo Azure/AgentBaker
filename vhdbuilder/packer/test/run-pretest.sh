@@ -5,8 +5,8 @@ components=$(jq .ContainerImages[] --monochrome-output --compact-output < vhdbui
 for component in ${components[*]}; do
 	downloadURL=$(echo ${component} | jq .downloadURL)
 	downloadURL=$(echo ${downloadURL//\*/} | jq 'sub(".com/" ; ".com/v2/") | sub(":" ; "/tags/list")' -r)
-	amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-	multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+	amd64OnlyVersionsStr=$(echo "${component}" | jq .amd64OnlyVersions -r)
+	multiArchVersionsStr=$(echo "${component}" | jq .multiArchVersions -r)
 	amd64OnlyVersions=""
 	if [[ ${amd64OnlyVersionsStr} != null ]]; then
 		amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
