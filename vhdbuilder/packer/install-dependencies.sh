@@ -4,6 +4,7 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -69,6 +70,21 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - dnsutils
   - zip
 EOF
+
+if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+  if [[ ${ENABLE_FIPS,,} == "true" ]]; then
+    echo "No FIPS support on arm64, exiting..."
+    exit 1
+  fi
+  if [[ $OS == $MARINER_OS_NAME ]]; then
+    echo "No arm64 support for Mariner OS, exiting..."
+    exit 1
+  fi
+  if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
+    echo "No arm64 support on V1 VM, exiting..."
+    exit 1
+  fi
+fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
@@ -430,10 +446,15 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
-installAscBaseline
+if [[ ${CPU_ARCH,,} != "arm64" ]]; then
+  # no asc-baseline-1.0.0-35.arm64.deb
+  installAscBaseline
+fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  relinkResolvConf
+if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH,,} == "arm64" ]]; then
+    relinkResolvConf
+  fi
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then

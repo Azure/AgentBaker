@@ -2,6 +2,16 @@ SHELL=/bin/bash -o pipefail
 
 build-packer:
 ifeq (${OS_SKU},Ubuntu)
+ifeq (${ARCHITECTURE},ARM64)
+ifeq (${MODE},gen2Mode)
+	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+else ifeq (${MODE},sigMode)
+	$(error sigMode not supported yet)
+else
+	$(error arm64 generation 1 VM not supported)
+endif
+else
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
@@ -11,6 +21,7 @@ else ifeq (${MODE},sigMode)
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+endif
 endif
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${MODE},gen2Mode)
