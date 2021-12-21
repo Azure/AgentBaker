@@ -4118,7 +4118,7 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ ! $(isARM64) != 1 ]]; then
+    if [[ $(isARM64) != 1 ]]; then
       # no blobfuse package in arm64 ubuntu repo
       for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
         if ! apt_get_install 30 1 600 $apt_package; then
