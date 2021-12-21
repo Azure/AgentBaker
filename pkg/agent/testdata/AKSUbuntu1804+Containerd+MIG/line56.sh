@@ -302,8 +302,7 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no GPU on ARM64
         return
     fi
@@ -328,8 +327,7 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no GPU on ARM64
         return
     fi

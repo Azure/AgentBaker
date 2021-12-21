@@ -1065,8 +1065,7 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no GPU on ARM64
         return
     fi
@@ -1091,8 +1090,7 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no GPU on ARM64
         return
     fi
@@ -1385,6 +1383,13 @@ getCPUArch() {
         echo "amd64"
     fi
 }
+isARM64() {
+    if [[ $(getCPUArch) == "arm64" ]]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
 #HELPERSEOF
 `)
 
@@ -1456,10 +1461,9 @@ downloadCNI() {
 }
 
 downloadKrustlet() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
     local krustlet_filepath="/usr/local/bin/krustlet-wagi"
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
     fi
 
@@ -1510,8 +1514,7 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no arm64 teleport binaries according to owner
         return
     fi
@@ -1529,8 +1532,7 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no arm64 teleport binaries according to owner
         return
     fi
@@ -3964,8 +3966,7 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         #walinuxagent is installed on arm64 ubuntu base os, but not as apt package
         return
     fi
@@ -4099,8 +4100,7 @@ removeContainerd() {
 }
 
 installDeps() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         wait_for_apt_locks # internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for ~20 minutes when the VM boots first time.
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
@@ -4118,7 +4118,7 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ ${CPU_ARCH} != "arm64" ]]; then
+    if [[ ! $(isARM64) != 1 ]]; then
       # no blobfuse package in arm64 ubuntu repo
       for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
         if ! apt_get_install 30 1 600 $apt_package; then
@@ -4137,8 +4137,7 @@ installDeps() {
 }
 
 installGPUDrivers() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no gpu on arm64 SKU
         return
     fi
@@ -4165,8 +4164,7 @@ installGPUDrivers() {
 }
 
 installSGXDrivers() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # no intel sgx on arm64
         return
     fi
@@ -4202,8 +4200,7 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
@@ -4290,8 +4287,7 @@ installMoby() {
 }
 
 ensureRunc() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi
