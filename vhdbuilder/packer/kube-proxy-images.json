@@ -3,7 +3,7 @@
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "versions": [
+        "multiArchVersions": [
           "1.19.11-hotfix.20211009.1",
           "1.19.11-hotfix.20211101.1",
           "1.19.12.1",
@@ -34,7 +34,7 @@
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "versions": [
+        "multiArchVersions": [
           "1.19.11-hotfix.20211009.1",
           "1.19.11-hotfix.20211101.1",
           "1.19.12.1",
