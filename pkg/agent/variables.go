@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/blang/semver"
 )
 
 // getCustomDataVariables returns cloudinit data used by Linux
@@ -177,8 +178,20 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 		registry = `mcr.microsoft.com`
 	}
 
+	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS
+	// so we need to use nc for the connectivity check
+	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
+	minVersion, _ := semver.Make("1.18.0")
+
+	connectivityCheckCommand := ""
+	if clusterVersion.GTE(minVersion) {
+		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
+	} else {
+		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
+	}
+
 	if registry == "" {
 		return ""
 	}
-	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 curl -v --insecure --proxy-insecure https://` + registry + `/v2/ >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time curl -v --insecure --proxy-insecure https://` + registry + `/v2/ || exit $ERR_OUTBOUND_CONN_FAIL;`
+	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
 }
