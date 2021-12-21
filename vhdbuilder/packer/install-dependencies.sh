@@ -71,7 +71,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - zip
 EOF
 
-if [[ ${CPU_ARCH} == "arm64" ]]; then
+if [[ $(isARM64) == 1 ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     echo "No FIPS support on arm64, exiting..."
     exit 1
@@ -162,7 +162,7 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64" ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then
   # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
   RUNC_VERSIONS="
   1.0.0-rc92
@@ -177,7 +177,7 @@ fi
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64" ]]; then  # no ARM64 SKU with GPU now
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 installGPUDrivers
 retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
@@ -225,7 +225,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
     multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
   fi
 
-  if [[ ${CPU_ARCH} == "arm64" ]]; then
+  if [[ $(isARM64) == 1 ]]; then
     versions="${multiArchVersions}"
   else
     versions="${amd64OnlyVersions} ${multiArchVersions}"
@@ -249,7 +249,7 @@ MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.16
 "
 
-if [[ ${CPU_ARCH} == "arm64" ]]; then
+if [[ $(isARM64) == 1 ]]; then
   VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
 else
   VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
@@ -275,7 +275,7 @@ MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.16
 "
 
-if [[ ${CPU_ARCH} == "arm64" ]]; then
+if [[ $(isARM64) == 1 ]]; then
   SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 else
   SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
@@ -287,7 +287,7 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ ${CPU_ARCH} != "arm64" ]]; then  #v0.7.6 has no ARM64 binaries
+if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
   CNI_PLUGIN_VERSIONS="
   0.7.6
   "
@@ -308,7 +308,7 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $OS == $UBUNTU_OS_NAME && ${CPU_ARCH} != "arm64" ]]; then  # no ARM64 SKU with GPU now
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.9.0
 "
@@ -382,7 +382,7 @@ fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ ${CPU_ARCH} == "arm64" ]]; then
+    if [[ $(isARM64) == 1 ]]; then
         CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull it from docker.io now, upsteam team is building 'multi-arch' nginx for MCR
     else
         CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
@@ -462,7 +462,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.0
 "
 
-if [[ ${CPU_ARCH} == "arm64" ]]; then
+if [[ $(isARM64) == 1 ]]; then
   KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
 else
   KUBE_BINARY_VERSIONS="${AMD64_ONLY_KUBE_BINARY_VERSIONS} ${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
@@ -507,7 +507,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
-if [[ ${CPU_ARCH} != "arm64" ]]; then
+if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.0.0-35.arm64.deb
   installAscBaseline
 fi
