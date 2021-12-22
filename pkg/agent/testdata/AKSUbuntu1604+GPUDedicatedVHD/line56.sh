@@ -315,6 +315,11 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
@@ -335,6 +340,11 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else

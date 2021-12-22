@@ -5,7 +5,17 @@ components=$(jq .ContainerImages[] --monochrome-output --compact-output < vhdbui
 for component in ${components[*]}; do
 	downloadURL=$(echo ${component} | jq .downloadURL)
 	downloadURL=$(echo ${downloadURL//\*/} | jq 'sub(".com/" ; ".com/v2/") | sub(":" ; "/tags/list")' -r)
-	versionsToBeDownloaded=$(echo "${component}" | jq .versions[])
+	amd64OnlyVersionsStr=$(echo "${component}" | jq .amd64OnlyVersions -r)
+	multiArchVersionsStr=$(echo "${component}" | jq .multiArchVersions -r)
+	amd64OnlyVersions=""
+	if [[ ${amd64OnlyVersionsStr} != null ]]; then
+		amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
+	fi
+	multiArchVersions=""
+	if [[ ${multiArchVersionsStr} != null ]]; then
+		multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
+	fi
+	versionsToBeDownloaded="${amd64OnlyVersions} ${multiArchVersions}"
 
 	validVersions=$(curl -sL https://$downloadURL | jq .tags[])
 	

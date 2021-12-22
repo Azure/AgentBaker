@@ -4,7 +4,6 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a)
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-CPU_ARCH=$(dpkg --print-architecture)  #amd64 or arm64
 
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
@@ -18,6 +17,7 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
+CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
@@ -71,7 +71,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - zip
 EOF
 
-if [[ ${CPU_ARCH,,} == "arm64" ]]; then
+if [[ $(isARM64) == 1 ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     echo "No FIPS support on arm64, exiting..."
     exit 1
@@ -82,6 +82,11 @@ if [[ ${CPU_ARCH,,} == "arm64" ]]; then
   fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
+    exit 1
+  fi
+
+  if [[ ${CONTAINER_RUNTIME,,} == "docker" ]]; then
+    echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
 fi
@@ -157,7 +162,8 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then
+  # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
   RUNC_VERSIONS="
   1.0.0-rc92
   1.0.0-rc95
@@ -168,11 +174,10 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   done
 fi
 
-
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 installGPUDrivers
 retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
@@ -208,7 +213,23 @@ string_replace() {
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
+  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
+  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+
+  amd64OnlyVersions=""
+  if [[ ${amd64OnlyVersionsStr} != null ]]; then
+    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
+  fi
+  multiArchVersions=""
+  if [[ ${multiArchVersionsStr} != null ]]; then
+    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
+  fi
+
+  if [[ $(isARM64) == 1 ]]; then
+    versions="${multiArchVersions}"
+  else
+    versions="${amd64OnlyVersions} ${multiArchVersions}"
+  fi
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
@@ -217,53 +238,77 @@ for imageToBePulled in ${ContainerImages[*]}; do
   done
 done
 
-VNET_CNI_VERSIONS="
+#Azure CNI has binaries and container images for ARM64 from 1.4.13
+AMD64_ONLY_CNI_VERSIONS="
 1.2.7
+"
+#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
+MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.13
 1.4.14
 1.4.16
 "
+
+if [[ $(isARM64) == 1 ]]; then
+  VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
+else
+  VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
+fi
+
+
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # merge with above after two more version releases
-SWIFT_CNI_VERSIONS="
+#Azure SWIFT CNI has binaries and container images for ARM64 from 1.4.13
+AMD64_ONLY_SWIFT_CNI_VERSIONS="
 1.2.7
 1.4.12
+"
+#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
+MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.13
 1.4.14
 1.4.16
 "
 
+if [[ $(isARM64) == 1 ]]; then
+  SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
+else
+  SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
+fi
+
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-amd64-v${VNET_CNI_VERSION}.tgz"
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-CNI_PLUGIN_VERSIONS="
-0.7.6
-"
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
+  CNI_PLUGIN_VERSIONS="
+  0.7.6
+  "
+  for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
+  done
+fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
 0.8.7
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-amd64-v${CNI_PLUGIN_VERSION}.tgz"
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.9.0
 "
@@ -337,7 +382,11 @@ fi
 
 NGINX_VERSIONS="1.13.12-alpine"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    if [[ $(isARM64) == 1 ]]; then
+        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull it from docker.io now, upsteam team is building 'multi-arch' nginx for MCR
+    else
+        CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    fi
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
@@ -357,10 +406,11 @@ done
 # v1.22.2 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
+# kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 else
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].versions[]' <"$THIS_DIR/kube-proxy-images.json")
+  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 fi
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
@@ -393,27 +443,38 @@ done
 # v1.22.2 (preview)
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-KUBE_BINARY_VERSIONS="
+
+AMD64_ONLY_KUBE_BINARY_VERSIONS="
 1.19.11-hotfix.20210823
 1.19.13-hotfix.20210830
 1.20.7-hotfix.20210816
 1.20.9-hotfix.20210830
-1.20.13
 1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
+"
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
+MULTI_ARCH_KUBE_BINARY_VERSIONS="
+1.20.13
 1.21.7
 1.22.1
 1.22.2
 1.22.4
 1.23.0
 "
+
+if [[ $(isARM64) == 1 ]]; then
+  KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+else
+  KUBE_BINARY_VERSIONS="${AMD64_ONLY_KUBE_BINARY_VERSIONS} ${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+fi
+
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     echo "Only need to store k8s components >= 1.19 for containerd VHDs"
     continue
   fi
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
 # shellcheck disable=SC2129
@@ -446,13 +507,13 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
-if [[ ${CPU_ARCH,,} != "arm64" ]]; then
+if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.0.0-35.arm64.deb
   installAscBaseline
 fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH,,} == "arm64" ]]; then
+  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi
 fi
