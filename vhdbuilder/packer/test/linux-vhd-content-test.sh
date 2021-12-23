@@ -41,6 +41,22 @@ testFilesDownloaded() {
         err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
+      # Validate whether package exists in Azure China cloud
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+          mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+          echo "Validating: $mcURL"
+          isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+          if [[ "$isExist" == "404" ]]; then
+            err "$mcURL is invalid"
+            continue
+          fi
+
+          fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+          if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
+            err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
+            continue
+          fi
+      fi
     done
 
     echo "---"
