@@ -158,9 +158,7 @@
       "amd64OnlyVersions": [
         "v3.8.9.3"
       ],
-      "multiArchVersions": [
-        "v3.18.6"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
@@ -189,9 +187,7 @@
       "amd64OnlyVersions": [
         "v3.8.9.1"
       ],
-      "multiArchVersions": [
-        "v3.18.6"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
@@ -226,6 +222,7 @@
         "v1.20.0"
       ],
       "multiArchVersions": [
+        "v1.22.3",
         "v1.23.1",
         "v1.23.3"
       ]
