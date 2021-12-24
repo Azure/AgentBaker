@@ -43,7 +43,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode, config)
 		if profile != nil {
 			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
 		}
@@ -98,7 +98,8 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
-	generatorCode string) {
+	generatorCode string,
+	config *datamodel.NodeBootstrappingConfiguration) {
 	orchestratorProfile := properties.OrchestratorProfile
 
 	if orchestratorProfile.IsKubernetes() {
@@ -109,10 +110,14 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		if kubernetesConfig != nil {
 			if kubernetesConfig.CustomKubeProxyImage != "" {
+				// kubernetesConfig.CustomKubeProxyImage is ap level property, AKS default CustomKubeProxyImage
+				// is 'multi-arch', no need to differentiate amd64/arm64 ap
 				addValue(parametersMap, "kubeProxySpec", kubernetesConfig.CustomKubeProxyImage)
 			}
 
 			if kubernetesConfig.CustomKubeBinaryURL != "" {
+				// kubernetesConfig.CustomKubeBinaryURL is ap level property, CustomKubeBinaryURL is
+				// set to different for amd64/arm64 ap in RP side.
 				addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
 			}
 
@@ -140,10 +145,14 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			addValue(parametersMap, "networkMode", kubernetesConfig.NetworkMode)
 			addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
 			addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
-			addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
-			addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
+			if config.IsARM64 {
+				addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIARM64PluginsDownloadURL)
+				addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLARM64Linux(cloudSpecConfig))
+			} else {
+				addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
+				addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
+			}
 			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
-
 			if properties.HasWindows() {
 				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
 

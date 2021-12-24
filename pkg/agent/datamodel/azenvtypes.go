@@ -32,7 +32,9 @@ type KubernetesSpecConfig struct {
 	KubeBinariesSASURLBase               string `json:"kubeBinariesSASURLBase,omitempty"`
 	WindowsTelemetryGUID                 string `json:"windowsTelemetryGUID,omitempty"`
 	CNIPluginsDownloadURL                string `json:"cniPluginsDownloadURL,omitempty"`
+	CNIARM64PluginsDownloadURL           string `json:"cniARM64PluginsDownloadURL,omitempty"`
 	VnetCNILinuxPluginsDownloadURL       string `json:"vnetCNILinuxPluginsDownloadURL,omitempty"`
+	VnetCNIARM64LinuxPluginsDownloadURL  string `json:"vnetCNIARM64LinuxPluginsDownloadURL,omitempty"`
 	VnetCNIWindowsPluginsDownloadURL     string `json:"vnetCNIWindowsPluginsDownloadURL,omitempty"`
 	ContainerdDownloadURLBase            string `json:"containerdDownloadURLBase,omitempty"`
 	CSIProxyDownloadURL                  string `json:"csiProxyDownloadURL,omitempty"`
