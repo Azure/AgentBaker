@@ -40,18 +40,27 @@ function Initialize-DataDirectories {
 }
 
 function Get-LogCollectionScripts {
-    Write-Log "Getting various log collect scripts and depencencies"
-    Create-Directory -FullPath 'c:\k\debug' -DirectoryUsage "storing debug scripts"
-    DownloadFileOverHttp -Url 'https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1' -DestinationPath 'c:\k\debug\collect-windows-logs.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1' -DestinationPath 'c:\k\debug\collectlogs.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1' -DestinationPath 'c:\k\debug\dumpVfpPolicies.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/portReservationTest.ps1' -DestinationPath 'c:\k\debug\portReservationTest.ps1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.cmd' -DestinationPath 'c:\k\debug\starthnstrace.cmd'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.cmd' -DestinationPath 'c:\k\debug\startpacketcapture.cmd'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/stoppacketcapture.cmd' -DestinationPath 'c:\k\debug\stoppacketcapture.cmd'
-    DownloadFileOverHttp -Url 'https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/VFP.psm1' -DestinationPath 'c:\k\debug\VFP.psm1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1' -DestinationPath 'c:\k\debug\helper.psm1'
-    DownloadFileOverHttp -Url 'https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1' -DestinationPath 'c:\k\debug\hns.psm1'
+    # github.com is not in the required endpoints https://docs.microsoft.com/en-us/azure/aks/limit-egress-traffic
+    # We only can copy below scripts from cache folder in the VHD
+    # To add a new script, you need
+    #  1. Add the script in vhdbuilder/packer/generate-windows-vhd-configuration.ps1
+    #  2. Build a new AKS Windows VHD and update the VHD version in AKS RP
+    #  3. Update this function to add the script
+    Write-Log "Copying various log collect scripts and depencencies"
+    $destinationFolder='c:\k\debug'
+    Create-Directory -FullPath $destinationFolder -DirectoryUsage "storing debug scripts"
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'collect-windows-logs.ps1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'collectlogs.ps1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'dumpVfpPolicies.ps1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'portReservationTest.ps1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.cmd'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.cmd'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'stoppacketcapture.cmd'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'VFP.psm1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'helper.psm1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'hns.psm1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.ps1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.ps1'
 }
 
 function Register-LogsCleanupScriptTask {
