@@ -287,13 +287,6 @@
       "multiArchVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/azure/kms/keyvault:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v0.1.0"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [
         "v1.2.0.6",
