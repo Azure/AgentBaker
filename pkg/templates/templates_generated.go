@@ -1065,6 +1065,11 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
@@ -1085,6 +1090,11 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else
@@ -1365,6 +1375,21 @@ downloadDebPkgToFile() {
     # shellcheck disable=SC2164
     popd
 }
+getCPUArch() {
+    arch=$(uname -m)
+    if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
+        echo "arm64"
+    else
+        echo "amd64"
+    fi
+}
+isARM64() {
+    if [[ $(getCPUArch) == "arm64" ]]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
 #HELPERSEOF
 `)
 
@@ -1438,6 +1463,10 @@ downloadCNI() {
 downloadKrustlet() {
     local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
     local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [[ $(isARM64) == 1 ]]; then
+        krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
+    fi
+
     if [ ! -f "$krustlet_filepath" ]; then
         retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         chmod 755 "$krustlet_filepath"    
@@ -1453,13 +1482,15 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
     retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
 
 installCrictl() {
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
@@ -1467,7 +1498,7 @@ installCrictl() {
     else
         # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
         # if the vhd does not have crictl pre-baked, return early
-        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
         if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
             rm -rf ${CRICTL_DOWNLOAD_DIR}
             echo "pre-cached crictl not found: skipping installCrictl"
@@ -1483,6 +1514,11 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
+    if [[ $(isARM64) == 1 ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
     if [[ -z ${DOWNLOAD_URL} ]]; then
         echo "download url parameter for downloadTeleportdPlugin was not given"
         exit $ERR_TELEPORTD_DOWNLOAD_ERR
@@ -1496,6 +1532,11 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
     local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
@@ -3925,6 +3966,10 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
+    if [[ $(isARM64) == 1 ]]; then
+        #walinuxagent is installed on arm64 ubuntu base os, but not as apt package
+        return
+    fi
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
@@ -4055,8 +4100,14 @@ removeContainerd() {
 }
 
 installDeps() {
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    if [[ $(isARM64) == 1 ]]; then
+        wait_for_apt_locks # internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for ~20 minutes when the VM boots first time.
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    else
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    fi
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
@@ -4066,7 +4117,18 @@ installDeps() {
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
-    for apt_package in apache2-utils apt-transport-https blobfuse=${BLOBFUSE_VERSION} ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
+
+    if [[ $(isARM64) != 1 ]]; then
+      # no blobfuse package in arm64 ubuntu repo
+      for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
+        if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
+
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -4075,6 +4137,11 @@ installDeps() {
 }
 
 installGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no gpu on arm64 SKU
+        return
+    fi
+
     mkdir -p $GPU_DEST/tmp
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
@@ -4097,6 +4164,11 @@ installGPUDrivers() {
 }
 
 installSGXDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no intel sgx on arm64
+        return
+    fi
+
     echo "Installing SGX driver"
     local VERSION
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -4128,7 +4200,12 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
-    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    if [[ $(isARM64) == 1 ]]; then
+        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    else
+        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    fi
+
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
@@ -4140,6 +4217,7 @@ updateAptWithMicrosoftPkg() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -4165,7 +4243,7 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
+        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
         CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -4178,10 +4256,12 @@ installStandaloneContainerd() {
 }
 
 downloadContainerd() {
+    #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
@@ -4207,6 +4287,11 @@ installMoby() {
 }
 
 ensureRunc() {
+    if [[ $(isARM64) == 1 ]]; then
+        # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
+        return
+    fi
+
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.0-rc95"
@@ -4646,6 +4731,10 @@ write_files:
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
       {{- end}}
+      {{- if IsKubernetesVersionGe "1.22.0"}}
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
@@ -4693,6 +4782,10 @@ write_files:
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
       {{ end}}
+      {{- if IsKubernetesVersionGe "1.22.0"}}
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
