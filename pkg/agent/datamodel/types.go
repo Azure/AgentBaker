@@ -524,6 +524,7 @@ type KubernetesConfig struct {
 	LoadBalancerSku                   string            `json:"loadBalancerSku,omitempty"`
 	ExcludeMasterFromStandardLB       *bool             `json:"excludeMasterFromStandardLB,omitempty"`
 	AzureCNIURLLinux                  string            `json:"azureCNIURLLinux,omitempty"`
+	AzureCNIURLARM64Linux             string            `json:"azureCNIURLARM64Linux,omitempty"`
 	AzureCNIURLWindows                string            `json:"azureCNIURLWindows,omitempty"`
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
@@ -1210,6 +1211,14 @@ func (k *KubernetesConfig) GetAzureCNIURLLinux(cloudSpecConfig *AzureEnvironment
 	return cloudSpecConfig.KubernetesSpecConfig.VnetCNILinuxPluginsDownloadURL
 }
 
+// GetAzureCNIURLARM64Linux returns the full URL to source Azure CNI binaries for ARM64 Linux from
+func (k *KubernetesConfig) GetAzureCNIURLARM64Linux(cloudSpecConfig *AzureEnvironmentSpecConfig) string {
+	if k.AzureCNIURLARM64Linux != "" {
+		return k.AzureCNIURLARM64Linux
+	}
+	return cloudSpecConfig.KubernetesSpecConfig.VnetCNIARM64LinuxPluginsDownloadURL
+}
+
 // GetAzureCNIURLWindows returns the full URL to source Azure CNI binaries from
 func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironmentSpecConfig) string {
 	if k.AzureCNIURLWindows != "" {
@@ -1344,6 +1353,7 @@ type NodeBootstrappingConfiguration struct {
 	GPUInstanceProfile             string
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
+	IsARM64                        bool
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
