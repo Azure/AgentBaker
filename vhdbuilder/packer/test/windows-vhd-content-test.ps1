@@ -66,6 +66,30 @@ function Test-FilesToCacheOnVHD
             }
 
             Write-Output "$dest is cached as expected"
+
+            if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
+                $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+                Write-Host "Validating: $mcURL"
+                try {
+                    $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+                    if ($localFileSize -ne $remoteFileSize) {
+                        if ($mcURL.Contains("calico-windows")) {
+                            Write-Output "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size is $remoteFileSize. Ignore it since it is expected"
+                            continue
+                        }
+
+                        Write-Error "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size is $remoteFileSize"
+                        $invalidFiles = $mcURL
+                        continue
+                    }
+                } catch {
+                    Write-Error "$mcURL is invalid"
+                    $invalidFiles = $mcURL
+                    continue
+                }
+            }
+
+            Write-Output "$dest exists in Azure China Cloud"
         }
     }
     if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0) {
