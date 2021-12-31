@@ -74,7 +74,6 @@
         "1.6.6"
       ],
       "multiArchVersions": [
-        "1.6.6",
         "1.8.6"
       ]
     },
@@ -159,9 +158,7 @@
       "amd64OnlyVersions": [
         "v3.8.9.3"
       ],
-      "multiArchVersions": [
-        "v3.8.9.3"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
@@ -171,8 +168,7 @@
       "multiArchVersions": [
         "v3.20.0",
         "v3.21.0",
-        "v3.21.2",
-        "v3.8.9.5"
+        "v3.21.2"
       ]
     },
     {
@@ -183,8 +179,7 @@
       "multiArchVersions": [
         "v3.20.0",
         "v3.21.0",
-        "v3.21.2",
-        "v3.8.9"
+        "v3.21.2"
       ]
     },
     {
@@ -192,9 +187,7 @@
       "amd64OnlyVersions": [
         "v3.8.9.1"
       ],
-      "multiArchVersions": [
-        "v3.8.9.1"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
@@ -211,7 +204,6 @@
         "1.10.3"
       ],
       "multiArchVersions": [
-        "1.10.3",
         "1.10.5"
       ]
     },
@@ -221,7 +213,6 @@
         "1.10.3.3"
       ],
       "multiArchVersions": [
-        "1.10.3.3",
         "1.10.5"
       ]
     },
@@ -251,7 +242,6 @@
         "v1.1.1"
       ],
       "multiArchVersions": [
-        "v0.6.0",
         "v0.7.9",
         "v1.0.6",
         "v1.1.2"
@@ -303,8 +293,6 @@
         "v1.8.0.1"
       ],
       "multiArchVersions": [
-        "v1.2.0.6",
-        "v1.8.0.1",
         "v1.9.0"
       ]
     },
@@ -315,8 +303,6 @@
         "v1.7.0"
       ],
       "multiArchVersions": [
-        "v1.2.0",
-        "v1.7.0",
         "v1.8.0"
       ]
     },
@@ -327,16 +313,15 @@
         "v2.4.0"
       ],
       "multiArchVersions": [
-        "v2.2.0",
-        "v2.4.0",
         "v2.5.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "v2.0.1"
+      ],
       "multiArchVersions": [
-        "v2.0.1",
         "v2.3.0",
         "v2.4.0"
       ]
