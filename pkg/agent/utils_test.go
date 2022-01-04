@@ -239,7 +239,7 @@ var _ = Describe("Assert ParseCSE", func() {
 		res, err := ParseCSEMessage(testMessage)
 		Expect(err).To(BeNil())
 		Expect(res.ExitCode).To(Equal("0"))
-		Expect(res.Output).To(Equal("vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Command execution finished"))
+		Expect(res.Output).To(Equal(testMessage))
 	})
 
 	It("when Windows cse output is correct with exitcode is not empty", func() {
@@ -247,7 +247,7 @@ var _ = Describe("Assert ParseCSE", func() {
 		res, err := ParseCSEMessage(testMessage)
 		Expect(err).To(BeNil())
 		Expect(res.ExitCode).To(Equal("5"))
-		Expect(res.Output).To(Equal("vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Command execution finished, but failed because it returned a non-zero exit code of: '5'"))
+		Expect(res.Output).To(Equal(testMessage))
 	})
 
 	It("when Windows cse output is incorrect", func() {
@@ -255,5 +255,6 @@ var _ = Describe("Assert ParseCSE", func() {
 		_, err := ParseCSEMessage(testMessage)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=InvalidCSEMessage"))
+		Expect(err.Error()).To(ContainSubstring(testMessage))
 	})
 })
