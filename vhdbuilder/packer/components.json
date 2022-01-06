@@ -218,11 +218,9 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
-      "amd64OnlyVersions": [
-        "v1.20.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.22.3",
+        "v1.20.0",
         "v1.23.1",
         "v1.23.3"
       ]
