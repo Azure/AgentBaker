@@ -318,7 +318,9 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "v2.0.1"
+      ],
       "multiArchVersions": [
         "v2.3.0",
         "v2.4.0"
