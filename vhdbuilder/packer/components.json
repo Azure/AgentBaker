@@ -380,7 +380,9 @@
       "amd64OnlyVersions": [
         "prod_20210909.1"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "prod_20211230.1"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
@@ -388,7 +390,9 @@
         "prod_20210714.1",
         "prod_20210909.1"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "prod_20211230.1"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
