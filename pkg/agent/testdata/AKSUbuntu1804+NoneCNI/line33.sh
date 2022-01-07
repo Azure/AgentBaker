@@ -99,6 +99,7 @@ ensureMonitorService
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
 cleanupRetaggedImages
+retagMCRImagesForChina
 
 ensureSysctl
 ensureJournal
