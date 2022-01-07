@@ -184,7 +184,9 @@ ensureMonitorService
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
 cleanupRetaggedImages
-retagMCRImagesForChina
+if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
+    retagMCRImagesForChina
+fi
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
