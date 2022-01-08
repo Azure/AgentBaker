@@ -1667,6 +1667,32 @@ retagContainerImage() {
     fi
 }
 
+retagMCRImagesForChina() {
+    # retag all the mcr for mooncake
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        # shellcheck disable=SC2016
+        allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+    else
+        # shellcheck disable=SC2016
+        allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+    fi
+    if [[ "${allMCRImages}" == "" ]]; then
+        echo "failed to find mcr images for retag"
+        return
+    fi
+    for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
+        # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+        # shellcheck disable=SC2001
+        retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+        # can't use CLI_TOOL because crictl doesn't support retagging.
+        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+            retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
+        else
+            retagContainerImage "docker" ${mcrImage} ${retagMCRImage}
+        fi
+    done
+}
+
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
@@ -1977,7 +2003,9 @@ ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
-cleanupRetaggedImages
+if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
+    retagMCRImagesForChina
+fi
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
