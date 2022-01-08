@@ -205,7 +205,7 @@ ensureRunc() {
 
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.0-rc95"
+        TARGET_VERSION="1.0.2"
     fi
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then

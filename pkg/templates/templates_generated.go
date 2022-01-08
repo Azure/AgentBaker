@@ -1462,7 +1462,7 @@ installContainerRuntime() {
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
             CONTAINERD_VERSION="1.5.9"
-            CONTAINERD_PATCH_VERSION="0"
+            CONTAINERD_PATCH_VERSION="2"
             installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
             echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
         else
@@ -4346,7 +4346,7 @@ ensureRunc() {
 
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.0-rc95"
+        TARGET_VERSION="1.0.2"
     fi
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
