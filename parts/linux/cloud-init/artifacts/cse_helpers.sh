@@ -89,10 +89,9 @@ KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
-NVIDIA_DOCKER_VERSION=2.8.0
+NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
-NVIDIA_DOCKER_SUFFIX=docker20.10.12
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0-1
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
