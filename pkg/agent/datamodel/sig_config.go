@@ -39,7 +39,7 @@ type SigImageConfigOpt func(*SigImageConfig)
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
-	case loc == "chinaeast" || loc == "chinanorth" || loc == "chinaeast2" || loc == "chinanorth2":
+	case strings.HasPrefix(loc, "china"):
 		return AzureChinaCloud
 	case loc == "germanynortheast" || loc == "germanycentral":
 		return AzureGermanCloud
