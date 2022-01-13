@@ -3,7 +3,12 @@
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "amd64OnlyVersions": [],
+        "amd64OnlyVersions": [
+          "1.20.9-hotfix.20211115.1",
+          "1.20.9-hotfix.20211115.2",
+          "1.21.2-hotfix.20211115.1",
+          "1.21.2-hotfix.20211115.2"
+        ],
         "multiArchVersions": [
           "1.19.11-hotfix.20211009.1",
           "1.19.11-hotfix.20211101.1",
@@ -35,7 +40,12 @@
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "amd64OnlyVersions": [],
+        "amd64OnlyVersions": [
+          "1.20.9-hotfix.20211115.1",
+          "1.20.9-hotfix.20211115.2",
+          "1.21.2-hotfix.20211115.1",
+          "1.21.2-hotfix.20211115.2"
+        ],
         "multiArchVersions": [
           "1.19.11-hotfix.20211009.1",
           "1.19.11-hotfix.20211101.1",
