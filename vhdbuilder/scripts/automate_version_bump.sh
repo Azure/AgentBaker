@@ -86,7 +86,6 @@ cut_official_branch() {
     git tag $official_tag
     git push origin tag $official_tag
     git checkout master
-
 }
 
 set_git_config
