@@ -8,10 +8,9 @@ echo "New image version: $1"
 current_image_version=""
 new_image_version=$1
 
-echo "check if script recognizes mapped github pat $MAPPED_GITHUB_PAT"
-# set +x
-# github_access_token=$2
-# set -x
+set +x
+github_access_token=$2
+set -x
 
 build_ids=$2
 
@@ -55,7 +54,7 @@ create_image_bump_pr() {
     update_image_version
 
     set +x
-    create_pull_request $new_image_version $MAPPED_GITHUB_PAT $branch_name $pr_title
+    create_pull_request $new_image_version $github_access_token $branch_name $pr_title
     set -x
 }
 
@@ -78,16 +77,15 @@ cut_official_branch() {
     echo "All builds are based off the same commit"
 
     # Checkout branch and commit the image bump file diff to official branch too
-    # git checkout -b $official_branch_name $final_commit_hash
-    # update_image_version
-    # git add .
-    # git commit -m"Update image version in official branch"
-    # git push -u origin $official_branch_name
+    git checkout -b $official_branch_name $final_commit_hash
+    update_image_version
+    git add .
+    git commit -m"Update image version in official branch"
+    git push -u origin $official_branch_name
 
-    # git tag $official_tag
-    # git push origin tag $official_tag
-    # git checkout master
-
+    git tag $official_tag
+    git push origin tag $official_tag
+    git checkout master
 }
 
 set_git_config
