@@ -292,7 +292,7 @@
         "v1.8.0.2"
       ],
       "multiArchVersions": [
-        "v1.9.0"
+        "v1.10.0"
       ]
     },
     {
@@ -302,7 +302,7 @@
         "v1.7.0"
       ],
       "multiArchVersions": [
-        "v1.8.0"
+        "v1.9.0"
       ]
     },
     {
@@ -318,8 +318,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [
-        "v2.0.1",
-        "v2.3.0"
+        "v2.0.1"
       ],
       "multiArchVersions": [
         "v2.3.0",
@@ -381,7 +380,9 @@
       "amd64OnlyVersions": [
         "prod_20210909.1"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "prod_20211230.1"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
@@ -389,7 +390,9 @@
         "prod_20210714.1",
         "prod_20210909.1"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "prod_20211230.1"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
