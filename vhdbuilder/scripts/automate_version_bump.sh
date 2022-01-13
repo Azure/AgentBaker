@@ -12,7 +12,7 @@ set +x
 github_access_token=$2
 set -x
 
-build_ids=$2
+build_ids=$3
 
 branch_name=imageBump/$new_image_version
 pr_title="VersionBump"
