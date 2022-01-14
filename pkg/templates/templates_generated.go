@@ -548,6 +548,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
+NODE_IP=$(hostname -i)
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -628,9 +629,30 @@ configureHTTPProxyCA() {
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+    KUBELET_OPENSSL_CNF="/etc/kubernetes/certs/extfile.cnf"
+
+    touch "${KUBELET_OPENSSL_CNF}"
+    chmod 0600 "${KUBELET_OPENSSL_CNF}"
+    chown root:root "${KUBELET_OPENSSL_CNF}"
+    cat << EOF >> "${KUBELET_OPENSSL_CNF}"
+    basicConstraints = CA:FALSE
+    nsCertType = server
+    nsComment = "OpenSSL Generated Server Certificate"
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid,issuer:always
+    keyUsage = critical, digitalSignature, keyEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = ${NODE_NAME}
+    DNS.2 = ${NODE_IP}
+    IP.1 = ${NODE_IP}
+    [${NODE_NAME}]
+    
+EOF
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -config $KUBELET_OPENSSL_CNF -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
 }
 
 configureK8s() {
@@ -4156,7 +4178,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
