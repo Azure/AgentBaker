@@ -4139,7 +4139,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.1"
+    BLOBFUSE_VERSION="1.4.2"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
