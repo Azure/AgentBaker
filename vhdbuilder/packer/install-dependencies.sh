@@ -300,7 +300,7 @@ fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
-0.8.7
+0.9.1
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
@@ -524,27 +524,4 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-
-  # TODO(ace): this apparently doesn't do anything for Mariner,
-  # which likely means images aren't cached at all? 
-  #
-  # retag all the mcr for mooncake
-  # shellcheck disable=SC2207
-  if [[ ${cliTool} == "ctr" ]]; then
-    # shellcheck disable=SC2016
-    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
-  else
-    # shellcheck disable=SC2016
-    allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
-  fi
-  if [[ "${allMCRImages}" == "" ]]; then
-    echo "we must find some mcr images"
-    exit 1
-  fi
-  for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
-    # in mooncake, the mcr endpoint is: mcr.azk8s.cn
-    # shellcheck disable=SC2001
-    retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
-    retagContainerImage ${cliTool} ${mcrImage} ${retagMCRImage}
-  done
 fi

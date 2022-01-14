@@ -39,7 +39,7 @@ type SigImageConfigOpt func(*SigImageConfig)
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
-	case loc == "chinaeast" || loc == "chinanorth" || loc == "chinaeast2" || loc == "chinanorth2":
+	case strings.HasPrefix(loc, "china"):
 		return AzureChinaCloud
 	case loc == "germanynortheast" || loc == "germanycentral":
 		return AzureGermanCloud
@@ -204,8 +204,8 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion   string = "2022.01.01"
-	WindowsSIGImageVersion string = "17763.2366.211215"
+	LinuxSIGImageVersion   string = "2022.01.08"
+	WindowsSIGImageVersion string = "17763.2452.220112"
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
 	Arm64LinuxSIGImageVersion string = "2022.01.12"
 )
