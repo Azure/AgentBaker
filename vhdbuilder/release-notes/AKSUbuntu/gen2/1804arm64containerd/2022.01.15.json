@@ -1,0 +1,8 @@
+{
+    "vhd_url" : "https://vhdbuildersaceastus.blob.core.windows.net/vhds/1.0.1642212640.vhd?st=2022-01-14T00%3A00Z&se=2023-01-15T00%3A00Z&sp=rl&sv=2018-11-09&sr=c&sig=Qw0Xl0UIgPXgfV7MroxMIMwLGhE3bO7aVHR3CNFhh24%3D",
+    "os_name" : "Linux",
+    "sku_name" : "1804gen2arm64containerd",
+    "offer_name" : "Ubuntu",
+    "hyperv_generation": "V2",
+    "image_version": "2022.01.15"
+}
