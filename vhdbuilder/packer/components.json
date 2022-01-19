@@ -385,7 +385,8 @@
         "prod_20210909.1"
       ],
       "multiArchVersions": [
-        "prod_20211230.1"
+        "prod_20211230.1",
+        "prod_20220114.1"
       ]
     },
     {
@@ -400,11 +401,11 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
-      "amd64OnlyVersions": [
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
         "1.4.0",
         "1.5.0-rc1"
-      ],
-      "multiArchVersions": []
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
