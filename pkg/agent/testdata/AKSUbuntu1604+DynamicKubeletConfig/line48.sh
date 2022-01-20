@@ -144,29 +144,48 @@ installMoby() {
 }
 
 ensureRunc() {
-    if [[ $(isARM64) == 1 ]]; then
-        # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
-        return
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    echo "Before installing runc, runc version: ${CURRENT_VERSION}"
+
+    # the user-defined runc source is always picked first, and the others options won't tried when this one fails
+    if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
+        echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
+        mkdir -p $RUNC_DOWNLOADS_DIR
+        RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
+        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        if [[ ! -f "${RUNC_DEB_FILE}" ]]; then
+            echo "Failed to install runc from user input: ${RUNC_PACKAGE_URL}, downloaded file is not found"
+            exit $ERR_RUNC_INSTALL_FILE_NOT_FOUND
+        fi
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+        echo "Succeeded to install runc from user input: ${RUNC_PACKAGE_URL}"
+    else
+        if [[ $(isARM64) == 1 ]]; then
+            # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
+            return
+        fi
+        TARGET_VERSION=$1
+        if [[ -z ${TARGET_VERSION} ]]; then
+            TARGET_VERSION="1.0.0-rc95"
+        fi
+        if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
+            echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+        fi
+        # if on a vhd-built image, first check if we've cached the deb file
+        if [ -f $VHD_LOGS_FILEPATH ]; then
+            RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
+            RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+            if [[ -f "${RUNC_DEB_FILE}" ]]; then
+                installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+                return 0
+            fi
+        fi
+        apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
 
-    TARGET_VERSION=$1
-    if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.0-rc95"
-    fi
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
-    fi
-    # if on a vhd-built image, first check if we've cached the deb file
-    if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
-            return 0
-        fi
-    fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    echo "After installing runc, runc version: ${CURRENT_VERSION}"
 }
 
 cleanUpGPUDrivers() {

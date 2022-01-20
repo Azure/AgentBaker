@@ -74,21 +74,17 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
-	if config.RuncVersion != "" {
-		addValue(parametersMap, "runcVersion", config.RuncVersion)
-	}
+	addValue(parametersMap, "runcVersion", config.RuncVersion)
+	addValue(parametersMap, "runcPackageUrl", config.RuncPackageUrl)
 	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
 		// override containerRuntime parameter value if specified in AgentPoolProfile
 		// this allows for heteregenous clusters
 		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
 		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			addValue(parametersMap, "cliTool", "ctr")
-			if config.ContainerdVersion != "" {
-				addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
-			}
-			if config.TeleportdPluginURL != "" {
-				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
-			}
+			addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
+			addValue(parametersMap, "containerdPackageUrl", config.ContainerdPackageUrl)
+			addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
 		} else {
 			addValue(parametersMap, "cliTool", "docker")
 		}

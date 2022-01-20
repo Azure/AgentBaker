@@ -1343,6 +1343,11 @@ type NodeBootstrappingConfiguration struct {
 	TeleportdPluginURL            string
 	ContainerdVersion             string
 	RuncVersion                   string
+	// ContainerdPackageUrl and RuncPackageUrl are beneficial for testing non-official
+	// containerd and runc, like the pre-released ones.
+	// Currently only deb package is supported.
+	ContainerdPackageUrl string
+	RuncPackageUrl       string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
