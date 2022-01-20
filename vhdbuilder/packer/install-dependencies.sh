@@ -138,6 +138,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   1.20.0
   1.21.0
   1.22.0
+  1.23.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -300,7 +301,7 @@ fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 CNI_PLUGIN_VERSIONS="
-0.8.7
+0.9.1
 "
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
@@ -460,6 +461,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.22.2
 1.22.4
 1.23.0
+1.23.1
 "
 
 if [[ $(isARM64) == 1 ]]; then
