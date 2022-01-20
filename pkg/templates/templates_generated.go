@@ -635,6 +635,13 @@ configureKubeletServerCert() {
     chmod 0600 "${KUBELET_OPENSSL_CNF}"
     chown root:root "${KUBELET_OPENSSL_CNF}"
     cat << EOF >> "${KUBELET_OPENSSL_CNF}"
+    [req]
+    distinguished_name = req_distinguished_name
+    x509_extensions = x509_extensions
+    [req_distinguished_name]
+    commonName = ${NODE_NAME}
+    commonName_max = 64
+    [x509_extensions]
     basicConstraints = CA:FALSE
     nsCertType = server
     nsComment = "OpenSSL Generated Server Certificate"
