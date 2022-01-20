@@ -161,9 +161,8 @@ installStandaloneContainerd() {
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
-        fi
-        updateAptWithMicrosoftPkg
-        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi 
+        downloadContainerd ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
     fi
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
