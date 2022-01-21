@@ -4277,6 +4277,8 @@ installStandaloneContainerd() {
             return 0
         fi 
         downloadContainerd ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return 0
     fi
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
