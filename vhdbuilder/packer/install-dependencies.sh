@@ -168,6 +168,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then
   RUNC_VERSIONS="
   1.0.0-rc92
   1.0.0-rc95
+  1.0.2
   "
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
