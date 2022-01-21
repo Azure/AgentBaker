@@ -95,10 +95,11 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [
-        "v1.4.9",
-        "v1.4.12"
+        "v1.4.9"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "v1.4.16"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:*",
