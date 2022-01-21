@@ -475,6 +475,28 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasFlannelNetworkPlugin": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginFlannel
 		},
+		"HasKubeletClientKey": func() bool {
+			return cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != ""
+		},
+		"GetKubeletClientKey": func() string {
+			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
+				padded := fmt.Sprintf("%s\n%s", cs.Properties.CertificateProfile.ClientPrivateKey, "#EOF")
+				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				return encoded
+			}
+			return ""
+		},
+		"HasServicePrincipalSecret": func() bool {
+			return cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != ""
+		},
+		"GetServicePrincipalSecret": func() string {
+			if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
+				padded := fmt.Sprintf("%s\n%s", cs.Properties.ServicePrincipalProfile.Secret, "#EOF")
+				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				return encoded
+			}
+			return ""
+		},
 		"WindowsSSHEnabled": func() bool {
 			return cs.Properties.WindowsProfile.GetSSHEnabled()
 		},
