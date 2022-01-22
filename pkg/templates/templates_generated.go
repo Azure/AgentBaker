@@ -548,6 +548,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
+NODE_IP=$(hostname -i | awk '{print $1}') 
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -628,9 +629,37 @@ configureHTTPProxyCA() {
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+    KUBELET_OPENSSL_CNF="/etc/kubernetes/certs/extfile.cnf"
+
+    touch "${KUBELET_OPENSSL_CNF}"
+    chmod 0600 "${KUBELET_OPENSSL_CNF}"
+    chown root:root "${KUBELET_OPENSSL_CNF}"
+    cat << EOF >> "${KUBELET_OPENSSL_CNF}"
+    [req]
+    distinguished_name = req_distinguished_name
+    x509_extensions = x509_extensions
+    [req_distinguished_name]
+    commonName = ${NODE_NAME}
+    commonName_max = 64
+    [x509_extensions]
+    basicConstraints = CA:FALSE
+    nsCertType = server
+    nsComment = "OpenSSL Generated Server Certificate"
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid,issuer:always
+    keyUsage = critical, digitalSignature, keyEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = ${NODE_NAME}
+    DNS.2 = ${NODE_IP}
+    IP.1 = ${NODE_IP}
+    [${NODE_NAME}]
+    
+EOF
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -config $KUBELET_OPENSSL_CNF -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
 }
 
 configureK8s() {
@@ -4156,7 +4185,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -4300,6 +4329,7 @@ downloadContainerd() {
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
+    local MOBY_CONTAINERD_VERSION="1.4.11" # last stable moby-containerd version with current runc version 1.0.0-rc95
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
@@ -4309,7 +4339,7 @@ installMoby() {
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
         fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }

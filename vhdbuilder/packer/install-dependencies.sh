@@ -138,6 +138,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   1.20.0
   1.21.0
   1.22.0
+  1.23.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -460,6 +461,8 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.22.2
 1.22.4
 1.23.0
+1.23.1
+1.23.2
 "
 
 if [[ $(isARM64) == 1 ]]; then

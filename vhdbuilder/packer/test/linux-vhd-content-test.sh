@@ -231,6 +231,8 @@ testKubeBinariesPresent() {
   1.22.2
   1.22.4
   1.23.0
+  1.23.1
+  1.23.2
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
