@@ -450,14 +450,12 @@ AMD64_ONLY_KUBE_BINARY_VERSIONS="
 1.19.13-hotfix.20210830
 1.20.7-hotfix.20210816
 1.20.9-hotfix.20210830
-1.21.1-hotfix.20210827
 1.21.2-hotfix.20210830
 "
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.20.13
 1.21.7
-1.22.1
 1.22.2
 1.22.4
 1.23.0
@@ -468,7 +466,9 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 if [[ $(isARM64) == 1 ]]; then
   KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
 else
-  KUBE_BINARY_VERSIONS="${AMD64_ONLY_KUBE_BINARY_VERSIONS} ${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+  # MULTI_ARCH should come first in case there is a hotfix in AMD64 with same version.
+  # downloaded file location includes only major.minor.patch so hotfix will overwrite unhotfixed version
+  KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS} ${AMD64_ONLY_KUBE_BINARY_VERSIONS}"
 fi
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
