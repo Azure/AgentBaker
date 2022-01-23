@@ -134,7 +134,7 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
-Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
 `)
 
 func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
@@ -153,7 +153,7 @@ func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
-Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
 `)
 
 func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
@@ -191,7 +191,7 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
-Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 `)
 
 func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
