@@ -88,7 +88,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/2yLsarCQBBF+3xFSD9veYWNsEXUVcQQwcRKJEgyxSA7o5PZ4OeLhWJhd+/hnFODOlGP5yzwRCockc3vjotQhbZb7uu23NbhsOrWVblpfAHQC9uFGBU0sVFErxjFMIc3AMV7wtHgdSSZ/5/F/EcIyMNNiM0npsfcOaeJ3UcbvubfKP21yJ4BAAD//2cSLE2uAAAA
+    H4sIAAAAAAAA/2yLsarCQBBF+3xFSD9veYWNsEXUVcQQwcRKJEgyxSA7o5PZ4OeLhWJhd+/hnFODOlGP5yzwRCockc0Xu+MiVKHtlvu6Lbd1OKy6dVVuGg/QC9uFGBU0sVFErxjFMIc3AMV7wtHgdSSZ/5/F/EcIyMNNiM0npsfcOaeJ3UcbvubfKP21yJ4BAAD//2OFtCKuAAAA
 
 - path: /etc/containerd/config.toml
   permissions: "0644"
