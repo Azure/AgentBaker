@@ -53,11 +53,6 @@ EOF
 }
 
 configureK8s() {
-    KUBELET_PRIVATE_KEY_PATH="/etc/kubernetes/certs/client.key"
-    touch "${KUBELET_PRIVATE_KEY_PATH}"
-    chmod 0600 "${KUBELET_PRIVATE_KEY_PATH}"
-    chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
-
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -68,12 +63,18 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
+    SP_FILE="/etc/kubernetes/sp.txt"
+
+    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+
     set +x
-    echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     
+    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
+    rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "AzurePublicCloud",
