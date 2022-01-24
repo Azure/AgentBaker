@@ -1,6 +1,7 @@
 #!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
+NODE_IP=$(hostname -i | awk '{print $1}') 
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -81,9 +82,37 @@ configureHTTPProxyCA() {
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+    KUBELET_OPENSSL_CNF="/etc/kubernetes/certs/extfile.cnf"
+
+    touch "${KUBELET_OPENSSL_CNF}"
+    chmod 0600 "${KUBELET_OPENSSL_CNF}"
+    chown root:root "${KUBELET_OPENSSL_CNF}"
+    cat << EOF >> "${KUBELET_OPENSSL_CNF}"
+    [req]
+    distinguished_name = req_distinguished_name
+    x509_extensions = x509_extensions
+    [req_distinguished_name]
+    commonName = ${NODE_NAME}
+    commonName_max = 64
+    [x509_extensions]
+    basicConstraints = CA:FALSE
+    nsCertType = server
+    nsComment = "OpenSSL Generated Server Certificate"
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid,issuer:always
+    keyUsage = critical, digitalSignature, keyEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = ${NODE_NAME}
+    DNS.2 = ${NODE_IP}
+    IP.1 = ${NODE_IP}
+    [${NODE_NAME}]
+    
+EOF
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -config $KUBELET_OPENSSL_CNF -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
 }
 
 configureK8s() {
@@ -518,6 +547,11 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
@@ -538,6 +572,11 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else

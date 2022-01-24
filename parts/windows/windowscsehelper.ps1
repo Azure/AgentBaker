@@ -162,6 +162,8 @@ function Retry-Command {
 
     for ($i = 0; ; ) {
         try {
+            # Do not log Args since Args may contain sensitive data
+            Write-Log "Retry $i : $command"
             return & $Command @Args
         }
         catch {

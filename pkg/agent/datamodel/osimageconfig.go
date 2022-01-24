@@ -20,9 +20,9 @@ var (
 
 	Ubuntu1804Gen2OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-gen2-2021-q3",
+		ImageSku:       "aks-ubuntu-1804-gen2-2022-q1",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2021.11.27",
+		ImageVersion:   "2022.01.19",
 	}
 
 	RHELOSImageConfig = AzureOSImageConfig{
@@ -41,9 +41,9 @@ var (
 
 	AKSUbuntu1804OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",
-		ImageSku:       "aks-ubuntu-1804-2021-q3",
+		ImageSku:       "aks-ubuntu-1804-2022-q1",
 		ImagePublisher: "microsoft-aks",
-		ImageVersion:   "2021.11.27",
+		ImageVersion:   "2022.01.19",
 	}
 
 	AKSWindowsServer2019OSImageConfig = AzureOSImageConfig{

@@ -134,7 +134,7 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
-Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
 `)
 
 func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
@@ -153,7 +153,7 @@ func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
-Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
 `)
 
 func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
@@ -191,7 +191,7 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
-Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 `)
 
 func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
@@ -548,6 +548,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
+NODE_IP=$(hostname -i | awk '{print $1}') 
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -628,9 +629,37 @@ configureHTTPProxyCA() {
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+    KUBELET_OPENSSL_CNF="/etc/kubernetes/certs/extfile.cnf"
+
+    touch "${KUBELET_OPENSSL_CNF}"
+    chmod 0600 "${KUBELET_OPENSSL_CNF}"
+    chown root:root "${KUBELET_OPENSSL_CNF}"
+    cat << EOF >> "${KUBELET_OPENSSL_CNF}"
+    [req]
+    distinguished_name = req_distinguished_name
+    x509_extensions = x509_extensions
+    [req_distinguished_name]
+    commonName = ${NODE_NAME}
+    commonName_max = 64
+    [x509_extensions]
+    basicConstraints = CA:FALSE
+    nsCertType = server
+    nsComment = "OpenSSL Generated Server Certificate"
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid,issuer:always
+    keyUsage = critical, digitalSignature, keyEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = ${NODE_NAME}
+    DNS.2 = ${NODE_IP}
+    IP.1 = ${NODE_IP}
+    [${NODE_NAME}]
+    
+EOF
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -config $KUBELET_OPENSSL_CNF -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
 }
 
 configureK8s() {
@@ -1065,6 +1094,11 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
@@ -1085,6 +1119,11 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else
@@ -1365,6 +1404,21 @@ downloadDebPkgToFile() {
     # shellcheck disable=SC2164
     popd
 }
+getCPUArch() {
+    arch=$(uname -m)
+    if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
+        echo "arm64"
+    else
+        echo "amd64"
+    fi
+}
+isARM64() {
+    if [[ $(getCPUArch) == "arm64" ]]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
 #HELPERSEOF
 `)
 
@@ -1438,6 +1492,10 @@ downloadCNI() {
 downloadKrustlet() {
     local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
     local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+    if [[ $(isARM64) == 1 ]]; then
+        krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
+    fi
+
     if [ ! -f "$krustlet_filepath" ]; then
         retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         chmod 755 "$krustlet_filepath"    
@@ -1453,13 +1511,15 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
     retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
 
 installCrictl() {
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
     if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
@@ -1467,7 +1527,7 @@ installCrictl() {
     else
         # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
         # if the vhd does not have crictl pre-baked, return early
-        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-amd64.tar.gz"
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
         if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
             rm -rf ${CRICTL_DOWNLOAD_DIR}
             echo "pre-cached crictl not found: skipping installCrictl"
@@ -1483,6 +1543,11 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
+    if [[ $(isARM64) == 1 ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
     if [[ -z ${DOWNLOAD_URL} ]]; then
         echo "download url parameter for downloadTeleportdPlugin was not given"
         exit $ERR_TELEPORTD_DOWNLOAD_ERR
@@ -1496,6 +1561,11 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
     CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
     local TARGET_VERSION="0.8.0"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
@@ -1624,6 +1694,32 @@ retagContainerImage() {
     else
         docker image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
     fi
+}
+
+retagMCRImagesForChina() {
+    # retag all the mcr for mooncake
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        # shellcheck disable=SC2016
+        allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+    else
+        # shellcheck disable=SC2016
+        allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
+    fi
+    if [[ "${allMCRImages}" == "" ]]; then
+        echo "failed to find mcr images for retag"
+        return
+    fi
+    for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
+        # in mooncake, the mcr endpoint is: mcr.azk8s.cn
+        # shellcheck disable=SC2001
+        retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
+        # can't use CLI_TOOL because crictl doesn't support retagging.
+        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+            retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
+        else
+            retagContainerImage "docker" ${mcrImage} ${retagMCRImage}
+        fi
+    done
 }
 
 removeContainerImage() {
@@ -1936,7 +2032,9 @@ ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
-cleanupRetaggedImages
+if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
+    retagMCRImagesForChina
+fi
 
 {{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts
@@ -3925,6 +4023,10 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
+    if [[ $(isARM64) == 1 ]]; then
+        #walinuxagent is installed on arm64 ubuntu base os, but not as apt package
+        return
+    fi
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
@@ -4055,18 +4157,35 @@ removeContainerd() {
 }
 
 installDeps() {
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    if [[ $(isARM64) == 1 ]]; then
+        wait_for_apt_locks # internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for ~20 minutes when the VM boots first time.
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    else
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    fi
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.1"
+    BLOBFUSE_VERSION="1.4.2"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
-    for apt_package in apache2-utils apt-transport-https blobfuse=${BLOBFUSE_VERSION} ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip; do
+
+    if [[ $(isARM64) != 1 ]]; then
+      # no blobfuse package in arm64 ubuntu repo
+      for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
+        if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
+
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -4075,6 +4194,11 @@ installDeps() {
 }
 
 installGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no gpu on arm64 SKU
+        return
+    fi
+
     mkdir -p $GPU_DEST/tmp
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
@@ -4097,6 +4221,11 @@ installGPUDrivers() {
 }
 
 installSGXDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no intel sgx on arm64
+        return
+    fi
+
     echo "Installing SGX driver"
     local VERSION
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -4128,7 +4257,12 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
-    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    if [[ $(isARM64) == 1 ]]; then
+        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    else
+        retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    fi
+
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
@@ -4140,6 +4274,7 @@ updateAptWithMicrosoftPkg() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -4165,7 +4300,7 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
+        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
         CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -4178,10 +4313,12 @@ installStandaloneContainerd() {
 }
 
 downloadContainerd() {
+    #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_amd64/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_amd64.deb"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
@@ -4192,6 +4329,7 @@ downloadContainerd() {
 installMoby() {
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
+    local MOBY_CONTAINERD_VERSION="1.4.11" # last stable moby-containerd version with current runc version 1.0.0-rc95
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
@@ -4201,12 +4339,17 @@ installMoby() {
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
         fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
+    if [[ $(isARM64) == 1 ]]; then
+        # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
+        return
+    fi
+
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.0-rc95"
@@ -4646,6 +4789,10 @@ write_files:
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
       {{- end}}
+      {{- if IsKubernetesVersionGe "1.22.0"}}
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
@@ -4693,6 +4840,10 @@ write_files:
         conf_dir = "/etc/cni/net.d"
         conf_template = "/etc/containerd/kubenet_template.conf"
       {{ end}}
+      {{- if IsKubernetesVersionGe "1.22.0"}}
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
+      {{- end}}
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
@@ -5336,6 +5487,11 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
+$useContainerD = ($global:ContainerRuntime -eq "containerd")
+$global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
+$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
+$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -5344,36 +5500,30 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
-# Download CSE function scripts
-Write-Log "Getting CSE scripts"
-$tempfile = 'c:\csescripts.zip'
-DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile
-Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
-Remove-Item -Path $tempfile -Force
-
-# Dot-source cse scripts with functions that are called in this script
-. c:\AzureData\windows\azurecnifunc.ps1
-. c:\AzureData\windows\calicofunc.ps1
-. c:\AzureData\windows\configfunc.ps1
-. c:\AzureData\windows\containerdfunc.ps1
-. c:\AzureData\windows\kubeletfunc.ps1
-. c:\AzureData\windows\kubernetesfunc.ps1
-
-$useContainerD = ($global:ContainerRuntime -eq "containerd")
-$global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
-$fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
-$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
-
 try
 {
+    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+
+    # Download CSE function scripts
+    Write-Log "Getting CSE scripts"
+    $tempfile = 'c:\csescripts.zip'
+    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile
+    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
+    Remove-Item -Path $tempfile -Force
+
+    # Dot-source cse scripts with functions that are called in this script
+    . c:\AzureData\windows\azurecnifunc.ps1
+    . c:\AzureData\windows\calicofunc.ps1
+    . c:\AzureData\windows\configfunc.ps1
+    . c:\AzureData\windows\containerdfunc.ps1
+    . c:\AzureData\windows\kubeletfunc.ps1
+    . c:\AzureData\windows\kubernetesfunc.ps1
+
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
         Write-Log "The script has been executed before, will exit without doing anything."
         return
     }
-
-    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
-
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
@@ -5812,6 +5962,8 @@ function Retry-Command {
 
     for ($i = 0; ; ) {
         try {
+            # Do not log Args since Args may contain sensitive data
+            Write-Log "Retry $i : $command"
             return & $Command @Args
         }
         catch {

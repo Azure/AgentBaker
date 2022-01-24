@@ -321,7 +321,7 @@ func IsSgxEnabledSKU(vmSize string) bool {
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
-	case loc == "chinaeast" || loc == "chinanorth" || loc == "chinaeast2" || loc == "chinanorth2":
+	case strings.HasPrefix(loc, "china"):
 		return "AzureChinaCloud"
 	case loc == "germanynortheast" || loc == "germanycentral":
 		return "AzureGermanCloud"
@@ -593,19 +593,40 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 
 // ParseCSEMessage parses the raw CSE output
 func ParseCSEMessage(message string) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
-	var cseStatus datamodel.CSEStatus
 	start := strings.Index(message, "[stdout]") + len("[stdout]")
 	end := strings.Index(message, "[stderr]")
 	if end > start {
-		rawInstanceViewInfo := message[start:end]
-		err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
-		if err != nil {
-			return nil, datamodel.NewError(datamodel.CSEMessageUnmarshalError, message)
-		}
-		if cseStatus.ExitCode == "" {
-			return nil, datamodel.NewError(datamodel.CSEMessageExitCodeEmptyError, message)
-		}
-		return &cseStatus, nil
+		return parseLinuxCSEMessage(message, start, end)
+	} else if strings.Contains(message, "Command execution finished") {
+		return parseWindowsCSEMessage(message)
 	}
 	return nil, datamodel.NewError(datamodel.InvalidCSEMessage, message)
+}
+
+func parseLinuxCSEMessage(message string, start int, end int) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
+	// Linux CSE message example: Enable succeeded: \n[stdout]\n{ \"ExitCode\": \"0\", \"Output\": \"Tue Dec 28" } }\n\n[stderr]\nBootup is not yet finished. Please try again later.
+	var cseStatus datamodel.CSEStatus
+	rawInstanceViewInfo := message[start:end]
+	err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
+	if err != nil {
+		return nil, datamodel.NewError(datamodel.CSEMessageUnmarshalError, message)
+	}
+	if cseStatus.ExitCode == "" {
+		return nil, datamodel.NewError(datamodel.CSEMessageExitCodeEmptyError, message)
+	}
+	return &cseStatus, nil
+}
+
+func parseWindowsCSEMessage(message string) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
+	// Windows CSE message example: Command execution finished, but failed because it returned a non-zero exit code of: '1'.
+	var cseStatus datamodel.CSEStatus
+	re := regexp.MustCompile(`a non-zero exit code of: '(\d+)'`)
+	match := re.FindStringSubmatch(message)
+	if match != nil {
+		cseStatus.ExitCode = match[1]
+	} else {
+		cseStatus.ExitCode = "0"
+	}
+	cseStatus.Output = message
+	return &cseStatus, nil
 }

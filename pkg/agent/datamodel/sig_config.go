@@ -39,7 +39,7 @@ type SigImageConfigOpt func(*SigImageConfig)
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
-	case loc == "chinaeast" || loc == "chinanorth" || loc == "chinaeast2" || loc == "chinanorth2":
+	case strings.HasPrefix(loc, "china"):
 		return AzureChinaCloud
 	case loc == "germanynortheast" || loc == "germanycentral":
 		return AzureGermanCloud
@@ -66,7 +66,9 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2}
+	AKSUbuntuFipsGPUContainerd1804Gen2,
+	AKSUbuntuArm64Containerd1804Gen2,
+}
 
 var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuContainerd1804,
@@ -78,6 +80,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
+	AKSUbuntuArm64Containerd1804Gen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -96,6 +99,7 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
+	AKSUbuntuArm64Containerd1804Gen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
@@ -200,8 +204,10 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion   string = "2021.11.27"
-	WindowsSIGImageVersion string = "17763.2300.211110"
+	LinuxSIGImageVersion   string = "2022.01.19"
+	WindowsSIGImageVersion string = "17763.2366.220117"
+	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
+	Arm64LinuxSIGImageVersion string = "2022.01.22"
 )
 
 // SIG config Template
@@ -296,6 +302,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "1804gen2arm64containerd",
+		Version:       Arm64LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -332,6 +345,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsContainerd1804Gen2:    SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsGPUContainerd1804:     SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsGPUContainerd1804Gen2: SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64Containerd1804Gen2:   SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {

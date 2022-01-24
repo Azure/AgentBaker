@@ -41,6 +41,22 @@ testFilesDownloaded() {
         err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
+      # Validate whether package exists in Azure China cloud
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+          mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+          echo "Validating: $mcURL"
+          isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+          if [[ "$isExist" == "404" ]]; then
+            err "$mcURL is invalid"
+            continue
+          fi
+
+          fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+          if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
+            err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
+            continue
+          fi
+      fi
     done
 
     echo "---"
@@ -65,7 +81,18 @@ testImagesPulled() {
 
   for imageToBePulled in ${imagesToBePulled[*]}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    versions=$(echo "${imageToBePulled}" | jq .versions -r | jq -r ".[]")
+    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
+    multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+
+    amd64OnlyVersions=""
+    if [[ ${amd64OnlyVersionsStr} != null ]]; then
+      amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
+    fi
+    multiArchVersions=""
+    if [[ ${multiArchVersionsStr} != null ]]; then
+      multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
+    fi
+    versions="${amd64OnlyVersions} ${multiArchVersions}"
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
@@ -192,17 +219,17 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.19.11-hotfix.20210823
-  1.19.13-hotfix.20210830
-  1.20.7-hotfix.20210816
-  1.20.9-hotfix.20210830
+  1.19.11
+  1.19.13
+  1.20.9
   1.20.13
-  1.21.1-hotfix.20210827
-  1.21.2-hotfix.20210830
+  1.21.2
   1.21.7
-  1.22.1
   1.22.2
   1.22.4
+  1.23.0
+  1.23.1
+  1.23.2
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs

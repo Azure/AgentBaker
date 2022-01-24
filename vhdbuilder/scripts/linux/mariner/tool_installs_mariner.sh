@@ -46,6 +46,8 @@ enableDNFAutomatic() {
     systemctl disable dnf-automatic-notifyonly.timer
     systemctl stop dnf-automatic-notifyonly.timer
     # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+    # Disable timer persistence so dnf-automatic-install doesnt run immediately on first boot.
+    sed -i 's/Persistent=true/Persistent=false/' /usr/lib/systemd/system/dnf-automatic-install.timer
     systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
     # At 8:000:00 UTC check if a reboot-required package was installed
     # Touch /var/run/reboot-required if a reboot required pacakge was installed.
