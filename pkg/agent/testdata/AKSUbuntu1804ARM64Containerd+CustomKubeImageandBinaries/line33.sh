@@ -46,12 +46,6 @@ fi
 
 disable1804SystemdResolved
 
-if [ -f /var/run/reboot-required ]; then
-    REBOOTREQUIRED=true
-else
-    REBOOTREQUIRED=false
-fi
-
 configureAdminUser
 # If crictl gets installed then use it as the cri cli instead of ctr
 # crictl is not a critical component so continue with boostrapping if the install fails
@@ -143,6 +137,8 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
+REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
