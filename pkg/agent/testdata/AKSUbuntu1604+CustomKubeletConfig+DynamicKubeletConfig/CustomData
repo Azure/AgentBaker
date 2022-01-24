@@ -131,7 +131,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7H1DnVy9XENiXf293PzdI938/RxjXfzcXQPtlXS1U3Oz0vLTFfQTy1J1k9JTUsszSnRzy5NSs1JLYFI6WUV5+cpcQECAAD//33DAeVbAAAA
+    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7FV8g51cvVxDYl39vdz83SPd/P0cY1383F0D7bV1U3Oz0vLTFfQTy1J1k9JTUsszSnRzy5NSs1JLYFI6WUV5+cpcQECAAD//wFXt55bAAAA
 
 
 - path: /var/lib/kubelet/kubeconfig
