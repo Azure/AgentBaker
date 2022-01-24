@@ -548,6 +548,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
+NODE_FQDN=$(hostname -f)
 NODE_IP=$(hostname -i | awk '{print $1}') 
 
 configureAdminUser(){
@@ -652,7 +653,8 @@ configureKubeletServerCert() {
     subjectAltName = @alt_names
     [alt_names]
     DNS.1 = ${NODE_NAME}
-    DNS.2 = ${NODE_IP}
+    DNS.2 = ${NODE_FQDN}
+    DNS.3 = ${NODE_IP}
     IP.1 = ${NODE_IP}
     [${NODE_NAME}]
     
