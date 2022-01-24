@@ -174,7 +174,6 @@ var defaultPath = filepath.Join("vhdbuilder", "release-notes")
 var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
 
 var artifactToPath = map[string]string{
-	"1604":                          filepath.Join("AKSUbuntu", "gen1", "1604"),
 	"1804":                          filepath.Join("AKSUbuntu", "gen1", "1804"),
 	"1804-gen2":                     filepath.Join("AKSUbuntu", "gen2", "1804"),
 	"1804-gpu":                      filepath.Join("AKSUbuntu", "gen1", "1804gpu"),
