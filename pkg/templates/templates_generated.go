@@ -489,8 +489,6 @@ ROUTE_TABLE={{GetVariable "routeTableName"}}
 PRIMARY_AVAILABILITY_SET={{GetVariable "primaryAvailabilitySetName"}}
 PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
 SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
-SERVICE_PRINCIPAL_CLIENT_SECRET='{{GetParameter "servicePrincipalClientSecret"}}'
-KUBELET_PRIVATE_KEY={{GetParameter "clientPrivateKey"}}
 NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
@@ -663,11 +661,6 @@ EOF
 }
 
 configureK8s() {
-    KUBELET_PRIVATE_KEY_PATH="/etc/kubernetes/certs/client.key"
-    touch "${KUBELET_PRIVATE_KEY_PATH}"
-    chmod 0600 "${KUBELET_PRIVATE_KEY_PATH}"
-    chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
-
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -678,12 +671,18 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
+    SP_FILE="/etc/kubernetes/sp.txt"
+
+    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+
     set +x
-    echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     {{/* Perform the required JSON escaping */}}
+    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
+    rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     {{- if IsAKSCustomCloud}}
@@ -2120,7 +2119,6 @@ fi
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-ps auxfww > /opt/azure/provision-ps.log &
 
 exit $VALIDATION_ERR
 
@@ -4680,6 +4678,24 @@ write_files:
   owner: root
   content: |
     {{GetMessageOfTheDay}}
+{{- end}}
+
+{{- if HasServicePrincipalSecret}}
+- path: /etc/kubernetes/sp.txt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetServicePrincipalSecret}}
+{{- end}}
+
+{{- if HasKubeletClientKey}}
+- path: /etc/kubernetes/certs/client.key
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetKubeletClientKey}}
 {{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
