@@ -166,7 +166,6 @@
         "v3.8.9.5"
       ],
       "multiArchVersions": [
-        "v3.20.0",
         "v3.21.0",
         "v3.21.4"
       ]
@@ -177,7 +176,6 @@
         "v3.8.9"
       ],
       "multiArchVersions": [
-        "v3.20.0",
         "v3.21.0",
         "v3.21.4"
       ]
@@ -193,7 +191,6 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.20.0",
         "v3.21.0",
         "v3.21.4"
       ]
@@ -220,7 +217,6 @@
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.20.0",
         "v1.23.1",
         "v1.24.2"
       ]
