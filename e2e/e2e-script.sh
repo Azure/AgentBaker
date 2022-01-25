@@ -64,7 +64,7 @@ exec_on_host "cat /etc/kubernetes/azure.json" fields.json
 exec_on_host "cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0" apiserver.crt
 exec_on_host "cat /etc/kubernetes/certs/ca.crt | base64 -w 0" ca.crt
 exec_on_host "cat /etc/kubernetes/certs/client.key | base64 -w 0" client.key
-exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig | base64 -w 0" bootstrap-kubeconfig
+exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 
 addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
 addJsonToFile "ca.crt" "$(cat ca.crt)"
