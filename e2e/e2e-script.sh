@@ -57,14 +57,14 @@ kubectl apply -f https://gist.githubusercontent.com/alexeldeib/01f2d3efc8fe17cca
 kubectl rollout status deploy/debug
 
 exec_on_host() {
-    kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"cat $1\"" > $2
+    kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
 
-exec_on_host "/etc/kubernetes/azure.json" fields.json
-exec_on_host "/etc/kubernetes/certs/apiserver.crt" apiserver.crt
-exec_on_host "/etc/kubernetes/certs/ca.crt" ca.crt
-exec_on_host "/etc/kubernetes/certs/client.key" client.key
-exec_on_host "/var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
+exec_on_host "cat /etc/kubernetes/azure.json" fields.json
+exec_on_host "cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0" apiserver.crt
+exec_on_host "cat /etc/kubernetes/certs/ca.crt | base64 -w 0" ca.crt
+exec_on_host "cat /etc/kubernetes/certs/client.key | base64 -w 0" client.key
+exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig | base64 -w 0" bootstrap-kubeconfig
 
 addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
 addJsonToFile "ca.crt" "$(cat ca.crt)"
