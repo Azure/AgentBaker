@@ -483,20 +483,21 @@ installGPUDriversRun() {
 
 configGPUDrivers() {
     blacklistNouveau
+    addNvidiaAptRepo
     installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
     installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
 
     # tidy
     rm -rf $GPU_DEST/tmp
 
-    # need to happen still
+    # reload containerd/dockerd
     {{if NeedsContainerd}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     {{else}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     {{end}}
 
-    # below here roughly the same
+    # install gpu driver
     setupGpuRunfileInstall
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL

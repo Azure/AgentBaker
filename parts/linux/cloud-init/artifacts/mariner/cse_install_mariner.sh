@@ -16,7 +16,7 @@ installDeps() {
     done
 }
 
-installGPUDrivers() {
+downloadGPUDrivers() {
     echo "GPU drivers not yet supported for Mariner"
     exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
@@ -63,6 +63,10 @@ installNvidiaContainerRuntime() {
 
 installNvidiaDocker() {
     echo "installNvidiaDocker not implemented for mariner"
+}
+
+addNvidiaAptRepo() {
+    echo "addNvidiaAptRepo not implemented for mariner"
 }
 
 #EOF
