@@ -242,8 +242,8 @@ addNvidiaAptRepo() {
 
 installNvidiaContainerRuntime() {
     local target=$1
-    local normalized_target="$(echo ${target} | cut -d'-' -f2)"
-    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
+    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
+    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f1 | cut -d'-' -f 1)"
     local release=$(lsb_release -r -s)
 
     if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
