@@ -204,8 +204,8 @@ installNvidiaDocker() {
     fi
     wait_for_apt_locks
     # nvidia-docker has a hard requirement on docker-ce, we just need the binary from it so we extract it manually.
-    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "$dst/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    cp -r $dst/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     rm ./nvidia-docker2*.deb
 }
 
