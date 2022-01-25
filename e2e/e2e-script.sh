@@ -43,6 +43,8 @@ if [ -z "$out" ]; then
 fi
 
 az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
+kubectl cluster-info 
+kubectl get pod -A
 
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
