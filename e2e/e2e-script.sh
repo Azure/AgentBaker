@@ -60,12 +60,18 @@ kubectl rollout status deploy/debug
 exec_on_host() {
     kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
+# Retrieve the etc/kubernetes/azure.json file for cluster related info
+log "Retrieving cluster info"
+clusterInfoStartTime=$(date +%s)
 
 exec_on_host "cat /etc/kubernetes/azure.json" fields.json
 exec_on_host "cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0" apiserver.crt
 exec_on_host "cat /etc/kubernetes/certs/ca.crt | base64 -w 0" ca.crt
 exec_on_host "cat /etc/kubernetes/certs/client.key | base64 -w 0" client.key
 exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
+
+clusterInfoEndTime=$(date +%s)
+log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
 addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
 addJsonToFile "ca.crt" "$(cat ca.crt)"
@@ -74,60 +80,6 @@ if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
 fi
-
-# Retrieve the etc/kubernetes/azure.json file for cluster related info
-log "Retrieving cluster info"
-clusterInfoStartTime=$(date +%s)
-# az vmss run-command invoke \
-#             -n $VMSS_NAME \
-#             -g $MC_RESOURCE_GROUP_NAME \
-#             --command-id RunShellScript \
-#             --instance-id 0 \
-#             --scripts "cat /etc/kubernetes/azure.json" \
-#             -ojson | \
-#             jq -r '.value[].message' | awk '/{/{flag=1}/}/{print;flag=0}flag' \
-#             > fields.json
-# clusterInfoEndTime=$(date +%s)
-# log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
-
-
-# # Retrieve the keys and certificates
-
-# # TODO 2: If TLS Bootstrapping is not enabled, the client.crt takes some time to be generated. The run-command throws
-# #       an error saying that extension is still being applied. Need to introduce some delay before this piece of code is
-# #       called and the file is ready to be read else the whole flow will break. 
-
-# log "Retrieving TLS data"
-# tlsStartTime=$(date +%s)
-# declare -a files=("apiserver.crt" "ca.crt" "client.key")
-# for file in "${files[@]}"; do
-#     for i in $(seq 1 10); do
-#         set +e
-#         content=$(az vmss run-command invoke \
-#                 -n $VMSS_NAME \
-#                 -g $MC_RESOURCE_GROUP_NAME \
-#                 --command-id RunShellScript \
-#                 --instance-id 0 \
-#                 --scripts "cat /etc/kubernetes/certs/$file | base64 -w 0" \
-#                 -ojson | \
-#                 jq -r '.value[].message' | \
-#                 awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
-#                 awk NF \
-#         )
-#         retval=$?
-#         set -e
-#         if [ "$retval" -ne 0 ]; then
-#             log "retrying attempt $i"
-#             sleep 10s
-#             continue
-#         fi
-#         break;
-#     done
-#     [ "$retval" -eq 0 ]
-#     addJsonToFile "$file" "$content"
-# done
-# tlsEndTime=$(date +%s)
-# log "Retrieved TLS data in $((tlsEndTime-tlsStartTime)) seconds"
 
 # # Add other relevant information needed by AgentBaker for bootstrapping later
 getAgentPoolProfileValues
@@ -138,44 +90,12 @@ addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
-# # TODO(ace): generate fresh bootstrap token since one on node will expire.
-# # Check if TLS Bootstrapping is enabled(no client.crt in that case, retrieve the tlsbootstrap token)
-# log "Reading TLS bootstrap data"
-# tlsBootstrapStartTime=$(date +%s)
-# for i in $(seq 1 10); do
-#     set +e
-#     tlsbootstrap=$(az vmss run-command invoke \
-#                 -n $VMSS_NAME \
-#                 -g $MC_RESOURCE_GROUP_NAME \
-#                 --command-id RunShellScript \
-#                 --instance-id 0 \
-#                 --scripts "cat /var/lib/kubelet/bootstrap-kubeconfig" \
-#                 -ojson | \
-#                 jq -r '.value[].message' | \
-#                 grep "token" | \
-#                 cut -f2 -d ":" | tr -d '"'
-#     )
-#     retval=$?
-#     set -e
-#     if [ "$retval" -ne 0 ]; then
-#         log "retrying attempt $i"
-#         sleep 10s
-#         continue
-#     fi
-#     break;
-# done
-# tlsBootstrapEndTime=$(date +%s)
-# [ "$retval" -eq 0 ]
-# log "Read TLS bootstrap data in $((tlsBootstrapEndTime-tlsBootstrapStartTime)) seconds"
-
-# if [[ -z "${tlsbootstrap}" ]]; then
-#     log "TLS Bootstrap disabled"
-# else
-#     addJsonToFile "tlsbootstraptoken" $tlsbootstrap
-# fi
-
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
+
+if [ ! -f ~/.ssh/id_rsa ]; then
+    ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+fi
 
 # Create a test VMSS with 1 instance 
 # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
@@ -193,8 +113,9 @@ az vmss create -n ${VMSS_NAME} \
     --assign-identity $msiResourceID \
     --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
     --upgrade-policy-mode Automatic \
-    --generate-ssh-keys \
+    --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
+
 vmssEndTime=$(date +%s)
 log "Created VMSS in $((vmssEndTime-vmssStartTime)) seconds"
 
