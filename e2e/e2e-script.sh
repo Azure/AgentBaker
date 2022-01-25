@@ -51,209 +51,226 @@ MC_RESOURCE_GROUP_NAME=$(jq -r '.nodeResourceGroup' < cluster_info.json)
 VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME -ojson | jq -r '.[length -1].name')
 CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 
+# privileged ds with nsenter for host file exfiltration
+kubectl apply -f https://gist.githubusercontent.com/alexeldeib/01f2d3efc8fe17cca7625ecb7c1ec707/raw/6b90f4a12888ebb300bfb2f339cf2b43a66e35a2/deploy.yaml
+kubectl rollout status deploy/debug
+exec_on_host() {
+    kubectl exec -it $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
+}
+exec_on_host "cat /etc/kubernetes/azure.json" fields.json
+exec_on_host "cat /etc/kubernetes/certs/apiserver.crt" apiserver.crt
+exec_on_host "cat /etc/kubernetes/certs/car.crt" ca.crt
+exec_on_host "cat /etc/kubernetes/certs/client.key" client.key
+
+set -x
+cat fields.json
+cat apiserver.crt
+cat ca.crt
+stat client.key # secret!
+
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
 log "Retrieving cluster info"
 clusterInfoStartTime=$(date +%s)
-az vmss run-command invoke \
-            -n $VMSS_NAME \
-            -g $MC_RESOURCE_GROUP_NAME \
-            --command-id RunShellScript \
-            --instance-id 0 \
-            --scripts "cat /etc/kubernetes/azure.json" \
-            -ojson | \
-            jq -r '.value[].message' | awk '/{/{flag=1}/}/{print;flag=0}flag' \
-            > fields.json
-clusterInfoEndTime=$(date +%s)
-log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
+# az vmss run-command invoke \
+#             -n $VMSS_NAME \
+#             -g $MC_RESOURCE_GROUP_NAME \
+#             --command-id RunShellScript \
+#             --instance-id 0 \
+#             --scripts "cat /etc/kubernetes/azure.json" \
+#             -ojson | \
+#             jq -r '.value[].message' | awk '/{/{flag=1}/}/{print;flag=0}flag' \
+#             > fields.json
+# clusterInfoEndTime=$(date +%s)
+# log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
 
-# Retrieve the keys and certificates
+# # Retrieve the keys and certificates
 
-# TODO 2: If TLS Bootstrapping is not enabled, the client.crt takes some time to be generated. The run-command throws
-#       an error saying that extension is still being applied. Need to introduce some delay before this piece of code is
-#       called and the file is ready to be read else the whole flow will break. 
+# # TODO 2: If TLS Bootstrapping is not enabled, the client.crt takes some time to be generated. The run-command throws
+# #       an error saying that extension is still being applied. Need to introduce some delay before this piece of code is
+# #       called and the file is ready to be read else the whole flow will break. 
 
-log "Retrieving TLS data"
-tlsStartTime=$(date +%s)
-declare -a files=("apiserver.crt" "ca.crt" "client.key")
-for file in "${files[@]}"; do
-    for i in $(seq 1 10); do
-        set +e
-        content=$(az vmss run-command invoke \
-                -n $VMSS_NAME \
-                -g $MC_RESOURCE_GROUP_NAME \
-                --command-id RunShellScript \
-                --instance-id 0 \
-                --scripts "cat /etc/kubernetes/certs/$file | base64 -w 0" \
-                -ojson | \
-                jq -r '.value[].message' | \
-                awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
-                awk NF \
-        )
-        retval=$?
-        set -e
-        if [ "$retval" -ne 0 ]; then
-            log "retrying attempt $i"
-            sleep 10s
-            continue
-        fi
-        break;
-    done
-    [ "$retval" -eq 0 ]
-    addJsonToFile "$file" "$content"
-done
-tlsEndTime=$(date +%s)
-log "Retrieved TLS data in $((tlsEndTime-tlsStartTime)) seconds"
+# log "Retrieving TLS data"
+# tlsStartTime=$(date +%s)
+# declare -a files=("apiserver.crt" "ca.crt" "client.key")
+# for file in "${files[@]}"; do
+#     for i in $(seq 1 10); do
+#         set +e
+#         content=$(az vmss run-command invoke \
+#                 -n $VMSS_NAME \
+#                 -g $MC_RESOURCE_GROUP_NAME \
+#                 --command-id RunShellScript \
+#                 --instance-id 0 \
+#                 --scripts "cat /etc/kubernetes/certs/$file | base64 -w 0" \
+#                 -ojson | \
+#                 jq -r '.value[].message' | \
+#                 awk '/stdout/{flag=1;next}/stderr/{flag=0}flag' | \
+#                 awk NF \
+#         )
+#         retval=$?
+#         set -e
+#         if [ "$retval" -ne 0 ]; then
+#             log "retrying attempt $i"
+#             sleep 10s
+#             continue
+#         fi
+#         break;
+#     done
+#     [ "$retval" -eq 0 ]
+#     addJsonToFile "$file" "$content"
+# done
+# tlsEndTime=$(date +%s)
+# log "Retrieved TLS data in $((tlsEndTime-tlsStartTime)) seconds"
 
-# Add other relevant information needed by AgentBaker for bootstrapping later
-getAgentPoolProfileValues
-getFQDN
-getMSIResourceID
+# # Add other relevant information needed by AgentBaker for bootstrapping later
+# getAgentPoolProfileValues
+# getFQDN
+# getMSIResourceID
 
-addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
-addJsonToFile "clusterID" $CLUSTER_ID
-addJsonToFile "subID" $SUBSCRIPTION_ID
+# addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
+# addJsonToFile "clusterID" $CLUSTER_ID
+# addJsonToFile "subID" $SUBSCRIPTION_ID
 
-# TODO(ace): generate fresh bootstrap token since one on node will expire.
-# Check if TLS Bootstrapping is enabled(no client.crt in that case, retrieve the tlsbootstrap token)
-log "Reading TLS bootstrap data"
-tlsBootstrapStartTime=$(date +%s)
-for i in $(seq 1 10); do
-    set +e
-    tlsbootstrap=$(az vmss run-command invoke \
-                -n $VMSS_NAME \
-                -g $MC_RESOURCE_GROUP_NAME \
-                --command-id RunShellScript \
-                --instance-id 0 \
-                --scripts "cat /var/lib/kubelet/bootstrap-kubeconfig" \
-                -ojson | \
-                jq -r '.value[].message' | \
-                grep "token" | \
-                cut -f2 -d ":" | tr -d '"'
-    )
-    retval=$?
-    set -e
-    if [ "$retval" -ne 0 ]; then
-        log "retrying attempt $i"
-        sleep 10s
-        continue
-    fi
-    break;
-done
-tlsBootstrapEndTime=$(date +%s)
-[ "$retval" -eq 0 ]
-log "Read TLS bootstrap data in $((tlsBootstrapEndTime-tlsBootstrapStartTime)) seconds"
+# # TODO(ace): generate fresh bootstrap token since one on node will expire.
+# # Check if TLS Bootstrapping is enabled(no client.crt in that case, retrieve the tlsbootstrap token)
+# log "Reading TLS bootstrap data"
+# tlsBootstrapStartTime=$(date +%s)
+# for i in $(seq 1 10); do
+#     set +e
+#     tlsbootstrap=$(az vmss run-command invoke \
+#                 -n $VMSS_NAME \
+#                 -g $MC_RESOURCE_GROUP_NAME \
+#                 --command-id RunShellScript \
+#                 --instance-id 0 \
+#                 --scripts "cat /var/lib/kubelet/bootstrap-kubeconfig" \
+#                 -ojson | \
+#                 jq -r '.value[].message' | \
+#                 grep "token" | \
+#                 cut -f2 -d ":" | tr -d '"'
+#     )
+#     retval=$?
+#     set -e
+#     if [ "$retval" -ne 0 ]; then
+#         log "retrying attempt $i"
+#         sleep 10s
+#         continue
+#     fi
+#     break;
+# done
+# tlsBootstrapEndTime=$(date +%s)
+# [ "$retval" -eq 0 ]
+# log "Read TLS bootstrap data in $((tlsBootstrapEndTime-tlsBootstrapStartTime)) seconds"
 
-if [[ -z "${tlsbootstrap}" ]]; then
-    log "TLS Bootstrap disabled"
-else
-    addJsonToFile "tlsbootstraptoken" $tlsbootstrap
-fi
+# if [[ -z "${tlsbootstrap}" ]]; then
+#     log "TLS Bootstrap disabled"
+# else
+#     addJsonToFile "tlsbootstraptoken" $tlsbootstrap
+# fi
 
-# Call AgentBaker to generate CustomData and cseCmd
-go test -run TestE2EBasic
+# # Call AgentBaker to generate CustomData and cseCmd
+# go test -run TestE2EBasic
 
-# Create a test VMSS with 1 instance 
-# TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
-#       However, how to incorporate chaning quarters?
-log "Creating VMSS"
-VMSS_NAME="$(mktemp --dry-run abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
-vmssStartTime=$(date +%s)
-az vmss create -n ${VMSS_NAME} \
-    -g $MC_RESOURCE_GROUP_NAME \
-    --admin-username azureuser \
-    --custom-data cloud-init.txt \
-    --lb kubernetes --backend-pool-name aksOutboundBackendPool \
-    --vm-sku Standard_DS2_v2 \
-    --instance-count 1 \
-    --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
-    --upgrade-policy-mode Automatic \
-    -ojson
-vmssEndTime=$(date +%s)
-log "Created VMSS in $((vmssEndTime-vmssStartTime)) seconds"
+# # Create a test VMSS with 1 instance 
+# # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
+# #       However, how to incorporate chaning quarters?
+# log "Creating VMSS"
+# VMSS_NAME="$(mktemp --dry-run abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
+# vmssStartTime=$(date +%s)
+# az vmss create -n ${VMSS_NAME} \
+#     -g $MC_RESOURCE_GROUP_NAME \
+#     --admin-username azureuser \
+#     --custom-data cloud-init.txt \
+#     --lb kubernetes --backend-pool-name aksOutboundBackendPool \
+#     --vm-sku Standard_DS2_v2 \
+#     --instance-count 1 \
+#     --assign-identity $msiResourceID \
+#     --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
+#     --upgrade-policy-mode Automatic \
+#     -ojson
+# vmssEndTime=$(date +%s)
+# log "Created VMSS in $((vmssEndTime-vmssStartTime)) seconds"
 
-# Get the name of the VM instance to later check with kubectl get nodes
-vmInstanceName=$(az vmss list-instances \
-                -n ${VMSS_NAME} \
-                -g $MC_RESOURCE_GROUP_NAME \
-                -ojson | \
-                jq -r '.[].osProfile.computerName'
-            )
-export vmInstanceName
+# # Get the name of the VM instance to later check with kubectl get nodes
+# vmInstanceName=$(az vmss list-instances \
+#                 -n ${VMSS_NAME} \
+#                 -g $MC_RESOURCE_GROUP_NAME \
+#                 -ojson | \
+#                 jq -r '.[].osProfile.computerName'
+#             )
+# export vmInstanceName
 
-# Generate the extension from csecmd
-jq -Rs '{commandToExecute: . }' csecmd > settings.json
+# # Generate the extension from csecmd
+# jq -Rs '{commandToExecute: . }' csecmd > settings.json
 
-# Apply extension to the VM
-log "Applying extensions to VMSS"
-vmssExtStartTime=$(date +%s)
-az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
-    --name CustomScript \
-    --vmss-name ${VMSS_NAME} \
-    --publisher Microsoft.Azure.Extensions \
-    --protected-settings settings.json \
-    --version 2.0 \
-    -ojson
-vmssExtEndTime=$(date +%s)
-log "Applied extensions in $((vmssExtEndTime-vmssExtStartTime)) seconds"
+# # Apply extension to the VM
+# log "Applying extensions to VMSS"
+# vmssExtStartTime=$(date +%s)
+# az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
+#     --name CustomScript \
+#     --vmss-name ${VMSS_NAME} \
+#     --publisher Microsoft.Azure.Extensions \
+#     --protected-settings settings.json \
+#     --version 2.0 \
+#     -ojson
+# vmssExtEndTime=$(date +%s)
+# log "Applied extensions in $((vmssExtEndTime-vmssExtStartTime)) seconds"
 
-KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
+# KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
-# Sleep to let the automatic upgrade of the VM finish
-waitForNodeStartTime=$(date +%s)
-for i in $(seq 1 10); do
-    set +e
-    kubectl get nodes | grep -q $vmInstanceName
-    retval=$?
-    set -e
-    if [ "$retval" -ne 0 ]; then
-        log "retrying attempt $i"
-        sleep 10s
-        continue
-    fi
-    break;
-done
-waitForNodeEndTime=$(date +%s)
-log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
+# # Sleep to let the automatic upgrade of the VM finish
+# waitForNodeStartTime=$(date +%s)
+# for i in $(seq 1 10); do
+#     set +e
+#     kubectl get nodes | grep -q $vmInstanceName
+#     retval=$?
+#     set -e
+#     if [ "$retval" -ne 0 ]; then
+#         log "retrying attempt $i"
+#         sleep 10s
+#         continue
+#     fi
+#     break;
+# done
+# waitForNodeEndTime=$(date +%s)
+# log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
-trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
+# trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
 
-# Check if the node joined the cluster
-if [[ "$retval" -eq 0 ]]; then
-    ok "Test succeeded, node joined the cluster"
-else
-    err "Node did not join cluster"
-    exit 1
-fi
+# # Check if the node joined the cluster
+# if [[ "$retval" -eq 0 ]]; then
+#     ok "Test succeeded, node joined the cluster"
+# else
+#     err "Node did not join cluster"
+#     exit 1
+# fi
 
-# Run a nginx pod on the node to check if pod runs
-envsubst < pod-nginx-template.yaml > pod-nginx.yaml
-kubectl apply -f pod-nginx.yaml
+# # Run a nginx pod on the node to check if pod runs
+# envsubst < pod-nginx-template.yaml > pod-nginx.yaml
+# kubectl apply -f pod-nginx.yaml
 
-# Sleep to let Pod Status=Running
-waitForPodStartTime=$(date +%s)
-for i in $(seq 1 10); do
-    set +e
-    kubectl get pods -o wide | grep -q 'Running'
-    retval=$?
-    set -e
-    if [ "$retval" -ne 0 ]; then
-        log "retrying attempt $i"
-        sleep 10s
-        continue
-    fi
-    break;
-done
-waitForPodEndTime=$(date +%s)
-log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
+# # Sleep to let Pod Status=Running
+# waitForPodStartTime=$(date +%s)
+# for i in $(seq 1 10); do
+#     set +e
+#     kubectl get pods -o wide | grep -q 'Running'
+#     retval=$?
+#     set -e
+#     if [ "$retval" -ne 0 ]; then
+#         log "retrying attempt $i"
+#         sleep 10s
+#         continue
+#     fi
+#     break;
+# done
+# waitForPodEndTime=$(date +%s)
+# log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
 
-if [[ "$retval" -eq 0 ]]; then
-    ok "Pod ran successfully"
-else
-    err "Pod pending/not running"
-    exit 1
-fi
+# if [[ "$retval" -eq 0 ]]; then
+#     ok "Pod ran successfully"
+# else
+#     err "Pod pending/not running"
+#     exit 1
+# fi
 
-globalEndTime=$(date +%s)
-log "Finished after $((globalEndTime-globalStartTime)) seconds"
+# globalEndTime=$(date +%s)
+# log "Finished after $((globalEndTime-globalStartTime)) seconds"
