@@ -62,7 +62,7 @@ exec_on_host() {
 }
 exec_on_host "cat /etc/kubernetes/azure.json" fields.json
 exec_on_host "cat /etc/kubernetes/certs/apiserver.crt" apiserver.crt
-exec_on_host "cat /etc/kubernetes/certs/car.crt" ca.crt
+exec_on_host "cat /etc/kubernetes/certs/ca.crt" ca.crt
 exec_on_host "cat /etc/kubernetes/certs/client.key" client.key
 
 set -x
