@@ -23,8 +23,8 @@ installContainerRuntime() {
     
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-            CONTAINERD_VERSION="1.5.9"
-            CONTAINERD_PATCH_VERSION="2"
+            CONTAINERD_VERSION="1.5.5"
+            CONTAINERD_PATCH_VERSION="3"
             installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
             echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
         else
