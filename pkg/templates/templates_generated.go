@@ -134,7 +134,7 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
-Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
 `)
 
 func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
@@ -153,7 +153,7 @@ func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
-Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
 `)
 
 func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
@@ -191,7 +191,7 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
-Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 `)
 
 func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
@@ -489,8 +489,6 @@ ROUTE_TABLE={{GetVariable "routeTableName"}}
 PRIMARY_AVAILABILITY_SET={{GetVariable "primaryAvailabilitySetName"}}
 PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
 SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
-SERVICE_PRINCIPAL_CLIENT_SECRET='{{GetParameter "servicePrincipalClientSecret"}}'
-KUBELET_PRIVATE_KEY={{GetParameter "clientPrivateKey"}}
 NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
@@ -548,6 +546,7 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
+NODE_IP=$(hostname -i | awk '{print $1}') 
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -628,17 +627,40 @@ configureHTTPProxyCA() {
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+    KUBELET_OPENSSL_CNF="/etc/kubernetes/certs/extfile.cnf"
+
+    touch "${KUBELET_OPENSSL_CNF}"
+    chmod 0600 "${KUBELET_OPENSSL_CNF}"
+    chown root:root "${KUBELET_OPENSSL_CNF}"
+    cat << EOF >> "${KUBELET_OPENSSL_CNF}"
+    [req]
+    distinguished_name = req_distinguished_name
+    x509_extensions = x509_extensions
+    [req_distinguished_name]
+    commonName = ${NODE_NAME}
+    commonName_max = 64
+    [x509_extensions]
+    basicConstraints = CA:FALSE
+    nsCertType = server
+    nsComment = "OpenSSL Generated Server Certificate"
+    subjectKeyIdentifier = hash
+    authorityKeyIdentifier = keyid,issuer:always
+    keyUsage = critical, digitalSignature, keyEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = ${NODE_NAME}
+    DNS.2 = ${NODE_IP}
+    IP.1 = ${NODE_IP}
+    [${NODE_NAME}]
+    
+EOF
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -config $KUBELET_OPENSSL_CNF -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
 }
 
 configureK8s() {
-    KUBELET_PRIVATE_KEY_PATH="/etc/kubernetes/certs/client.key"
-    touch "${KUBELET_PRIVATE_KEY_PATH}"
-    chmod 0600 "${KUBELET_PRIVATE_KEY_PATH}"
-    chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
-
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -649,12 +671,18 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
+    SP_FILE="/etc/kubernetes/sp.txt"
+
+    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+
     set +x
-    echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     {{/* Perform the required JSON escaping */}}
+    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
+    rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     {{- if IsAKSCustomCloud}}
@@ -1874,12 +1902,6 @@ configureHTTPProxyCA
 
 disable1804SystemdResolved
 
-if [ -f /var/run/reboot-required ]; then
-    REBOOTREQUIRED=true
-else
-    REBOOTREQUIRED=false
-fi
-
 configureAdminUser
 
 {{- if NeedsContainerd}}
@@ -2075,6 +2097,8 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
+REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -2091,7 +2115,6 @@ fi
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-ps auxfww > /opt/azure/provision-ps.log &
 
 exit $VALIDATION_ERR
 
@@ -4651,6 +4674,24 @@ write_files:
   owner: root
   content: |
     {{GetMessageOfTheDay}}
+{{- end}}
+
+{{- if HasServicePrincipalSecret}}
+- path: /etc/kubernetes/sp.txt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetServicePrincipalSecret}}
+{{- end}}
+
+{{- if HasKubeletClientKey}}
+- path: /etc/kubernetes/certs/client.key
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetKubeletClientKey}}
 {{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
