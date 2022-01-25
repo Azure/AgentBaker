@@ -58,7 +58,7 @@ CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
 kubectl apply -f https://gist.githubusercontent.com/alexeldeib/01f2d3efc8fe17cca7625ecb7c1ec707/raw/6b90f4a12888ebb300bfb2f339cf2b43a66e35a2/deploy.yaml
 kubectl rollout status deploy/debug
 exec_on_host() {
-    kubectl exec -it $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
+    kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
 exec_on_host "cat /etc/kubernetes/azure.json" fields.json
 exec_on_host "cat /etc/kubernetes/certs/apiserver.crt" apiserver.crt
