@@ -191,7 +191,7 @@ installNvidiaContainerRuntime() {
     if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
         echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
         return
-    else
+    fi
 
     retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
