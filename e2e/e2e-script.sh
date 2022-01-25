@@ -192,6 +192,7 @@ az vmss create -n ${VMSS_NAME} \
     --assign-identity $msiResourceID \
     --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
     --upgrade-policy-mode Automatic \
+    --generate-ssh-keys \
     -ojson
 vmssEndTime=$(date +%s)
 log "Created VMSS in $((vmssEndTime-vmssStartTime)) seconds"
