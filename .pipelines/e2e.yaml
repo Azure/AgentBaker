@@ -1,8 +1,4 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
-trigger:
-  branches:
-    include:
-    - ace/moe2e
 
 variables:
 - group: ab-e2e
