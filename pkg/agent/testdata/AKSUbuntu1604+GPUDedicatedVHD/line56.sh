@@ -271,7 +271,7 @@ installGPUDriversRun() {
           rm -rf "${NVIDIA_DKMS_DIR}"
         fi
     fi
-    local log_finstallNvidiaContainerRuntimeile_name="/var/log/nvidia-installer-$(date +%s).log"
+    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
     if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
         retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
