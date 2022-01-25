@@ -43,7 +43,8 @@ if [ -z "$out" ]; then
 fi
 
 az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
-export KUBECONFIG=$(pwd)/kubeconfig
+KUBECONFIG=$(pwd)/kubeconfig
+export KUBECONFIG
 
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
@@ -69,8 +70,8 @@ exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
 addJsonToFile "ca.crt" "$(cat ca.crt)"
 addJsonToFile "client.key" "$(cat client.key)"
-if [ -f "bootstrap-kubeconfig" ] && [ ! -z "$(cat bootstrap-kubeconfig)" ]; then
-    tlsToken="$(cat bootstrap-kubeconfig | grep "token" | cut -f2 -d ":" | tr -d '"')"
+if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
+    tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
 fi
 
