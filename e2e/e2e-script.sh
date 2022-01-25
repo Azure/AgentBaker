@@ -43,6 +43,7 @@ if [ -z "$out" ]; then
 fi
 
 az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
+KUBECONFIG=$(pwd)/kubeconfig
 kubectl cluster-info 
 kubectl get pod -A
 
