@@ -57,4 +57,12 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
 }
 
+installNvidiaContainerRuntime() {
+    echo "installNvidiaContainerRuntime not implemented for mariner"
+}
+
+installNvidiaDocker() {
+    echo "installNvidiaDocker not implemented for mariner"
+}
+
 #EOF

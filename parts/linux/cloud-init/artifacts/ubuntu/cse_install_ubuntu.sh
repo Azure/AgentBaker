@@ -232,4 +232,56 @@ cleanUpGPUDrivers() {
     rm -f /etc/apt/sources.list.d/nvidia-docker.list
 }
 
+blacklistNouveau() {
+    tee /etc/modprobe.d/blacklist-nouveau.conf > /dev/null <<EOF
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
+addNvidiaAptRepo() {
+    if [ -f "/etc/apt/sources.list.d/nvidia-docker.list" ]; then
+        echo "nvidia-docker.list already exists, no need to update"
+        return
+    fi
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 cat /tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    apt_get_update
+}
+
+installNvidiaContainerRuntime() {
+    local target=$1
+    local normalized_target="$(echo ${target} | cut -d'-' -f2)"
+    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
+    local release=$(lsb_release -r -s)
+
+    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
+        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
+        return
+    else
+
+    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
+installNvidiaDocker() {
+    local target=$1
+    local dst="/usr/local/nvidia/tmp"
+    mkdir -p "$dst"
+    cd "$dst"
+    if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
+        retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
+    wait_for_apt_locks
+    # nvidia-docker has a hard requirement on docker-ce, we just need the binary from it so we extract it manually.
+    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    rm ./nvidia-docker2*.deb
+}
+
 #EOF
