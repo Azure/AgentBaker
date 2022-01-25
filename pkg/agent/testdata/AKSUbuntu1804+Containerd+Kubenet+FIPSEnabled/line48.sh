@@ -225,6 +225,7 @@ addNvidiaAptRepo() {
         echo "nvidia-docker.list already exists, no need to update"
         return
     fi
+    local release=$(lsb_release -r -s)
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
