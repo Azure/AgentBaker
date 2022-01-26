@@ -134,6 +134,7 @@ jq -Rs '{commandToExecute: . }' csecmd > settings.json
 # Apply extension to the VM
 log "Applying extensions to VMSS"
 vmssExtStartTime=$(date +%s)
+set +e
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --name CustomScript \
     --vmss-name ${VMSS_NAME} \
@@ -141,6 +142,9 @@ az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
     --protected-settings settings.json \
     --version 2.0 \
     -ojson
+retval=$?
+set -e
+
 vmssExtEndTime=$(date +%s)
 log "Applied extensions in $((vmssExtEndTime-vmssExtStartTime)) seconds"
 
@@ -148,7 +152,7 @@ KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
-for i in $(seq 1 10); do
+for i in $(seq 1 6); do
     set +e
     kubectl get nodes | grep -q $vmInstanceName
     retval=$?
@@ -163,18 +167,27 @@ done
 waitForNodeEndTime=$(date +%s)
 log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
-trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
+# trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
 
 # Check if the node joined the cluster
 if [[ "$retval" -eq 0 ]]; then
     ok "Test succeeded, node joined the cluster"
 else
     err "Node did not join cluster"
+    INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id 0 | jq -r .[0].ipConfigurations[0].privateIpAddress)"
+    SSH_KEY=$(cat ~/.ssh/id_rsa)
+    SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
+    CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP cat /var/log/azure/cluster-provision.log"
+    exec_on_host "$CMD" cluster-provision.log
+    cat cluster-provision.log
     exit 1
 fi
 
 # Run a nginx pod on the node to check if pod runs
 envsubst < pod-nginx-template.yaml > pod-nginx.yaml
+kubectl delete -f pod-nginx.yaml
+sleep 5
 kubectl apply -f pod-nginx.yaml
 
 # Sleep to let Pod Status=Running
