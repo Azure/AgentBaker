@@ -186,6 +186,8 @@ fi
 
 # Run a nginx pod on the node to check if pod runs
 envsubst < pod-nginx-template.yaml > pod-nginx.yaml
+kubectl delete -f pod-nginx.yaml
+sleep 5
 kubectl apply -f pod-nginx.yaml
 
 # Sleep to let Pod Status=Running
