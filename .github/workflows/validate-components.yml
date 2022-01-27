@@ -20,7 +20,13 @@ jobs:
           GO111MODULE=on go get cuelang.org/go/cmd/cue
           popd
       - name: 'validate components.json'
-        run:   cue vet ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
+        run: |
+          GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
+          export PATH="$PATH:$GOPATH/bin"
+          cue vet ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
       - name: 'validate components.json'
-        run:   cue vet ./schemas/components.cue ./vhdbuilder/packer/components.json
+        run: |
+          GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
+          export PATH="$PATH:$GOPATH/bin"
+          cue vet ./schemas/components.cue ./vhdbuilder/packer/components.json
 

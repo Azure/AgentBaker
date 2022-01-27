@@ -154,6 +154,8 @@ KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
+    # pipefail interferes with conditional.
+    # shellcheck disable=SC2143
     if [ -z "$(kubectl get nodes | grep $vmInstanceName)" ]; then
         log "retrying attempt $i"
         sleep 10s
