@@ -18,5 +18,26 @@
             "1.0.0-rc95"
         ],
         "installedVersion": "1.0.3"
+    },
+    "nvidia-container-runtime": {
+        "fileName":         "",
+        "downloadLocation": "",
+        "downloadURL":      "",
+        "versions": [],
+        "installedVersion": ""
+    },
+    "nvidia-drivers": {
+        "fileName":         "",
+        "downloadLocation": "",
+        "downloadURL":      "",
+        "versions": [],
+        "installedVersion": ""
+    },
+    "_template": {
+        "fileName":         "",
+        "downloadLocation": "",
+        "downloadURL":      "",
+        "versions": [],
+        "installedVersion": ""
     }
 }

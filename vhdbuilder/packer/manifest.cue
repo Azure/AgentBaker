@@ -4,6 +4,7 @@
 // it's effectively json, but written using cuelang for schema validation
 // export it to json with cue export manifest.cue
 
+// some basic json constraints for validation
 #dep: {
 	fileName:         string
 	downloadLocation: string
@@ -12,8 +13,10 @@
 	installedVersion: string
 }
 
+// semver with a revision e.g. 1.4.12-2
 #containerd_ver: =~"[0-9]+.[0-9]+.[0-9]+-[0-9]+"
 
+// containerd includes constraints from #dep and tighter bounds on version
 #containerd: #dep & {
 	versions: [...#containerd_ver]
 }
@@ -24,9 +27,12 @@
 	versions: [...#runc_ver]
 }
 
+// root object schema enforced against manifest.json
 #root: {
-	containerd: #containerd
-	runc:       #runc
+	runc:                       #runc
+	containerd:                 #containerd
+	"nvidia-container-runtime": #runc // demo failure case
+	[string]:                   #dep
 }
 
 #root
