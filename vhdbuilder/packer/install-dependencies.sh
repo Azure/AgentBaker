@@ -118,7 +118,7 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_manifest="$(jq .containerd /opt/azure/manifest.json)"
+  containerd_manifest="$(jq .containerd manifest.json)"
  
   for version in $(echo ${containerd_manifest} | jq -r '.versions[]'); do
     containerd_version="$(echo "$version" | cut -d- -f1)"
