@@ -161,7 +161,6 @@ for i in $(seq 1 10); do
     fi
     break;
 done
-set +x
 waitForNodeEndTime=$(date +%s)
 log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
