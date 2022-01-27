@@ -153,6 +153,7 @@ KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
+    set -x
     set +e
     kubectl get nodes | grep -q $vmInstanceName
     retval=$?
@@ -164,6 +165,7 @@ for i in $(seq 1 10); do
     fi
     break;
 done
+set +x
 waitForNodeEndTime=$(date +%s)
 log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
