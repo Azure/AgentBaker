@@ -4276,8 +4276,8 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    if [ "${CURRENT_VERSION:-"0.0.0"}" == "${CONTAINERD_VERSION}" ]; then
+        echo "currently installed containerd version ${CURRENT_VERSION} matches target version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeMoby
