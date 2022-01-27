@@ -51,7 +51,7 @@ stages:
             downloadDirectory: vhdbuilder/packer
         - bash: |
             push /tmp
-            go install cuelang.org/go/cmd/cue@latest
+            go get cuelang.org/go/cmd/cue@latest
             pwd
             cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
             popd
