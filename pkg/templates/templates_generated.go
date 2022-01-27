@@ -525,7 +525,9 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
+RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -1172,7 +1174,6 @@ ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
 ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
 ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
-ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
 ERR_RUNC_INSTALL_TIMEOUT=29 {{/* Timeout waiting for moby-runc install */}}
 ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
 ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
@@ -1182,6 +1183,7 @@ ERR_KUBELET_START_FAIL=34 {{/* kubelet could not be started by systemctl */}}
 ERR_DOCKER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a Docker image */}}
 ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 {{/* Timeout trying to pull a containerd image via cli tool ctr */}}
 ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 {{/* Timeout trying to pull a containerd image via cli tool crictl */}}
+ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
 ERR_CNI_DOWNLOAD_TIMEOUT=41 {{/* Timeout waiting for CNI downloads */}}
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 {{/* Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb */}}
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
@@ -1196,6 +1198,7 @@ ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key 
 ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
 ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
+ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
@@ -4268,7 +4271,6 @@ updateAptWithMicrosoftPkg() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -4276,6 +4278,23 @@ installStandaloneContainerd() {
     
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
+
+    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+
+    # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
+    CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
+    if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
+        echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        removeMoby
+        removeContainerd
+        downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        return 0
+    fi
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
@@ -4285,8 +4304,6 @@ installStandaloneContainerd() {
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
-
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
@@ -4302,19 +4319,23 @@ installStandaloneContainerd() {
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi 
-        downloadContainerd ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
 
-downloadContainerd() {
+downloadContainerdFromVersion() {
     #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
     CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+    downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
+}
+
+downloadContainerdFromURL() {
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
@@ -4341,16 +4362,29 @@ installMoby() {
 }
 
 ensureRunc() {
+    RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
+    # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
+    if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
+        echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
+        mkdir -p $RUNC_DOWNLOADS_DIR
+        RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
+        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+        echo "Succeeded to install runc from user input: ${RUNC_PACKAGE_URL}"
+        return 0
+    fi
+
     if [[ $(isARM64) == 1 ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi
-
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
     fi
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi

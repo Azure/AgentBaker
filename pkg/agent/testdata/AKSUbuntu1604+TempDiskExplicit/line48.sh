@@ -127,16 +127,29 @@ installMoby() {
 }
 
 ensureRunc() {
+    RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
+    # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
+    if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
+        echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
+        mkdir -p $RUNC_DOWNLOADS_DIR
+        RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
+        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+        echo "Succeeded to install runc from user input: ${RUNC_PACKAGE_URL}"
+        return 0
+    fi
+
     if [[ $(isARM64) == 1 ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi
-
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
     fi
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi
