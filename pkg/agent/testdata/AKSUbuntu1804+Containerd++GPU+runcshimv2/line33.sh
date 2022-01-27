@@ -46,12 +46,6 @@ fi
 
 disable1804SystemdResolved
 
-if [ -f /var/run/reboot-required ]; then
-    REBOOTREQUIRED=true
-else
-    REBOOTREQUIRED=false
-fi
-
 configureAdminUser
 # If crictl gets installed then use it as the cri cli instead of ctr
 # crictl is not a critical component so continue with boostrapping if the install fails
@@ -85,7 +79,7 @@ installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
+        downloadGPUDrivers
     fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
@@ -179,6 +173,8 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
+REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -195,7 +191,6 @@ fi
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-ps auxfww > /opt/azure/provision-ps.log &
 
 exit $VALIDATION_ERR
 

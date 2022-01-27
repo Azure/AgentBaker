@@ -49,31 +49,14 @@ installDeps() {
     done
 }
 
-installGPUDrivers() {
+downloadGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
         # no gpu on arm64 SKU
         return
     fi
 
-    mkdir -p $GPU_DEST/tmp
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-key add $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${UBUNTU_RELEASE}/nvidia-docker.list > $GPU_DEST/tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 cat $GPU_DEST/tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    apt_get_update
     retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    if ! (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${NVIDIA_DOCKER_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    ); then
-      exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
 }
 
 installSGXDrivers() {
@@ -139,12 +122,14 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.9"
-        CONTAINERD_PATCH_VERSION="3"
+        CONTAINERD_VERSION="1.4.12"
+        CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
+
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
@@ -159,11 +144,11 @@ installStandaloneContainerd() {
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
-        fi
-        updateAptWithMicrosoftPkg
-        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi 
+        downloadContainerd ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return 0
     fi
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 downloadContainerd() {
@@ -180,9 +165,10 @@ downloadContainerd() {
 }
 
 installMoby() {
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.11" # last stable moby-containerd version with current runc version 1.0.0-rc95
+    local MOBY_CONTAINERD_VERSION="1.4.12"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
@@ -194,7 +180,6 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
@@ -205,7 +190,7 @@ ensureRunc() {
 
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.0-rc95"
+        TARGET_VERSION="1.0.3"
     fi
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
@@ -226,6 +211,59 @@ ensureRunc() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
     rm -f /etc/apt/sources.list.d/nvidia-docker.list
+}
+
+blacklistNouveau() {
+    tee /etc/modprobe.d/blacklist-nouveau.conf > /dev/null <<EOF
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
+addNvidiaAptRepo() {
+    if [ -f "/etc/apt/sources.list.d/nvidia-docker.list" ]; then
+        echo "nvidia-docker.list already exists, no need to update"
+        return
+    fi
+    local release=$(lsb_release -r -s)
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 cat /tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    apt_get_update
+}
+
+installNvidiaContainerRuntime() {
+    local target=$1
+    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
+    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
+    local release=$(lsb_release -r -s)
+
+    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
+        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
+        return
+    fi
+
+    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
+installNvidiaDocker() {
+    local target=$1
+    local dst="/usr/local/nvidia/tmp"
+    mkdir -p "$dst"
+    cd "$dst"
+    if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
+        retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
+    wait_for_apt_locks
+    # nvidia-docker has a hard requirement on docker-ce, we just need the binary from it so we extract it manually.
+    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "$dst/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    cp -r $dst/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    rm ./nvidia-docker2*.deb
 }
 
 #EOF
