@@ -178,9 +178,14 @@ else
     PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
     SSH_KEY=$(cat ~/.ssh/id_rsa)
     SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
-    CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP cat /var/log/azure/cluster-provision.log"
-    exec_on_host "$CMD" cluster-provision.log
+    SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP"
+    exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" cluster-provision.log
+    exec_on_host "$SSH_CMD systemctl status kubelet" kubelet-status
+    exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" kubelet.log
+
     cat cluster-provision.log
+    cat kubelet.log
+    cat kubelet-status
     exit 1
 fi
 
