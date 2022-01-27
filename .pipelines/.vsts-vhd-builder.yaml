@@ -52,7 +52,7 @@ stages:
         - bash: |
             set -x
             go version
-            GOPATH="go env | grep GOPATH"
+            GOPATH="$(go env | grep GOPATH)"
             export PATH="$PATH:$GOPATH/bin"
             ls $GOPATH/bin
             pushd /tmp
