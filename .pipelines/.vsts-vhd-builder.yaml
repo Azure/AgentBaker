@@ -51,6 +51,8 @@ stages:
             downloadDirectory: vhdbuilder/packer
         - bash: |
             go version
+            GOPATH="go env | grep GOPATH"
+            export PATH="$PATH:$GOPATH/bin"
             pushd /tmp
             GO111MODULE=on go get cuelang.org/go/cmd/cue
             popd
