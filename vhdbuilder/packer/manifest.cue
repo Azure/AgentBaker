@@ -20,7 +20,7 @@ containerd: #dep & {
 		"1.4.9-3",
 		"1.4.12-2",
 	]
-	"installedVersion": "1.5.9-3"
+	"installedVersion": "1.5.9-2"
 }
 
 runc: #dep & {
