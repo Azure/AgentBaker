@@ -50,16 +50,12 @@ stages:
             vstsPackageVersion: '1.0.0-35'
             downloadDirectory: vhdbuilder/packer
         - bash: |
-            set -x
-            go version
             GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
             export PATH="$PATH:$GOPATH/bin"
             pushd /tmp
             GO111MODULE=on go get cuelang.org/go/cmd/cue
             popd
-            pwd
-            ls $GOPATH/bin
-            cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
+            cue vet ./vhdbuilder/packer/manifest.cue ./vhdbuilder/packer/manifest.json
           displayName: setup cue
         - bash: |
             echo MODE=$(MODE) && \

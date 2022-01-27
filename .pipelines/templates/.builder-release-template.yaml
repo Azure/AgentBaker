@@ -5,14 +5,12 @@ parameters:
 
 steps:
   - bash: |
-      go version
       GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
       export PATH="$PATH:$GOPATH/bin"
       pushd /tmp
       GO111MODULE=on go get cuelang.org/go/cmd/cue
       popd
-      pwd
-      cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
+      cue vet ./vhdbuilder/packer/manifest.cue ./vhdbuilder/packer/manifest.json
     displayName: setup cue
   - bash: |
         if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \

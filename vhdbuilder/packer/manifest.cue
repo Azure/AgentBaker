@@ -12,24 +12,21 @@
 	installedVersion: string
 }
 
-containerd: #dep & {
-	"fileName":         "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb"
-	"downloadURL":      "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
-	"downloadLocation": "/opt/containerd/downloads"
-	"versions": [
-		"1.4.9-3",
-		"1.4.12-2",
-	]
-	"installedVersion": "1.5.9-2"
+#containerd_ver: =~"[0-9]+.[0-9]+.[0-9]+-[0-9]+"
+
+#containerd: #dep & {
+	versions: [...#containerd_ver]
 }
 
-runc: #dep & {
-	"fileName":         "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb"
-	"downloadURL":      "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb"
-	"downloadLocation": "/opt/runc/downloads"
-	"versions": [
-		"1.0.0-rc92",
-		"1.0.0-rc95",
-	]
-	"installedVersion": "1.0.3"
+#runc_ver: =~"[0-9]+.[0-9]+.[0-9]+-(rc)?[0-9]+" // rc92,rc95 previously used.
+
+#runc: #dep & {
+	versions: [...#runc_ver]
 }
+
+#root: {
+	containerd: #containerd
+	runc:       #runc
+}
+
+#root
