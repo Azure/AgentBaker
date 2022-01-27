@@ -154,7 +154,7 @@ KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
-    if [ -z  "$(kubectl get nodes | grep $vmInstanceName)" ]; then
+    if [ -z "$(kubectl get nodes | grep $vmInstanceName)" ]; then
         log "retrying attempt $i"
         sleep 10s
         continue
