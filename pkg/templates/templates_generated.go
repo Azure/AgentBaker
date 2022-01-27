@@ -4413,7 +4413,7 @@ installNvidiaDocker() {
     local target=$1
     local dst="/usr/local/nvidia/tmp"
     mkdir -p "$dst"
-    cd "$dst"
+    pushd "$dst"
     if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
         retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
@@ -4422,6 +4422,7 @@ installNvidiaDocker() {
     dpkg-deb -R ./nvidia-docker2_${target}_all.deb "$dst/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     cp -r $dst/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     rm ./nvidia-docker2*.deb
+    popd
 }
 
 #EOF
