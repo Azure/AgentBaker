@@ -300,11 +300,11 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [
-        "v1.2.0",
-        "v1.7.0"
+        "v1.2.0"
       ],
       "multiArchVersions": [
-        "v1.9.0"
+        "v1.9.0",
+        "v1.10.0"
       ]
     },
     {
