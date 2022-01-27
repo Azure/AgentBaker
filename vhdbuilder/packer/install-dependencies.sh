@@ -119,18 +119,18 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
   containerd_version="1.4.12"
   containerd_patch_version="2"
-  downloadContainerd ${containerd_version} ${containerd_patch_version}
+  downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # also pre-cache containerd 1.4.4 (last used version)
     containerd_version="1.4.9"
     containerd_patch_version="3"
-    downloadContainerd ${containerd_version} ${containerd_patch_version}
+    downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
     echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
     updated_containerd_version="1.5.9" # also 1.5.9 revision
     containerd_patch_version="2"
-    downloadContainerd ${updated_containerd_version} ${containerd_patch_version}
+    downloadContainerdFromVersion ${updated_containerd_version} ${containerd_patch_version}
     echo "  - [cached] updated containerd v${updated_containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   fi
   CRICTL_VERSIONS="
