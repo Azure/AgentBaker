@@ -152,7 +152,7 @@ KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
-for i in $(seq 1 6); do
+for i in $(seq 1 8); do
     set +e
     kubectl get nodes | grep -q $vmInstanceName
     retval=$?
