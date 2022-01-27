@@ -7,9 +7,9 @@ steps:
   - bash: |
       pushd /tmp
       go get cuelang.org/go/cmd/cue@latest
+      popd
       pwd
       cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
-      popd
     displayName: setup cue
   - bash: |
         if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \

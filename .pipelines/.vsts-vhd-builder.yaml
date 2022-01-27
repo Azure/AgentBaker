@@ -52,9 +52,9 @@ stages:
         - bash: |
             pushd /tmp
             go get cuelang.org/go/cmd/cue@latest
+            popd
             pwd
             cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
-            popd
           displayName: setup cue
         - bash: |
             echo MODE=$(MODE) && \
