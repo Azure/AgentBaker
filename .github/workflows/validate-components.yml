@@ -24,9 +24,11 @@ jobs:
           GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
           export PATH="$PATH:$GOPATH/bin"
           cue vet ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
+          cue eval ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
       - name: 'validate components.json'
         run: |
           GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
           export PATH="$PATH:$GOPATH/bin"
           cue vet ./schemas/components.cue ./vhdbuilder/packer/components.json
+          cue eval ./schemas/components.cue ./vhdbuilder/packer/components.json
 
