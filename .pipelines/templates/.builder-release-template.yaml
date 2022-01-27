@@ -6,7 +6,7 @@ parameters:
 steps:
   - bash: |
       go version
-      GOPATH="$(go env | grep GOPATH)"
+      GOPATH="$(go env | grep GOPATH | cut -d= -f2)"
       export PATH="$PATH:$GOPATH/bin"
       pushd /tmp
       GO111MODULE=on go get cuelang.org/go/cmd/cue
