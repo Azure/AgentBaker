@@ -21,7 +21,7 @@ echo "Sourcing tool_installs_ubuntu.sh"
 installAscBaseline() {
    echo "Installing ASC Baseline tools..."
    ASC_BASELINE_TMP=asc-baseline.deb
-   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP
+   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
    sudo cp /opt/microsoft/asc-baseline/baselines/oms_audits.xml /opt/microsoft/asc-baseline/oms_audits.xml
    cd /opt/microsoft/asc-baseline
    sudo ./ascbaseline -d .
