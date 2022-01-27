@@ -50,6 +50,7 @@ stages:
             vstsPackageVersion: '1.0.0-35'
             downloadDirectory: vhdbuilder/packer
         - bash: |
+            go version
             pushd /tmp
             GO111MODULE=on go get cuelang.org/go/cmd/cue
             popd

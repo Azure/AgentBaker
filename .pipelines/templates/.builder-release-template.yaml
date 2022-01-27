@@ -5,6 +5,7 @@ parameters:
 
 steps:
   - bash: |
+      go version
       pushd /tmp
       GO111MODULE=on go get cuelang.org/go/cmd/cue
       popd
