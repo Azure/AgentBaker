@@ -1,0 +1,26 @@
+name: Validate component manifest
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs: 
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v2
+      - name: 'install cue'
+        run: |
+          go version
+          GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
+          export PATH="$PATH:$GOPATH/bin"
+          pushd /tmp
+          GO111MODULE=on go get cuelang.org/go/cmd/cue
+          popd
+      - name: 'validate components.json'
+        run:   cue vet ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
+      - name: 'validate components.json'
+        run:   cue vet ./schemas/components.cue ./vhdbuilder/packer/components.json
+
