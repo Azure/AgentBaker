@@ -6,7 +6,7 @@ parameters:
 steps:
   - bash: |
       pushd /tmp
-      go get cuelang.org/go/cmd/cue@latest
+      GO111MODULE=on go get cuelang.org/go/cmd/cue
       popd
       pwd
       cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
