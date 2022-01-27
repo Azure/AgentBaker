@@ -50,6 +50,13 @@ stages:
             vstsPackageVersion: '1.0.0-35'
             downloadDirectory: vhdbuilder/packer
         - bash: |
+            push /tmp
+            go install cuelang.org/go/cmd/cue@latest
+            pwd
+            cue export ./vhdbuilder/packer/manifest.cue > ./vhdbuilder/packer/manifest.json
+            popd
+          displayName: setup cue
+        - bash: |
             echo MODE=$(MODE) && \
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
