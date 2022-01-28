@@ -461,9 +461,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.21.7
 1.22.2
 1.22.4
-1.23.0
-1.23.1
-1.23.2
+1.23.3
 "
 
 if [[ $(isARM64) == 1 ]]; then
