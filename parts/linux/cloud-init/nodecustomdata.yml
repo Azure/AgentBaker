@@ -287,6 +287,24 @@ write_files:
     {{GetMessageOfTheDay}}
 {{- end}}
 
+{{- if HasServicePrincipalSecret}}
+- path: /etc/kubernetes/sp.txt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetServicePrincipalSecret}}
+{{- end}}
+
+{{- if HasKubeletClientKey}}
+- path: /etc/kubernetes/certs/client.key
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetKubeletClientKey}}
+{{- end}}
+
 {{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"

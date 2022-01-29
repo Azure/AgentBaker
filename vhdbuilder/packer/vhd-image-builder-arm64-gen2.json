@@ -127,6 +127,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/manifest.json",
+      "destination": "/home/packer/manifest.json"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/kube-proxy-images.json",
       "destination": "/home/packer/kube-proxy-images.json"
     },

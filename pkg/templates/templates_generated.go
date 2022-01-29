@@ -134,7 +134,7 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ComponentconfigConf = []byte(`[Service]
-Environment=KUBELET_CONFIG_FILE_FLAGS="--config /etc/default/kubeletconfig.json"
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
 `)
 
 func linuxCloudInitArtifacts10ComponentconfigConfBytes() ([]byte, error) {
@@ -153,7 +153,7 @@ func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
-Environment=KUBELET_CONTAINERD_FLAGS="--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
 `)
 
 func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
@@ -191,7 +191,7 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10TlsbootstrapConf = []byte(`[Service]
-Environment=KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 `)
 
 func linuxCloudInitArtifacts10TlsbootstrapConfBytes() ([]byte, error) {
@@ -489,8 +489,6 @@ ROUTE_TABLE={{GetVariable "routeTableName"}}
 PRIMARY_AVAILABILITY_SET={{GetVariable "primaryAvailabilitySetName"}}
 PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
 SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
-SERVICE_PRINCIPAL_CLIENT_SECRET='{{GetParameter "servicePrincipalClientSecret"}}'
-KUBELET_PRIVATE_KEY={{GetParameter "clientPrivateKey"}}
 NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
@@ -527,7 +525,9 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
+RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -548,7 +548,8 @@ func linuxCloudInitArtifactsCse_cmdSh() (*asset, error) {
 var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
-NODE_IP=$(hostname -i | awk '{print $1}') 
+
+source {{GetCSEInstallScriptDistroFilepath}}
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -629,45 +630,12 @@ configureHTTPProxyCA() {
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-    KUBELET_OPENSSL_CNF="/etc/kubernetes/certs/extfile.cnf"
-
-    touch "${KUBELET_OPENSSL_CNF}"
-    chmod 0600 "${KUBELET_OPENSSL_CNF}"
-    chown root:root "${KUBELET_OPENSSL_CNF}"
-    cat << EOF >> "${KUBELET_OPENSSL_CNF}"
-    [req]
-    distinguished_name = req_distinguished_name
-    x509_extensions = x509_extensions
-    [req_distinguished_name]
-    commonName = ${NODE_NAME}
-    commonName_max = 64
-    [x509_extensions]
-    basicConstraints = CA:FALSE
-    nsCertType = server
-    nsComment = "OpenSSL Generated Server Certificate"
-    subjectKeyIdentifier = hash
-    authorityKeyIdentifier = keyid,issuer:always
-    keyUsage = critical, digitalSignature, keyEncipherment
-    extendedKeyUsage = serverAuth
-    subjectAltName = @alt_names
-    [alt_names]
-    DNS.1 = ${NODE_NAME}
-    DNS.2 = ${NODE_IP}
-    IP.1 = ${NODE_IP}
-    [${NODE_NAME}]
-    
-EOF
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -config $KUBELET_OPENSSL_CNF -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
 }
 
 configureK8s() {
-    KUBELET_PRIVATE_KEY_PATH="/etc/kubernetes/certs/client.key"
-    touch "${KUBELET_PRIVATE_KEY_PATH}"
-    chmod 0600 "${KUBELET_PRIVATE_KEY_PATH}"
-    chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
-
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -678,12 +646,18 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
+    SP_FILE="/etc/kubernetes/sp.txt"
+
+    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+
     set +x
-    echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     {{/* Perform the required JSON escaping */}}
+    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
+    rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     {{- if IsAKSCustomCloud}}
@@ -1048,7 +1022,7 @@ installGPUDriversRun() {
     {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
     if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
-        installGPUDrivers
+        downloadGPUDrivers
     fi
     sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
         -k=$KERNEL_NAME \
@@ -1058,28 +1032,30 @@ installGPUDriversRun() {
 }
 
 configGPUDrivers() {
-    {{/* only install the runtime since nvidia-docker2 has a hard dep on docker CE packages. */}}
-    {{/* we will manually install nvidia-docker2 */}}
-    rmmod nouveau
-    echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    {{/* if the unattened upgrade is turned on, and it may takes 10 min to finish the installation, and we use the 1 second just to try to get the lock more aggressively */}}
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      wait_for_apt_locks
-      dpkg-deb -R ./nvidia-docker2*.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-      cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    )
+    blacklistNouveau
+    addNvidiaAptRepo
+    installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
+    installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
+
+    # tidy
     rm -rf $GPU_DEST/tmp
+
+    # reload containerd/dockerd
     {{if NeedsContainerd}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     {{else}}
     retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     {{end}}
+
+    # install gpu driver
+    setupGpuRunfileInstall
+
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+}
+
+setupGpuRunfileInstall() {
     mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
     retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     export -f installGPUDriversRun
@@ -1088,9 +1064,6 @@ configGPUDrivers() {
     echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     umount -l /usr/lib/x86_64-linux-gnu
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
 validateGPUDrivers() {
@@ -1127,6 +1100,11 @@ ensureGPUDrivers() {
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else
+        # needs to happen even on gpu vhd because newer containerd/runc broke old 
+        # nvidia-container-runtime. containerd [1.5.9, 1.4.12] + runc 1.0.2 don't work with 
+        # old nvidia-container-runtime like 2.0.0, only new like 3.6.0
+        installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
+        installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
         validateGPUDrivers
     fi
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1167,7 +1145,6 @@ ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
 ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
 ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
 ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
-ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
 ERR_RUNC_INSTALL_TIMEOUT=29 {{/* Timeout waiting for moby-runc install */}}
 ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
 ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
@@ -1177,6 +1154,7 @@ ERR_KUBELET_START_FAIL=34 {{/* kubelet could not be started by systemctl */}}
 ERR_DOCKER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a Docker image */}}
 ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 {{/* Timeout trying to pull a containerd image via cli tool ctr */}}
 ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 {{/* Timeout trying to pull a containerd image via cli tool crictl */}}
+ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
 ERR_CNI_DOWNLOAD_TIMEOUT=41 {{/* Timeout waiting for CNI downloads */}}
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 {{/* Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb */}}
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
@@ -1191,6 +1169,7 @@ ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key 
 ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
 ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
+ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
@@ -1241,10 +1220,9 @@ KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
-NVIDIA_DOCKER_VERSION=2.0.3
+NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=2.0.0
-NVIDIA_DOCKER_SUFFIX=docker18.09.2-1
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0-1
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1462,8 +1440,8 @@ installContainerRuntime() {
     {{if NeedsContainerd}}
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-            CONTAINERD_VERSION="1.5.5"
-            CONTAINERD_PATCH_VERSION="3"
+            CONTAINERD_VERSION="1.5.9"
+            CONTAINERD_PATCH_VERSION="2"
             installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
             echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
         else
@@ -1903,12 +1881,6 @@ configureHTTPProxyCA
 
 disable1804SystemdResolved
 
-if [ -f /var/run/reboot-required ]; then
-    REBOOTREQUIRED=true
-else
-    REBOOTREQUIRED=false
-fi
-
 configureAdminUser
 
 {{- if NeedsContainerd}}
@@ -1954,7 +1926,7 @@ installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     if $FULL_INSTALL_REQUIRED; then
-        installGPUDrivers
+        downloadGPUDrivers
     fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
@@ -2104,6 +2076,8 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
+REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -2120,7 +2094,6 @@ fi
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-ps auxfww > /opt/azure/provision-ps.log &
 
 exit $VALIDATION_ERR
 
@@ -3005,7 +2978,7 @@ installDeps() {
     done
 }
 
-installGPUDrivers() {
+downloadGPUDrivers() {
     echo "GPU drivers not yet supported for Mariner"
     exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
@@ -3044,6 +3017,18 @@ installStandaloneContainerd() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
+}
+
+installNvidiaContainerRuntime() {
+    echo "installNvidiaContainerRuntime not implemented for mariner"
+}
+
+installNvidiaDocker() {
+    echo "installNvidiaDocker not implemented for mariner"
+}
+
+addNvidiaAptRepo() {
+    echo "addNvidiaAptRepo not implemented for mariner"
 }
 
 #EOF
@@ -4193,31 +4178,14 @@ installDeps() {
     done
 }
 
-installGPUDrivers() {
+downloadGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
         # no gpu on arm64 SKU
         return
     fi
 
-    mkdir -p $GPU_DEST/tmp
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-key add $GPU_DEST/tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${UBUNTU_RELEASE}/nvidia-docker.list > $GPU_DEST/tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 cat $GPU_DEST/tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    apt_get_update
     retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    if ! (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${NVIDIA_DOCKER_VERSION}+${NVIDIA_DOCKER_SUFFIX}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    ); then
-      exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
 }
 
 installSGXDrivers() {
@@ -4274,26 +4242,49 @@ updateAptWithMicrosoftPkg() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
     # v1.4.1 is our lowest supported version of containerd
+
+    if [ -z "$CURRENT_VERSION" ]; then
+        CURRENT_VERSION="0.0.0"
+    fi
     
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
+    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+
+    # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
+    CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
+    if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
+        echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        removeMoby
+        removeContainerd
+        downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        return 0
+    fi
+
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.9"
-        CONTAINERD_PATCH_VERSION="3"
+        CONTAINERD_VERSION="1.4.12"
+        CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+
+    if [ semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION" ] && [ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]; then
+        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeMoby
@@ -4305,20 +4296,25 @@ installStandaloneContainerd() {
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
-        fi
-        updateAptWithMicrosoftPkg
-        apt_get_install 20 30 120 moby-containerd=${CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi 
+        downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return 0
     fi
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
-downloadContainerd() {
+downloadContainerdFromVersion() {
     #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
     CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+    downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
+}
+
+downloadContainerdFromURL() {
+    CONTAINERD_DOWNLOAD_URL=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
@@ -4327,9 +4323,10 @@ downloadContainerd() {
 {{- end}}
 
 installMoby() {
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.11" # last stable moby-containerd version with current runc version 1.0.0-rc95
+    local MOBY_CONTAINERD_VERSION="1.4.12"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
@@ -4341,20 +4338,32 @@ installMoby() {
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     fi
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 }
 
 ensureRunc() {
+    RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
+    # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
+    if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
+        echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
+        mkdir -p $RUNC_DOWNLOADS_DIR
+        RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
+        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+        echo "Succeeded to install runc from user input: ${RUNC_PACKAGE_URL}"
+        return 0
+    fi
+
     if [[ $(isARM64) == 1 ]]; then
         # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
         return
     fi
-
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.0-rc95"
+        TARGET_VERSION="1.0.3"
     fi
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi
@@ -4373,6 +4382,60 @@ ensureRunc() {
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST
     rm -f /etc/apt/sources.list.d/nvidia-docker.list
+}
+
+blacklistNouveau() {
+    tee /etc/modprobe.d/blacklist-nouveau.conf > /dev/null <<EOF
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
+addNvidiaAptRepo() {
+    if [ -f "/etc/apt/sources.list.d/nvidia-docker.list" ]; then
+        echo "nvidia-docker.list already exists, no need to update"
+        return
+    fi
+    local release=$(lsb_release -r -s)
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 cat /tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    apt_get_update
+}
+
+installNvidiaContainerRuntime() {
+    local target=$1
+    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
+    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
+    local release=$(lsb_release -r -s)
+
+    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
+        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
+        return
+    fi
+
+    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
+installNvidiaDocker() {
+    local target=$1
+    local dst="/usr/local/nvidia/tmp"
+    mkdir -p "$dst"
+    pushd "$dst"
+    if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
+        retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
+    wait_for_apt_locks
+    # nvidia-docker has a hard requirement on docker-ce, we just need the binary from it so we extract it manually.
+    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "$dst/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    cp -r $dst/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    rm ./nvidia-docker2*.deb
+    popd
 }
 
 #EOF
@@ -4680,6 +4743,24 @@ write_files:
   owner: root
   content: |
     {{GetMessageOfTheDay}}
+{{- end}}
+
+{{- if HasServicePrincipalSecret}}
+- path: /etc/kubernetes/sp.txt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetServicePrincipalSecret}}
+{{- end}}
+
+{{- if HasKubeletClientKey}}
+- path: /etc/kubernetes/certs/client.key
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetKubeletClientKey}}
 {{- end}}
 
 {{if IsIPv6DualStackFeatureEnabled}}
