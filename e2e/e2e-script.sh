@@ -209,7 +209,7 @@ exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log
 if [ "$FAILED" == "1" ]; then
     "echo failed to join cluster, dumping logs and exiting"
     cat logs/cluster-provision.log
-    cat logs/kubelet.log | head -n 500
+    head -n 500 logs/kubelet.log
     cat logs/kubelet-status.txt
     exit 1
 fi
