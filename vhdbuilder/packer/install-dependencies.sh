@@ -124,7 +124,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   for version in $containerd_versions; do
     containerd_version="$(echo "$version" | cut -d- -f1)"
     containerd_patch_version="$(echo "$version" | cut -d- -f2)"
-    downloadContainerd ${containerd_version} ${containerd_patch_version}
+    downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
     echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   done
 
