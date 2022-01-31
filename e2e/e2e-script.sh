@@ -35,7 +35,7 @@ log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 # Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
 # MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
 out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
-if [ ! -z "$out" ]; then
+if [ -n "$out" ]; then
     MC_RG_NAME=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.nodeResourceGroup')
     exists=$(az group exists -n $MC_RG_NAME)
     if [ $exists = "false" ]; then
