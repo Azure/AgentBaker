@@ -150,6 +150,7 @@ ensureRunc() {
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
     fi
+    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi
