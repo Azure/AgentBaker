@@ -206,9 +206,11 @@ exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-pr
 exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt
 exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log
 
+# useful for validating some stuff even on success
+cat logs/cluster-provision.log
+
 if [ "$FAILED" == "1" ]; then
-    "echo failed to join cluster, dumping logs and exiting"
-    cat logs/cluster-provision.log
+    echo "node join failed, dumping logs for debug"
     head -n 500 logs/kubelet.log
     cat logs/kubelet-status.txt
     exit 1
