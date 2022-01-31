@@ -17,3 +17,5 @@ jobs:
       cd e2e
       bash ./e2e-script.sh
     displayName: run e2e
+  - publish: $(System.DefaultWorkingDirectory)/e2e/logs
+    artifact: logs

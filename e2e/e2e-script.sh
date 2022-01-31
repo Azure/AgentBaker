@@ -185,6 +185,7 @@ log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to joi
 # for a dev to want to look around. Resources are cleaned up in 3 days anyway
 
 #trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
+FAILED=0
 
 # Check if the node joined the cluster
 if [[ "$retval" -eq 0 ]]; then
@@ -192,18 +193,24 @@ if [[ "$retval" -eq 0 ]]; then
     kubectl get nodes -o wide | grep $vmInstanceName
 else
     err "Node did not join cluster"
-    INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
-    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
-    SSH_KEY=$(cat ~/.ssh/id_rsa)
-    SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
-    SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP"
-    exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" cluster-provision.log
-    exec_on_host "$SSH_CMD systemctl status kubelet" kubelet-status
-    exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" kubelet.log
+    FAILED=1
+fi
 
-    cat cluster-provision.log
-    cat kubelet.log
-    cat kubelet-status
+mkdir -p logs
+INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
+SSH_KEY=$(cat ~/.ssh/id_rsa)
+SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
+SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP"
+exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-provision.log
+exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt
+exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log
+
+if [ "$FAILED" == "1" ]; then
+    "echo failed to join cluster, dumping logs and exiting"
+    cat logs/cluster-provision.log
+    cat logs/kubelet.log | head -n 500
+    cat logs/kubelet-status.txt
     exit 1
 fi
 
