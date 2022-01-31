@@ -14,26 +14,47 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
+MANIFEST_FILEPATH="/opt/azure/manifest.json"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
 installContainerRuntime() {
-    {{if NeedsContainerd}}
-        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-            CONTAINERD_VERSION="1.5.9"
-            CONTAINERD_PATCH_VERSION="2"
-            installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
-            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
-        else
-            installStandaloneContainerd ${CONTAINERD_VERSION}
-            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+{{if NeedsContainerd}}
+    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+
+    local stable_containerd
+    local latest_containerd
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
+        latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
+    else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+
+    # todo(ace): read 1.22 from a manifest and track it against supported versions
+    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+        containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalide container version: $latest_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
-    {{else}}
-        installMoby
-    {{end}}
+    else
+        containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalide container version: $stable_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+    fi
+    installStandaloneContainerd "${containerd_version}" "${containerd_patch_version}"
+    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
+{{else}}
+    installMoby
+{{end}}
 }
 
 installNetworkPlugin() {

@@ -84,6 +84,7 @@ const (
 	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
+	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
 )
 
 // cloud-init destination file references
@@ -98,6 +99,7 @@ const (
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
 	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	componentManifestFilePath            = "/opt/azure/manifest.json"
 )
 
 const (

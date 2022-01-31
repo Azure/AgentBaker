@@ -13,9 +13,17 @@ jobs:
       az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
       az account set -s $(AZURE_SUBSCRIPTION_ID)
     displayName: az login
+  - bash: bash .pipelines/scripts/setup_go.sh
+    displayName: setup go
   - bash: |
+      go version
       cd e2e
       bash ./e2e-script.sh
     displayName: run e2e
   - publish: $(System.DefaultWorkingDirectory)/e2e/logs
     artifact: logs
+    condition: always()
+  - bash: |
+      az vmss delete -g $(jq -r .group e2e/vmss.json) -n $(jq -r .vmss e2e/vmss.json)
+    displayName: delete vmss
+    condition: always()

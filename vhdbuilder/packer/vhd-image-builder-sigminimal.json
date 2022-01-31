@@ -123,7 +123,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/manifest.json",
+      "source": "parts/linux/cloud-init/artifacts/manifest.json",
       "destination": "/home/packer/manifest.json"
     },
     {

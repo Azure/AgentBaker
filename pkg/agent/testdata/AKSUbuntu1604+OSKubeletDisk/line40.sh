@@ -14,15 +14,16 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
+MANIFEST_FILEPATH="/opt/azure/manifest.json"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
 installContainerRuntime() {
-    
-        installMoby
-    
+
+    installMoby
+
 }
 
 installNetworkPlugin() {
