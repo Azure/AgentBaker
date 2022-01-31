@@ -203,10 +203,12 @@ testFips() {
         err $test "FIPS is not enabled."
     fi
 
+    echo "kernel vesion: $kernel"
+
     if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
-        echo "fips header files exist."
+        echo "fips header /usr/src/linux-headers-${kernel}/Makefile files exist."
     else
-        err $test "fips header files don't exist."
+        err $test "fips header files /usr/src/linux-headers-${kernel}/Makefile don't exist."
     fi
   fi
 
