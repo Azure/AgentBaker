@@ -69,4 +69,12 @@ addNvidiaAptRepo() {
     echo "addNvidiaAptRepo not implemented for mariner"
 }
 
+downloadContainerdFromVersion() {
+    echo "downloadContainerdFromVersion not implemented for mariner"
+}
+
+downloadContainerdFromURL() {
+    echo "downloadContainerdFromURL not implemented for mariner"
+}
+
 #EOF
