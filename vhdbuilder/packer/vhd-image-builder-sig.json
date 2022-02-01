@@ -14,7 +14,6 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
-    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}"
@@ -46,7 +45,7 @@
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `sig_image_version`}}",
+        "image_version": "1.0.{{user `create_time`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
