@@ -115,7 +115,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
             echo '##vso[task.setvariable variable=SIG_IMAGE_NAME]1804Gen1'
-            echo '##vso[task.setvariable variable=SIG_IMAGE_VERSION]${{DATE}}'
+            echo '##vso[task.setvariable variable=SIG_IMAGE_VERSION]$(DATE)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
