@@ -13,9 +13,8 @@ steps:
       cue vet ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
     displayName: setup cue
   - bash: |
-        if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n $(SIG_IMAGE_NAME) && -n $(SIG_IMAGE_VERSION) ]]; then m="sigMode"; else m="default"; fi && \
+        if [[ -n ${SIG_GALLERY_NAME} && -n $(SIG_IMAGE_NAME) ]]; then m="sigMode"; elif [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; else m="default"; fi && \
         echo "Set build mode to $m" && \
-        echo "sig image version is $(SIG_IMAGE_VERSION)"
         echo "##vso[task.setvariable variable=MODE]$m"
     displayName: Get Build Mode
   - task: UniversalPackages@0
