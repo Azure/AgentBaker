@@ -106,6 +106,7 @@ stages:
       steps:
         - bash: |
             DATE=$(date '+%d:%m:%Y-%H:%M:%S')
+            echo "date is $DATE"
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
@@ -114,7 +115,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
             echo '##vso[task.setvariable variable=SIG_IMAGE_NAME]1804Gen1'
-            echo '##vso[task.setvariable variable=SIG_IMAGE_VERSION]$DATE'
+            echo '##vso[task.setvariable variable=SIG_IMAGE_VERSION]${DATE}'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
