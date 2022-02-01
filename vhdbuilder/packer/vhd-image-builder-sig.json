@@ -45,7 +45,7 @@
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
-        "image_version": "1.0.{{user `create_time`}}",
+        "image_version": "{{user `sig_image_version`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
