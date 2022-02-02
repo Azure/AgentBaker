@@ -201,7 +201,7 @@ INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NA
 PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
 SSH_KEY=$(cat ~/.ssh/id_rsa)
 SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
-SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP"
+SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP sudo"
 exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-provision.log
 exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt
 exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log
