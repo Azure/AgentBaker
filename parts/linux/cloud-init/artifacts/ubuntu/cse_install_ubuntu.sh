@@ -302,6 +302,8 @@ installNvidiaDocker() {
     mkdir -p "$dst"
     pushd "$dst"
     if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
+        sudo chown -Rv _apt:root /var/cache/apt/archives/partial/
+        sudo chmod -Rv 700 /var/cache/apt/archives/partial/
         retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
     wait_for_apt_locks
