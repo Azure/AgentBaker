@@ -20,8 +20,8 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
-$global:patchUrls = @("http://download.windowsupdate.com/d/msdownload/update/software/updt/2022/01/windows10.0-kb5010791-x64_466ad2172d2cc77b2125420c26b7f9ac00e197f4.msu")
-$global:patchIDs = @("KB5010791")
+$global:patchUrls = @()
+$global:patchIDs = @()
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.43/binaries/containerd-v0.0.43-windows-amd64.tar.gz"
@@ -41,8 +41,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.8.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.10.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.7.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.9.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.10.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
@@ -53,7 +53,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.2", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.4", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.1", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -67,8 +68,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.8.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.10.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.7.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.9.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.10.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.9", # for k8s 1.20.x
@@ -78,7 +79,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.2", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.4", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.1", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022")
     }
     default {
         throw "No valid windows SKU is specified $windowsSKU"
@@ -141,20 +143,29 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20211115/windowszip/v1.20.7-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.9-hotfix.20211115/windowszip/v1.20.9-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.13/windowszip/v1.20.13-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.20.13-hotfix.20220127/windowszip/v1.20.13-hotfix.20220127-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.20.15-hotfix.20220201/windowszip/v1.20.15-hotfix.20220201-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20211115/windowszip/v1.21.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20211115/windowszip/v1.21.2-hotfix.20211115-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20220130/windowszip/v1.21.2-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.7/windowszip/v1.21.7-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.7-hotfix.20220130/windowszip/v1.21.7-hotfix.20220130-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.9-hotfix.20220130/windowszip/v1.21.9-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.1-hotfix.20211115/windowszip/v1.22.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.2-hotfix.20211115/windowszip/v1.22.2-hotfix.20211115-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.22.4/windowszip/v1.22.4-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.2-hotfix.20220128/windowszip/v1.22.2-hotfix.20220128-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.4/windowszip/v1.22.4-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.4-hotfix.20220130/windowszip/v1.22.4-hotfix.20220130-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220130/windowszip/v1.22.6-hotfix.20220130-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.3/windowszip/v1.23.3-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.3-hotfix.20220130/windowszip/v1.23.3-hotfix.20220130-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.16/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.16.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.20.0/binaries/calico-windows-v3.20.0.zip",
-        "https://acs-mirror.azureedge.net/calico-node/v3.21.0/binaries/calico-windows-v3.21.0.zip",
-        "https://acs-mirror.azureedge.net/calico-node/v3.21.2/binaries/calico-windows-v3.21.2.zip"
+        "https://acs-mirror.azureedge.net/calico-node/v3.21.4/binaries/calico-windows-v3.21.4.zip"
     )
 }
 '@

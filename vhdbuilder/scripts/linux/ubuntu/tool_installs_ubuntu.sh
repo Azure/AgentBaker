@@ -21,7 +21,7 @@ echo "Sourcing tool_installs_ubuntu.sh"
 installAscBaseline() {
    echo "Installing ASC Baseline tools..."
    ASC_BASELINE_TMP=asc-baseline.deb
-   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP
+   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
    sudo cp /opt/microsoft/asc-baseline/baselines/oms_audits.xml /opt/microsoft/asc-baseline/oms_audits.xml
    cd /opt/microsoft/asc-baseline
    sudo ./ascbaseline -d .
@@ -69,16 +69,7 @@ configGPUDrivers() {
     echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
     retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    tmpDir=$GPU_DEST/tmp
-    (
-      set -e -o pipefail
-      cd "${tmpDir}"
-      wait_for_apt_locks
-      dpkg-deb -R ./nvidia-docker2*.deb "${tmpDir}/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-      cp -r ${tmpDir}/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    )
-    rm -rf $GPU_DEST/tmp
+    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     if [[ "${CONTAINER_RUNTIME}" == "docker" ]]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
@@ -191,7 +182,7 @@ installFIPS() {
     if [[ ! -d /usr/src/linux-azure-headers-4.15.0-1002 ]]; then
         echo "installing linux-headers-fips..."
         apt_get_install 5 10 120 linux-headers-fips || exit $ERR_LINUX_HEADER_INSTALL_TIMEOUT
-        ln -s /usr/src/linux-fips-headers-4.15.0-1011 /usr/src/linux-azure-headers-4.15.0-1002
+        ln -s /usr/src/linux-fips-headers-4.15.0-1039 /usr/src/linux-azure-headers-4.15.0-1002
     fi
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,

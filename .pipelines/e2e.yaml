@@ -1,0 +1,21 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
+
+variables:
+- group: ab-e2e
+
+pool:
+  vmImage: ubuntu-18.04
+
+jobs:
+- job: E2E
+  steps:
+  - bash: |
+      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az account set -s $(AZURE_SUBSCRIPTION_ID)
+    displayName: az login
+  - bash: |
+      cd e2e
+      bash ./e2e-script.sh
+    displayName: run e2e
+  - publish: $(System.DefaultWorkingDirectory)/e2e/logs
+    artifact: logs

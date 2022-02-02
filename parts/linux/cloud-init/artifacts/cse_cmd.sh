@@ -31,8 +31,6 @@ ROUTE_TABLE={{GetVariable "routeTableName"}}
 PRIMARY_AVAILABILITY_SET={{GetVariable "primaryAvailabilitySetName"}}
 PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
 SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
-SERVICE_PRINCIPAL_CLIENT_SECRET='{{GetParameter "servicePrincipalClientSecret"}}'
-KUBELET_PRIVATE_KEY={{GetParameter "clientPrivateKey"}}
 NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
@@ -69,5 +67,7 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
+CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
+RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

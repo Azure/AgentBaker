@@ -20,6 +20,7 @@ source /home/packer/packer_source.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
@@ -117,22 +118,22 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
-  containerd_version="1.4.9"
-  containerd_patch_version="3"
-  downloadContainerd ${containerd_version} ${containerd_patch_version}
+  containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+  containerd_versions="$(echo ${containerd_manifest} | jq -r '.versions[]')" || exit $?
+
+  for version in $containerd_versions; do
+    containerd_version="$(echo "$version" | cut -d- -f1)"
+    containerd_patch_version="$(echo "$version" | cut -d- -f2)"
+    downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
+    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+  done
+
+  installed_version="$(echo ${containerd_manifest} | jq -r '.installedVersion')"
+  containerd_version="$(echo "$installed_version" | cut -d- -f1)"
+  containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-  if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # also pre-cache containerd 1.4.4 (last used version)
-    containerd_version="1.4.4"
-    containerd_patch_version="1"
-    downloadContainerd ${containerd_version} ${containerd_patch_version}
-    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-    containerd_patch_version="3"
-    updated_containerd_version="1.5.5" # also .3 revision
-    downloadContainerd ${updated_containerd_version} ${containerd_patch_version}
-    echo "  - [cached] updated containerd v${updated_containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-  fi
+
   CRICTL_VERSIONS="
   1.19.0
   1.20.0
@@ -168,6 +169,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then
   RUNC_VERSIONS="
   1.0.0-rc92
   1.0.0-rc95
+  1.0.3
   "
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
@@ -179,14 +181,16 @@ installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-installGPUDrivers
+addNvidiaAptRepo
+installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
+downloadGPUDrivers
 retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
 mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
-retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 {
-  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}+docker18.09.2-1";
+  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}";
   echo "  - nvidia-gpu-driver-version=${GPU_DV}";
   echo "  - nvidia-fabricmanager=${GPU_DV}";
 } >> ${VHD_LOGS_FILEPATH}
@@ -448,21 +452,16 @@ done
 AMD64_ONLY_KUBE_BINARY_VERSIONS="
 1.19.11-hotfix.20210823
 1.19.13-hotfix.20210830
-1.20.7-hotfix.20210816
-1.20.9-hotfix.20210830
-1.21.1-hotfix.20210827
-1.21.2-hotfix.20210830
 "
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.20.13
-1.21.7
-1.22.1
-1.22.2
-1.22.4
-1.23.0
-1.23.1
-1.23.2
+1.20.13-hotfix.20220127
+1.20.15-hotfix.20220201
+1.21.7-hotfix.20220130
+1.21.9-hotfix.20220130
+1.22.4-hotfix.20220130
+1.22.6-hotfix.20220130
+1.23.3-hotfix.20220130
 "
 
 if [[ $(isARM64) == 1 ]]; then

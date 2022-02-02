@@ -150,7 +150,8 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [
-        "ciprod10132021"
+        "ciprod10132021",
+        "ciprod01312022"
       ],
       "multiArchVersions": []
     },
@@ -168,8 +169,7 @@
       ],
       "multiArchVersions": [
         "v3.20.0",
-        "v3.21.0",
-        "v3.21.2"
+        "v3.21.4"
       ]
     },
     {
@@ -179,8 +179,7 @@
       ],
       "multiArchVersions": [
         "v3.20.0",
-        "v3.21.0",
-        "v3.21.2"
+        "v3.21.4"
       ]
     },
     {
@@ -195,8 +194,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.20.0",
-        "v3.21.0",
-        "v3.21.2"
+        "v3.21.4"
       ]
     },
     {
@@ -223,8 +221,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.20.0",
-        "v1.23.1",
-        "v1.23.3"
+        "v1.24.2"
       ]
     },
     {
@@ -304,11 +301,11 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [
-        "v1.2.0",
-        "v1.7.0"
+        "v1.2.0"
       ],
       "multiArchVersions": [
-        "v1.9.0"
+        "v1.9.0",
+        "v1.10.0"
       ]
     },
     {
