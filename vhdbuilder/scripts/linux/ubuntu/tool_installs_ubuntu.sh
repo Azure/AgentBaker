@@ -172,18 +172,8 @@ installFIPS() {
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
 
-    echo "enabling ua fips..."
-    retrycmd_if_failure 5 10 1200 echo y | ua enable fips || exit $ERR_UA_ENABLE_FIPS
-
-    # workaround to make GPU provisioning in CSE work
-    # under /usr/src/linux-headers-4.15.0-1002-azure-fips there are some dangling symlinks to non-existing linux-azure-headers-4.15.0-1002
-    # this causes command '/usr/sbin/dkms build -m nvidia -v 450.51.06 -k 4.15.0-1002-azure-fips' for GPU provisioning in CSE to fail
-    # however linux-headers-4.15.0-1002-azure doesn't exist any more, install closest 1011 to workaround
-    if [[ ! -d /usr/src/linux-azure-headers-4.15.0-1002 ]]; then
-        echo "installing linux-headers-fips..."
-        apt_get_install 5 10 120 linux-headers-fips || exit $ERR_LINUX_HEADER_INSTALL_TIMEOUT
-        ln -s /usr/src/linux-fips-headers-4.15.0-1039 /usr/src/linux-azure-headers-4.15.0-1002
-    fi
+    echo "enabling ua fips-updates..."
+    retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
