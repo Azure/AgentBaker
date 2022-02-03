@@ -36,7 +36,13 @@ create_pull_request() {
 
     git remote set-url origin https://anujmaheshwari1:$2@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
     git add .
-    git commit -m "Bumping image version to $1"
+    
+    if [[ $4 == "ReleaseNotes" ]]; then
+        git commit -m "Release notes for release $1"
+    else
+        git commit -m "Bumping image version to $1"
+    fi
+
     git push -u origin $3
 
     set +x  # To avoid logging PAT during curl
