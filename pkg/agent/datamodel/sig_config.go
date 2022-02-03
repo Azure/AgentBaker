@@ -292,14 +292,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "2022.01.24",
 	}
 
 	SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "2022.01.24",
 	}
 
 	SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
