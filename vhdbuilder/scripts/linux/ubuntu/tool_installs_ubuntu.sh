@@ -183,6 +183,8 @@ installFIPS() {
         echo "installing linux-headers-fips..."
         apt_get_install 5 10 120 linux-headers-fips || exit $ERR_LINUX_HEADER_INSTALL_TIMEOUT
         ln -s /usr/src/linux-fips-headers-4.15.0-1039 /usr/src/linux-azure-headers-4.15.0-1002
+        mv -f /usr/src/linux-headers-4.15.0-1002-azure-fips /usr/src/linux-headers-4.15.0-1002-azure-fips1
+        ln -sf /usr/src/linux-headers-4.15.0-1039-fips /usr/src/linux-headers-4.15.0-1002-azure-fips
     fi
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
