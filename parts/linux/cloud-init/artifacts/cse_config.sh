@@ -2,8 +2,6 @@
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
 
-source {{GetCSEInstallScriptDistroFilepath}}
-
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"

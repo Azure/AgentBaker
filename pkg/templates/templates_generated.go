@@ -549,8 +549,6 @@ var _linuxCloudInitArtifactsCse_configSh = []byte(`#!/bin/bash
 NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
 
-source {{GetCSEInstallScriptDistroFilepath}}
-
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
@@ -4436,6 +4434,20 @@ installNvidiaContainerRuntime() {
 installNvidiaDocker() {
     local target=$1
     local dst="/usr/local/nvidia/tmp"
+
+    if [ -d "$dst/pkg" ]; then
+        if [ -f "$dst/pkg/DEBIAN/control" ]; then
+            installed="$(cat "$dst/pkg/DEBIAN/control" | grep Version | cut -d' ' -f 2)"
+            if [ "$version" == "$installed" ]; then
+                echo "skip nvidia-docker2 install, current version $version matches target $target"
+            else
+                rm -rf "$dst/pkg"
+            fi
+        else
+            rm -rf "$dst/pkg"
+        fi
+    fi
+
     mkdir -p "$dst"
     pushd "$dst"
     if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
