@@ -184,7 +184,7 @@ log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to joi
 # TODO: Deleting the vmss makes node "NotReady" in the cluster. Discuss if its worth having the node hang around
 # for a dev to want to look around. Resources are cleaned up in 3 days anyway
 
-#trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
+trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
 FAILED=0
 
 # Check if the node joined the cluster
