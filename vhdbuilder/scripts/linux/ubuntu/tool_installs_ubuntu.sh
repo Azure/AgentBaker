@@ -175,11 +175,16 @@ installFIPS() {
     echo "enabling ua fips-updates..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
 
+    # 'ua status' for logging
+    ua status
+    # new 'ua detach' removes fips-updates kernel entry from grub.cfg, backup it
+    cp -f /boot/grub/grub.cfg /tmp/
+
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
     echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 echo y | ua detach || $ERR_UA_DETACH
-
+    retrycmd_if_failure 5 10 120 ua detach --assume-yes || $ERR_UA_DETACH
+    mv -f /tmp/grub.cfg /boot/grub/
     echo "removing ua tools..."
     apt_get_purge 5 10 120 ubuntu-advantage-tools
     rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
