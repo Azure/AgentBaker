@@ -576,6 +576,21 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 	return m
 }
 
+func removeFeatureGateString(featureGates string, key string) string {
+	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	delete(fgMap, key)
+	keys := make([]string, 0, len(fgMap))
+	for k := range fgMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
+	}
+	return strings.Join(pairs, ",")
+}
+
 func addFeatureGateString(featureGates string, key string, value bool) string {
 	fgMap := strKeyValToMapBool(featureGates, ",", "=")
 	fgMap[key] = value
