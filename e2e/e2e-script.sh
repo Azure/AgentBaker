@@ -181,12 +181,7 @@ done
 waitForNodeEndTime=$(date +%s)
 log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
-# TODO: Deleting the vmss makes node "NotReady" in the cluster. Discuss if its worth having the node hang around
-# for a dev to want to look around. Resources are cleaned up in 3 days anyway
-
-#trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
 FAILED=0
-
 # Check if the node joined the cluster
 if [[ "$retval" -eq 0 ]]; then
     ok "Test succeeded, node joined the cluster"
@@ -201,7 +196,7 @@ INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NA
 PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
 SSH_KEY=$(cat ~/.ssh/id_rsa)
 SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
-SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP"
+SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP sudo"
 exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-provision.log
 exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt
 exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log
@@ -246,6 +241,14 @@ else
     err "Pod pending/not running"
     exit 1
 fi
+
+waitForDeleteStartTime=$(date +%s)
+
+az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME
+kubectl delete node $vmInstanceName
+
+waitForDeleteEndTime=$(date +%s)
+log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
 
 globalEndTime=$(date +%s)
 log "Finished after $((globalEndTime-globalStartTime)) seconds"
