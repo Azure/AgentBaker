@@ -43,7 +43,6 @@ find_current_image_version() {
 
 # This function replaces the old image version with the new input image version for all relevant files
 update_image_version() {
-    sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/osimageconfig.go
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/bakerapi_test.go
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config.go
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config_test.go
