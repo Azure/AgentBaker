@@ -277,7 +277,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipscontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "2022.02.03",
 	}
 
 	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version
@@ -285,21 +285,21 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipscontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "2022.02.03",
 	}
 
 	SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "2022.02.03",
 	}
 
 	SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "2022.02.03",
 	}
 
 	SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
