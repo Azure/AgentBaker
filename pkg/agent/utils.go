@@ -576,7 +576,7 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 	return m
 }
 
-func remoteFeatureGateString(featureGates string, key string) string {
+func removeFeatureGateString(featureGates string, key string) string {
 	fgMap := strKeyValToMapBool(featureGates, ",", "=")
 	delete(fgMap, key)
 	keys := make([]string, 0, len(fgMap))
