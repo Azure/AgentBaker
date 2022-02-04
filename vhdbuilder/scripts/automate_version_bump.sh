@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -euxo pipefail
 
 source vhdbuilder/scripts/automate_helpers.sh
 
