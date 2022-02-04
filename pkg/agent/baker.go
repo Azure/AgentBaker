@@ -263,7 +263,9 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+			kubeletFlags["--feature-gates"] = remoteFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 		}
 	}
@@ -278,6 +280,15 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
+	}
+	if config.KubeletConfig != nil {
+		kubeletFlags := config.KubeletConfig
+		delete(kubeletFlags, "--dynamic-config-dir")
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+			kubeletFlags["--feature-gates"] = remoteFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
 	}
 }
 
