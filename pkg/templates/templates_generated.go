@@ -153,7 +153,7 @@ func linuxCloudInitArtifacts10ComponentconfigConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10ContainerdConf = []byte(`[Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock"
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 `)
 
 func linuxCloudInitArtifacts10ContainerdConfBytes() ([]byte, error) {
