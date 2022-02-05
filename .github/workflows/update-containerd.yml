@@ -11,6 +11,10 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo install ripgrep
       - name: update containerd
         run: |
           set -euox pipefail
