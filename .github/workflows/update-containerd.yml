@@ -23,8 +23,18 @@ jobs:
             ~/.cargo
             ~/.cargo/bin/rg    
           key: ${{ runner.os }}-rg 
+      - name: Cache sponge
+        uses: actions/cache@v2
+        id: cache-sponge
+        continue-on-error: false
+        with:
+          path: |
+            /usr/bin/sponge    
+          key: ${{ runner.os }}-sponge 
       - run: cargo install ripgrep
         if: steps.cache-cargo.outputs.cache-hit != 'true'
+      - run: sudo apt update && sudo apt install -y moreutils
+        if: steps.cache-sponge.outputs.cache-hit != 'true'
       - name: update containerd
         run: |
           set -euox pipefail
