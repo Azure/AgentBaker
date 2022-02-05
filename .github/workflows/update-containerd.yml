@@ -49,7 +49,7 @@ jobs:
             exists="true"
             i=i+1
             curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb" || retval=$?
-          fi
+          done
 
           if [ "$exists" == "true" ]; then
             stable_patch_with_revision="${stable_patch_version}-${i}"
@@ -64,7 +64,7 @@ jobs:
             exists="true"
             i=i+1
             curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb" || retval=$?
-          fi
+          done
 
           if [ "$exists" == "true" ]; then
             latest_patch_with_revision="${latest_patch_version}-${i}"
