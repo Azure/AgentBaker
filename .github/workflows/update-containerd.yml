@@ -30,11 +30,11 @@ jobs:
         continue-on-error: false
         with:
           path: |
-            /usr/bin/sponge    
+            ~/.cargo/bin/sponge   
           key: ${{ runner.os }}-sponge 
-      - run: cargo install ripgrep delta
+      - run: cargo install ripgrep git-delta
         if: steps.cache-cargo.outputs.cache-hit != 'true'
-      - run: sudo apt update && sudo apt install -y moreutils
+      - run: sudo apt update && sudo apt install -y moreutils && sudo cp /usr/bin/sponge ~/.cargo/bin/sponge  
         if: steps.cache-sponge.outputs.cache-hit != 'true'
       - name: update containerd
         run: |
