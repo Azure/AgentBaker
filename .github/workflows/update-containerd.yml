@@ -1,0 +1,71 @@
+name: Validate component manifest
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch: {}
+
+jobs: 
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v2
+      - bash: |
+          set -euox pipefail
+
+          work=$(mktemp -d)
+          pushd $work
+          trap 'popd; rm -rf $work' EXIT TERM
+
+          git clone https://github.com/containerd/containerd
+          cd containerd/
+          
+          latest_two_major_minor="$(git tag -l | sort -V | rg 'v[0-9]+.[0-9]+.[0-9]+$' | cut -d'.' -f1,2 | uniq | tail 2)"
+          stable_version="$(echo $latest_two_major_minor | head -n 1)"
+          latest_version="$(echo $latest_two_major_minor | tail -n 1)"
+          echo "latest major minor:"
+          echo $latest_two_major_minor
+          echo "latest: $latest_version"
+          echo "stable: $stable_version"
+
+          stable_patch_version="$(git tag -l | sort -V | rg '$latest_version' | rg 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
+          latest_patch_version="$(git tag -l | sort -V | rg '$stable_version' | rg 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
+
+          should_update_latest="false"
+          should_update_stable="false"
+          local stable_patch_with_revision
+          local latest_patch_with_revision
+
+          exists=false
+          i=0
+          retval=0
+          curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-$i_amd64.deb" || retval=$?
+          while [ "$retval" == "0" ]; do
+            exists="true"
+            i=i+1
+            curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-$i_amd64.deb" || retval=$?
+          fi
+
+          if [ "$exists" == "true" ]; then
+            stable_patch_with_revision="${stable_patch_version}-${i}"
+            jq ".containerd.stable=\"${stable_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json 
+          fi
+
+          exists=false
+          i=0
+          retval=0
+          curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-$i_amd64.deb" || retval=$?
+          while [ "$retval" == "0" ]; do
+            exists="true"
+            i=i+1
+            curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-$i_amd64.deb" || retval=$?
+          fi
+
+          if [ "$exists" == "true" ]; then
+            latest_patch_with_revision="${latest_patch_version}-${i}"
+            jq ".containerd.latest=\"${latest_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json 
+          fi
+
+          cd ${GITHUB_WORKSPACE}
+          git diff 

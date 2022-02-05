@@ -36,8 +36,7 @@
     "kubernetes": {
         "fileName": "",
         "downloadLocation": "",
-        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
-        "versions": []
+        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
     },
     "_template": {
         "fileName": "",
@@ -46,4 +45,3 @@
         "versions": []
     }
 }
-#EOF

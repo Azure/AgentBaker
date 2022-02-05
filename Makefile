@@ -85,7 +85,7 @@ validate-image-version:
 generate: bootstrap
 	@echo $(GOFLAGS)
 	@echo "$$(go-bindata --version)"
-	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
+	./hack/tools/bin/cue export ./schemas/manifest.cue ./schemas/manifest.json > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 	(pushd parts && \
 	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
