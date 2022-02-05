@@ -15,11 +15,10 @@ jobs:
         with:
           toolchain: stable
       - run: cargo install ripgrep
+      - uses: Swatinem/rust-cache@v1
       - name: update containerd
         run: |
           set -euox pipefail
-
-          cargo
 
           work=$(mktemp -d)
           pushd $work
@@ -41,8 +40,6 @@ jobs:
 
           should_update_latest="false"
           should_update_stable="false"
-          local stable_patch_with_revision
-          local latest_patch_with_revision
 
           exists=false
           i=0
