@@ -36,8 +36,8 @@ jobs:
           echo "latest: $latest_version"
           echo "stable: $stable_version"
 
-          stable_patch_version="$(git tag -l | sort -V | rg '$latest_version' | rg 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
-          latest_patch_version="$(git tag -l | sort -V | rg '$stable_version' | rg 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
+          stable_patch_version="$(git tag -l | sort -V | rg "$latest_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1)"
+          latest_patch_version="$(git tag -l | sort -V | rg "$stable_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1)"
 
           should_update_latest="false"
           should_update_stable="false"
