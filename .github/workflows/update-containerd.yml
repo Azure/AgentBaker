@@ -11,7 +11,8 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v2
-      - bash: |
+      - name: update containerd
+        run: |
           set -euox pipefail
 
           work=$(mktemp -d)
