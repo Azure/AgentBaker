@@ -96,7 +96,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}
           git diff 
 
-          tee ~/.gitconfig > /dev/null <<EOF
+          tee .gitconfig > /dev/null <<EOF
           [core]
               pager = delta
           [interactive]
@@ -108,5 +108,7 @@ jobs:
           [diff]
               colorMoved = default
           EOF
+
+          git config -l --show-origin
 
           git diff
