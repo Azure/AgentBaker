@@ -14,14 +14,16 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo install ripgrep
       - name: Cache cargo registry
         uses: actions/cache@v2
         continue-on-error: false
         with:
           path: |
-            ~/.cargo    
+            ~/.cargo
+            ~/.cargo/bin/rg    
           key: ${{ runner.os }}-rg 
+      - run: cargo install ripgrep
+        if: steps.cache-primes.outputs.cache-hit != 'true'
       - name: update containerd
         run: |
           set -euox pipefail
