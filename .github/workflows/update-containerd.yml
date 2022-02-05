@@ -46,42 +46,42 @@ jobs:
           echo "latest: $latest_version"
           echo "stable: $stable_version"
 
-          stable_patch_version="$(git tag -l | sort -V | rg "$latest_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1)"
-          latest_patch_version="$(git tag -l | sort -V | rg "$stable_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1)"
+          stable_patch_version="$(git tag -l | sort -V | rg "$latest_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1 | cut -d'v' -f2)"
+          latest_patch_version="$(git tag -l | sort -V | rg "$stable_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1 | cut -d'v' -f2)"
 
           should_update_latest="false"
           should_update_stable="false"
 
           exists=false
-          i=0
+          i=1
           retval=0
           curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb" || retval=$?
           while [ "$retval" == "0" ]; do
             exists="true"
             i=$((i+1))
-            echo "curl -I \"https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb\" || retval=$?"
+            curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb" || retval=$?
             break
           done
 
           if [ "$exists" == "true" ]; then
             stable_patch_with_revision="${stable_patch_version}-${i}"
-            jq ".containerd.stable=\"${stable_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json 
+            jq ".containerd.stable=\"${stable_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
           fi
 
           exists=false
-          i=0
+          i=1
           retval=0
           curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb" || retval=$?
           while [ "$retval" == "0" ]; do
             exists="true"
             i=$((i+1))
-            echo "curl -I \"https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb\" || retval=$?"
+            curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb" || retval=$?
             break
           done
 
           if [ "$exists" == "true" ]; then
             latest_patch_with_revision="${latest_patch_version}-${i}"
-            jq ".containerd.latest=\"${latest_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json 
+            jq ".containerd.latest=\"${latest_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
           fi
 
           cd ${GITHUB_WORKSPACE}
