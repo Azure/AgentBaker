@@ -60,7 +60,6 @@ jobs:
             exists="true"
             i=$((i+1))
             curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb" || retval=$?
-            break
           done
 
           if [ "$exists" == "true" ]; then
@@ -76,7 +75,6 @@ jobs:
             exists="true"
             i=$((i+1))
             curl -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb" || retval=$?
-            break
           done
 
           if [ "$exists" == "true" ]; then
