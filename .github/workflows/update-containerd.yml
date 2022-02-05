@@ -21,7 +21,8 @@ jobs:
         with:
           path: |
             ~/.cargo
-            ~/.cargo/bin/rg    
+            ~/.cargo/bin/rg 
+            ~/.cargo/bin/delta   
           key: ${{ runner.os }}-rg 
       - name: Cache sponge
         uses: actions/cache@v2
@@ -31,7 +32,7 @@ jobs:
           path: |
             /usr/bin/sponge    
           key: ${{ runner.os }}-sponge 
-      - run: cargo install ripgrep
+      - run: cargo install ripgrep delta
         if: steps.cache-cargo.outputs.cache-hit != 'true'
       - run: sudo apt update && sudo apt install -y moreutils
         if: steps.cache-sponge.outputs.cache-hit != 'true'
@@ -94,3 +95,18 @@ jobs:
 
           cd ${GITHUB_WORKSPACE}
           git diff 
+
+          tee ~/.gitconfig > /dev/null <<EOF
+          [core]
+              pager = delta
+          [interactive]
+              diffFilter = delta --color-only
+          [delta]
+              navigate = true
+          [merge]
+              conflictstyle = diff3
+          [diff]
+              colorMoved = default
+          EOF
+
+          git diff
