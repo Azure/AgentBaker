@@ -55,7 +55,7 @@ stages:
             pushd /tmp
             GO111MODULE=on go get cuelang.org/go/cmd/cue
             popd
-            cue vet ./schemas/manifest.cue ./vhdbuilder/packer/manifest.json
+            cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
           displayName: setup cue
         - bash: |
             echo MODE=$(MODE) && \

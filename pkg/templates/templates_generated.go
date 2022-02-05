@@ -34,6 +34,7 @@
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
+// linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
 // linux/cloud-init/artifacts/mig-partition.service
@@ -1429,26 +1430,47 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
+MANIFEST_FILEPATH="/opt/azure/manifest.json"
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
 installContainerRuntime() {
-    {{if NeedsContainerd}}
-        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-            CONTAINERD_VERSION="1.5.9"
-            CONTAINERD_PATCH_VERSION="2"
-            installStandaloneContainerd ${CONTAINERD_VERSION} "${CONTAINERD_PATCH_VERSION}"
-            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
-        else
-            installStandaloneContainerd ${CONTAINERD_VERSION}
-            echo "in installContainerRuntime - CONTAINERD_VERION = ${CONTAINERD_VERSION}"
+{{if NeedsContainerd}}
+    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+
+    local stable_containerd
+    local latest_containerd
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
+        latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
+    else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+
+    # todo(ace): read 1.22 from a manifest and track it against supported versions
+    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+        containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalide container version: $latest_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
-    {{else}}
-        installMoby
-    {{end}}
+    else
+        containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalide container version: $stable_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+    fi
+    installStandaloneContainerd "${containerd_version}" "${containerd_patch_version}"
+    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
+{{else}}
+    installMoby
+{{end}}
 }
 
 installNetworkPlugin() {
@@ -2871,6 +2893,73 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsManifestJson = []byte(`{
+    "containerd": {
+        "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
+        "downloadLocation": "/opt/containerd/downloads",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [
+            "1.4.9-3",
+            "1.4.12-2"
+        ],
+        "latest": "1.5.9-2",
+        "stable": "1.4.12-2"
+    },
+    "runc": {
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
+        "downloadLocation": "/opt/runc/downloads",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [
+            "1.0.0-rc92",
+            "1.0.0-rc95"
+        ],
+        "installed": {
+            "default": "1.0.3"
+        }
+    },
+    "nvidia-container-runtime": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "",
+        "versions": []
+    },
+    "nvidia-drivers": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "",
+        "versions": []
+    },
+    "kubernetes": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
+        "versions": []
+    },
+    "_template": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "",
+        "versions": []
+    }
+}
+#EOF
+`)
+
+func linuxCloudInitArtifactsManifestJsonBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsManifestJson, nil
+}
+
+func linuxCloudInitArtifactsManifestJson() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsManifestJsonBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/manifest.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4550,6 +4639,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
+- path: /opt/azure/manifest.json
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
+
 {{if not .IsVHDDistro}}
 - path: /opt/azure/containers/provision_cis.sh
   permissions: "0744"
@@ -6224,6 +6320,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
+	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
@@ -6331,6 +6428,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
+				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},

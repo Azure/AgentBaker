@@ -31,3 +31,5 @@ cmd/_test_output
 !/test/e2e/vendor/**/*
 
 translations/
+
+hack/tools/bin
