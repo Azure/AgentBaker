@@ -15,7 +15,12 @@ jobs:
         with:
           toolchain: stable
       - run: cargo install ripgrep
-      - uses: Swatinem/rust-cache@v1
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo     
       - name: update containerd
         run: |
           set -euox pipefail
