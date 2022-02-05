@@ -22,7 +22,7 @@ jobs:
           git clone https://github.com/containerd/containerd
           cd containerd/
           
-          latest_two_major_minor="$(git tag -l | sort -V | rg 'v[0-9]+.[0-9]+.[0-9]+$' | cut -d'.' -f1,2 | uniq | tail 2)"
+          latest_two_major_minor="$(git tag -l | sort -V | grep 'v[0-9]+.[0-9]+.[0-9]+$' | cut -d'.' -f1,2 | uniq | tail 2)"
           stable_version="$(echo $latest_two_major_minor | head -n 1)"
           latest_version="$(echo $latest_two_major_minor | tail -n 1)"
           echo "latest major minor:"
@@ -30,8 +30,8 @@ jobs:
           echo "latest: $latest_version"
           echo "stable: $stable_version"
 
-          stable_patch_version="$(git tag -l | sort -V | rg '$latest_version' | rg 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
-          latest_patch_version="$(git tag -l | sort -V | rg '$stable_version' | rg 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
+          stable_patch_version="$(git tag -l | sort -V | grep '$latest_version' | grep 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
+          latest_patch_version="$(git tag -l | sort -V | grep '$stable_version' | grep 'v[0-9]+.[0-9]+.[0-9]+$' | tail -n 1)"
 
           should_update_latest="false"
           should_update_stable="false"
