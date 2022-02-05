@@ -74,6 +74,7 @@ jobs:
           done
 
           if [ "$exists" == "true" ]; then
+            i=$((i-1))
             stable_patch_with_revision="${stable_patch_version}-${i}"
             jq ".containerd.stable=\"${stable_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
           fi
@@ -89,6 +90,7 @@ jobs:
           done
 
           if [ "$exists" == "true" ]; then
+            i=$((i-1))
             latest_patch_with_revision="${latest_patch_version}-${i}"
             jq ".containerd.latest=\"${latest_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
           fi
