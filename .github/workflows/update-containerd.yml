@@ -105,4 +105,4 @@ jobs:
         uses: peter-evans/create-pull-request@v3
         with:
           base: ${{ github.head_ref }}
-          title: auto-update containerd {{ steps.versions.outputs.stable_patch_with_revision }},{{ steps.versions.outputs.latest_patch_with_revision }}
+          title: auto-update containerd ${{ steps.versions.outputs.stable_patch_with_revision }},${{ steps.versions.outputs.latest_patch_with_revision }}
