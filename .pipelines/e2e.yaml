@@ -37,4 +37,4 @@ jobs:
     maxParallel: 3
   steps:
   - bash: |
-    echo "Hello from the parallel side"  
+      echo "Hello from the parallel side"  
