@@ -100,3 +100,5 @@ jobs:
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v3
+        with:
+          base: ${{ github.head_ref }}
