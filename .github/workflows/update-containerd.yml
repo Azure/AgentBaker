@@ -37,6 +37,7 @@ jobs:
       - run: sudo apt update && sudo apt install -y moreutils && sudo cp /usr/bin/sponge ~/.cargo/bin/sponge  
         if: steps.cache-sponge.outputs.cache-hit != 'true'
       - name: update containerd
+        id: versions
         run: |
           set -euox pipefail
 
@@ -76,7 +77,7 @@ jobs:
           if [ "$exists" == "true" ]; then
             i=$((i-1))
             stable_patch_with_revision="${stable_patch_version}-${i}"
-            echo "stable_patch_with_revision=${stable_patch_with_revision}" >> $GITHUB_ENV
+            echo "::set-output name=stable_patch_with_revision::${stable_patch_with_revision}" 
             jq ".containerd.stable=\"${stable_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
           fi
 
@@ -93,7 +94,7 @@ jobs:
           if [ "$exists" == "true" ]; then
             i=$((i-1))
             latest_patch_with_revision="${latest_patch_version}-${i}"
-            echo "latest_patch_with_revision=${latest_patch_with_revision}" >> $GITHUB_ENV
+            echo "::set-output name=latest_patch_with_revision::${latest_patch_with_revision}"
             jq ".containerd.latest=\"${latest_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
           fi
 
@@ -104,4 +105,4 @@ jobs:
         uses: peter-evans/create-pull-request@v3
         with:
           base: ${{ github.head_ref }}
-          title: auto-update containerd {{ env.stable_patch_with_revision }},{{ env.latest_patch_with_revision }}
+          title: auto-update containerd {{ steps.versions.outputs.stable_patch_with_revision }},{{ steps.versions.outputs.latest_patch_with_revision }}
