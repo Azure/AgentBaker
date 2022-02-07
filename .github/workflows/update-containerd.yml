@@ -99,6 +99,7 @@ jobs:
           fi
 
           cd ${GITHUB_WORKSPACE}
+          make
           git diff
       - name: Create Pull Request
         id: cpr
