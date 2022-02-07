@@ -4,7 +4,7 @@ variables:
 - group: ab-e2e
 
 pool:
-  vmImage: ubuntu-18.04
+  name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
 
 jobs:
 - job: E2E
@@ -26,6 +26,8 @@ jobs:
     condition: always()
 
 - job: Matrix
+  dependsOn:
+    - E2E
   strategy:
     matrix:
       scenario_fips:
