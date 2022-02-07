@@ -17,13 +17,24 @@ jobs:
     displayName: setup go
   - bash: |
       go version
-      cd e2e
-      bash ./e2e-script.sh
+      #cd e2e
+      #bash ./e2e-script.sh
     displayName: run e2e
-  - publish: $(System.DefaultWorkingDirectory)/e2e/logs
-    artifact: logs
-    condition: always()
   - bash: |
-      az vmss delete -g $(jq -r .group e2e/vmss.json) -n $(jq -r .vmss e2e/vmss.json)
+      #az vmss delete -g $(jq -r .group e2e/vmss.json) -n $(jq -r .vmss e2e/vmss.json)
     displayName: delete vmss
     condition: always()
+
+- job: Matrix
+  strategy:
+    matrix:
+      scenario_fips:
+        SCENARIO_NAME: 'fips'
+      scenario_gpu:
+        SCENARIO_NAME: 'gpu'
+      scenario_vanilla:
+        SCENARIO_NAME: 'vanilla'
+    maxParallel: 3
+  steps:
+  - bash: |
+    echo "Hello from the parallel side"  
