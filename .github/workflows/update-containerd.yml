@@ -97,3 +97,8 @@ jobs:
 
           cd ${GITHUB_WORKSPACE}
           git diff
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.PAT }}
