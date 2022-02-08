@@ -122,6 +122,7 @@ exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 clusterInfoEndTime=$(date +%s)
 log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
+set +x
 addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
 addJsonToFile "ca.crt" "$(cat ca.crt)"
 addJsonToFile "client.key" "$(cat client.key)"
@@ -129,6 +130,7 @@ if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
 fi
+set -x
 
 # # Add other relevant information needed by AgentBaker for bootstrapping later
 getAgentPoolProfileValues
@@ -142,9 +144,11 @@ addJsonToFile "subID" $SUBSCRIPTION_ID
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
 
+set +x
 if [ ! -f ~/.ssh/id_rsa ]; then
     ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 fi
+set -x
 
 VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
 tee vmss.json > /dev/null <<EOF
