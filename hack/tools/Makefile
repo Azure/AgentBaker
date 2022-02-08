@@ -4,7 +4,7 @@ LOCALBIN		= $(shell pwd)/bin
 all: install
 
 .PHONY: install
-install: $(LOCALBIN)/go-bindata $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/pub $(LOCALBIN)/cue
+install: $(LOCALBIN)/go-bindata $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue
 	@echo > /dev/null
 
 $(LOCALBIN)/go-bindata:
@@ -19,11 +19,8 @@ $(LOCALBIN)/ginkgo:
 $(LOCALBIN)/golangci-lint:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(LOCALBIN) v1.21.0
 
-$(LOCALBIN)/pub:
-	GOBIN=$(LOCALBIN) $(GO) get github.com/devigned/pub/...@v0.3.2
-
 $(LOCALBIN)/cue:
-	GOBIN=$(LOCALBIN) $(GO) get cuelang.org/go/cmd/cue@latest
+	GOBIN=$(LOCALBIN) $(GO) get cuelang.org/go/cmd/cue@v0.4.2
 
 .PHONY: reload
 reload: clean install
