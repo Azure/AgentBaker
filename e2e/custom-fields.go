@@ -37,10 +37,10 @@ type customDataFields struct {
 	MaximumLoadBalancerRuleCount      int     `json:"maximumLoadBalancerRuleCount"`
 	ProviderKeyName                   string  `json:"providerKeyName"`
 	ProviderKeyVersion                string  `json:"providerKeyVersion"`
-	Apiservercert                     string  `json:"apiserver.crt"`
-	Cacert                            string  `json:"ca.crt"`
-	Clientkey                         string  `json:"client.key"`
-	Clientcert                        string  `json:"client.crt"`
+	Apiservercert                     string  `json:"apiserveCrt"`
+	Cacert                            string  `json:"caCrt"`
+	Clientkey                         string  `json:"clientKey"`
+	Clientcert                        string  `json:"clientCrt"`
 	Fqdn                              string  `json:"fqdn"`
 	Mode                              string  `json:"mode"`
 	Name		                      string  `json:"nodepoolname"`

@@ -1,0 +1,1 @@
+$(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
