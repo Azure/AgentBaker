@@ -17,6 +17,10 @@ import (
 // TODO 2: Update --rotate-certificate (true for TLS enabled, false otherwise, small nit)
 // TODO 3: Seperate out the certificate encode/decode
 // TODO 4: Investigate CloudSpecConfig and its need. Without it, the bootstrapping struct breaks.
+func decodeCert(cert string) string {
+	dValue, _ := base64.URLEncoding.DecodeString(cert)
+	return string(dValue)
+}
 
 func createFile(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -56,6 +60,10 @@ func TestE2EBasic(t *testing.T) {
 	config := &datamodel.NodeBootstrappingConfiguration{}
 	json.Unmarshal([]byte(nbc), config)
 
+	config.ContainerService.Properties.CertificateProfile.CaCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
+	config.ContainerService.Properties.CertificateProfile.APIServerCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
+	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
+	
 	// customData
 	baker := agent.InitializeTemplateGenerator()
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
