@@ -2,12 +2,13 @@
 set -euxo pipefail
 
 ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")/../.."
-cd "$ROOT_DIR"
 
 wd=$(mktemp -d)
-cd $wd
+pushd $wd
 git clone https://github.com/alexeldeib/cue
 cd cue
-go build -o $ROOT_DIR/hack/tools/bin/cue cmd/cue/main.go
-cd
+cue_bin="$(pwd)/bin/cue"
+go build -o "$cue_bin" cmd/cue/main.go
+popd
+mv "$cue_bin" "${ROOT_DIR}/../bin/cue"
 rm -rf $wd
