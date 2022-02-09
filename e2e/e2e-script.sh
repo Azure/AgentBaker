@@ -38,9 +38,6 @@ out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
-    #az vmss list -g $MC_RG_NAME -o table
-    #MC_VMSS_NAME=$(az vmss list -g $MC_RG_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
-
     exists=$(az group exists -n $MC_RG_NAME)
     if [ $exists = "false" ]; then
         log "Deleting cluster"
@@ -122,13 +119,15 @@ exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 clusterInfoEndTime=$(date +%s)
 log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
-addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
-addJsonToFile "caCrt" "$(cat ca.crt)"
-addJsonToFile "clientKey" "$(cat client.key)"
+set +x
+addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
+addJsonToFile "ca.crt" "$(cat ca.crt)"
+addJsonToFile "client.key" "$(cat client.key)"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
 fi
+set -x
 
 # # Add other relevant information needed by AgentBaker for bootstrapping later
 getAgentPoolProfileValues
@@ -146,9 +145,11 @@ jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nod
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
 
+set +x
 if [ ! -f ~/.ssh/id_rsa ]; then
     ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 fi
+set -x
 
 VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
 tee vmss.json > /dev/null <<EOF
