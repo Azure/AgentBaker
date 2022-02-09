@@ -142,6 +142,8 @@ addJsonToFile "subID" $SUBSCRIPTION_ID
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 echo "fields are ${fqdn}, ${mode}, ${name}"
 envsubst < percluster_template.json > percluster_config.json
+jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodeboostrapping_config.json
+
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
 

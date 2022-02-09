@@ -52,7 +52,7 @@ func TestE2EBasic(t *testing.T) {
 	// clientKeyDecoded, _ := base64.URLEncoding.DecodeString(values.Clientkey)
 	// clientCertDecoded, _ := base64.URLEncoding.DecodeString(values.Clientcert)
 
-	nbc, _ := ioutil.ReadFile("nodebootstrapping_template.json")
+	nbc, _ := ioutil.ReadFile("nodebootstrapping_config.json")
 	config := &datamodel.NodeBootstrappingConfiguration{}
 	json.Unmarshal([]byte(nbc), config)
 
