@@ -138,7 +138,10 @@ addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
+set +x
 jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json
+set -x
+
 envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
 
