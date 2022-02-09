@@ -4,7 +4,7 @@ variables:
 - group: ab-e2e
 
 pool:
-  vmImage: ubuntu-18.04
+  name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
 
 jobs:
 - job: E2E
