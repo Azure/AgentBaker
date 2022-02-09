@@ -9,5 +9,5 @@ cd $wd
 git clone https://github.com/alexeldeib/cue
 cd cue
 go build -o $ROOT_DIR/hack/tools/bin/cue cmd/cue/main.go
-popd
+cd
 rm -rf $wd
