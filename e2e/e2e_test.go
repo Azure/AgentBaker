@@ -34,6 +34,10 @@ func createFile(path string) {
 }
 
 func TestE2EBasic(t *testing.T) {
+	if os.Getenv("E2E_TEST") != "" {
+		t.Skip("This test needs e2e-script.sh to run first")
+	}
+
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 

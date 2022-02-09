@@ -139,11 +139,11 @@ addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
 set +x
-jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json
-set -x
-
+# shellcheck disable=SC2116,SC2086
+$(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+set -x
 
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
