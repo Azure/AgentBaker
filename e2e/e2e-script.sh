@@ -120,9 +120,9 @@ clusterInfoEndTime=$(date +%s)
 log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
 set +x
-addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
-addJsonToFile "ca.crt" "$(cat ca.crt)"
-addJsonToFile "client.key" "$(cat client.key)"
+addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
+addJsonToFile "caCrt" "$(cat ca.crt)"
+addJsonToFile "clientKey" "$(cat client.key)"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"

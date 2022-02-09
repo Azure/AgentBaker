@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	//"github.com/Azure/go-autorest/autorest/to"
 )
 
 // TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones for eg CustomKubeBinaryURL, Pause Image etc
@@ -37,17 +36,6 @@ func createFile(path string) {
 func TestE2EBasic(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
-
-	// fields, err := os.Open("fields.json")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// defer fields.Close()
-	// fieldsByteValue, _ := ioutil.ReadAll(fields)
-
-	// values := customDataFields{}
-	// json.Unmarshal([]byte(fieldsByteValue), &values)
 
 	createFile("../e2e/cloud-init.txt")
 	createFile("../e2e/cseCmd")
