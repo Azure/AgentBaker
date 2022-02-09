@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euxo pipefail
 
 ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")/../.."
 cd "$ROOT_DIR"
