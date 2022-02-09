@@ -140,161 +140,160 @@ addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
-echo "fields are ${fqdn}, ${mode}, ${name}"
 envsubst < percluster_template.json > percluster_config.json
-jq -s --indent 4 '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
 
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
 
-# if [ ! -f ~/.ssh/id_rsa ]; then
-#     ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-# fi
+if [ ! -f ~/.ssh/id_rsa ]; then
+    ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+fi
 
-# VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
-# tee vmss.json > /dev/null <<EOF
-# {
-#     "group": "${MC_RESOURCE_GROUP_NAME}",
-#     "vmss": "${VMSS_NAME}"
-# }
-# EOF
+VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
+tee vmss.json > /dev/null <<EOF
+{
+    "group": "${MC_RESOURCE_GROUP_NAME}",
+    "vmss": "${VMSS_NAME}"
+}
+EOF
 
-# cat vmss.json
+cat vmss.json
 
-# # Create a test VMSS with 1 instance 
-# # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
-# #       However, how to incorporate chaning quarters?
-# log "Creating VMSS"
-# vmssStartTime=$(date +%s)
-# az vmss create -n ${VMSS_NAME} \
-#     -g $MC_RESOURCE_GROUP_NAME \
-#     --admin-username azureuser \
-#     --custom-data cloud-init.txt \
-#     --lb kubernetes --backend-pool-name aksOutboundBackendPool \
-#     --vm-sku Standard_DS2_v2 \
-#     --instance-count 1 \
-#     --assign-identity $msiResourceID \
-#     --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
-#     --upgrade-policy-mode Automatic \
-#     --ssh-key-values ~/.ssh/id_rsa.pub \
-#     -ojson
+# Create a test VMSS with 1 instance 
+# TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
+#       However, how to incorporate chaning quarters?
+log "Creating VMSS"
+vmssStartTime=$(date +%s)
+az vmss create -n ${VMSS_NAME} \
+    -g $MC_RESOURCE_GROUP_NAME \
+    --admin-username azureuser \
+    --custom-data cloud-init.txt \
+    --lb kubernetes --backend-pool-name aksOutboundBackendPool \
+    --vm-sku Standard_DS2_v2 \
+    --instance-count 1 \
+    --assign-identity $msiResourceID \
+    --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
+    --upgrade-policy-mode Automatic \
+    --ssh-key-values ~/.ssh/id_rsa.pub \
+    -ojson
 
-# vmssEndTime=$(date +%s)
-# log "Created VMSS in $((vmssEndTime-vmssStartTime)) seconds"
+vmssEndTime=$(date +%s)
+log "Created VMSS in $((vmssEndTime-vmssStartTime)) seconds"
 
-# # Get the name of the VM instance to later check with kubectl get nodes
-# vmInstanceName=$(az vmss list-instances \
-#                 -n ${VMSS_NAME} \
-#                 -g $MC_RESOURCE_GROUP_NAME \
-#                 -ojson | \
-#                 jq -r '.[].osProfile.computerName'
-#             )
-# export vmInstanceName
+# Get the name of the VM instance to later check with kubectl get nodes
+vmInstanceName=$(az vmss list-instances \
+                -n ${VMSS_NAME} \
+                -g $MC_RESOURCE_GROUP_NAME \
+                -ojson | \
+                jq -r '.[].osProfile.computerName'
+            )
+export vmInstanceName
 
-# # Generate the extension from csecmd
-# jq -Rs '{commandToExecute: . }' csecmd > settings.json
+# Generate the extension from csecmd
+jq -Rs '{commandToExecute: . }' csecmd > settings.json
 
-# # Apply extension to the VM
-# log "Applying extensions to VMSS"
-# vmssExtStartTime=$(date +%s)
-# set +e
-# az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
-#     --name CustomScript \
-#     --vmss-name ${VMSS_NAME} \
-#     --publisher Microsoft.Azure.Extensions \
-#     --protected-settings settings.json \
-#     --version 2.0 \
-#     -ojson
-# retval=$?
-# set -e
+# Apply extension to the VM
+log "Applying extensions to VMSS"
+vmssExtStartTime=$(date +%s)
+set +e
+az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
+    --name CustomScript \
+    --vmss-name ${VMSS_NAME} \
+    --publisher Microsoft.Azure.Extensions \
+    --protected-settings settings.json \
+    --version 2.0 \
+    -ojson
+retval=$?
+set -e
 
-# vmssExtEndTime=$(date +%s)
-# log "Applied extensions in $((vmssExtEndTime-vmssExtStartTime)) seconds"
+vmssExtEndTime=$(date +%s)
+log "Applied extensions in $((vmssExtEndTime-vmssExtStartTime)) seconds"
 
-# FAILED=0
-# # Check if the node joined the cluster
-# if [[ "$retval" != "0" ]]; then
-#     err "cse failed to apply"
-#     debug
-#     tail -n 50 logs/cluster-provision.log || true
-#     exit 1
-# fi
+FAILED=0
+# Check if the node joined the cluster
+if [[ "$retval" != "0" ]]; then
+    err "cse failed to apply"
+    debug
+    tail -n 50 logs/cluster-provision.log || true
+    exit 1
+fi
 
-# KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
+KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
-# # Sleep to let the automatic upgrade of the VM finish
-# waitForNodeStartTime=$(date +%s)
-# for i in $(seq 1 10); do
-#     set +e
-#     # pipefail interferes with conditional.
-#     # shellcheck disable=SC2143
-#     if [ -z "$(kubectl get nodes | grep $vmInstanceName)" ]; then
-#         log "retrying attempt $i"
-#         sleep 10
-#         continue
-#     fi
-#     break;
-# done
-# waitForNodeEndTime=$(date +%s)
-# log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
+# Sleep to let the automatic upgrade of the VM finish
+waitForNodeStartTime=$(date +%s)
+for i in $(seq 1 10); do
+    set +e
+    # pipefail interferes with conditional.
+    # shellcheck disable=SC2143
+    if [ -z "$(kubectl get nodes | grep $vmInstanceName)" ]; then
+        log "retrying attempt $i"
+        sleep 10
+        continue
+    fi
+    break;
+done
+waitForNodeEndTime=$(date +%s)
+log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
-# FAILED=0
-# # Check if the node joined the cluster
-# if [[ "$retval" -eq 0 ]]; then
-#     ok "Test succeeded, node joined the cluster"
-#     kubectl get nodes -o wide | grep $vmInstanceName
-# else
-#     err "Node did not join cluster"
-#     FAILED=1
-# fi
+FAILED=0
+# Check if the node joined the cluster
+if [[ "$retval" -eq 0 ]]; then
+    ok "Test succeeded, node joined the cluster"
+    kubectl get nodes -o wide | grep $vmInstanceName
+else
+    err "Node did not join cluster"
+    FAILED=1
+fi
 
-# debug
-# tail -n 50 logs/cluster-provision.log || true
+debug
+tail -n 50 logs/cluster-provision.log || true
 
-# if [ "$FAILED" == "1" ]; then
-#     echo "node join failed, dumping logs for debug"
-#     head -n 500 logs/kubelet.log || true
-#     cat logs/kubelet-status.txt || true
-#     exit 1
-# fi
+if [ "$FAILED" == "1" ]; then
+    echo "node join failed, dumping logs for debug"
+    head -n 500 logs/kubelet.log || true
+    cat logs/kubelet-status.txt || true
+    exit 1
+fi
 
-# # Run a nginx pod on the node to check if pod runs
-# podName=$(mktemp -u podName-XXXXXXX | tr '[:upper:]' '[:lower:]')
-# export podName
-# envsubst < pod-nginx-template.yaml > pod-nginx.yaml
-# sleep 5
-# kubectl apply -f pod-nginx.yaml
+# Run a nginx pod on the node to check if pod runs
+podName=$(mktemp -u podName-XXXXXXX | tr '[:upper:]' '[:lower:]')
+export podName
+envsubst < pod-nginx-template.yaml > pod-nginx.yaml
+sleep 5
+kubectl apply -f pod-nginx.yaml
 
-# # Sleep to let Pod Status=Running
-# waitForPodStartTime=$(date +%s)
-# for i in $(seq 1 10); do
-#     set +e
-#     kubectl get pods -o wide | grep $podName | grep 'Running'
-#     retval=$?
-#     set -e
-#     if [ "$retval" -ne 0 ]; then
-#         log "retrying attempt $i"
-#         sleep 10
-#         continue
-#     fi
-#     break;
-# done
-# waitForPodEndTime=$(date +%s)
-# log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
+# Sleep to let Pod Status=Running
+waitForPodStartTime=$(date +%s)
+for i in $(seq 1 10); do
+    set +e
+    kubectl get pods -o wide | grep $podName | grep 'Running'
+    retval=$?
+    set -e
+    if [ "$retval" -ne 0 ]; then
+        log "retrying attempt $i"
+        sleep 10
+        continue
+    fi
+    break;
+done
+waitForPodEndTime=$(date +%s)
+log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
 
-# if [[ "$retval" -eq 0 ]]; then
-#     ok "Pod ran successfully"
-# else
-#     err "Pod pending/not running"
-#     exit 1
-# fi
+if [[ "$retval" -eq 0 ]]; then
+    ok "Pod ran successfully"
+else
+    err "Pod pending/not running"
+    exit 1
+fi
 
-# waitForDeleteStartTime=$(date +%s)
+waitForDeleteStartTime=$(date +%s)
 
-# kubectl delete node $vmInstanceName
+kubectl delete node $vmInstanceName
 
-# waitForDeleteEndTime=$(date +%s)
-# log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
+waitForDeleteEndTime=$(date +%s)
+log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
 
-# globalEndTime=$(date +%s)
-# log "Finished after $((globalEndTime-globalStartTime)) seconds"
+globalEndTime=$(date +%s)
+log "Finished after $((globalEndTime-globalStartTime)) seconds"
