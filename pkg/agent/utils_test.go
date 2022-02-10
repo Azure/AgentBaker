@@ -417,11 +417,3 @@ var _ = Describe("Assert ParseCSE", func() {
 		Expect(err.Error()).To(ContainSubstring(testMessage))
 	})
 })
-
-func TestKubeletConfigDefaultsShouldBeSetIfCustomKubeletConfigNotProvided(t *testing.T) {
-
-}
-
-func TestKubeletConfigDefaultsShouldBeOverwrittenIfCustomKubeletConfigProvided(t *testing.T) {
-
-}
