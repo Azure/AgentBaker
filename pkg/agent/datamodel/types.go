@@ -1636,7 +1636,7 @@ type AKSKubeletConfiguration struct {
 	// For example: "5Mi" or "256Ki".
 	// Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
 	// it may trigger log rotation.
-	// Default: "50Mi
+	// Default: "50Mi"
 	// +optional
 	ContainerLogMaxSize string `json:"containerLogMaxSize,omitempty"`
 	// Maximum number of container log files that can be present for a container.
