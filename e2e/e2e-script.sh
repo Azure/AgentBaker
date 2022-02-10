@@ -38,11 +38,8 @@ out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
-    az vmss list -g $MC_RG_NAME -o table
-    MC_VMSS_NAME=$(az vmss list -g $MC_RG_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
-
     exists=$(az group exists -n $MC_RG_NAME)
-    if [ $exists = "false" ] ||  [ "$MC_VMSS_NAME" == "null" ]; then
+    if [ $exists = "false" ]; then
         log "Deleting cluster"
         clusterDeleteStartTime=$(date +%s)
         az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
@@ -123,9 +120,9 @@ clusterInfoEndTime=$(date +%s)
 log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
 set +x
-addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
-addJsonToFile "ca.crt" "$(cat ca.crt)"
-addJsonToFile "client.key" "$(cat client.key)"
+addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
+addJsonToFile "caCrt" "$(cat ca.crt)"
+addJsonToFile "clientKey" "$(cat client.key)"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
@@ -140,6 +137,13 @@ getMSIResourceID
 addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
+
+set +x
+# shellcheck disable=SC2091
+$(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
+envsubst < percluster_template.json > percluster_config.json
+jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+set -x
 
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
