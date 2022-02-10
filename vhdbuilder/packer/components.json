@@ -95,8 +95,8 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [
-        "v1.4.9",
-        "v1.4.12"
+        "v1.4.16",
+        "v1.4.18"
       ],
       "multiArchVersions": []
     },
