@@ -28,7 +28,6 @@ jobs:
     displayName: delete vmss
     condition: always()
 
-jobs:
 - job: Access artifact
   steps:
   - download: current
