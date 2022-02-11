@@ -32,9 +32,14 @@ jobs:
   dependsOn:
     - E2E
   steps:
-  - download: current
-    artifact: logs
-    downloadPath: $(System.DefaultWorkingDirectory)/e2e
+  - task: DownloadBuildArtifact@0
+    inputs:
+      buildType: 'current'
+      artifactName: 'logs'
+      downloadPath: $(System.DefaultWorkingDirectory)/e2e
+  # - download: current
+  #   artifact: logs
+  #   downloadPath: $(System.DefaultWorkingDirectory)/e2e
   - bash: |
       pwd
       ls
