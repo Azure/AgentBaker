@@ -44,6 +44,7 @@ jobs:
   - download: current
     artifact: logs
   - bash: |
+      export SCENARIO_NAME
       pwd
       ls
       mv $(Pipeline.Workspace)/logs e2e
