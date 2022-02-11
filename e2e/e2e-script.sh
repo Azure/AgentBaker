@@ -35,8 +35,9 @@ log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 # Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
 # MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
 out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
+create_cluster="false"
 if [ -n "$out" ]; then
-    MC_RG_NAME=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq -r '.nodeResourceGroup')
+    MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
     if [ $exists = "false" ]; then
         log "Deleting cluster"
@@ -44,12 +45,14 @@ if [ -n "$out" ]; then
         az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
         clusterDeleteEndTime=$(date +%s)
         log "Deleted cluster in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
-        out=""
+        create_cluster="true"
     fi
+else
+    create_cluster="true"
 fi
 
 # Create the AKS cluster and get the kubeconfig
-if [ -z "$out" ]; then
+if [ "$create_cluster" == "true" ]; then
     log "Creating cluster"
     clusterCreateStartTime=$(date +%s)
     az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys -ojson
@@ -64,9 +67,10 @@ export KUBECONFIG
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
 
-MC_RESOURCE_GROUP_NAME=$(jq -r '.nodeResourceGroup' < cluster_info.json)
-VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME -ojson | jq -r '.[length -1].name')
-CLUSTER_ID=$(echo $VMSS_NAME | cut -d '-' -f3)
+MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
+az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -otable
+MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
+CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
 # privileged ds with nsenter for host file exfiltration
 kubectl apply -f https://gist.githubusercontent.com/alexeldeib/01f2d3efc8fe17cca7625ecb7c1ec707/raw/6b90f4a12888ebb300bfb2f339cf2b43a66e35a2/deploy.yaml
@@ -75,6 +79,33 @@ kubectl rollout status deploy/debug
 exec_on_host() {
     kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
+
+debug() {
+    local retval
+    retval=0
+    mkdir -p logs
+    INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
+    set +x
+    SSH_KEY=$(cat ~/.ssh/id_rsa)
+    SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
+    SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP sudo"
+    exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-provision.log || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cluster-provision"
+    fi
+    exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt  || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed systemctl status kubelet"
+    fi
+    exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log  || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed journalctl -u kubelet"
+    fi
+    set -x
+    echo "debug done"
+}
+
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
 log "Retrieving cluster info"
 clusterInfoStartTime=$(date +%s)
@@ -88,13 +119,15 @@ exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 clusterInfoEndTime=$(date +%s)
 log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
-addJsonToFile "apiserver.crt" "$(cat apiserver.crt)"
-addJsonToFile "ca.crt" "$(cat ca.crt)"
-addJsonToFile "client.key" "$(cat client.key)"
+set +x
+addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
+addJsonToFile "caCrt" "$(cat ca.crt)"
+addJsonToFile "clientKey" "$(cat client.key)"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
 fi
+set -x
 
 # # Add other relevant information needed by AgentBaker for bootstrapping later
 getAgentPoolProfileValues
@@ -105,18 +138,36 @@ addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
 
+set +x
+# shellcheck disable=SC2091
+$(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
+envsubst < percluster_template.json > percluster_config.json
+jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+set -x
+
 # # Call AgentBaker to generate CustomData and cseCmd
 go test -run TestE2EBasic
 
+set +x
 if [ ! -f ~/.ssh/id_rsa ]; then
     ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 fi
+set -x
+
+VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
+tee vmss.json > /dev/null <<EOF
+{
+    "group": "${MC_RESOURCE_GROUP_NAME}",
+    "vmss": "${VMSS_NAME}"
+}
+EOF
+
+cat vmss.json
 
 # Create a test VMSS with 1 instance 
 # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
 #       However, how to incorporate chaning quarters?
 log "Creating VMSS"
-VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
 vmssStartTime=$(date +%s)
 az vmss create -n ${VMSS_NAME} \
     -g $MC_RESOURCE_GROUP_NAME \
@@ -163,6 +214,15 @@ set -e
 vmssExtEndTime=$(date +%s)
 log "Applied extensions in $((vmssExtEndTime-vmssExtStartTime)) seconds"
 
+FAILED=0
+# Check if the node joined the cluster
+if [[ "$retval" != "0" ]]; then
+    err "cse failed to apply"
+    debug
+    tail -n 50 logs/cluster-provision.log || true
+    exit 1
+fi
+
 KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
 # Sleep to let the automatic upgrade of the VM finish
@@ -181,12 +241,7 @@ done
 waitForNodeEndTime=$(date +%s)
 log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to join"
 
-# TODO: Deleting the vmss makes node "NotReady" in the cluster. Discuss if its worth having the node hang around
-# for a dev to want to look around. Resources are cleaned up in 3 days anyway
-
-#trap 'az vmss delete -g $MC_RESOURCE_GROUP_NAME -n $VMSS_NAME --no-wait' EXIT
 FAILED=0
-
 # Check if the node joined the cluster
 if [[ "$retval" -eq 0 ]]; then
     ok "Test succeeded, node joined the cluster"
@@ -196,23 +251,13 @@ else
     FAILED=1
 fi
 
-mkdir -p logs
-INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
-PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
-SSH_KEY=$(cat ~/.ssh/id_rsa)
-SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
-SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP"
-exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-provision.log
-exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt
-exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log
-
-# useful for validating some stuff even on success
-cat logs/cluster-provision.log
+debug
+tail -n 50 logs/cluster-provision.log || true
 
 if [ "$FAILED" == "1" ]; then
     echo "node join failed, dumping logs for debug"
-    head -n 500 logs/kubelet.log
-    cat logs/kubelet-status.txt
+    head -n 500 logs/kubelet.log || true
+    cat logs/kubelet-status.txt || true
     exit 1
 fi
 
@@ -246,6 +291,13 @@ else
     err "Pod pending/not running"
     exit 1
 fi
+
+waitForDeleteStartTime=$(date +%s)
+
+kubectl delete node $vmInstanceName
+
+waitForDeleteEndTime=$(date +%s)
+log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
 
 globalEndTime=$(date +%s)
 log "Finished after $((globalEndTime-globalStartTime)) seconds"

@@ -128,7 +128,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
     echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   done
 
-  installed_version="$(echo ${containerd_manifest} | jq -r '.installedVersion')"
+  installed_version="$(echo ${containerd_manifest} | jq -r '.latest')"
   containerd_version="$(echo "$installed_version" | cut -d- -f1)"
   containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
@@ -459,7 +459,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.20.15-hotfix.20220201
 1.21.7-hotfix.20220130
 1.21.9-hotfix.20220130
-1.22.4-hotfix.20220130
+1.22.4-hotfix.20220201
 1.22.6-hotfix.20220130
 1.23.3-hotfix.20220130
 "
