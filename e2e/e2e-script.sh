@@ -145,6 +145,8 @@ envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
 set -x
 
+echo "PRINTING DIRECTORY"
+ls
 # # Call AgentBaker to generate CustomData and cseCmd
 #go test -run TestE2EBasic
 
