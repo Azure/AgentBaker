@@ -154,6 +154,7 @@ EOF
         "a": false,
         "x": false
     },
+    "containerLogMaxSize": "50M",
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"

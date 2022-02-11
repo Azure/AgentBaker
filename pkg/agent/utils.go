@@ -429,6 +429,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
 		ResolverConfig:                 kc["--resolv-conf"],
+		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
 
 	// Authentication
