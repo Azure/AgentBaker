@@ -29,6 +29,8 @@ jobs:
     condition: always()
 
 - job: AccessArtifact
+  dependsOn:
+    - E2E
   steps:
   - download: current
     artifact: logs
