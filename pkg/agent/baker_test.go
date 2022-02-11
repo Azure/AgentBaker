@@ -114,6 +114,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
 			"--system-reserved":                   "cpu=2,memory=1Gi",
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+			"--container-log-max-size":            "50M",
 		}
 
 		config := &datamodel.NodeBootstrappingConfiguration{
