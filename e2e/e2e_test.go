@@ -2,14 +2,14 @@ package e2e
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	// "github.com/Azure/agentbaker/pkg/agent"
+	// "github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 // TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones for eg CustomKubeBinaryURL, Pause Image etc
@@ -38,34 +38,39 @@ func TestE2EBasic(t *testing.T) {
 		t.Skip("This test needs e2e-script.sh to run first")
 	}
 
+	var scenario string = os.Getenv("scenario")
+	fmt.Printf("Running for %s", scenario)
+
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
-	createFile("../e2e/cloud-init.txt")
+	cseLocation, _ := fmt.Printf("../e2e/scenarios/%s/%s-cloud-init.txt", scenario, scenario)
+	fmt.Println(cseLocation)
+	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
+	createFile("../e2e/scecloud-init.txt")
 	createFile("../e2e/cseCmd")
+	// nbc, _ := ioutil.ReadFile("nodebootstrapping_config.json")
+	// config := &datamodel.NodeBootstrappingConfiguration{}
+	// json.Unmarshal([]byte(nbc), config)
 
-	nbc, _ := ioutil.ReadFile("nodebootstrapping_config.json")
-	config := &datamodel.NodeBootstrappingConfiguration{}
-	json.Unmarshal([]byte(nbc), config)
-
-	config.ContainerService.Properties.CertificateProfile.CaCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
-	config.ContainerService.Properties.CertificateProfile.APIServerCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
-	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
+	// config.ContainerService.Properties.CertificateProfile.CaCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
+	// config.ContainerService.Properties.CertificateProfile.APIServerCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
+	// config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
 	
-	// customData
-	baker := agent.InitializeTemplateGenerator()
-	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
-	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
-	customData := string(customDataBytes)
-	err := ioutil.WriteFile("cloud-init.txt", []byte(customData), 0644)
-	if err != nil {
-		fmt.Println("couldnt write to file", err)
-	}
+	// // customData
+	// baker := agent.InitializeTemplateGenerator()
+	// base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
+	// customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
+	// customData := string(customDataBytes)
+	// err := ioutil.WriteFile("cloud-init.txt", []byte(customData), 0644)
+	// if err != nil {
+	// 	fmt.Println("couldnt write to file", err)
+	// }
 
-	// cseCmd
-	cseCommand := baker.GetNodeBootstrappingCmd(config)
-	err = ioutil.WriteFile("csecmd", []byte(cseCommand), 0644)
-	if err != nil {
-		fmt.Println("couldnt write to file", err)
-	}
+	// // cseCmd
+	// cseCommand := baker.GetNodeBootstrappingCmd(config)
+	// err = ioutil.WriteFile("csecmd", []byte(cseCommand), 0644)
+	// if err != nil {
+	// 	fmt.Println("couldnt write to file", err)
+	// }
 }
