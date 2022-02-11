@@ -32,16 +32,13 @@ jobs:
   dependsOn:
     - E2E
   steps:
-  - task: DownloadBuildArtifact@0
-    inputs:
-      buildType: 'current'
-      artifactName: 'logs'
-      downloadPath: $(System.DefaultWorkingDirectory)/e2e
-  # - download: current
-  #   artifact: logs
-  #   downloadPath: $(System.DefaultWorkingDirectory)/e2e
+  - download: current
+    artifact: logs
   - bash: |
       pwd
       ls
+      cd $(Pipeline.Workspace)
+      cd ..
+      mv $(Pipeline.Workspace)/logs e2e
       cd e2e
       ls
