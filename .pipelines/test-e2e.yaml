@@ -27,3 +27,11 @@ jobs:
       #az vmss delete -g $(jq -r .group e2e/vmss.json) -n $(jq -r .vmss e2e/vmss.json)
     displayName: delete vmss
     condition: always()
+jobs:
+- jobs: Access artifact
+  steps:
+  - download: current
+    artifact: $(System.DefaultWorkingDirectory)/e2e
+  - bash: |
+      pwd
+      ls
