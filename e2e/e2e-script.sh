@@ -146,7 +146,7 @@ jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nod
 set -x
 
 # # Call AgentBaker to generate CustomData and cseCmd
-go test -run TestE2EBasic
+#go test -run TestE2EBasic
 
 # set +x
 # if [ ! -f ~/.ssh/id_rsa ]; then

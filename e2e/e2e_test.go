@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/agentbaker/pkg/agent"
+	//"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -41,8 +41,13 @@ func TestE2EBasic(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
+	var scenario string = os.Getenv("SCENARIO_NAME")
+	fmt.Printf("Running for %s", scenario)
 	createFile("../e2e/cloud-init.txt")
 	createFile("../e2e/cseCmd")
+
+	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
+	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cseCmd")
 
 	nbc, _ := ioutil.ReadFile("nodebootstrapping_config.json")
 	config := &datamodel.NodeBootstrappingConfiguration{}
@@ -53,19 +58,19 @@ func TestE2EBasic(t *testing.T) {
 	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
 	
 	// customData
-	baker := agent.InitializeTemplateGenerator()
-	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
-	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
-	customData := string(customDataBytes)
-	err := ioutil.WriteFile("cloud-init.txt", []byte(customData), 0644)
-	if err != nil {
-		fmt.Println("couldnt write to file", err)
-	}
+	// baker := agent.InitializeTemplateGenerator()
+	// base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
+	// customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
+	// customData := string(customDataBytes)
+	// err := ioutil.WriteFile("cloud-init.txt", []byte(customData), 0644)
+	// if err != nil {
+	// 	fmt.Println("couldnt write to file", err)
+	// }
 
-	// cseCmd
-	cseCommand := baker.GetNodeBootstrappingCmd(config)
-	err = ioutil.WriteFile("csecmd", []byte(cseCommand), 0644)
-	if err != nil {
-		fmt.Println("couldnt write to file", err)
-	}
+	// // cseCmd
+	// cseCommand := baker.GetNodeBootstrappingCmd(config)
+	// err = ioutil.WriteFile("csecmd", []byte(cseCommand), 0644)
+	// if err != nil {
+	// 	fmt.Println("couldnt write to file", err)
+	// }
 }
