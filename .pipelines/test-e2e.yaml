@@ -31,7 +31,7 @@ jobs:
 - job: Access artifact
   steps:
   - download: current
-    artifact: $(System.DefaultWorkingDirectory)/e2e
+    artifact: logs
   - bash: |
       pwd
       ls
