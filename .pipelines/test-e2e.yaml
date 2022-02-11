@@ -31,14 +31,22 @@ jobs:
 - job: AccessArtifact
   dependsOn:
     - E2E
+  strategy:
+    matrix:
+      scenario_fips:
+        SCENARIO_NAME: 'fips'
+      scenario_gpu:
+        SCENARIO_NAME: 'gpu'
+      scenario_vanilla:
+        SCENARIO_NAME: 'vanilla'
+    maxParallel: 3
   steps:
   - download: current
     artifact: logs
   - bash: |
       pwd
       ls
-      cd $(Pipeline.Workspace)
-      cd ..
       mv $(Pipeline.Workspace)/logs e2e
       cd e2e
       ls
+      echo $SCENARIO_NAME
