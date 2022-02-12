@@ -450,15 +450,13 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 
 AMD64_ONLY_KUBE_BINARY_VERSIONS="
-1.19.11-hotfix.20210823
-1.19.13-hotfix.20210830
 "
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.20.13-hotfix.20220127
+1.20.13-hotfix.20220210
 1.20.15-hotfix.20220201
-1.21.7-hotfix.20220130
-1.21.9-hotfix.20220130
+1.21.7-hotfix.20220204
+1.21.9-hotfix.20220204
 1.22.4-hotfix.20220201
 1.22.6-hotfix.20220130
 1.23.3-hotfix.20220130

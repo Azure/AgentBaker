@@ -153,6 +153,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.7-hotfix.20220130/windowszip/v1.21.7-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.7-hotfix.20220204/windowszip/v1.21.7-hotfix.20220204-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.9-hotfix.20220130/windowszip/v1.21.9-hotfix.20220130-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.9-hotfix.20220204/windowszip/v1.21.9-hotfix.20220204-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.1-hotfix.20211115/windowszip/v1.22.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.2-hotfix.20211115/windowszip/v1.22.2-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.2-hotfix.20220128/windowszip/v1.22.2-hotfix.20220128-1int.zip",
