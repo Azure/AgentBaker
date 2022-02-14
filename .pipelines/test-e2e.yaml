@@ -55,14 +55,14 @@ jobs:
       ls
       echo "in e2e"
       echo $SCENARIO_NAME
-      # go test -run TestE2EBasic
-      # echo "did it run"
-      # cd scenarios/fips
-      # ls
-      # cd ../..
-      # cd scenarios/gpu
-      # ls
-      # cd ../..
-      # cd scenarios/vanilla
-      # ls
-      # cd ../..
+      go test -run TestE2EBasic
+      echo "did it run"
+      cd scenarios/fips
+      ls
+      cd ../..
+      cd scenarios/gpu
+      ls
+      cd ../..
+      cd scenarios/vanilla
+      ls
+      cd ../..
