@@ -49,7 +49,7 @@ jobs:
       pwd
       echo "ls ing pwd"
       ls
-      cp $(Pipeline.Workspace)/logs e2e
+      cp -r $(Pipeline.Workspace)/logs e2e
       echo "cd ing into e2e"
       cd e2e
       ls
