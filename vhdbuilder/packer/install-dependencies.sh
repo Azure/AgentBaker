@@ -22,9 +22,11 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
+KUBE_BINARY_VERSIONS_FILEPATH=/opt/azure/kube_binaries.config
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
+cat ${THIS_DIR}/kube_binaries.config > ${KUBE_BINARY_VERSIONS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
@@ -452,15 +454,7 @@ done
 AMD64_ONLY_KUBE_BINARY_VERSIONS="
 "
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
-MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.20.13-hotfix.20220210
-1.20.15-hotfix.20220201
-1.21.7-hotfix.20220204
-1.21.9-hotfix.20220204
-1.22.4-hotfix.20220201
-1.22.6-hotfix.20220130
-1.23.3-hotfix.20220130
-"
+MULTI_ARCH_KUBE_BINARY_VERSIONS=$(<${THIS_DIR}/kube_binaries.config)
 
 if [[ $(isARM64) == 1 ]]; then
   KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
