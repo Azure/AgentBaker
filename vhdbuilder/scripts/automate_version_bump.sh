@@ -20,22 +20,11 @@ pr_title="VersionBump"
 # This function finds the current SIG Image version from pkg/agent/datamodelosimageconfig.go
 find_current_image_version() {
     filepath=$1
-    flag=0
     while read -r p; do
-        if [[ $p == *":"* ]]; then
-            image_variable=$(echo $p | awk -F: '{print $1}')
-            image_value=$(echo $p | awk -F'\"' '{print $2}')
-            if [[ $flag == 0 ]]; then
-                if [[ $image_value == "aks" ]]; then
-                    flag=1
-                fi
-            fi
-
-            if [[ $flag == 1 ]] && [[ $image_variable == "ImageVersion" ]]; then
-                current_image_version=$image_value
-                flag=0
-                break
-            fi
+        if [[ $p == *"LinuxSIGImageVersion"* ]]; then
+            current_image_version=$(echo $p | awk -F'\"' '{print $2}')
+            echo "Image version is $current_image_version, cut from line $p"
+            break
         fi
     done < $filepath
     echo "Current image version is: ${current_image_version}"
@@ -88,6 +77,6 @@ cut_official_branch() {
 }
 
 set_git_config
-find_current_image_version "pkg/agent/datamodel/osimageconfig.go"
+find_current_image_version "pkg/agent/datamodel/sig_config.go"
 create_image_bump_pr
 cut_official_branch
