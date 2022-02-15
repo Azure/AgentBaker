@@ -15,9 +15,7 @@ if (-not ($validSKU -contains $windowsSKU)) {
 }
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
-# then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
-#
-# Windows Server 2019 update history can be found at # TODO
+# Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
 # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 #
 # IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
@@ -107,7 +105,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.1", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10132021",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022")
     }
     default {
