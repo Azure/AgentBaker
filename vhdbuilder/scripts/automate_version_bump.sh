@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -euxo pipefail
+set -euxo pipefail
 
 source vhdbuilder/scripts/automate_helpers.sh
 
@@ -10,7 +10,7 @@ new_image_version=$1
 
 set +x
 github_access_token=$2
-#set -x
+set -x
 
 build_ids=$3
 
