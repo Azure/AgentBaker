@@ -26,7 +26,6 @@ KUBE_BINARY_VERSIONS_FILEPATH=/opt/azure/kube_binaries.config
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
-cat ${THIS_DIR}/kube_binaries.config > ${KUBE_BINARY_VERSIONS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
