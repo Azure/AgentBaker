@@ -90,7 +90,7 @@ function Disable-WindowsUpdates {
 
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
-        Write-Log "Pulling images for windows server 2019 with containerd"
+        Write-Log "Pulling images for windows server 2019/2022 with containerd"
         foreach ($image in $imagesToPull) {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
