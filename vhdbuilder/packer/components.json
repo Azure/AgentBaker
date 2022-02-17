@@ -210,8 +210,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [
-        "1.10.3.3",
-        "1.10.3.4"
+        "1.10.3.4",
+        "1.10.3.5"
       ],
       "multiArchVersions": [
         "1.10.5"
@@ -298,7 +298,7 @@
       ],
       "multiArchVersions": [
         "v1.10.0",
-        "v1.10.0.1",
+        "v1.10.0.2",
         "v1.11.0"
       ]
     },
