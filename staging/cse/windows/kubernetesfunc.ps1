@@ -148,7 +148,7 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
 
     if ($global:EnableCsiProxy) {
-        Add-MpPreference -ExclusionProcess "c:\k\csi-proxy-server.exe"
+        Add-MpPreference -ExclusionProcess "c:\k\csi-proxy.exe"
     }
 
     if ($global:ContainerRuntime -eq 'containerd') {
