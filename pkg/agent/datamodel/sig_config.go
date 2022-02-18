@@ -210,7 +210,7 @@ const (
 	Arm64LinuxSIGImageVersion string = "2022.02.12"
 
 	Windows2019SIGImageVersion string = "17763.2565.220211"
-	Windows2022SIGImageVersion string = "20348.473.220210"
+	Windows2022SIGImageVersion string = "20348.524.220218"
 )
 
 // SIG config Template
