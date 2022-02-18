@@ -17,8 +17,9 @@
     "arm64_sig_subscription_id": "{{env `{ARM64_SIG_SUBSCRIPTION_ID`}}",
     "arm64_sig_resource_group_name": "{{env `${ARM64_SIG_RESOURCE_GROUP_NAME`}}",
     "arm64_sig_gallery_name": "{{env `${ARM64_SIG_GALLERY_NAME`}}",
-    "arm64_sig_image_name": "{{env `${ARM64_SIG_IMAGE_NAME`}}",
+    "arm64_sig_imagename": "{{env `${ARM64_SIG_IMAGENAME`}}",
     "arm64_sig_image_version": "{{env `${ARM64_SIG_IMAGE_VERSION`}}",
+    "arm64_os_disk_snapshot_name": "{{env `${ARM64_OS_DISK_SNAPSHOT_NAME`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}"
   },
   "builders": [
@@ -41,9 +42,10 @@
         "subscription": "{{user `arm64_sig_subscription_id`}}",
         "resource_group": "{{user `arm64_sig_resource_group_name`}}",
         "gallery_name": "{{user `arm64_sig_gallery_name`}}",
-        "image_name": "{{user `arm64_sig_image_name`}}",
+        "image_name": "{{user `arm64_sig_imagename`}}",
         "image_version": "{{user `arm64_sig_image_version`}}"
       },
+      "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
       "shared_image_gallery_destination": {
