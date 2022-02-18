@@ -419,11 +419,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/command/runtime:*",
-      "amd64OnlyVersions": [
-        "master.210524.9",
-        "master.211013.1"
-      ],
-      "multiArchVersions": []
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "master.220211.1"
+      ]
     }
   ],
   "DownloadFiles": [
