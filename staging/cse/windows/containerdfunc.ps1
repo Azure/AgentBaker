@@ -117,6 +117,7 @@ function Select-Windows-Version {
     "18362" { return "1903" }
     "18363" { return "1909" }
     "19041" { return "2004" }
+    "20348" { return "ltsc2022" }
     Default { return "" } 
   }
 }
@@ -182,7 +183,7 @@ function Install-Containerd {
   $formatedbin = $(($CNIBinDir).Replace("\", "/"))
   $formatedconf = $(($CNIConfDir).Replace("\", "/"))
   $sandboxIsolation = 0
-  $windowsVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId
+  $windowsVersion = Select-Windows-Version -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
   $hypervRuntimes = ""
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
 
