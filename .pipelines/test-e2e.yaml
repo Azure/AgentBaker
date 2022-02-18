@@ -42,11 +42,11 @@ jobs:
   strategy:
     matrix:
       scenario_fips:
-        SCENARIO_NAME: 'fips'
+        SCENARIO_NAME: 'vanilla-fips'
       scenario_gpu:
-        SCENARIO_NAME: 'gpu'
+        SCENARIO_NAME: 'vanilla-gpu'
       scenario_vanilla:
-        SCENARIO_NAME: 'vanilla'
+        SCENARIO_NAME: 'vanilla-aks'
     maxParallel: 3
   steps:
   - download: current
@@ -71,14 +71,8 @@ jobs:
       ls
       echo "in e2e"
       echo $SCENARIO_NAME
+      bash ./e2e-scenario.sh
       go test -run TestE2EBasic
       echo "did it run"
-      cd scenarios/fips
+      cd scenarios/$SCENARIO_NAME
       ls
-      cd ../..
-      cd scenarios/gpu
-      ls
-      cd ../..
-      cd scenarios/vanilla
-      ls
-      cd ../..
