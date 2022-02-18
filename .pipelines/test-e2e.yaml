@@ -26,7 +26,7 @@ jobs:
   - bash: |
       go version
       cd e2e
-      bash ./e2e-script.sh
+      bash ./e2e-starter.sh
     displayName: run e2e
   - publish: $(System.DefaultWorkingDirectory)/e2e
     artifact: logs

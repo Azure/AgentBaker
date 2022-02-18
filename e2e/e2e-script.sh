@@ -4,18 +4,6 @@ set -euxo pipefail
 
 source e2e-helper.sh
 
-log() {
-    printf "\\033[1;33m%s\\033[0m\\n" "$*"
-}
-
-ok() {
-    printf "\\033[1;32m%s\\033[0m\\n" "$*"
-}
-
-err() {
-    printf "\\033[1;31m%s\\033[0m\\n" "$*"
-}
-
 log "Starting e2e tests"
 
 # : "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
@@ -76,9 +64,9 @@ CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 kubectl apply -f https://gist.githubusercontent.com/alexeldeib/01f2d3efc8fe17cca7625ecb7c1ec707/raw/6b90f4a12888ebb300bfb2f339cf2b43a66e35a2/deploy.yaml
 kubectl rollout status deploy/debug
 
-exec_on_host() {
-    kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
-}
+# exec_on_host() {
+#     kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
+# }
 
 debug() {
     local retval
