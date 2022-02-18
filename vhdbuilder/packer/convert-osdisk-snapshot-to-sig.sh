@@ -14,9 +14,9 @@ do
     fi
 done
 
-ARM64_OS_DISK_SNAPSHOT_NAME="$(cat ./vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-CREATE_TIME="$(cat ./vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+ARM64_OS_DISK_SNAPSHOT_NAME="$(grep "arm64_os_disk_snapshot_name" ./vhdbuilder/packer/settings.json | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+CREATE_TIME="$(grep "create_time" ./vhdbuilder/packer/settings.json | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+SIG_IMAGE_NAME="$(grep "sig_image_name" ./vhdbuilder/packer/settings.json | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
 
 disk_snapshot_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/snapshots/${ARM64_OS_DISK_SNAPSHOT_NAME}"
 
