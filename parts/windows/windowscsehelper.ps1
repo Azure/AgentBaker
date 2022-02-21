@@ -223,6 +223,6 @@ function Get-WindowsVersion {
     switch ($buildNumber) {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
-        Default { return "" }
+        Default { throw "It doesn't supports the windows build number: $buildNumber" }
     }
 }
