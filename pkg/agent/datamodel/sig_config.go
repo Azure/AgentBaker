@@ -186,7 +186,6 @@ func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt)
 var AvailableWindowsSIGDistros []Distro = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
-	AKSWindows2022Containerd,
 	CustomizedWindowsOSImage,
 }
 
@@ -205,12 +204,10 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.02.15"
+	LinuxSIGImageVersion   string = "2022.02.15"
+	WindowsSIGImageVersion string = "17763.2565.220211"
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
 	Arm64LinuxSIGImageVersion string = "2022.02.19"
-
-	Windows2019SIGImageVersion string = "17763.2565.220211"
-	Windows2022SIGImageVersion string = "20348.524.220218"
 )
 
 // SIG config Template
@@ -323,19 +320,13 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019",
-		Version:       Windows2019SIGImageVersion,
+		Version:       WindowsSIGImageVersion,
 	}
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
-		Version:       Windows2019SIGImageVersion,
-	}
-	SIGWindows2022ContainerdImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSWindowsResourceGroup,
-		Gallery:       AKSWindowsGalleryName,
-		Definition:    "windows-2022-containerd",
-		Version:       Windows2022SIGImageVersion,
+		Version:       WindowsSIGImageVersion,
 	}
 )
 
@@ -367,7 +358,6 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 	return map[Distro]SigImageConfig{
 		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
