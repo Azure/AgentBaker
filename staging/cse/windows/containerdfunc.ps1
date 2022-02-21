@@ -105,23 +105,6 @@ function CreateHypervisorRuntimes {
   return $hypervRuntimes
 }
 
-function Select-Windows-Version {
-  param (
-    [Parameter()]
-    [string]
-    $buildNumber
-  )
-
-  switch ($buildNumber) {
-    "17763" { return "1809" }
-    "18362" { return "1903" }
-    "18363" { return "1909" }
-    "19041" { return "2004" }
-    "20348" { return "ltsc2022" }
-    Default { return "" } 
-  }
-}
-
 function Enable-Logging {
   if ((Test-Path "$global:ContainerdInstallLocation\diag.ps1") -And (Test-Path "$global:ContainerdInstallLocation\ContainerPlatform.wprp")) {
     $logs = Join-path $pwd.drive.Root logs
@@ -183,7 +166,7 @@ function Install-Containerd {
   $formatedbin = $(($CNIBinDir).Replace("\", "/"))
   $formatedconf = $(($CNIConfDir).Replace("\", "/"))
   $sandboxIsolation = 0
-  $windowsVersion = Select-Windows-Version -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+  $windowsVersion = Get-WindowsVersion -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
   $hypervRuntimes = ""
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
 

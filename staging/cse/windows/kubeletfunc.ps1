@@ -224,7 +224,7 @@ function New-InfraContainer {
         $ContainerRuntime = "docker"
     )
     cd $KubeDir
-    $windowsVersion = Select-Windows-Version -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    $windowsVersion = Get-WindowsVersion -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
 
     # Reference for these tags: curl -L https://mcr.microsoft.com/v2/k8s/core/pause/tags/list
     # Then docker run --rm mplatform/manifest-tool inspect mcr.microsoft.com/k8s/core/pause:<tag>

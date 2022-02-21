@@ -217,3 +217,16 @@ function Assert-FileExists {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
     }
 }
+
+function Get-WindowsVersion {
+    param (
+        [Parameter(Mandatory = $true)][string]
+        $buildNumber
+    )
+
+    switch ($buildNumber) {
+        "17763" { return "1809" }
+        "20348" { return "ltsc2022" }
+        Default { return "" }
+    }
+}
