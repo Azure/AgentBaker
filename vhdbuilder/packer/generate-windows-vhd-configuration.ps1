@@ -9,28 +9,19 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 }
 
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019", "2019-containerd", "2022-containerd")
+$validSKU = @("2019", "2019-containerd")
 if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
-# Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
 # then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
 #
 # IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
-switch -Regex ($windowsSKU) {
-    "2019*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "2022*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-}
+$global:patchUrls = @()
+$global:patchIDs = @()
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.43/binaries/containerd-v0.0.43-windows-amd64.tar.gz"
@@ -89,20 +80,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.5", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.1", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.2", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022")
-    }
-    "2022-containerd" {
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2022",
-            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.10.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.9.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.1", # for k8s 1.23.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022")
     }
     default {
