@@ -224,7 +224,7 @@ function New-InfraContainer {
         $ContainerRuntime = "docker"
     )
     cd $KubeDir
-    $windowsVersion = Get-WindowsVersion -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    $windowsVersion = Get-WindowsVersion
 
     # Reference for these tags: curl -L https://mcr.microsoft.com/v2/k8s/core/pause/tags/list
     # Then docker run --rm mplatform/manifest-tool inspect mcr.microsoft.com/k8s/core/pause:<tag>
@@ -232,9 +232,7 @@ function New-InfraContainer {
     $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
     $defaultPauseImage = $clusterConfig.Cri.Images.Pause
 
-    $pauseImageVersions = @("1809", "1903", "1909", "2004", "2009", "20h2", "ltsc2022")
-
-    if ($pauseImageVersions -icontains $windowsVersion) {
+    if (-not [string]::IsNullOrEmpty($windowsVersion)) {
         if ($ContainerRuntime -eq "docker") {
             if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
                 Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30

@@ -219,11 +219,7 @@ function Assert-FileExists {
 }
 
 function Get-WindowsVersion {
-    param (
-        [Parameter(Mandatory = $true)][string]
-        $buildNumber
-    )
-
+    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
     switch ($buildNumber) {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }

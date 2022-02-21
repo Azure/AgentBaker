@@ -166,7 +166,7 @@ function Install-Containerd {
   $formatedbin = $(($CNIBinDir).Replace("\", "/"))
   $formatedconf = $(($CNIConfDir).Replace("\", "/"))
   $sandboxIsolation = 0
-  $windowsVersion = Get-WindowsVersion -buildNumber (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+  $windowsVersion = Get-WindowsVersion
   $hypervRuntimes = ""
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
 
