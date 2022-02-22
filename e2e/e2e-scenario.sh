@@ -5,6 +5,8 @@ set -euxo pipefail
 source e2e-helper.sh
 
 #kubectl apply -f deploy.yaml
+KUBECONFIG=$(pwd)/kubeconfig
+export KUBECONFIG
 kubectl rollout status deploy/debug
 
 echo "scenario is $SCENARIO_NAME"
