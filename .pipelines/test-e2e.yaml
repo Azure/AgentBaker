@@ -52,6 +52,9 @@ jobs:
   - download: current
     artifact: logs
   - bash: |
+      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az account set -s $(AZURE_SUBSCRIPTION_ID)
+  - bash: |
       set -x
       echo $SUBSCRIPTION_ID
       echo $RESOURCE_GROUP_NAME
