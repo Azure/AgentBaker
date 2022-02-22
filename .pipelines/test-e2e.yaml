@@ -78,5 +78,5 @@ jobs:
       bash ./e2e-scenario.sh
       cd scenarios/$SCENARIO_NAME
       ls
-      cat scenarios/$SCENARIO_NAME/nbc-$SCENARIO_NAME.json
-      cat scenarios/$SCENARIO_NAME/$SCENARIO-cseCmd
+      cat nbc-$SCENARIO_NAME.json
+      cat $SCENARIO_NAME-cseCmd
