@@ -42,7 +42,7 @@ vmssStartTime=$(date +%s)
 az vmss create -n ${VMSS_NAME} \
     -g $MC_RESOURCE_GROUP_NAME \
     --admin-username azureuser \
-    --custom-data cloud-init.txt \
+    --custom-data scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cloud-init.txt \
     --lb kubernetes --backend-pool-name aksOutboundBackendPool \
     --vm-sku $VM_SKU \
     --instance-count 1 \
