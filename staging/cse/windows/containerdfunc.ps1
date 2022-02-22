@@ -92,7 +92,7 @@ function CreateHypervisorRuntimes {
   Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
-    $windowsVersion = Select-Windows-Version -buildNumber $buildNumber
+    $windowsVersion = Get-WindowsVersion
     $runtime = createHypervisorRuntime -image $pauseImage -version $windowsVersion -buildNumber $buildNumber
     if ($hypervRuntimes -eq "") {
       $hypervRuntimes = $runtime
