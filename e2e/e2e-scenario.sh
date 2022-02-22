@@ -4,7 +4,7 @@ set -euxo pipefail
 
 source e2e-helper.sh
 
-kubectl apply -f deploy.yaml
+#kubectl apply -f deploy.yaml
 kubectl rollout status deploy/debug
 
 echo "scenario is $SCENARIO_NAME"
