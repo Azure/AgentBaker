@@ -69,7 +69,7 @@ func TestE2EBasic(t *testing.T) {
 
 	// cseCmd
 	cseCommand := baker.GetNodeBootstrappingCmd(config)
-	err = ioutil.WriteFile("/scenarios/" + scenario + "/" + scenario + "-cseCmd", []byte(cseCommand), 0644)
+	err = ioutil.WriteFile("scenarios/" + scenario + "/" + scenario + "-cseCmd", []byte(cseCommand), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
