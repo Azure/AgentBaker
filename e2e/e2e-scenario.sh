@@ -21,6 +21,7 @@ fi
 set -x
 
 msiResourceID=$(jq -r '.identityProfile.kubeletidentity.resourceId' < cluster_info.json)
+MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
 echo $msiResourceID
 echo "vm sku is $VM_SKU"
 VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
