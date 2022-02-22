@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	//"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
