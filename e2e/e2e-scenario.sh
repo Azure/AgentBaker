@@ -91,7 +91,7 @@ vmInstanceName=$(az vmss list-instances \
 export vmInstanceName
 
 # Generate the extension from csecmd
-jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-csecmd > scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json
+jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd > scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json
 
 # Apply extension to the VM
 log "Applying extensions to VMSS"
