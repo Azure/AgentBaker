@@ -69,3 +69,11 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
     az image delete -n ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
+
+#clean up arm64 OS disk snapshot
+if [ ${ARCHITECTURE,,} == "arm64" ] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
+  id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+  if [ -n "$id" ]; then
+    az snapshot delete -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+  fi
+fi
