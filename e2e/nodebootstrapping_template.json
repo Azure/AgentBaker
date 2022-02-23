@@ -132,7 +132,7 @@
     "Disable1804SystemdResolved": false,
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableKubeletConfigFile": false,
-    "EnableNvidia": false,
+    "EnableNvidia": true,
     "EnableACRTeleportPlugin": false,
     "TeleportdPluginURL": "",
     "ContainerdVersion": "",
