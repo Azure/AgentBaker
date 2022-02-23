@@ -218,6 +218,7 @@ installNvidiaDocker() {
             installed="$(cat "$dst/pkg/DEBIAN/control" | grep Version | cut -d' ' -f 2)"
             if [ "$target" == "$installed" ]; then
                 echo "skip nvidia-docker2 install, current version $installed matches target $target"
+                return
             else
                 rm -rf "$dst/pkg"
             fi
