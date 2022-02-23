@@ -107,5 +107,5 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v3
         with:
-          base: master
+          base: ${{ github.head_ref }}
           title: "auto-update containerd to stable: ${{ steps.versions.outputs.stable_patch_with_revision }}, latest: ${{ steps.versions.outputs.latest_patch_with_revision }}"
