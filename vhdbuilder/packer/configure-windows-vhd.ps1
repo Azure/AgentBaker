@@ -6,6 +6,8 @@
         This script is used by packer to produce Windows AKS images.
 #>
 
+Set-PSDebug -Trace 1
+
 $ErrorActionPreference = "Stop"
 
 . c:\windows-vhd-configuration.ps1
@@ -279,6 +281,8 @@ function Update-Registry {
 }
 
 function Get-SystemDriveDiskInfo {
+    Get-Disk | Write-Log
+    Get-Partition | Write-Log
     Write-Log "Get Disk info"
     $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
     foreach($disk in $disksInfo) {
@@ -292,6 +296,10 @@ function Get-SystemDriveDiskInfo {
 $ProgressPreference = 'SilentlyContinue'
 
 try{
+
+    Get-Disk
+    Get-Partition
+
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
