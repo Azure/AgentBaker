@@ -102,6 +102,14 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed journalctl -u kubelet"
     fi
+    exec_on_host "$SSH_CMD cat /var/lib/cloud/instance/user-data.txt" logs/user-data.txt  || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "cat /var/lib/cloud/instance/user-data.txt"
+    fi
+    exec_on_host "$SSH_CMD cat /etc/systemd/system/containerd.service" logs/containerd.service  || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "cat /etc/systemd/system/containerd.service"
+    fi
     set -x
     echo "debug done"
 }
