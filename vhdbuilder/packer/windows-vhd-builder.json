@@ -26,7 +26,6 @@
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
             "os_type": "Windows",
-            "os_disk_size_gb" : 47,
             "image_publisher": "MicrosoftWindowsServer",
             "image_offer": "WindowsServer",
             "image_sku": "{{user `windows_image_sku`}}",
