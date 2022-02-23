@@ -185,7 +185,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku Standard_NC12 \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.07" \
+    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
