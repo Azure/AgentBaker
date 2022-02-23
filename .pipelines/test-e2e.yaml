@@ -78,6 +78,6 @@ jobs:
       bash ./e2e-scenario.sh
       cd scenarios/$SCENARIO_NAME
       ls
-      cat nbc-$SCENARIO_NAME.json
-      cat $SCENARIO_NAME-cseCmd
-      cat $SCENARIO_NAME-cloud-init.txt
+      # cat nbc-$SCENARIO_NAME.json
+      # cat $SCENARIO_NAME-cseCmd
+      # cat $SCENARIO_NAME-cloud-init.txt
