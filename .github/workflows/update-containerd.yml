@@ -25,7 +25,6 @@ jobs:
           path: |
             ~/.cargo
             ~/.cargo/bin/rg 
-            ~/.cargo/bin/delta   
           key: ${{ runner.os }}-rg 
       - name: Cache sponge
         uses: actions/cache@v2
@@ -35,7 +34,7 @@ jobs:
           path: |
             ~/.cargo/bin/sponge   
           key: ${{ runner.os }}-sponge 
-      - run: cargo install ripgrep git-delta
+      - run: cargo install ripgrep
         if: steps.cache-cargo.outputs.cache-hit != 'true'
       - run: sudo apt update && sudo apt install -y moreutils && sudo cp /usr/bin/sponge ~/.cargo/bin/sponge  
         if: steps.cache-sponge.outputs.cache-hit != 'true'
