@@ -299,6 +299,9 @@ try{
 
     Get-Disk
     Get-Partition
+    Resize-Partition -DriveLetter C -Size (47GB)
+    Get-Disk
+    Get-Partition
 
     switch ($env:ProvisioningPhase) {
         "1" {
