@@ -182,10 +182,10 @@ az vmss create -n ${VMSS_NAME} \
     --admin-username azureuser \
     --custom-data cloud-init.txt \
     --lb kubernetes --backend-pool-name aksOutboundBackendPool \
-    --vm-sku Standard_NC12 \
+    --vm-sku Standard_DS2_v2 \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
+    --image "microsoft-aks:aks:aks-ubuntu-1804-gen2-2021-q2:2021.05.19" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
