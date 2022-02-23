@@ -299,7 +299,7 @@ try{
 
     Get-Disk
     Get-Partition
-    Get-Partition -DiskNumber 0 -PartitionNumber 2 -Size (45GB) // 47-2=45
+    Resize-Partition 0 2 (45GB) // 47-2=45
     Get-Disk
     Get-Partition
 
