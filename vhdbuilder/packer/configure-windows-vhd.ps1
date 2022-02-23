@@ -299,7 +299,7 @@ try{
 
     Get-Disk
     Get-Partition
-    Resize-Partition 0 2 (45GB) // 47-2=45
+    Resize-Partition -DriveLetter C -Size (45GB)
     Get-Disk
     Get-Partition
 
