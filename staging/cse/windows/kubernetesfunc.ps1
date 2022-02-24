@@ -5,7 +5,7 @@ function Get-ProvisioningScripts {
     Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force
 }
 
-function Get-WindowsVersion {
+function Get-Windows-BuildNumber-UBR {
     $systemInfo = Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion"
     return "$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR)"
 }
