@@ -39,7 +39,7 @@
             "cloudProviderBackoffMode": ""
         }
     },
-    "ConfigGPUDriverIfNeeded": false,
+    "ConfigGPUDriverIfNeeded": true,
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableNvidia": true,
     "GPUInstanceProfile": ""

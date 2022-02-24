@@ -73,7 +73,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-2021-q2:2021.05.19" \
+    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson

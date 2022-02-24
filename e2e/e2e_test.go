@@ -43,8 +43,6 @@ func TestE2EBasic(t *testing.T) {
 
 	var scenario string = os.Getenv("SCENARIO_NAME")
 	fmt.Printf("Running for %s", scenario)
-	createFile("../e2e/cloud-init.txt")
-	createFile("../e2e/cseCmd")
 
 	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
 	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cseCmd")
