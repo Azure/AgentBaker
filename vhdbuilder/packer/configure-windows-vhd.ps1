@@ -71,6 +71,25 @@ function Retry-Command {
     }
 }
 
+function Expand-OS-Partition {
+    if (-not [string]::IsNullOrEmpty($customizedDiskSize)) {
+        Write-Log "Customized OS disk size is $customizedDiskSize GB"
+        [Int32]$osPartitionSize = 0
+        if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
+            if ($osPartitionSize -gt 32) {
+                $osPartitionSize = $osPartitionSize - 2
+                $osPartitionSizeGB = "$osPartitionSize" + "GB"
+                Write-Log "Resize OS partition size to $osPartitionSizeGB"
+                Resize-Partition -DriveLetter C -Size $osPartitionSizeGB
+                Get-Disk
+                Get-Partition
+                return
+            }
+        }
+    }
+    Write-Log "No need to expand the os patition size, default size 30GB"
+}
+
 function Disable-WindowsUpdates {
     # See https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
     # for additional information on WU related registry settings
@@ -295,6 +314,7 @@ try{
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
+            Expand-OS-Partition
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
