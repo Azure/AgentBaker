@@ -72,6 +72,7 @@ function Retry-Command {
 }
 
 function Expand-OS-Partition {
+    $customizedDiskSize = $env:CustomizedDiskSize
     if (-not [string]::IsNullOrEmpty($customizedDiskSize)) {
         Write-Log "Customized OS disk size is $customizedDiskSize GB"
         [Int32]$osPartitionSize = 0
@@ -79,7 +80,7 @@ function Expand-OS-Partition {
             if ($osPartitionSize -gt 32) {
                 $osPartitionSize = $osPartitionSize - 2
                 $osPartitionSizeGB = "$osPartitionSize" + "GB"
-                Write-Log "Resize OS partition size to $osPartitionSizeGB"
+                Write-Log "Resize the OS partition size to $osPartitionSizeGB"
                 Resize-Partition -DriveLetter C -Size $osPartitionSizeGB
                 Get-Disk
                 Get-Partition
@@ -87,7 +88,7 @@ function Expand-OS-Partition {
             }
         }
     }
-    Write-Log "No need to expand the os patition size, default size 30GB"
+    Write-Log "No need to expand the OS partition size, default size 30GB"
 }
 
 function Disable-WindowsUpdates {
