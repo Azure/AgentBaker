@@ -35,6 +35,7 @@ steps:
       -e BUILD_NUMBER=$(Build.BuildNumber) \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
+      -e OS_DISK_SIZE_GB=${OS_DISK_SIZE_GB} \
       -e OS_TYPE="Windows" \
       -e MODE=$(MODE) \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
