@@ -79,9 +79,8 @@ function Expand-OS-Partition {
         if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
             if ($osPartitionSize -gt 32) {
                 $osPartitionSize = $osPartitionSize - 2
-                $osPartitionSizeGB = "$osPartitionSize" + "GB"
-                Write-Log "Resize the OS partition size to $osPartitionSizeGB"
-                Resize-Partition -DriveLetter C -Size $osPartitionSizeGB
+                Write-Log "Resize the OS partition size to $osPartitionSize GB"
+                Resize-Partition -DriveLetter C -Size ($osPartitionSize * "1GB")
                 Get-Disk
                 Get-Partition
                 return
