@@ -14,7 +14,7 @@ if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
 
-$global:customizedDiskSize = $env:OS_Disk_Size_GB
+$global:customizedDiskSize = $env:OS_DISK_SIZE_GB
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
 # Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
