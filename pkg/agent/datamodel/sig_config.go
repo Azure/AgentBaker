@@ -207,7 +207,7 @@ const (
 	LinuxSIGImageVersion   string = "2022.02.19"
 	WindowsSIGImageVersion string = "17763.2565.220222"
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
-	Arm64LinuxSIGImageVersion string = "2022.02.19"
+	Arm64LinuxSIGImageVersion string = "2022.02.26"
 )
 
 // SIG config Template
