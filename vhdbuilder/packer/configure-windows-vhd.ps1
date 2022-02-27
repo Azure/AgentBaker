@@ -73,21 +73,23 @@ function Retry-Command {
 
 function Expand-OS-Partition {
     $customizedDiskSize = $env:CustomizedDiskSize
-    if (-not [string]::IsNullOrEmpty($customizedDiskSize)) {
-        Write-Log "Customized OS disk size is $customizedDiskSize GB"
-        [Int32]$osPartitionSize = 0
-        if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
-            if ($osPartitionSize -gt 32) {
-                $osPartitionSize = $osPartitionSize - 2
-                Write-Log "Resize the OS partition size to $osPartitionSize GB"
-                Resize-Partition -DriveLetter C -Size ($osPartitionSize * "1GB")
-                Get-Disk
-                Get-Partition
-                return
-            }
-        }
+    if ([string]::IsNullOrEmpty($customizedDiskSize)) {
+        Write-Log "No need to expand the OS partition size, default size 30GB"
+        return
     }
-    Write-Log "No need to expand the OS partition size, default size 30GB"
+
+    Write-Log "Customized OS disk size is $customizedDiskSize GB"
+    [Int32]$osPartitionSize = 0
+    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize) -and ($osPartitionSize -gt 30)) {
+        # The supportedMaxSize less than the customizedDiskSize because some system usages will occupy disks (about 500M).
+        $supportedMaxSize = (Get-PartitionSupportedSize -DriveLetter C).sizeMax
+        Write-Log "Resizing the OS partition size to $supportedMaxSize"
+        Resize-Partition -DriveLetter C -Size $supportedMaxSize
+        Get-Disk
+        Get-Partition
+    } else {
+        Throw "$customizedDiskSize is not a valid customized OS disk size"
+    }
 }
 
 function Disable-WindowsUpdates {
