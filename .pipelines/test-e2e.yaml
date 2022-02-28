@@ -38,7 +38,7 @@ jobs:
 
 - job: GenerateMatrix
   steps:
-  - bash: echo "##vso[task.setVariable variable=legs;isOutput=true]{'scenario_gpu':{'SCENARIO_NAME':'vanilla-gpu','VM_SKU':'Standard_NC6'}, 'scenario_vanilla':{'SCENARIO_NAME':'vanilla-aks','VM_SKU':'Standard_DS2_v2'}}"
+  - bash: echo "##vso[task.setVariable variable=legs;isOutput=true]{"scenario_gpu":{"SCENARIO_NAME":"vanilla-gpu","VM_SKU":"Standard_NC6"}, "scenario_vanilla":{"SCENARIO_NAME":"vanilla-aks","VM_SKU":"Standard_DS2_v2"}}"
     name: matrix
 
 - job: AccessArtifact
@@ -46,7 +46,7 @@ jobs:
     - E2E
     - GenerateMatrix
   strategy:
-    matrix: $[ dependencies.generator.outputs[matrix.legs] ]
+    matrix: $[ dependencies.generator.outputs['matrix.legs'] ]
       # scenario_gpu:
       #   SCENARIO_NAME: 'vanilla-gpu'
       #   VM_SKU: 'Standard_NC6'
