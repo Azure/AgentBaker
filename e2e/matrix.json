@@ -1,0 +1,10 @@
+{
+    "scenario_gpu": {
+        "SCENARIO_NAME": "vanilla-gpu",
+        "VM_SKU": "Standard_NC6"
+    },
+    "scenario_vanilla": {
+        "SCENARIO_NAME": "vanilla-aks",
+        "VM_SKU": "Standard_DS2_v2"
+    }
+}
