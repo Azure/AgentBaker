@@ -46,7 +46,7 @@ jobs:
     - E2E
     - GenerateMatrix
   strategy:
-    matrix: $[ dependencies.generator.outputs['matrix.legs'] ]
+    matrix: $[ dependencies.GenerateMatrix.outputs['matrix.legs'] ]
       # scenario_gpu:
       #   SCENARIO_NAME: 'vanilla-gpu'
       #   VM_SKU: 'Standard_NC6'
