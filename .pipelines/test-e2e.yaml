@@ -36,7 +36,7 @@ jobs:
     displayName: delete vmss
     condition: always()
 
-- job: Generate Matrix
+- job: GenerateMatrix
   steps:
   - bash: echo "##vso[task.setVariable variable=legs;isOutput=true]{'scenario_gpu':{'SCENARIO_NAME':'vanilla-gpu','VM_SKU':'Standard_NC6'}, 'scenario_vanilla':{'SCENARIO_NAME':'vanilla-aks','VM_SKU':'Standard_DS2_v2'}}
     name: matrix
@@ -44,7 +44,7 @@ jobs:
 - job: AccessArtifact
   dependsOn:
     - E2E
-    - Generate Matrix
+    - GenerateMatrix
   strategy:
     matrix: $[ dependencies.generator.outputs[matrix.legs] ]
       # scenario_gpu:
