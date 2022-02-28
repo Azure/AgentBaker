@@ -36,48 +36,50 @@ jobs:
     displayName: delete vmss
     condition: always()
 
+- job: Generate Matrix
+  steps:
+  - bash: echo "##vso[task.setVariable variable=legs;isOutput=true]{'scenario_gpu':{'SCENARIO_NAME':'vanilla-gpu','VM_SKU':'Standard_NC6'}, 'scenario_vanilla':{'SCENARIO_NAME':'vanilla-aks','VM_SKU':'Standard_DS2_v2'}}
+    name: matrix
+
 - job: AccessArtifact
   dependsOn:
     - E2E
+    - Generate Matrix
   strategy:
-    matrix:
-      scenario_gpu:
-        SCENARIO_NAME: 'vanilla-gpu'
-        VM_SKU: 'Standard_NC6'
-      scenario_vanilla:
-        SCENARIO_NAME: 'vanilla-aks'
-        VM_SKU: 'Standard_DS2_v2'
+    matrix: $[ dependencies.generator.outputs[matrix.legs] ]
+      # scenario_gpu:
+      #   SCENARIO_NAME: 'vanilla-gpu'
+      #   VM_SKU: 'Standard_NC6'
+      # scenario_vanilla:
+      #   SCENARIO_NAME: 'vanilla-aks'
+      #   VM_SKU: 'Standard_DS2_v2'
     maxParallel: 3
   steps:
   - download: current
     artifact: logs
-  - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-      az account set -s $(AZURE_SUBSCRIPTION_ID)
   - bash: |
       set -x
       echo $SUBSCRIPTION_ID
       echo $RESOURCE_GROUP_NAME
       echo $LOCATION
       echo $CLUSTER_NAME
-      export SCENARIO_NAME
-      export $VM_SKU
-      pwd
-      echo "ls ing pwd"
-      ls
-      echo "cd into e2e before cping"
-      cd e2e
-      ls
-      cd ..
-      cp -a $(Pipeline.Workspace)/logs/* e2e
-      echo "cd ing into e2e"
-      cd e2e
-      ls
-      echo "in e2e"
+      # export SCENARIO_NAME
+      # export $VM_SKU
       echo $SCENARIO_NAME
-      bash ./e2e-scenario.sh
-      cd scenarios/$SCENARIO_NAME
-      ls
-      # cat nbc-$SCENARIO_NAME.json
-      # cat $SCENARIO_NAME-cseCmd
-      # cat $SCENARIO_NAME-cloud-init.txt
+      echo $VM_SKU
+      # pwd
+      # echo "ls ing pwd"
+      # ls
+      # echo "cd into e2e before cping"
+      # cd e2e
+      # ls
+      # cd ..
+      # cp -a $(Pipeline.Workspace)/logs/* e2e
+      # echo "cd ing into e2e"
+      # cd e2e
+      # ls
+      # echo "in e2e"
+      # echo $SCENARIO_NAME
+      # bash ./e2e-scenario.sh
+      # cd scenarios/$SCENARIO_NAME
+      # ls
