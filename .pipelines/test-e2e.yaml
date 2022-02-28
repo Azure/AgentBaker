@@ -40,7 +40,7 @@ jobs:
   steps:
   - bash: |
       #string="{'scenario_gpu':{'SCENARIO_NAME':'vanilla-gpu','VM_SKU':'Standard_NC6'}, 'scenario_vanilla':{'SCENARIO_NAME':'vanilla-aks','VM_SKU':'Standard_DS2_v2'}}"
-      string=$(cat e2e/matrix.json | jq tojson | sed 's/\\//g')
+      string=$(cat e2e/matrix.json | jq -r tojson | sed 's/\\//g')
       echo "json is $string"
       echo "##vso[task.setVariable variable=legs;isOutput=true]"$string
     name: matrix
