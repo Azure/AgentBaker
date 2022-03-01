@@ -146,12 +146,12 @@ else
 fi
 
 debug
-tail -n 50 logs/cluster-provision.log || true
+tail -n 50 $SCENARIO_NAME-logs/cluster-provision.log || true
 
 if [ "$FAILED" == "1" ]; then
     echo "node join failed, dumping logs for debug"
-    head -n 500 logs/kubelet.log || true
-    cat logs/kubelet-status.txt || true
+    head -n 500 $SCENARIO_NAME-logs/kubelet.log || true
+    cat $SCENARIO_NAME-logs/kubelet-status.txt || true
     exit 1
 fi
 
