@@ -31,10 +31,6 @@ jobs:
   - publish: $(System.DefaultWorkingDirectory)/e2e
     artifact: clusterConfig
     condition: always()
-  - bash: |
-      #az vmss delete -g $(jq -r .group e2e/vmss.json) -n $(jq -r .vmss e2e/vmss.json)
-    displayName: delete vmss
-    condition: always()
 
 - job: Generate_Matrix
   steps:
@@ -61,13 +57,11 @@ jobs:
       export SCENARIO_NAME
       export $VM_SKU
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
-      echo $SCENARIO_NAME
-      cd e2e
-      bash e2e-scenario.sh
-      cd scenarios/$SCENARIO_NAME
-      ls
-      cd ../..
-      ls
+      bash e2e/e2e-scenario.sh
   - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
     artifact: $(SCENARIO_NAME)-logs
+    condition: always()
+  - bash: |
+      az vmss delete -g $(jq -r .group e2e/$(SCENARIO_NAME)-vmss.json) -n $(jq -r .vmss e2e/$(SCENARIO_NAME)-vmss.json)
+    displayName: delete vmss
     condition: always()

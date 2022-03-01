@@ -49,14 +49,14 @@ msiResourceID=$(jq -r '.identityProfile.kubeletidentity.resourceId' < cluster_in
 MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
 
 VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
-tee vmss.json > /dev/null <<EOF
+tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
     "group": "${MC_RESOURCE_GROUP_NAME}",
     "vmss": "${VMSS_NAME}"
 }
 EOF
 
-cat vmss.json
+cat $SCENARIO_NAME-vmss.json
 
 # Create a test VMSS with 1 instance 
 # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
@@ -116,8 +116,6 @@ if [[ "$retval" != "0" ]]; then
     tail -n 50 $SCENARIO_NAME-logs/cluster-provision.log || true
     exit 1
 fi
-
-KUBECONFIG=$(pwd)/kubeconfig; export KUBECONFIG
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
@@ -186,12 +184,9 @@ else
     exit 1
 fi
 
-# waitForDeleteStartTime=$(date +%s)
+waitForDeleteStartTime=$(date +%s)
 
-# kubectl delete node $vmInstanceName
+kubectl delete node $vmInstanceName
 
-# waitForDeleteEndTime=$(date +%s)
-# log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
-
-# globalEndTime=$(date +%s)
-# log "Finished after $((globalEndTime-globalStartTime)) seconds"
+waitForDeleteEndTime=$(date +%s)
+log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"

@@ -6,13 +6,6 @@ source e2e-helper.sh
 
 log "Starting e2e tests"
 
-# : "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
-# : "${RESOURCE_GROUP_NAME:=agentbaker-e2e-tests}"
-# : "${LOCATION:=eastus}"
-# : "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
-
-globalStartTime=$(date +%s)
-
 # Create a resource group for the cluster
 log "Creating resource group"
 rgStartTime=$(date +%s)
@@ -101,7 +94,3 @@ set +x
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
-set -x
-
-echo "PRINTING DIRECTORY"
-ls
