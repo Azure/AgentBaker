@@ -54,6 +54,10 @@ jobs:
   - download: current
     artifact: clusterConfig
   - bash: |
+      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az account set -s $(AZURE_SUBSCRIPTION_ID)
+    displayName: az login
+  - bash: |
       export SCENARIO_NAME
       export $VM_SKU
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
