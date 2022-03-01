@@ -1361,6 +1361,7 @@ type NodeBootstrappingConfiguration struct {
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 	IsARM64                        bool
+	IsUnattendedUpgradeEnabled     bool
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.

@@ -787,5 +787,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasMessageOfTheDay": func() bool {
 			return profile.MessageOfTheDay != ""
 		},
+		"IsUnattendedUpgradeEnabled": func() bool {
+			return config.IsUnattendedUpgradeEnabled
+		},
 	}
 }
