@@ -52,7 +52,7 @@ jobs:
     maxParallel: 3
   steps:
   - download: current
-    artifact: clusterConfigs
+    artifact: clusterConfig
   - bash: |
       set -x
       export SCENARIO_NAME
