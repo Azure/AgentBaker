@@ -57,7 +57,8 @@ jobs:
       export SCENARIO_NAME
       export $VM_SKU
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
-      bash e2e/e2e-scenario.sh
+      cd e2e
+      bash e2e-scenario.sh
   - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
     artifact: $(SCENARIO_NAME)-logs
     condition: always()
