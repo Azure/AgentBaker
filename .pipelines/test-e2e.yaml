@@ -36,14 +36,14 @@ jobs:
     displayName: delete vmss
     condition: always()
 
-- job: GenerateMatrix
+- job: Generate_Matrix
   steps:
   - bash: |
       stringifyJson=$(cat e2e/matrix.json | jq -r tojson | sed 's/\\//g')
       echo "##vso[task.setVariable variable=scenarioMatrix;isOutput=true]"$stringifyJson
     name: matrix
 
-- job: AccessArtifact
+- job: Test
   dependsOn:
     - E2E
     - GenerateMatrix
@@ -59,7 +59,8 @@ jobs:
       export $VM_SKU
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
       echo $SCENARIO_NAME
-      bash ./e2e-scenario.sh
+      cd e2e
+      bash e2e-scenario.sh
       cd scenarios/$SCENARIO_NAME
       ls
   - publish: $(System.DefaultWorkingDirectory)/e2e/$SCENARIO_NAME-logs
