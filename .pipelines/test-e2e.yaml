@@ -48,13 +48,12 @@ jobs:
     - Setup_Test_Cluster
     - Generate_Matrix
   strategy:
-    matrix: $[ dependencies.GenerateMatrix.outputs['matrix.scenarioMatrix'] ]
+    matrix: $[ dependencies.Generate_Matrix.outputs['matrix.scenarioMatrix'] ]
     maxParallel: 3
   steps:
   - download: current
     artifact: clusterConfig
   - bash: |
-      set -x
       export SCENARIO_NAME
       export $VM_SKU
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
