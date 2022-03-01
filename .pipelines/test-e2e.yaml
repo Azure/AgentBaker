@@ -66,6 +66,8 @@ jobs:
       bash e2e-scenario.sh
       cd scenarios/$SCENARIO_NAME
       ls
+      cd ../..
+      ls
   - publish: $(System.DefaultWorkingDirectory)/e2e/$SCENARIO_NAME-logs
-    artifact: $SCENARIO_NAME-logs
+    artifact: $(SCENARIO_NAME)-logs
     condition: always()

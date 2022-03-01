@@ -113,7 +113,7 @@ FAILED=0
 if [[ "$retval" != "0" ]]; then
     err "cse failed to apply"
     debug
-    tail -n 50 logs/cluster-provision.log || true
+    tail -n 50 $SCENARIO_NAME-logs/cluster-provision.log || true
     exit 1
 fi
 
