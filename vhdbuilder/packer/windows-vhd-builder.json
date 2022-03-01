@@ -13,6 +13,7 @@
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
         "location": "{{env `AZURE_LOCATION`}}",
         "vm_size": "{{env `AZURE_VM_SIZE`}}",
+        "os_disk_size_gb": "{{env `OS_DISK_SIZE_GB`}}",
         "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}"
     },
@@ -25,6 +26,7 @@
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
+            "os_disk_size_gb" : "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
             "image_publisher": "MicrosoftWindowsServer",
             "image_offer": "WindowsServer",
@@ -53,7 +55,8 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "ContainerRuntime={{user `container_runtime`}}"
+                "ContainerRuntime={{user `container_runtime`}}",
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -75,7 +78,8 @@
             "environment_vars": [
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
-                "ContainerRuntime={{user `container_runtime`}}"
+                "ContainerRuntime={{user `container_runtime`}}",
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
             "scripts": [
