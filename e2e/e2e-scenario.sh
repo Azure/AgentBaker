@@ -7,22 +7,22 @@ source e2e-helper.sh
 debug() {
     local retval
     retval=0
-    mkdir -p logs
+    mkdir -p $SCENARIO_NAME-logs
     INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
     set +x
     SSH_KEY=$(cat ~/.ssh/id_rsa)
     SSH_OPTS="-o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
     SSH_CMD="echo '$SSH_KEY' > sshkey && chmod 0600 sshkey && ssh -i sshkey $SSH_OPTS azureuser@$PRIVATE_IP sudo"
-    exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" logs/cluster-provision.log || retval=$?
+    exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision.log" $SCENARIO_NAME-logs/cluster-provision.log || retval=$?
     if [ "$retval" != "0" ]; then
         echo "failed cat cluster-provision"
     fi
-    exec_on_host "$SSH_CMD systemctl status kubelet" logs/kubelet-status.txt  || retval=$?
+    exec_on_host "$SSH_CMD systemctl status kubelet" $SCENARIO_NAME-logs/kubelet-status.txt  || retval=$?
     if [ "$retval" != "0" ]; then
         echo "failed systemctl status kubelet"
     fi
-    exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" logs/kubelet.log  || retval=$?
+    exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" $SCENARIO_NAME-logs/kubelet.log  || retval=$?
     if [ "$retval" != "0" ]; then
         echo "failed journalctl -u kubelet"
     fi
@@ -30,12 +30,11 @@ debug() {
     echo "debug done"
 }
 
-#kubectl apply -f deploy.yaml
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 kubectl rollout status deploy/debug
 
-echo "scenario is $SCENARIO_NAME"
+echo "Scenario is $SCENARIO_NAME"
 jq -s '.[0] * .[1]' nodebootstrapping_config.json scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/nbc-$SCENARIO_NAME.json
 
 go test -run TestE2EBasic
@@ -48,8 +47,7 @@ set -x
 
 msiResourceID=$(jq -r '.identityProfile.kubeletidentity.resourceId' < cluster_info.json)
 MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
-echo $msiResourceID
-echo "vm sku is $VM_SKU"
+
 VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
 tee vmss.json > /dev/null <<EOF
 {

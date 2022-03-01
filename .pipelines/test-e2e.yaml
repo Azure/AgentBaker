@@ -29,7 +29,7 @@ jobs:
       bash ./e2e-starter.sh
     displayName: run e2e
   - publish: $(System.DefaultWorkingDirectory)/e2e
-    artifact: logs
+    artifact: clusterConfig
     condition: always()
   - bash: |
       #az vmss delete -g $(jq -r .group e2e/vmss.json) -n $(jq -r .vmss e2e/vmss.json)
@@ -39,10 +39,8 @@ jobs:
 - job: GenerateMatrix
   steps:
   - bash: |
-      #string="{'scenario_gpu':{'SCENARIO_NAME':'vanilla-gpu','VM_SKU':'Standard_NC6'}, 'scenario_vanilla':{'SCENARIO_NAME':'vanilla-aks','VM_SKU':'Standard_DS2_v2'}}"
-      string=$(cat e2e/matrix.json | jq -r tojson | sed 's/\\//g')
-      echo "json is $string"
-      echo "##vso[task.setVariable variable=legs;isOutput=true]"$string
+      stringifyJson=$(cat e2e/matrix.json | jq -r tojson | sed 's/\\//g')
+      echo "##vso[task.setVariable variable=scenarioMatrix;isOutput=true]"$stringifyJson
     name: matrix
 
 - job: AccessArtifact
@@ -50,40 +48,20 @@ jobs:
     - E2E
     - GenerateMatrix
   strategy:
-    matrix: $[ dependencies.GenerateMatrix.outputs['matrix.legs'] ]
-      # scenario_gpu:
-      #   SCENARIO_NAME: 'vanilla-gpu'
-      #   VM_SKU: 'Standard_NC6'
-      # scenario_vanilla:
-      #   SCENARIO_NAME: 'vanilla-aks'
-      #   VM_SKU: 'Standard_DS2_v2'
+    matrix: $[ dependencies.GenerateMatrix.outputs['matrix.scenarioMatrix'] ]
     maxParallel: 3
   steps:
   - download: current
-    artifact: logs
+    artifact: clusterConfigs
   - bash: |
       set -x
-      echo $SUBSCRIPTION_ID
-      echo $RESOURCE_GROUP_NAME
-      echo $LOCATION
-      echo $CLUSTER_NAME
-      # export SCENARIO_NAME
-      # export $VM_SKU
+      export SCENARIO_NAME
+      export $VM_SKU
+      cp -a $(Pipeline.Workspace)/logs/* e2e
       echo $SCENARIO_NAME
-      echo $VM_SKU
-      # pwd
-      # echo "ls ing pwd"
-      # ls
-      # echo "cd into e2e before cping"
-      # cd e2e
-      # ls
-      # cd ..
-      # cp -a $(Pipeline.Workspace)/logs/* e2e
-      # echo "cd ing into e2e"
-      # cd e2e
-      # ls
-      # echo "in e2e"
-      # echo $SCENARIO_NAME
-      # bash ./e2e-scenario.sh
-      # cd scenarios/$SCENARIO_NAME
-      # ls
+      bash ./e2e-scenario.sh
+      cd scenarios/$SCENARIO_NAME
+      ls
+  - publish: $(System.DefaultWorkingDirectory)/e2e/$SCENARIO_NAME-logs
+    artifact: $SCENARIO_NAME-logs
+    condition: always()
