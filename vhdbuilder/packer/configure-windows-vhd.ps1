@@ -71,6 +71,27 @@ function Retry-Command {
     }
 }
 
+function Expand-OS-Partition {
+    $customizedDiskSize = $env:CustomizedDiskSize
+    if ([string]::IsNullOrEmpty($customizedDiskSize)) {
+        Write-Log "No need to expand the OS partition size, default size 30GB"
+        return
+    }
+
+    Write-Log "Customized OS disk size is $customizedDiskSize GB"
+    [Int32]$osPartitionSize = 0
+    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize) -and ($osPartitionSize -gt 30)) {
+        # The supportedMaxSize less than the customizedDiskSize because some system usages will occupy disks (about 500M).
+        $supportedMaxSize = (Get-PartitionSupportedSize -DriveLetter C).sizeMax
+        Write-Log "Resizing the OS partition size to $supportedMaxSize"
+        Resize-Partition -DriveLetter C -Size $supportedMaxSize
+        Get-Disk
+        Get-Partition
+    } else {
+        Throw "$customizedDiskSize is not a valid customized OS disk size"
+    }
+}
+
 function Disable-WindowsUpdates {
     # See https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
     # for additional information on WU related registry settings
@@ -90,7 +111,7 @@ function Disable-WindowsUpdates {
 
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
-        Write-Log "Pulling images for windows server 2019 with containerd"
+        Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
         foreach ($image in $imagesToPull) {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
@@ -295,6 +316,7 @@ try{
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
+            Expand-OS-Partition
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures

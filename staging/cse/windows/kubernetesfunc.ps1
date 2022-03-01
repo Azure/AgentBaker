@@ -5,11 +5,6 @@ function Get-ProvisioningScripts {
     Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force
 }
 
-function Get-WindowsVersion {
-    $systemInfo = Get-ItemProperty -Path "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-    return "$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR)"
-}
-
 function Get-InstanceMetadataServiceTelemetry {
     $keys = @{ }
 
@@ -146,9 +141,19 @@ function Write-KubeClusterConfig {
 
 function Update-DefenderPreferences {
     Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
+    Add-MpPreference -ExclusionProcess "c:\k\kube-proxy.exe"
+
+    # Azure CNI
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-cns.exe"
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-ipam.exe"
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-ipamv6.exe"
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-telemetry.exe"
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet.exe"
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\AzureNetworkContainer.exe"
+    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\CnsWrapperService.exe"
 
     if ($global:EnableCsiProxy) {
-        Add-MpPreference -ExclusionProcess "c:\k\csi-proxy-server.exe"
+        Add-MpPreference -ExclusionProcess "c:\k\csi-proxy.exe"
     }
 
     if ($global:ContainerRuntime -eq 'containerd') {

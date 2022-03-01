@@ -4510,7 +4510,6 @@ installNvidiaContainerRuntime() {
     local target=$1
     local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
     local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
-    local release=$(lsb_release -r -s)
 
     if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
         echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
@@ -4527,8 +4526,9 @@ installNvidiaDocker() {
     if [ -d "$dst/pkg" ]; then
         if [ -f "$dst/pkg/DEBIAN/control" ]; then
             installed="$(cat "$dst/pkg/DEBIAN/control" | grep Version | cut -d' ' -f 2)"
-            if [ "$version" == "$installed" ]; then
-                echo "skip nvidia-docker2 install, current version $version matches target $target"
+            if [ "$target" == "$installed" ]; then
+                echo "skip nvidia-docker2 install, current version $installed matches target $target"
+                return
             else
                 rm -rf "$dst/pkg"
             fi
@@ -5104,9 +5104,12 @@ write_files:
     KillMode=process
     Restart=always
     OOMScoreAdjust=-999
-    LimitNOFILE=1048576
+    # Having non-zero Limit*s causes performance problems due to accounting overhead
+    # in the kernel. We recommend using cgroups to do container-local accounting.
     LimitNPROC=infinity
     LimitCORE=infinity
+    LimitNOFILE=infinity
+    TasksMax=infinity
 
     [Install]
     WantedBy=multi-user.target
@@ -6031,6 +6034,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -6217,7 +6221,17 @@ function Assert-FileExists {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
     }
 }
-`)
+
+function Get-WindowsVersion {
+    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    switch ($buildNumber) {
+        "17763" { return "1809" }
+        "20348" { return "ltsc2022" }
+        Default {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
+        }
+    }
+}`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
