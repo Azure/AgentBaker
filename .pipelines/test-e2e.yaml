@@ -15,7 +15,7 @@ pool:
   name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
 
 jobs:
-- job: E2E
+- job: Setup_Test_Cluster
   steps:
   - bash: |
       az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
@@ -27,7 +27,7 @@ jobs:
       go version
       cd e2e
       bash ./e2e-starter.sh
-    displayName: run e2e
+    displayName: Setup Test Cluster
   - publish: $(System.DefaultWorkingDirectory)/e2e
     artifact: clusterConfig
     condition: always()
@@ -45,8 +45,8 @@ jobs:
 
 - job: Test
   dependsOn:
-    - E2E
-    - GenerateMatrix
+    - Setup_Test_Cluster
+    - Generate_Matrix
   strategy:
     matrix: $[ dependencies.GenerateMatrix.outputs['matrix.scenarioMatrix'] ]
     maxParallel: 3
