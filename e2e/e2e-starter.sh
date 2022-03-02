@@ -9,13 +9,13 @@ log "Starting e2e tests"
 # Create a resource group for the cluster
 log "Creating resource group"
 rgStartTime=$(date +%s)
-az group create -l $(LOCATION) -n $(RESOURCE_GROUP_NAME) --subscription $(SUBSCRIPTION_ID) -ojson
+az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
 rgEndTime=$(date +%s)
 log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 
 # Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
 # MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
-out=$(az aks list -g $(RESOURCE_GROUP_NAME) -ojson | jq '.[].name')
+out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
