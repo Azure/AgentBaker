@@ -126,11 +126,8 @@ $global:map = @{
         "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
-        "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.15.zip",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.16.zip",
-        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.3/binaries/windows-gmsa-ccgakvplugin-v1.1.3.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.4/binaries/windows-gmsa-ccgakvplugin-v1.1.4.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.4.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.6.zip"
     );
@@ -182,10 +179,10 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.16/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.16.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.16/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.16.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.19/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.19.zip"
     );
     "c:\akse-cache\calico\" = @(
-        "https://acs-mirror.azureedge.net/calico-node/v3.20.0/binaries/calico-windows-v3.20.0.zip",
         "https://acs-mirror.azureedge.net/calico-node/v3.21.4/binaries/calico-windows-v3.21.4.zip"
     )
 }
