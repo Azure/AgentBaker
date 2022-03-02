@@ -1,14 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 
 variables:
-- name: SUBSCRIPTION_ID
-  value: 8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8 # ACS Test
-- name: RESOURCE_GROUP_NAME
-  value: agentbaker-e2e-tests
-- name: LOCATION
-  value: eastus
-- name: CLUSTER_NAME
-  value: agentbaker-e2e-test-cluster
 - group: ab-e2e
 
 pool:

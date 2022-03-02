@@ -9,13 +9,13 @@ log "Starting e2e tests"
 # Create a resource group for the cluster
 log "Creating resource group"
 rgStartTime=$(date +%s)
-az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
+az group create -l $(LOCATION) -n $(RESOURCE_GROUP_NAME) --subscription $(SUBSCRIPTION_ID) -ojson
 rgEndTime=$(date +%s)
 log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 
 # Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
 # MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
-out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
+out=$(az aks list -g $(RESOURCE_GROUP_NAME) -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
@@ -54,7 +54,7 @@ MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name,
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
 # privileged ds with nsenter for host file exfiltration
-kubectl apply -f https://gist.githubusercontent.com/alexeldeib/01f2d3efc8fe17cca7625ecb7c1ec707/raw/6b90f4a12888ebb300bfb2f339cf2b43a66e35a2/deploy.yaml
+kubectl apply -f deploy.yaml
 kubectl rollout status deploy/debug
 
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
