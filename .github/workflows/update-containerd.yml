@@ -1,0 +1,111 @@
+name: Update containerd
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch: {}
+
+jobs: 
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16'
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Cache cargo registry
+        uses: actions/cache@v2
+        id: cache-cargo
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo
+            ~/.cargo/bin/rg 
+          key: ${{ runner.os }}-rg 
+      - name: Cache sponge
+        uses: actions/cache@v2
+        id: cache-sponge
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/sponge   
+          key: ${{ runner.os }}-sponge 
+      - run: cargo install ripgrep
+        if: steps.cache-cargo.outputs.cache-hit != 'true'
+      - run: sudo apt update && sudo apt install -y moreutils && sudo cp /usr/bin/sponge ~/.cargo/bin/sponge  
+        if: steps.cache-sponge.outputs.cache-hit != 'true'
+      - name: update containerd
+        id: versions
+        run: |
+          set -euox pipefail
+
+          which rg
+
+          work=$(mktemp -d)
+          pushd $work
+          trap 'popd; rm -rf $work' EXIT TERM
+
+          git clone https://github.com/containerd/containerd
+          cd containerd/
+          
+          latest_two_major_minor="$(git tag -l | sort -V | rg 'v[0-9]+.[0-9]+.[0-9]+$' | cut -d'.' -f1,2 | uniq | rg -v "1.6" | tail -n 2)"
+          stable_version="$(echo "$latest_two_major_minor" | head -n 1)"
+          latest_version="$(echo "$latest_two_major_minor" | tail -n 1)"
+          echo "latest major minor:"
+          echo "$latest_two_major_minor"
+          echo "latest: $latest_version"
+          echo "stable: $stable_version"
+
+          stable_patch_version="$(git tag -l | sort -V | rg "$stable_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1 | cut -d'v' -f2)"
+          latest_patch_version="$(git tag -l | sort -V | rg "$latest_version" | rg "v[0-9]+.[0-9]+.[0-9]+$" | tail -n 1 | cut -d'v' -f2)"
+
+          should_update_latest="false"
+          should_update_stable="false"
+
+          exists=false
+          i=1
+          retval=0
+          curl -fsSL -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb" || retval=$?
+          while [ "$retval" == "0" ]; do
+            exists="true"
+            i=$((i+1))
+            curl -fsSL -I "https://moby.blob.core.windows.net/moby/moby-containerd/${stable_patch_version}+azure/bionic/linux_amd64/moby-containerd_${stable_patch_version}+azure-${i}_amd64.deb" || retval=$?
+          done
+
+          if [ "$exists" == "true" ]; then
+            i=$((i-1))
+            stable_patch_with_revision="${stable_patch_version}-${i}"
+            echo "::set-output name=stable_patch_with_revision::${stable_patch_with_revision}" 
+            jq ".containerd.stable=\"${stable_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
+          fi
+
+          exists=false
+          i=1
+          retval=0
+          curl -fsSL -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb" || retval=$?
+          while [ "$retval" == "0" ]; do
+            exists="true"
+            i=$((i+1))
+            curl -fsSL -I "https://moby.blob.core.windows.net/moby/moby-containerd/${latest_patch_version}+azure/bionic/linux_amd64/moby-containerd_${latest_patch_version}+azure-${i}_amd64.deb" || retval=$?
+          done
+
+          if [ "$exists" == "true" ]; then
+            i=$((i-1))
+            latest_patch_with_revision="${latest_patch_version}-${i}"
+            echo "::set-output name=latest_patch_with_revision::${latest_patch_with_revision}"
+            jq ".containerd.latest=\"${latest_patch_with_revision}\"" ${GITHUB_WORKSPACE}/schemas/manifest.json | sponge ${GITHUB_WORKSPACE}/schemas/manifest.json
+          fi
+
+          cd ${GITHUB_WORKSPACE}
+          make
+          git diff
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v3
+        with:
+          base: master
+          title: "auto-update containerd to stable: ${{ steps.versions.outputs.stable_patch_with_revision }}, latest: ${{ steps.versions.outputs.latest_patch_with_revision }}"
