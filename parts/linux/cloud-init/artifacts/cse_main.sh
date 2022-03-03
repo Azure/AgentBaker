@@ -17,7 +17,7 @@ EOF
 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
-    echo "Skipping provisioning."
+    echo "Skipping bootstrapping. Applying configurable values."
     apply_unattended_upgrade_config
     exit 0
 fi
