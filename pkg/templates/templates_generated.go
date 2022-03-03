@@ -529,6 +529,7 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
+IS_UU_ENABLED={{IsUnattendedUpgradeEnabled}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -1847,10 +1848,26 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
 ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+
+apply_unattended_upgrade_config (){
+    local uu_file_path="/etc/apt/apt.conf.d/99periodic"
+    [[ -e $uu_file_path ]] && rm -f $uu_file_path
+    if [[ ${IS_UU_ENABLED} == "false" ]]; then
+        cat << 'EOF' >> ${uu_file_path}
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+        echo "Unattended upgrade disabled"
+    fi
+}
+
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
-      echo "Already ran to success exiting..."
-      exit 0
+    echo "Skipping provisioning."
+    apply_unattended_upgrade_config
+    exit 0
 fi
 
 UBUNTU_RELEASE=$(lsb_release -r -s)
@@ -2059,9 +2076,6 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
-{{- /* re-enable unattended upgrades */}}
-rm -f /etc/apt/apt.conf.d/99periodic
-
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     apt_get_purge 20 30 120 apache2-utils &
 fi
@@ -2110,6 +2124,8 @@ else
         aptmarkWALinuxAgent unhold &
     fi
 fi
+
+apply_unattended_upgrade_config
 
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
@@ -4796,17 +4812,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
-{{end}}
-
-{{if not IsMariner}}
-- path: /etc/apt/apt.conf.d/99periodic
-  permissions: "0644"
-  owner: root
-  content: |
-    APT::Periodic::Update-Package-Lists "0";
-    APT::Periodic::Download-Upgradeable-Packages "0";
-    APT::Periodic::AutocleanInterval "0";
-    APT::Periodic::Unattended-Upgrade "0";
 {{end}}
 
 {{- if ShouldConfigureHTTPProxy}}
