@@ -2903,11 +2903,10 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.9-3",
-            "1.4.12-2"
+            "1.4.12-3"
         ],
-        "latest": "1.5.9-2",
-        "stable": "1.4.12-2"
+        "latest": "1.5.9-3",
+        "stable": "1.4.12-3"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
@@ -4248,7 +4247,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.2"
+    BLOBFUSE_VERSION="1.4.3"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then

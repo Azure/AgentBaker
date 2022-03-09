@@ -158,6 +158,8 @@ function Update-DefenderPreferences {
 
     if ($global:ContainerRuntime -eq 'containerd') {
         Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
+    } else {
+        Add-MpPreference -ExclusionProcess "C:\Program Files\Docker\dockerd.exe"
     }
 }
 
