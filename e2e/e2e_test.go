@@ -41,10 +41,13 @@ func TestE2EBasic(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
-	createFile("../e2e/cloud-init.txt")
-	createFile("../e2e/cseCmd")
+	var scenario string = os.Getenv("SCENARIO_NAME")
+	fmt.Printf("Running for %s", scenario)
 
-	nbc, _ := ioutil.ReadFile("nodebootstrapping_config.json")
+	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
+	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cseCmd")
+
+	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + "nbc-" + scenario + ".json")
 	config := &datamodel.NodeBootstrappingConfiguration{}
 	json.Unmarshal([]byte(nbc), config)
 
@@ -57,14 +60,14 @@ func TestE2EBasic(t *testing.T) {
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
 	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
 	customData := string(customDataBytes)
-	err := ioutil.WriteFile("cloud-init.txt", []byte(customData), 0644)
+	err := ioutil.WriteFile("scenarios/" + scenario + "/" + scenario + "-cloud-init.txt", []byte(customData), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
 
 	// cseCmd
 	cseCommand := baker.GetNodeBootstrappingCmd(config)
-	err = ioutil.WriteFile("csecmd", []byte(cseCommand), 0644)
+	err = ioutil.WriteFile("scenarios/" + scenario + "/" + scenario + "-cseCmd", []byte(cseCommand), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}

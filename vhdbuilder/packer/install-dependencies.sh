@@ -255,7 +255,10 @@ MULTI_ARCH_VNET_CNI_VERSIONS="
 "
 
 if [[ $(isARM64) == 1 ]]; then
-  VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
+  ARM64_VNET_CNI_VERSIONS_IN_USE="
+  1.4.14
+  "
+  VNET_CNI_VERSIONS="${ARM64_VNET_CNI_VERSIONS_IN_USE} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
 else
   VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
 fi
@@ -281,7 +284,10 @@ MULTI_ARCH_SWIFT_CNI_VERSIONS="
 "
 
 if [[ $(isARM64) == 1 ]]; then
-  SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
+  ARM64_SWIFT_CNI_VERSIONS_IN_USE="
+  1.4.14
+  "
+  SWIFT_CNI_VERSIONS="${ARM64_SWIFT_CNI_VERSIONS_IN_USE} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 else
   SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 fi
@@ -304,9 +310,19 @@ if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
 fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
-CNI_PLUGIN_VERSIONS="
+MULTI_ARCH_CNI_PLUGIN_VERSIONS="
 0.9.1
 "
+
+if [[ $(isARM64) == 1 ]]; then
+  ARM64_CNI_PLUGIN_VERSIONS_IN_USE="
+  0.8.7
+  "
+  CNI_PLUGIN_VERSIONS="${ARM64_CNI_PLUGIN_VERSIONS_IN_USE} ${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
+else
+  CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
+fi
+
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
@@ -438,19 +454,8 @@ done
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# below are the required to support versions
-# v1.19.11
-# v1.19.13
-# v1.20.7
-# v1.20.9
-# v1.21.1
-# v1.21.2 (preview)
-# v1.22.2 (preview)
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-
-AMD64_ONLY_KUBE_BINARY_VERSIONS="
-"
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.20.13-hotfix.20220210
@@ -460,13 +465,10 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.22.4-hotfix.20220201
 1.22.6-hotfix.20220130
 1.23.3-hotfix.20220130
+1.23.4
 "
 
-if [[ $(isARM64) == 1 ]]; then
-  KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
-else
-  KUBE_BINARY_VERSIONS="${AMD64_ONLY_KUBE_BINARY_VERSIONS} ${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
-fi
+KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then

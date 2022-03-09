@@ -1,6 +1,12 @@
 # AKS Windows CSE Scripts Package
 All files except *_test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.7
+- Exclude dockerd in Microsoft Defender #1600
+
+## v0.0.6
+- Refine Get-WindowsVersion to support Windows 2022 #1565
+
 ## v0.0.5
 
 - fix: correct the file name for csi proxy #1540
