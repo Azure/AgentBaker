@@ -92,7 +92,7 @@ function CreateHypervisorRuntimes {
   Write-Log "Adding hyperv runtimes $builds"
   $hypervRuntimes = ""
   ForEach ($buildNumber in $builds) {
-    $windowsVersion = Get-WindowsVersion
+    $windowsVersion = Select-Windows-Version -buildNumber $buildNumber
     $runtime = createHypervisorRuntime -image $pauseImage -version $windowsVersion -buildNumber $buildNumber
     if ($hypervRuntimes -eq "") {
       $hypervRuntimes = $runtime
@@ -103,6 +103,22 @@ function CreateHypervisorRuntimes {
   }
 
   return $hypervRuntimes
+}
+
+function Select-Windows-Version {
+  param (
+    [Parameter()]
+    [string]
+    $buildNumber
+  )
+
+  switch ($buildNumber) {
+    "17763" { return "1809" }
+    "18362" { return "1903" }
+    "18363" { return "1909" }
+    "19041" { return "2004" }
+    Default { return "" } 
+  }
 }
 
 function Enable-Logging {
@@ -166,7 +182,7 @@ function Install-Containerd {
   $formatedbin = $(($CNIBinDir).Replace("\", "/"))
   $formatedconf = $(($CNIConfDir).Replace("\", "/"))
   $sandboxIsolation = 0
-  $windowsVersion = Get-WindowsVersion
+  $windowsVersion = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId
   $hypervRuntimes = ""
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
 

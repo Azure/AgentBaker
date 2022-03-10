@@ -31,7 +31,6 @@ $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES=26
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
-$global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -216,16 +215,5 @@ function Assert-FileExists {
 
     if (-Not (Test-Path $Filename)) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
-    }
-}
-
-function Get-WindowsVersion {
-    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
-    switch ($buildNumber) {
-        "17763" { return "1809" }
-        "20348" { return "ltsc2022" }
-        Default {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
-        }
     }
 }
