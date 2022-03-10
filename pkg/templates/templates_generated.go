@@ -1446,23 +1446,31 @@ installContainerRuntime() {
     if [ -f "$MANIFEST_FILEPATH" ]; then
         stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
         latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
+        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
     # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+    if semverCompare ${KUBERNETES_VERSION} "1.23.0"; then
+        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalid container version: $edge_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi        
+    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
         containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $latest_containerd"
+            echo "invalid container version: $latest_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     else
         containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $stable_containerd"
+            echo "invalid container version: $stable_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
