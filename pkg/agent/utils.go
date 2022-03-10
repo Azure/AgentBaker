@@ -358,16 +358,42 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
 	keys := []string{}
 	for key := range k {
-		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
-			keys = append(keys, key)
+		// TODO(qinhao): need to consider the case when enable-kubelet-config-file is enabled
+		if kubeletConfigFileEnabled && TranslatedKubeletConfigFlags[key] {
+			continue
 		}
+		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
+	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
+		value := k[key]
+		// override configurations from default values to customized ones
+		if kubeletCustomConfigurations != nil {
+			if v, ok := kubeletCustomConfigurations[key]; ok {
+				value = v
+			}
+		}
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, value))
 	}
 	return buf.String()
+}
+
+func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
+
+	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
+		return nil
+	}
+	kubeletConfigurations, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]
+	if !ok {
+		return nil
+	}
+	if kubeletConfigurations.Config == nil {
+		return nil
+	}
+
+	return kubeletConfigurations.Config
 }
 
 // IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on

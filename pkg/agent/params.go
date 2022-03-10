@@ -62,6 +62,15 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		}
 	}
 
+	for componentName, configuration := range properties.CustomConfiguration.KubernetesConfigurations {
+		switch componentName {
+		case "kubelet":
+			// configuration.DownloadURL
+			// configuration.Config
+			addValue(parametersMap, "customKubeBinaryURL", configuration.DownloadURL)
+		}
+	}
+
 	// Windows parameters
 	if properties.HasWindows() {
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
