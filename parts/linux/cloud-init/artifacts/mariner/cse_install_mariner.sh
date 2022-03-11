@@ -14,6 +14,10 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
+    # Pin cloud-init to a known good configuration. Add azure-kvp handler for additional telemetry.
+    dnf install -y cloud-init-21.3-3.cm1.noarch cloud-init-azure-kvp-21.3-3.cm1.noarch
+
 }
 
 downloadGPUDrivers() {
