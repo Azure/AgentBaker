@@ -458,7 +458,6 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-{{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
@@ -1861,6 +1860,8 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
 fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
+
+{{GetOutboundCommand}}
 
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
