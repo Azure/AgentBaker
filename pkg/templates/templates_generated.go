@@ -4871,6 +4871,24 @@ write_files:
     {{GetMessageOfTheDay}}
 {{- end}}
 
+- path: /etc/logrotate.d/rsyslog-warn
+  permissions: "0644"
+  owner: root
+  content: |
+    /var/log/warn
+    {
+            rotate 4
+            weekly
+            missingok
+            notifempty
+            compress
+            delaycompress
+            sharedscripts
+            postrotate
+                    /usr/lib/rsyslog/rsyslog-rotate
+            endscript
+    }
+
 {{- if HasServicePrincipalSecret}}
 - path: /etc/kubernetes/sp.txt
   permissions: "0600"
