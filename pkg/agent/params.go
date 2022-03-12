@@ -175,10 +175,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		if servicePrincipalProfile != nil {
 			addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
-			var encodedServicePrincipalClientSecret string
-			if servicePrincipalProfile.Secret != "" {
-				encodedServicePrincipalClientSecret = base64.StdEncoding.EncodeToString([]byte(servicePrincipalProfile.Secret))
-			}
+			encodedServicePrincipalClientSecret := base64.StdEncoding.EncodeToString([]byte(servicePrincipalProfile.Secret))
 			addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
 			// base64 encoding is to escape special characters like quotes in service principal
 			// reference: https://github.com/Azure/aks-engine/pull/1174
