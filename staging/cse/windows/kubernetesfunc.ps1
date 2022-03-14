@@ -1,8 +1,18 @@
 function Get-ProvisioningScripts {
-    Write-Log "Getting provisioning scripts"
-    DownloadFileOverHttp -Url $global:ProvisioningScriptsPackageUrl -DestinationPath 'c:\k\provisioningscripts.zip'
-    Expand-Archive -Path 'c:\k\provisioningscripts.zip' -DestinationPath 'c:\k' -Force
-    Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force
+    # Plan to move provisioning scripts from ProvisioningScriptsPackage to CSEScriptsPackage.
+    if ($global:ProvisioningScriptsPackageUrl) {
+        Write-Log "Getting provisioning scripts"
+        DownloadFileOverHttp -Url $global:ProvisioningScriptsPackageUrl -DestinationPath 'c:\k\provisioningscripts.zip'
+        Expand-Archive -Path 'c:\k\provisioningscripts.zip' -DestinationPath 'c:\k' -Force
+        Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force
+    } else {
+        if (!(Test-Path 'c:\AzureData\windows\provisioningscripts')) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS -ErrorMessage "Failed to found provisioning scripts"
+        }
+        Write-Log "Copying provisioning scripts"
+        Move-Item 'c:\AzureData\windows\provisioningscripts\*' 'c:\k'
+        Remove-Item -Path 'c:\AzureData\windows\provisioningscripts' -Force
+    }
 }
 
 function Get-InstanceMetadataServiceTelemetry {
