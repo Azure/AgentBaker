@@ -7,10 +7,10 @@ parameters:
   type: boolean
 - name: ReleaseNotes
   displayName: Release Notes
-  type: Boolean
+  type: boolean
 - name: ArtifactTrigger
   displayName: SIG Artifact Trigger
-  type: Boolean
+  type: boolean
 
 steps:
 - bash: |
@@ -25,13 +25,16 @@ steps:
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Image Version Bumping'
+  condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
         echo "PR for Release Notes"
         /bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Release Notes'
+  condition: eq('${{ parameters.ReleaseNotes }}', true)
 - bash: |
         echo "Triggering ev2 artifacts pipeline"
         /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
   displayName: 'ev2 Artifact Pipeline Trigger'
+  condition: eq('${{ parameters.ArtifactTrigger }}', true)
