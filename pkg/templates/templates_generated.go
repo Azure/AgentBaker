@@ -4871,6 +4871,24 @@ write_files:
     {{GetMessageOfTheDay}}
 {{- end}}
 
+- path: /etc/logrotate.d/rsyslog-warn
+  permissions: "0644"
+  owner: root
+  content: |
+    /var/log/warn
+    {
+            rotate 4
+            weekly
+            missingok
+            notifempty
+            compress
+            delaycompress
+            sharedscripts
+            postrotate
+                    /usr/lib/rsyslog/rsyslog-rotate
+            endscript
+    }
+
 {{- if HasServicePrincipalSecret}}
 - path: /etc/kubernetes/sp.txt
   permissions: "0600"
@@ -6042,6 +6060,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS=27
 $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
+$global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }

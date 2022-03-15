@@ -159,6 +159,24 @@ write_files:
     F10YlqcOmeX1uFmKbdi/XorGlkCoMF3TDx8rmp9DBiB/
     -----END CERTIFICATE-----
 
+
+- path: /etc/logrotate.d/rsyslog-warn
+  permissions: "0644"
+  owner: root
+  content: |
+    /var/log/warn
+    {
+            rotate 4
+            weekly
+            missingok
+            notifempty
+            compress
+            delaycompress
+            sharedscripts
+            postrotate
+                    /usr/lib/rsyslog/rsyslog-rotate
+            endscript
+    }
 - path: /etc/kubernetes/sp.txt
   permissions: "0600"
   encoding: base64
