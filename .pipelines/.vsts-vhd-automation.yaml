@@ -5,7 +5,7 @@ parameters:
 - name: ImageBump
   displayName: Image Bump + Branch Cutting
   type: boolean
-  defualt: true
+  default: true
 - name: ReleaseNotes
   displayName: Release Notes
   type: boolean
