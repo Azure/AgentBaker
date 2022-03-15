@@ -15,6 +15,7 @@
 }
 
 #containerd_version_tuple: {
+    edge: string
     stable: string
     latest: string
 }
@@ -25,6 +26,7 @@
 // containerd includes constraints from #dep and tighter bounds on version
 #containerd: #dep & {
 	versions: [...#containerd_ver]
+    edge: #containerd_ver
     latest: #containerd_ver
     stable: #containerd_ver
 }
@@ -51,6 +53,7 @@
         "versions": [
             "1.4.12-3"
         ],
+        "edge": "1.6.1-1",
         "latest": "1.5.9-3", // latest is default in vhd.
         "stable": "1.4.12-3", // we use latest vs stable at runtime depending on k8s version.
     },
