@@ -1,6 +1,9 @@
 # AKS Windows CSE Scripts Package
 All files except *_test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.8
+- Use provisioning scripts in CSEScriptsPackage. #1623
+
 ## v0.0.7
 - Exclude dockerd in Microsoft Defender #1600
 
