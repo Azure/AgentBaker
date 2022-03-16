@@ -131,8 +131,8 @@ $global:map = @{
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.16.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.4/binaries/windows-gmsa-ccgakvplugin-v1.1.4.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.6.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.7.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.7.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.8.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -183,7 +183,6 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.16/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.16.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.19/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.19.zip"
     );
     "c:\akse-cache\calico\" = @(
