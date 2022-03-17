@@ -21,5 +21,5 @@ for build_id in $build_ids; do
     done
 done
 
-export global_image_version
+echo $global_image_version
 rm -rf vhd-publishing-info.json
