@@ -24,7 +24,8 @@ steps:
   displayName: 'az devops login'
 - bash: |
         echo "Generating image version from build ID"
-        export global_image_version=""
+        #export global_image_version=""
+        source vhdbuilder/scripts/automate_generate_version.sh
         /bin/bash vhdbuilder/scripts/automate_generate_version.sh "${BUILD_ID[@]}"
         echo "from script global image version is ${global_image_version}"
         echo "##vso[task.setVariable variable=IMAGE_VERSION1;]"$global_image_version
