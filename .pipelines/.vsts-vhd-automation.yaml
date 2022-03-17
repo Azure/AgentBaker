@@ -24,13 +24,14 @@ steps:
   displayName: 'az devops login'
 - bash: |
         echo "Generating image version from build ID"
+        export global_image_version=""
         /bin/bash vhdbuilder/scripts/automate_generate_version.sh "${BUILD_ID[@]}"
-        echo "from script global image version is $global_image_version"
+        echo "from script global image version is ${global_image_version}"
         echo "##vso[task.setVariable variable=IMAGE_VERSION1;]"$global_image_version
   displayName: 'Generate Image Version'
 - bash: |
         echo "PR for Image Bumping, Official Branch Cutting"
-        echo "var is not passing $(IMAGE_VERSION1)""
+        echo "var is not passing $(IMAGE_VERSION1)"
         #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)

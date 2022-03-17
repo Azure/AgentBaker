@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 build_ids=$1
-global_image_version=""
+#global_image_version=""
 for build_id in $build_ids; do
     for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
         if [[ $artifact == *"publishing-info"* ]]; then
@@ -21,5 +21,5 @@ for build_id in $build_ids; do
     done
 done
 
-export global_image_version
+#export global_image_version
 rm -rf vhd-publishing-info.json
