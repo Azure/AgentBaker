@@ -55,7 +55,8 @@
             "azure_tags": {
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
-                "createdBy": "aks-vhd-pipeline"
+                "createdBy": "aks-vhd-pipeline",
+                "SkipNRMSNSG": "295551581"
             }
         }
     ],
