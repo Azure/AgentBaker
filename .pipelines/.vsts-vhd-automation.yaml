@@ -25,7 +25,7 @@ steps:
 - bash: |
         echo "Generating image version from build ID"
         /bin/bash vhdbuilder/scripts/automate_generate_version.sh "${BUILD_ID[@]}"
-        echo "##vso[task.setVariable variable=IMAGE_VERSION1"$global_image_version
+        echo "##vso[task.setVariable variable=IMAGE_VERSION1;"$global_image_version
   displayName: 'Generate Image Version'
 - bash: |
         echo "PR for Image Bumping, Official Branch Cutting"
