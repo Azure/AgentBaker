@@ -33,7 +33,7 @@ switch -Regex ($windowsSKU) {
 }
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.43/binaries/containerd-v0.0.43-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.45/binaries/containerd-v0.0.45-windows-amd64.tar.gz"
 
 $global:defaultDockerVersion = "20.10.9"
 
@@ -140,8 +140,7 @@ $global:map = @{
     # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
-        $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v0.0.45/binaries/containerd-v0.0.45-windows-amd64.tar.gz"
+        $defaultContainerdPackageUrl
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
@@ -183,8 +182,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.19/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.19.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.21/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.21.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.19/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.19.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.4/binaries/calico-windows-v3.21.4.zip"
