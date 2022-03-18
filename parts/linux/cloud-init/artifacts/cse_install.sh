@@ -255,9 +255,7 @@ installKubeletKubectlAndKubeProxy() {
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
 
-    KUBEPROXY_IMAGE_IMAGE="${CUSTOM_KUBEPROXY_IMAGE:=}"
-    [[ -z ${KUBEPROXY_IMAGE_IMAGE} ]] && KUBEPROXY_IMAGE_IMAGE=${KUBEPROXY_URL}
-    if [ -n "${KUBEPROXY_IMAGE_IMAGE}" ]; then
+    if [ -n "${KUBEPROXY_URL}" ]; then
         #kubeproxy is a system addon that is dictated by control plane so it shouldn't block node provisioning
         pullContainerImage ${CLI_TOOL} ${KUBEPROXY_URL} &
     fi

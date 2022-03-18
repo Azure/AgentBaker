@@ -184,21 +184,31 @@ extractHyperkube() {
 }
 
 installKubeletKubectlAndKubeProxy() {
-    if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
-        if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-            extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-        else
-            if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                extractHyperkube "ctr"
+
+    CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
+    if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        mkdir -p ${K8S_DOWNLOADS_DIR}
+        K8S_TGZ_TMP=${CUSTOM_KUBE_BINARY_DOWNLOAD_URL##*/}
+        retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        tar  -xzvf  "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+        rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+    else
+        if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
+            #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+            if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+                extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
             else
-                extractHyperkube "docker"
+                if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
+                    extractHyperkube "ctr"
+                else
+                    extractHyperkube "docker"
+                fi
             fi
         fi
+        mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
+        mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
     fi
 
-    mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
-    mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
 
