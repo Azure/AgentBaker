@@ -614,9 +614,9 @@ type CustomConfiguration struct {
 }
 
 type ComponentConfiguration struct {
-	Image       string
+	Image       *string
 	Config      map[string]string
-	DownloadURL string
+	DownloadURL *string
 }
 
 // AgentPoolProfile represents an agent pool definition
