@@ -53,7 +53,6 @@
             "winrm_timeout": "10m",
             "winrm_username": "packer",
             "azure_tags": {
-                "SkipLinuxAzSecPack": "true",
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
                 "createdBy": "aks-vhd-pipeline",
