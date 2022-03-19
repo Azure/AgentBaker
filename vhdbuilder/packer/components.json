@@ -155,7 +155,9 @@
         "ciprod01312022",
         "ciprod03112022"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "ciprod03172022"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
