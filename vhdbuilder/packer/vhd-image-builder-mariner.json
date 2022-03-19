@@ -31,6 +31,7 @@
       "os_disk_size_gb": 30,
       "image_url": "https://{{user `storage_account_name`}}.blob.core.windows.net/system/{{user `imported_image_name`}}.vhd",
       "azure_tags": {
+        "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline"
