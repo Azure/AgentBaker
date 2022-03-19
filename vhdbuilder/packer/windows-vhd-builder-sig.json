@@ -29,7 +29,7 @@
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
-            "os_disk_size_gb" : "{{user `os_disk_size_gb`}}",
+            "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
             "image_publisher": "MicrosoftWindowsServer",
             "image_offer": "WindowsServer",
@@ -53,6 +53,7 @@
             "winrm_timeout": "10m",
             "winrm_username": "packer",
             "azure_tags": {
+                "SkipLinuxAzSecPack": "true",
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
                 "createdBy": "aks-vhd-pipeline",

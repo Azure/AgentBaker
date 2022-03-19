@@ -32,6 +32,7 @@
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "azure_tags": {
+        "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline"
