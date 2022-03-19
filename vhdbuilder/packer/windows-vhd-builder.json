@@ -26,7 +26,7 @@
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
-            "os_disk_size_gb" : "{{user `os_disk_size_gb`}}",
+            "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
             "image_publisher": "MicrosoftWindowsServer",
             "image_offer": "WindowsServer",
