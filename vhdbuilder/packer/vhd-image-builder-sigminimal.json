@@ -33,6 +33,7 @@
       "image_sku": "minimal-18_04-daily-lts",
       "image_version": "latest",
       "azure_tags": {
+        "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline"
