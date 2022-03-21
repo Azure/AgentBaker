@@ -26,7 +26,7 @@
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
-            "os_disk_size_gb" : "{{user `os_disk_size_gb`}}",
+            "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
             "image_publisher": "MicrosoftWindowsServer",
             "image_offer": "WindowsServer",
@@ -44,7 +44,8 @@
             "azure_tags": {
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
-                "createdBy": "aks-vhd-pipeline"
+                "createdBy": "aks-vhd-pipeline",
+                "SkipNRMSNSG": "295551581"
             }
         }
     ],
@@ -63,10 +64,6 @@
                 "vhdbuilder/packer/generate-windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/configure-windows-vhd.ps1"
             ]
-        },
-        {
-            "restart_timeout": "10m",
-            "type": "windows-restart"
         },
         {
             "restart_timeout": "10m",

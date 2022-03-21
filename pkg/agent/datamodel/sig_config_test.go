@@ -45,7 +45,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuGPU1804Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuGPU1804Gen2.Definition).To(Equal("1804gen2gpu"))
-		Expect(aksUbuntuGPU1804Gen2.Version).To(Equal("2022.03.01"))
+		Expect(aksUbuntuGPU1804Gen2.Version).To(Equal("2022.03.15"))
 
 		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(1))
 
@@ -61,7 +61,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2019Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(windows2019Containerd.Gallery).To(Equal("akswindows"))
 		Expect(windows2019Containerd.Definition).To(Equal("windows-2019-containerd"))
-		Expect(windows2019Containerd.Version).To(Equal("17763.2686.220309"))
+		Expect(windows2019Containerd.Version).To(Equal("17763.2686.220317"))
 
 		aksUbuntuArm64804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd1804Gen2]
 		Expect(aksUbuntuArm64804Gen2.ResourceGroup).To(Equal("resourcegroup"))

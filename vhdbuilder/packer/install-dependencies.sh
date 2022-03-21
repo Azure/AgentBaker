@@ -111,6 +111,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     networkdWorkaround
     enableDNFAutomatic
     fixCBLMarinerPermissions
+    overrideNetworkConfig || exit 1
 fi
 
 downloadKrustlet
@@ -249,9 +250,8 @@ AMD64_ONLY_CNI_VERSIONS="
 "
 #Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
-1.4.13
 1.4.14
-1.4.16
+1.4.21
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -278,9 +278,7 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 "
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
-1.4.13
-1.4.14
-1.4.16
+1.4.21
 "
 
 if [[ $(isARM64) == 1 ]]; then

@@ -33,7 +33,7 @@ switch -Regex ($windowsSKU) {
 }
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.43/binaries/containerd-v0.0.43-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.45/binaries/containerd-v0.0.45-windows-amd64.tar.gz"
 
 $global:defaultDockerVersion = "20.10.9"
 
@@ -64,7 +64,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.2", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.5", # for k8s 1.23.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03112022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03112022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -91,7 +92,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.2", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.5", # for k8s 1.23.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03112022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03112022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     "2022-containerd" {
         $global:imagesToPull = @(
@@ -106,7 +108,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.1", # for k8s 1.23.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03112022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03112022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     default {
         throw "No valid windows SKU is specified $windowsSKU"
@@ -131,8 +134,8 @@ $global:map = @{
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.16.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.4/binaries/windows-gmsa-ccgakvplugin-v1.1.4.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.6.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.7.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.7.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.8.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -140,8 +143,7 @@ $global:map = @{
     # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
-        $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v0.0.45/binaries/containerd-v0.0.45-windows-amd64.tar.gz"
+        $defaultContainerdPackageUrl
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
@@ -183,7 +185,6 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.16/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.16.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.19/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.19.zip"
     );
     "c:\akse-cache\calico\" = @(

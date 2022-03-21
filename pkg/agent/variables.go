@@ -112,7 +112,6 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	return map[string]interface{}{
-		"outBoundCmd":                     getOutBoundCmd(cs, config.CloudSpecConfig),
 		"tenantID":                        config.TenantID,
 		"subscriptionId":                  config.SubscriptionID,
 		"resourceGroup":                   config.ResourceGroupName,

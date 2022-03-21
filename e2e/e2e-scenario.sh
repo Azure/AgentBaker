@@ -18,6 +18,10 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed cat cluster-provision"
     fi
+    exec_on_host "$SSH_CMD cat /var/log/azure/cluster-provision-cse-output.log" $SCENARIO_NAME-logs/provision-cse-output.log || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat provision-cse-output"
+    fi
     exec_on_host "$SSH_CMD systemctl status kubelet" $SCENARIO_NAME-logs/kubelet-status.txt  || retval=$?
     if [ "$retval" != "0" ]; then
         echo "failed systemctl status kubelet"
