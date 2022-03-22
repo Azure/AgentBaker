@@ -111,6 +111,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     networkdWorkaround
     enableDNFAutomatic
     fixCBLMarinerPermissions
+    overrideNetworkConfig || exit 1
 fi
 
 downloadKrustlet

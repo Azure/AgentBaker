@@ -34,6 +34,7 @@
       "image_sku": "{{user `os_version`}}-LTS",
       "image_version": "latest",
       "azure_tags": {
+        "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline"
