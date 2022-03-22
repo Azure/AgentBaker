@@ -24,6 +24,11 @@ do
     fi
 done
 
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+    IMAGE_ARCH="Arm64"
+else
+    IMAGE_ARCH="X64"
+fi
 
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
@@ -45,6 +50,7 @@ cat <<EOF > vhd-publishing-info.json
     "sku_name" : "$sku_name",
     "offer_name" : "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
+    "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}"
 }
 EOF
