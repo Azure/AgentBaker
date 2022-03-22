@@ -15,6 +15,8 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+{{GetOutboundCommand}}
+
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
         grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break

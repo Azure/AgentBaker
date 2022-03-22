@@ -458,7 +458,6 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-{{GetVariable "outBoundCmd"}}
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
@@ -1862,6 +1861,8 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+{{GetOutboundCommand}}
+
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
         grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
@@ -3057,7 +3058,7 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates check-restart cifs-utils conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
