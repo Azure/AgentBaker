@@ -29,7 +29,6 @@ steps:
   displayName: 'Generate Image Version'
 - bash: |
         echo "PR for Image Bumping, Official Branch Cutting"
-        echo "image version is $(IMAGE_VERSION)"
         /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
