@@ -25,21 +25,19 @@ steps:
 - bash: |
         echo "Generating image version from build ID"
         var=$(/bin/bash vhdbuilder/scripts/automate_generate_version.sh "${BUILD_ID[@]}")
-        echo "what is $var"
-        echo "##vso[task.setVariable variable=IMAGE_VERSION1;]"$var
+        echo "##vso[task.setVariable variable=IMAGE_VERSION;]"$var
   displayName: 'Generate Image Version'
 - bash: |
         echo "PR for Image Bumping, Official Branch Cutting"
-        echo "var is not passing $(IMAGE_VERSION1)"
-        #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $IMAGE_VERSION $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
+        echo "image version is $(IMAGE_VERSION)"
+        #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
         echo "PR for Release Notes"
-        echo $(IMAGE_VERSION1)
-        #/bin/bash vhdbuilder/scripts/automate_release_notes.sh $IMAGE_VERSION "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
+        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Release Notes'
