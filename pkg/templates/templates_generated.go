@@ -2140,7 +2140,7 @@ var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
-OUTPUT=$(perl -ne '/\n/ && print' "/var/log/azure/cluster-provision.log" "/var/log/azure/cluster-provision-cse-output.log")
+OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
