@@ -24,13 +24,13 @@ steps:
   displayName: 'az devops login'
 - bash: |
         echo "Generating image version from build ID"
-        var=$(/bin/bash vhdbuilder/scripts/automate_generate_version.sh "${BUILD_ID[@]}")
-        echo "##vso[task.setVariable variable=IMAGE_VERSION;]"$var
+        temp_image_version=$(/bin/bash vhdbuilder/scripts/automate_generate_version.sh "${BUILD_ID[@]}")
+        echo "##vso[task.setVariable variable=IMAGE_VERSION;]"$temp_image_version
   displayName: 'Generate Image Version'
 - bash: |
         echo "PR for Image Bumping, Official Branch Cutting"
         echo "image version is $(IMAGE_VERSION)"
-        #/bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
+        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Image Version Bumping'
@@ -44,6 +44,6 @@ steps:
   condition: eq('${{ parameters.ReleaseNotes }}', true)
 - bash: |
         echo "Triggering ev2 artifacts pipeline"
-        #/bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
+        /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
   displayName: 'ev2 Artifact Pipeline Trigger'
   condition: eq('${{ parameters.ArtifactTrigger }}', true)
