@@ -212,7 +212,6 @@ const (
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
 	Arm64LinuxSIGImageVersion string = "2022.03.19"
-	MarinerSIGImageVersion    string = "2022.02.19"
 )
 
 // SIG config Template
@@ -318,7 +317,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
-		Version:       MarinerSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
