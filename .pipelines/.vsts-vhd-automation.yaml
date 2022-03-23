@@ -1,5 +1,5 @@
 pool:
-  vmImage: ubuntu-latest
+  name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
 
 parameters:
 - name: ImageBump
