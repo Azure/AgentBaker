@@ -37,8 +37,10 @@ $lockedFiles | Foreach-Object {
 Write-Host "Collecting kubeclusterconfig"
 $paths += "c:\k\kubeclusterconfig.json"
 
-Write-Host "Collecting bootstrap-config"
-$paths += "c:\k\bootstrap-config"
+if (Test-Path "c:\k\bootstrap-config") {
+  Write-Host "Collecting bootstrap-config"
+  $paths += "c:\k\bootstrap-config"
+}
 
 Write-Host "Collecting Azure CNI configurations"
 $paths += "C:\k\azurecni\netconf\10-azure.conflist"
