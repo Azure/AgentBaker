@@ -156,8 +156,15 @@ function Test-RegistryAdded {
     }
 }
 
+function Test-AzureExtention {
+    Get-ChildItem C:\Packages\Plugins
+    Get-ChildItem C:\Packages\Plugins | Write-Output
+    Get-ChildItem C:\Packages\Plugins | Write-Host
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
+Test-AzureExtention
 Remove-Item -Path c:\windows-vhd-configuration.ps1
