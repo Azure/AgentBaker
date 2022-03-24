@@ -190,3 +190,6 @@ $global:map = @{
 '@
 # Both configure-windows-vhd.ps1 and windows-vhd-content-test.ps1 will import c:\windows-vhd-configuration.ps1
 $windowsConfig | Out-File -FilePath c:\windows-vhd-configuration.ps1
+            
+Write-Host "Getting MTU size"
+netsh interface ipv4 show subinterfaces

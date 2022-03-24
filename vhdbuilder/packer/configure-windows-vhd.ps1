@@ -316,6 +316,10 @@ try{
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
+            
+            Write-Host "Getting MTU size"
+            netsh interface ipv4 show subinterfaces
+
             Expand-OS-Partition
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
@@ -326,6 +330,10 @@ try{
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
+            
+            Write-Host "Getting MTU size"
+            netsh interface ipv4 show subinterfaces
+
             Set-WinRmServiceAutoStart
             if ($containerRuntime -eq 'containerd') {
                 Install-ContainerD
@@ -337,6 +345,9 @@ try{
             Get-FilesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            
+            Write-Host "Getting MTU size"
+            netsh interface ipv4 show subinterfaces
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

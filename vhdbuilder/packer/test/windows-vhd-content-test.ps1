@@ -156,6 +156,9 @@ function Test-RegistryAdded {
     }
 }
 
+Write-Host "Getting MTU size"
+netsh interface ipv4 show subinterfaces
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
