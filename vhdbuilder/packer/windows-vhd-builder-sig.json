@@ -56,7 +56,8 @@
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
                 "createdBy": "aks-vhd-pipeline",
-                "SkipNRMSNSG": "295551581"
+                "SkipNRMSNSG": "295551581",
+                "SkipASMAzSecPack": "True"
             }
         }
     ],
