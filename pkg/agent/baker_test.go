@@ -559,6 +559,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"
 			config.IsARM64 = true
 			config.KubeletConfig = map[string]string{}
+		}),
+		Entry("AKSUbuntu1804 with IPAddress and FQDN", "AKSUbuntu1804+Containerd+IPAddress+FQDN", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.HostedMasterProfile.FQDN = "a.hcp.eastus.azmk8s.io"
+			config.ContainerService.Properties.HostedMasterProfile.IPAddress = "1.2.3.4"
 		}))
 })
 
