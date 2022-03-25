@@ -213,9 +213,24 @@ function Test-DefenderSignature {
     }
 }
 
+function Test-AzurePlugins {
+    $expectedPlugins = @(
+        "Microsoft.CPlat.Core.RunCommandWindows"
+    )
+    $actualPlugins = (Get-ChildItem "C:\Packages\Plugins").Name
+    $compareResult = (Compare-Object $expectedPlugins $actualPlugins)
+    if ($compareResult) {
+        Write-Error "Packages Plugins are not expected. Details: $compareResult"
+        exit 1
+    } else {
+        Write-Output "Packages Plugins are expected"
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
+Test-AzurePlugins
 Remove-Item -Path c:\windows-vhd-configuration.ps1
