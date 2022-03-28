@@ -2911,7 +2911,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.4.12-3"
         ],
-        "latest": "1.5.9-3",
+        "latest": "1.5.11-1",
         "stable": "1.4.12-3"
     },
     "runc": {

@@ -51,7 +51,7 @@
         "versions": [
             "1.4.12-3"
         ],
-        "latest": "1.5.9-3", // latest is default in vhd.
+        "latest": "1.5.11-1", // latest is default in vhd.
         "stable": "1.4.12-3", // we use latest vs stable at runtime depending on k8s version.
     },
     "runc": {
