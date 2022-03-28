@@ -393,6 +393,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if cs.Properties.HostedMasterProfile == nil {
 				return ""
 			}
+			if cs.Properties.HostedMasterProfile.IPAddress != "" {
+				return cs.Properties.HostedMasterProfile.IPAddress
+			}
 			return cs.Properties.HostedMasterProfile.FQDN
 		},
 		"IsAzureCNI": func() bool {

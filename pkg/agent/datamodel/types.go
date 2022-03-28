@@ -285,7 +285,10 @@ type HostedMasterProfile struct {
 	// Master public endpoint/FQDN with port
 	// The format will be FQDN:2376
 	// Not used during PUT, returned as part of GETFQDN
-	FQDN      string `json:"fqdn,omitempty"`
+	FQDN string `json:"fqdn,omitempty"`
+	// IPAddress
+	// if both FQDN and IPAddress are specified, we should use IPAddress
+	IPAddress string `json:"ipAddress,omitempty"`
 	DNSPrefix string `json:"dnsPrefix"`
 	// FQDNSubdomain is used by private cluster without dnsPrefix so they have fixed FQDN
 	FQDNSubdomain string `json:"fqdnSubdomain"`
