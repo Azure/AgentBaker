@@ -315,7 +315,7 @@ $ProgressPreference = 'SilentlyContinue'
 try{
     Write-Output (Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log")
 
-    Write-Output (Get-ChildItem "C:\Packages\Plugins")
+    # Write-Output (Get-ChildItem "C:\Packages\Plugins") # No this folder
 
     switch ($env:ProvisioningPhase) {
         "1" {

@@ -15,6 +15,11 @@ function Log($Message) {
     $Message | Tee-Object -FilePath $releaseNotesFilePath -Append
 }
 
+Write-Output (Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log")
+Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log" | Tee-Object -FilePath $releaseNotesFilePath -Append
+Write-Output (Get-ChildItem "C:\Packages\Plugins")
+Get-ChildItem "C:\Packages\Plugins" | Tee-Object -FilePath $releaseNotesFilePath -Append
+
 Log "Build Number: $env:BUILD_NUMBER"
 Log "Build Id:     $env:BUILD_ID"
 Log "Build Repo:   $env:BUILD_REPO"
