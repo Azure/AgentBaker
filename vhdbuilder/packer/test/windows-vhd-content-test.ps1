@@ -165,7 +165,7 @@ function Test-RegistryAdded {
     }
 }
 
-Write-Error (Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log")
+Write-Error (Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log" | Out-String).
 
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
