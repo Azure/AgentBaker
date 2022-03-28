@@ -315,6 +315,8 @@ $ProgressPreference = 'SilentlyContinue'
 try{
     Write-Output (Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log")
 
+    Write-Output (Get-ChildItem "C:\Packages\Plugins")
+
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
