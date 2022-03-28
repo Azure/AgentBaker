@@ -313,6 +313,8 @@ function Get-SystemDriveDiskInfo {
 $ProgressPreference = 'SilentlyContinue'
 
 try{
+    Write-Output (Get-Content "C:\WindowsAzure\Logs\WaAppAgent.log")
+
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
