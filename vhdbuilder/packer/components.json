@@ -137,8 +137,8 @@
         "v0.0.21.4"
       ],
       "multiArchVersions": [
-        "v1.0.0.1",
-        "v1.0.0.2"
+        "v1.0.0.2",
+        "v1.0.0.3"
       ]
     },
     {
@@ -218,7 +218,7 @@
       ],
       "multiArchVersions": [
         "1.10.5",
-        "1.10.5.3"
+        "1.10.5.4"
       ]
     },
     {
@@ -282,7 +282,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.5.0.8",
+        "v2.5.0.10",
         "v2.5.0.9"
       ]
     },
@@ -420,7 +420,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.7.5.4"
+        "v1.7.5.4",
+        "v1.7.5.5"
       ]
     },
     {
