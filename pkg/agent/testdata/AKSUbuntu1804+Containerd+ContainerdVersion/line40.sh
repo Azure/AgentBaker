@@ -187,10 +187,13 @@ installKubeletKubectlAndKubeProxy() {
 
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
+        # kube binaries used by AKS and Kubernetes upstream.
+        # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
         mkdir -p ${K8S_DOWNLOADS_DIR}
         K8S_TGZ_TMP=${CUSTOM_KUBE_BINARY_DOWNLOAD_URL##*/}
         retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-        tar  -xzvf  "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+        tar -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
         rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
