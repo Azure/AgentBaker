@@ -10,9 +10,6 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
-        "v2.0.0",
-        "v2.0.0",
-        "v2.0.0-rc7",
         "v2.0.1"
       ],
       "multiArchVersions": [
@@ -77,9 +74,7 @@
         "1.6.6"
       ],
       "multiArchVersions": [
-        "1.8.6",
-        "v1.8.6",
-        "v1.8.6"
+        "1.8.6"
       ]
     },
     {
@@ -150,8 +145,6 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.0.0",
-        "v1.0.0",
         "v1.0.0",
         "v1.0.0-rc.0"
       ]
@@ -304,15 +297,12 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [
         "v1.2.0.6",
-        "v1.8.0.1",
         "v1.8.0.2"
       ],
       "multiArchVersions": [
-        "v1.12.0",
         "v1.13.0",
         "v1.13.0.1",
-        "v1.2.2.1",
-        "v1.2.2.3"
+        "v1.14.0"
       ]
     },
     {
@@ -321,9 +311,8 @@
         "v1.2.0"
       ],
       "multiArchVersions": [
-        "v1.11.0",
         "v1.12.0",
-        "v1.2.2"
+        "v1.13.0"
       ]
     },
     {
@@ -468,7 +457,8 @@
       "versions": [
         "1.2.7",
         "1.4.14",
-        "1.4.21"
+        "1.4.21",
+        "1.4.22"
       ]
     },
     {
@@ -478,7 +468,8 @@
       "versions": [
         "1.2.7",
         "1.4.12",
-        "1.4.21"
+        "1.4.21",
+        "1.4.22"
       ]
     },
     {

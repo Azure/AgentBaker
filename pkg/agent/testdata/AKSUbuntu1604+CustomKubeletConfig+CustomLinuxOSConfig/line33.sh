@@ -117,24 +117,28 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 VALIDATION_ERR=0
-API_SERVER_DNS_RETRIES=100
+API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-  API_SERVER_DNS_RETRIES=200
+    API_SERVER_CONN_RETRIES=100
 fi
-RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-STS=$?
-if [[ $STS != 0 ]]; then
-    time nslookup ${API_SERVER_NAME}
-    if [[ $RES == *"168.63.129.16"*  ]]; then
-        VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    API_SERVER_DNS_RETRIES=100
+    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+       API_SERVER_DNS_RETRIES=200
+    fi
+    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+    STS=$?
+    if [[ $STS != 0 ]]; then
+        time nslookup ${API_SERVER_NAME}
+        if [[ $RES == *"168.63.129.16"*  ]]; then
+            VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+        else
+            VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+        fi
     else
-        VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+        retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    API_SERVER_CONN_RETRIES=50
-    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-        API_SERVER_CONN_RETRIES=100
-    fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
