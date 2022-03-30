@@ -187,6 +187,9 @@ installKubeletKubectlAndKubeProxy() {
 
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+
         # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
