@@ -351,6 +351,14 @@ func getCustomDataFromJSON(jsonStr string) string {
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
 func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
+	// NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not compatible
+	// with CustomKubeletConfig. When custom configuration is set we want to override every configuration with the
+	// customized one.
+	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
+	if kubeletCustomConfigurations != nil {
+		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
+	}
+
 	if k == nil {
 		return ""
 	}
@@ -358,24 +366,39 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	kubeletConfigFileEnabled := IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
 	keys := []string{}
 	for key := range k {
-		// TODO(qinhao): need to consider the case when enable-kubelet-config-file is enabled
-		if kubeletConfigFileEnabled && TranslatedKubeletConfigFlags[key] {
-			continue
+		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
+			keys = append(keys, key)
 		}
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
+	}
+	return buf.String()
+}
+
+func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
+	config := customConfig
+
+	if defaultConfig != nil {
+		for k, v := range defaultConfig {
+			// override configurations from default values to customized ones
+			if _, ok := config[k]; ok {
+				continue
+			}
+			config[k] = v
+		}
+	}
+
+	keys := []string{}
+	for key := range config {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
-	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	for _, key := range keys {
-		value := k[key]
-		// override configurations from default values to customized ones
-		if kubeletCustomConfigurations != nil {
-			if v, ok := kubeletCustomConfigurations[key]; ok {
-				value = v
-			}
-		}
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, value))
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, config[key]))
 	}
 	return buf.String()
 }
@@ -392,7 +415,10 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 	if kubeletConfigurations.Config == nil {
 		return nil
 	}
-
+	// empty config is treated as nil
+	if len(kubeletConfigurations.Config) == 0 {
+		return nil
+	}
 	return kubeletConfigurations.Config
 }
 
