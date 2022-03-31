@@ -52,7 +52,7 @@ stages:
         - bash: |
             sudo apt update && sudo apt install -y moreutils pkg-config
             GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
-            export PATH="$PATH:$GOPATH/bin"
+            export PATH="/home/$(whoami)/.cargo/bin:$GOPATH/bin:$PATH"
             pushd /tmp
             GO111MODULE=on go get cuelang.org/go/cmd/cue
             go install github.com/josephburnett/jd@latest
@@ -61,7 +61,6 @@ stages:
             wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
             chmod +x rustup-init
             ./rustup-init -y -t x86_64-unknown-linux-gnu x86_64-unknown-linux-musl
-            export PATH="/home/$(whoami)/.cargo/bin:$PATH"
             source $HOME/.cargo/env
             rustup install stable
             cargo install ripgrep
@@ -128,6 +127,7 @@ stages:
             artifactName: 'vhd-dpkg-bom'
             targetPath: 'dpkg-bom.json'
         - bash: |
+            export PATH="/home/$(whoami)/.cargo/bin:$GOPATH/bin:$PATH"
             cat dpkg-bom.json | rg -v '"linux-[a-z]+-5\.[0-9]+\.[0-9]+-[0-9]+-azure' | sponge dpkg-bom.json
             last_manifest="$(ls -1 vhdbuilder/release-notes/AKSUbuntu/gen2/1804containerd/*.json | sort -V | tail -n 1)"
             if [ -z "$last_manifest" ]; then
