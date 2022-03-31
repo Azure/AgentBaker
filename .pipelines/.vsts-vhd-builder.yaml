@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FE
 trigger: none
 
 pool:
-  vmImage: ubuntu-18.04
+  name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
 
 # Three modes in prioritized order
 # gen2Mode: Hyper-Generation V2 mode
