@@ -136,7 +136,7 @@ stages:
               echo "no manifest exists to diff"
               exit 0
             fi
-            jd -set "$last_manifest" dpkg-bom.json
+            jd -set "$last_manifest" dpkg-bom.json || exit 0
         - bash: |
             echo MODE=$(MODE) && \
             OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
