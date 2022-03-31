@@ -127,6 +127,7 @@ stages:
             artifactName: 'vhd-dpkg-bom'
             targetPath: 'dpkg-bom.json'
         - bash: |
+            GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
             export PATH="/root/.cargo/bin:$GOPATH/bin:$PATH"
             source $HOME/.cargo/env
             cat dpkg-bom.json | rg -v '"linux-[a-z]+-5\.[0-9]+\.[0-9]+-[0-9]+-azure' | sponge dpkg-bom.json
