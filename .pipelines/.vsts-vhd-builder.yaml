@@ -127,7 +127,7 @@ stages:
             artifactName: 'vhd-dpkg-bom'
             targetPath: 'dpkg-bom.json'
         - bash: |
-            cat dpkg-bom.json | rg -v '"linux-[a-z]+-5\.[0-9]+\.[0-9]+-[0-9]+-azure' | spong dpkg-bom.json
+            cat dpkg-bom.json | rg -v '"linux-[a-z]+-5\.[0-9]+\.[0-9]+-[0-9]+-azure' | sponge dpkg-bom.json
             last_manifest="$(ls -1 vhdbuilder/release-notes/AKSUbuntu/gen2/1804containerd/*.json | sort -V | tail -n 1)"
             if [ -z "$last_manifest" ]; then
               echo "no manifest exists to diff"
