@@ -609,6 +609,16 @@ type SysctlConfig struct {
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
 }
 
+type CustomConfiguration struct {
+	KubernetesConfigurations map[string]*ComponentConfiguration
+}
+
+type ComponentConfiguration struct {
+	Image       *string
+	Config      map[string]string
+	DownloadURL *string
+}
+
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
@@ -651,6 +661,7 @@ type Properties struct {
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
 	TelemetryProfile        *TelemetryProfile        `json:"telemetryProfile,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
+	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
 }
 
 // ContainerService complies with the ARM model of
