@@ -124,6 +124,10 @@ stages:
           displayName: Run VHD Tests
         - task: PublishPipelineArtifact@0
           inputs:
+            artifactName: 'vhd-release-notes'
+            targetPath: 'release-notes.txt'
+        - task: PublishPipelineArtifact@0
+          inputs:
             artifactName: 'vhd-dpkg-bom'
             targetPath: 'dpkg-bom.json'
         - bash: |
