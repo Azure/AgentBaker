@@ -1652,11 +1652,8 @@ installKubeletKubectlAndKubeProxy() {
         # NOTE(mainred): we expect kubelet binary to be under `+"`"+`kubernetes/node/bin`+"`"+`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
-        mkdir -p ${K8S_DOWNLOADS_DIR}
-        K8S_TGZ_TMP=${CUSTOM_KUBE_BINARY_DOWNLOAD_URL##*/}
-        retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-        tar -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-        rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+        extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
@@ -1670,9 +1667,9 @@ installKubeletKubectlAndKubeProxy() {
                 fi
             fi
         fi
-        mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
-        mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
     fi
+    mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
+    mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
 
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &

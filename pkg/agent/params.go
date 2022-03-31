@@ -63,11 +63,8 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	}
 
 	if properties.CustomConfiguration != nil && properties.CustomConfiguration.KubernetesConfigurations != nil {
-		for componentName, configuration := range properties.CustomConfiguration.KubernetesConfigurations {
-			switch componentName {
-			case "kubelet":
-				addValue(parametersMap, "customKubeBinaryURL", configuration.DownloadURL)
-			}
+		if configuration, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]; ok && configuration.DownloadURL != nil {
+			addValue(parametersMap, "customKubeBinaryURL", configuration.DownloadURL)
 		}
 	}
 

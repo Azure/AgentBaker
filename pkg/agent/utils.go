@@ -381,12 +381,9 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
 	config := customConfig
 
-	if defaultConfig != nil {
-		for k, v := range defaultConfig {
-			// override configurations from default values to customized ones
-			if _, ok := config[k]; ok {
-				continue
-			}
+	for k, v := range defaultConfig {
+		// add key-value only when the flag does not exist in custom config
+		if _, ok := config[k]; !ok {
 			config[k] = v
 		}
 	}
