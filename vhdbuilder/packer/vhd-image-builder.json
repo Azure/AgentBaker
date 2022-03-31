@@ -279,6 +279,23 @@
       "destination": "release-notes.txt"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/generate-bom.sh",
+      "destination": "/home/packer/generate-bom.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -u /home/packer/generate-bom.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/dpkg-bom.json",
+      "destination": "dpkg-bom.json"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
