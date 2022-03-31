@@ -351,6 +351,14 @@ func getCustomDataFromJSON(jsonStr string) string {
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
 func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
+	// NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not compatible
+	// with CustomKubeletConfig. When custom configuration is set we want to override every configuration with the
+	// customized one.
+	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
+	if kubeletCustomConfigurations != nil {
+		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
+	}
+
 	if k == nil {
 		return ""
 	}
@@ -368,6 +376,47 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
 	}
 	return buf.String()
+}
+
+func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
+	config := customConfig
+
+	for k, v := range defaultConfig {
+		// add key-value only when the flag does not exist in custom config
+		if _, ok := config[k]; !ok {
+			config[k] = v
+		}
+	}
+
+	keys := []string{}
+	for key := range config {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("%s=%s ", key, config[key]))
+	}
+	return buf.String()
+}
+
+func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
+
+	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
+		return nil
+	}
+	kubeletConfigurations, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]
+	if !ok {
+		return nil
+	}
+	if kubeletConfigurations.Config == nil {
+		return nil
+	}
+	// empty config is treated as nil
+	if len(kubeletConfigurations.Config) == 0 {
+		return nil
+	}
+	return kubeletConfigurations.Config
 }
 
 // IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
