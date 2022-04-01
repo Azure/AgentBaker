@@ -2923,10 +2923,10 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.12-3"
+            "1.4.13-2"
         ],
         "latest": "1.5.11-1",
-        "stable": "1.4.12-3"
+        "stable": "1.4.13-2"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
@@ -4388,7 +4388,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.12"
+        CONTAINERD_VERSION="1.4.13"
         CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -4442,7 +4442,7 @@ installMoby() {
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.12"
+    local MOBY_CONTAINERD_VERSION="1.4.13"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
