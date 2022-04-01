@@ -55,7 +55,7 @@
         "stable": "1.4.13-2", // we use latest vs stable at runtime depending on k8s version.
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSI1.ON}+azure-${RUNC_PATCH_VERSION}.deb",
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/runc/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
