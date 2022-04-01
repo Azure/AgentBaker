@@ -2926,7 +2926,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.4.12-3"
         ],
         "latest": "1.5.11-1",
-        "stable": "1.4.12-3"
+        "stable": "1.4.13-2"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
