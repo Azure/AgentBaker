@@ -10,7 +10,7 @@
                 "orchestratorType": "Kubernetes",
                 "orchestratorVersion": "1.19.9",
                 "kubernetesConfig": {
-                    "networkPlugin": "azure",
+                    "networkPlugin": "kubenet",
                     "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.9-hotfix.20210322.1",
                     "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/binaries/kubernetes-node-linux-amd64.tar.gz",
                     "useInstanceMetadata": true,
@@ -165,6 +165,7 @@
         "--kube-reserved": "cpu=100m,memory=1638Mi",
         "--kubeconfig": "/var/lib/kubelet/kubeconfig",
         "--max-pods": "110",
+        "--network-plugin": "kubenet",
         "--node-status-update-frequency": "10s",
         "--non-masquerade-cidr": "0.0.0.0/0",
         "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
