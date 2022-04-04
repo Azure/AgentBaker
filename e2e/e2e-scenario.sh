@@ -167,7 +167,7 @@ kubectl apply -f pod-nginx.yaml
 
 # Sleep to let Pod Status=Running
 waitForPodStartTime=$(date +%s)
-for i in $(seq 1 10); do
+for i in $(seq 1 20); do
     set +e
     kubectl get pods -o wide | grep $podName
     kubectl get pods -o wide | grep $podName | grep 'Running'
