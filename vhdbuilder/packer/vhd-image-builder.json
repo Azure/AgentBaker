@@ -188,8 +188,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/disk-queue.service",
-      "destination": "/home/packer/disk-queue.service"
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.service",
+      "destination": "/home/packer/disk_queue.service"
     },
     {
       "type": "file",
