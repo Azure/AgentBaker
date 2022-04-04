@@ -1586,6 +1586,7 @@ setupCNIDirs() {
     mkdir -p $CNI_CONFIG_DIR
     chown -R root:root $CNI_CONFIG_DIR
     chmod 755 $CNI_CONFIG_DIR
+    ls -al $CNI_BIN_DIR
 }
 
 installCNI() {
@@ -1594,6 +1595,8 @@ installCNI() {
         downloadCNI
     fi
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
+    ls -al $CNI_BIN_DIR
 }
 
 installAzureCNI() {
