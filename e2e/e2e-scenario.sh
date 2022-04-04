@@ -188,6 +188,7 @@ if [[ "$retval" -eq 0 ]]; then
 else
     err "Pod pending/not running"
     kubectl get pods -o wide | grep $podName
+    kubectl describe pod $podName
     exit 1
 fi
 
