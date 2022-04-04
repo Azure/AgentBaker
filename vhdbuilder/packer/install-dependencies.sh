@@ -36,6 +36,8 @@ fi
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
 systemctl status disk_queue
+echo "cat /sys/block/sda/queue/nr_requests" && cat /sys/block/sda/queue/nr_requests
+echo "cat /sys/block/sda/device/queue_depth" && cat /sys/block/sda/device/queue_depth
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
