@@ -34,8 +34,12 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
 fi
 
 copyPackerFiles
-systemctlEnableAndStart disk_queue || exit 1
+systemctl --version
+systemctl daemon-reload
+systemctl enable disk_queue
+systemctl restart disk_queue
 systemctl status disk_queue
+# systemctlEnableAndStart disk_queue || exit 1
 echo "cat /sys/block/sda/queue/nr_requests" && cat /sys/block/sda/queue/nr_requests
 echo "cat /sys/block/sda/device/queue_depth" && cat /sys/block/sda/device/queue_depth
 
