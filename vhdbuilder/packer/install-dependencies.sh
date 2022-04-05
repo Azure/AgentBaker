@@ -34,14 +34,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
 fi
 
 copyPackerFiles
-systemctl --version
-systemctl daemon-reload
-systemctl enable disk_queue
-systemctl restart disk_queue
-systemctl status disk_queue
 systemctlEnableAndStart disk_queue || exit 1
-echo "cat /sys/block/sda/queue/nr_requests" && cat /sys/block/sda/queue/nr_requests
-echo "cat /sys/block/sda/device/queue_depth" && cat /sys/block/sda/device/queue_depth
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
