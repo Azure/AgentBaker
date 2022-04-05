@@ -2231,7 +2231,7 @@ Description=Set nr_requests and queue_depth
 
 [Service]
 Type=oneshot
-ExecStart=bash -c 'echo 128 > /sys/block/sda/queue/nr_requests && echo 128 > /sys/block/sda/device/queue_depth'
+ExecStart=/usr/bin/env bash -c 'echo 128 > /sys/block/sda/queue/nr_requests && echo 128 > /sys/block/sda/device/queue_depth'
 RemainAfterExit=true
 StandardOutput=journal
 
