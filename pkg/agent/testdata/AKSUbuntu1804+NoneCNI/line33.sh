@@ -87,6 +87,8 @@ createKubeManifestDir
 
 configureK8s
 
+configureCNI
+
 
 ensureContainerd 
 

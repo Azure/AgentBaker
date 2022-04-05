@@ -86,8 +86,8 @@ ensureRPC
 createKubeManifestDir
 
 configureK8s
-configureCNI
 
+configureCNI
 
 
 ensureContainerd 
