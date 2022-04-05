@@ -18,6 +18,7 @@
 // linux/cloud-init/artifacts/cse_main.sh
 // linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
+// linux/cloud-init/artifacts/disk_queue.service
 // linux/cloud-init/artifacts/docker-monitor.service
 // linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
@@ -2219,6 +2220,34 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsDisk_queueService = []byte(`[Unit]
+Description=Set nr_requests and queue_depth based on experimental tuning
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash -c 'echo 128 > /sys/block/sda/queue/nr_requests && echo 128 > /sys/block/sda/device/queue_depth'
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsDisk_queueServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsDisk_queueService, nil
+}
+
+func linuxCloudInitArtifactsDisk_queueService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsDisk_queueServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/disk_queue.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6356,6 +6385,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
+	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
 	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
@@ -6464,6 +6494,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
+				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
 				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
