@@ -135,6 +135,7 @@ installCNI() {
         downloadCNI
     fi
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
@@ -143,6 +144,7 @@ installAzureCNI() {
         downloadAzureCNI
     fi
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
 }
 
 extractKubeBinaries() {
