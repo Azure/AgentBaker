@@ -82,9 +82,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.15",
-        "v1.4.16",
-        "v1.4.19"
+        "v1.4.19",
+        "v1.4.22"
       ]
     },
     {
