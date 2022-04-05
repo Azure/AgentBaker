@@ -2227,7 +2227,7 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsDisk_queueService = []byte(`[Unit]
-Description=Set nr_requests and queue_depth
+Description=Set nr_requests and queue_depth based on experimental tuning
 
 [Service]
 Type=oneshot
