@@ -39,7 +39,7 @@ systemctl daemon-reload
 systemctl enable disk_queue
 systemctl restart disk_queue
 systemctl status disk_queue
-# systemctlEnableAndStart disk_queue || exit 1
+systemctlEnableAndStart disk_queue || exit 1
 echo "cat /sys/block/sda/queue/nr_requests" && cat /sys/block/sda/queue/nr_requests
 echo "cat /sys/block/sda/device/queue_depth" && cat /sys/block/sda/device/queue_depth
 
