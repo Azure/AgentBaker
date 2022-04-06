@@ -43,12 +43,9 @@ function Start-Job-To-Expected-State {
         Start-Job -Name $JobName -ScriptBlock $ScriptBlock
 
         do {
+            Start-Sleep $DelaySecond
             $job = (Get-Job -Name $JobName)
             if ($job -and ($job.State -Match $ExpectedState)) { return }
-
-            Write-Output 'Get-Job'
-            Write-Output (Get-Job)
-            Start-Sleep $DelaySecond
             $cnt++
         } while ($cnt -lt $MaxRetryCount)
 
