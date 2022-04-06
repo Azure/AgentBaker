@@ -16,6 +16,47 @@ $env:WindowsSKU=$windowsSKU
 
 . c:\windows-vhd-configuration.ps1
 
+function Start-Job-To-Expected-State {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [string]$JobName,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [string]$ExpectedState = 'Running',
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$MaxRetryCount = 10,
+
+        [Parameter(Position=4, Mandatory=$false)]
+        [int]$DelaySecond = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        Start-Job -Name $JobName -ScriptBlock $ScriptBlock
+
+        do {
+            $job = (Get-Job -Name $JobName)
+            if ($job -and ($job.State -Match $ExpectedState)) { return }
+
+            Write-Output 'Get-Job'
+            Write-Output (Get-Job)
+            Start-Sleep $DelaySecond
+            $cnt++
+        } while ($cnt -lt $MaxRetryCount)
+
+        Write-Error "Cannot start $JobName"
+        exit 1
+    }
+}
+
 function Test-FilesToCacheOnVHD
 {
     $invalidFiles = @()
@@ -121,46 +162,6 @@ function Test-PatchInstalled {
         exit 1
     }
     Write-Output "All pathced $patchIDs are installed"
-}
-
-function Start-Job-To-Expected-State {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Position=0, Mandatory=$true)]
-        [string]$JobName,
-
-        [Parameter(Position=1, Mandatory=$true)]
-        [scriptblock]$ScriptBlock,
-
-        [Parameter(Position=2, Mandatory=$false)]
-        [string]$ExpectedState = 'Running',
-
-        [Parameter(Position=3, Mandatory=$false)]
-        [int]$MaxRetryCount = 10,
-
-        [Parameter(Position=4, Mandatory=$false)]
-        [int]$DelaySecond = 10
-    )
-
-    Begin {
-        $cnt = 0
-    }
-
-    Process {
-        do {
-            Start-Job -Name $JobName -ScriptBlock $ScriptBlock
-            Start-Sleep $DelaySecond
-
-            $job = (Get-Job -Name $JobName)
-            if ($job -and ($job.State -Match $ExpectedState)) { return }
-
-            Write-Output 'Get-Job'
-            Write-Output (Get-Job)
-            $cnt++
-        } while ($cnt -lt $MaxRetryCount)
-
-        throw "Cannot start $JobName"
-    }
 }
 
 function Test-ImagesPulled {
