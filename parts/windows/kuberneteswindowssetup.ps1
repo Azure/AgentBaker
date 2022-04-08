@@ -424,7 +424,7 @@ try
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-    if ($windowsSecureTlsEnabled) {
+    if ($windowsSecureTlsEnabled -and ((Get-WindowsVersion) -ne "ltsc2022")) {
         Write-Host "Enable secure TLS protocols"
         try {
             . C:\k\windowssecuretls.ps1
