@@ -205,6 +205,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.service",
+      "destination": "/home/packer/disk_queue.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },
