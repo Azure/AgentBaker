@@ -424,14 +424,18 @@ try
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-    if ($windowsSecureTlsEnabled -and ((Get-WindowsVersion) -ne "ltsc2022")) {
-        Write-Host "Enable secure TLS protocols"
-        try {
-            . C:\k\windowssecuretls.ps1
-            Enable-SecureTls
-        }
-        catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+    if ($windowsSecureTlsEnabled) {
+        if ((Get-WindowsVersion) -eq "ltsc2022") {
+            Write-Log "Skip secure TLS protocols for Windows Server 2022"
+        } else {
+            Write-Log "Enable secure TLS protocols"
+            try {
+                . C:\k\windowssecuretls.ps1
+                Enable-SecureTls
+            }
+            catch {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+            }
         }
     }
 
