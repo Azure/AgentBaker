@@ -425,8 +425,9 @@ try
     Update-DefenderPreferences
 
     if ($windowsSecureTlsEnabled) {
-        if ((Get-WindowsVersion) -eq "ltsc2022") {
-            Write-Log "Skip secure TLS protocols for Windows Server 2022"
+        $windowsVersion = Get-WindowsVersion
+        if ($windowsVersion -ne "1809") {
+            Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
         } else {
             Write-Log "Enable secure TLS protocols"
             try {
