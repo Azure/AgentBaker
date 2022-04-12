@@ -249,9 +249,10 @@ ensureRunc() {
     fi
 
     if [[ $(isARM64) == 1 ]]; then
-        if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]
-        # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
-        return
+        if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
+            # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
+            return
+        fi
     fi
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
