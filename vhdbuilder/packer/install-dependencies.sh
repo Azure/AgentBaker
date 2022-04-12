@@ -173,6 +173,8 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   1.0.3
   "
   if [[ $(isARM64) == 1 ]]; then
+    # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+    # so use different version set for different arch to avoid affecting each other during VHD build
     RUNC_VERSIONS="
     1.0.3
     "

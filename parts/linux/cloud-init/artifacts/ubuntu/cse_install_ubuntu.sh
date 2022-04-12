@@ -240,14 +240,21 @@ ensureRunc() {
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
+
+        if [[ $(isARM64) == 1 ]]; then
+            TARGET_VERSION="1.0.3"
+            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+            # so use different target version for different arch to avoid affecting each other during provisioning
+        fi
     fi
 
-    if [[ $(isARM64) == 1 && ${TARGET_VERSION} != "1.0.3" ]]; then
-        # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo, no 1.0.0-rc92 or 1.0.0-rc95
+    if [[ $(isARM64) == 1 ]]; then
+        if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]
+        # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
         return
     fi
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
