@@ -29,9 +29,9 @@
       "capture_name_prefix": "aks-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_publisher": "{{user `img_publisher`}}",
-      "image_offer": "{{user `img_offer`}}",
-      "image_sku": "{{user `img_sku`}}",
+      "image_publisher": "Canonical",
+      "image_offer": "UbuntuServer",
+      "image_sku": "{{user `os_version`}}-LTS",
       "image_version": "latest",
       "azure_tags": {
         "SkipLinuxAzSecPack": "true",
