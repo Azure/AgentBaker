@@ -16,6 +16,44 @@ $env:WindowsSKU=$windowsSKU
 
 . c:\windows-vhd-configuration.ps1
 
+function Start-Job-To-Expected-State {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [string]$JobName,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [string]$ExpectedState = 'Running',
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$MaxRetryCount = 10,
+
+        [Parameter(Position=4, Mandatory=$false)]
+        [int]$DelaySecond = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        Start-Job -Name $JobName -ScriptBlock $ScriptBlock
+
+        do {
+            Start-Sleep $DelaySecond
+            $job = (Get-Job -Name $JobName)
+            if ($job -and ($job.State -Match $ExpectedState)) { return }
+            $cnt++
+        } while ($cnt -lt $MaxRetryCount)
+
+        Write-Error "Cannot start $JobName"
+        exit 1
+    }
+}
+
 function Test-FilesToCacheOnVHD
 {
     $invalidFiles = @()
@@ -125,7 +163,7 @@ function Test-PatchInstalled {
 
 function Test-ImagesPulled {
     if ($containerRuntime -eq 'containerd') {
-        Start-Job -Name containerd -ScriptBlock { containerd.exe }
+        Start-Job-To-Expected-State -JobName containerd -ScriptBlock { containerd.exe }
         # NOTE:
         # 1. listing images with -q set is expected to return only image names/references, but in practise
         #    we got additional digest info. The following command works as a workaround to return only image names instad.
