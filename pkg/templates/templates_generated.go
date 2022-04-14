@@ -4104,7 +4104,7 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
-# 3.2.1 Ensure source routed packets are not accepted 
+# 3.2.1 Ensure source routed packets are not accepted
 net.ipv4.conf.all.accept_source_route = 0
 net.ipv4.conf.default.accept_source_route = 0
 # 3.2.2 Ensure ICMP redirects are not accepted
@@ -4128,6 +4128,8 @@ kernel.panic = 10
 kernel.panic_on_oops = 1
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
+# Ensure a reasonable open file descriptor limit is set
+fs.file-max = 1428951
 `)
 
 func linuxCloudInitArtifactsSysctlD60CisConfBytes() ([]byte, error) {
