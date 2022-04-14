@@ -48,10 +48,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.14.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.12.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.16.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.13.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.14.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
@@ -76,10 +76,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.14.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.12.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.16.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.13.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.14.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.15", # for k8s 1.20.x
@@ -100,10 +100,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.14.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.12.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.16.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.13.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.14.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6" # for k8s 1.23.x
@@ -132,6 +132,7 @@ $global:map = @{
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.16.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.4/binaries/windows-gmsa-ccgakvplugin-v1.1.4.zip",
+        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.7.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.8.zip"
     );

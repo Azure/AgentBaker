@@ -82,8 +82,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.19",
-        "v1.4.22"
+        "v1.4.22",
+        "v1.4.23"
       ]
     },
     {
@@ -217,8 +217,8 @@
         "1.10.3.5"
       ],
       "multiArchVersions": [
-        "1.10.5",
-        "1.10.5.4"
+        "1.10.5.4",
+        "1.10.5.5"
       ]
     },
     {
@@ -300,9 +300,8 @@
         "v1.8.0.2"
       ],
       "multiArchVersions": [
-        "v1.13.0.1",
-        "v1.14.0",
-        "v1.15.0"
+        "v1.15.0",
+        "v1.16.0"
       ]
     },
     {
@@ -311,8 +310,8 @@
         "v1.2.0"
       ],
       "multiArchVersions": [
-        "v1.12.0",
-        "v1.13.0"
+        "v1.13.0",
+        "v1.14.0"
       ]
     },
     {
@@ -421,8 +420,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.7.5.4",
-        "v1.7.5.5"
+        "v1.7.5.5",
+        "v1.7.5.7"
       ]
     },
     {
