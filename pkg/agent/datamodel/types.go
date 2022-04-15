@@ -973,6 +973,9 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		// label key storageprofile and storagetier will be depreated soon
 		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
 		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=%s", storagetier))
+	} else if strings.EqualFold(a.StorageProfile, Ephemeral) {
+		buf.WriteString(fmt.Sprintf(",storageprofile=ephemeral,storagetier=%s", "Standard_LRS"))
+		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=ephemeral,kubernetes.azure.com/storagetier=%s", "Standard_LRS"))
 	}
 	if nvidiaEnabled {
 		accelerator := "nvidia"

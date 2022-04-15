@@ -49,6 +49,8 @@ const (
 const (
 	// ManagedDisks means that the nodes use managed disks for their os and attached volumes
 	ManagedDisks = "ManagedDisks"
+	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
+	Ephemeral = "Ephemeral"
 )
 
 const (

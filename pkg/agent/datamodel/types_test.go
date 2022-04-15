@@ -18,8 +18,6 @@ const (
 	ScaleSetPriorityLow = "Low"
 	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
 	StorageAccount = "StorageAccount"
-	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
-	Ephemeral = "Ephemeral"
 )
 
 func TestHasAadProfile(t *testing.T) {
@@ -944,6 +942,17 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
 			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=,kubernetes.azure.com/cluster=my-resource-group",
+		},
+		{
+			name: "with managed disk",
+			ap: AgentPoolProfile{
+				StorageProfile: Ephemeral,
+			},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			fipsEnabled:   false,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,storageprofile=ephemeral,storagetier=Standard_LRS,kubernetes.azure.com/storageprofile=ephemeral,kubernetes.azure.com/storagetier=Standard_LRS,kubernetes.azure.com/cluster=my-resource-group",
 		},
 		{
 			name: "N series",
