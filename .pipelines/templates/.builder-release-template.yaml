@@ -186,6 +186,7 @@ steps:
         -e SKU_NAME=${SKU_NAME} \
         -e OFFER_NAME=${OS_SKU} \
         -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+        -e ARCHITECTURE=${ARCHITECTURE} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
