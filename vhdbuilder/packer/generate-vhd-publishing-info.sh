@@ -24,6 +24,14 @@ do
     fi
 done
 
+# SIG image definition for AMD64/ARM64 has subtle difference, otherwise a SIG version cannot be used to create VM/VMSS of corresponding sku.
+# 'az sig image-definition create' will have a new property (--architecture Arm64|x64) for this soon. We need this in the publishing-info
+# in order that the VHD publish EV2 pipeline can create image-definition with right architecture.
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+    IMAGE_ARCH="Arm64"
+else
+    IMAGE_ARCH="x64"
+fi
 
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
@@ -45,6 +53,7 @@ cat <<EOF > vhd-publishing-info.json
     "sku_name" : "$sku_name",
     "offer_name" : "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
+    "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}"
 }
 EOF
