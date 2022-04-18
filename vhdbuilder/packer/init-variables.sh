@@ -73,6 +73,13 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 fi
 
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
+  SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+  # Only az published after April 2022 supports --architecture for command 'az sig image-definition create...', current az used by ADO doesn't have
+  az upgrade -y
+fi
+
 if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -89,7 +96,20 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-		az sig image-definition create \
+		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+		  az sig image-definition create \
+			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+			--gallery-name ${SIG_GALLERY_NAME} \
+			--gallery-image-definition ${SIG_IMAGE_NAME} \
+			--publisher microsoft-aks \
+			--offer ${SIG_GALLERY_NAME} \
+			--sku ${SIG_IMAGE_NAME} \
+			--os-type ${OS_TYPE} \
+			--hyper-v-generation ${HYPERV_GENERATION} \
+			--architecture Arm64 \
+			--location ${AZURE_LOCATION}
+		else
+		  az sig image-definition create \
 			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 			--gallery-name ${SIG_GALLERY_NAME} \
 			--gallery-image-definition ${SIG_IMAGE_NAME} \
@@ -99,6 +119,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 			--os-type ${OS_TYPE} \
 			--hyper-v-generation ${HYPERV_GENERATION} \
 			--location ${AZURE_LOCATION}
+		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
@@ -184,10 +205,6 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
-fi
-
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
