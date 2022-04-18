@@ -185,6 +185,24 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("should not return an error for customized image", func() {
+			config.AgentPoolProfile.Distro = datamodel.CustomizedImage
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not return an error for customized windows image", func() {
+			config.AgentPoolProfile.Distro = datamodel.CustomizedWindowsOSImage
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 
 	Context("GetLatestSigImageConfig", func() {
