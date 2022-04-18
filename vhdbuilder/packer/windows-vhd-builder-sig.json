@@ -58,7 +58,10 @@
                 "createdBy": "aks-vhd-pipeline",
                 "SkipNRMSNSG": "295551581",
                 "SkipASMAzSecPack": "True"
-            }
+            },
+            "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
+            "virtual_network_name": "{{user `virtual_network_name`}}",
+            "private_virtual_network_with_public_ip": "{{user `public_ip`}}"
         }
     ],
     "provisioners": [
