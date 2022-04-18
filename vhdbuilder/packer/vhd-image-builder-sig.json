@@ -17,7 +17,10 @@
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "enable_fips": "{{env `ENABLE_FIPS`}}"
+    "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "img_publisher": "{{env `IMG_PUBLISHER`}}",
+    "img_offer": "{{env `IMG_OFFER`}}",
+    "img_sku": "{{env `IMG_SKU`}}"
   },
   "builders": [
     {
@@ -28,9 +31,9 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_publisher": "Canonical",
-      "image_offer": "UbuntuServer",
-      "image_sku": "{{user `os_version`}}-LTS",
+      "image_publisher": "{{user `img_publisher`}}",
+      "image_offer": "{{user `img_offer`}}",
+      "image_sku": "{{user `img_sku`}}",
       "image_version": "latest",
       "azure_tags": {
         "SkipLinuxAzSecPack": "true",

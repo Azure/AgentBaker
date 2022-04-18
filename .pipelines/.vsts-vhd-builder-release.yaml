@@ -69,6 +69,14 @@ parameters:
   displayName: Build 1804 ARM64 Gen2 containerd
   type: boolean
   default: false
+- name: build2004containerd
+  displayName: Build 2004 Gen1 Containerd
+  type: boolean
+  default: false
+- name: build2004gen2containerd
+  displayName: Build 2004 Gen2 Containerd
+  type: boolean
+  default: false
 - name: dryrun
   displayName: Dry run
   type: boolean
@@ -108,6 +116,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -127,6 +138,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -146,6 +160,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -165,6 +182,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -184,6 +204,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -203,6 +226,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -222,6 +248,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -241,6 +270,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -300,6 +332,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -320,6 +355,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -340,6 +378,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -360,6 +401,9 @@ stages:
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
+            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -390,3 +434,47 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-arm64-gen2-containerd
+  - stage: build_vhd_2004_containerd
+    dependsOn: []
+    condition: eq('${{ parameters.build2004containerd }}', true)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2004-containerd
+  - stage: build_vhd_2004_gen2_containerd
+    dependsOn: []
+    condition: eq('${{ parameters.build2004gen2containerd }}', true)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-gen2'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2004-gen2-containerd
