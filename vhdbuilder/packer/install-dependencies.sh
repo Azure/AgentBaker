@@ -100,7 +100,7 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   exit 1
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -459,8 +459,6 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.20.13-hotfix.20220210
-1.20.15-hotfix.20220201
 1.21.7-hotfix.20220204
 1.21.9-hotfix.20220204
 1.22.4-hotfix.20220201
