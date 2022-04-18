@@ -28,36 +28,30 @@ if [ -z "$rg_id" ]; then
 	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 fi
 
-if [ ! -z "${WINDOWS_SKU}" ]; then
-	VNET_RESOURCE_GROUP_NAME="vnetrg${CREATE_TIME}$RANDOM"
-	VIRTUAL_NETWORK_NAME="vnet${CREATE_TIME}$RANDOM"
-	NETWORK_SECURITY_GROUP_NAME="nsg${CREATE_TIME}$RANDOM"
-	PUBLIC_IP_NAME="public-ip${CREATE_TIME}$RANDOM"
+if [ ! -z "${VNET_RESOURCE_GROUP_NAME}" ]; then
+	VIRTUAL_NETWORK_NAME="vnet"
+	VIRTUAL_NETWORK_SUBNET_NAME="MySubnet"
+	NETWORK_SECURITY_GROUP_NAME="nsg"
 
-	echo "creating resource group $VNET_RESOURCE_GROUP_NAME, location ${AZURE_LOCATION} for VNET"
-	az group create --name $VNET_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
+	echo "creating resource group ${VNET_RESOURCE_GROUP_NAME}, location ${AZURE_LOCATION} for VNET"
+	az group create --name ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION}
 
 	echo "creating new network security group ${NETWORK_SECURITY_GROUP_NAME}"
-	az network nsg create --name $NETWORK_SECURITY_GROUP_NAME --resource-group $VNET_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
+	az network nsg create --name $NETWORK_SECURITY_GROUP_NAME --resource-group ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION}
 	echo "creating nsg rule to allow WinRM with ssl"
-	az network nsg rule create --resource-group $VNET_RESOURCE_GROUP_NAME --nsg-name $NETWORK_SECURITY_GROUP_NAME -n AllowWinRM --priority 100 \
+	az network nsg rule create --resource-group ${VNET_RESOURCE_GROUP_NAME} --nsg-name $NETWORK_SECURITY_GROUP_NAME -n AllowWinRM --priority 100 \
 		--source-address-prefixes '*' --source-port-ranges '*' \
 		--destination-address-prefixes '*' --destination-port-ranges 5986 --access Allow \
 		--protocol Tcp --description "Allow all inbound to WinRM with SSL 5986."
 	echo "creating default nsg rule to deny all internet inbound"
-	az network nsg rule create --resource-group $VNET_RESOURCE_GROUP_NAME --nsg-name $NETWORK_SECURITY_GROUP_NAME -n DenyAll --priority 4096 \
+	az network nsg rule create --resource-group ${VNET_RESOURCE_GROUP_NAME} --nsg-name $NETWORK_SECURITY_GROUP_NAME -n DenyAll --priority 4096 \
 		--source-address-prefixes '*' --source-port-ranges '*' \
 		--destination-address-prefixes '*' --destination-port-ranges '*' --access Deny \
 		--protocol '*' --description "Deny all inbound by default"
 
-	echo "creating new vnet ${VIRTUAL_NETWORK_NAME}"
-	az network vnet create --resource-group $VNET_RESOURCE_GROUP_NAME --name $VIRTUAL_NETWORK_NAME --address-prefix 10.0.0.0/16 \
-    	--subnet-name MySubnet --subnet-prefix 10.0.0.0/24 --network-security-group $NETWORK_SECURITY_GROUP_NAME
-
-	echo "creating new public ip ${PUBLIC_IP_NAME}"
-	az network public-ip create --resource-group $VNET_RESOURCE_GROUP_NAME -n $PUBLIC_IP_NAME --allocation-method Static
-	PUBLIC_IP=$(az network public-ip show --resource-group $VNET_RESOURCE_GROUP_NAME -n $PUBLIC_IP_NAME | jq -r '.ipAddress')
-	echo "created public ip ${PUBLIC_IP}"
+	echo "creating new vnet ${VIRTUAL_NETWORK_NAME}, subnet ${VIRTUAL_NETWORK_SUBNET_NAME}"
+	az network vnet create --resource-group ${VNET_RESOURCE_GROUP_NAME} --name $VIRTUAL_NETWORK_NAME --address-prefix 10.0.0.0/16 \
+		--subnet-name $VIRTUAL_NETWORK_SUBNET_NAME --subnet-prefix 10.0.0.0/24 --network-security-group $NETWORK_SECURITY_GROUP_NAME
 fi
 
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
@@ -250,10 +244,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
   "arm64_sig_imagename": "${ARM64_SIG_IMAGENAME}",
   "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}",
-  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
-  "vnet_resource_group_name": "${VNET_RESOURCE_GROUP_NAME},
-  "virtual_network_name": "${VIRTUAL_NETWORK_NAME}",
-  "public_ip": "${PUBLIC_IP}",
+  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}"
 }
 EOF
 

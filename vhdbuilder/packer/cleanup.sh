@@ -30,7 +30,7 @@ if [ -n "$id" ]; then
 fi
 
 #clean up the vnet resource group for Windows
-if [[ -z "$VNET_RESOURCE_GROUP_NAME" ]]; then
+if [ ! -z "${VNET_RESOURCE_GROUP_NAME}" ]; then
   id=$(az group show --name ${VNET_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
     echo "Deleting packer resource group ${VNET_RESOURCE_GROUP_NAME}"
