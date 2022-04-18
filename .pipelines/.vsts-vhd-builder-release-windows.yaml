@@ -39,6 +39,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019'
+            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-$(Build.BuildNumber)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
@@ -57,6 +58,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
+            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-containerd-$(Build.BuildNumber)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
@@ -75,6 +77,7 @@ stages:
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd'
+              echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2022-containerd-$(Build.BuildNumber)'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:

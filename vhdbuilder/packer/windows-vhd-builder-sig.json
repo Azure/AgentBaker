@@ -18,7 +18,8 @@
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
         "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
         "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
-        "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}"
+        "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
     },
     "builders": [
         {
@@ -58,7 +59,11 @@
                 "createdBy": "aks-vhd-pipeline",
                 "SkipNRMSNSG": "295551581",
                 "SkipASMAzSecPack": "True"
-            }
+            },
+            "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
+            "virtual_network_name": "vnet",
+            "virtual_network_subnet_name": "subnet",
+            "private_virtual_network_with_public_ip": "true"
         }
     ],
     "provisioners": [

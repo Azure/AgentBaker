@@ -42,6 +42,7 @@ steps:
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       -e HYPERV_GENERATION="V1" \
+      -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - script: |
@@ -104,6 +105,7 @@ steps:
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
       -e IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
