@@ -26,13 +26,22 @@ fi
 id=$(az group show --name ${PKR_RG_NAME} | jq .id)
 if [ -n "$id" ]; then
   echo "Deleting packer resource group ${PKR_RG_NAME}"
-  az group delete --name ${PKR_RG_NAME} --yes
+  az group delete --name ${PKR_RG_NAME} --yes --no-wait
+fi
+
+#clean up the vnet resource group for Windows
+if [ ! -z "${VNET_RESOURCE_GROUP_NAME}" ]; then
+  id=$(az group show --name ${VNET_RESOURCE_GROUP_NAME} | jq .id)
+  if [ -n "$id" ]; then
+    echo "Deleting packer resource group ${VNET_RESOURCE_GROUP_NAME}"
+    az group delete --name ${VNET_RESOURCE_GROUP_NAME} --yes --no-wait
+  fi
 fi
 
 #clean up the temporary storage account
 id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
 if [ -n "$id" ]; then
-  az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
+  az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes --no-wait
 fi
 
 #clean up managed image
