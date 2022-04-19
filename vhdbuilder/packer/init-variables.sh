@@ -35,7 +35,7 @@ if $avail ; then
 	az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}"
 	echo "creating new container system"
 	key=$(az storage account keys list -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME | jq -r '.[0].value')
-	az storage container create --name system --account-key=$key --account-name=$STORAGE_ACCOUNT_NAME
+	az storage container create --name system --account-key=$key --account-name=$STORAGE_ACCOUNT_NAME --location ${AZURE_LOCATION}
 else
 	echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
 fi
@@ -97,28 +97,28 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-		  az sig image-definition create \
-			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-			--gallery-name ${SIG_GALLERY_NAME} \
-			--gallery-image-definition ${SIG_IMAGE_NAME} \
-			--publisher microsoft-aks \
-			--offer ${SIG_GALLERY_NAME} \
-			--sku ${SIG_IMAGE_NAME} \
-			--os-type ${OS_TYPE} \
-			--hyper-v-generation ${HYPERV_GENERATION} \
-			--architecture Arm64 \
-			--location ${AZURE_LOCATION}
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--architecture Arm64 \
+				--location ${AZURE_LOCATION}
 		else
-		  az sig image-definition create \
-			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-			--gallery-name ${SIG_GALLERY_NAME} \
-			--gallery-image-definition ${SIG_IMAGE_NAME} \
-			--publisher microsoft-aks \
-			--offer ${SIG_GALLERY_NAME} \
-			--sku ${SIG_IMAGE_NAME} \
-			--os-type ${OS_TYPE} \
-			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION}
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION}
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
