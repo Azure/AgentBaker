@@ -34,7 +34,8 @@ if [ ! -z "${VNET_RESOURCE_GROUP_NAME}" ]; then
 	NETWORK_SECURITY_GROUP_NAME="nsg"
 
 	echo "creating resource group ${VNET_RESOURCE_GROUP_NAME}, location ${AZURE_LOCATION} for VNET"
-	az group create --name ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION}
+	az group create --name ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION} \
+		--tags 'os=Windows' 'createdBy=aks-vhd-pipeline' 'SkipASMAzSecPack=True'
 
 	echo "creating new network security group ${NETWORK_SECURITY_GROUP_NAME}"
 	az network nsg create --name $NETWORK_SECURITY_GROUP_NAME --resource-group ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION}
@@ -51,7 +52,8 @@ if [ ! -z "${VNET_RESOURCE_GROUP_NAME}" ]; then
 
 	echo "creating new vnet ${VIRTUAL_NETWORK_NAME}, subnet ${VIRTUAL_NETWORK_SUBNET_NAME}"
 	az network vnet create --resource-group ${VNET_RESOURCE_GROUP_NAME} --name $VIRTUAL_NETWORK_NAME --address-prefix 10.0.0.0/16 \
-		--subnet-name $VIRTUAL_NETWORK_SUBNET_NAME --subnet-prefix 10.0.0.0/24 --network-security-group $NETWORK_SECURITY_GROUP_NAME
+		--subnet-name $VIRTUAL_NETWORK_SUBNET_NAME --subnet-prefix 10.0.0.0/24 --network-security-group $NETWORK_SECURITY_GROUP_NAME \
+		--tags 'os=Windows' 'createdBy=aks-vhd-pipeline' 'SkipNRMSNSG=295551581' 'SkipASMAzSecPack=True'
 fi
 
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)

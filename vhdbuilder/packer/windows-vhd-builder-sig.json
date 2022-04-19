@@ -28,7 +28,7 @@
             "client_secret": "{{user `client_secret`}}",
             "tenant_id": "{{user `tenant_id`}}",
             "subscription_id": "{{user `subscription_id`}}",
-            "location": "{{user `location`}}",
+            "build_resource_group_name": "{{user `VNET_RESOURCE_GROUP_NAME`}}",
             "vm_size": "{{user `vm_size`}}",
             "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
