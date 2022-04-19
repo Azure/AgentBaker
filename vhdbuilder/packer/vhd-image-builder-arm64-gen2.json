@@ -307,6 +307,21 @@
         "sudo /bin/bash -eux /home/packer/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.path",
+      "destination": "/home/packer/update_certs.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
+      "destination": "/home/packer/update_certs.timer"
     }
   ]
 }
