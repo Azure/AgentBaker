@@ -100,6 +100,28 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 fi
 
+# no source image on marketplace, use MSFT/AME SIG as source image
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
+  ARM64_SIG_SUBSCRIPTION_ID="a84c0852-ea2d-4359-88e4-11a80a4fb6b9"
+  ARM64_SIG_RESOURCE_GROUP_NAME="ARM64_External_RG"
+  ARM64_SIG_GALLERY_NAME="SantaClaraSIG"
+  ARM64_SIG_IMAGENAME="Ubuntu-18.04-LSG"
+  ARM64_SIG_IMAGE_VERSION="20210930.0.0"
+  if [[ ${TENANT_ID,,} == "72f988bf-86f1-41af-91ab-2d7cd011db47" ]]; then # MSFT Tenant
+    ARM64_SIG_SUBSCRIPTION_ID="6f358ff9-e667-4ae9-b6a0-a57b49aca59c"
+  fi
+
+  SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+  # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
+  azversion=$(echo $(az version) | jq '."azure-cli"' | tr -d '"')
+  if [[ "${azversion}" < "2.35.0" ]]; then
+    az upgrade -y
+    az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+    az account set -s ${SUBSCRIPTION_ID}
+  fi
+fi
+
 if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -116,16 +138,30 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-		az sig image-definition create \
-			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-			--gallery-name ${SIG_GALLERY_NAME} \
-			--gallery-image-definition ${SIG_IMAGE_NAME} \
-			--publisher microsoft-aks \
-			--offer ${SIG_GALLERY_NAME} \
-			--sku ${SIG_IMAGE_NAME} \
-			--os-type ${OS_TYPE} \
-			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION}
+		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--architecture Arm64 \
+				--location ${AZURE_LOCATION}
+		else
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION}
+		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
@@ -211,19 +247,6 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
-fi
-
-# no source image on marketplace, use MSFT/AME SIG as source image
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
-  ARM64_SIG_SUBSCRIPTION_ID="a84c0852-ea2d-4359-88e4-11a80a4fb6b9"
-  ARM64_SIG_RESOURCE_GROUP_NAME="ARM64_External_RG"
-  ARM64_SIG_GALLERY_NAME="SantaClaraSIG"
-  ARM64_SIG_IMAGENAME="Ubuntu-18.04-LSG"
-  ARM64_SIG_IMAGE_VERSION="20210930.0.0"
-  if [[ ${TENANT_ID,,} == "72f988bf-86f1-41af-91ab-2d7cd011db47" ]]; then # MSFT Tenant
-    ARM64_SIG_SUBSCRIPTION_ID="6f358ff9-e667-4ae9-b6a0-a57b49aca59c"
-  fi
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json

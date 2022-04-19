@@ -11,8 +11,8 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ ${ARCHITECTURE,,} == "arm64" ]; then
-    echo "Skipping tests for Mariner, Ubuntu 16.04 and ARM64"
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04"
     exit 0
   fi
 fi
@@ -72,6 +72,7 @@ else
   az vm create \
     --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
+    --location ${AZURE_LOCATION}
     --image $IMG_DEF \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
