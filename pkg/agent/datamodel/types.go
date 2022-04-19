@@ -156,6 +156,7 @@ const (
 	AKSWindows2022Containerd Distro = "aks-windows-2022-containerd"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
+	CustomizedImage          Distro = "CustomizedImage"
 	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat
