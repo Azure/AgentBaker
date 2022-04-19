@@ -72,7 +72,6 @@ else
   az vm create \
     --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
-    --location ${AZURE_LOCATION}
     --image $IMG_DEF \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
