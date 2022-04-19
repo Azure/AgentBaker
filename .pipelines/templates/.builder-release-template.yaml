@@ -201,3 +201,37 @@ steps:
       vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
       packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
       versionOption: minor
+  - bash: |
+        SETTINGS_FILE="vhdbuilder/packer/settings.json"
+        if [ ! -f "$SETTINGS_FILE" ]; then
+            echo "$SETTINGS_FILE does not exist."
+            exit 1
+        fi
+        STORAGE_ACCOUNT_NAME=$(jq .storage_account_name $SETTINGS_FILE)
+
+        PUB_FILE="vhd-publishing-info.json"
+        if [ ! -f "$PUB_FILE" ]; then
+            echo "$PUB_FILE does not exist."
+            exit 1
+        fi
+
+        VHD_URL=$(jq .vhd_url $PUB_FILE)
+        SKU_NAME=$(jq -r .sku_name $PUB_FILE)
+        IMAGE_VERSION=$(jq -r .image_version $PUB_FILE)
+
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e CLIENT_ID=${CORP_CLIENT_ID} \
+        -e CLIENT_SECRET="$(CORP_CLIENT_SECRET)" \
+        -e TENANT_ID=${CORP_TENANT_ID} \
+        -e SUBSCRIPTION_ID="${CORP_SUBSCRIPTION_ID}" \
+        -e STORAGE_ACCOUNT_SUB_ID="${SUBSCRIPTION_ID}" \
+        -e STORAGE_ACCOUNT_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP_NAME}" \
+        -e STORAGE_ACCOUNT_NAME="${STORAGE_ACCOUNT_NAME}" \
+        -e VHD_URL=${VHD_URL} \
+        -e SKU_NAME=${SKU_NAME} \
+        -e IMAGE_VERSION=${IMAGE_VERSION} \
+        ${CONTAINER_IMAGE} make -f packer.mk convert-osdisk-to-sig
+    displayName: Publish image to CORP Compute Gallary
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))

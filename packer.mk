@@ -58,6 +58,10 @@ az-login:
 	az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
 	az account set -s ${SUBSCRIPTION_ID}
 
+corp-az-login:
+	az login --service-principal -u ${CORP_CLIENT_ID} -p ${CORP_CLIENT_SECRET} --tenant ${CORP_TENANT_ID}
+	az account set -s ${CORP_SUBSCRIPTION_ID}
+
 run-packer: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
@@ -81,3 +85,6 @@ windows-vhd-publishing-info: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
+
+convert-osdisk-to-sig: az-login
+	@./vhdbuilder/packer/convert-osdisk-to-sig.sh
