@@ -4620,7 +4620,10 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Path]
+var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Unit]
+Description=Monitor the cert directory for changes
+
+[Path]
 PathChanged=/opt/certs
 Unit=update-certs.service
 
