@@ -114,7 +114,7 @@ if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
 
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
   # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
-  azversion=$(echo $(az version) | jq '."azure-cli"' | tr -d '"')
+  azversion=$(az version | jq '."azure-cli"' | tr -d '"')
   if [[ "${azversion}" < "2.35.0" ]]; then
     az upgrade -y
     az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
