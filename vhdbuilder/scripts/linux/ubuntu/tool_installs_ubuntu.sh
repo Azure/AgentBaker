@@ -27,8 +27,9 @@ installAscBaseline() {
    echo "listing from deb"
    dpkg-deb -c $ASC_BASELINE_TMP
    retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   sudo cp /opt/microsoft/asc-baseline/baselines/asc_audits.xml /opt/microsoft/asc-baseline/asc_audits.xml
+   sudo cp /opt/microsoft/asc-baseline/baselines/*.xml /opt/microsoft/asc-baseline/
    cd /opt/microsoft/asc-baseline
+   ls -al
    sudo ./ascbaseline -d .
    sudo ./ascremediate -d . -m all
    sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL"
