@@ -24,4 +24,5 @@ sas_token=`az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAM
 BLOB_NAME="$OFFER_NAME.$SKU_NAME.$HYPERV_GEN.$IMAGE_VERSION"
 target_uri="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${CONTAINER_NAME}/${BLOB_NAME}.vhd?$sas_token"
 
+echo $SOURCE_VHD_URL $target_uri
 azcopy-preview copy ${SOURCE_VHD_URL} "${target_uri}"

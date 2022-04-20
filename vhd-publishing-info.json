@@ -1,0 +1,8 @@
+{
+    "vhd_url" : "https://vhdbuildersaceastus.blob.core.windows.net/vhds/aks-mariner-1650451286-osDisk.702d79c0-0110-484c-8827-2ff5a72af684.vhd?st=2022-04-19T00%3A00Z&se=2023-04-20T00%3A00Z&sp=rl&sv=2018-11-09&sr=c&sig=BM3m1lU0BiuCRrFkDd/DuD7F95HOLPmyogevARQtPBg%3D",
+    "os_name" : "Linux",
+    "sku_name" : "V1",
+    "offer_name" : "CBLMariner",
+    "hyperv_generation": "V1",
+    "image_version": "2022.04.20"
+}
