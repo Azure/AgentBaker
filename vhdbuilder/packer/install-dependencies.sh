@@ -36,10 +36,11 @@ fi
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
 
-# TODO - conditional based on directory existing?
-systemctlEnableAndStart update_certs.path || exit 1
-systemctlEnableAndStart update_certs.service || exit 1
-systemctlEnableAndStart update_certs.timer || exit 1
+if [[ -d "/opt/certs" ]]; then
+  systemctlEnableAndStart update_certs.path || exit 1
+  systemctlEnableAndStart update_certs.service || exit 1
+  systemctlEnableAndStart update_certs.timer || exit 1
+fi
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
