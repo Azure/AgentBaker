@@ -208,7 +208,7 @@ steps:
             exit 1
         fi
 
-        VHD_URL=$(jq .vhd_url $PUB_FILE)
+        VHD_URL=$(jq -r .vhd_url $PUB_FILE)
         OFFER_NAME=$(jq -r .offer_name $PUB_FILE)
         SKU_NAME=$(jq -r .sku_name $PUB_FILE)
         IMAGE_VERSION=$(jq -r .image_version $PUB_FILE)
