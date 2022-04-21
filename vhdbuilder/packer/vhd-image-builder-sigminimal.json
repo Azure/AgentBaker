@@ -204,6 +204,26 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.path",
+      "destination": "/home/packer/update_certs.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
+      "destination": "/home/packer/update_certs.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/opt/scripts/update_certs.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },

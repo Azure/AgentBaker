@@ -211,6 +211,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/opt/scripts/update_certs.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },
