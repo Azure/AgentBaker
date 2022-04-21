@@ -37,7 +37,6 @@ copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
 
 systemctlEnableAndStart update_certs.path || exit 1
-systemctlEnableAndStart update_certs.service || exit 1
 systemctlEnableAndStart update_certs.timer || exit 1
 
 echo ""
