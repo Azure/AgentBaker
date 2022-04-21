@@ -30,13 +30,22 @@ installAscBaseline() {
    sudo cp /opt/microsoft/asc-baseline/baselines/*.xml /opt/microsoft/asc-baseline/
    cd /opt/microsoft/asc-baseline
    ls -al
+   echo -e "INITIAL ASC BASELINE\n\n\n"
    sudo ./ascbaseline -d .
    sudo ./ascremediate -d . -m all
+   echo -e "REMEDIATE ASC\n\n\n"
    sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL"
+   echo -e "\n\n\nAFTER ASC REMEDIATION\n\n\n"
+   failfile = $(pwd)/failures.json
+   sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL" > $failfile
    cd -
    echo "Check UDF"
    cat /etc/modprobe.d/*.conf | grep udf
    echo "Finished Setting up ASC Baseline"
+   echo "catting out failfile again"
+   echo -e "\n\n\n"
+   cat $failfile
+   echo -e "\n\n\n"
 }
 
 installBcc() {
