@@ -67,9 +67,6 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
   fi
 
-  mkdir /opt/certs
-  chmod 666 /opt/certs
-
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
