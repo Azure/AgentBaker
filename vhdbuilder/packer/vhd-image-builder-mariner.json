@@ -49,6 +49,15 @@
       ]
     },
     {
+      "type": "shell",
+      "inline": [
+        "sudo mkdir -p /opt/scripts",
+        "sudo chown -R $USER /opt/scripts",
+        "sudo mkdir -p /opt/certs",
+        "sudo chown -R $USER /opt/certs"
+      ]
+    },
+    {
       "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
@@ -181,7 +190,7 @@
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
-      "destination": "/opt/scripts/update_certs.sh"
+      "destination": "/home/packer/update_certs.sh"
     },
     {
       "type": "file",

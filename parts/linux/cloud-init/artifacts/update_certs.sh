@@ -14,10 +14,10 @@ if [[ -z $(ls -A "$certSource") ]]; then
 else
   certsToCopy=(${certSource}/*)
   currIterationCertFile=${certsToCopy[0]##*/}
-  currTag=${currIterationCertFile:0:14}
+  currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
-     if [[ ${currFile:0:14} < ${currTag} ]]; then
+     if [[ "${currFile:0:14}" != "${currIterationTag}" ]]; then
           rm "${file}"
      fi
   done
