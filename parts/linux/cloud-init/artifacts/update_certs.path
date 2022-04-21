@@ -3,7 +3,7 @@ Description=Monitor the cert directory for changes
 
 [Path]
 PathChanged=/opt/certs
-Unit=update-certs.service
+Unit=update_certs.service
 
 [Install]
 WantedBy=multi-user.target

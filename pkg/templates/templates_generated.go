@@ -4625,7 +4625,7 @@ Description=Monitor the cert directory for changes
 
 [Path]
 PathChanged=/opt/certs
-Unit=update-certs.service
+Unit=update_certs.service
 
 [Install]
 WantedBy=multi-user.target`)
@@ -4674,7 +4674,7 @@ Description=Update certificates on a 5 minute timer
 [Timer]
 OnBootSec=0min
 OnCalendar=*:0/5
-Unit=update-certs.service
+Unit=update_certs.service
 
 [Install]
 WantedBy=multi-user.target`)
