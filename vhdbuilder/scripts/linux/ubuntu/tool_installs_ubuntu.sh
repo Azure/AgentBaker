@@ -36,7 +36,7 @@ installAscBaseline() {
    echo -e "REMEDIATE ASC\n\n\n"
    sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL"
    echo -e "\n\n\nAFTER ASC REMEDIATION\n\n\n"
-   failfile = $(pwd)/failures.json
+   failfile=$(pwd)/failures.json
    sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL" > $failfile
    cd -
    echo "Check UDF"
