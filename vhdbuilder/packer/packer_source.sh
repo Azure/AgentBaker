@@ -58,7 +58,7 @@ copyPackerFiles() {
   UPDATE_CERTS_TIMER_SRC=/home/packer/update_certs.timer
   UPDATE_CERTS_TIMER_DEST=/etc/systemd/system/update_certs.timer
   UPDATE_CERTS_SCRIPT_SRC=/home/packer/update_certs.sh
-  UPDATE_CERTS_SCRIPT_DEST=/opt/scripts
+  UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
