@@ -46,6 +46,7 @@ installBcc() {
     pushd /tmp/bcc
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build
+    git checkout v0.24.0
     cmake .. || exit 1
     make
     sudo make install || exit 1
