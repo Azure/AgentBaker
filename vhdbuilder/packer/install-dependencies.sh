@@ -213,9 +213,6 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libbcc-examples
 EOF
 
-installImg
-echo "  - img" >> ${VHD_LOGS_FILEPATH}
-
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 string_replace() {
