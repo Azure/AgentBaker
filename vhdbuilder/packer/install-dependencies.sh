@@ -257,6 +257,8 @@ watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
 # this image will never get pulled, the tag must be the same across different SHAs.
 # it will only ever be upgraded via node image changes.
+# we do this because the image is used to bootstrap custom CA trust when MCR egress
+# may be intercepted by an untrusted TLS MITM firewall.
 watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
