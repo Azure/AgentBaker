@@ -250,6 +250,24 @@ for imageToBePulled in ${ContainerImages[*]}; do
   done
 done
 
+watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+
+# this image will never get pulled, the tag must be the same across different SHAs.
+# it will only ever be upgraded via node image changes.
+# we do this because the image is used to bootstrap custom CA trust when MCR egress
+# may be intercepted by an untrusted TLS MITM firewall.
+watcherStaticImg=${watcherBaseImg//\*/static}
+
+# can't use cliTool because crictl doesn't support retagging.
+if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+else
+    retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
+fi
+
 #Azure CNI has binaries and container images for ARM64 from 1.4.13
 AMD64_ONLY_CNI_VERSIONS="
 1.2.7
