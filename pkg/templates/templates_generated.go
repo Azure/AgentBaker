@@ -59,6 +59,10 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
+// linux/cloud-init/artifacts/update_certs.path
+// linux/cloud-init/artifacts/update_certs.service
+// linux/cloud-init/artifacts/update_certs.sh
+// linux/cloud-init/artifacts/update_certs.timer
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
@@ -4616,6 +4620,122 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Unit]
+Description=Monitor the cert directory for changes
+
+[Path]
+PathChanged=/opt/certs
+Unit=update_certs.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsUpdate_certsPathBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsPath, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsPath() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsPathBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.path", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsService = []byte(`[Unit]
+Description=Updates certificates copied from AKS DS
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/update_certs.sh
+RestartSec=5`)
+
+func linuxCloudInitArtifactsUpdate_certsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsService, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
+set -euo pipefail
+set -x
+
+certSource=/opt/certs
+certDestination=/usr/local/share/ca-certificates/certs
+
+cp -a "$certSource"/. "$certDestination"
+
+if [[ -z $(ls -A "$certSource") ]]; then
+  ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+    rm $certDestination/"$line"
+  done
+else
+  certsToCopy=(${certSource}/*)
+  currIterationCertFile=${certsToCopy[0]##*/}
+  currIterationTag=${currIterationCertFile:0:14}
+  for file in "$certDestination"/*.crt; do
+      currFile=${file##*/}
+     if [[ "${currFile:0:14}" != "${currIterationTag}" ]]; then
+          rm "${file}"
+     fi
+  done
+fi
+
+update-ca-certificates -f`)
+
+func linuxCloudInitArtifactsUpdate_certsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsSh, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsTimer = []byte(`[Unit]
+Description=Update certificates on a 5 minute timer
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*:0/5
+Unit=update_certs.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsUpdate_certsTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsTimer, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -6431,6 +6551,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
+	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
+	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
+	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
+	"linux/cloud-init/artifacts/update_certs.timer":                        linuxCloudInitArtifactsUpdate_certsTimer,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
@@ -6544,6 +6668,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
+				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
+				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
+				"update_certs.sh":      &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
+				"update_certs.timer":   &bintree{linuxCloudInitArtifactsUpdate_certsTimer, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
