@@ -313,8 +313,8 @@
         "v1.2.0"
       ],
       "multiArchVersions": [
-        "v1.12.0",
-        "v1.15.0"
+        "v1.15.0",
+        "v1.16.0"
       ]
     },
     {
@@ -432,6 +432,13 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "master.220211.1"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "master.220422.1"
       ]
     }
   ],
