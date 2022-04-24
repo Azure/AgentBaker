@@ -32,6 +32,18 @@ switch -Regex ($windowsSKU) {
     }
 }
 
+# WindowsPatchUrl is only set and used in building VHD
+if (-not ([string]::IsNullOrEmpty($env:WindowsPatchUrl))) {
+    Write-Host "Setting Windows patch URL via envrionment variables"
+    $global:patchUrls += $env:WindowsPatchUrl
+}
+
+# windowsPatchId is only set and used in testing VHD
+if (-not ([string]::IsNullOrEmpty($env:WindowsPatchId))) {
+    Write-Host "Setting Windows patch ID via envrionment variables"
+    $global:patchIDs += $env:WindowsPatchId
+}
+
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.45/binaries/containerd-v0.0.45-windows-amd64.tar.gz"
 

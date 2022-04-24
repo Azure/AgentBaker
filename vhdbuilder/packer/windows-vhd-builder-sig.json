@@ -19,7 +19,8 @@
         "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
         "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
         "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
+        "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}"
     },
     "builders": [
         {
@@ -73,7 +74,8 @@
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "WindowsPatchUrl={{user `windows_patch_url`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -96,7 +98,6 @@
             ],
             "type": "powershell",
             "scripts": [
-                "vhdbuilder/packer/generate-windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/configure-windows-vhd.ps1"
             ]
         },

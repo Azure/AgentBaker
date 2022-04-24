@@ -7,12 +7,14 @@
 
 param (
     $containerRuntime,
-    $windowsSKU
+    $windowsSKU,
+    $windowsPatchId
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:ContainerRuntime=$containerRuntime
 $env:WindowsSKU=$windowsSKU
+$env:WindowsPatchId=$windowsPatchId
 
 . c:\windows-vhd-configuration.ps1
 
@@ -153,6 +155,7 @@ function Test-PatchInstalled {
         $currenHotfixes += $hotfixID
     }
 
+    Write-Output "The length of patchUrls is $($patchIDs.Length)"
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
     if($lostPatched.count -ne 0) {
         Write-Error "$lostPatched is(are) not installed"
