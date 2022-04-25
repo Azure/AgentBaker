@@ -88,24 +88,10 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/containernetworking/networkmonitor:*",
-      "amd64OnlyVersions": [
-        "v1.1.8_hotfix"
-      ],
-      "multiArchVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [
         "v1.4.9",
         "v1.4.18"
-      ],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/containernetworking/azure-vnet-telemetry:*",
-      "amd64OnlyVersions": [
-        "v1.0.30"
       ],
       "multiArchVersions": []
     },
