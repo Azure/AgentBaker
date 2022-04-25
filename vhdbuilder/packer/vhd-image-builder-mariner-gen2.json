@@ -62,6 +62,15 @@
       ]
     },
     {
+      "type": "shell",
+      "inline": [
+        "sudo mkdir -p /opt/scripts",
+        "sudo chown -R $USER /opt/scripts",
+        "sudo mkdir -p /opt/certs",
+        "sudo chown -R $USER /opt/certs"
+      ]
+    },
+    {
       "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
@@ -110,6 +119,11 @@
       "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/components.json",
+      "destination": "/home/packer/components.json"
     },
     {
       "type": "file",
@@ -175,6 +189,26 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/disk_queue.service",
       "destination": "/home/packer/disk_queue.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.path",
+      "destination": "/home/packer/update_certs.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
+      "destination": "/home/packer/update_certs.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/home/packer/update_certs.sh"
     },
     {
       "type": "file",

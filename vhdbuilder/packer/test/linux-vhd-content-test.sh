@@ -1,6 +1,7 @@
 #!/bin/bash
 git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -8,6 +9,9 @@ THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 testFilesDownloaded() {
   test="testFilesDownloaded"
   containerRuntime=$1
+  if [[ $(isARM64) == 1 ]]; then
+    return
+  fi
   echo "$test:Start"
   filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
@@ -92,7 +96,11 @@ testImagesPulled() {
     if [[ ${multiArchVersionsStr} != null ]]; then
       multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
     fi
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
+    if [[ $(isARM64) == 1 ]]; then
+      versions="${multiArchVersions}"
+    else
+      versions="${amd64OnlyVersions} ${multiArchVersions}"
+    fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
