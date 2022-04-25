@@ -473,8 +473,6 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.19.0",
-        "1.20.0",
         "1.21.0",
         "1.22.0",
         "1.23.0"
