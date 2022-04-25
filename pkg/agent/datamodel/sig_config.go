@@ -325,16 +325,16 @@ var (
 
 	SIGUbuntuContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:	   AKSUbuntuGalleryName,
+		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004containerd",
-		Version:	   Ubuntu2004SIGImageVersion,
+		Version:       Ubuntu2004SIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2004Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:	   AKSUbuntuGalleryName,
-		Definition:	   "2004gen2containerd",
-		Version: 	   Ubuntu2004SIGImageVersion,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2004gen2containerd",
+		Version:       Ubuntu2004SIGImageVersion,
 	}
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
@@ -379,8 +379,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsGPUContainerd1804:     SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsGPUContainerd1804Gen2: SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd1804Gen2:   SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2004:			SIGUbuntuContainerd2004ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2004Gen2:		SIGUbuntuContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004:            SIGUbuntuContainerd2004ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004Gen2:        SIGUbuntuContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
