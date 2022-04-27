@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -20,7 +19,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
-	"github.com/pkg/errors"
 )
 
 // TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
@@ -70,27 +68,6 @@ func init() {
 }
 
 type paramsMap map[string]interface{}
-
-// generateConsecutiveIPsList takes a starting IP address and returns a string slice of length "count" of subsequent, consecutive IP addresses
-func generateConsecutiveIPsList(count int, firstAddr string) ([]string, error) {
-	ipaddr := net.ParseIP(firstAddr).To4()
-	if ipaddr == nil {
-		return nil, errors.Errorf("IPAddr '%s' is an invalid IP address", firstAddr)
-	}
-	if int(ipaddr[3])+count >= 255 {
-		return nil, errors.Errorf("IPAddr '%s' + %d will overflow the fourth octet", firstAddr, count)
-	}
-	ret := make([]string, count)
-	for i := 0; i < count; i++ {
-		nextAddress := fmt.Sprintf("%d.%d.%d.%d", ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3]+byte(i))
-		ipaddr := net.ParseIP(nextAddress).To4()
-		if ipaddr == nil {
-			return nil, errors.Errorf("IPAddr '%s' is an invalid IP address", nextAddress)
-		}
-		ret[i] = nextAddress
-	}
-	return ret, nil
-}
 
 func addValue(m paramsMap, k string, v interface{}) {
 	m[k] = paramsMap{
@@ -176,60 +153,6 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
-func getVNETSubnetDependencies(properties *datamodel.Properties) string {
-	agentString := `        "[concat('Microsoft.Network/networkSecurityGroups/', variables('%sNSGName'))]"`
-	var buf bytes.Buffer
-	for index, agentProfile := range properties.AgentPoolProfiles {
-		if index > 0 {
-			buf.WriteString(",\n")
-		}
-		buf.WriteString(fmt.Sprintf(agentString, agentProfile.Name))
-	}
-	return buf.String()
-}
-
-func getLBRule(name string, port int) string {
-	return fmt.Sprintf(`	          {
-            "name": "LBRule%d",
-            "properties": {
-              "backendAddressPool": {
-                "id": "[concat(variables('%sLbID'), '/backendAddressPools/', variables('%sLbBackendPoolName'))]"
-              },
-              "backendPort": %d,
-              "enableFloatingIP": false,
-              "frontendIPConfiguration": {
-                "id": "[variables('%sLbIPConfigID')]"
-              },
-              "frontendPort": %d,
-              "idleTimeoutInMinutes": 5,
-              "loadDistribution": "Default",
-              "probe": {
-                "id": "[concat(variables('%sLbID'),'/probes/tcp%dProbe')]"
-              },
-              "protocol": "Tcp"
-            }
-          }`, port, name, name, port, name, port, name, port)
-}
-
-func getSecurityRule(port int, portIndex int) string {
-	// BaseLBPriority specifies the base lb priority.
-	BaseLBPriority := 200
-	return fmt.Sprintf(`          {
-            "name": "Allow_%d",
-            "properties": {
-              "access": "Allow",
-              "description": "Allow traffic from the Internet to port %d",
-              "destinationAddressPrefix": "*",
-              "destinationPortRange": "%d",
-              "direction": "Inbound",
-              "priority": %d,
-              "protocol": "*",
-              "sourceAddressPrefix": "Internet",
-              "sourcePortRange": "*"
-            }
-          }`, port, port, port, BaseLBPriority+portIndex)
-}
-
 func escapeSingleLine(escapedStr string) string {
 	// template.JSEscapeString leaves undesirable chars that don't work with pretty print
 	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
@@ -260,11 +183,6 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
-func getStringFromBase64(str string) (string, error) {
-	decodedBytes, err := base64.StdEncoding.DecodeString(str)
-	return string(decodedBytes), err
-}
-
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data
 func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
@@ -281,15 +199,6 @@ func getExtensionURL(rootURL, extensionName, version, fileName, query string) st
 		url += "?" + query
 	}
 	return url
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
 
 func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
