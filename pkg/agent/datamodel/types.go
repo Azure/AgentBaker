@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -686,12 +685,6 @@ type ContainerService struct {
 func (cs *ContainerService) IsAKSCustomCloud() bool {
 	return cs.Properties.CustomCloudEnv != nil &&
 		strings.EqualFold(cs.Properties.CustomCloudEnv.Name, "akscustom")
-}
-
-// GetLocations returns all supported regions.
-// If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
-func (cs *ContainerService) GetLocations() []string {
-	return helpers.GetAzureLocations()
 }
 
 // HasAadProfile returns true if the has aad profile
