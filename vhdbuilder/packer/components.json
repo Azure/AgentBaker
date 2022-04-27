@@ -342,6 +342,7 @@
         "v0.10.0"
       ],
       "multiArchVersions": [
+        "v0.11.0.2",
         "v0.10.1"
       ]
     },
@@ -361,9 +362,18 @@
         "1.0.4"
       ],
       "multiArchVersions": [
+        "1.1.3",
         "0.49.3",
         "1.0.5",
         "1.2.0"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
+      "amd64OnlyVersions": [
+        "6e11599"
+      ],
+      "multiArchVersions": [
       ]
     },
     {
@@ -473,8 +483,6 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.19.0",
-        "1.20.0",
         "1.21.0",
         "1.22.0",
         "1.23.0"
