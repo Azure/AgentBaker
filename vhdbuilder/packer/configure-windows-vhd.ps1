@@ -313,6 +313,9 @@ function Get-SystemDriveDiskInfo {
 $ProgressPreference = 'SilentlyContinue'
 
 try{
+    Write-Log "Get-MpPreference"
+    Get-MpPreference | Write-Output
+
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
@@ -343,6 +346,9 @@ try{
             exit 1
         }
     }
+
+    Write-Log "Get-MpPreference"
+    Get-MpPreference | Write-Output
 }
 finally {
     Get-SystemDriveDiskInfo

@@ -203,6 +203,9 @@ function Test-RegistryAdded {
     }
 }
 
+Get-MpPreference | Write-Error
+exit 1
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
