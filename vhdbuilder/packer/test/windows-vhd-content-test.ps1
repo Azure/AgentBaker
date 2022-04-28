@@ -203,8 +203,19 @@ function Test-RegistryAdded {
     }
 }
 
+function Test-DefenderSignature {
+    $mpPreference = Get-MpPreference
+    if ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources)) {
+        Write-Output "The Windows Defender has correct Signature"
+    } else {
+        Write-Error "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
+Test-DefenderSignature
 Remove-Item -Path c:\windows-vhd-configuration.ps1

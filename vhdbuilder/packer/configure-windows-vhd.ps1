@@ -309,6 +309,11 @@ function Get-SystemDriveDiskInfo {
     }
 }
 
+function Get-DefenderPreferenceInfo {
+    Write-Log "Get preferences for the Windows Defender scans and updates"
+    Write-Log(Get-MpPreference | Format-List | Out-String)
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -346,4 +351,5 @@ try{
 }
 finally {
     Get-SystemDriveDiskInfo
+    Get-DefenderPreferenceInfo
 }
