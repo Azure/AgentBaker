@@ -216,17 +216,17 @@ function Test-DefenderSignature {
     }
 }
 
-function Test-AzurePlugins {
-    $expectedPlugins = @(
+function Test-AzureExtensions {
+    $expectedExtensions = @(
         "Microsoft.CPlat.Core.RunCommandWindows"
     )
-    $actualPlugins = (Get-ChildItem "C:\Packages\Plugins").Name
-    $compareResult = (Compare-Object $expectedPlugins $actualPlugins)
+    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+    $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
     if ($compareResult) {
-        Write-Error "Packages Plugins are not expected. Details: $compareResult"
+        Write-Error "Azure extensions are not expected. Details: $($compareResult | Out-String)"
         exit 1
     } else {
-        Write-Output "Packages Plugins are expected"
+        Write-Output "Azure extensions are expected"
     }
 }
 
@@ -235,5 +235,5 @@ Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
-Test-AzurePlugins
+Test-AzureExtensions
 Remove-Item -Path c:\windows-vhd-configuration.ps1
