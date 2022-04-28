@@ -318,13 +318,14 @@ function Get-DefenderPreferenceInfo {
 $ProgressPreference = 'SilentlyContinue'
 
 try{
+    Get-DefenderPreferenceInfo
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
-            Update-DefenderSignatures
+            #Update-DefenderSignatures
             Install-WindowsPatches
             Install-OpenSSH
             Update-WindowsFeatures
