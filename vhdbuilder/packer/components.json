@@ -90,8 +90,6 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [
-        "v1.4.9",
-        "v1.4.18"
       ],
       "multiArchVersions": []
     },
@@ -138,10 +136,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
-      "amd64OnlyVersions": [
-        "ciprod01312022",
-        "ciprod03112022"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "ciprod03172022"
       ]
@@ -351,9 +346,7 @@
       "amd64OnlyVersions": [
         "1.4"
       ],
-      "multiArchVersions": [
-        "v1.11.9"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
@@ -387,11 +380,8 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
-      "amd64OnlyVersions": [
-        "prod_20210909.1"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20211230.1",
         "prod_20220114.1",
         "prod_20220225.1"
       ]
@@ -412,7 +402,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.0",
-        "1.5.0-rc1",
         "1.5.1"
       ]
     },
