@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -142,6 +141,8 @@ const (
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
 	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
 	AKSUbuntuArm64Containerd1804Gen2   Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
+	AKSUbuntuContainerd2004            Distro = "aks-ubuntu-containerd-20.04"
+	AKSUbuntuContainerd2004Gen2        Distro = "aks-ubuntu-containerd-20.04-gen2"
 	RHEL                               Distro = "rhel"
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
@@ -181,6 +182,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
+	AKSUbuntuContainerd2004,
+	AKSUbuntuContainerd2004Gen2,
 }
 
 func (d Distro) IsVHDDistro() bool {
@@ -682,12 +685,6 @@ type ContainerService struct {
 func (cs *ContainerService) IsAKSCustomCloud() bool {
 	return cs.Properties.CustomCloudEnv != nil &&
 		strings.EqualFold(cs.Properties.CustomCloudEnv.Name, "akscustom")
-}
-
-// GetLocations returns all supported regions.
-// If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
-func (cs *ContainerService) GetLocations() []string {
-	return helpers.GetAzureLocations()
 }
 
 // HasAadProfile returns true if the has aad profile
