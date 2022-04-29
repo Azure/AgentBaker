@@ -47,6 +47,20 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
+    if [[ $(isARM64) == 1 ]]; then
+        kernelVersion=$(uname -r)
+        if [[ "${kernelVersion}" < "5.4.0-1078-azure" ]]; then
+cat <<EOF >/etc/apt/sources.list.d/ubuntu-$(lsb_release -cs)-proposed.list
+# Enable Ubuntu proposed archive
+deb http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-proposed restricted main multiverse universe
+EOF
+            apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+            retrycmd_if_failure 30 5 3600 apt-get install -y linux-image-5.4.0-1078-azure || exit $ERR_APT_INSTALL_TIMEOUT
+            rm -f /etc/apt/sources.list.d/ubuntu-bionic-proposed.list
+            apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+        fi
+    fi
 }
 
 downloadGPUDrivers() {
