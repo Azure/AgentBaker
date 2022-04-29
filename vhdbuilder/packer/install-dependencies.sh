@@ -96,6 +96,22 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
+
+  # 5.4.0-1077-azure in the arm64 18.04 ubuntu image available on marketplace (Canonical:0002-com-ubuntu-server-arm-preview-bionic:18_04-lts:18.04.202204240)
+  # misses many kernel configurations on which AKS doesn't work well. Canonical built a new kernel 5.4.0-1078-azure with proper kernel settings and shared in
+  # the proposed repo. Canonical will publish new image containing 5.4.0-1078-azure kernel soon. For now we explicitly install this kernel. After new image is
+  # available, we can remove this block.
+  kernelVersion=$(uname -r)
+  if [[ "${kernelVersion}" < "5.4.0-1078-azure" ]]; then
+cat <<EOF >/etc/apt/sources.list.d/ubuntu-$(lsb_release -cs)-proposed.list
+# Enable Ubuntu proposed archive
+deb http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-proposed restricted main multiverse universe
+EOF
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    retrycmd_if_failure 30 5 3600 apt-get install -y linux-image-5.4.0-1078-azure || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -f /etc/apt/sources.list.d/ubuntu-bionic-proposed.list
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  fi
 fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
@@ -171,13 +187,19 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then
-  # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
   RUNC_VERSIONS="
   1.0.0-rc92
   1.0.0-rc95
   1.0.3
   "
+  if [[ $(isARM64) == 1 ]]; then
+    # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+    # so use different version set for different arch to avoid affecting each other during VHD build
+    RUNC_VERSIONS="
+    1.0.3
+    "
+  fi
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
     echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
