@@ -89,8 +89,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
-      "amd64OnlyVersions": [
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": []
     },
     {
@@ -366,8 +365,7 @@
       "amd64OnlyVersions": [
         "6e11599"
       ],
-      "multiArchVersions": [
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
