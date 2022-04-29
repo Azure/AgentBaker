@@ -14,13 +14,11 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "arm64_sig_subscription_id": "{{env `{ARM64_SIG_SUBSCRIPTION_ID`}}",
-    "arm64_sig_resource_group_name": "{{env `${ARM64_SIG_RESOURCE_GROUP_NAME`}}",
-    "arm64_sig_gallery_name": "{{env `${ARM64_SIG_GALLERY_NAME`}}",
-    "arm64_sig_imagename": "{{env `${ARM64_SIG_IMAGENAME`}}",
-    "arm64_sig_image_version": "{{env `${ARM64_SIG_IMAGE_VERSION`}}",
     "arm64_os_disk_snapshot_name": "{{env `${ARM64_OS_DISK_SNAPSHOT_NAME`}}",
-    "enable_fips": "{{env `ENABLE_FIPS`}}"
+    "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "img_publisher": "{{env `IMG_PUBLISHER`}}",
+    "img_offer": "{{env `IMG_OFFER`}}",
+    "img_sku": "{{env `IMG_SKU`}}"
   },
   "builders": [
     {
@@ -31,6 +29,10 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
+      "image_publisher": "{{user `img_publisher`}}",
+      "image_offer": "{{user `img_offer`}}",
+      "image_sku": "{{user `img_sku`}}",
+      "image_version": "latest",
       "azure_tags": {
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
@@ -39,13 +41,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-      "shared_image_gallery": {
-        "subscription": "{{user `arm64_sig_subscription_id`}}",
-        "resource_group": "{{user `arm64_sig_resource_group_name`}}",
-        "gallery_name": "{{user `arm64_sig_gallery_name`}}",
-        "image_name": "{{user `arm64_sig_imagename`}}",
-        "image_version": "{{user `arm64_sig_image_version`}}"
-      },
       "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
