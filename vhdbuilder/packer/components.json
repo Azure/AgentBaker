@@ -406,7 +406,7 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.7.5.7",
+        "v1.7.5.7",
         "v1.8.8"
       ]
     },
