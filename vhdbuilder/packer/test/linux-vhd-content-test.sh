@@ -315,6 +315,15 @@ testCriticalTools() {
   echo "$test:Finish"
 }
 
+testCustomCAScriptExecutable() {
+  test="testCustomCAScriptExecutable"
+  permissions=$(stat -c "%a" /opt/scripts/update_certs.sh)
+  if [ "$permissions" != "755" ]; then
+      err $test "/opt/scripts/update_certs.sh has incorrect permissions"
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -332,3 +341,4 @@ testFips $2 $3
 testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
 testImagesRetagged $1
+testCustomCAScriptExecutable
