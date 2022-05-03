@@ -269,6 +269,8 @@ else
     fi
 fi
 
+chmod +x /opt/scripts/update_certs.sh
+
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
