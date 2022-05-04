@@ -116,18 +116,13 @@ disable1804SystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    resolvConfFile=""
-    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-        resolvConfFile="resolv.conf"
-    elif [[ ${UBUNTU_RELEASE} == "20.04" ]]; then
-        resolvConfFile="stub-resolv.conf"
+    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
+        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+        echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
+        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        ls -ltr /etc/resolv.conf
+        cat /etc/resolv.conf
     fi
-
-    echo "Ingorings systemd-resolved query service but using its resolv.conf file"
-    echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
-    [ -f /run/systemd/resolve/$resolvConfFile ] && sudo ln -sf /run/systemd/resolve/$resolvConfFile /etc/resolv.conf
-    ls -ltr /etc/resolv.conf
-    cat /etc/resolv.conf
 }
 ensureContainerd() {
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT

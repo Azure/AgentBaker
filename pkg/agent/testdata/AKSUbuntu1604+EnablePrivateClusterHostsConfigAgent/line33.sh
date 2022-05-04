@@ -47,7 +47,7 @@ if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
 
-disable1804SystemdResolved
+disable1804and2004SystemdResolved
 
 configureAdminUser
 
