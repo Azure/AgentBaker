@@ -1348,6 +1348,7 @@ systemctlEnableAndStart() {
     systemctl_restart 100 5 30 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
+    cat /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$1 could not be started"
         return 1
