@@ -205,7 +205,19 @@ configureCNIIPTables() {
 disable1804SystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
-    echo "Disable1804SystemdResolved is false. Skipping."
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    resolvConfFile=""
+    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+        resolvConfFile="resolv.conf"
+    elif [[ ${UBUNTU_RELEASE} == "20.04" ]]; then
+        resolvConfFile="stub-resolv.conf"
+    fi
+
+    echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+    echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
+    [ -f /run/systemd/resolve/$resolvConfFile ] && sudo ln -sf /run/systemd/resolve/$resolvConfFile /etc/resolv.conf
+    ls -ltr /etc/resolv.conf
+    cat /etc/resolv.conf
 }
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
