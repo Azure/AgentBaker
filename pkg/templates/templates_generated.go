@@ -4155,10 +4155,6 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
-    if [[ $(isARM64) == 1 ]]; then
-        #walinuxagent is installed on arm64 ubuntu base os, but not as apt package
-        return
-    fi
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
@@ -4290,7 +4286,7 @@ removeContainerd() {
 
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
-        wait_for_apt_locks # internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for ~20 minutes when the VM boots first time.
+        wait_for_apt_locks
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -4505,21 +4501,32 @@ ensureRunc() {
         return 0
     fi
 
-    if [[ $(isARM64) == 1 ]]; then
-        # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
-        return
-    fi
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
+
+        if [[ $(isARM64) == 1 ]]; then
+            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+            # so use different target version for different arch to avoid affecting each other during provisioning
+            TARGET_VERSION="1.0.3"
+        fi
     fi
+
+    if [[ $(isARM64) == 1 ]]; then
+        if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
+            # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
+            return
+        fi
+    fi
+
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
+        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
