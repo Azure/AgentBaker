@@ -4631,7 +4631,7 @@ var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Unit]
 Description=Monitor the cert directory for changes
 
 [Path]
-PathChanged=/opt/certs
+PathModified=/opt/certs
 Unit=update_certs.service
 
 [Install]
