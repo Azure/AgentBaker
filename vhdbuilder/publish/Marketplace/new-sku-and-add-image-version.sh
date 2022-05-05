@@ -64,6 +64,7 @@ echo
 
 # Get VHD version info for vhd-publishing-info.json produced by previous pipeline stage
 vhd_url=$(< $VHD_INFO jq -r ".vhd_url")
+redact_vhd_url=${vhd_url/\?*/?***}
 image_version=$(< $VHD_INFO jq -r ".image_version")
 
 # generate media name
@@ -82,7 +83,7 @@ echo "pubilsher: $PUBLISHER"
 echo "offer: $OFFER"
 echo "sku id: $sku_id"
 echo "image version: $image_version"
-echo "vhd url: $vhd_url"
+echo "vhd url: $redact_vhd_url"
 echo "media name: $media_name"
 echo "published date: $published_date"
 echo "image label: $published_image_label"
