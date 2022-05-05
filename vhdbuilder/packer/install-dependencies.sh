@@ -457,17 +457,6 @@ done
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# below are the required to support versions
-# v1.19.11
-# v1.19.12
-# v1.19.13
-# v1.20.7
-# v1.20.8
-# v1.20.9
-# v1.21.1
-# v1.21.2
-# v1.22.1 (preview)
-# v1.22.2 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
@@ -508,7 +497,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.3-hotfix.20220401
 1.23.4-hotfix.20220331
 1.23.5-hotfix.20220331
-1.24.0-beta.0
+1.24.0
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
