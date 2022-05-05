@@ -1,4 +1,4 @@
-Starting build on  Fri Apr 29 03:39:36 UTC 2022
+Starting build on  Wed May 4 21:40:59 UTC 2022
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apache2-utils
   - apt-transport-https
@@ -94,16 +94,19 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.7.1
   - mcr.microsoft.com/oss/kubernetes/external-dns:v0.11.0.2
   - mcr.microsoft.com/oss/kubernetes/external-dns:v0.10.1
+  - mcr.microsoft.com/oss/kubernetes/defaultbackend:v1.11.9
   - mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:1.1.3
   - mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:0.49.3
   - mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:1.0.5
   - mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:1.2.0
   - mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:1.4.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20211230.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20220114.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20220225.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20211230.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20220225.1
   - mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.4.0
+  - mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.5.0-rc1
   - mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:1.5.1
   - mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.5.5
   - mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.7.5.7
@@ -120,9 +123,7 @@ containerd images pre-pulled:
   - CNI plugin version 0.9.1
   - docker.io/library/nginx:1.13.12-alpine
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.21.7-hotfix.20220330.2
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.21.7-hotfix.20220420
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.21.9-hotfix.20220330.2
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.21.9-hotfix.20220420
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.4-hotfix.20220330.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.6-hotfix.20220330.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.3-hotfix.20220401.1
@@ -145,9 +146,9 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  46202880 Apr  1 01:15 /usr/local/bin/kubectl-1.23.3
 -rwxr-xr-x 1 root root 112834808 Apr  6 17:21 /usr/local/bin/kubelet-1.24.0
 -rwxr-xr-x 1 root root  44695552 Apr  6 17:21 /usr/local/bin/kubectl-1.24.0
--r-xr--r-- 1 root root      2462 Apr 29 03:39 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root  49414128 Apr 29 03:42 /usr/local/bin/krustlet-wagi
--rwxr-xr-x 1 root root  35384960 Apr 29 03:43 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root      2462 May  4 21:40 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root  49414128 May  4 21:43 /usr/local/bin/krustlet-wagi
+-rwxr-xr-x 1 root root  35384960 May  4 21:44 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/bionic-updates,bionic-security,now 0.6.45-1ubuntu1.3 arm64 [installed,automatic]
@@ -530,8 +531,8 @@ libsmartcols1/bionic-updates,bionic-security,now 2.31.1-0.4ubuntu3.7 arm64 [inst
 libsnappy1v5/bionic,now 1.1.7-1 arm64 [installed,automatic]
 libsqlite3-0/bionic-updates,bionic-security,now 3.22.0-1ubuntu0.4 arm64 [installed,automatic]
 libss2/bionic-updates,bionic-security,now 1.44.1-1ubuntu1.3 arm64 [installed,automatic]
-libssl1.0.0/bionic-updates,bionic-security,now 1.0.2n-1ubuntu5.8 arm64 [installed,automatic]
-libssl1.1/bionic-updates,bionic-security,now 1.1.1-1ubuntu2.1~18.04.15 arm64 [installed,automatic]
+libssl1.0.0/bionic-updates,bionic-security,now 1.0.2n-1ubuntu5.9 arm64 [installed,automatic]
+libssl1.1/bionic-updates,bionic-security,now 1.1.1-1ubuntu2.1~18.04.17 arm64 [installed,automatic]
 libstdc++-7-dev/bionic-updates,bionic-security,now 7.5.0-3ubuntu1~18.04 arm64 [installed,automatic]
 libstdc++6/bionic-updates,bionic-security,now 8.4.0-1ubuntu1~18.04 arm64 [installed,automatic]
 libsysfs2/bionic,bionic-updates,now 2.1.0+repack-4build1 arm64 [installed,automatic]
@@ -571,28 +572,26 @@ libxmuu1/bionic,now 2:1.1.2-2 arm64 [installed,automatic]
 libxtables12/bionic,now 1.6.1-2ubuntu2 arm64 [installed,automatic]
 libyaml-0-2/bionic,now 0.1.7-2ubuntu3 arm64 [installed,automatic]
 libzstd1/bionic-updates,bionic-security,now 1.3.3+dfsg-2ubuntu1.2 arm64 [installed,automatic]
-linux-azure/bionic-updates,bionic-security,now 5.4.0.1077.56 arm64 [installed]
-linux-azure-5.4-cloud-tools-5.4.0-1077/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
-linux-azure-5.4-headers-5.4.0-1077/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 all [installed]
-linux-azure-5.4-tools-5.4.0-1077/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
+linux-azure/now 5.4.0.1078.57 arm64 [installed,local]
+linux-azure-5.4-cloud-tools-5.4.0-1078/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
+linux-azure-5.4-headers-5.4.0-1078/now 5.4.0-1078.81~18.04.1 all [installed,local]
+linux-azure-5.4-tools-5.4.0-1078/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
 linux-base/bionic-updates,now 4.5ubuntu1.7 all [installed,automatic]
 linux-base-sgx/bionic-updates,now 4.5ubuntu1.7 all [installed]
-linux-cloud-tools-5.4.0-1077-azure/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
-linux-cloud-tools-azure/bionic-updates,bionic-security,now 5.4.0.1077.56 arm64 [installed]
-linux-cloud-tools-common/bionic-updates,bionic-security,now 4.15.0-176.185 all [installed]
+linux-cloud-tools-5.4.0-1078-azure/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
+linux-cloud-tools-azure/now 5.4.0.1078.57 arm64 [installed,local]
+linux-cloud-tools-common/now 4.15.0-177.186 all [installed,local]
 linux-headers-4.15.0-176/bionic-updates,bionic-security,now 4.15.0-176.185 all [installed,auto-removable]
-linux-headers-5.4.0-1077-azure/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
-linux-headers-azure/bionic-updates,bionic-security,now 5.4.0.1077.56 arm64 [installed]
-linux-image-5.4.0-1077-azure/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
+linux-headers-5.4.0-1078-azure/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
+linux-headers-azure/now 5.4.0.1078.57 arm64 [installed,local]
 linux-image-5.4.0-1078-azure/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
-linux-image-azure/bionic-updates,bionic-security,now 5.4.0.1077.56 arm64 [installed]
+linux-image-azure/now 5.4.0.1078.57 arm64 [installed,local]
 linux-libc-dev/bionic-updates,bionic-security,now 4.15.0-176.185 arm64 [installed,automatic]
-linux-modules-5.4.0-1077-azure/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
 linux-modules-5.4.0-1078-azure/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
-linux-modules-extra-5.4.0-1077-azure/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
-linux-tools-5.4.0-1077-azure/bionic-updates,bionic-security,now 5.4.0-1077.80~18.04.1 arm64 [installed]
-linux-tools-azure/bionic-updates,bionic-security,now 5.4.0.1077.56 arm64 [installed]
-linux-tools-common/bionic-updates,bionic-security,now 4.15.0-176.185 all [installed]
+linux-modules-extra-5.4.0-1078-azure/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
+linux-tools-5.4.0-1078-azure/now 5.4.0-1078.81~18.04.1 arm64 [installed,local]
+linux-tools-azure/now 5.4.0.1078.57 arm64 [installed,local]
+linux-tools-common/now 4.15.0-177.186 all [installed,local]
 locales/bionic-updates,bionic-security,now 2.27-3ubuntu1.5 all [installed,automatic]
 login/bionic-updates,bionic-security,now 1:4.5-1ubuntu2.2 arm64 [installed]
 logrotate/bionic,now 3.11.0-0.1ubuntu1 arm64 [installed,automatic]
@@ -631,7 +630,7 @@ netcat/bionic,now 1.10-41.1 all [installed]
 netcat-openbsd/bionic-updates,now 1.187-1ubuntu0.1 arm64 [installed,automatic]
 netcat-traditional/bionic,now 1.10-41.1 arm64 [installed,automatic]
 netplan.io/bionic-updates,now 0.99-0ubuntu3~18.04.5 arm64 [installed,automatic]
-networkd-dispatcher/bionic-updates,bionic-security,now 1.7-0ubuntu3.4 all [installed,automatic]
+networkd-dispatcher/bionic-updates,bionic-security,now 1.7-0ubuntu3.5 all [installed,automatic]
 nfs-common/bionic-updates,now 1:1.3.4-2.1ubuntu5.5 arm64 [installed]
 nplan/bionic-updates,now 0.99-0ubuntu3~18.04.5 all [installed,automatic]
 ntfs-3g/bionic-updates,bionic-security,now 1:2017.3.23-2ubuntu0.18.04.3 arm64 [installed,automatic]
@@ -639,7 +638,7 @@ open-iscsi/bionic-updates,now 2.0.874-5ubuntu2.10 arm64 [installed,automatic]
 openssh-client/bionic-updates,now 1:7.6p1-4ubuntu0.6 arm64 [installed,automatic]
 openssh-server/bionic-updates,now 1:7.6p1-4ubuntu0.6 arm64 [installed]
 openssh-sftp-server/bionic-updates,now 1:7.6p1-4ubuntu0.6 arm64 [installed]
-openssl/bionic-updates,bionic-security,now 1.1.1-1ubuntu2.1~18.04.15 arm64 [installed,automatic]
+openssl/bionic-updates,bionic-security,now 1.1.1-1ubuntu2.1~18.04.17 arm64 [installed,automatic]
 overlayroot/bionic-updates,now 0.40ubuntu1.1 all [installed,automatic]
 packages-microsoft-prod/bionic,bionic,bionic,bionic,now 1.0-ubuntu18.04.1 all [installed]
 parted/bionic-updates,now 3.2-20ubuntu0.2 arm64 [installed,automatic]
@@ -817,7 +816,7 @@ zlib1g/bionic-updates,bionic-security,now 1:1.2.11.dfsg-0ubuntu2.1 arm64 [instal
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev             16G     0   16G   0% /dev
-tmpfs           3.2G  596K  3.2G   1% /run
+tmpfs           3.2G  664K  3.2G   1% /run
 /dev/sda1        29G   15G   15G  51% /
 tmpfs            16G     0   16G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
@@ -826,11 +825,11 @@ tmpfs            16G     0   16G   0% /sys/fs/cgroup
 /dev/sdb1       295G   65M  280G   1% /mnt
 tmpfs           3.2G     0  3.2G   0% /run/user/1000
 Using kernel:
-Linux version 5.4.0-1077-azure (buildd@bos02-arm64-014) (gcc version 7.5.0 (Ubuntu/Linaro 7.5.0-3ubuntu1~18.04)) #80~18.04.1-Ubuntu SMP PREEMPT Wed Apr 13 02:09:01 UTC 2022
-Install completed successfully on  Fri Apr 29 03:57:32 UTC 2022
-VSTS Build NUMBER: 20220429.1_officialbaseos_54809358
-VSTS Build ID: 54809358
-Commit: 6aab5703646071f048c4316496eae243d6826a99
+Linux version 5.4.0-1078-azure (buildd@bos02-arm64-051) (gcc version 7.5.0 (Ubuntu/Linaro 7.5.0-3ubuntu1~18.04)) #81~18.04.1-Ubuntu SMP Mon Apr 25 23:16:24 UTC 2022
+Install completed successfully on  Wed May 4 21:56:38 UTC 2022
+VSTS Build NUMBER: 20220504.6_my20220427_55000258
+VSTS Build ID: 55000258
+Commit: 1afe3e908fee7d58ce35c0131f5d4105a41c35c5
 Ubuntu version: 18.04
 Hyperv generation: V2
 Feature flags: None
