@@ -64,7 +64,7 @@ echo
 
 # Get VHD version info for vhd-publishing-info.json produced by previous pipeline stage
 vhd_url=$(< $VHD_INFO jq -r ".vhd_url")
-redact_vhd_url=$(echo $vhd_url |sed -e 's/?.*/?***/')
+redact_vhd_url=${vhd_url/\?*/?***}
 image_version=$(< $VHD_INFO jq -r ".image_version")
 
 # generate media name

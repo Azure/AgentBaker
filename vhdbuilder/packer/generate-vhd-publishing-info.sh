@@ -60,4 +60,4 @@ cat <<EOF > vhd-publishing-info.json
 EOF
 
 # Do not log sas token
-cat vhd-publishing-info.json | sed 's/?.*\",/?***\",/g'
+sed 's/?.*\",/?***\",/g' < vhd-publishing-info.json
