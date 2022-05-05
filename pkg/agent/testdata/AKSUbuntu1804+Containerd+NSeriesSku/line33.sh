@@ -46,7 +46,7 @@ if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
 
-disable1804and2004SystemdResolved
+disableSystemdResolved
 
 configureAdminUser
 # If crictl gets installed then use it as the cri cli instead of ctr

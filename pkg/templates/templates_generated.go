@@ -789,7 +789,7 @@ configureCNIIPTables() {
     fi
 }
 
-disable1804SystemdResolved() {
+disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
@@ -1917,7 +1917,7 @@ fi
 configureHTTPProxyCA
 {{- end}}
 
-disable1804and2004SystemdResolved
+disableSystemdResolved
 
 configureAdminUser
 

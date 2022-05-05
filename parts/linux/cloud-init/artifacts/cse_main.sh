@@ -54,7 +54,7 @@ fi
 configureHTTPProxyCA
 {{- end}}
 
-disable1804and2004SystemdResolved
+disableSystemdResolved
 
 configureAdminUser
 
