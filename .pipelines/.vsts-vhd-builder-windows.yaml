@@ -47,6 +47,8 @@ stages:
             echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_URL]$(WINDOWS_2019_PATCH_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_ID]$(WINDOWS_2019_PATCH_ID)'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_SKU]$(WINDOWS_2019_BASE_IMAGE_SKU)'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_VERSION]$(WINDOWS_2019_BASE_IMAGE_VERSION)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
@@ -69,6 +71,8 @@ stages:
             echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-containerd-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_URL]$(WINDOWS_2019_PATCH_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_ID]$(WINDOWS_2019_PATCH_ID)'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_SKU]$(WINDOWS_2019_BASE_IMAGE_SKU)'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_VERSION]$(WINDOWS_2019_BASE_IMAGE_VERSION)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
@@ -91,6 +95,8 @@ stages:
             echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2022-containerd-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_URL]$(WINDOWS_2022_PATCH_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_ID]$(WINDOWS_2022_PATCH_ID)'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_SKU]$(WINDOWS_2022_BASE_IMAGE_SKU)'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_VERSION]$(WINDOWS_2022_BASE_IMAGE_VERSION)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
