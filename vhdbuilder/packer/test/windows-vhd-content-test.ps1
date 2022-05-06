@@ -216,9 +216,27 @@ function Test-DefenderSignature {
     }
 }
 
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions unrelated to AKS.
+    # This test is called by "az vm run-command" that installs "Microsoft.CPlat.Core.RunCommandWindows".
+    # So the expected extensions list is below.
+    $expectedExtensions = @(
+        "Microsoft.CPlat.Core.RunCommandWindows"
+    )
+    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+    $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
+    if ($compareResult) {
+        Write-Error "Azure extensions are not expected. Details: $($compareResult | Out-String)"
+        exit 1
+    } else {
+        Write-Output "Azure extensions are expected"
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
+Test-AzureExtensions
 Remove-Item -Path c:\windows-vhd-configuration.ps1

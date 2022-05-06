@@ -234,7 +234,7 @@ testKubeBinariesPresent() {
   1.23.3-hotfix.20220401
   1.23.4-hotfix.20220331
   1.23.5-hotfix.20220331
-  1.24.0-beta.0
+  1.24.0
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -315,6 +315,15 @@ testCriticalTools() {
   echo "$test:Finish"
 }
 
+testCustomCAScriptExecutable() {
+  test="testCustomCAScriptExecutable"
+  permissions=$(stat -c "%a" /opt/scripts/update_certs.sh)
+  if [ "$permissions" != "755" ]; then
+      err $test "/opt/scripts/update_certs.sh has incorrect permissions"
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -332,3 +341,4 @@ testFips $2 $3
 testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
 testImagesRetagged $1
+testCustomCAScriptExecutable
