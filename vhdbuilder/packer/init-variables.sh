@@ -238,6 +238,15 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
+
+	if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ]; then
+		echo "Setting WINDOWS_IMAGE_SKU to the value in pipeline variables"
+		WINDOWS_IMAGE_SKU=$WINDOWS_BASE_IMAGE_SKU
+	fi
+	if [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
+		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
+		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
+	fi
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
