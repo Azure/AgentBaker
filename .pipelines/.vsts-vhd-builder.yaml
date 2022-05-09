@@ -28,12 +28,12 @@ pool:
 #    - (offline)POST a new SKU to azure marketplace
 
 parameters:
-- name: buildvhd
-  displayName: Build vhd
+- name: buildamd64vhd
+  displayName: Build AMD64 VHD
   type: boolean
   default: true
-- name: build1804arm64gen2containerd
-  displayName: Build 1804 ARM64 Gen2 containerd
+- name: buildarm64vhd
+  displayName: Build ARM64 VHD
   type: boolean
   default: true
 - name: dryrun
@@ -45,9 +45,9 @@ variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
 
 stages:
-  - stage: build_vhd
+  - stage: build_amd64_vhd
     dependsOn: []
-    condition: eq('${{ parameters.buildvhd }}', true)
+    condition: eq('${{ parameters.buildamd64vhd }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -236,9 +236,9 @@ stages:
             artifactName: 'publishing-info'
             targetPath: 'vhd-publishing-info.json'
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
-  - stage: build_vhd_1804_arm64_gen2_containerd
+  - stage: build_arm64_vhd
     dependsOn: []
-    condition: eq('${{ parameters.build1804arm64gen2containerd }}', true)
+    condition: eq('${{ parameters.buildarm64vhd }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
