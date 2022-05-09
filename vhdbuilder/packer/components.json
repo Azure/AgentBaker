@@ -369,10 +369,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
-      "amd64OnlyVersions": [
-        "6e11599"
-      ],
-      "multiArchVersions": []
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "sha-ad307c7"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
