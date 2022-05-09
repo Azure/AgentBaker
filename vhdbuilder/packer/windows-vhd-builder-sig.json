@@ -32,10 +32,11 @@
             "vm_size": "{{user `vm_size`}}",
             "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
-            "image_publisher": "MicrosoftWindowsServer",
-            "image_offer": "WindowsServer",
+            "image_publisher": "{{user `windows_image_publisher`}}",
+            "image_offer": "{{user `windows_image_offer`}}",
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
+            "image_url": "{{user `windows_image_url`}}",
             "managed_image_resource_group_name": "{{user `resource_group_name`}}",
             "managed_image_name": "{{user `sig_image_name`}}",
             "shared_image_gallery_destination": {

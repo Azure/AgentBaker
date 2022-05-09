@@ -45,6 +45,7 @@ steps:
       -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
       -e WINDOWS_BASE_IMAGE_SKU=${WINDOWS_BASE_IMAGE_SKU} \
       -e WINDOWS_BASE_IMAGE_VERSION=${WINDOWS_BASE_IMAGE_VERSION} \
+      -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - script: |
