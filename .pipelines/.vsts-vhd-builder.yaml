@@ -28,8 +28,8 @@ pool:
 #    - (offline)POST a new SKU to azure marketplace
 
 parameters:
-- name: buildamd64vhd
-  displayName: Build AMD64 VHD
+- name: buildvhd
+  displayName: Build VHD
   type: boolean
   default: true
 - name: buildarm64vhd
@@ -45,9 +45,9 @@ variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
 
 stages:
-  - stage: build_amd64_vhd
+  - stage: build_vhd
     dependsOn: []
-    condition: eq('${{ parameters.buildamd64vhd }}', true)
+    condition: eq('${{ parameters.buildvhd }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
