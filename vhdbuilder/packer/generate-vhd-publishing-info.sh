@@ -35,14 +35,15 @@ fi
 
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
-sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+sas_token=$(az storage container generate-sas --name vhds --permissions r --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
 if [ "$sas_token" == "" ]; then
     echo "sas_token is empty"
     exit 1
 fi
 vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?$sas_token"
 
-echo "COPY ME ---> ${vhd_url}"
+# Do not log sas token
+echo "COPY ME ---> ${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?***"
 sku_name=$(echo $SKU_NAME | tr -d '.')
 
 # Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
@@ -58,5 +59,5 @@ cat <<EOF > vhd-publishing-info.json
 }
 EOF
 
-
-cat vhd-publishing-info.json
+# Do not log sas token
+sed 's/?.*\",/?***\",/g' < vhd-publishing-info.json

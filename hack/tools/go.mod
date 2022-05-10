@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/hack/tools
 
-go 1.12
+go 1.17
 
 require (
 	cuelang.org/go v0.4.2 // indirect

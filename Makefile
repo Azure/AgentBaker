@@ -6,9 +6,9 @@ DIST_DIRS         = find * -type d -exec
 .PHONY: bootstrap build test test_fmt validate-copyright-headers fmt lint ci
 
 ifdef DEBUG
-GOFLAGS   := -gcflags="-N -l" -mod=vendor
+GOFLAGS   := -gcflags="-N -l"
 else
-GOFLAGS   := -mod=vendor
+GOFLAGS   :=
 endif
 
 # go option
@@ -103,9 +103,9 @@ generate-azure-constants:
 tidy:
 	$(GO) mod tidy
 
-.PHONY: vendor
-vendor: tidy
-	$(GO) mod vendor
+.PHONY: download
+download: tidy
+	$(GO) mod download
 
 build-binary: generate
 	go build $(GOFLAGS) -v -ldflags "$(LDFLAGS)" -o $(BINARY_DEST_DIR)/baker .
