@@ -222,7 +222,6 @@ stages:
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - stage: build_arm64_vhd
     dependsOn: []
-    condition: ne('${{ system.pullRequest.pullRequestId }}', '')
     jobs:
     - job: build
       timeoutInMinutes: 180
