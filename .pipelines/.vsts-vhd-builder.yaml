@@ -32,6 +32,7 @@ variables:
 
 stages:
   - stage: build_vhd
+    dependsOn: []
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -221,6 +222,7 @@ stages:
             targetPath: 'vhd-publishing-info.json'
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - stage: build_arm64_vhd
+    dependsOn: []
     condition: and(eq(variables.SIG_GALLERY_NAME, ''), eq(variables.SIG_IMAGE_NAME, ''), eq(variables.SIG_IMAGE_VERSION, ''))
     jobs:
     - job: build
