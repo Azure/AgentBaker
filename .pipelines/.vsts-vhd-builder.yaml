@@ -123,6 +123,10 @@ stages:
           inputs:
             artifactName: 'vhd-release-notes'
             targetPath: 'release-notes.txt'
+        - task: PublishPipelineArtifact@0
+          inputs:
+            artifactName: 'vhd-image-bom'
+            targetPath: 'image-bom.json'
         - bash: |
             echo MODE=$(MODE) && \
             OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
