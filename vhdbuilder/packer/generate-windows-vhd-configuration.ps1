@@ -75,7 +75,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     "2019-containerd" {
@@ -102,7 +101,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     "2022-containerd" {
