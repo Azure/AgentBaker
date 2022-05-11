@@ -27,8 +27,8 @@ switch -Regex ($windowsSKU) {
         $global:patchIDs = @()
     }
     "2022*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/04/windows10.0-kb5012637-x64_6a7459b60e226b0ad0d30b34a4be069bee4d2867.msu")
-        $global:patchIDs = @("KB5012637")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
 }
 
@@ -75,7 +75,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     "2019-containerd" {
@@ -102,7 +101,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
     }
     "2022-containerd" {
