@@ -274,7 +274,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/list-images.sh",
+      "source": "vhdbuilder/packer/list-images.sh",
       "destination": "/home/packer/list-images.sh"
     },
     {
