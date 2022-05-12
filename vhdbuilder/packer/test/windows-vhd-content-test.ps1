@@ -233,10 +233,28 @@ function Test-AzureExtensions {
     }
 }
 
+function Test-VHDChanged {
+    # We would like to see if changes made to the test VM in the VHD cache test step will be reflected
+    # in the built VHD. That is, if the test VM is copying from the built VHD or simply importing from
+    # the image URL $OS_DISK_URI. We want to see if changes will be copied back to the built VHD. To do
+    # so, we do the following:
+    # 1. Check whether "C:\test-vhd-change.txt exists or not".
+    # 2. If it does not exist, we create a file and write it to the test VM disk.
+    # 3. Otherwise, we write the content of the file to the log.
+    if(!(Test-Path "C:\test-vhd-change.txt")) {
+        Write-Output "test-vhd-change.txt does not exist, will create one"
+        "This file will be written to the test VM disk" | Out-File -FilePath C:\test-vhd-change.txt
+    } else {
+        Write-Output "test-vhd-change.txt exists. Getting content..."
+        Get-Content "c:\test-vhd-change.txt"
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
+Test-VHDChanged
 Remove-Item -Path c:\windows-vhd-configuration.ps1
