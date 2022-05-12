@@ -50,9 +50,9 @@ Installed Packages
 	OpenSSH.Server~~~~0.0.1.0
 
 Installed QFEs
-	KB5013641 : Update          : http://support.microsoft.com/?kbid=5013641
-	KB5013941 : Security Update : http://support.microsoft.com/?kbid=5013941
-	KB5012675 : Update          : http://support.microsoft.com/?kbid=5012675
+	KB5013641 : Update          : https://support.microsoft.com/kb/5013641
+	KB5013941 : Security Update : https://support.microsoft.com/kb/5013941
+	KB5012675 : Update          : https://support.microsoft.com/kb/5012675
 
 Installed Updates
 	2022-05 Cumulative Update for .NET Framework 3.5, 4.7.2 and 4.8 for Windows Server 2019 for x64 (KB5013868)
