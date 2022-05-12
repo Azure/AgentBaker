@@ -57,7 +57,7 @@ Log ""
 Log "Installed QFEs"
 $qfes = Get-HotFix
 foreach ($qfe in $qfes) {
-    $link = "http://support.microsoft.com/?kbid={0}" -f ($qfe.HotFixID.Replace("KB", ""))
+    $link = "https://support.microsoft.com/kb/{0}" -f ($qfe.HotFixID.Replace("KB", ""))
     Log ("`t{0,-9} : {1, -15} : {2}" -f $qfe.HotFixID, $Qfe.Description, $link)
 }
 Log ""

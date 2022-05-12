@@ -198,6 +198,7 @@ steps:
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
   - task: UniversalPackages@0
     displayName: Universal Publish
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
       command: publish
       publishDirectory: 'vhd-publishing-info.json'
