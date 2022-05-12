@@ -345,13 +345,13 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
       "amd64OnlyVersions": [
-        "v0.8.0",
-        "v0.6.0-hotfix-20200228",
-        "v0.10.0"
+        "v0.8.0"
       ],
       "multiArchVersions": [
         "v0.11.0.2",
-        "v0.10.1"
+        "v0.11.1",
+        "v0.10.1",
+        "v0.10.2"
       ]
     },
     {
