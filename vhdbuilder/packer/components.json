@@ -338,19 +338,20 @@
       ],
       "multiArchVersions": [
         "v3.7.0",
-        "v3.7.1"
+        "v3.7.1",
+        "v3.8.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
       "amd64OnlyVersions": [
-        "v0.8.0",
-        "v0.6.0-hotfix-20200228",
-        "v0.10.0"
+        "v0.8.0"
       ],
       "multiArchVersions": [
         "v0.11.0.2",
-        "v0.10.1"
+        "v0.11.1",
+        "v0.10.1",
+        "v0.10.2"
       ]
     },
     {
@@ -394,7 +395,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220114.1",
-        "prod_20220225.1"
+        "prod_20220225.1",
+        "prod_20220512.2"
       ]
     },
     {
@@ -405,7 +407,8 @@
       ],
       "multiArchVersions": [
         "prod_20211230.1",
-        "prod_20220225.1"
+        "prod_20220225.1",
+        "prod_20220512.2"
       ]
     },
     {
