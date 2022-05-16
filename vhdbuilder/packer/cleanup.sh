@@ -98,13 +98,13 @@ echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over 
 echo "That is, those created before $(date -d@$deadline) As shown below"
 az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
 for storage_account in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
-    if [[ "${DRY_RUN}" = false ]]; then
+    if [[ "${DRY_RUN}" == "False" ]]; then
        if [[ $storage_account = aksimages* ]]; then
           echo "Will delete storage account ${storage_account}# from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
           az storage account delete --name ${storage_account} -g ${AZURE_RESOURCE_GROUP_NAME} --yes  || echo "unable to delete storage account ${storage_account}, will continue..."
           echo "Deletion completed"
         fi
     else
-        echo "skipping because DRY_RUN is set to true"
+        echo "skipping because DRY_RUN is set to True"
     fi
 done
