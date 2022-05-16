@@ -20,7 +20,7 @@ parameters:
 - name: dryrun
   displayName: Dry run
   type: boolean
-  default: false
+  default: False
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
