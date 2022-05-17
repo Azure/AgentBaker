@@ -34,6 +34,25 @@ networkdWorkaround() {
     sed -i "s/Name=e\*/Name=eth0/g" /etc/systemd/network/99-dhcp-en.network
 }
 
+# On Mariner 2.0 Marketplace images, the default systemd network config is removed.
+# Because Azure data sources is disabled in AKS, we need to readd a default configuration for eth0
+setMarinerNetworkdConfig() {
+    CONFIG_FILEPATH="/etc/systemd/network/99-dhcp-en.network"
+    touch ${CONFIG_FILEPATH}
+    cat << EOF >> ${CONFIG_FILEPATH} 
+    [Match]
+    Name=eth0
+
+    [Network]
+    DHCP=yes
+    IPv6AcceptRA=no
+
+    [DHCPv4]
+    SendRelease=false
+EOF
+}
+
+
 listInstalledPackages() {
     rpm -qa
 }

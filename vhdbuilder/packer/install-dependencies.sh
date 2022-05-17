@@ -1,6 +1,7 @@
 #!/bin/bash
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -114,7 +115,11 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
     forceEnableIpForward
-    networkdWorkaround
+    if [[ $OS_VERSION == "2.0" ]]; then 
+      setMarinerNetworkdConfig
+    else
+      networkdWorkaround
+    fi
     enableDNFAutomatic
     fixCBLMarinerPermissions
     overrideNetworkConfig || exit 1

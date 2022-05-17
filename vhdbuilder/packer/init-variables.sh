@@ -160,8 +160,8 @@ else
 	echo "Skipping SIG check for $MODE"
 fi
 
-# Image import from storage account. Required to build CBLMariner images.
-if [[ "$OS_SKU" == "CBLMariner" ]]; then
+# Image import from storage account. Required to build CBLMariner V1 images.
+if [[ "$OS_SKU" == "CBLMariner" && "$OS_VERSION" == "V1" ]]; then
 	if [[ $HYPERV_GENERATION == "V2" ]]; then
 		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
 	elif [[ $HYPERV_GENERATION == "V1" ]]; then
