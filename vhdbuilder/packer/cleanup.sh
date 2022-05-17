@@ -105,6 +105,7 @@ for storage_account in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME}
           echo "Deletion completed"
         fi
     else
+        echo ${DRY_RUN}
         echo "skipping because DRY_RUN is set to True"
     fi
 done
