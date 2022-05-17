@@ -70,7 +70,7 @@ steps:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       -e WINDOWS_PATCH_ID=${WINDOWS_PATCH_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
-    displayName: Run VHD cache test  
+    displayName: Run VHD cache test
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
