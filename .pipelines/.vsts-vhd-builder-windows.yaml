@@ -28,7 +28,7 @@ parameters:
 - name: osdisksizegb
   displayName: OS Disk Size GB
   type: string
-  default: 30
+  default: 32
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
