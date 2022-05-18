@@ -34,6 +34,12 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
 fi
 
 copyPackerFiles
+systemctlEnableAndStart disk_queue || exit 1
+
+mkdir /opt/certs
+chmod 666 /opt/certs
+systemctlEnableAndStart update_certs.path || exit 1
+systemctlEnableAndStart update_certs.timer || exit 1
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
@@ -99,7 +105,7 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   exit 1
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -165,13 +171,19 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then
-  # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
   RUNC_VERSIONS="
   1.0.0-rc92
   1.0.0-rc95
   1.0.3
   "
+  if [[ $(isARM64) == 1 ]]; then
+    # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+    # so use different version set for different arch to avoid affecting each other during VHD build
+    RUNC_VERSIONS="
+    1.0.3
+    "
+  fi
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
     echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -207,9 +219,6 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libbcc-examples
 EOF
 
-installImg
-echo "  - img" >> ${VHD_LOGS_FILEPATH}
-
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 string_replace() {
@@ -244,6 +253,24 @@ for imageToBePulled in ${ContainerImages[*]}; do
   done
 done
 
+watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+
+# this image will never get pulled, the tag must be the same across different SHAs.
+# it will only ever be upgraded via node image changes.
+# we do this because the image is used to bootstrap custom CA trust when MCR egress
+# may be intercepted by an untrusted TLS MITM firewall.
+watcherStaticImg=${watcherBaseImg//\*/static}
+
+# can't use cliTool because crictl doesn't support retagging.
+if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+else
+    retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
+fi
+
 #Azure CNI has binaries and container images for ARM64 from 1.4.13
 AMD64_ONLY_CNI_VERSIONS="
 1.2.7
@@ -252,6 +279,7 @@ AMD64_ONLY_CNI_VERSIONS="
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.14
 1.4.21
+1.4.22
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -279,6 +307,7 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.21
+1.4.22
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -412,17 +441,6 @@ done
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# below are the required to support versions
-# v1.19.11
-# v1.19.12
-# v1.19.13
-# v1.20.7
-# v1.20.8
-# v1.20.9
-# v1.21.1
-# v1.21.2
-# v1.22.1 (preview)
-# v1.22.2 (preview)
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
@@ -456,14 +474,14 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.20.13-hotfix.20220210
-1.20.15-hotfix.20220201
 1.21.7-hotfix.20220204
 1.21.9-hotfix.20220204
 1.22.4-hotfix.20220201
 1.22.6-hotfix.20220130
-1.23.3-hotfix.20220130
-1.23.4
+1.23.3-hotfix.20220401
+1.23.4-hotfix.20220331
+1.23.5-hotfix.20220331
+1.24.0
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"

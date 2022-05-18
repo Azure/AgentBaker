@@ -1,6 +1,7 @@
 #!/bin/bash
 git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -8,6 +9,9 @@ THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 testFilesDownloaded() {
   test="testFilesDownloaded"
   containerRuntime=$1
+  if [[ $(isARM64) == 1 ]]; then
+    return
+  fi
   echo "$test:Start"
   filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output < $COMPONENTS_FILEPATH)
 
@@ -92,7 +96,11 @@ testImagesPulled() {
     if [[ ${multiArchVersionsStr} != null ]]; then
       multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
     fi
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
+    if [[ $(isARM64) == 1 ]]; then
+      versions="${multiArchVersions}"
+    else
+      versions="${amd64OnlyVersions} ${multiArchVersions}"
+    fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
@@ -219,14 +227,14 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.20.13-hotfix.20220210
-  1.20.15-hotfix.20220201
   1.21.7-hotfix.20220204
   1.21.9-hotfix.20220204
   1.22.4-hotfix.20220201
   1.22.6-hotfix.20220130
-  1.23.3-hotfix.20220130
-  1.23.4
+  1.23.3-hotfix.20220401
+  1.23.4-hotfix.20220331
+  1.23.5-hotfix.20220331
+  1.24.0
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
@@ -307,6 +315,15 @@ testCriticalTools() {
   echo "$test:Finish"
 }
 
+testCustomCAScriptExecutable() {
+  test="testCustomCAScriptExecutable"
+  permissions=$(stat -c "%a" /opt/scripts/update_certs.sh)
+  if [ "$permissions" != "755" ]; then
+      err $test "/opt/scripts/update_certs.sh has incorrect permissions"
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -324,3 +341,4 @@ testFips $2 $3
 testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
 testImagesRetagged $1
+testCustomCAScriptExecutable

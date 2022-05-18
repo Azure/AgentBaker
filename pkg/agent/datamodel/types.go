@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -142,6 +141,8 @@ const (
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
 	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
 	AKSUbuntuArm64Containerd1804Gen2   Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
+	AKSUbuntuContainerd2004            Distro = "aks-ubuntu-containerd-20.04"
+	AKSUbuntuContainerd2004Gen2        Distro = "aks-ubuntu-containerd-20.04-gen2"
 	RHEL                               Distro = "rhel"
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
@@ -152,8 +153,11 @@ const (
 	AKSWindows2019 Distro = "aks-windows-2019"
 	// AKSWindows2019Containerd stands for distro for windows server 2019 SIG image with containerd
 	AKSWindows2019Containerd Distro = "aks-windows-2019-containerd"
+	// AKSWindows2022Containerd stands for distro for windows server 2022 SIG image with containerd
+	AKSWindows2022Containerd Distro = "aks-windows-2022-containerd"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
+	CustomizedImage          Distro = "CustomizedImage"
 	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat
@@ -178,6 +182,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
+	AKSUbuntuContainerd2004,
+	AKSUbuntuContainerd2004Gen2,
 }
 
 func (d Distro) IsVHDDistro() bool {
@@ -283,7 +289,10 @@ type HostedMasterProfile struct {
 	// Master public endpoint/FQDN with port
 	// The format will be FQDN:2376
 	// Not used during PUT, returned as part of GETFQDN
-	FQDN      string `json:"fqdn,omitempty"`
+	FQDN string `json:"fqdn,omitempty"`
+	// IPAddress
+	// if both FQDN and IPAddress are specified, we should use IPAddress
+	IPAddress string `json:"ipAddress,omitempty"`
 	DNSPrefix string `json:"dnsPrefix"`
 	// FQDNSubdomain is used by private cluster without dnsPrefix so they have fixed FQDN
 	FQDNSubdomain string `json:"fqdnSubdomain"`
@@ -604,6 +613,16 @@ type SysctlConfig struct {
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
 }
 
+type CustomConfiguration struct {
+	KubernetesConfigurations map[string]*ComponentConfiguration
+}
+
+type ComponentConfiguration struct {
+	Image       *string
+	Config      map[string]string
+	DownloadURL *string
+}
+
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
@@ -646,6 +665,7 @@ type Properties struct {
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
 	TelemetryProfile        *TelemetryProfile        `json:"telemetryProfile,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
+	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
 }
 
 // ContainerService complies with the ARM model of
@@ -665,12 +685,6 @@ type ContainerService struct {
 func (cs *ContainerService) IsAKSCustomCloud() bool {
 	return cs.Properties.CustomCloudEnv != nil &&
 		strings.EqualFold(cs.Properties.CustomCloudEnv.Name, "akscustom")
-}
-
-// GetLocations returns all supported regions.
-// If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
-func (cs *ContainerService) GetLocations() []string {
-	return helpers.GetAzureLocations()
 }
 
 // HasAadProfile returns true if the has aad profile

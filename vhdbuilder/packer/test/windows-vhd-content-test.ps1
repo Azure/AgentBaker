@@ -7,14 +7,54 @@
 
 param (
     $containerRuntime,
-    $windowsSKU
+    $windowsSKU,
+    $windowsPatchId
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:ContainerRuntime=$containerRuntime
 $env:WindowsSKU=$windowsSKU
+$env:WindowsPatchId=$windowsPatchId
 
 . c:\windows-vhd-configuration.ps1
+
+function Start-Job-To-Expected-State {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [string]$JobName,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [string]$ExpectedState = 'Running',
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$MaxRetryCount = 10,
+
+        [Parameter(Position=4, Mandatory=$false)]
+        [int]$DelaySecond = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        Start-Job -Name $JobName -ScriptBlock $ScriptBlock
+
+        do {
+            Start-Sleep $DelaySecond
+            $job = (Get-Job -Name $JobName)
+            if ($job -and ($job.State -Match $ExpectedState)) { return }
+            $cnt++
+        } while ($cnt -lt $MaxRetryCount)
+
+        Write-Error "Cannot start $JobName"
+        exit 1
+    }
+}
 
 function Test-FilesToCacheOnVHD
 {
@@ -73,7 +113,16 @@ function Test-FilesToCacheOnVHD
                 try {
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
-                        if ($mcURL.Contains("calico-windows")) {
+                        $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64")
+
+                        $isIgnore=$False
+                        foreach($excludePackage in $excludeSizeComparisionList) {
+                            if ($mcURL.Contains($excludePackage)) {
+                                $isIgnore=$true
+                                break
+                            }
+                        }
+                        if ($isIgnore) {
                             Write-Output "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size is $remoteFileSize. Ignore it since it is expected"
                             continue
                         }
@@ -106,6 +155,7 @@ function Test-PatchInstalled {
         $currenHotfixes += $hotfixID
     }
 
+    Write-Output "The length of patchUrls is $($patchIDs.Length)"
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
     if($lostPatched.count -ne 0) {
         Write-Error "$lostPatched is(are) not installed"
@@ -116,7 +166,7 @@ function Test-PatchInstalled {
 
 function Test-ImagesPulled {
     if ($containerRuntime -eq 'containerd') {
-        Start-Job -Name containerd -ScriptBlock { containerd.exe }
+        Start-Job-To-Expected-State -JobName containerd -ScriptBlock { containerd.exe }
         # NOTE:
         # 1. listing images with -q set is expected to return only image names/references, but in practise
         #    we got additional digest info. The following command works as a workaround to return only image names instad.
@@ -156,8 +206,37 @@ function Test-RegistryAdded {
     }
 }
 
+function Test-DefenderSignature {
+    $mpPreference = Get-MpPreference
+    if ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources)) {
+        Write-Output "The Windows Defender has correct Signature"
+    } else {
+        Write-Error "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
+        exit 1
+    }
+}
+
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions unrelated to AKS.
+    # This test is called by "az vm run-command" that installs "Microsoft.CPlat.Core.RunCommandWindows".
+    # So the expected extensions list is below.
+    $expectedExtensions = @(
+        "Microsoft.CPlat.Core.RunCommandWindows"
+    )
+    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+    $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
+    if ($compareResult) {
+        Write-Error "Azure extensions are not expected. Details: $($compareResult | Out-String)"
+        exit 1
+    } else {
+        Write-Output "Azure extensions are expected"
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
+Test-DefenderSignature
+Test-AzureExtensions
 Remove-Item -Path c:\windows-vhd-configuration.ps1

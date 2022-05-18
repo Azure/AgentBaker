@@ -22,11 +22,16 @@ function DownloadFileWithRetry {
         $URL,
         $Dest,
         $retryCount = 5,
-        $retryDelay = 0
+        $retryDelay = 0,
+        [Switch]$redactUrl = $false
     )
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     if ($LASTEXITCODE) {
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$URL'"
+        $logURL = $URL
+        if ($redactUrl) {
+            $logURL = $logURL.Split("?")[0]
+        }
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
     }
 }
 
@@ -220,6 +225,8 @@ function Install-OpenSSH {
 }
 
 function Install-WindowsPatches {
+    Write-Log "Installing Windows patches"
+    Write-Log "The length of patchUrls is $($patchUrls.Length)"
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
         $fileName = Split-Path $pathOnly -Leaf
@@ -229,7 +236,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath
+                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath -redactUrl
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
@@ -309,6 +316,11 @@ function Get-SystemDriveDiskInfo {
     }
 }
 
+function Get-DefenderPreferenceInfo {
+    Write-Log "Get preferences for the Windows Defender scans and updates"
+    Write-Log(Get-MpPreference | Format-List | Out-String)
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -346,4 +358,5 @@ try{
 }
 finally {
     Get-SystemDriveDiskInfo
+    Get-DefenderPreferenceInfo
 }

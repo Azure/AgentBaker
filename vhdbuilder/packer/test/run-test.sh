@@ -11,8 +11,8 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ ${ARCHITECTURE,,} == "arm64" ]; then
-    echo "Skipping tests for Mariner, Ubuntu 16.04 and ARM64"
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04"
     exit 0
   fi
 fi
@@ -69,13 +69,24 @@ else
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  az vm create \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --name $VM_NAME \
-    --image $IMG_DEF \
-    --admin-username $TEST_VM_ADMIN_USERNAME \
-    --admin-password $TEST_VM_ADMIN_PASSWORD \
-    --public-ip-address ""
+  if [ ${ARCHITECTURE,,} == "arm64" ]; then
+    az vm create \
+      --resource-group $RESOURCE_GROUP_NAME \
+      --name $VM_NAME \
+      --image $IMG_DEF \
+      --admin-username $TEST_VM_ADMIN_USERNAME \
+      --admin-password $TEST_VM_ADMIN_PASSWORD \
+      --size Standard_D2pds_V5 \
+      --public-ip-address ""
+  else
+    az vm create \
+      --resource-group $RESOURCE_GROUP_NAME \
+      --name $VM_NAME \
+      --image $IMG_DEF \
+      --admin-username $TEST_VM_ADMIN_USERNAME \
+      --admin-password $TEST_VM_ADMIN_PASSWORD \
+      --public-ip-address ""
+  fi
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
@@ -131,7 +142,7 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}" "windowsPatchId=${WINDOWS_PATCH_ID}")
   # An example of failed run-command output:
   # {
   #   "value": [

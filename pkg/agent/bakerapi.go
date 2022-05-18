@@ -29,12 +29,16 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 		CSE:        templateGenerator.GetNodeBootstrappingCmd(config),
 	}
 
+	distro := config.AgentPoolProfile.Distro
+	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage {
+		return nodeBootstrapping, nil
+	}
+
 	osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[config.CloudSpecConfig.CloudName]
 	if !hasCloud {
 		return nil, fmt.Errorf("don't have settings for cloud %s", config.CloudSpecConfig.CloudName)
 	}
 
-	distro := config.AgentPoolProfile.Distro
 	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage {
 		nodeBootstrapping.OSImageConfig = &osImageConfig
 	}

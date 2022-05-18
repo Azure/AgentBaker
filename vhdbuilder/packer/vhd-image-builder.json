@@ -14,7 +14,10 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "enable_fips": "{{env `ENABLE_FIPS`}}"
+    "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "img_publisher": "{{env `IMG_PUBLISHER`}}",
+    "img_offer": "{{env `IMG_OFFER`}}",
+    "img_sku": "{{env `IMG_SKU`}}"
   },
   "builders": [
     {
@@ -29,9 +32,9 @@
       "capture_name_prefix": "aks-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_publisher": "Canonical",
-      "image_offer": "UbuntuServer",
-      "image_sku": "{{user `os_version`}}-LTS",
+      "image_publisher": "{{user `img_publisher`}}",
+      "image_offer": "{{user `img_offer`}}",
+      "image_sku": "{{user `img_sku`}}",
       "image_version": "latest",
       "azure_tags": {
         "SkipLinuxAzSecPack": "true",
@@ -49,6 +52,15 @@
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo mkdir -p /opt/scripts",
+        "sudo chown -R $USER /opt/scripts",
+        "sudo mkdir -p /opt/certs",
+        "sudo chown -R $USER /opt/certs"
       ]
     },
     {
@@ -185,6 +197,31 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/profile-d-cis.sh",
       "destination": "/home/packer/profile-d-cis.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/disk_queue.service",
+      "destination": "/home/packer/disk_queue.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.path",
+      "destination": "/home/packer/update_certs.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
+      "destination": "/home/packer/update_certs.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/home/packer/update_certs.sh"
     },
     {
       "type": "file",

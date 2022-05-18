@@ -559,6 +559,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"
 			config.IsARM64 = true
 			config.KubeletConfig = map[string]string{}
+		}),
+		Entry("AKSUbuntu1804 with IPAddress and FQDN", "AKSUbuntu1804+Containerd+IPAddress+FQDN", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.HostedMasterProfile.FQDN = "a.hcp.eastus.azmk8s.io"
+			config.ContainerService.Properties.HostedMasterProfile.IPAddress = "1.2.3.4"
 		}))
 })
 
@@ -681,7 +685,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--hairpin-mode":                      "promiscuous-bridge",
 			"--image-gc-high-threshold":           "85",
 			"--image-gc-low-threshold":            "80",
-			"--image-pull-progress-deadline":      "20m",
 			"--keep-terminated-pod-volumes":       "false",
 			"--kube-reserved":                     "cpu=100m,memory=1843Mi",
 			"--kubeconfig":                        "c:\\k\\config",

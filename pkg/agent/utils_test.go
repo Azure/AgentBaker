@@ -354,6 +354,58 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 	}
 }
 
+var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
+	It("should return expected kubelet config when custom configuration is not set", func() {
+
+		cs := &datamodel.ContainerService{
+			Location:   "southcentralus",
+			Type:       "Microsoft.ContainerService/ManagedClusters",
+			Properties: &datamodel.Properties{},
+		}
+
+		k := map[string]string{
+			"--node-status-update-frequency": "10s",
+			"--image-gc-high-threshold":      "85",
+			"--event-qps":                    "0",
+		}
+		ap := &datamodel.AgentPoolProfile{}
+
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
+		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
+		Expect(expectStr).To(Equal(actucalStr))
+	})
+	It("should return expected kubelet config when custom configuration is set", func() {
+
+		cs := &datamodel.ContainerService{
+			Location: "southcentralus",
+			Type:     "Microsoft.ContainerService/ManagedClusters",
+			Properties: &datamodel.Properties{
+				CustomConfiguration: &datamodel.CustomConfiguration{
+					KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+						"kubelet": {
+							Config: map[string]string{
+								"--node-status-update-frequency":      "20s",
+								"--streaming-connection-idle-timeout": "4h0m0s",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		k := map[string]string{
+			"--node-status-update-frequency": "10s",
+			"--image-gc-high-threshold":      "85",
+			"--event-qps":                    "0",
+		}
+		ap := &datamodel.AgentPoolProfile{}
+
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --streaming-connection-idle-timeout=4h0m0s "
+		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
+		Expect(expectStr).To(Equal(actucalStr))
+	})
+})
+
 var _ = Describe("Assert ParseCSE", func() {
 	It("when cse output format is correct", func() {
 		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}\n\n[stderr]\n"

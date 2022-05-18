@@ -15,7 +15,12 @@ for component in ${components[*]}; do
 	if [[ ${multiArchVersionsStr} != null ]]; then
 		multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
 	fi
-	versionsToBeDownloaded="${amd64OnlyVersions} ${multiArchVersions}"
+	arch=$(uname -m)
+	if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
+		versionsToBeDownloaded="${multiArchVersions}"
+	else
+		versionsToBeDownloaded="${amd64OnlyVersions} ${multiArchVersions}"
+	fi
 
 	validVersions=$(curl -sL https://$downloadURL | jq .tags[])
 	

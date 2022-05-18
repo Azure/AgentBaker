@@ -8,7 +8,6 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
-
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
 
@@ -29,10 +28,39 @@ if [ -z "$rg_id" ]; then
 	az group create --name $AZURE_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 fi
 
+if [ -n "${VNET_RESOURCE_GROUP_NAME}" ]; then
+	VIRTUAL_NETWORK_NAME="vnet"
+	VIRTUAL_NETWORK_SUBNET_NAME="subnet"
+	NETWORK_SECURITY_GROUP_NAME="nsg"
+
+	echo "creating resource group ${VNET_RESOURCE_GROUP_NAME}, location ${AZURE_LOCATION} for VNET"
+	az group create --name ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION} \
+		--tags 'os=Windows' 'createdBy=aks-vhd-pipeline' 'SkipASMAzSecPack=True'
+
+	echo "creating new network security group ${NETWORK_SECURITY_GROUP_NAME}"
+	az network nsg create --name $NETWORK_SECURITY_GROUP_NAME --resource-group ${VNET_RESOURCE_GROUP_NAME} --location ${AZURE_LOCATION} \
+		--tags 'os=Windows' 'createdBy=aks-vhd-pipeline' 'SkipNRMSMgmt=13854625'
+	echo "creating nsg rule to allow WinRM with ssl"
+	az network nsg rule create --resource-group ${VNET_RESOURCE_GROUP_NAME} --nsg-name $NETWORK_SECURITY_GROUP_NAME -n AllowWinRM --priority 100 \
+		--source-address-prefixes '*' --source-port-ranges '*' \
+		--destination-address-prefixes '*' --destination-port-ranges 5986 --access Allow \
+		--protocol Tcp --description "Allow all inbound to WinRM with SSL 5986."
+	echo "creating default nsg rule to deny all internet inbound"
+	az network nsg rule create --resource-group ${VNET_RESOURCE_GROUP_NAME} --nsg-name $NETWORK_SECURITY_GROUP_NAME -n DenyAll --priority 4096 \
+		--source-address-prefixes '*' --source-port-ranges '*' \
+		--destination-address-prefixes '*' --destination-port-ranges '*' --access Deny \
+		--protocol '*' --description "Deny all inbound by default"
+
+	echo "creating new vnet ${VIRTUAL_NETWORK_NAME}, subnet ${VIRTUAL_NETWORK_SUBNET_NAME}"
+	az network vnet create --resource-group ${VNET_RESOURCE_GROUP_NAME} --name $VIRTUAL_NETWORK_NAME --address-prefix 10.0.0.0/16 \
+		--subnet-name $VIRTUAL_NETWORK_SUBNET_NAME --subnet-prefix 10.0.0.0/24 --network-security-group $NETWORK_SECURITY_GROUP_NAME \
+		--tags 'os=Windows' 'createdBy=aks-vhd-pipeline' 'SkipASMAzSecPack=True'
+fi
+
 avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
 if $avail ; then
 	echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-	az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}"
+	az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
 	echo "creating new container system"
 	key=$(az storage account keys list -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME | jq -r '.[0].value')
 	az storage container create --name system --account-key=$key --account-name=$STORAGE_ACCOUNT_NAME
@@ -73,6 +101,18 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 fi
 
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
+  SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+  # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
+  azversion=$(az version | jq '."azure-cli"' | tr -d '"')
+  if [[ "${azversion}" < "2.35.0" ]]; then
+    az upgrade -y
+    az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+    az account set -s ${SUBSCRIPTION_ID}
+  fi
+fi
+
 if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -89,16 +129,30 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-		az sig image-definition create \
-			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-			--gallery-name ${SIG_GALLERY_NAME} \
-			--gallery-image-definition ${SIG_IMAGE_NAME} \
-			--publisher microsoft-aks \
-			--offer ${SIG_GALLERY_NAME} \
-			--sku ${SIG_IMAGE_NAME} \
-			--os-type ${OS_TYPE} \
-			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION}
+		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--architecture Arm64 \
+				--location ${AZURE_LOCATION}
+		else
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION}
+		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
@@ -184,19 +238,15 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
-fi
 
-# no source image on marketplace, use MSFT/AME SIG as source image
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
-  ARM64_SIG_SUBSCRIPTION_ID="a84c0852-ea2d-4359-88e4-11a80a4fb6b9"
-  ARM64_SIG_RESOURCE_GROUP_NAME="ARM64_External_RG"
-  ARM64_SIG_GALLERY_NAME="SantaClaraSIG"
-  ARM64_SIG_IMAGENAME="Ubuntu-18.04-LSG"
-  ARM64_SIG_IMAGE_VERSION="20210930.0.0"
-  if [[ ${TENANT_ID,,} == "72f988bf-86f1-41af-91ab-2d7cd011db47" ]]; then # MSFT Tenant
-    ARM64_SIG_SUBSCRIPTION_ID="6f358ff9-e667-4ae9-b6a0-a57b49aca59c"
-  fi
+	if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ]; then
+		echo "Setting WINDOWS_IMAGE_SKU to the value in pipeline variables"
+		WINDOWS_IMAGE_SKU=$WINDOWS_BASE_IMAGE_SKU
+	fi
+	if [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
+		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
+		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
+	fi
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -214,11 +264,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
-  "arm64_sig_subscription_id": "${ARM64_SIG_SUBSCRIPTION_ID}",
-  "arm64_sig_resource_group_name": "${ARM64_SIG_RESOURCE_GROUP_NAME}",
-  "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
-  "arm64_sig_imagename": "${ARM64_SIG_IMAGENAME}",
-  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}"
 }
 EOF

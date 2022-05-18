@@ -263,6 +263,7 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
+		delete(kubeletFlags, "--image-pull-progress-deadline")
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
 			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
@@ -392,6 +393,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubernetesEndpoint": func() string {
 			if cs.Properties.HostedMasterProfile == nil {
 				return ""
+			}
+			if cs.Properties.HostedMasterProfile.IPAddress != "" {
+				return cs.Properties.HostedMasterProfile.IPAddress
 			}
 			return cs.Properties.HostedMasterProfile.FQDN
 		},

@@ -54,6 +54,7 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
+//TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a cleanup to remove these after 20.04 work.
 var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -70,6 +71,11 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntuArm64Containerd1804Gen2,
 }
 
+var AvailableUbuntu2004Distros []Distro = []Distro{
+	AKSUbuntuContainerd2004,
+	AKSUbuntuContainerd2004Gen2,
+}
+
 var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuContainerd1804,
 	AKSUbuntuContainerd1804Gen2,
@@ -81,6 +87,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSUbuntuArm64Containerd1804Gen2,
+	AKSUbuntuContainerd2004,
+	AKSUbuntuContainerd2004Gen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -100,6 +108,7 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
+	AKSUbuntuContainerd2004Gen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
@@ -186,6 +195,7 @@ func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt)
 var AvailableWindowsSIGDistros []Distro = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
+	AKSWindows2022Containerd,
 	CustomizedWindowsOSImage,
 }
 
@@ -204,12 +214,14 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion   string = "2022.03.15"
-	WindowsSIGImageVersion string = "17763.2686.220317"
+	LinuxSIGImageVersion string = "2022.05.10"
+
+	Windows2019SIGImageVersion string = "17763.2928.220511"
+	Windows2022SIGImageVersion string = "20348.707.220511"
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
-	Arm64LinuxSIGImageVersion string = "2022.03.19"
-	MarinerSIGImageVersion    string = "2022.02.19"
+	Arm64LinuxSIGImageVersion string = "2022.05.17"
+	Ubuntu2004SIGImageVersion string = "2022.04.16"
 )
 
 // SIG config Template
@@ -311,24 +323,43 @@ var (
 		Version:       Arm64LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2004containerd",
+		Version:       Ubuntu2004SIGImageVersion,
+	}
+
+	SIGUbuntuContainerd2004Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2004gen2containerd",
+		Version:       Ubuntu2004SIGImageVersion,
+	}
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
-		Version:       MarinerSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019",
-		Version:       WindowsSIGImageVersion,
+		Version:       Windows2019SIGImageVersion,
 	}
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
-		Version:       WindowsSIGImageVersion,
+		Version:       Windows2019SIGImageVersion,
+	}
+	SIGWindows2022ContainerdImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2022-containerd",
+		Version:       Windows2022SIGImageVersion,
 	}
 )
 
@@ -348,6 +379,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsGPUContainerd1804:     SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsGPUContainerd1804Gen2: SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd1804Gen2:   SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004:            SIGUbuntuContainerd2004ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004Gen2:        SIGUbuntuContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
@@ -360,6 +393,7 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 	return map[Distro]SigImageConfig{
 		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

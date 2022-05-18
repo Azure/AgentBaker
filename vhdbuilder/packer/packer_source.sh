@@ -49,6 +49,16 @@ copyPackerFiles() {
   NVIDIA_DOCKER_DAEMON_DEST=/etc/systemd/system/nvidia-docker-daemon.json
   NVIDIA_DEVICE_PLUGIN_SERVICE_SRC=/home/packer/nvidia-device-plugin.service
   NVIDIA_DEVICE_PLUGIN_SERVICE_DEST=/etc/systemd/system/nvidia-device-plugin.service
+  DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
+  DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
+  UPDATE_CERTS_SERVICE_SRC=/home/packer/update_certs.service
+  UPDATE_CERTS_SERVICE_DEST=/etc/systemd/system/update_certs.service
+  UPDATE_CERTS_PATH_SRC=/home/packer/update_certs.path
+  UPDATE_CERTS_PATH_DEST=/etc/systemd/system/update_certs.path
+  UPDATE_CERTS_TIMER_SRC=/home/packer/update_certs.timer
+  UPDATE_CERTS_TIMER_DEST=/etc/systemd/system/update_certs.timer
+  UPDATE_CERTS_SCRIPT_SRC=/home/packer/update_certs.sh
+  UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
@@ -56,6 +66,7 @@ copyPackerFiles() {
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
   fi
+
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
@@ -74,6 +85,11 @@ copyPackerFiles() {
   cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
+  cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
+  cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
+  cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
+  cpAndMode $UPDATE_CERTS_TIMER_SRC $UPDATE_CERTS_TIMER_DEST 644
+  cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644

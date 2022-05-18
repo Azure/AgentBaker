@@ -18,6 +18,7 @@
 // linux/cloud-init/artifacts/cse_main.sh
 // linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
+// linux/cloud-init/artifacts/disk_queue.service
 // linux/cloud-init/artifacts/docker-monitor.service
 // linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
@@ -58,6 +59,10 @@
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
+// linux/cloud-init/artifacts/update_certs.path
+// linux/cloud-init/artifacts/update_certs.service
+// linux/cloud-init/artifacts/update_certs.sh
+// linux/cloud-init/artifacts/update_certs.timer
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
@@ -475,6 +480,7 @@ TENANT_ID={{GetVariable "tenantID"}}
 KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
 HYPERKUBE_URL={{GetParameter "kubernetesHyperkubeSpec"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
+CUSTOM_KUBE_BINARY_URL={{GetParameter "customKubeBinaryURL"}}
 KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
@@ -783,21 +789,17 @@ configureCNIIPTables() {
     fi
 }
 
-disable1804SystemdResolved() {
+disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
-    {{- if Disable1804SystemdResolved}}
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
         echo "Ingorings systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
-    {{- else}}
-    echo "Disable1804SystemdResolved is false. Skipping."
-    {{- end}}
 }
 
 {{- if NeedsContainerd}}
@@ -1445,31 +1447,23 @@ installContainerRuntime() {
     if [ -f "$MANIFEST_FILEPATH" ]; then
         stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
         latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
-        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
     # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.23.0"; then
-        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $edge_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi        
-    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
         containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $latest_containerd"
+            echo "invalide container version: $latest_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     else
         containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $stable_containerd"
+            echo "invalide container version: $stable_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
@@ -1601,6 +1595,7 @@ installCNI() {
         downloadCNI
     fi
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
@@ -1609,6 +1604,7 @@ installAzureCNI() {
         downloadAzureCNI
     fi
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    chown -R root:root $CNI_BIN_DIR
 }
 
 extractKubeBinaries() {
@@ -1650,21 +1646,34 @@ extractHyperkube() {
 }
 
 installKubeletKubectlAndKubeProxy() {
-    if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-        #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
-        if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-            extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-        else
-            if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                extractHyperkube "ctr"
+
+    CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
+    if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+
+        # NOTE(mainred): we expect kubelet binary to be under `+"`"+`kubernetes/node/bin`+"`"+`. This suits the current setting of
+        # kube binaries used by AKS and Kubernetes upstream.
+        # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
+        extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+
+    else
+        if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
+            #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+            if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+                extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
             else
-                extractHyperkube "docker"
+                if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
+                    extractHyperkube "ctr"
+                else
+                    extractHyperkube "docker"
+                fi
             fi
         fi
     fi
-
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
     mv "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" "/usr/local/bin/kubectl"
+
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
 
@@ -1908,7 +1917,7 @@ fi
 configureHTTPProxyCA
 {{- end}}
 
-disable1804SystemdResolved
+disableSystemdResolved
 
 configureAdminUser
 
@@ -2014,9 +2023,7 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 
 configureK8s
 
-{{- if not IsNoneCNI }}
 configureCNI
-{{end}}
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
@@ -2080,28 +2087,33 @@ VALIDATION_ERR=0
 {{- /* Edge case scenarios: */}}
 {{- /* high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster) */}}
 {{- /* high timeout to address high latency for private dns server to forward request to Azure DNS */}}
-API_SERVER_DNS_RETRIES=100
+{{- /* dns check will be done only if we use FQDN for API_SERVER_NAME */}}
+API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-  API_SERVER_DNS_RETRIES=200
+    API_SERVER_CONN_RETRIES=100
 fi
-{{- if not EnableHostsConfigAgent}}
-RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-STS=$?
-{{- else}}
-STS=0
-{{- end}}
-if [[ $STS != 0 ]]; then
-    time nslookup ${API_SERVER_NAME}
-    if [[ $RES == *"168.63.129.16"*  ]]; then
-        VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    API_SERVER_DNS_RETRIES=100
+    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+       API_SERVER_DNS_RETRIES=200
+    fi
+    {{- if not EnableHostsConfigAgent}}
+    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+    STS=$?
+    {{- else}}
+    STS=0
+    {{- end}}
+    if [[ $STS != 0 ]]; then
+        time nslookup ${API_SERVER_NAME}
+        if [[ $RES == *"168.63.129.16"*  ]]; then
+            VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
+        else
+            VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+        fi
     else
-        VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+        retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    API_SERVER_CONN_RETRIES=50
-    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-        API_SERVER_CONN_RETRIES=100
-    fi
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
@@ -2148,7 +2160,7 @@ var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
-OUTPUT=$(head -c 3000 "/var/log/azure/cluster-provision-cse-output.log")
+OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
@@ -2208,6 +2220,34 @@ func linuxCloudInitArtifactsDhcpv6Service() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/dhcpv6.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsDisk_queueService = []byte(`[Unit]
+Description=Set nr_requests and queue_depth based on experimental tuning
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash -c 'echo 128 > /sys/block/sda/queue/nr_requests && echo 128 > /sys/block/sda/device/queue_depth'
+RemainAfterExit=true
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsDisk_queueServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsDisk_queueService, nil
+}
+
+func linuxCloudInitArtifactsDisk_queueService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsDisk_queueServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/disk_queue.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2912,11 +2952,10 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.12-3"
+            "1.4.13-2"
         ],
-        "edge": "1.6.1-1",
-        "latest": "1.5.9-3",
-        "stable": "1.4.12-3"
+        "latest": "1.5.11-1",
+        "stable": "1.4.13-2"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
@@ -4112,10 +4151,6 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
 aptmarkWALinuxAgent() {
-    if [[ $(isARM64) == 1 ]]; then
-        #walinuxagent is installed on arm64 ubuntu base os, but not as apt package
-        return
-    fi
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
@@ -4247,7 +4282,7 @@ removeContainerd() {
 
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
-        wait_for_apt_locks # internal ARM64 SIG image is not updated frequently, so the auto-update holds the apt lock for ~20 minutes when the VM boots first time.
+        wait_for_apt_locks
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -4378,7 +4413,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.12"
+        CONTAINERD_VERSION="1.4.13"
         CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -4432,7 +4467,7 @@ installMoby() {
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.12"
+    local MOBY_CONTAINERD_VERSION="1.4.13"
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
@@ -4462,21 +4497,32 @@ ensureRunc() {
         return 0
     fi
 
-    if [[ $(isARM64) == 1 ]]; then
-        # moby-runc-1.0.3+azure-1 is installed in ARM64 base os
-        return
-    fi
     TARGET_VERSION=$1
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
+
+        if [[ $(isARM64) == 1 ]]; then
+            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+            # so use different target version for different arch to avoid affecting each other during provisioning
+            TARGET_VERSION="1.0.3"
+        fi
     fi
+
+    if [[ $(isARM64) == 1 ]]; then
+        if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
+            # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
+            return
+        fi
+    fi
+
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_amd64.deb"
+        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
@@ -4573,6 +4619,122 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Unit]
+Description=Monitor the cert directory for changes
+
+[Path]
+PathModified=/opt/certs
+Unit=update_certs.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsUpdate_certsPathBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsPath, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsPath() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsPathBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.path", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsService = []byte(`[Unit]
+Description=Updates certificates copied from AKS DS
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/update_certs.sh
+RestartSec=5`)
+
+func linuxCloudInitArtifactsUpdate_certsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsService, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
+set -euo pipefail
+set -x
+
+certSource=/opt/certs
+certDestination=/usr/local/share/ca-certificates/certs
+
+cp -a "$certSource"/. "$certDestination"
+
+if [[ -z $(ls -A "$certSource") ]]; then
+  ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+    rm $certDestination/"$line"
+  done
+else
+  certsToCopy=(${certSource}/*)
+  currIterationCertFile=${certsToCopy[0]##*/}
+  currIterationTag=${currIterationCertFile:0:14}
+  for file in "$certDestination"/*.crt; do
+      currFile=${file##*/}
+     if [[ "${currFile:0:14}" != "${currIterationTag}" ]]; then
+          rm "${file}"
+     fi
+  done
+fi
+
+update-ca-certificates -f`)
+
+func linuxCloudInitArtifactsUpdate_certsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsSh, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certsTimer = []byte(`[Unit]
+Description=Update certificates on a 5 minute timer
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*:0/5
+Unit=update_certs.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsUpdate_certsTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certsTimer, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certsTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certsTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -5954,13 +6116,18 @@ try
     Update-DefenderPreferences
 
     if ($windowsSecureTlsEnabled) {
-        Write-Host "Enable secure TLS protocols"
-        try {
-            . C:\k\windowssecuretls.ps1
-            Enable-SecureTls
-        }
-        catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+        $windowsVersion = Get-WindowsVersion
+        if ($windowsVersion -ne "1809") {
+            Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+        } else {
+            Write-Log "Enable secure TLS protocols"
+            try {
+                . C:\k\windowssecuretls.ps1
+                Enable-SecureTls
+            }
+            catch {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
+            }
         }
     }
 
@@ -6346,6 +6513,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
+	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
 	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
 	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
@@ -6386,6 +6554,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
+	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
+	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
+	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
+	"linux/cloud-init/artifacts/update_certs.timer":                        linuxCloudInitArtifactsUpdate_certsTimer,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
@@ -6454,6 +6626,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
+				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
 				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
 				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
@@ -6498,6 +6671,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
+				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
+				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
+				"update_certs.sh":      &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
+				"update_certs.timer":   &bintree{linuxCloudInitArtifactsUpdate_certsTimer, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},

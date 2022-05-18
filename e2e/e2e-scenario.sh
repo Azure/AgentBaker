@@ -125,9 +125,10 @@ fi
 waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
+    kubectl get nodes | grep $vmInstanceName
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
-    if [ -z "$(kubectl get nodes | grep $vmInstanceName)" ]; then
+    if [ -z "$(kubectl get nodes | grep $vmInstanceName | grep -v "NotReady")" ]; then
         log "retrying attempt $i"
         sleep 10
         continue
@@ -168,6 +169,7 @@ kubectl apply -f pod-nginx.yaml
 waitForPodStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
+    kubectl get pods -o wide | grep $podName
     kubectl get pods -o wide | grep $podName | grep 'Running'
     retval=$?
     set -e
@@ -185,6 +187,8 @@ if [[ "$retval" -eq 0 ]]; then
     ok "Pod ran successfully"
 else
     err "Pod pending/not running"
+    kubectl get pods -o wide | grep $podName
+    kubectl describe pod $podName
     exit 1
 fi
 
