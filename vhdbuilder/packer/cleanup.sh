@@ -38,12 +38,6 @@ if [ -n "${VNET_RESOURCE_GROUP_NAME}" ]; then
   fi
 fi
 
-#clean up the temporary storage account
-id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
-if [ -n "$id" ]; then
-  az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
-fi
-
 #clean up managed image
 if [[ "$MODE" != "default" ]]; then
   id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
@@ -86,3 +80,31 @@ if [ ${ARCHITECTURE,,} == "arm64" ] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; 
     az snapshot delete -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
+
+#clean up the temporary storage account
+id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+if [ -n "$id" ]; then
+  az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
+fi
+
+#clean up storage account created over a week ago
+EXPIRATION_IN_HOURS=168
+# convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
+(( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
+# deadline = the "date +%s" representation of the oldest age we're willing to keep
+(( deadline=$(date +%s)-${expirationInSecs%.*} ))
+echo "Current time is $(date)"
+echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
+echo "That is, those created before $(date -d@$deadline) As shown below"
+az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
+for storage_account in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
+    if [[ "${DRY_RUN}" == "False" ]]; then
+       if [[ $storage_account = aksimages* ]]; then
+          echo "Will delete storage account ${storage_account}# from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
+          az storage account delete --name ${storage_account} -g ${AZURE_RESOURCE_GROUP_NAME} --yes  || echo "unable to delete storage account ${storage_account}, will continue..."
+          echo "Deletion completed"
+        fi
+    else
+        echo "skipping because DRY_RUN is set to True"
+    fi
+done

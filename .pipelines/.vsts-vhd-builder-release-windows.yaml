@@ -8,19 +8,19 @@ parameters:
 - name: build2019
   displayName: Build 2019
   type: boolean
-  default: true
+  default: True
 - name: build2019containerd
   displayName: Build 2019 containerd
   type: boolean
-  default: true
+  default: True
 - name: build2022containerd
   displayName: Build 2022 containerd
   type: boolean
-  default: true
+  default: True
 - name: dryrun
   displayName: Dry run
   type: boolean
-  default: false
+  default: False
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
@@ -28,7 +28,7 @@ variables:
 stages:
   - stage: build_vhd_2019
     dependsOn: []
-    condition: eq('${{ parameters.build2019 }}', true)
+    condition: eq('${{ parameters.build2019 }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -51,7 +51,7 @@ stages:
 
   - stage: build_vhd_2019_containerd
     dependsOn: []
-    condition: eq('${{ parameters.build2019containerd }}', true)
+    condition: eq('${{ parameters.build2019containerd }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -74,7 +74,7 @@ stages:
 
   - stage: build_vhd_2022_containerd
     dependsOn: []
-    condition: eq('${{ parameters.build2022containerd }}', true)
+    condition: eq('${{ parameters.build2022containerd }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
