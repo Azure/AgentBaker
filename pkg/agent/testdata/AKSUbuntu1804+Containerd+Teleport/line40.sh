@@ -36,7 +36,7 @@ installContainerRuntime() {
     fi
 
     # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.23.0"; then
+    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
         containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
