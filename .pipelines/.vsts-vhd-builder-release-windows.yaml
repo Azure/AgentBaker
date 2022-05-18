@@ -23,7 +23,7 @@ parameters:
   default: False
 - name: osdisksizegb
   displayName: OS Disk Size GB
-  type: string
+  type: number
   default: 32
 
 variables:
