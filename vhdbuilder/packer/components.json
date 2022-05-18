@@ -49,7 +49,10 @@
         "v0.3.6"
       ],
       "multiArchVersions": [
-        "v0.4.4"
+        "v0.4.4",
+        "v0.4.5",
+        "v0.5.2",
+        "v0.6.1"
       ]
     },
     {
@@ -76,7 +79,9 @@
       ],
       "multiArchVersions": [
         "1.8.6",
-        "v1.8.6"
+        "v1.8.6",
+        "v1.8.7",
+        "v1.9.2"
       ]
     },
     {
@@ -226,14 +231,15 @@
         "v1.1.1"
       ],
       "multiArchVersions": [
-        "v0.7.16",
         "v0.7.19",
-        "v1.0.13",
+        "v0.7.21",
         "v1.0.16",
+        "v1.0.18",
         "v1.1.12",
-        "v1.1.9",
-        "v1.23.6",
-        "v1.23.9"
+        "v1.1.14",
+        "v1.23.11",
+        "v1.23.9",
+        "v1.24.0"
       ]
     },
     {
@@ -289,9 +295,8 @@
         "v1.8.0.2"
       ],
       "multiArchVersions": [
-        "v1.16.0",
-        "v1.16.0.1",
-        "v1.17.0"
+        "v1.17.0",
+        "v1.18.0"
       ]
     },
     {
@@ -307,21 +312,18 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [
-        "v2.2.0",
-        "v2.4.0"
+        "v2.2.0"
       ],
       "multiArchVersions": [
-        "v2.5.0"
+        "v2.5.0",
+        "v2.6.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
-      "amd64OnlyVersions": [
-        "v2.0.1"
-      ],
       "multiArchVersions": [
-        "v2.3.0",
-        "v2.4.0"
+        "v2.4.0",
+        "v2.5.0"
       ]
     },
     {
@@ -332,19 +334,20 @@
       ],
       "multiArchVersions": [
         "v3.7.0",
-        "v3.7.1"
+        "v3.7.1",
+        "v3.8.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
       "amd64OnlyVersions": [
-        "v0.8.0",
-        "v0.6.0-hotfix-20200228",
-        "v0.10.0"
+        "v0.8.0"
       ],
       "multiArchVersions": [
         "v0.11.0.2",
-        "v0.10.1"
+        "v0.11.1",
+        "v0.10.1",
+        "v0.10.2"
       ]
     },
     {
@@ -388,7 +391,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220114.1",
-        "prod_20220225.1"
+        "prod_20220225.1",
+        "prod_20220512.2"
       ]
     },
     {
@@ -399,7 +403,8 @@
       ],
       "multiArchVersions": [
         "prod_20211230.1",
-        "prod_20220225.1"
+        "prod_20220225.1",
+        "prod_20220512.2"
       ]
     },
     {
@@ -416,7 +421,8 @@
       "multiArchVersions": [
         "v1.7.5.7",
         "v1.7.5.8",
-        "v1.8.8"
+        "v1.8.8",
+        "v1.8.8.2"
       ]
     },
     {

@@ -25,10 +25,13 @@ parameters:
   displayName: VHD Debug
   type: boolean
   default: False
+<<<<<<< HEAD
 - name: osdisksizegb
   displayName: OS Disk Size GB
   type: number
   default: 30
+=======
+>>>>>>> cbd4aecdb68ac8ff456afc1c42f4a701e1e13517
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'

@@ -48,7 +48,7 @@ if [[ "${GPU_NODE}" != "true" ]]; then
 fi
 configureHTTPProxyCA
 
-disable1804SystemdResolved
+disableSystemdResolved
 
 configureAdminUser
 

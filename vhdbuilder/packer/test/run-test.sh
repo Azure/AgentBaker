@@ -77,7 +77,7 @@ else
       --image $IMG_DEF \
       --admin-username $TEST_VM_ADMIN_USERNAME \
       --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --size Standard_D8pds_V5 \
+      --size Standard_D2pds_V5 \
       --public-ip-address ""
   else
     az vm create \
