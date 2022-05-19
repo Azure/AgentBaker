@@ -302,6 +302,7 @@ downloadNvidiaContainerRuntime() {
 }
 
 installNvidiaContainerRuntime() {
+    ls $APT_CACHE_DIR | grep nvidia
     for apt_package in $NVIDIA_PACKAGES; do
         retrycmd_if_failure 100 1 600 dpkg -i ${APT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     done
