@@ -644,6 +644,9 @@ type AgentPoolProfile struct {
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	// This is a new property and all old agent pools do no have this field. We need to keep the default
+	// behavior to reboot Windows node when it is nil
+	NotRebootWindowsNode *bool `json:"notRebootWindowsNode,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -994,6 +997,11 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
 	}
 	return buf.String()
+}
+
+// IsNotRebootWindowsNode returns true if it does not need to reboot Windows node
+func (w *AgentPoolProfile) IsNotRebootWindowsNode() bool {
+	return w.NotRebootWindowsNode != nil && *w.NotRebootWindowsNode
 }
 
 // HasSecrets returns true if the customer specified secrets to install
