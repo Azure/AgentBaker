@@ -96,6 +96,7 @@ NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
 NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
 NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
 APT_CACHE_DIR=/var/cache/apt/archives/
+PERMANENT_CACHE_DIR=/root/aptcache/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
