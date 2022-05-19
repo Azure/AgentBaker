@@ -8,7 +8,7 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
-if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
+if [[ ${ENABLE_FIPS,,} == "true" || ${ARCHITECTURE,,} == "arm64" ]]; then
   # to reduce possible conflicts with other build
   CREATE_TIME="${CREATE_TIME}-$RANDOM"
 fi
