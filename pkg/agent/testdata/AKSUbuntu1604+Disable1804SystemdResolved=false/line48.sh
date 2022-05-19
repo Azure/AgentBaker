@@ -210,14 +210,14 @@ addNvidiaAptRepo() {
 downloadNvidiaContainerRuntime() {
     mkdir -p $PERMANENT_CACHE_DIR
     for apt_package in $NVIDIA_PACKAGES; do
-        package_found="$(ls $PERMANENT_CACHE_DIR | grep $apt_package | wc -l)"
+        package_found="$(ls $PERMANENT_CACHE_DIR | grep $apt_package_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
         if [ "$package_found" == "0" ]; then
             echo "$apt_package not cached, downloading"
             apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
             cp -al ${APT_CACHE_DIR}${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
         fi
     done
-    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime | wc -l)"
+    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION} | wc -l)"
     if [ "$package_found" == "0" ]; then
         echo "nvidia-container-runtime not cached, downloading"
         apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
@@ -226,7 +226,6 @@ downloadNvidiaContainerRuntime() {
 }
 
 installNvidiaContainerRuntime() {
-    ls $APT_CACHE_DIR | grep nvidia
     downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     for apt_package in $NVIDIA_PACKAGES; do
         retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
