@@ -10,7 +10,7 @@ STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
 if [[ ${ENABLE_FIPS,,} == "true" || ${ARCHITECTURE,,} == "arm64" ]]; then
   # to reduce possible conflicts with other build
-  CREATE_TIME="${CREATE_TIME}_$RANDOM"
+  CREATE_TIME="${CREATE_TIME}$RANDOM"
 fi
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
@@ -190,6 +190,7 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
 			--name $IMPORTED_IMAGE_NAME \
 			--source $IMPORTED_IMAGE_URL \
+			--location $AZURE_LOCATION \
 			--hyper-v-generation V2 \
 			--os-type Linux
 
