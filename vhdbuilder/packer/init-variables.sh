@@ -10,7 +10,7 @@ STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
 if [[ ${ENABLE_FIPS,,} == "true" || ${ARCHITECTURE,,} == "arm64" ]]; then
   # to reduce possible conflicts with other build
-  CREATE_TIME="${CREATE_TIME}-$RANDOM"
+  CREATE_TIME="${CREATE_TIME}_$RANDOM"
 fi
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
