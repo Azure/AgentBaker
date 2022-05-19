@@ -5,13 +5,8 @@ CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
-CREATE_TIME="$(date +%s)"
+CREATE_TIME="$(($(date +%s)+($RANDOM%300)))"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
-
-if [[ ${ENABLE_FIPS,,} == "true" || ${ARCHITECTURE,,} == "arm64" ]]; then
-  # to reduce possible conflicts with other build
-  CREATE_TIME="${CREATE_TIME}$RANDOM"
-fi
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
