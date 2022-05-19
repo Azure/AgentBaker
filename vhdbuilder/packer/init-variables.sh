@@ -185,6 +185,7 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
 			--name $IMPORTED_IMAGE_NAME \
 			--source $IMPORTED_IMAGE_URL \
+			--location $AZURE_LOCATION \
 			--hyper-v-generation V2 \
 			--os-type Linux
 
