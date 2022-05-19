@@ -204,8 +204,8 @@
         "1.10.3.5"
       ],
       "multiArchVersions": [
-        "1.10.5.6",
-        "1.10.5.7"
+        "1.10.5.7",
+        "1.10.5.8"
       ]
     },
     {
@@ -321,6 +321,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v2.4.0",
         "v2.5.0"
