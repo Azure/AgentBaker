@@ -1222,7 +1222,10 @@ export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0-1
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
+NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
+NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
+APT_CACHE_DIR=/var/cache/apt/archives/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1381,6 +1384,17 @@ downloadDebPkgToFile() {
     retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
     # shellcheck disable=SC2164
     popd
+}
+apt_get_download() {
+  retries=$1; wait_sleep=$2; shift && shift;
+  local ret=0
+  pushd $APT_CACHE_DIR || return 1
+  for i in $(seq 1 $retries); do
+    wait_for_apt_locks; apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+  done
+  popd || return 1
+  return $ret
 }
 getCPUArch() {
     arch=$(uname -m)
@@ -4561,17 +4575,18 @@ addNvidiaAptRepo() {
     apt_get_update
 }
 
+downloadNvidiaContainerRuntime() {
+    for apt_package in $NVIDIA_PACKAGES; do
+        apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    done
+    apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_RUNTIME_VER}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
 installNvidiaContainerRuntime() {
-    local target=$1
-    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
-    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
-
-    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
-        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
-        return
-    fi
-
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    for apt_package in $NVIDIA_PACKAGES; do
+        retrycmd_if_failure 100 1 600 dpkg -i ${APT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    done
+    retrycmd_if_failure 100 1 600 dpkg -i ${APT_CACHE_DIR}nvidia-container-runtime* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 installNvidiaDocker() {
