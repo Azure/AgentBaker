@@ -33,7 +33,6 @@ $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
-$global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }

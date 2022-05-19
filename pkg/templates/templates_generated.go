@@ -5876,8 +5876,6 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
-$global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
-
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -6158,28 +6156,9 @@ try
         Remove-Item $kubeConfigFile
     }
 
-    if ($global:IsNotRebootWindowsNode) {
-        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
-        Start-ScheduledTask -TaskName "k8s-restart-job"
-
-        $timeout = 180 ##  seconds
-        $timer = [Diagnostics.Stopwatch]::StartNew()
-        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-            # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
-            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-            }
-
-            Write-Log -Message "Waiting on NodeResetScriptTask..."
-            Start-Sleep -Seconds 3
-        }
-        $timer.Stop()
-        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-    } else {
-        # Postpone restart-computer so we can generate CSE response before restarting computer
-        Write-Log "Setup Complete, reboot computer"
-        Postpone-RestartComputer
-    }
+    # Postpone restart-computer so we can generate CSE response before restarting computer
+    Write-Log "Setup Complete, reboot computer"
+    Postpone-RestartComputer
 }
 catch
 {
@@ -6251,7 +6230,6 @@ $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
-$global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
