@@ -4577,6 +4577,7 @@ addNvidiaAptRepo() {
 }
 
 downloadNvidiaContainerRuntime() {
+    mkdir -p $PERMANENT_CACHE_DIR
     for apt_package in $NVIDIA_PACKAGES; do
         package_found="$(ls $PERMANENT_CACHE_DIR | grep $apt_package | wc -l)"
         if [ "$package_found" == "0" ]; then
