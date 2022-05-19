@@ -297,7 +297,7 @@ downloadNvidiaContainerRuntime() {
     for apt_package in $NVIDIA_PACKAGES; do
         apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     done
-    apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_RUNTIME_VER}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 installNvidiaContainerRuntime() {
