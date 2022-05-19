@@ -296,7 +296,7 @@ addNvidiaAptRepo() {
 downloadNvidiaContainerRuntime() {
     mkdir -p $PERMANENT_CACHE_DIR
     for apt_package in $NVIDIA_PACKAGES; do
-        package_found="$(ls $PERMANENT_CACHE_DIR | grep $apt_package_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
+        package_found="$(ls $PERMANENT_CACHE_DIR | grep ${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
         if [ "$package_found" == "0" ]; then
             echo "$apt_package not cached, downloading"
             apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
