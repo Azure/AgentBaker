@@ -79,19 +79,26 @@ function Retry-Command {
 function Expand-OS-Partition {
     $customizedDiskSize = $env:CustomizedDiskSize
     if ([string]::IsNullOrEmpty($customizedDiskSize)) {
-        Write-Log "No need to expand the OS partition size, default size 30GB"
+        Write-Log "No need to expand the OS partition size, default size 30GB by parker"
         return
     }
 
     Write-Log "Customized OS disk size is $customizedDiskSize GB"
     [Int32]$osPartitionSize = 0
-    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize) -and ($osPartitionSize -gt 30)) {
+    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
         # The supportedMaxSize less than the customizedDiskSize because some system usages will occupy disks (about 500M).
         $supportedMaxSize = (Get-PartitionSupportedSize -DriveLetter C).sizeMax
-        Write-Log "Resizing the OS partition size to $supportedMaxSize"
-        Resize-Partition -DriveLetter C -Size $supportedMaxSize
-        Get-Disk
-        Get-Partition
+        $currentSize = (Get-Partition -DriveLetter C).Size
+        if ($supportedMaxSize -gt $currentSize) {
+            Write-Log "Resizing the OS partition size form $currentSize to $supportedMaxSize"
+            Get-Disk # Remove it after testing
+            Get-Partition # Remove it after testing
+            Resize-Partition -DriveLetter C -Size $supportedMaxSize
+            Get-Disk
+            Get-Partition
+        } else {
+            Write-Log "The current size is the max size $currentSize"
+        }
     } else {
         Throw "$customizedDiskSize is not a valid customized OS disk size"
     }
