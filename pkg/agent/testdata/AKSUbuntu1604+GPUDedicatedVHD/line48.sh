@@ -221,7 +221,7 @@ downloadNvidiaContainerRuntime() {
     if [ "$package_found" == "0" ]; then
         echo "nvidia-container-runtime not cached, downloading"
         apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_RUNTIME_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
 }
 
