@@ -222,7 +222,6 @@ fi
 # because a pr gives a better chance to take a review of the version changes.
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
-WINDOWS_OS_DISK_SIZE_GB=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
 	source $CDIR/windows-image.env
@@ -252,19 +251,19 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	
 	case "${WINDOWS_SKU}" in
 	"2019")
-		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}"]; then
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
 			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 docker"
 			OS_DISK_SIZE_GB=${WINDOWS_2019_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2019-containerd")
-		if [ -n "${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}"]; then
+		if [ -n "${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}" ]; then
 			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 containerd"
 			OS_DISK_SIZE_GB=${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2022-containerd")
-		if [ -n "${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}"]; then
+		if [ -n "${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}" ]; then
 			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 containerd"
 			OS_DISK_SIZE_GB=${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}
 		fi

@@ -79,7 +79,7 @@ function Retry-Command {
 function Expand-OS-Partition {
     $customizedDiskSize = $env:CustomizedDiskSize
     if ([string]::IsNullOrEmpty($customizedDiskSize)) {
-        Write-Log "No need to expand the OS partition size, default size 30GB by parker"
+        Write-Log "No need to expand the OS partition size"
         return
     }
 
