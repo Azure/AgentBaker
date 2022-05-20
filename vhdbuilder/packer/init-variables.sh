@@ -230,12 +230,10 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	"2019"|"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		WINDOWS_OS_DISK_SIZE_GB=$WINDOWS_2019_OS_DISK_SIZE_GB
 		;;
 	"2022-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-		WINDOWS_OS_DISK_SIZE_GB=$WINDOWS_2022_OS_DISK_SIZE_GB
 		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
@@ -256,16 +254,19 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	"2019")
 		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}"]; then
 			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 docker"
+			OS_DISK_SIZE_GB=${WINDOWS_2019_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2019-containerd")
 		if [ -n "${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}"]; then
 			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 containerd"
+			OS_DISK_SIZE_GB=${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2022-containerd")
 		if [ -n "${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}"]; then
 			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 containerd"
+			OS_DISK_SIZE_GB=${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
 	*)
