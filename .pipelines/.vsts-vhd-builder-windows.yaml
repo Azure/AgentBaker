@@ -25,18 +25,6 @@ parameters:
   displayName: VHD Debug
   type: boolean
   default: False
-- name: osdisksizegb_2019
-  displayName: OS Disk Size GB for 2019
-  type: string
-  default: ""
-- name: osdisksizegb_2019_containerd
-  displayName: OS Disk Size GB for 2019 containerd
-  type: string
-  default: ""
-- name: osdisksizegb_2022_containerd
-  displayName: OS Disk Size GB for 2022 containerd
-  type: string
-  default: ""
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.0'
@@ -61,7 +49,6 @@ stages:
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_ID]$(WINDOWS_2019_PATCH_ID)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_SKU]$(WINDOWS_2019_BASE_IMAGE_SKU)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_VERSION]$(WINDOWS_2019_BASE_IMAGE_VERSION)'
-            echo '##vso[task.setvariable variable=OS_DISK_SIZE_GB]${{parameters.osdisksizegb_2019}}'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
@@ -86,7 +73,6 @@ stages:
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_ID]$(WINDOWS_2019_PATCH_ID)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_SKU]$(WINDOWS_2019_BASE_IMAGE_SKU)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_VERSION]$(WINDOWS_2019_BASE_IMAGE_VERSION)'
-            echo '##vso[task.setvariable variable=OS_DISK_SIZE_GB]${{parameters.osdisksizegb_2019_containerd}}'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
@@ -111,7 +97,6 @@ stages:
             echo '##vso[task.setvariable variable=WINDOWS_PATCH_ID]$(WINDOWS_2022_PATCH_ID)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_SKU]$(WINDOWS_2022_BASE_IMAGE_SKU)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_VERSION]$(WINDOWS_2022_BASE_IMAGE_VERSION)'
-            echo '##vso[task.setvariable variable=OS_DISK_SIZE_GB]${{parameters.osdisksizegb_2022_containerd}}'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:

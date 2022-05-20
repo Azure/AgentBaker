@@ -222,6 +222,7 @@ fi
 # because a pr gives a better chance to take a review of the version changes.
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
+WINDOWS_OS_DISK_SIZE_GB=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
 	source $CDIR/windows-image.env
@@ -229,10 +230,12 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	"2019"|"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		WINDOWS_OS_DISK_SIZE_GB=$WINDOWS_2019_OS_DISK_SIZE_GB
 		;;
 	"2022-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
+		WINDOWS_OS_DISK_SIZE_GB=$WINDOWS_2022_OS_DISK_SIZE_GB
 		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
@@ -248,6 +251,28 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
 		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
 	fi
+	
+	case "${WINDOWS_SKU}" in
+	"2019")
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}"]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 docker"
+		fi
+		;;
+	"2019-containerd")
+		if [ -n "${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}"]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 containerd"
+		fi
+		;;
+	"2022-containerd")
+		if [ -n "${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}"]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 containerd"
+		fi
+		;;
+	*)
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
+		exit 1
+		;;
+	esac
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
