@@ -62,8 +62,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.16.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
@@ -90,8 +90,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.16.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.19", # for k8s 1.20.x
@@ -116,8 +116,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.16.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9" # for k8s 1.23.x
