@@ -274,6 +274,9 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
+	echo ${WINDOWS_2019_OS_DISK_SIZE_GB}
+	echo ${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}
+	echo ${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
