@@ -789,21 +789,17 @@ configureCNIIPTables() {
     fi
 }
 
-disable1804SystemdResolved() {
+disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
-    {{- if Disable1804SystemdResolved}}
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
         echo "Ingorings systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
-    {{- else}}
-    echo "Disable1804SystemdResolved is false. Skipping."
-    {{- end}}
 }
 
 {{- if NeedsContainerd}}
@@ -1451,23 +1447,31 @@ installContainerRuntime() {
     if [ -f "$MANIFEST_FILEPATH" ]; then
         stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
         latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
+        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
     # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
+        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalid container version: $edge_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi        
+    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
         containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $latest_containerd"
+            echo "invalid container version: $latest_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     else
         containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $stable_containerd"
+            echo "invalid container version: $stable_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
@@ -1921,7 +1925,7 @@ fi
 configureHTTPProxyCA
 {{- end}}
 
-disable1804SystemdResolved
+disableSystemdResolved
 
 configureAdminUser
 
@@ -2958,6 +2962,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.4.13-2"
         ],
+        "edge": "1.6.4-1",
         "latest": "1.5.11-1",
         "stable": "1.4.13-2"
     },
@@ -5880,6 +5885,8 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
+$global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -6160,9 +6167,28 @@ try
         Remove-Item $kubeConfigFile
     }
 
-    # Postpone restart-computer so we can generate CSE response before restarting computer
-    Write-Log "Setup Complete, reboot computer"
-    Postpone-RestartComputer
+    if ($global:IsNotRebootWindowsNode) {
+        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+        Start-ScheduledTask -TaskName "k8s-restart-job"
+
+        $timeout = 180 ##  seconds
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+            # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
+            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
+            }
+
+            Write-Log -Message "Waiting on NodeResetScriptTask..."
+            Start-Sleep -Seconds 3
+        }
+        $timer.Stop()
+        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+    } else {
+        # Postpone restart-computer so we can generate CSE response before restarting computer
+        Write-Log "Setup Complete, reboot computer"
+        Postpone-RestartComputer
+    }
 }
 catch
 {
@@ -6234,6 +6260,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
+$global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }

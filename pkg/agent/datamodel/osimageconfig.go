@@ -121,5 +121,27 @@ var (
 			AKSUbuntuContainerd1804Gen2: AKSUbuntuContainerd1804Gen2OSImageConfig,
 			AKSWindows2019PIR:           AKSWindowsServer2019OSImageConfig,
 		},
+		USNatCloud: {
+			Ubuntu:            Ubuntu1604OSImageConfig,
+			Ubuntu1804:        Ubuntu1804OSImageConfig,
+			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
+			RHEL:              RHELOSImageConfig,
+			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
+			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
+			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
+			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
+			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+		},
+		USSecCloud: {
+			Ubuntu:            Ubuntu1604OSImageConfig,
+			Ubuntu1804:        Ubuntu1804OSImageConfig,
+			Ubuntu1804Gen2:    Ubuntu1804Gen2OSImageConfig,
+			RHEL:              RHELOSImageConfig,
+			AKSUbuntu1604:     AKSUbuntu1604OSImageConfig,
+			AKS1604Deprecated: AKSUbuntu1604OSImageConfig, // for back-compat
+			AKSUbuntu1804:     AKSUbuntu1804OSImageConfig,
+			AKS1804Deprecated: AKSUbuntu1804OSImageConfig, // for back-compat
+			AKSWindows2019PIR: AKSWindowsServer2019OSImageConfig,
+		},
 	}
 )

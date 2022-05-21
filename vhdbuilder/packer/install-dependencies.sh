@@ -96,22 +96,6 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
-
-  # 5.4.0-1077-azure in the arm64 18.04 ubuntu image available on marketplace (Canonical:0002-com-ubuntu-server-arm-preview-bionic:18_04-lts:18.04.202204240)
-  # misses many kernel configurations on which AKS doesn't work well. Canonical built a new kernel 5.4.0-1078-azure with proper kernel settings and shared in
-  # the proposed repo. Canonical will publish new image containing 5.4.0-1078-azure kernel soon. For now we explicitly install this kernel. After new image is
-  # available, we can remove this block.
-  kernelVersion=$(uname -r)
-  if [[ "${kernelVersion}" < "5.4.0-1078-azure" ]]; then
-cat <<EOF >/etc/apt/sources.list.d/ubuntu-$(lsb_release -cs)-proposed.list
-# Enable Ubuntu proposed archive
-deb http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-proposed restricted main multiverse universe
-EOF
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    retrycmd_if_failure 30 5 3600 apt-get install -y linux-image-5.4.0-1078-azure || exit $ERR_APT_INSTALL_TIMEOUT
-    rm -f /etc/apt/sources.list.d/ubuntu-bionic-proposed.list
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-  fi
 fi
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then

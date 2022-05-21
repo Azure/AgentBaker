@@ -52,9 +52,9 @@ Installed Packages
 	OpenSSH.Server~~~~0.0.1.0
 
 Installed QFEs
-	KB5008882 : Update          : http://support.microsoft.com/?kbid=5008882
-	KB5011497 : Security Update : http://support.microsoft.com/?kbid=5011497
-	KB5010523 : Update          : http://support.microsoft.com/?kbid=5010523
+	KB5008882 : Update          : https://support.microsoft.com/kb/5008882
+	KB5011497 : Security Update : https://support.microsoft.com/kb/5011497
+	KB5010523 : Update          : https://support.microsoft.com/kb/5010523
 
 Installed Updates
 	Update for Windows Defender Antivirus antimalware platform - KB4052623 (Version 4.18.2001.10)
