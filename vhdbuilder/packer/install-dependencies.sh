@@ -142,11 +142,10 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
   CRICTL_VERSIONS="
-  1.19.0
-  1.20.0
   1.21.0
   1.22.0
   1.23.0
+  1.24.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
