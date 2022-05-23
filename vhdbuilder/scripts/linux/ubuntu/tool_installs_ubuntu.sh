@@ -60,6 +60,30 @@ installBcc() {
     apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
+configGPUDrivers() {
+    blacklistNouveau
+    addNvidiaAptRepo
+    installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
+    installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
+
+    # tidy
+    rm -rf $GPU_DEST/tmp
+
+    # reload containerd/dockerd
+    if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    else
+      retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
+
+    # install gpu driver
+    setupGpuRunfileInstall
+
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+}
+
 disableNtpAndTimesyncdInstallChrony() {
     # Disable systemd-timesyncd
     systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
