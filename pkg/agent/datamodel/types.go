@@ -1343,12 +1343,10 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 			kubeproxyConfig[k] = v
 		}
 	}
-	fmt.Println(kubeproxyConfig)
 	keys := []string{}
 	for key := range kubeproxyConfig {
 		keys = append(keys, key)
 	}
-	fmt.Println(kubeproxyConfig)
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
