@@ -1295,11 +1295,13 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	}
 
 	// override default kubelet configuration with customzied ones
-	kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
-	if kubeletCustomConfiguration != nil {
-		config := kubeletCustomConfiguration.Config
-		for k, v := range config {
-			kubeletConfig[k] = v
+	if config.ContainerService != nil && config.ContainerService.Properties != nil {
+		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
+		if kubeletCustomConfiguration != nil {
+			config := kubeletCustomConfiguration.Config
+			for k, v := range config {
+				kubeletConfig[k] = v
+			}
 		}
 	}
 
