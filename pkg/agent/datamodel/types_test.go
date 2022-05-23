@@ -2039,8 +2039,10 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		expectedForPowershell string
 	}{
 		{
-			name:                  "zero value kubernetesConfig",
-			config:                &NodeBootstrappingConfiguration{},
+			name: "zero value kubernetesConfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{Properties: &Properties{}},
+			},
 			expected:              "",
 			expectedForPowershell: "",
 		},
@@ -2048,6 +2050,7 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		{
 			name: "expected values",
 			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{Properties: &Properties{}},
 				KubeletConfig: map[string]string{
 					"--address":                     "0.0.0.0",
 					"--allow-privileged":            "true",
@@ -2067,6 +2070,7 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		{
 			name: "expected values re-ordered",
 			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{Properties: &Properties{}},
 				KubeletConfig: map[string]string{
 					"--address":                     "0.0.0.0",
 					"--allow-privileged":            "true",
