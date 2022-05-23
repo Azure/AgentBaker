@@ -2271,7 +2271,7 @@ func TestGetOrderedKubeproxyConfigStringForPowershell(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			//t.Parallel()
+			t.Parallel()
 			actual := c.config.GetOrderedKubeproxyConfigStringForPowershell()
 			if c.expected != actual {
 				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
@@ -2358,7 +2358,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			//t.Parallel()
+			t.Parallel()
 			actual := c.config.GetOrderedKubeletConfigStringForPowershell()
 			if c.expected != actual {
 				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
