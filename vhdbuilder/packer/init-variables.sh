@@ -252,19 +252,19 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	case "${WINDOWS_SKU}" in
 	"2019")
 		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 docker"
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
 			OS_DISK_SIZE_GB=${WINDOWS_2019_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2019-containerd")
 		if [ -n "${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 containerd"
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 containerd: ${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}"
 			OS_DISK_SIZE_GB=${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2022-containerd")
 		if [ -n "${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 containerd"
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 containerd: ${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}"
 			OS_DISK_SIZE_GB=${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
@@ -273,9 +273,6 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
-	echo ${WINDOWS_2019_OS_DISK_SIZE_GB}
-	echo ${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}
-	echo ${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
