@@ -257,15 +257,15 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		fi
 		;;
 	"2019-containerd")
-		if [ -n "${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 containerd: ${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}"
-			OS_DISK_SIZE_GB=${WINDOWS_2019_containerd_OS_DISK_SIZE_GB}
+		if [ -n "${WINDOWS_2019_Containerd_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_Containerd_OS_DISK_SIZE_GB}"
+			OS_DISK_SIZE_GB=${WINDOWS_2019_Containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2022-containerd")
-		if [ -n "${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 containerd: ${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}"
-			OS_DISK_SIZE_GB=${WINDOWS_2022_containerd_OS_DISK_SIZE_GB}
+		if [ -n "${WINDOWS_2022_Containerd_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_Containerd_OS_DISK_SIZE_GB}"
+			OS_DISK_SIZE_GB=${WINDOWS_2022_Containerd_OS_DISK_SIZE_GB}
 		fi
 		;;
 	*)
