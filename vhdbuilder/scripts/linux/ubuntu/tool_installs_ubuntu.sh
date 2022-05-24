@@ -96,9 +96,6 @@ setupGpuRunfileInstall() {
 }
 
 installGPUDriversRun() {
-    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
-    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
-    if yes please help remove the clean up logic here too */}}
     set -x
     MODULE_NAME="nvidia"
     NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
@@ -110,7 +107,6 @@ installGPUDriversRun() {
           rm -rf "${NVIDIA_DKMS_DIR}"
         fi
     fi
-    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
     local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
     if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
         downloadGPUDrivers
