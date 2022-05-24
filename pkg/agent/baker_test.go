@@ -691,7 +691,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--max-pods":                          "30",
 			"--network-plugin":                    "cni",
 			"--node-status-update-frequency":      "10s",
-			"--non-masquerade-cidr":               "0.0.0.0/0",
 			"--pod-infra-container-image":         "kubletwin/pause",
 			"--pod-max-pids":                      "-1",
 			"--read-only-port":                    "0",
