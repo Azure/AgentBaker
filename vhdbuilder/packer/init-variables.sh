@@ -252,20 +252,20 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	case "${WINDOWS_SKU}" in
 	"2019")
 		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
 			OS_DISK_SIZE_GB=${WINDOWS_2019_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2019-containerd")
-		if [ -n "${WINDOWS_2019_Containerd_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_Containerd_OS_DISK_SIZE_GB}"
-			OS_DISK_SIZE_GB=${WINDOWS_2019_Containerd_OS_DISK_SIZE_GB}
+		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
+			OS_DISK_SIZE_GB=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
 		fi
 		;;
 	"2022-containerd")
-		if [ -n "${WINDOWS_2022_Containerd_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_Containerd_OS_DISK_SIZE_GB}"
-			OS_DISK_SIZE_GB=${WINDOWS_2022_Containerd_OS_DISK_SIZE_GB}
+		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting OS_DISK_SIZE_GB to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
+			OS_DISK_SIZE_GB=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
 		fi
 		;;
 	*)

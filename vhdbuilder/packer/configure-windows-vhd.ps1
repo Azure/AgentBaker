@@ -89,12 +89,8 @@ function Expand-OS-Partition {
         # The supportedMaxSize less than the customizedDiskSize because some system usages will occupy disks (about 500M).
         $supportedMaxSize = (Get-PartitionSupportedSize -DriveLetter C).sizeMax
         $currentSize = (Get-Partition -DriveLetter C).Size
-        echo "SupportedMaxSize $supportedMaxSize"
-        echo "CurrentSize $currentSize"
         if ($supportedMaxSize -gt $currentSize) {
             Write-Log "Resizing the OS partition size from $currentSize to $supportedMaxSize"
-            Get-Disk # Remove it after testing
-            Get-Partition # Remove it after testing
             Resize-Partition -DriveLetter C -Size $supportedMaxSize
             Get-Disk
             Get-Partition
