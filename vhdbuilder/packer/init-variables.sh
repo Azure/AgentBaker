@@ -248,6 +248,31 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
 		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
 	fi
+	
+	case "${WINDOWS_SKU}" in
+	"2019")
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2019-containerd")
+		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2022-containerd")
+		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
+		;;
+	*)
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
+		exit 1
+		;;
+	esac
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -265,7 +290,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
-  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}"
+  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
+  "os_disk_size_gb": "${os_disk_size_gb}"
 }
 EOF
 
