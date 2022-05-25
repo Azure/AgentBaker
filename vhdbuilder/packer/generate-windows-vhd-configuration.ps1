@@ -76,7 +76,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -103,7 +104,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
     }
     "2022-containerd" {
         $global:imagesToPull = @(
@@ -120,9 +122,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9" # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11" # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0" # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022"
         )
     }
     default {
