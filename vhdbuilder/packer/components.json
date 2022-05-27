@@ -101,7 +101,7 @@
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "amd64OnlyVersions": [
         "master.211013.1",
-        "master.211104.1"
+        "master.220527.2"
       ],
       "multiArchVersions": []
     },
@@ -116,7 +116,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "amd64OnlyVersions": [
-        "master.210623.2"
+        "master.210623.2",
+        "master.220527.2"
       ],
       "multiArchVersions": []
     },
