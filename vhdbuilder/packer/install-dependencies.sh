@@ -142,11 +142,10 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
   CRICTL_VERSIONS="
-  1.19.0
-  1.20.0
   1.21.0
   1.22.0
   1.23.0
+  1.24.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -201,7 +200,7 @@ retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/comput
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
 mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
-retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 {
   echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}";
   echo "  - nvidia-gpu-driver-version=${GPU_DV}";

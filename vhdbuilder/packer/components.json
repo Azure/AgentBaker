@@ -101,7 +101,7 @@
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "amd64OnlyVersions": [
         "master.211013.1",
-        "master.211104.1"
+        "master.220527.2"
       ],
       "multiArchVersions": []
     },
@@ -116,7 +116,8 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "amd64OnlyVersions": [
-        "master.210623.2"
+        "master.210623.2",
+        "master.220527.2"
       ],
       "multiArchVersions": []
     },
@@ -142,7 +143,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod03172022"
+        "ciprod03172022",
+        "ciprod05192022"
       ]
     },
     {
@@ -204,8 +206,8 @@
         "1.10.3.5"
       ],
       "multiArchVersions": [
-        "1.10.5.6",
-        "1.10.5.7"
+        "1.10.5.7",
+        "1.10.5.8"
       ]
     },
     {
@@ -305,8 +307,8 @@
         "v1.2.0"
       ],
       "multiArchVersions": [
-        "v1.16.0",
-        "v1.17.0"
+        "v1.17.0",
+        "v1.18.0"
       ]
     },
     {
@@ -321,6 +323,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v2.4.0",
         "v2.5.0"
@@ -486,7 +489,8 @@
       "versions": [
         "1.21.0",
         "1.22.0",
-        "1.23.0"
+        "1.23.0",
+        "1.24.0"
       ],
       "targetContainerRuntime": "containerd"
     }

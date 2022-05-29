@@ -2186,3 +2186,183 @@ func TestKubernetesConfig_UserAssignedIDEnabled(t *testing.T) {
 		t.Errorf("expected userAssignedIDEnabled to be false when useManagedIdentity is set to false")
 	}
 }
+
+func TestGetOrderedKubeproxyConfigStringForPowershell(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *NodeBootstrappingConfiguration
+		expected string
+	}{
+		{
+			name: "KubeproxyConfig is empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+			},
+			expected: `"--metrics-bind-address=0.0.0.0:10249"`,
+		},
+		{
+			name: "default metrics bind address is used",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+				KubeproxyConfig: map[string]string{
+					"--metrics-bind-address": "0.0.0.0:10250",
+				},
+			},
+			expected: `"--metrics-bind-address=0.0.0.0:10250"`,
+		},
+		{
+			name: "KubeproxyConfig is not empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+				KubeproxyConfig: map[string]string{
+					"--hostname-override": "fakehost",
+				},
+			},
+			expected: `"--hostname-override=fakehost", "--metrics-bind-address=0.0.0.0:10249"`,
+		},
+		{
+			name: "custom configuration overrides default kubeproxyconfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(ComponentkubeProxy): {
+									Config: map[string]string{"--hostname-override": "override"},
+								},
+							},
+						},
+					},
+				},
+				KubeproxyConfig: map[string]string{
+					"--hostname-override": "fakehost",
+				},
+			},
+			expected: `"--hostname-override=override", "--metrics-bind-address=0.0.0.0:10249"`,
+		},
+		{
+			name: "custom configuration does not override default kubeproxyconfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(ComponentkubeProxy): {
+									Config: map[string]string{"--kube-api-qps": "10"},
+								},
+							},
+						},
+					},
+				},
+				KubeproxyConfig: map[string]string{
+					"--hostname-override": "fakehost",
+				},
+			},
+			expected: `"--hostname-override=fakehost", "--kube-api-qps=10", "--metrics-bind-address=0.0.0.0:10249"`,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.config.GetOrderedKubeproxyConfigStringForPowershell()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *NodeBootstrappingConfiguration
+		expected string
+	}{
+		{
+			name: "KubeletConfig is empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "KubeletConfig is not empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+				KubeletConfig: map[string]string{
+					"--address":          "0.0.0.0",
+					"--allow-privileged": "true",
+					"--cloud-config":     "c:\\k\\azure.json",
+				},
+			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json"`,
+		},
+		{
+			name: "custom configuration overrides default KubeletConfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(Componentkubelet): {
+									Config: map[string]string{"--address": "127.0.0.1"},
+								},
+							},
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--address":          "0.0.0.0",
+					"--allow-privileged": "true",
+					"--cloud-config":     "c:\\k\\azure.json",
+				},
+			},
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json"`,
+		},
+		{
+			name: "custom configuration does not override default KubeletConfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(Componentkubelet): {
+									Config: map[string]string{"--event-qps": "100"},
+								},
+							},
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--address":          "0.0.0.0",
+					"--allow-privileged": "true",
+					"--cloud-config":     "c:\\k\\azure.json",
+				},
+			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--event-qps=100"`,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.config.GetOrderedKubeletConfigStringForPowershell()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
