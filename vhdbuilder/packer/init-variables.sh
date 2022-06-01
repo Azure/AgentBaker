@@ -7,8 +7,8 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
-# Before this PR, packer captured Gen2 SIG version and converted VHD name use pattern "1.0.${CREATE_TIME}", CREATE_TIME is in second
-# multiple Gen2 builds in a pipleline can conflict each other, use pattern 1.${CREATE_TIME}.$RANDOM to reduce conflicts probability
+# Before Packer captured Gen2 disk to a managed image using name "1804Gen2-${CREATE_TIME}" then convert the image to a SIG version "1.0.${CREATE_TIME}",
+# CREATE_TIME is in second, so multiple Gen2 builds in a pipleline could affect each other, use 1.${CREATE_TIME}.$RANDOM to reduce conflicts.
 GEN2_CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
