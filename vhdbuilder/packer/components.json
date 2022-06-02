@@ -11,6 +11,9 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
         "v2.0.0",
+        "v2.0.0",
+        "v2.0.0",
+        "v2.0.0-rc7",
         "v2.0.1"
       ],
       "multiArchVersions": [
@@ -128,7 +131,9 @@
       ],
       "multiArchVersions": [
         "v1.0.0.2",
-        "v1.0.0.3"
+        "v1.0.0.3",
+        "v1.1.1.4",
+        "v1.1.1.5"
       ]
     },
     {
@@ -136,7 +141,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.0.0",
-        "v1.0.0-rc.0"
+        "v1.0.0-rc.0",
+        "v1.1.0"
       ]
     },
     {
@@ -206,8 +212,8 @@
         "1.10.3.5"
       ],
       "multiArchVersions": [
-        "1.10.5.7",
-        "1.10.5.8"
+        "1.10.5.8",
+        "1.10.5.9"
       ]
     },
     {
@@ -272,8 +278,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.5.0.10",
-        "v2.5.0.11"
+        "v2.5.0.11",
+        "v2.5.0.12"
       ]
     },
     {
@@ -424,8 +430,8 @@
       "multiArchVersions": [
         "v1.7.5.7",
         "v1.7.5.8",
-        "v1.8.8",
-        "v1.8.8.2"
+        "v1.8.8.2",
+        "v1.8.8.3"
       ]
     },
     {
