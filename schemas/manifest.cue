@@ -53,8 +53,8 @@
         "versions": [
             "1.4.13-2"
         ],
-        "edge": "1.6.4-1",
-        "latest": "1.5.11-1", // latest is default in vhd.
+        "edge": "1.6.4-4",
+        "latest": "1.5.11-2", // latest is default in vhd.
         "stable": "1.4.13-2", // we use latest vs stable at runtime depending on k8s version.
     },
     "runc": {
