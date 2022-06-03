@@ -159,7 +159,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            "ipMasq": true,
+            "ipMasq": false,
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -291,10 +291,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-
-    
-
-
     # Disallow container from reaching out to the special IP address 168.63.129.16
     # for TCP protocol (which http uses)
     #

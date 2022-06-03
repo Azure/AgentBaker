@@ -5295,11 +5295,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            {{- if IsIPMasqAgentEnabled}}
             "ipMasq": false,
-            {{- else}}
-            "ipMasq": true,
-            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -5540,12 +5536,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-{{if not IsIPMasqAgentEnabled}}
-    {{if IsAzureCNI}}
-    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
-    {{end}}
-{{end}}
-
     # Disallow container from reaching out to the special IP address 168.63.129.16
     # for TCP protocol (which http uses)
     #
