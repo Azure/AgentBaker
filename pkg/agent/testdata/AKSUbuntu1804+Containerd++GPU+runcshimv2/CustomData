@@ -251,14 +251,14 @@ write_files:
   encoding: base64
   owner: root
   content: |
-
+    
 
 - path: /etc/kubernetes/certs/client.crt
   permissions: "0644"
   encoding: base64
   owner: root
   content: |
-
+    
 
 
 
@@ -290,7 +290,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS=--feature-gates=DisableAcceleratorUsageMetrics=false,DynamicKubeletConfig=false
+    KUBELET_FLAGS=--feature-gates=DynamicKubeletConfig=false 
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
 
@@ -304,7 +304,7 @@ write_files:
   content: |
     #!/bin/bash
 
-
+    
 
 
     # Disallow container from reaching out to the special IP address 168.63.129.16
