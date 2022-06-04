@@ -153,6 +153,7 @@ EOF
     "protectKernelDefaults": true,
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
+        "DisableAcceleratorUsageMetrics": false,
         "DynamicKubeletConfig": false,
         "PodPriority": true,
         "RotateKubeletServerCertificate": true,
