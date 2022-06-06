@@ -148,7 +148,6 @@ EOF
     },
     "protectKernelDefaults": true,
     "featureGates": {
-        "DisableAcceleratorUsageMetrics": false,
         "DynamicKubeletConfig": false,
         "PodPriority": true,
         "RotateKubeletServerCertificate": true,
