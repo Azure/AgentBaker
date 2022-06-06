@@ -1,6 +1,8 @@
 [Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Restart=always
