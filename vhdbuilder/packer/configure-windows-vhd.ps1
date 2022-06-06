@@ -22,11 +22,16 @@ function DownloadFileWithRetry {
         $URL,
         $Dest,
         $retryCount = 5,
-        $retryDelay = 0
+        $retryDelay = 0,
+        [Switch]$redactUrl = $false
     )
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     if ($LASTEXITCODE) {
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$URL'"
+        $logURL = $URL
+        if ($redactUrl) {
+            $logURL = $logURL.Split("?")[0]
+        }
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
     }
 }
 
@@ -74,19 +79,24 @@ function Retry-Command {
 function Expand-OS-Partition {
     $customizedDiskSize = $env:CustomizedDiskSize
     if ([string]::IsNullOrEmpty($customizedDiskSize)) {
-        Write-Log "No need to expand the OS partition size, default size 30GB"
+        Write-Log "No need to expand the OS partition size"
         return
     }
 
     Write-Log "Customized OS disk size is $customizedDiskSize GB"
     [Int32]$osPartitionSize = 0
-    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize) -and ($osPartitionSize -gt 30)) {
+    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
         # The supportedMaxSize less than the customizedDiskSize because some system usages will occupy disks (about 500M).
         $supportedMaxSize = (Get-PartitionSupportedSize -DriveLetter C).sizeMax
-        Write-Log "Resizing the OS partition size to $supportedMaxSize"
-        Resize-Partition -DriveLetter C -Size $supportedMaxSize
-        Get-Disk
-        Get-Partition
+        $currentSize = (Get-Partition -DriveLetter C).Size
+        if ($supportedMaxSize -gt $currentSize) {
+            Write-Log "Resizing the OS partition size from $currentSize to $supportedMaxSize"
+            Resize-Partition -DriveLetter C -Size $supportedMaxSize
+            Get-Disk
+            Get-Partition
+        } else {
+            Write-Log "The current size is the max size $currentSize"
+        }
     } else {
         Throw "$customizedDiskSize is not a valid customized OS disk size"
     }
@@ -220,6 +230,8 @@ function Install-OpenSSH {
 }
 
 function Install-WindowsPatches {
+    Write-Log "Installing Windows patches"
+    Write-Log "The length of patchUrls is $($patchUrls.Length)"
     foreach ($patchUrl in $patchUrls) {
         $pathOnly = $patchUrl.Split("?")[0]
         $fileName = Split-Path $pathOnly -Leaf
@@ -229,7 +241,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath
+                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath -redactUrl
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
@@ -309,6 +321,11 @@ function Get-SystemDriveDiskInfo {
     }
 }
 
+function Get-DefenderPreferenceInfo {
+    Write-Log "Get preferences for the Windows Defender scans and updates"
+    Write-Log(Get-MpPreference | Format-List | Out-String)
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -346,4 +363,5 @@ try{
 }
 finally {
     Get-SystemDriveDiskInfo
+    Get-DefenderPreferenceInfo
 }

@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/pkg/aks-engine/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -142,6 +141,8 @@ const (
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
 	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
 	AKSUbuntuArm64Containerd1804Gen2   Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
+	AKSUbuntuContainerd2004            Distro = "aks-ubuntu-containerd-20.04"
+	AKSUbuntuContainerd2004Gen2        Distro = "aks-ubuntu-containerd-20.04-gen2"
 	RHEL                               Distro = "rhel"
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
@@ -181,7 +182,16 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
+	AKSUbuntuContainerd2004,
+	AKSUbuntuContainerd2004Gen2,
 }
+
+type CustomConfigurationComponent string
+
+const (
+	ComponentkubeProxy CustomConfigurationComponent = "kube-proxy"
+	Componentkubelet   CustomConfigurationComponent = "kubelet"
+)
 
 func (d Distro) IsVHDDistro() bool {
 	for _, distro := range AKSDistrosAvailableOnVHD {
@@ -611,7 +621,8 @@ type SysctlConfig struct {
 }
 
 type CustomConfiguration struct {
-	KubernetesConfigurations map[string]*ComponentConfiguration
+	KubernetesConfigurations        map[string]*ComponentConfiguration
+	WindowsKubernetesConfigurations map[string]*ComponentConfiguration
 }
 
 type ComponentConfiguration struct {
@@ -641,6 +652,9 @@ type AgentPoolProfile struct {
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	// This is a new property and all old agent pools do no have this field. We need to keep the default
+	// behavior to reboot Windows node when it is nil
+	NotRebootWindowsNode *bool `json:"notRebootWindowsNode,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -682,12 +696,6 @@ type ContainerService struct {
 func (cs *ContainerService) IsAKSCustomCloud() bool {
 	return cs.Properties.CustomCloudEnv != nil &&
 		strings.EqualFold(cs.Properties.CustomCloudEnv.Name, "akscustom")
-}
-
-// GetLocations returns all supported regions.
-// If AzurePublicCloud, AzureChinaCloud,AzureGermanCloud or AzureUSGovernmentCloud, GetLocations provides all azure regions in prod.
-func (cs *ContainerService) GetLocations() []string {
-	return helpers.GetAzureLocations()
 }
 
 // HasAadProfile returns true if the has aad profile
@@ -907,6 +915,34 @@ func (p *Properties) GetPrimaryAvailabilitySetName() string {
 	return ""
 }
 
+func (p *Properties) GetComponentKubernetesConfiguration(component CustomConfigurationComponent) *ComponentConfiguration {
+	if p.CustomConfiguration == nil {
+		return nil
+	}
+	if p.CustomConfiguration.KubernetesConfigurations == nil {
+		return nil
+	}
+	if configuration, ok := p.CustomConfiguration.KubernetesConfigurations[string(component)]; ok {
+		return configuration
+	}
+
+	return nil
+}
+
+func (p *Properties) GetComponentWindowsKubernetesConfiguration(component CustomConfigurationComponent) *ComponentConfiguration {
+	if p.CustomConfiguration == nil {
+		return nil
+	}
+	if p.CustomConfiguration.WindowsKubernetesConfigurations == nil {
+		return nil
+	}
+	if configuration, ok := p.CustomConfiguration.WindowsKubernetesConfigurations[string(component)]; ok {
+		return configuration
+	}
+
+	return nil
+}
+
 // GetKubeProxyFeatureGatesWindowsArguments returns the feature gates string for the kube-proxy arguments in Windows nodes
 func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	featureGates := map[string]bool{}
@@ -997,6 +1033,11 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
 	}
 	return buf.String()
+}
+
+// IsNotRebootWindowsNode returns true if it does not need to reboot Windows node
+func (w *AgentPoolProfile) IsNotRebootWindowsNode() bool {
+	return w.NotRebootWindowsNode != nil && *w.NotRebootWindowsNode
 }
 
 // HasSecrets returns true if the customer specified secrets to install
@@ -1248,45 +1289,70 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
 func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell() string {
-	if config.KubeletConfig == nil {
+	kubeletConfig := config.KubeletConfig
+	if kubeletConfig == nil {
+		kubeletConfig = map[string]string{}
+	}
+
+	// override default kubelet configuration with customzied ones
+	if config.ContainerService != nil && config.ContainerService.Properties != nil {
+		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
+		if kubeletCustomConfiguration != nil {
+			config := kubeletCustomConfiguration.Config
+			for k, v := range config {
+				kubeletConfig[k] = v
+			}
+		}
+	}
+
+	if len(kubeletConfig) == 0 {
 		return ""
 	}
 
 	keys := []string{}
-	for key := range config.KubeletConfig {
+	for key := range kubeletConfig {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config.KubeletConfig[key]))
+		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
 // GetOrderedKubeproxyConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
 func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringForPowershell() string {
-	// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/
-	// --metrics-bind-address ipport     Default: 127.0.0.1:10249
-	// 	The IP address with port for the metrics server to serve on (set to '0.0.0.0:10249' for all IPv4 interfaces and '[::]:10249' for all IPv6 interfaces). Set empty to disable.
-	// This only works with Windows provisioning package v0.0.15+.
-	// https://github.com/Azure/aks-engine/blob/master/docs/topics/windows-provisioning-scripts-release-notes.md#v0015
-	if config.KubeproxyConfig == nil {
-		return "\"--metrics-bind-address=0.0.0.0:10249\""
+	kubeproxyConfig := config.KubeproxyConfig
+	if kubeproxyConfig == nil {
+		// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/
+		// --metrics-bind-address ipport     Default: 127.0.0.1:10249
+		// The IP address with port for the metrics server to serve on (set to '0.0.0.0:10249' for all IPv4 interfaces and '[::]:10249' for all IPv6 interfaces). Set empty to disable.
+		// This only works with Windows provisioning package v0.0.15+.
+		// https://github.com/Azure/aks-engine/blob/master/docs/topics/windows-provisioning-scripts-release-notes.md#v0015
+		kubeproxyConfig = map[string]string{"--metrics-bind-address": "0.0.0.0:10249"}
 	}
 
-	if _, ok := config.KubeproxyConfig["--metrics-bind-address"]; !ok {
-		config.KubeproxyConfig["--metrics-bind-address"] = "0.0.0.0:10249"
+	if _, ok := kubeproxyConfig["--metrics-bind-address"]; !ok {
+		kubeproxyConfig["--metrics-bind-address"] = "0.0.0.0:10249"
 	}
 
+	// override kube proxy configuration with the customzied ones.
+	kubeProxyCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(ComponentkubeProxy)
+	if kubeProxyCustomConfiguration != nil {
+		customConfig := kubeProxyCustomConfiguration.Config
+		for k, v := range customConfig {
+			kubeproxyConfig[k] = v
+		}
+	}
 	keys := []string{}
-	for key := range config.KubeproxyConfig {
+	for key := range kubeproxyConfig {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config.KubeproxyConfig[key]))
+		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }

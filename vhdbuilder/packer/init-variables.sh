@@ -101,18 +101,8 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 fi
 
-# no source image on marketplace, use MSFT/AME SIG as source image
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
-  ARM64_SIG_SUBSCRIPTION_ID="a84c0852-ea2d-4359-88e4-11a80a4fb6b9"
-  ARM64_SIG_RESOURCE_GROUP_NAME="ARM64_External_RG"
-  ARM64_SIG_GALLERY_NAME="SantaClaraSIG"
-  ARM64_SIG_IMAGENAME="Ubuntu-18.04-LSG"
-  ARM64_SIG_IMAGE_VERSION="20210930.0.0"
-  if [[ ${TENANT_ID,,} == "72f988bf-86f1-41af-91ab-2d7cd011db47" ]]; then # MSFT Tenant
-    ARM64_SIG_SUBSCRIPTION_ID="6f358ff9-e667-4ae9-b6a0-a57b49aca59c"
-  fi
-
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
   # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
@@ -195,6 +185,7 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			--resource-group $AZURE_RESOURCE_GROUP_NAME \
 			--name $IMPORTED_IMAGE_NAME \
 			--source $IMPORTED_IMAGE_URL \
+			--location $AZURE_LOCATION \
 			--hyper-v-generation V2 \
 			--os-type Linux
 
@@ -248,6 +239,40 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		exit 1
 		;;
 	esac
+
+	if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ]; then
+		echo "Setting WINDOWS_IMAGE_SKU to the value in pipeline variables"
+		WINDOWS_IMAGE_SKU=$WINDOWS_BASE_IMAGE_SKU
+	fi
+	if [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
+		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
+		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
+	fi
+	
+	case "${WINDOWS_SKU}" in
+	"2019")
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2019-containerd")
+		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2022-containerd")
+		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
+		;;
+	*)
+		echo "unsupported windows sku: ${WINDOWS_SKU}"
+		exit 1
+		;;
+	esac
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -265,12 +290,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
-  "arm64_sig_subscription_id": "${ARM64_SIG_SUBSCRIPTION_ID}",
-  "arm64_sig_resource_group_name": "${ARM64_SIG_RESOURCE_GROUP_NAME}",
-  "arm64_sig_gallery_name": "${ARM64_SIG_GALLERY_NAME}",
-  "arm64_sig_imagename": "${ARM64_SIG_IMAGENAME}",
-  "arm64_sig_image_version": "${ARM64_SIG_IMAGE_VERSION}",
-  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}"
+  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
+  "os_disk_size_gb": "${os_disk_size_gb}"
 }
 EOF
 

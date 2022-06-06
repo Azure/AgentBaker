@@ -7,12 +7,14 @@
 
 param (
     $containerRuntime,
-    $windowsSKU
+    $windowsSKU,
+    $windowsPatchId
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:ContainerRuntime=$containerRuntime
 $env:WindowsSKU=$windowsSKU
+$env:WindowsPatchId=$windowsPatchId
 
 . c:\windows-vhd-configuration.ps1
 
@@ -153,6 +155,7 @@ function Test-PatchInstalled {
         $currenHotfixes += $hotfixID
     }
 
+    Write-Output "The length of patchUrls is $($patchIDs.Length)"
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
     if($lostPatched.count -ne 0) {
         Write-Error "$lostPatched is(are) not installed"
@@ -203,8 +206,37 @@ function Test-RegistryAdded {
     }
 }
 
+function Test-DefenderSignature {
+    $mpPreference = Get-MpPreference
+    if ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources)) {
+        Write-Output "The Windows Defender has correct Signature"
+    } else {
+        Write-Error "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
+        exit 1
+    }
+}
+
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions unrelated to AKS.
+    # This test is called by "az vm run-command" that installs "Microsoft.CPlat.Core.RunCommandWindows".
+    # So the expected extensions list is below.
+    $expectedExtensions = @(
+        "Microsoft.CPlat.Core.RunCommandWindows"
+    )
+    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+    $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
+    if ($compareResult) {
+        Write-Error "Azure extensions are not expected. Details: $($compareResult | Out-String)"
+        exit 1
+    } else {
+        Write-Output "Azure extensions are expected"
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
+Test-DefenderSignature
+Test-AzureExtensions
 Remove-Item -Path c:\windows-vhd-configuration.ps1

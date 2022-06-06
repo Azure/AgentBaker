@@ -50,10 +50,10 @@ Installed Packages
 	OpenSSH.Server~~~~0.0.1.0
 
 Installed QFEs
-	KB4601060 : Update          : http://support.microsoft.com/?kbid=4601060
-	KB5001404 : Security Update : http://support.microsoft.com/?kbid=5001404
-	KB5001407 : Update          : http://support.microsoft.com/?kbid=5001407
-	KB5001384 : Update          : http://support.microsoft.com/?kbid=5001384
+	KB4601060 : Update          : https://support.microsoft.com/kb/4601060
+	KB5001404 : Security Update : https://support.microsoft.com/kb/5001404
+	KB5001407 : Update          : https://support.microsoft.com/kb/5001407
+	KB5001384 : Update          : https://support.microsoft.com/kb/5001384
 
 Installed Updates
 	2021-02 Cumulative Update for .NET Framework 3.5, 4.7.2 and 4.8 for Windows Server 2019 for x64 (KB4601887)

@@ -27,9 +27,21 @@ switch -Regex ($windowsSKU) {
         $global:patchIDs = @()
     }
     "2022*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/04/windows10.0-kb5012637-x64_6a7459b60e226b0ad0d30b34a4be069bee4d2867.msu")
-        $global:patchIDs = @("KB5012637")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
+}
+
+# WindowsPatchUrl is only set and used in building VHD
+if (-not ([string]::IsNullOrEmpty($env:WindowsPatchUrl))) {
+    Write-Host "Setting Windows patch URL via envrionment variables"
+    $global:patchUrls += $env:WindowsPatchUrl
+}
+
+# windowsPatchId is only set and used in testing VHD
+if (-not ([string]::IsNullOrEmpty($env:WindowsPatchId))) {
+    Write-Host "Setting Windows patch ID via envrionment variables"
+    $global:patchIDs += $env:WindowsPatchId
 }
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
@@ -44,27 +56,28 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.4.1",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.16.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.16.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.16", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.19", # for k8s 1.20.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.13", # for k8s 1.21.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.16", # for k8s 1.21.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.9", # for k8s 1.22.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -72,26 +85,27 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.4.1",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.3.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.16.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.16.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.16", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.19", # for k8s 1.20.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.13", # for k8s 1.21.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.16", # for k8s 1.21.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.9", # for k8s 1.22.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.6", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01312022",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022")
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
     }
     "2022-containerd" {
         $global:imagesToPull = @(
@@ -99,14 +113,19 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.16.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.15.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.16.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9" # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022"
         )
     }
     default {
@@ -133,8 +152,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.16.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.4/binaries/windows-gmsa-ccgakvplugin-v1.1.4.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.7.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.8.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.8.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.9.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -182,7 +201,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220130/windowszip/v1.22.6-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.3-hotfix.20220130/windowszip/v1.23.3-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220331/windowszip/v1.23.5-hotfix.20220331-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220331/windowszip/v1.23.5-hotfix.20220331-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/windowszip/v1.24.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.19/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.19.zip",

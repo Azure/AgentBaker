@@ -89,7 +89,6 @@ const (
 
 // cloud-init destination file references
 const (
-	customCloudConfigCSEScriptFilepath   = "/opt/azure/containers/provision_configs_custom_cloud.sh"
 	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
 	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
@@ -99,7 +98,6 @@ const (
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
 	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
-	componentManifestFilePath            = "/opt/azure/manifest.json"
 )
 
 const (
