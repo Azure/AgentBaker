@@ -55,7 +55,7 @@
         ],
         "edge": "1.6.4-4",
         "latest": "1.5.11-2", // latest is default in vhd.
-        "stable": "1.4.13-2", // we use latest vs stable at runtime depending on k8s version.
+        "stable": "1.4.13-3", // we use latest vs stable at runtime depending on k8s version.
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",

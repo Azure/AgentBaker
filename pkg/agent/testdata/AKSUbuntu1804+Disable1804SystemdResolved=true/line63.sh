@@ -8,7 +8,7 @@
         ],
         "edge": "1.6.4-4",
         "latest": "1.5.11-2",
-        "stable": "1.4.13-2"
+        "stable": "1.4.13-3"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
