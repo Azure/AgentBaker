@@ -182,7 +182,7 @@ downloadContainerdFromVersion() {
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
     downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
 }
 
