@@ -5,7 +5,7 @@ parameters:
 
 steps:
   - bash: |
-      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
+      if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=MODE]$m" && \
       if [[ "${USE_RELEASE_DATE}" = "False" ]]; then \
@@ -40,7 +40,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e HYPERV_GENERATION="V1" \
+      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
       -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
       -e WINDOWS_BASE_IMAGE_SKU=${WINDOWS_BASE_IMAGE_SKU} \
@@ -114,6 +114,27 @@ steps:
     displayName: Clean Up Packer Generated Resources
     condition: always()
   - bash: |
+        echo MODE=$(MODE) && \
+        create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+        -e CREATE_TIME="${create_time}" \
+        -e LOCATION="${AZURE_LOCATION}" \
+        -e OS_TYPE="Windows" \
+        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+        -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+  - bash: |
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
@@ -134,7 +155,7 @@ steps:
       -e SKU_NAME=${SKU_NAME} \
       -e OFFER_NAME="Windows" \
       -e IMAGE_VERSION=${IMAGE_VERSION} \
-      -e HYPERV_GENERATION="V1" \
+      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
       ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
