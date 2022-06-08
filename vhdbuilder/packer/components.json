@@ -64,10 +64,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
-      "amd64OnlyVersions": [
-        "1.4.0",
-        "3.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "3.6"
       ]
@@ -78,10 +75,9 @@
         "1.6.6"
       ],
       "multiArchVersions": [
-        "1.8.6",
-        "v1.8.6",
         "v1.8.7",
-        "v1.9.2"
+        "v1.9.2",
+        "v1.9.3"
       ]
     },
     {
@@ -135,15 +131,13 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.0.0",
-        "v1.0.0-rc.0"
+        "v1.0.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod03172022",
         "ciprod05192022"
       ]
     },
@@ -197,19 +191,14 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
-      "amd64OnlyVersions": [
-        "1.10.3"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.10.5"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
-      "amd64OnlyVersions": [
-        "1.10.3.4",
-        "1.10.3.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.10.5.8",
         "1.10.5.9"
@@ -427,8 +416,6 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.7.5.7",
-        "v1.7.5.8",
         "v1.8.8.2",
         "v1.8.8.3"
       ]
