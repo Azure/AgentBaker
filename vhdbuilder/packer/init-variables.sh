@@ -97,6 +97,9 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 		if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 		fi
+		if [[ "$OS_TYPE" == "Windows" ]]; then
+			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}Gen2
+		fi
 		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to `${SIG_IMAGE_NAME}`"
 	fi
 fi
