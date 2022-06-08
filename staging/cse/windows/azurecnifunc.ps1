@@ -93,6 +93,15 @@ function Set-AzureCNIConfig
         $configJson.plugins[0].AdditionalArgs[1].Value.DestinationPrefix = $KubeServiceCIDR
     }
 
+    # $configJson.plugins[0].AdditionalArgs[0] is OutboundNAT with ExceptionList
+    # $configJson.plugins[0].AdditionalArgs[1] is Route
+
+    # Remove OutboundNAT
+    $configJson.plugins[0].AdditionalArgs = @($configJson.plugins[0].AdditionalArgs[1])
+
+    # Remove OutboundNAT and Route
+    $configJson.plugins[0].AdditionalArgs = @()
+
     if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"
         $jsonContent = [PSCustomObject]@{
