@@ -28,6 +28,7 @@ if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
     id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
     if [ -n "$id" ]; then
       az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+      echo "deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
     fi
   fi
 fi
@@ -57,6 +58,45 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
     echo "Deleting managed image ${IMPORTED_IMAGE_NAME} from rg ${AZURE_RESOURCE_GROUP_NAME}"
     az image delete -n ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
+fi
+
+#cleanup managed image sig image version
+if [[ -n "${SIG_IMAGE_NAME}" ]]; then
+   echo "SIG_IMAGE_NAME is ${SIG_IMAGE_NAME}"
+   MANAGED_IMAGE_SIG_NAME=${SIG_IMAGE_NAME}
+   versions=$(az sig image-version list -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
+   for version in $versions; do
+       az sig image-version show -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
+       echo "Deleting sig image-version ${version} ${MANAGED_IMAGE_SIG_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+       az sig image-version delete -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+       #double confirm
+       id=$(az sig image-version show -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+       if [ -n "$id" ]; then
+          echo "Deleting sig image-version $version failed"
+       else 
+          echo "Deletion of sig image-version $version completed"
+       fi
+   done
+fi
+
+#cleanup managed image sig image definition
+if [[ -n "${SIG_IMAGE_NAME}" ]]; then
+   echo "SIG_IMAGE_NAME is ${SIG_IMAGE_NAME}"
+   MANAGED_IMAGE_SIG_NAME=${SIG_IMAGE_NAME}
+   if [[ -n "${MANAGED_IMAGE_SIG_NAME}" ]]; then
+     id=$(az sig image-definition show --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+     if [ -n "$id" ]; then
+        echo "Deleting sig image-definition ${MANAGED_IMAGE_SIG_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+        az sig image-definition delete --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+        #double confirm
+        id=$(az sig image-definition show --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+        if [ -n "$id" ]; then
+           echo "Deleting sig image-definition ${MANAGED_IMAGE_SIG_NAME} failed"
+        else 
+           echo "Deletion of sig image-definition ${MANAGED_IMAGE_SIG_NAME} completed"
+        fi
+     fi
+   fi
 fi
 
 #clean up arm64 OS disk snapshot

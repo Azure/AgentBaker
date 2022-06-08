@@ -6,7 +6,7 @@ WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
-set +x
+
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
@@ -33,6 +33,9 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
+
+echo "OS DISK URI ${OS_DISK_URI}"
+echo "MANAGED SIG ID ${MANAGED_SIG_ID}"
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
@@ -63,14 +66,26 @@ else
 
     IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
   else 
-    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
-    IMG_DEF=${MANAGED_SIG_ID}
+    # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+    if [ "$OS_TYPE" == "Linux" ]; then
+      IMG_DEF=${MANAGED_SIG_ID}
+    else
+      # (to-do) for Windows: MANAGED_SIG_ID reads as "file"
+      echo "Subscription ${SUBSCRIPTION_ID}"
+      echo "RG ${AZURE_RESOURCE_GROUP_NAME}"
+      echo "SIG GALLERY NAME ${SIG_GALLERY_NAME}"
+      echo "gen 2 captured version ${GEN2_CAPTURED_SIG_VERSION}"
+      #IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
+      #echo "manually set IMG_DEF to ${IMG_DEF}"
+      echo "IMG_DEF read from packer-output is ${MANAGED_SIG_ID}"
+      IMG_DEF=${MANAGED_SIG_ID}
+    fi
   fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \
@@ -80,6 +95,9 @@ else
       --size Standard_D2pds_V5 \
       --public-ip-address ""
   else
+    # echo "architecture is ${ARCHITETURE,,}"
+    echo "Not ARM64"
+    # Remove arch test for debugging. See if the test VM can be created using img_def from Win Sig 2 Managed Img Id
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \

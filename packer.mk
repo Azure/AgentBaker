@@ -66,7 +66,10 @@ else
 endif
 
 build-packer-windows:
-ifeq (${MODE},sigMode)
+ifeq (${MODE},gen2Mode)
+	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-gen2.json
+else ifeq (${MODE},sigMode)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
 else
@@ -88,7 +91,7 @@ run-packer-windows: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
 az-copy: az-login
-	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
+#	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
 
 cleanup: az-login
 	@./vhdbuilder/packer/cleanup.sh
