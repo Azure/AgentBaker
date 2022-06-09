@@ -48,8 +48,6 @@
                 ]
             },
             "resource_group_name": "{{user `resource_group_name`}}",
-            "capture_container_name": "aks-vhds-windows-ws2019",
-            "capture_name_prefix": "aks-{{user `create_time`}}",
             "storage_account": "{{user `storage_account_name`}}",
             "communicator": "winrm",
             "winrm_use_ssl": true,
