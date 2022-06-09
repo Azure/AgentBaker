@@ -47,8 +47,6 @@
                     "{{user `location`}}"
                 ]
             },
-            "resource_group_name": "{{user `resource_group_name`}}",
-            "storage_account": "{{user `storage_account_name`}}",
             "communicator": "winrm",
             "winrm_use_ssl": true,
             "winrm_insecure": true,
