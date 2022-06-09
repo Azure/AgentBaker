@@ -88,14 +88,17 @@ fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
+set +x
 # If SIG_IMAGE_NAME hasnt been provided in Gen2 mode, set it to the default value
 if [[ "$MODE" == "gen2Mode" ]]; then
 	if 	[[ -z "$SIG_GALLERY_NAME" ]]; then
 		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 	fi
 	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
+		echo "Image name not set"
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
-			if [[ "IMG_SKU" == "20_04-lts-cvm" ]]; then
+			echo "OS SKU is Ubuntu"
+			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
 				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
 			else
 				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
@@ -107,6 +110,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to `${SIG_IMAGE_NAME}`"
 	fi
 fi
+set -x
 
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
@@ -120,6 +124,7 @@ if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   fi
 fi
 
+set +x
 if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -180,6 +185,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 else
 	echo "Skipping SIG check for $MODE"
 fi
+set -x
 
 # Image import from storage account. Required to build CBLMariner images.
 if [[ "$OS_SKU" == "CBLMariner" ]]; then
