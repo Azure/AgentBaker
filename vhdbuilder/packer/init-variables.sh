@@ -164,7 +164,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--sku ${SIG_IMAGE_NAME} \
 				--os-type ${OS_TYPE} \
 				--os-state Specialized \
-				--features SecurityType=ConfidentialVmSupported \
+				--features SecurityType=ConfidentialVMSupported \
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--location ${AZURE_LOCATION}
 		else
