@@ -21,7 +21,6 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-    printenv > /opt/vars
 
     installMoby
 
