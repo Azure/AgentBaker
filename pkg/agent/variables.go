@@ -197,13 +197,13 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 			proxyVars := ""
 			if nbc.HTTPProxyConfig.HTTPProxy != nil {
 				// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-				proxyVars = fmt.Sprintf("http_proxy=\"%s\"", *nbc.HTTPProxyConfig.HTTPProxy)
+				proxyVars = fmt.Sprintf("export http_proxy=\"%s\"", *nbc.HTTPProxyConfig.HTTPProxy)
 			}
 			if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-				proxyVars = fmt.Sprintf("HTTPS_PROXY=\"%s\" %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
+				proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\" %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
 			}
 			if nbc.HTTPProxyConfig.NoProxy != nil {
-				proxyVars = fmt.Sprintf("NO_PROXY=\"%s\" %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
+				proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\" %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
 			}
 			if proxyVars != "" {
 				connectivityCheckCommand = fmt.Sprintf("%s %s", proxyVars, connectivityCheckCommand)
