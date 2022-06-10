@@ -168,7 +168,8 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+	cs := nbc.ContainerService
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}
@@ -188,7 +189,12 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 
 	connectivityCheckCommand := ""
 	if clusterVersion.GTE(minVersion) {
-		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
+		// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy
+		if nbc.HTTPProxyConfig != nil && nbc.HTTPProxyConfig.HTTPSProxy != nil {
+			connectivityCheckCommand = `curl -v -x ` + *nbc.HTTPProxyConfig.HTTPSProxy + ` --insecure --proxy-insecure https://` + registry + `/v2/`
+		} else {
+			connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
+		}
 	} else {
 		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
 	}
