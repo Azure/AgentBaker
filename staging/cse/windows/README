@@ -1,6 +1,9 @@
 # AKS Windows CSE Scripts Package
 All files except *_test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.9
+- fix: Exclude UDP source port 65330 in Windows nodes #1784
+
 ## v0.0.8
 - Use provisioning scripts in CSEScriptsPackage. #1623
 

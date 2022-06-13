@@ -17,7 +17,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
   fi
 fi
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
+RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled

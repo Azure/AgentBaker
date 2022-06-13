@@ -1223,7 +1223,11 @@ export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0-1
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
+NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
+NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
+APT_CACHE_DIR=/var/cache/apt/archives/
+PERMANENT_CACHE_DIR=/root/aptcache/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1383,6 +1387,17 @@ downloadDebPkgToFile() {
     # shellcheck disable=SC2164
     popd
 }
+apt_get_download() {
+  retries=$1; wait_sleep=$2; shift && shift;
+  local ret=0
+  pushd $APT_CACHE_DIR || return 1
+  for i in $(seq 1 $retries); do
+    wait_for_apt_locks; apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+  done
+  popd || return 1
+  return $ret
+}
 getCPUArch() {
     arch=$(uname -m)
     if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
@@ -1448,23 +1463,31 @@ installContainerRuntime() {
     if [ -f "$MANIFEST_FILEPATH" ]; then
         stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
         latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
+        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
     # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
+        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalid container version: $edge_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi        
+    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
         containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $latest_containerd"
+            echo "invalid container version: $latest_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     else
         containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $stable_containerd"
+            echo "invalid container version: $stable_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
@@ -2904,6 +2927,8 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Restart=always
@@ -2951,12 +2976,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
     "containerd": {
         "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/containerd/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.13-2"
+            "1.4.13-3"
         ],
-        "latest": "1.5.11-1",
-        "stable": "1.4.13-2"
+        "edge": "1.6.4-4",
+        "latest": "1.5.11-2",
+        "stable": "1.4.13-3"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
@@ -4293,7 +4319,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.3"
+    BLOBFUSE_VERSION="1.4.4"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
@@ -4451,7 +4477,7 @@ downloadContainerdFromVersion() {
     CONTAINERD_VERSION=$1
     # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
     CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
     downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
 }
 
@@ -4562,17 +4588,30 @@ addNvidiaAptRepo() {
     apt_get_update
 }
 
-installNvidiaContainerRuntime() {
-    local target=$1
-    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
-    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
-
-    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
-        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
-        return
+downloadNvidiaContainerRuntime() {
+    mkdir -p $PERMANENT_CACHE_DIR
+    for apt_package in $NVIDIA_PACKAGES; do
+        package_found="$(ls $PERMANENT_CACHE_DIR | grep ${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
+        if [ "$package_found" == "0" ]; then
+            echo "$apt_package not cached, downloading"
+            apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+            cp -al ${APT_CACHE_DIR}${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        fi
+    done
+    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION} | wc -l)"
+    if [ "$package_found" == "0" ]; then
+        echo "nvidia-container-runtime not cached, downloading"
+        apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
+}
 
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+installNvidiaContainerRuntime() {
+    downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    for apt_package in $NVIDIA_PACKAGES; do
+        retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    done
+    retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}nvidia-container-runtime* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 installNvidiaDocker() {
@@ -5877,6 +5916,8 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
+$global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
@@ -6157,9 +6198,28 @@ try
         Remove-Item $kubeConfigFile
     }
 
-    # Postpone restart-computer so we can generate CSE response before restarting computer
-    Write-Log "Setup Complete, reboot computer"
-    Postpone-RestartComputer
+    if ($global:IsNotRebootWindowsNode) {
+        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+        Start-ScheduledTask -TaskName "k8s-restart-job"
+
+        $timeout = 180 ##  seconds
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+            # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
+            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
+            }
+
+            Write-Log -Message "Waiting on NodeResetScriptTask..."
+            Start-Sleep -Seconds 3
+        }
+        $timer.Stop()
+        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+    } else {
+        # Postpone restart-computer so we can generate CSE response before restarting computer
+        Write-Log "Setup Complete, reboot computer"
+        Postpone-RestartComputer
+    }
 }
 catch
 {
@@ -6231,6 +6291,7 @@ $global:WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS=28
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
+$global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
