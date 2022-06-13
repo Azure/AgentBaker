@@ -99,8 +99,9 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
 			else
 				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			fi
 		fi
-		
+
 		if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 		fi
