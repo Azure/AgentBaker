@@ -175,7 +175,6 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--location ${AZURE_LOCATION}
 		fi
-		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
