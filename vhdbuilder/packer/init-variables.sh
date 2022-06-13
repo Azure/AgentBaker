@@ -149,6 +149,20 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--architecture Arm64 \
 				--location ${AZURE_LOCATION}
+		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+			echo "Creating image definition for CVM 20.04 with SecurityType=ConfidentialVmSupported"
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--os-state Specialized \
+				--features SecurityType=ConfidentialVMSupported \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION}
 		else
 			az sig image-definition create \
 				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -160,6 +174,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--os-type ${OS_TYPE} \
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--location ${AZURE_LOCATION}
+		fi
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
