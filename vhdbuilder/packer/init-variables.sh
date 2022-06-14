@@ -233,28 +233,28 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
 		;;
-	"2019-containerd")
-	    if [[ $HYPERV_GENERATION == "V2" ]]; then
-		    WINDOWS_IMAGE_SKU=$WINDOWS_2019_GEN2_BASE_IMAGE_SKU
-		    INDOWS_IMAGE_VERSION=$WINDOWS_2019_GEN2_BASE_IMAGE_VERSION
-		    echo "Setting Windows Image Sku for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2019_GEN2_BASE_IMAGE_SKU"
-		    echo "Setting Windows Image Version for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2019_GEN2_BASE_IMAGE_VERSION"		
-		else
-		    WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-		    WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		fi		
-		;;	
-	"2022-containerd")
-	    if [[ $HYPERV_GENERATION == "V2" ]]; then
-		    WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
-		    WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
-		    echo "Setting Windows Image Sku for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2022_GEN2_BASE_IMAGE_SKU"
-		    echo "Setting Windows Image Version for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2022_GEN2_BASE_IMAGE_VERSION"
-		else
-		    WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
-		    WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-		fi
-		;;
+        "2019-containerd")
+                if [[ $HYPERV_GENERATION == "V2" ]]; then
+                    WINDOWS_IMAGE_SKU=$WINDOWS_2019_GEN2_BASE_IMAGE_SKU
+                    INDOWS_IMAGE_VERSION=$WINDOWS_2019_GEN2_BASE_IMAGE_VERSION
+                    echo "Setting Windows Image Sku for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2019_GEN2_BASE_IMAGE_SKU"
+                    echo "Setting Windows Image Version for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2019_GEN2_BASE_IMAGE_VERSION"              
+                else
+                    WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+                    WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+                fi
+                ;;
+        "2022-containerd")
+                if [[ $HYPERV_GENERATION == "V2" ]]; then
+                    WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
+                    WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
+                    echo "Setting Windows Image Sku for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2022_GEN2_BASE_IMAGE_SKU"
+                    echo "Setting Windows Image Version for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2022_GEN2_BASE_IMAGE_VERSION"
+                else
+                    WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
+                    WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
+                fi
+                ;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
 		exit 1
@@ -276,9 +276,9 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
 			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
 		fi
-		;;
-	"2019-containerd")
-		if [[ $HYPERV_GENERATION == "V2" ]]; then
+                ;;
+        "2019-containerd")
+                if [[ $HYPERV_GENERATION == "V2" ]]; then
 			if [ -n "${WINDOWS_2019_CONTAINERD_GEN2_OS_DISK_SIZE_GB}" ]; then
 				echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd Gen 2: ${WINDOWS_2019_CONTAINERD_GEN2_OS_DISK_SIZE_GB}"
 				os_disk_size_gb=${WINDOWS_2019_CONTAINERD_GEN2_OS_DISK_SIZE_GB}
@@ -290,8 +290,8 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 			fi
 		fi
 		;;
-	"2022-containerd")
-	    if [[ $HYPERV_GENERATION == "V2" ]]; then
+        "2022-containerd")
+                if [[ $HYPERV_GENERATION == "V2" ]]; then
 		   if [ -n "${WINDOWS_2022_CONTAINERD_GEN2_OS_DISK_SIZE_GB}" ]; then
 			  echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd Gen 2: ${WINDOWS_2022_CONTAINERD_GEN2_OS_DISK_SIZE_GB}"
 			  os_disk_size_gb=${WINDOWS_2022_CONTAINERD_GEN2_OS_DISK_SIZE_GB}

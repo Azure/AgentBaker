@@ -9,7 +9,7 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 }
 
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019", "2019-containerd", "2022-containerd", "2019-containerd-gen2", "2022-containerd-gen2")
+$validSKU = @("2019", "2019-containerd", "2022-containerd")
 if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
