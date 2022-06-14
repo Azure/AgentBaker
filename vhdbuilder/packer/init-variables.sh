@@ -161,7 +161,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--os-type ${OS_TYPE} \
 				--features SecurityType=ConfidentialVMSupported \
 				--hyper-v-generation ${HYPERV_GENERATION} \
-				--location ${AZURE_LOCATION}
+				--location ${AZURE_LOCATION} \
 				--architecture x64
 		else
 			az sig image-definition create \
