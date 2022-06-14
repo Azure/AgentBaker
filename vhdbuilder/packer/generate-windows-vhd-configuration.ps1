@@ -128,55 +128,6 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022"
         )
     }
-    "2019-containerd-gen2" {
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2019",
-            "mcr.microsoft.com/windows/nanoserver:1809",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.4.1",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.19", # for k8s 1.20.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.16", # for k8s 1.21.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.12", # for k8s 1.22.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod03172022",
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
-    }
-    "2022-containerd-gen2" {
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2022",
-            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.17.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022"
-        )
-    }
     default {
         throw "No valid windows SKU is specified $windowsSKU"
     }
