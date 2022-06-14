@@ -162,6 +162,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--features SecurityType=ConfidentialVMSupported \
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--location ${AZURE_LOCATION}
+				--architecture x64
 		else
 			az sig image-definition create \
 				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
