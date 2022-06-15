@@ -216,8 +216,8 @@ const (
 const (
 	LinuxSIGImageVersion string = "2022.06.13"
 
-	Windows2019SIGImageVersion string = "17763.2928.220525"
-	Windows2022SIGImageVersion string = "20348.707.220525"
+	Windows2019SIGImageVersion string = "17763.3046.220615"
+	Windows2022SIGImageVersion string = "20348.768.220615"
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
 	Arm64LinuxSIGImageVersion string = "2022.06.14"
