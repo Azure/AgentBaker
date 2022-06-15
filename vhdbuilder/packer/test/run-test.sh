@@ -75,7 +75,8 @@ else
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  if [ ${ARCHITECTURE,,} == "arm64" ]; then
+  echo "architecture is ${ARCHITETURE,,}"
+  if [ "${ARCHITECTURE,,}" == "arm64" ]; then
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \
