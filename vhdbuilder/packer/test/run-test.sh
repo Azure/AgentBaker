@@ -63,8 +63,13 @@ else
 
     IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
   else 
-    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
-    IMG_DEF=${MANAGED_SIG_ID}
+    if [ "$OS_TYPE" == "Linux" ]; then
+       # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+       IMG_DEF=${MANAGED_SIG_ID}
+    else
+       # for Windows Gen 2, a managed image will be created using a packer template, set the IMG_DEF to MANAGED_IMG_ID
+       IMG_DEF=${MANAGED_IMG_ID}
+    fi
   fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
