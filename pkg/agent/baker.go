@@ -805,7 +805,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.MessageOfTheDay != ""
 		},
 		"GetOutboundCommand": func() string {
-			return getOutBoundCmd(cs, config.CloudSpecConfig)
+			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 	}
 }
