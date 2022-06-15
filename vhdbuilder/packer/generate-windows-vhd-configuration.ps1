@@ -62,8 +62,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.19.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.6.0", # for k8s 1.19.x
@@ -91,8 +91,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.19.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v0.0.21",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:0.0.14",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.19", # for k8s 1.20.x
@@ -118,8 +118,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.18.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.19.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.17.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.18.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.0.0",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
@@ -161,7 +161,8 @@ $global:map = @{
     # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
-        $defaultContainerdPackageUrl
+        $defaultContainerdPackageUrl,
+        "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
@@ -183,8 +184,6 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.19.11-hotfix.20211009/windowszip/v1.19.11-hotfix.20211009-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.19.13-hotfix.20211009/windowszip/v1.19.13-hotfix.20211009-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20211115/windowszip/v1.20.7-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.9-hotfix.20211115/windowszip/v1.20.9-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.20.13-hotfix.20220210/windowszip/v1.20.13-hotfix.20220210-1int.zip",
@@ -194,14 +193,17 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20220130/windowszip/v1.21.2-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.7-hotfix.20220204/windowszip/v1.21.7-hotfix.20220204-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.9-hotfix.20220204/windowszip/v1.21.9-hotfix.20220204-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.21.13/windowszip/v1.21.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.1-hotfix.20211115/windowszip/v1.22.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.2-hotfix.20211115/windowszip/v1.22.2-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.2-hotfix.20220128/windowszip/v1.22.2-hotfix.20220128-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.4-hotfix.20220201/windowszip/v1.22.4-hotfix.20220201-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220130/windowszip/v1.22.6-hotfix.20220130-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.10/windowszip/v1.22.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.3-hotfix.20220130/windowszip/v1.23.3-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220331/windowszip/v1.23.5-hotfix.20220331-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.7/windowszip/v1.23.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/windowszip/v1.24.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
