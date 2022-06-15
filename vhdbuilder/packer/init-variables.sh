@@ -96,7 +96,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
 			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-				SIG_IMAGE_NAME=${OS_VERSION//.//}CVMGen2
+				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
 			else
 				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
 			fi
