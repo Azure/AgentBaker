@@ -324,6 +324,17 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+
+OVERLAY_CNI_VERSIONS="
+1.4.27
+"
+
+for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
 if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
   CNI_PLUGIN_VERSIONS="
   0.7.6
