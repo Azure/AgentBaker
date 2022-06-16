@@ -115,11 +115,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
     forceEnableIpForward
-    if [[ $OS_VERSION == "2.0" ]]; then 
-      setMarinerNetworkdConfig
-    else
-      networkdWorkaround
-    fi
+    setMarinerNetworkdConfig
     enableDNFAutomatic
     fixCBLMarinerPermissions
     overrideNetworkConfig || exit 1
