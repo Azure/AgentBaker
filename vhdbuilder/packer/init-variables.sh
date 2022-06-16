@@ -95,8 +95,13 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
-			SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
+			else
+				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			fi
 		fi
+
 		if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 		fi
@@ -144,6 +149,18 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--architecture Arm64 \
 				--location ${AZURE_LOCATION}
+		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION} \
+				--features SecurityType=ConfidentialVMSupported
 		else
 			az sig image-definition create \
 				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
