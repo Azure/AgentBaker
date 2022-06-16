@@ -48,7 +48,7 @@ installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
-  - blobfuse=1.3.7
+  - blobfuse=1.4.4
   - ca-certificates
   - ceph-common
   - cgroup-lite
@@ -196,7 +196,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
 addNvidiaAptRepo
 installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
 downloadGPUDrivers
-retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
+retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
 mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
@@ -322,6 +322,17 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+
+OVERLAY_CNI_VERSIONS="
+1.4.27
+"
+
+for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
@@ -475,11 +486,13 @@ done
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.21.7-hotfix.20220204
 1.21.9-hotfix.20220204
+1.21.13
 1.22.4-hotfix.20220201
 1.22.6-hotfix.20220130
+1.22.10
 1.23.3-hotfix.20220401
-1.23.4-hotfix.20220331
 1.23.5-hotfix.20220331
+1.23.7
 1.24.0
 "
 

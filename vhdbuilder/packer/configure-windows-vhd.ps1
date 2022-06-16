@@ -220,6 +220,15 @@ function Install-Docker {
     $package = Find-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $defaultDockerVersion
     Write-Log "Installing Docker version $($package.Version)"
     $package | Install-Package -Force | Out-Null
+
+    if ($defaultDockerVersion -eq "20.10.9"){
+        # We only do this for docker 20.10.9 so we do not need to add below code in Install-Docker in configfunc.ps1 because
+        # 1. the cat file is installed in building WS2019+docker
+        # 2. it does not need to run below code if a newer docker version is used in CSE later
+        Write-Log "Downloading cat for docker 20.10.9"
+        DownloadFileWithRetry -URL "https://dockermsft.azureedge.net/dockercontainer/docker-20-10-9.cat" -Dest "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
+    }
+
     Start-Service docker
 }
 
