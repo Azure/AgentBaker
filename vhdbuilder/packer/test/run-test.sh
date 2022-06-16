@@ -75,7 +75,7 @@ else
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \
@@ -85,7 +85,8 @@ else
       --size Standard_D2pds_V5 \
       --public-ip-address ""
   else
-    echo "architecture is ${ARCHITETURE,,}"
+    # echo "architecture is ${ARCHITETURE,,}"
+    echo "Not ARM64"
     # Remove arch test for debugging. See if the test VM can be created using img_def from Win Sig 2 Managed Img Id
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
