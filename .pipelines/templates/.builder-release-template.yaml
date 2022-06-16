@@ -82,6 +82,7 @@ steps:
         -e OS_VERSION=${OS_VERSION} \
         -e OS_SKU=${OS_SKU} \
         -e OS_TYPE="Linux" \
+        -e IMG_SKU=${IMG_SKU} \
         -e MODE=$(MODE) \
         -e VHD_DEBUG=${VHD_DEBUG} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
