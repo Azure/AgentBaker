@@ -223,8 +223,8 @@ const (
 	Windows2022SIGImageVersion string = "20348.768.220615"
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
-	Arm64LinuxSIGImageVersion string = "2022.06.14"
-	Ubuntu2004SIGImageVersion string = "2022.04.16"
+	Arm64LinuxSIGImageVersion    string = "2022.06.14"
+	Ubuntu2004SIGImageVersion    string = "2022.04.16"
 	Ubuntu2004CVMSIGImageVersion string = "2022.06.16"
 )
 
@@ -343,9 +343,9 @@ var (
 
 	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:	   AKSUbuntuGalleryName,
-		Definition:	   "2004gen2CVMcontainerd",
-		Version:	   Ubuntu2004CVMSIGImageVersion,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2004gen2CVMcontainerd",
+		Version:       Ubuntu2004CVMSIGImageVersion,
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -393,7 +393,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuArm64Containerd1804Gen2:   SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004:            SIGUbuntuContainerd2004ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004Gen2:        SIGUbuntuContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2004CVMGen2:		SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
