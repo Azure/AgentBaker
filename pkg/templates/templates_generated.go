@@ -4298,11 +4298,11 @@ var _linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh = []byte(`#!/bin/bash
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
 removeMoby() {
-    apt_get_purge 10 5 60 moby-engine moby-cli
+    apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
-    apt_get_purge 10 5 60 moby-containerd
+    apt_get_purge 10 5 300 moby-containerd
 }
 
 installDeps() {
