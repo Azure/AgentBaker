@@ -4463,7 +4463,7 @@ installStandaloneContainerd() {
             return 0
         fi
         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
-        CONTAINERD_DEB_FILE="$(ls "${CONTAINERD_DOWNLOADS_DIR}/moby-containerd")"
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd*)"
         if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
