@@ -4467,7 +4467,7 @@ installStandaloneContainerd() {
         ls $CONTAINERD_DOWNLOADS_DIR
         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
         pushd $CONTAINERD_DOWNLOADS_DIR || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        installDebPackageFromFile ./${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         popd || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
