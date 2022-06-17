@@ -175,13 +175,10 @@ installStandaloneContainerd() {
 }
 
 downloadContainerdFromVersion() {
-    #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
-    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
-    downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
+    updateAptWithMicrosoftPkg
+    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}** || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}** $CONTAINERD_DOWNLOADS_DIR || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromURL() {
