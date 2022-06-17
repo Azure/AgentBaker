@@ -163,6 +163,7 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+        return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
