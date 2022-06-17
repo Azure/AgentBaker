@@ -160,7 +160,7 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
         CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
