@@ -159,6 +159,7 @@ write_files:
     F10YlqcOmeX1uFmKbdi/XorGlkCoMF3TDx8rmp9DBiB/
     -----END CERTIFICATE-----
 
+    #EOF
 
 - path: /etc/logrotate.d/rsyslog-warn
   permissions: "0644"

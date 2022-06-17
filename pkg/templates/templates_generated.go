@@ -5061,6 +5061,7 @@ write_files:
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+    #EOF
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
