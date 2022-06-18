@@ -200,10 +200,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-
-    
-
-
     # Disallow container from reaching out to the special IP address 168.63.129.16
     # for TCP protocol (which http uses)
     #
