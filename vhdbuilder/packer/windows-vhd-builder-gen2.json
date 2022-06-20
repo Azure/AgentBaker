@@ -19,7 +19,8 @@
         "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
         "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
         "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
-        "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}"
+        "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
+        "gen2_captured_sig_version": "{{env `${GEN2_CAPTURED_SIG_VERSION`}}"
     },
     "builders": [
         {
@@ -37,12 +38,12 @@
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
             "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-            "managed_image_name": "{{user `sig_image_name`}}",            
+            "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",          
             "shared_image_gallery_destination": {
                 "resource_group": "{{user `resource_group_name`}}",
                 "gallery_name": "PackerSigGalleryEastUS",
                 "image_name": "{{user `sig_image_name`}}",
-                "image_version": "1.0.{{user `create_time`}}",
+                "image_version": "{{user `gen2_captured_sig_version`}}",
                 "replication_regions": [
                     "{{user `location`}}"
                 ]

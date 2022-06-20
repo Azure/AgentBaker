@@ -35,15 +35,9 @@ az resource create --id $disk_resource_id  --is-full-object --location $LOCATION
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
-echo "Before coping"
-az image show -n 2019-containerd -g aksvhdbuilderrg
-az image show -n 2022-containerd -g aksvhdbuilderrg
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/1.0.${CREATE_TIME}.vhd${CLASSIC_SAS_TOKEN}" --recursive=true
 
 echo "Converted $sig_resource_id to ${CLASSIC_BLOB}/1.0.${CREATE_TIME}.vhd"
-echo "After converting and before revoking access"
-az image show -n 2019-containerd -g aksvhdbuilderrg
-az image show -n 2022-containerd -g aksvhdbuilderrg
 
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${GEN2_CAPTURED_SIG_VERSION}.vhd${CLASSIC_SAS_TOKEN}" --recursive=true
 
@@ -52,7 +46,5 @@ echo "Converted $sig_resource_id to ${CLASSIC_BLOB}/${GEN2_CAPTURED_SIG_VERSION}
 az disk revoke-access --ids $disk_resource_id 
 
 az resource delete --ids $disk_resource_id
-echo "After deleting disk resource"
-az image show -n 2019-containerd -g aksvhdbuilderrg
-az image show -n 2022-containerd -g aksvhdbuilderrg
+
 echo "Deleted $disk_resource_id"

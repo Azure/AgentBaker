@@ -49,7 +49,7 @@ steps:
     displayName: Building windows VHD
   - script: |
       OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)" && \
-      MANAGED_IMG_ID="$(cat packer-output | grep "ManagedImageId:" | cut -d " " -f 2)" && \
+      MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -59,7 +59,7 @@ steps:
       -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
       -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e OS_DISK_URI=${OS_DISK_URI} \
-      -e MANAGED_IMG_ID=${MANAGED_IMG_ID} \
+      -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
       -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
@@ -99,6 +99,9 @@ steps:
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)" && \
+      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="${SIG_IMAGE_NAME}-${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \       
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \

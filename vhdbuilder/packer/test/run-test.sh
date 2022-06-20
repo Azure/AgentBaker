@@ -67,8 +67,8 @@ else
        # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
        IMG_DEF=${MANAGED_SIG_ID}
     else
-       # for Windows Gen 2, a managed image will be created using a packer template, set the IMG_DEF to MANAGED_IMG_ID
-       IMG_DEF=${MANAGED_IMG_ID}
+       # for Windows Gen 2
+       IMG_DEF=${MANAGED_SIG_ID}
     fi
   fi
 
