@@ -3,7 +3,7 @@
 required_env_vars=(
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
-    "CREATE_TIME"
+    "GEN2_CAPTURED_SIG_VERSION"
     "LOCATION"
     "OS_TYPE"
     "SIG_IMAGE_NAME"
@@ -18,8 +18,8 @@ do
     fi
 done
 
-sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/${SIG_IMAGE_NAME}/versions/1.0.${CREATE_TIME}"
-disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/1.0.${CREATE_TIME}"
+sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
+disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${GEN2_CAPTURED_SIG_VERSION}"
 
 az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
   \"properties\": { \
@@ -44,6 +44,11 @@ echo "Converted $sig_resource_id to ${CLASSIC_BLOB}/1.0.${CREATE_TIME}.vhd"
 echo "After converting and before revoking access"
 az image show -n 2019-containerd -g aksvhdbuilderrg
 az image show -n 2022-containerd -g aksvhdbuilderrg
+
+azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${GEN2_CAPTURED_SIG_VERSION}.vhd${CLASSIC_SAS_TOKEN}" --recursive=true
+
+echo "Converted $sig_resource_id to ${CLASSIC_BLOB}/${GEN2_CAPTURED_SIG_VERSION}.vhd"
+
 az disk revoke-access --ids $disk_resource_id 
 
 az resource delete --ids $disk_resource_id

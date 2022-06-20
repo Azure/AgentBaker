@@ -7,6 +7,9 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+# Before Packer captured Gen2 disk to a managed image using name "1804Gen2-${CREATE_TIME}" then convert the image to a SIG version "1.0.${CREATE_TIME}",
+# CREATE_TIME is in second, so multiple Gen2 builds in a pipleline could affect each other, use 1.${CREATE_TIME}.$RANDOM to reduce conflicts.
+GEN2_CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
@@ -92,8 +95,13 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
-			SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
+			else
+				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			fi
 		fi
+
 		if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 		fi
@@ -105,7 +113,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 fi
 
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
+  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
   # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
@@ -144,6 +152,18 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--architecture Arm64 \
 				--location ${AZURE_LOCATION}
+		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION} \
+				--features SecurityType=ConfidentialVMSupported
 		else
 			az sig image-definition create \
 				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -326,6 +346,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
+  "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}"
 }
 EOF
