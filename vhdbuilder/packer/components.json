@@ -85,7 +85,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.22",
-        "v1.4.26"
+        "v1.4.27"
       ]
     },
     {
@@ -138,7 +138,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod05192022"
+        "ciprod05192022",
+        "ciprod06142022"
       ]
     },
     {
@@ -288,22 +289,22 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [
-        "v1.2.0.6",
-        "v1.8.0.2"
+        "v1.2.2.5"
       ],
       "multiArchVersions": [
-        "v1.17.0",
-        "v1.18.0"
+        "v1.18.0",
+        "v1.18.0.1",
+        "v1.19.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [
-        "v1.2.0"
+        "v1.2.2"
       ],
       "multiArchVersions": [
-        "v1.17.0",
-        "v1.18.0"
+        "v1.18.0",
+        "v1.19.0"
       ]
     },
     {
@@ -409,7 +410,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.0",
-        "1.5.1"
+        "1.5.1",
+        "1.5.2"
       ]
     },
     {
@@ -472,6 +474,14 @@
         "1.4.12",
         "1.4.21",
         "1.4.22"
+      ]
+    },
+    {
+      "fileName": "azure-vnet-cni-overlay-linux-amd64-v*.tgz",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
+      "versions": [
+        "1.4.27"
       ]
     },
     {

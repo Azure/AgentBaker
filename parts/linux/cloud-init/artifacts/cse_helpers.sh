@@ -41,6 +41,7 @@ ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
+ERR_GPU_DOWNLOAD_TIMEOUT=83 {{/* Timeout waiting for GPU driver download */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
 ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
@@ -261,7 +262,9 @@ apt_get_download() {
   local ret=0
   pushd $APT_CACHE_DIR || return 1
   for i in $(seq 1 $retries); do
-    wait_for_apt_locks; apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    dpkg --configure -a --force-confdef
+    wait_for_apt_locks
+    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
     if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
   done
   popd || return 1
