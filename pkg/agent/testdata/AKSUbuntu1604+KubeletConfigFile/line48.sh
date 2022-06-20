@@ -3,13 +3,11 @@
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
 removeMoby() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-engine moby-cli
+    apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-containerd
+    apt_get_purge 10 5 300 moby-containerd
 }
 
 installDeps() {
@@ -165,6 +163,7 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+        return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then

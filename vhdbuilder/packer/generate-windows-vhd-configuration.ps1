@@ -74,7 +74,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022")
     }
     "2019-containerd" {
         $global:imagesToPull = @(
@@ -101,7 +102,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022")
     }
     "2022-containerd" {
         $global:imagesToPull = @(
@@ -121,7 +123,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.9", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.0", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022"
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod05192022",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022"
         )
     }
     default {

@@ -484,16 +484,16 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.21.7-hotfix.20220204
-1.21.9-hotfix.20220204
+1.21.7-hotfix.20220420
+1.21.9-hotfix.20220420
 1.21.13
-1.22.4-hotfix.20220201
-1.22.6-hotfix.20220130
+1.22.4-hotfix.20220615
+1.22.6-hotfix.20220615
 1.22.10
-1.23.3-hotfix.20220401
-1.23.5-hotfix.20220331
+1.23.3-hotfix.20220615
+1.23.5-hotfix.20220615
 1.23.7
-1.24.0
+1.24.0-hotfix.20220615
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
