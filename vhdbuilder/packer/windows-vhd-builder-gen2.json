@@ -40,9 +40,9 @@
             "managed_image_name": "{{user `sig_image_name`}}",            
             "shared_image_gallery_destination": {
                 "resource_group": "{{user `resource_group_name`}}",
-                "gallery_name": "{{user `sig_gallery_name`}}",
+                "gallery_name": "PackerSigGalleryEastUS",
                 "image_name": "{{user `sig_image_name`}}",
-                "image_version": "{{user `sig_image_version`}}",
+                "image_version": "1.0.{{user `create_time`}}",
                 "replication_regions": [
                     "{{user `location`}}"
                 ]
