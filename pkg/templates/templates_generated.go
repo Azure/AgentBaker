@@ -3139,6 +3139,15 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
+    # install additional apparmor deps for 2.0
+    if [[ $OS_VERSION == "2.0" ]]; then
+      for dnf_package in apparmor-parser libapparmor; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
 }
 
 downloadGPUDrivers() {
