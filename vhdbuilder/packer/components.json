@@ -376,9 +376,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
-      "amd64OnlyVersions": [
-        "1.4.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.1"
       ]
