@@ -2,6 +2,12 @@
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
+# Containerd Package URL format: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+# NOTE: KubernetesVersion does not contain "v"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.26.0"
+$global:StableContainerdVersion = "v0.0.46"
+$global:LatestContainerdVersion = "v0.0.99" # TBD: This version does not exist. It is only for test for now
+
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -117,6 +123,29 @@ function Enable-Logging {
   else {
     Write-Log "Containerd hyperv logging script not avalaible"
   }
+}
+
+function Install-Containerd-Based-On-Kubernetes-Version {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $KubernetesVersion,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
+  )
+
+  $containerdVersion=$global:StableContainerdVersion
+  if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+    $containerdVersion=$global:LatestContainerdVersion
+    Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdVersion is used"
+  } else {
+    Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdVersion is used"
+  }
+  $ContainerdUrl = [string]::Format("https://acs-mirror.azureedge.net/containerd/windows/{0}/binaries/containerd-{0}-windows-amd64.tar.gz", $containerdVersion)
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
 
 function Install-Containerd {
