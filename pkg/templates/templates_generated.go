@@ -1449,6 +1449,19 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
+MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
+
+removeManDbAutoUpdateFlagFile() {
+    if [ -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
+        rm $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+    fi
+}
+
+createManDbAutoUpdateFlagFile() {
+    if [! -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
+        touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+    fi
+}
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1894,6 +1907,9 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+echo "Removing man-db auto-update flag file..."
+removeManDbAutoUpdateFlagFile
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -2141,6 +2157,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
+
+echo "Recreating man-db auto-update flag file and kicking off man-db update process..."
+createManDbAutoUpdateFlagFile
+/usr/bin/mandb &
 
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
 REBOOTREQUIRED=false

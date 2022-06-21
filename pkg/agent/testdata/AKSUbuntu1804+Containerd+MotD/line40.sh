@@ -15,6 +15,19 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
+MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
+
+removeManDbAutoUpdateFlagFile() {
+    if [ -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
+        rm $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+    fi
+}
+
+createManDbAutoUpdateFlagFile() {
+    if [! -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
+        touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+    fi
+}
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
