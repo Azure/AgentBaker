@@ -24,7 +24,7 @@ removeManDbAutoUpdateFlagFile() {
 }
 
 createManDbAutoUpdateFlagFile() {
-    if [! -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
+    if [ ! -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
         touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
     fi
 }
