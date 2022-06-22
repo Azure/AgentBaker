@@ -6,6 +6,17 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+# Link provisioning logs and artifacts to a path where WALinuxAgent
+# will pick them up and upload them to the host in the event of CSE
+# failure
+LOG_DIR=/var/log/azure/aks
+mkdir -p ${LOG_DIR}
+ln -s /var/log/azure/cluster-provision.log ${LOG_DIR}/
+ln -s /var/log/azure/cluster-provision-cse-output.log ${LOG_DIR}/
+ln -s /opt/azure/*.json ${LOG_DIR}/
+ln -s /opt/azure/vhd-install.complete ${LOG_DIR}/
+ln -s /var/lib/cloud/instance/cloud-config.txt ${LOG_DIR}/
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony

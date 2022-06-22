@@ -48,6 +48,7 @@ const (
 	kubernetesCSEInstallUbuntu        = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 	kubernetesCSEInstallMariner       = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
 	kubernetesCSEConfig               = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCSESendLogs             = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCISScript               = "linux/cloud-init/artifacts/cis.sh"
 	kubernetesHealthMonitorScript     = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
