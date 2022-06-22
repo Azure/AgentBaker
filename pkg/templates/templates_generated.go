@@ -16,6 +16,7 @@
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
+// linux/cloud-init/artifacts/cse_send_logs.py
 // linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/disk_queue.service
@@ -1894,6 +1895,17 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+# Link provisioning logs and artifacts to a path where WALinuxAgent
+# will pick them up and upload them to the host in the event of CSE
+# failure
+LOG_DIR=/var/log/azure/aks
+mkdir -p ${LOG_DIR}
+ln -s /var/log/azure/cluster-provision.log ${LOG_DIR}/
+ln -s /var/log/azure/cluster-provision-cse-output.log ${LOG_DIR}/
+ln -s /opt/azure/*.json ${LOG_DIR}/
+ln -s /opt/azure/vhd-install.complete ${LOG_DIR}/
+ln -s /var/lib/cloud/instance/cloud-config.txt ${LOG_DIR}/
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -2181,6 +2193,69 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsCse_send_logsPy = []byte(`#! /usr/bin/env python3
+
+import urllib3
+import uuid
+import xml.etree.ElementTree as ET
+
+http = urllib3.PoolManager()
+
+# Get the container_id and deployment_id from the Goal State
+goal_state_xml = http.request(
+        'GET',
+        'http://168.63.129.16/machine/?comp=goalstate',
+        headers={
+            'x-ms-version': '2012-11-30'
+        }
+    )
+goal_state = ET.fromstring(goal_state_xml.data.decode('utf-8'))
+container_id = goal_state.findall('./Container/ContainerId')[0].text
+role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
+deployment_id = role_config_name.split('.')[0]
+
+# Upload the logs
+with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
+    logs_data = logs.read()
+    upload_logs = http.request(
+        'PUT',
+        'http://168.63.129.16:32526/vmAgentLog',
+        headers={
+            'x-ms-version': '2015-09-01',
+            'x-ms-client-correlationid': str(uuid.uuid4()),
+            'x-ms-client-name': 'AKSCSEPlugin',
+            'x-ms-client-version': '0.1.0',
+            'x-ms-containerid': container_id,
+            'x-ms-vmagentlog-deploymentid': deployment_id,
+        },
+        body=logs_data,
+    )
+
+if upload_logs.status == 200:
+    print("Successfully uploaded logs")
+    exit(0)
+else:
+    print('Failed to upload logs')
+    print(f'Response status: {upload_logs.status}')
+    print(f'Response body:\n{upload_logs.data.decode("utf-8")}')
+    exit(1)
+`)
+
+func linuxCloudInitArtifactsCse_send_logsPyBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_send_logsPy, nil
+}
+
+func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_send_logsPyBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_send_logs.py", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
@@ -2204,6 +2279,20 @@ JSON_STRING=$( jq -n \
                   --arg kubelet "$KUBELET_START_TIME" \
                   '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 echo $JSON_STRING
+echo $JSON_STRING > /var/log/azure/aks/provision.json
+
+# force a log upload to the host immediately if we failed provisioning;
+# if we succeeded, WALinuxAgent will upload at 5 minutes after startup
+# and every hour after that, so there's no need to delay provisioning
+# completion to zip up and upload.
+if [ $EXIT_CODE -ne 0 ]; then
+    # find the most recent version of WALinuxAgent and use it to collect logs per
+    # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
+    PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
+    python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+    python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
+fi
+
 exit $EXIT_CODE`)
 
 func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
@@ -4838,6 +4927,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
+- path: /opt/azure/containers/provision_send_logs.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
+
 {{if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
@@ -6575,6 +6671,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
 	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
+	"linux/cloud-init/artifacts/cse_send_logs.py":                          linuxCloudInitArtifactsCse_send_logsPy,
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
@@ -6688,6 +6785,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
 				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"cse_send_logs.py":                          &bintree{linuxCloudInitArtifactsCse_send_logsPy, map[string]*bintree{}},
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
