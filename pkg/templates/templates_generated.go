@@ -1904,7 +1904,9 @@ ln -s /var/log/azure/cluster-provision.log ${LOG_DIR}/
 ln -s /var/log/azure/cluster-provision-cse-output.log ${LOG_DIR}/
 ln -s /opt/azure/*.json ${LOG_DIR}/
 ln -s /opt/azure/vhd-install.complete ${LOG_DIR}/
-ln -s /var/lib/cloud/instance/cloud-config.txt ${LOG_DIR}/
+# exclude cloud-config.txt for now as it can contain secrets (like kubelet sp)
+# need to figure out redaction before this gets included
+#ln -s /var/lib/cloud/instance/cloud-config.txt ${LOG_DIR}/
 
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
