@@ -67,6 +67,7 @@
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
+// windows/sendlogs.ps1
 // windows/windowscsehelper.ps1
 package templates
 
@@ -6351,6 +6352,60 @@ func windowsKuberneteswindowssetupPs1() (*asset, error) {
 	return a, nil
 }
 
+var _windowsSendlogsPs1 = []byte(`<#
+    .SYNOPSIS
+        Uploads a log bundle to the host for retrieval via GuestVMLogs.
+
+    .DESCRIPTION
+        Uploads a log bundle to the host for retrieval via GuestVMLogs.
+
+        Takes a parameter of a ZIP file name to upload, which is sent to the HostAgent
+        via the /vmAgentLog endpoint.
+#>
+[CmdletBinding()]
+param(
+    [string]
+    [ValidateScript({Test-Path $_})]
+    $Path
+)
+
+$GoalStateArgs = @{
+    "Method"="Get";
+    "Uri"="http://168.63.129.16/machine/?comp=goalstate";
+    "Headers"=@{"x-ms-version"="2012-11-30"}
+}
+$GoalState = $(Invoke-RestMethod @GoalStateArgs).GoalState
+
+$UploadArgs = @{
+    "Method"="Put";
+    "Uri"="http://168.63.129.16:32526/vmAgentLog";
+    "InFile"=$Path;
+    "Headers"=@{
+        "x-ms-version"="2015-09-01";
+        "x-ms-client-correlationid"="";
+        "x-ms-client-name"="AKSCSEPlugin";
+        "x-ms-client-version"="0.1.0";
+        "x-ms-containerid"=$GoalState.Container.ContainerId;
+        "x-ms-vmagentlog-deploymentid"=($GoalState.Container.RoleInstanceList.RoleInstance.Configuration.ConfigName -split "\.")[0]
+    }
+}
+Invoke-RestMethod @UploadArgs`)
+
+func windowsSendlogsPs1Bytes() ([]byte, error) {
+	return _windowsSendlogsPs1, nil
+}
+
+func windowsSendlogsPs1() (*asset, error) {
+	bytes, err := windowsSendlogsPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/sendlogs.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _windowsWindowscsehelperPs1 = []byte(`# This script is used to define basic util functions
 # It is better to define functions in the scripts under staging/cse/windows.
 
@@ -6719,6 +6774,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
+	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
 }
 
@@ -6841,6 +6897,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"windows": &bintree{nil, map[string]*bintree{
 		"csecmd.ps1":                 &bintree{windowsCsecmdPs1, map[string]*bintree{}},
 		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
+		"sendlogs.ps1":               &bintree{windowsSendlogsPs1, map[string]*bintree{}},
 		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
 	}},
 }}
