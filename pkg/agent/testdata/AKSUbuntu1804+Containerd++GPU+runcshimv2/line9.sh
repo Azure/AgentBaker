@@ -41,6 +41,7 @@ ERR_KATA_INSTALL_TIMEOUT=62
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 
+ERR_GPU_DOWNLOAD_TIMEOUT=83 
 ERR_GPU_DRIVERS_START_FAIL=84 
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 
 ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 
@@ -92,7 +93,11 @@ export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0-1
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
+NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
+NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
+APT_CACHE_DIR=/var/cache/apt/archives/
+PERMANENT_CACHE_DIR=/root/aptcache/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -251,6 +256,19 @@ downloadDebPkgToFile() {
     retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
     # shellcheck disable=SC2164
     popd
+}
+apt_get_download() {
+  retries=$1; wait_sleep=$2; shift && shift;
+  local ret=0
+  pushd $APT_CACHE_DIR || return 1
+  for i in $(seq 1 $retries); do
+    dpkg --configure -a --force-confdef
+    wait_for_apt_locks
+    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+  done
+  popd || return 1
+  return $ret
 }
 getCPUArch() {
     arch=$(uname -m)

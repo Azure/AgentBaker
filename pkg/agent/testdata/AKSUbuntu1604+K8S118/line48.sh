@@ -3,13 +3,11 @@
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
 removeMoby() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-engine moby-cli
+    apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-containerd
+    apt_get_purge 10 5 300 moby-containerd
 }
 
 installDeps() {
@@ -24,7 +22,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.3"
+    BLOBFUSE_VERSION="1.4.4"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
@@ -56,8 +54,8 @@ downloadGPUDrivers() {
     fi
 
     mkdir -p ${GPU_DEST}
-    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_APT_INSTALL_TIMEOUT
+    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 }
 
 installSGXDrivers() {
@@ -165,6 +163,7 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+        return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -207,17 +206,30 @@ addNvidiaAptRepo() {
     apt_get_update
 }
 
-installNvidiaContainerRuntime() {
-    local target=$1
-    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
-    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
-
-    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
-        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
-        return
+downloadNvidiaContainerRuntime() {
+    mkdir -p $PERMANENT_CACHE_DIR
+    for apt_package in $NVIDIA_PACKAGES; do
+        package_found="$(ls $PERMANENT_CACHE_DIR | grep ${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
+        if [ "$package_found" == "0" ]; then
+            echo "$apt_package not cached, downloading"
+            apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+            cp -al ${APT_CACHE_DIR}${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        fi
+    done
+    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION} | wc -l)"
+    if [ "$package_found" == "0" ]; then
+        echo "nvidia-container-runtime not cached, downloading"
+        apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
+}
 
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+installNvidiaContainerRuntime() {
+    downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    for apt_package in $NVIDIA_PACKAGES; do
+        retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    done
+    retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}nvidia-container-runtime* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 installNvidiaDocker() {

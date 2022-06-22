@@ -2,12 +2,13 @@
     "containerd": {
         "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/containerd/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.13-2"
+            "1.4.13-3"
         ],
-        "latest": "1.5.11-1",
-        "stable": "1.4.13-2"
+        "edge": "1.6.4-4",
+        "latest": "1.5.11-2",
+        "stable": "1.4.13-3"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",

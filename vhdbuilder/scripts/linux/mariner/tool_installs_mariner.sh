@@ -30,9 +30,29 @@ EOF
 # The default 99-dhcp-en config on Mariner attempts to assign an IP address
 # to the eth1 virtual function device, which delays cluster setup by 2 minutes.
 # This workaround makes it so that dhcp is only enabled on eth0.
-networkdWorkaround() {
-    sed -i "s/Name=e\*/Name=eth0/g" /etc/systemd/network/99-dhcp-en.network
+setMarinerNetworkdConfig() {
+    CONFIG_FILEPATH="/etc/systemd/network/99-dhcp-en.network"
+    touch ${CONFIG_FILEPATH}
+    cat << EOF > ${CONFIG_FILEPATH} 
+    [Match]
+    Name=eth0
+
+    [Network]
+    DHCP=yes
+    IPv6AcceptRA=no
+EOF
+# On Mariner 2.0 Marketplace images, the default systemd network config
+# has an additional change that prevents Mariner from changing IP addresses
+# every reboot
+if [[ $OS_VERSION == "2.0" ]]; then 
+    cat << EOF >> ${CONFIG_FILEPATH}
+
+    [DHCPv4]
+    SendRelease=false
+EOF
+fi
 }
+
 
 listInstalledPackages() {
     rpm -qa

@@ -625,8 +625,7 @@ configureEtcEnvironment() {
 
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA() {
-    openssl x509 -outform pem -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
-    rm -f /usr/local/share/ca-certificates/proxyCA.pem
+    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
 }
 {{- end}}
@@ -1171,6 +1170,7 @@ ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
+ERR_GPU_DOWNLOAD_TIMEOUT=83 {{/* Timeout waiting for GPU driver download */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
 ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
@@ -1222,7 +1222,11 @@ export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0-1
+NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
+NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
+NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
+APT_CACHE_DIR=/var/cache/apt/archives/
+PERMANENT_CACHE_DIR=/root/aptcache/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1382,6 +1386,19 @@ downloadDebPkgToFile() {
     # shellcheck disable=SC2164
     popd
 }
+apt_get_download() {
+  retries=$1; wait_sleep=$2; shift && shift;
+  local ret=0
+  pushd $APT_CACHE_DIR || return 1
+  for i in $(seq 1 $retries); do
+    dpkg --configure -a --force-confdef
+    wait_for_apt_locks
+    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
+  done
+  popd || return 1
+  return $ret
+}
 getCPUArch() {
     arch=$(uname -m)
     if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
@@ -1447,23 +1464,31 @@ installContainerRuntime() {
     if [ -f "$MANIFEST_FILEPATH" ]; then
         stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
         latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
+        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
     # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
+    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
+        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
+        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
+        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
+            echo "invalid container version: $edge_containerd"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi        
+    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
         containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $latest_containerd"
+            echo "invalid container version: $latest_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     else
         containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
         containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
         if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalide container version: $stable_containerd"
+            echo "invalid container version: $stable_containerd"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
@@ -2903,6 +2928,8 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Restart=always
@@ -2950,12 +2977,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
     "containerd": {
         "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/containerd/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.13-2"
+            "1.4.13-3"
         ],
-        "latest": "1.5.11-1",
-        "stable": "1.4.13-2"
+        "edge": "1.6.4-4",
+        "latest": "1.5.11-2",
+        "stable": "1.4.13-3"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
@@ -3111,6 +3139,15 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
+    # install additional apparmor deps for 2.0
+    if [[ $OS_VERSION == "2.0" ]]; then
+      for dnf_package in apparmor-parser libapparmor; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
 }
 
 downloadGPUDrivers() {
@@ -4210,7 +4247,7 @@ apt_get_purge() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
+        timeout $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -4271,13 +4308,11 @@ var _linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh = []byte(`#!/bin/bash
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
 removeMoby() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-engine moby-cli
+    apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-containerd
+    apt_get_purge 10 5 300 moby-containerd
 }
 
 installDeps() {
@@ -4292,7 +4327,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.3"
+    BLOBFUSE_VERSION="1.4.4"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
@@ -4324,8 +4359,8 @@ downloadGPUDrivers() {
     fi
 
     mkdir -p ${GPU_DEST}
-    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_APT_INSTALL_TIMEOUT
+    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 }
 
 installSGXDrivers() {
@@ -4432,26 +4467,28 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
-        CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
-        fi 
+        fi
         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+            echo "Failed to locate cached containerd deb"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
 
 downloadContainerdFromVersion() {
-    #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
-    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
-    downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
+    updateAptWithMicrosoftPkg
+    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromURL() {
@@ -4519,6 +4556,7 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+        return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -4561,17 +4599,30 @@ addNvidiaAptRepo() {
     apt_get_update
 }
 
-installNvidiaContainerRuntime() {
-    local target=$1
-    local normalized_target="$(echo ${target} | cut -d'+' -f1 | cut -d'-' -f1)"
-    local installed="$(apt list --installed nvidia-container-runtime 2>/dev/null | grep nvidia-container-runtime | cut -d' ' -f2 | cut -d'-' -f 1)"
-
-    if semverCompare ${installed:-"0.0.0"} ${normalized_target}; then
-        echo "skipping install nvidia-container-runtime because existing installed version '$installed' is greater than target '$target'."
-        return
+downloadNvidiaContainerRuntime() {
+    mkdir -p $PERMANENT_CACHE_DIR
+    for apt_package in $NVIDIA_PACKAGES; do
+        package_found="$(ls $PERMANENT_CACHE_DIR | grep ${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
+        if [ "$package_found" == "0" ]; then
+            echo "$apt_package not cached, downloading"
+            apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+            cp -al ${APT_CACHE_DIR}${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        fi
+    done
+    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION} | wc -l)"
+    if [ "$package_found" == "0" ]; then
+        echo "nvidia-container-runtime not cached, downloading"
+        apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
+}
 
-    retrycmd_if_failure 600 1 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+installNvidiaContainerRuntime() {
+    downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    for apt_package in $NVIDIA_PACKAGES; do
+        retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    done
+    retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}nvidia-container-runtime* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 installNvidiaDocker() {
@@ -4672,7 +4723,7 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 set -x
 
 certSource=/opt/certs
@@ -4690,7 +4741,7 @@ else
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
-     if [[ "${currFile:0:14}" != "${currIterationTag}" ]]; then
+     if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
           rm "${file}"
      fi
   done
@@ -5019,11 +5070,12 @@ write_files:
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.pem
+- path: /usr/local/share/ca-certificates/proxyCA.crt
   permissions: "0644"
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+    #EOF
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
@@ -5258,11 +5310,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            {{- if IsIPMasqAgentEnabled}}
             "ipMasq": false,
-            {{- else}}
-            "ipMasq": true,
-            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -5503,12 +5551,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-{{if not IsIPMasqAgentEnabled}}
-    {{if IsAzureCNI}}
-    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
-    {{end}}
-{{end}}
-
     # Disallow container from reaching out to the special IP address 168.63.129.16
     # for TCP protocol (which http uses)
     #

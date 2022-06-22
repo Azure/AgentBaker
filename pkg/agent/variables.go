@@ -4,12 +4,15 @@
 package agent
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/blang/semver"
 )
+
+var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
 
 // getCustomDataVariables returns cloudinit data used by Linux
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
@@ -166,7 +169,8 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+	cs := nbc.ContainerService
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}
@@ -194,5 +198,27 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 	if registry == "" {
 		return ""
 	}
-	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
+
+	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy
+	proxyVars := ""
+	if nbc.HTTPProxyConfig != nil {
+		if nbc.HTTPProxyConfig.HTTPProxy != nil {
+			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
+			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
+		}
+		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
+			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
+		}
+		if nbc.HTTPProxyConfig.NoProxy != nil {
+			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
+		}
+	}
+
+	cmd := `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
+
+	if proxyVars != "" {
+		cmd = fmt.Sprintf("%s %s", proxyVars, cmd)
+	}
+
+	return cmd
 }

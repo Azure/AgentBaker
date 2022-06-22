@@ -4,7 +4,7 @@ variables:
 - group: ab-e2e
 
 pool:
-  name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
+  name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
 
 jobs:
 - job: Setup_Test_Cluster
