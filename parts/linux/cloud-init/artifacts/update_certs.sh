@@ -5,7 +5,12 @@ set -x
 certSource=/opt/certs
 certDestination=/usr/local/share/ca-certificates/certs
 
-cp -a "$certSource"/. "$certDestination"
+if [[ -d "$certSource" && -d "$certDestination" ]]; then
+  cp -a "$certSource"/. "$certDestination"
+else
+  echo "Custom CA Trust directories not present (feature most likely not enabled), exiting"
+  exit 0
+fi
 
 if [[ -z $(ls -A "$certSource") ]]; then
   ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
