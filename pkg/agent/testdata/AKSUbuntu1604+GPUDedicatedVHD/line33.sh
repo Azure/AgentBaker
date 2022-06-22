@@ -6,9 +6,6 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
-echo "Removing man-db auto-update flag file..."
-removeManDbAutoUpdateFlagFile
-
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -44,6 +41,9 @@ source /opt/azure/containers/provision_installs_distro.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
+
+echo "Removing man-db auto-update flag file..."
+removeManDbAutoUpdateFlagFile
 cleanUpContainerd
 
 if [[ "${GPU_NODE}" != "true" ]]; then
