@@ -561,4 +561,4 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 echo "Recreating man-db auto-update flag file and kicking off man-db update process.."
-/usr/bin/mandb &
+/usr/bin/mandb
