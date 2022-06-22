@@ -4723,7 +4723,7 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 set -x
 
 certSource=/opt/certs
