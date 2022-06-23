@@ -120,7 +120,7 @@ function Adjust-DynamicPortRange()
     # https://docs.microsoft.com/en-us/virtualization/windowscontainers/kubernetes/common-problems#load-balancers-are-plumbed-inconsistently-across-the-cluster-nodes
     # Kube-proxy load balancing should be set to DSR mode when it releases with future versions of the OS
     #
-    # The fix which reduces dynamic port usage for non-DSR load balancers is shiped with KB4550969 in April 2020
+    # The fix which reduces dynamic port usage is still needed for DSR mode
     # Update the range to [33000, 65535] to avoid that it conflicts with NodePort range (30000 - 32767)
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536")
 
@@ -129,7 +129,8 @@ function Adjust-DynamicPortRange()
     # Exclude UDP source port 65330: Start Port: 49152, Number of Ports : 16178. Range: [49152, 65329]
     # This only excludes the port in AKS Windows nodes but will not impact Windows containers.
     # Reference: https://github.com/Azure/AKS/issues/2988
-    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "udp", "49152", "16178")
+    # List command: netsh int ipv4 show excludedportrange udp
+    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
 # TODO: should this be in this PR?

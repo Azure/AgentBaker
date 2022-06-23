@@ -4743,7 +4743,7 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 set -x
 
 certSource=/opt/certs
@@ -4761,7 +4761,7 @@ else
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
-     if [[ "${currFile:0:14}" != "${currIterationTag}" ]]; then
+     if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
           rm "${file}"
      fi
   done
