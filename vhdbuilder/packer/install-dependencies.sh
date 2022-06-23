@@ -34,9 +34,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
-echo "Removing man-db auto-update flag file before installing dependency components..."
-removeManDbAutoUpdateFlagFile
-
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
 
@@ -559,6 +556,3 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
-
-echo "Recreating man-db auto-update flag file and kicking off man-db update process.."
-/usr/bin/mandb
