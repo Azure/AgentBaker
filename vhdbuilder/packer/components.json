@@ -49,7 +49,6 @@
         "v0.3.6"
       ],
       "multiArchVersions": [
-        "v0.4.4",
         "v0.4.5",
         "v0.5.2",
         "v0.6.1"
@@ -377,9 +376,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
-      "amd64OnlyVersions": [
-        "1.4.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.1"
       ]
