@@ -266,32 +266,9 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
-	if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ]; then
-		echo "Setting WINDOWS_IMAGE_SKU to the value in pipeline variables"
-		WINDOWS_IMAGE_SKU=$WINDOWS_BASE_IMAGE_SKU
-
-		if [ -z "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
-			echo "WINDOWS_BASE_IMAGE_SKU and WINDOWS_BASE_IMAGE_VERSION must be set in pipeline variables at the same time"
-			exit 1
-		fi
-	fi
-	if [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
-		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
-		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
-
-		if [ -z "${WINDOWS_BASE_IMAGE_SKU}" ]; then
-			echo "WINDOWS_BASE_IMAGE_SKU and WINDOWS_BASE_IMAGE_VERSION must be set in pipeline variables at the same time"
-			exit 1
-		fi
-	fi
-
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 
-		if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ] || [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
-			echo "WINDOWS_BASE_IMAGE_SKU/WINDOWS_BASE_IMAGE_VERSION must not be set with WINDOWS_BASE_IMAGE_URL in pipeline variables at the same time"
-			exit 1
-		fi
 		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
 
 		echo "Generating sas token to copy Windows base image"

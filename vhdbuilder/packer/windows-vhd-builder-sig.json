@@ -74,8 +74,7 @@
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
-                "WindowsPatchUrl={{user `windows_patch_url`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
             "scripts": [
