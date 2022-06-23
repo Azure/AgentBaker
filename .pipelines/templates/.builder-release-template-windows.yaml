@@ -94,7 +94,7 @@ steps:
       -e VHD_NAME=${VHD_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
-    condition: and(succeeded(), eq(variables['MODE'], 'default'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -141,7 +141,7 @@ steps:
         -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: eq(variables['MODE'], 'gen2Mode')
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
   - bash: |
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
