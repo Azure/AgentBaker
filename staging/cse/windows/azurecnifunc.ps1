@@ -97,10 +97,24 @@ function Set-AzureCNIConfig
     # $configJson.plugins[0].AdditionalArgs[1] is Route
 
     # Remove OutboundNAT
-    $configJson.plugins[0].AdditionalArgs = @($configJson.plugins[0].AdditionalArgs[1])
+    # $configJson.plugins[0].AdditionalArgs = @($configJson.plugins[0].AdditionalArgs[1])
 
     # Remove OutboundNAT and Route
-    $configJson.plugins[0].AdditionalArgs = @()
+    # $configJson.plugins[0].AdditionalArgs = @()
+
+    # Replace OutboundNAT&Route with LoopbackDSR for IMDS acess
+    # The Azure Instance Metadata Service (IMDS) provides information about currently running virtual machine instances.
+    # IMDS is a REST API that's available at a well-known, non-routable IP address (169.254.169.254)
+    # Details: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service?tabs=windows#known-issues-and-faq
+    $valueObj = [PSCustomObject]@{
+        Type = 'LoopbackDSR'
+        IPAddress = '169.254.169.254'
+    }
+    $jsonContent = [PSCustomObject]@{
+        Name = 'EndpointPolicy'
+        Value = $valueObj
+    }
+    $configJson.plugins[0].AdditionalArgs = @($jsonContent)
 
     if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"
