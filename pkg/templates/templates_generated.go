@@ -1452,15 +1452,11 @@ MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
 removeManDbAutoUpdateFlagFile() {
-    if [ -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
-        rm $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
-    fi
+    rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
 }
 
 createManDbAutoUpdateFlagFile() {
-    if [ ! -f "$MAN_DB_AUTO_UPDATE_FLAG_FILEPATH" ]; then
-        touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
-    fi
+    touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
 }
 
 cleanupContainerdDlFiles() {
