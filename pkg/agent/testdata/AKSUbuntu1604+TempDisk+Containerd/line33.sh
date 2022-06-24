@@ -105,6 +105,9 @@ configureCNI
 
 ensureContainerd 
 
+# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
+systemctlEnableAndStart sync-tunnel-logs
+
 ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017

@@ -57,6 +57,7 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
+// linux/cloud-init/artifacts/sync-tunnel-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
@@ -2075,6 +2076,9 @@ ensureContainerd {{/* containerd should not be configured until cni has been con
 {{- else}}
 ensureDocker
 {{- end}}
+
+# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
+systemctlEnableAndStart sync-tunnel-logs
 
 ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
@@ -4230,6 +4234,57 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
+
+SRC=/var/log/containers
+DST=/var/log/azure/aks/pods
+
+shopt -s extglob
+shopt -s nullglob
+mkdir -p $DST
+
+# Remove any existing logs as they may be outdated
+rm -f $DST/*
+
+# Manually sync all matching logs once
+for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|konnectivity|tunnelfront)-*_kube-system_*.log"); do
+   echo "Linking $TUNNEL_LOG_FILE"
+   /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
+done
+echo "Starting inotifywait..."
+
+# Monitor for changes
+inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
+    case $FILE in
+        aks-link-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+            case $EVENT in
+                CREATE*)
+                    echo "Linking $FILE"
+                    /bin/ln -Lf "$DIRECTORY/$FILE" "$DST/$FILE"
+                    ;;
+                DELETE*)
+                    echo "Removing $FILE"
+                    rm -f "$DST/$FILE"
+                    ;;
+            esac;;
+    esac
+done`)
+
+func linuxCloudInitArtifactsSyncTunnelLogsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncTunnelLogsSh, nil
+}
+
+func linuxCloudInitArtifactsSyncTunnelLogsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
@@ -5279,6 +5334,28 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 {{end}}
+
+- path: /etc/systemd/system/sync-tunnel-logs.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+    After=containerd.service
+
+    [Service]
+    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+
+- path: /opt/azure/containers/sync-tunnel-logs.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
@@ -6769,6 +6846,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
+	"linux/cloud-init/artifacts/sync-tunnel-logs.sh":                       linuxCloudInitArtifactsSyncTunnelLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
@@ -6886,6 +6964,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
+				"sync-tunnel-logs.sh":             &bintree{linuxCloudInitArtifactsSyncTunnelLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
