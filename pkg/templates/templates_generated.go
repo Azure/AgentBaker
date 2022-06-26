@@ -1973,7 +1973,7 @@ if [ -f $VHD_LOGS_FILEPATH ]; then
     cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
-    if [[ "${IS_VHD}" = true ]]; then
+    if [[ "${IS_VHD}" = true ]]; tmhen
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
         exit $ERR_VHD_FILE_NOT_FOUND
     fi
@@ -4489,7 +4489,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT

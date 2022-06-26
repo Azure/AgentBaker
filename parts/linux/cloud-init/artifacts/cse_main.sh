@@ -84,7 +84,7 @@ if [ -f $VHD_LOGS_FILEPATH ]; then
     cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
-    if [[ "${IS_VHD}" = true ]]; then
+    if [[ "${IS_VHD}" = true ]]; tmhen
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
         exit $ERR_VHD_FILE_NOT_FOUND
     fi
