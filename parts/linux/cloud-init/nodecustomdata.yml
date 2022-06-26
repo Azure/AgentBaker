@@ -46,6 +46,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
+- path: /opt/azure/containers/provision_redact_cloud_config.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
+
 - path: /opt/azure/containers/provision_send_logs.py
   permissions: "0744"
   encoding: gzip
