@@ -27,7 +27,7 @@ echo $JSON_STRING > /var/log/azure/aks/provision.json
 # when cloud-config.txt gets included within log bundles
 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
-    --target-paths /var/lib/kubelet/bootstrap-kubeconfig /etc/kubernetes/sp.txt
+    --target-paths /var/lib/kubelet/bootstrap-kubeconfig /etc/kubernetes/sp.txt \
     --output-path /var/lib/cloud/instance/cloud-config.txt
 
 # force a log upload to the host immediately if we failed provisioning;

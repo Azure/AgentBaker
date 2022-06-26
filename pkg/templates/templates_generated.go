@@ -3423,9 +3423,7 @@ if __name__ == '__main__':
         help=f'Paths of the targeted write_file definitions to redact secrets from. Must be one of: {list(PATH_TO_REDACT_FUNC.keys())}')
     parser.add_argument(
         "--output-path",
-        nargs='?', 
-        required=False, 
-        default='cloud_config_redacted.yml', 
+        required=True,  
         type=str, 
         help='Path to the newly redacted cloud-config')
     
@@ -3541,7 +3539,7 @@ echo $JSON_STRING > /var/log/azure/aks/provision.json
 # when cloud-config.txt gets included within log bundles
 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
-    --target-paths /var/lib/kubelet/bootstrap-kubeconfig /etc/kubernetes/sp.txt
+    --target-paths /var/lib/kubelet/bootstrap-kubeconfig /etc/kubernetes/sp.txt \
     --output-path /var/lib/cloud/instance/cloud-config.txt
 
 # force a log upload to the host immediately if we failed provisioning;

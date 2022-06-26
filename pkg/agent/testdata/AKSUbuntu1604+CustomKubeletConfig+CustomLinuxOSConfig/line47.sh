@@ -66,9 +66,7 @@ if __name__ == '__main__':
         help=f'Paths of the targeted write_file definitions to redact secrets from. Must be one of: {list(PATH_TO_REDACT_FUNC.keys())}')
     parser.add_argument(
         "--output-path",
-        nargs='?', 
-        required=False, 
-        default='cloud_config_redacted.yml', 
+        required=True,  
         type=str, 
         help='Path to the newly redacted cloud-config')
     
