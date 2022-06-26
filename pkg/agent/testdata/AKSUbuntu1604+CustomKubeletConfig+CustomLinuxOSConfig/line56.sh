@@ -41,6 +41,11 @@ configureSwapFile() {
     fi
 }
 
+configureHTTPProxyCA() {
+    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+}
+
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
