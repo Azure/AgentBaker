@@ -13,12 +13,14 @@ if $avail ; then
 	key=$(az storage account keys list -n $TEST_STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME | jq -r '.[0].value')
 	az storage container create --name system --account-key=$key --account-name=$TEST_STORAGE_ACCOUNT_NAME
 else
+	echo "storage account ${TEST_STORAGE_ACCOUNT_NAME} already exists."
+fi
 
 echo "test storage name: ${TEST_STORAGE_ACCOUNT_NAME}"
 
 TEST_EXPIRY_DATE=$(date -u -d "180 minutes" '+%Y-%m-%dT%H:%MZ')
 
-TEST_SAS_TOKEN=$(az storage account generate-sas --account-name $TEST_STORAGE_ACCOUNT_NAME --permissions r --account-key "$key" --resource-types o --services b --expiry ${TEST_EXPIRY_DATE} | tr -d '"')
+TEST_SAS_TOKEN=$(az storage account generate-sas --account-name $TEST_STORAGE_ACCOUNT_NAME --permissions r --account-key $key --resource-types o --services b --expiry ${TEST_EXPIRY_DATE} | tr -d '"')
 
 TEST_IMAGE_NAME="windows-${TEST_CREATE_TIME}-${RANDOM}"
 

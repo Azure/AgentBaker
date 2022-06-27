@@ -269,6 +269,22 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
+	if [[ $HYPERV_GENERATION == "V2" ]]
+		if [[ $WINDOWS_SKU == "2019-containerd" ]]
+		            WINDOWS_IMAGE_SKU=$WINDOWS_2019_GEN2_BASE_IMAGE_SKU
+                    INDOWS_IMAGE_VERSION=$WINDOWS_2019_GEN2_BASE_IMAGE_VERSION
+                    echo "Setting Windows Image Sku for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2019_GEN2_BASE_IMAGE_SKU"
+                    echo "Setting Windows Image Version for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2019_GEN2_BASE_IMAGE_VERSION"              
+        
+		elif [[ $WINDOWS_SKU == "2022-containerd" ]]
+		            WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
+                    INDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
+                    echo "Setting Windows Image Sku for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2022_GEN2_BASE_IMAGE_SKU"
+                    echo "Setting Windows Image Version for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2022_GEN2_BASE_IMAGE_VERSION"              
+        
+		fi
+	fi
+
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 
