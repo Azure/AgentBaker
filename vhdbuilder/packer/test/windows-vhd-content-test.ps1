@@ -7,14 +7,12 @@
 
 param (
     $containerRuntime,
-    $windowsSKU,
-    $windowsPatchId
+    $windowsSKU
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:ContainerRuntime=$containerRuntime
 $env:WindowsSKU=$windowsSKU
-$env:WindowsPatchId=$windowsPatchId
 
 . c:\windows-vhd-configuration.ps1
 

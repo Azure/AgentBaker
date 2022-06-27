@@ -351,15 +351,7 @@ fi
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
 0.9.1
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  ARM64_CNI_PLUGIN_VERSIONS_IN_USE="
-  0.8.7
-  "
-  CNI_PLUGIN_VERSIONS="${ARM64_CNI_PLUGIN_VERSIONS_IN_USE} ${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-else
-  CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-fi
+CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
@@ -485,15 +477,12 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.21.7-hotfix.20220420
 1.21.9-hotfix.20220420
-1.21.13
-1.22.4-hotfix.20220615
+1.21.14-hotfix.20220620
 1.22.6-hotfix.20220615
-1.22.10
-1.23.3-hotfix.20220615
+1.22.11-hotfix.20220620
 1.23.5-hotfix.20220615
-1.23.7
+1.23.8-hotfix.20220620
 1.24.0-hotfix.20220615
 "
 
