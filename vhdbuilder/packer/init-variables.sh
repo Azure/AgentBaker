@@ -279,8 +279,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
                     WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
                     INDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
                     echo "Setting Windows Image Sku for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2022_GEN2_BASE_IMAGE_SKU"
-                    echo "Setting Windows Image Version for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2022_GEN2_BASE_IMAGE_VERSION"              
-
+                    echo "Setting Windows Image Version for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2022_GEN2_BASE_IMAGE_VERSION"
                 fi
         fi
 
