@@ -285,6 +285,14 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		WINDOWS_IMAGE_SKU=""
 		WINDOWS_IMAGE_VERSION=""
 	fi
+
+	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
+		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
+	fi
+
+	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
+		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
+	fi
 	
 	case "${WINDOWS_SKU}" in
 	"2019")
@@ -332,7 +340,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
-  "os_disk_size_gb": "${os_disk_size_gb}"
+  "os_disk_size_gb": "${os_disk_size_gb}",
+  "nano_image_url": "${WINDOWS_NANO_IMAGE_URL}",
+  "core_image_url": "${WINDOWS_CORE_IMAGE_URL}"
 }
 EOF
 

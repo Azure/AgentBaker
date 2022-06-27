@@ -123,10 +123,29 @@ function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
         foreach ($image in $imagesToPull) {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and $env:WindowsServerCoreImageURL -ne "") -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and $env:WindowsNanoServerImageURL -ne "")) {
+                $url=""
+                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                    $url=$env:WindowsServerCoreImageURL
+                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                    $url=$env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+            } else {
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    & crictl.exe pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd
@@ -134,10 +153,29 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                docker pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and $env:WindowsServerCoreImageURL -ne "") -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and $env:WindowsNanoServerImageURL -ne "")) {
+                $url=""
+                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                    $url=$env:WindowsServerCoreImageURL
+                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                    $url=$env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & docker load -i $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+            } else {
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    docker pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
     }
 }
