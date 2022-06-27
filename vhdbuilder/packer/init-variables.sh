@@ -269,7 +269,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
-        if [[ $HYPERV_GENERATION == "V2" ]]
+        if [[ $HYPERV_GENERATION == "V2" ]]; then
                 if [[ $WINDOWS_SKU == "2019-containerd" ]]; then
                     WINDOWS_IMAGE_SKU=$WINDOWS_2019_GEN2_BASE_IMAGE_SKU
                     INDOWS_IMAGE_VERSION=$WINDOWS_2019_GEN2_BASE_IMAGE_VERSION
