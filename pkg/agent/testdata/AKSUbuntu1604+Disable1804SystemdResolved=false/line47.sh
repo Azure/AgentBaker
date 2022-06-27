@@ -16,18 +16,16 @@ def redact_service_principal_secret(sp_secret_write_file: dict):
 
 
 # Maps write_file's path to the corresponding function used to redact it within cloud-config.txt
-# Caller must specify write_file paths that have a mapping within this dict
+# This script will always redact these write_files if they exist within the specified cloud-config.txt
 PATH_TO_REDACT_FUNC = {
     '/var/lib/kubelet/bootstrap-kubeconfig': redact_bootstrap_kubeconfig_tls_token,
     '/etc/kubernetes/sp.txt': redact_service_principal_secret
 }
 
 
-def perform_redact(cloud_config_path, target_paths, output_path):
-    for target_path in target_paths:
-        if target_path not in PATH_TO_REDACT_FUNC:
-            raise ValueError(f'Target path: {target_path} is not recognized as a redactable write_file path')
- 
+def redact_cloud_config(cloud_config_path, output_path):
+    target_paths = set(PATH_TO_REDACT_FUNC.keys())
+
     with open(cloud_config_path, 'r') as f:
         cloud_config_data = f.read()
     cloud_config = yaml.safe_load(cloud_config_data)
@@ -52,24 +50,19 @@ def perform_redact(cloud_config_path, target_paths, output_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=f'Command line utility used to redact secrets from write_file definitions for \
-            {list(PATH_TO_REDACT_FUNC.keys())} within cloud-config.txt. These secrets must be redacted as \
-            cloud-conifg.txt will be collected by the WALinuxAgent.')
+            [{", ".join(PATH_TO_REDACT_FUNC)}] within a specified cloud-config.txt. \
+            These secrets must be redacted before cloud-config.txt can be collected for logging.')
     parser.add_argument(
         "--cloud-config-path",
         required=True, 
         type=str, 
-        help='Path to cloud-config')
-    parser.add_argument(
-        "--target-paths",
-        nargs='+',
-        required=True,
-        help=f'Paths of the targeted write_file definitions to redact secrets from. Must be one of: {list(PATH_TO_REDACT_FUNC.keys())}')
+        help='Path to cloud-config.txt to redact')
     parser.add_argument(
         "--output-path",
         required=True,  
         type=str, 
-        help='Path to the newly redacted cloud-config')
+        help='Path to the newly generated cloud-config.txt with redacted secrets')
     
     args = parser.parse_args()
-    perform_redact(args.cloud_config_path, set(args.target_paths), args.output_path)
+    redact_cloud_config(args.cloud_config_path, args.output_path)
 
