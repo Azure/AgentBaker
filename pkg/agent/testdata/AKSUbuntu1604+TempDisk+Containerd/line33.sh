@@ -10,7 +10,7 @@ LOG_DIR=/var/log/azure/aks
 
 # Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
 # when cloud-config.txt gets included within log bundles
-/opt/azure/containers/provision_redact_cloud_config.py \
+python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --target-paths /var/lib/kubelet/bootstrap-kubeconfig /etc/kubernetes/sp.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
