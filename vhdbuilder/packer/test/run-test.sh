@@ -151,7 +151,7 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}" "windowsPatchId=${WINDOWS_PATCH_ID}")
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
   # An example of failed run-command output:
   # {
   #   "value": [

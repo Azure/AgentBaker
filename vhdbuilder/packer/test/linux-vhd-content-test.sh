@@ -227,15 +227,12 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.21.7-hotfix.20220420
   1.21.9-hotfix.20220420
-  1.21.13
-  1.22.4-hotfix.20220615
+  1.21.14-hotfix.20220620
   1.22.6-hotfix.20220615
-  1.22.10
-  1.23.3-hotfix.20220615
+  1.22.11-hotfix.20220620
   1.23.5-hotfix.20220615
-  1.23.7
+  1.23.8-hotfix.20220620
   1.24.0-hotfix.20220615
   "
   for patchedK8sVersion in ${k8sVersions}; do

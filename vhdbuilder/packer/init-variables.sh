@@ -243,51 +243,50 @@ fi
 
 # windows image sku and windows image version are recorded in code instead of pipeline variables
 # because a pr gives a better chance to take a review of the version changes.
+WINDOWS_IMAGE_PUBLISHER="MicrosoftWindowsServer"
+WINDOWS_IMAGE_OFFER="WindowsServer"
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
+WINDOWS_IMAGE_URL=""
+IMPORTED_IMAGE_NAME=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
 	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
-	"2019")
+	"2019"|"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		IMPORTED_IMAGE_NAME="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
 		;;
-        "2019-containerd")
-                if [[ $HYPERV_GENERATION == "V2" ]]; then
-                    WINDOWS_IMAGE_SKU=$WINDOWS_2019_GEN2_BASE_IMAGE_SKU
-                    INDOWS_IMAGE_VERSION=$WINDOWS_2019_GEN2_BASE_IMAGE_VERSION
-                    echo "Setting Windows Image Sku for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2019_GEN2_BASE_IMAGE_SKU"
-                    echo "Setting Windows Image Version for 2019 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2019_GEN2_BASE_IMAGE_VERSION"              
-                else
-                    WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-                    WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-                fi
-                ;;
-        "2022-containerd")
-                if [[ $HYPERV_GENERATION == "V2" ]]; then
-                    WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
-                    WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
-                    echo "Setting Windows Image Sku for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_SKU} $WINDOWS_2022_GEN2_BASE_IMAGE_SKU"
-                    echo "Setting Windows Image Version for 2022 Containerd Gen 2: ${WINDOWS_IMAGE_VERSION} $WINDOWS_2022_GEN2_BASE_IMAGE_VERSION"
-                else
-                    WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
-                    WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-                fi
-                ;;
+	"2022-containerd")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
+		IMPORTED_IMAGE_NAME="windows-2022-imported-${CREATE_TIME}-${RANDOM}"
+		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
 		exit 1
 		;;
 	esac
 
-	if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ]; then
-		echo "Setting WINDOWS_IMAGE_SKU to the value in pipeline variables"
-		WINDOWS_IMAGE_SKU=$WINDOWS_BASE_IMAGE_SKU
-	fi
-	if [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
-		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
-		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
+	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
+
+		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
+
+		echo "Generating sas token to copy Windows base image"
+		expiry_date=$(date -u -d "20 minutes" '+%Y-%m-%dT%H:%MZ')
+		sas_token=$(az storage account generate-sas --account-name ${STORAGE_ACCOUNT_NAME} --permissions cw --account-key "$key" --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
+
+		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
+		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}?${sas_token}"
+
+		# https://www.packer.io/plugins/builders/azure/arm#image_url
+		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
+		WINDOWS_IMAGE_PUBLISHER=""
+		WINDOWS_IMAGE_OFFER=""
+		WINDOWS_IMAGE_SKU=""
+		WINDOWS_IMAGE_VERSION=""
 	fi
 	
 	case "${WINDOWS_SKU}" in
@@ -341,8 +340,11 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
+  "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
+  "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
+  "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",

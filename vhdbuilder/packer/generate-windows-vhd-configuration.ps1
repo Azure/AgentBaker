@@ -32,18 +32,6 @@ switch -Regex ($windowsSKU) {
     }
 }
 
-# WindowsPatchUrl is only set and used in building VHD
-if (-not ([string]::IsNullOrEmpty($env:WindowsPatchUrl))) {
-    Write-Host "Setting Windows patch URL via envrionment variables"
-    $global:patchUrls += $env:WindowsPatchUrl
-}
-
-# windowsPatchId is only set and used in testing VHD
-if (-not ([string]::IsNullOrEmpty($env:WindowsPatchId))) {
-    Write-Host "Setting Windows patch ID via envrionment variables"
-    $global:patchIDs += $env:WindowsPatchId
-}
-
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
 
@@ -152,7 +140,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.4/binaries/windows-gmsa-ccgakvplugin-v1.1.4.zip",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.8.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.9.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.10.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.

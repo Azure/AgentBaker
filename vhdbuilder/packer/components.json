@@ -200,7 +200,7 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.10.5.8",
+        "1.10.5.10",
         "1.10.5.9"
       ]
     },
@@ -376,9 +376,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
-      "amd64OnlyVersions": [
-        "1.4.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.1"
       ]

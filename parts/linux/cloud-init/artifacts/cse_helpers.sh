@@ -262,9 +262,7 @@ apt_get_download() {
   local ret=0
   pushd $APT_CACHE_DIR || return 1
   for i in $(seq 1 $retries); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    wait_for_apt_locks; apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
     if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
   done
   popd || return 1
