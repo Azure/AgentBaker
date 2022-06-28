@@ -2239,38 +2239,36 @@ def redact_cloud_config(cloud_config_path, output_path):
             target_path = write_file['path']
             target_paths.remove(target_path)
 
-            print(f'Redacting secrets from write_file: {target_path}')
+            print('Redacting secrets from write_file: ' + target_path)
             PATH_TO_REDACT_FUNC[target_path](write_file)
-        
+
         if len(target_paths) == 0:
             break
-        
 
-    print(f'Dumping redacted cloud-config to: {output_path}')
+
+    print('Dumping redacted cloud-config to: ' + output_path)
     with open(output_path, 'w+') as output_file:
         output_file.write(yaml.dump(cloud_config))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description=f'Command line utility used to redact secrets from write_file definitions for \
-            [{", ".join(PATH_TO_REDACT_FUNC)}] within a specified cloud-config.txt. \
+        description='Command line utility used to redact secrets from write_file definitions for ' +
+            str([{", ".join(PATH_TO_REDACT_FUNC)}]) + ' within a specified cloud-config.txt. \
             These secrets must be redacted before cloud-config.txt can be collected for logging.')
     parser.add_argument(
         "--cloud-config-path",
-        required=True, 
-        type=str, 
+        required=True,
+        type=str,
         help='Path to cloud-config.txt to redact')
     parser.add_argument(
         "--output-path",
-        required=True,  
-        type=str, 
+        required=True,
+        type=str,
         help='Path to the newly generated cloud-config.txt with redacted secrets')
-    
-    args = parser.parse_args()
-    redact_cloud_config(args.cloud_config_path, args.output_path)
 
-`)
+    args = parser.parse_args()
+    redact_cloud_config(args.cloud_config_path, args.output_path)`)
 
 func linuxCloudInitArtifactsCse_redact_cloud_configPyBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_redact_cloud_configPy, nil
