@@ -245,9 +245,9 @@ WINDOWS_IMAGE_OFFER="WindowsServer"
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
-IMPORTED_IMAGE_NAME=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
+	IMPORTED_IMAGE_NAME=""
 	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
 	"2019"|"2019-containerd")
