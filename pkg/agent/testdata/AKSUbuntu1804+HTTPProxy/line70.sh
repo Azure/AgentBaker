@@ -19,6 +19,7 @@ configureEtcEnvironment() {
     echo 'NO_PROXY="localhost,127.0.0.1"' >> /etc/environment
     echo 'no_proxy="localhost,127.0.0.1"' >> /etc/environment
 }
+
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
@@ -175,7 +176,6 @@ ensureKubelet() {
     wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    configureEtcEnvironment
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     
     

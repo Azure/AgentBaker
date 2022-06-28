@@ -31,6 +31,11 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+configureEtcEnvironment
+{{- end}}
+
 {{GetOutboundCommand}}
 
 for i in $(seq 1 3600); do
@@ -65,10 +70,6 @@ cleanUpContainerd
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
-
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
-{{- end}}
 
 disableSystemdResolved
 
