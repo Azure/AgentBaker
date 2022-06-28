@@ -10,11 +10,26 @@ command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y 
 shopt -s extglob
 shopt -s nullglob
 
+# Wait for /var/log/containers to exist
+if [ ! -d $SRC ]; then
+  echo -n "Waiting for $SRC to exist..."
+  while [ ! -d $SRC ]; do
+    sleep 15
+    echo -n "."
+  done
+  echo "done."
+fi
+
 # Make the destination directory if not already present
 mkdir -p $DST
 
-# Remove any existing logs as they may be outdated
-rm -f $DST/*
+# Start a background process to clean up logs from deleted pods that
+# haven't been modified in 2 hours. This allows us to retain tunnel pod
+# logs after a restart.
+while true; do
+  find /var/log/azure/aks/pods -type f -links 1 -mmin +120 -delete
+  sleep 3600
+done &
 
 # Manually sync all matching logs once
 for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|konnectivity|tunnelfront)-*_kube-system_*.log"); do
@@ -31,10 +46,6 @@ inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
                 CREATE*)
                     echo "Linking $FILE"
                     /bin/ln -Lf "$DIRECTORY/$FILE" "$DST/$FILE"
-                    ;;
-                DELETE*)
-                    echo "Removing $FILE"
-                    rm -f "$DST/$FILE"
                     ;;
             esac;;
     esac
