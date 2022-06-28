@@ -123,8 +123,8 @@ function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
         foreach ($image in $imagesToPull) {
-            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and $env:WindowsServerCoreImageURL -ne "") -or
-                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and $env:WindowsNanoServerImageURL -ne "")) {
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
                 $url=""
                 if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
                     $url=$env:WindowsServerCoreImageURL
@@ -153,8 +153,8 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
-            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and $env:WindowsServerCoreImageURL -ne "") -or
-                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and $env:WindowsNanoServerImageURL -ne "")) {
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
                 $url=""
                 if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
                     $url=$env:WindowsServerCoreImageURL

@@ -245,6 +245,8 @@ WINDOWS_IMAGE_OFFER="WindowsServer"
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
+windows_servercore_image_url=""
+windows_nanoserver_image_url=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
 	IMPORTED_IMAGE_NAME=""
@@ -288,10 +290,12 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 
 	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
+		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
 	fi
 
 	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
+		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
 	
 	case "${WINDOWS_SKU}" in
@@ -341,8 +345,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
-  "nano_image_url": "${WINDOWS_NANO_IMAGE_URL}",
-  "core_image_url": "${WINDOWS_CORE_IMAGE_URL}"
+  "nano_image_url": "${windows_nanoserver_image_url}",
+  "core_image_url": "${windows_servercore_image_url}"
 }
 EOF
 
