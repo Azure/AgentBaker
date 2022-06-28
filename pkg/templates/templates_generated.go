@@ -623,13 +623,10 @@ configureEtcEnvironment() {
 }
 {{- end}}
 
-{{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA() {
-    openssl x509 -outform pem -in /usr/local/share/ca-certificates/proxyCA.pem -out /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_HTTP_PROXY_CA_CONVERT
-    rm -f /usr/local/share/ca-certificates/proxyCA.pem
+    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
 }
-{{- end}}
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -891,9 +888,6 @@ ensureKubelet() {
     {{- end}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- if ShouldConfigureHTTPProxy}}
-    configureEtcEnvironment
-    {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasAntreaNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
@@ -1171,6 +1165,7 @@ ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
+ERR_GPU_DOWNLOAD_TIMEOUT=83 {{/* Timeout waiting for GPU driver download */}}
 ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
 ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
 ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
@@ -1901,6 +1896,11 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+configureEtcEnvironment
+{{- end}}
+
 {{GetOutboundCommand}}
 
 for i in $(seq 1 3600); do
@@ -1935,10 +1935,6 @@ cleanUpContainerd
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
-
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
-{{- end}}
 
 disableSystemdResolved
 
@@ -3137,6 +3133,15 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
+    # install additional apparmor deps for 2.0
+    if [[ $OS_VERSION == "2.0" ]]; then
+      for dnf_package in apparmor-parser libapparmor; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
 }
 
 downloadGPUDrivers() {
@@ -4236,7 +4241,7 @@ apt_get_purge() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
+        timeout $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -4297,13 +4302,11 @@ var _linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh = []byte(`#!/bin/bash
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
 removeMoby() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-engine moby-cli
+    apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 60 apt-get purge -y moby-containerd
+    apt_get_purge 10 5 300 moby-containerd
 }
 
 installDeps() {
@@ -4318,7 +4321,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.3"
+    BLOBFUSE_VERSION="1.4.4"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
@@ -4350,8 +4353,8 @@ downloadGPUDrivers() {
     fi
 
     mkdir -p ${GPU_DEST}
-    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_APT_INSTALL_TIMEOUT
+    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 }
 
 installSGXDrivers() {
@@ -4711,7 +4714,7 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 set -x
 
 certSource=/opt/certs
@@ -4729,7 +4732,7 @@ else
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
-     if [[ "${currFile:0:14}" != "${currIterationTag}" ]]; then
+     if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
           rm "${file}"
      fi
   done
@@ -5058,11 +5061,12 @@ write_files:
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.pem
+- path: /usr/local/share/ca-certificates/proxyCA.crt
   permissions: "0644"
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+    #EOF
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
@@ -5297,11 +5301,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            {{- if IsIPMasqAgentEnabled}}
             "ipMasq": false,
-            {{- else}}
-            "ipMasq": true,
-            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -5542,12 +5542,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-{{if not IsIPMasqAgentEnabled}}
-    {{if IsAzureCNI}}
-    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
-    {{end}}
-{{end}}
-
     # Disallow container from reaching out to the special IP address 168.63.129.16
     # for TCP protocol (which http uses)
     #

@@ -29,10 +29,11 @@
             "vm_size": "{{user `vm_size`}}",
             "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
-            "image_publisher": "MicrosoftWindowsServer",
-            "image_offer": "WindowsServer",
+            "image_publisher": "{{user `windows_image_publisher`}}",
+            "image_offer": "{{user `windows_image_offer`}}",
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
+            "image_url": "{{user `windows_image_url`}}",
             "resource_group_name": "{{user `resource_group_name`}}",
             "capture_container_name": "aks-vhds-windows-ws2019",
             "capture_name_prefix": "aks-{{user `create_time`}}",
@@ -62,8 +63,7 @@
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
-                "WindowsPatchUrl={{user `windows_patch_url`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
             "scripts": [

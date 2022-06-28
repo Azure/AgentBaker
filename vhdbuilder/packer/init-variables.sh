@@ -7,6 +7,9 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+# Before Packer captured Gen2 disk to a managed image using name "1804Gen2-${CREATE_TIME}" then convert the image to a SIG version "1.0.${CREATE_TIME}",
+# CREATE_TIME is in second, so multiple Gen2 builds in a pipleline could affect each other, use 1.${CREATE_TIME}.$RANDOM to reduce conflicts.
+GEN2_CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
@@ -92,8 +95,13 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 	fi
 	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
-			SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
+			else
+				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+			fi
 		fi
+
 		if [[ "$OS_SKU" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
 		fi
@@ -102,7 +110,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 fi
 
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_os_disk_snapshot_${CREATE_TIME}"
+  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
   # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
@@ -141,6 +149,18 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 				--hyper-v-generation ${HYPERV_GENERATION} \
 				--architecture Arm64 \
 				--location ${AZURE_LOCATION}
+		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+			az sig image-definition create \
+				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+				--gallery-name ${SIG_GALLERY_NAME} \
+				--gallery-image-definition ${SIG_IMAGE_NAME} \
+				--publisher microsoft-aks \
+				--offer ${SIG_GALLERY_NAME} \
+				--sku ${SIG_IMAGE_NAME} \
+				--os-type ${OS_TYPE} \
+				--hyper-v-generation ${HYPERV_GENERATION} \
+				--location ${AZURE_LOCATION} \
+				--features SecurityType=ConfidentialVMSupported
 		else
 			az sig image-definition create \
 				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -160,8 +180,8 @@ else
 	echo "Skipping SIG check for $MODE"
 fi
 
-# Image import from storage account. Required to build CBLMariner images.
-if [[ "$OS_SKU" == "CBLMariner" ]]; then
+# Image import from storage account. Required to build CBLMariner V1 images.
+if [[ "$OS_SKU" == "CBLMariner" && "$OS_VERSION" == "V1" ]]; then
 	if [[ $HYPERV_GENERATION == "V2" ]]; then
 		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
 	elif [[ $HYPERV_GENERATION == "V1" ]]; then
@@ -220,19 +240,25 @@ fi
 
 # windows image sku and windows image version are recorded in code instead of pipeline variables
 # because a pr gives a better chance to take a review of the version changes.
+WINDOWS_IMAGE_PUBLISHER="MicrosoftWindowsServer"
+WINDOWS_IMAGE_OFFER="WindowsServer"
 WINDOWS_IMAGE_SKU=""
 WINDOWS_IMAGE_VERSION=""
+WINDOWS_IMAGE_URL=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
+	IMPORTED_IMAGE_NAME=""
 	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
 	"2019"|"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		IMPORTED_IMAGE_NAME="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
 		;;
 	"2022-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
+		IMPORTED_IMAGE_NAME="windows-2022-imported-${CREATE_TIME}-${RANDOM}"
 		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
@@ -240,13 +266,24 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
-	if [ -n "${WINDOWS_BASE_IMAGE_SKU}" ]; then
-		echo "Setting WINDOWS_IMAGE_SKU to the value in pipeline variables"
-		WINDOWS_IMAGE_SKU=$WINDOWS_BASE_IMAGE_SKU
-	fi
-	if [ -n "${WINDOWS_BASE_IMAGE_VERSION}" ]; then
-		echo "Setting WINDOWS_IMAGE_VERSION to the value in pipeline variables"
-		WINDOWS_IMAGE_VERSION=$WINDOWS_BASE_IMAGE_VERSION
+	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
+
+		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
+
+		echo "Generating sas token to copy Windows base image"
+		expiry_date=$(date -u -d "20 minutes" '+%Y-%m-%dT%H:%MZ')
+		sas_token=$(az storage account generate-sas --account-name ${STORAGE_ACCOUNT_NAME} --permissions cw --account-key "$key" --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
+
+		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
+		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}?${sas_token}"
+
+		# https://www.packer.io/plugins/builders/azure/arm#image_url
+		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
+		WINDOWS_IMAGE_PUBLISHER=""
+		WINDOWS_IMAGE_OFFER=""
+		WINDOWS_IMAGE_SKU=""
+		WINDOWS_IMAGE_VERSION=""
 	fi
 	
 	case "${WINDOWS_SKU}" in
@@ -286,11 +323,15 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
+  "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
+  "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
+  "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
+  "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}"
 }
 EOF
