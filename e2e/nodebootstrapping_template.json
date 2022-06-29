@@ -168,7 +168,6 @@
         "--node-status-update-frequency": "10s",
         "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
         "--pod-manifest-path": "/etc/kubernetes/manifests",
-        "--pod-max-pids": "-1",
         "--protect-kernel-defaults": "true",
         "--read-only-port": "0",
         "--resolv-conf": "/run/systemd/resolve/resolv.conf",
