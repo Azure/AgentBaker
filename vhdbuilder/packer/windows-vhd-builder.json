@@ -82,7 +82,9 @@
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "WindowsNanoServerImageURL={{user `nano_image_url`}}",
+                "WindowsServerCoreImageURL={{user `core_image_url`}}"
             ],
             "type": "powershell",
             "scripts": [
