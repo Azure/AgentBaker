@@ -29,6 +29,7 @@ else
 endif
 endif
 else ifeq (${OS_SKU},CBLMariner)
+ifeq (${OS_VERSION},V1)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-gen2.json
@@ -37,6 +38,18 @@ else ifeq (${MODE},sigMode)
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
+else ifeq (${OS_VERSION},V2)
+ifeq (${MODE},gen2Mode)
+	@echo "${MODE}: Building with Hyper-v generation 2 VM"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
+else ifeq (${MODE},sigMode)
+	$(error sigMode not supported yet)
+else
+	$(error MarinerV2 gen1 VMs are not supported yet)
+endif
+else
+	$(error OS_VERSION was invalid ${OS_VERSION})
 endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
