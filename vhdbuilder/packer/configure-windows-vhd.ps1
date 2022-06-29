@@ -140,6 +140,9 @@ function Get-ContainerImages {
                 Retry-Command -ScriptBlock {
                     & ctr -n k8s.io images import $tmpDest
                 } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
             } else {
                 Write-Log "Pulling image $image"
                 Retry-Command -ScriptBlock {
@@ -170,6 +173,9 @@ function Get-ContainerImages {
                 Retry-Command -ScriptBlock {
                     & docker load -i $tmpDest
                 } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
             } else {
                 Write-Log "Pulling image $image"
                 Retry-Command -ScriptBlock {
