@@ -2227,7 +2227,7 @@ def redact_bootstrap_kubeconfig_tls_token(bootstrap_kubeconfig_write_file):
     bootstrap_kubeconfig_write_file['content'] = yaml.dump(content_yaml)
 
 
-def redact_service_principal_secret(sp_secret_write_file: dict):
+def redact_service_principal_secret(sp_secret_write_file):
     sp_secret_write_file['content'] = REDACTED
 
 
@@ -2266,7 +2266,7 @@ def redact_cloud_config(cloud_config_path, output_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Command line utility used to redact secrets from write_file definitions for ' +
-            str([{", ".join(PATH_TO_REDACT_FUNC)}]) + ' within a specified cloud-config.txt. \
+            str([", ".join(PATH_TO_REDACT_FUNC)]) + ' within a specified cloud-config.txt. \
             These secrets must be redacted before cloud-config.txt can be collected for logging.')
     parser.add_argument(
         "--cloud-config-path",
