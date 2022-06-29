@@ -95,7 +95,6 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
       "amd64OnlyVersions": [
-        "master.211013.1",
         "master.220527.2"
       ],
       "multiArchVersions": []
@@ -111,7 +110,6 @@
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
       "amd64OnlyVersions": [
-        "master.210623.2",
         "master.220527.2"
       ],
       "multiArchVersions": []
@@ -262,7 +260,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.5.0.11",
         "v2.5.0.12"
       ]
     },
@@ -322,11 +319,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [
-        "v3.4.1",
-        "v3.5.2"
+        "v3.4.1"
       ],
       "multiArchVersions": [
-        "v3.7.0",
         "v3.7.1",
         "v3.8.1"
       ]
@@ -388,8 +383,7 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [
-        "prod_20210714.1",
-        "prod_20210909.1"
+        "prod_20210714.1"
       ],
       "multiArchVersions": [
         "prod_20211230.1",
