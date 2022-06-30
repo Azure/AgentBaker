@@ -623,12 +623,10 @@ configureEtcEnvironment() {
 }
 {{- end}}
 
-{{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
 }
-{{- end}}
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -890,9 +888,6 @@ ensureKubelet() {
     {{- end}}
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- if ShouldConfigureHTTPProxy}}
-    configureEtcEnvironment
-    {{- end}}
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
     {{if HasAntreaNetworkPolicy}}
     while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
@@ -1391,9 +1386,7 @@ apt_get_download() {
   local ret=0
   pushd $APT_CACHE_DIR || return 1
   for i in $(seq 1 $retries); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-    apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
+    wait_for_apt_locks; apt-get -o Dpkg::Options::=--force-confold download -y "${@}" && break
     if [ $i -eq $retries ]; then ret=1; else sleep $wait_sleep; fi
   done
   popd || return 1
@@ -1449,6 +1442,15 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
+MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
+
+removeManDbAutoUpdateFlagFile() {
+    rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+}
+
+createManDbAutoUpdateFlagFile() {
+    touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+}
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1903,6 +1905,11 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA
+configureEtcEnvironment
+{{- end}}
+
 {{GetOutboundCommand}}
 
 for i in $(seq 1 3600); do
@@ -1930,6 +1937,9 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+echo "Removing man-db auto-update flag file..."
+removeManDbAutoUpdateFlagFile
+
 {{- if not NeedsContainerd}}
 cleanUpContainerd
 {{- end}}
@@ -1937,10 +1947,6 @@ cleanUpContainerd
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
-
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
-{{- end}}
 
 disableSystemdResolved
 
@@ -2141,6 +2147,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
+
+echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+createManDbAutoUpdateFlagFile
+/usr/bin/mandb && echo "man-db finished updates at $(date)" &
 
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
 REBOOTREQUIRED=false
@@ -4467,28 +4477,26 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+        CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
-        fi
+        fi 
         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-            echo "Failed to locate cached containerd deb"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
 
 downloadContainerdFromVersion() {
+    #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
-    updateAptWithMicrosoftPkg
-    mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
+    downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
 }
 
 downloadContainerdFromURL() {
@@ -4556,7 +4564,6 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
-        return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
