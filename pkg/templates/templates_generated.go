@@ -1442,6 +1442,15 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
+MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
+
+removeManDbAutoUpdateFlagFile() {
+    rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+}
+
+createManDbAutoUpdateFlagFile() {
+    touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
+}
 
 cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
@@ -1928,6 +1937,9 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+echo "Removing man-db auto-update flag file..."
+removeManDbAutoUpdateFlagFile
+
 {{- if not NeedsContainerd}}
 cleanUpContainerd
 {{- end}}
@@ -2135,6 +2147,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
+
+echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+createManDbAutoUpdateFlagFile
+/usr/bin/mandb && echo "man-db finished updates at $(date)" &
 
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
 REBOOTREQUIRED=false
