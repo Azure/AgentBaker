@@ -396,7 +396,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.0",
-        "1.5.1",
         "1.5.2"
       ]
     },
