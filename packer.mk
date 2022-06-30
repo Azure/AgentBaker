@@ -81,8 +81,6 @@ run-packer-windows: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
 az-copy: az-login
-	@chmod a+x ./vhdbuilder/packer/generate-test-sas-and-copy.sh
-	@./vhdbuilder/packer/generate-test-sas-and-copy.sh
 #	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
 
 cleanup: az-login
