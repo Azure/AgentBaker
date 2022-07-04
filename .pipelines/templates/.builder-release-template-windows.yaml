@@ -144,11 +144,15 @@ steps:
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
   - bash: |
       echo MODE=$(MODE) && \
-      OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
+      if [[ $(MODE) == "gen2Mode" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
+      [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
+      SKU_NAME="windows-$WINDOWS_SKU-gen2"; \
+      else \
+      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
+      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
+      SKU_NAME="windows-$WINDOWS_SKU"; fi && \
       WINDOWS_VERSION="$(grep -a "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
       IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}" && \
-      SKU_NAME="windows-$WINDOWS_SKU" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
