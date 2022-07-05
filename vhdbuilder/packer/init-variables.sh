@@ -253,6 +253,7 @@ windows_nanoserver_image_url=""
 IMPORTED_IMAGE_NAME=""
 # shellcheck disable=SC2236
 if [ ! -z "${WINDOWS_SKU}" ]; then
+	IMPORTED_IMAGE_NAME=""
 	source $CDIR/windows-image.env
 	case "${WINDOWS_SKU}" in
 	"2019"|"2019-containerd")
@@ -303,6 +304,16 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		WINDOWS_IMAGE_OFFER=""
 		WINDOWS_IMAGE_SKU=""
 		WINDOWS_IMAGE_VERSION=""
+	fi
+
+	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
+		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
+		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
+	fi
+
+	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
+		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
+		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
 	
 	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
