@@ -195,6 +195,7 @@ stages:
             OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
             VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
             SKU_NAME=$OS_VERSION; fi && \
+            if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" && ${OS_SKU} == "CBLMariner" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
             if [[ ${OS_VERSION} == "18.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
             if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
             if [[ "${FEATURE_FLAGS}" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \

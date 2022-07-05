@@ -84,10 +84,6 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No FIPS support on arm64, exiting..."
     exit 1
   fi
-  if [[ $OS == $MARINER_OS_NAME ]]; then
-    echo "No arm64 support for Mariner OS, exiting..."
-    exit 1
-  fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
