@@ -136,7 +136,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "ciprod05192022",
-        "ciprod06142022"
+        "ciprod06272022"
       ]
     },
     {
@@ -396,7 +396,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.4.0",
-        "1.5.1",
         "1.5.2"
       ]
     },
