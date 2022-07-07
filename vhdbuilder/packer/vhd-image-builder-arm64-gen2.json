@@ -45,16 +45,7 @@
       "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
       "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
-      "shared_image_gallery_destination": {
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
-        "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `gen2_captured_sig_version`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
-      }
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}"
     }
   ],
   "provisioners": [
