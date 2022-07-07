@@ -6,6 +6,7 @@ ifeq (${ARCHITECTURE},ARM64)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+	@echo "ManagedImageSharedImageGalleryId: /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
 	@echo "${MODE}: Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
 else ifeq (${MODE},sigMode)
