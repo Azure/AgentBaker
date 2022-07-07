@@ -315,16 +315,6 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
-	
-	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
-		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
-		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
-	fi
-
-	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
-		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
-		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
-	fi
 
 	case "${WINDOWS_SKU}" in
 	"2019")
