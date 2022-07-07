@@ -6248,6 +6248,9 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 $global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
 
+# Disable OutBoundNAT of Azure CNI configuration from Windows nodes
+$global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 

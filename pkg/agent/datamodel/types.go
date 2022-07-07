@@ -417,6 +417,7 @@ type WindowsProfile struct {
 	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
 	WindowsGmsaPackageUrl         string                     `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL          string                     `json:"cseScriptsPackageURL,omitempty"`
+	DisableWindowsOutboundNat     *bool                      `json:"disableWindowsOutboundNat,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -1153,6 +1154,11 @@ func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 		return *w.WindowsSecureTlsEnabled
 	}
 	return DefaultWindowsSecureTlsEnabled
+}
+
+// IsDisableWindowsOutboundNat returns true if it needs to disable OutBoundNAT of Azure CNI configuration from Windows nodes
+func (w *WindowsProfile) IsDisableWindowsOutboundNat() bool {
+	return w.DisableWindowsOutboundNat != nil && *w.DisableWindowsOutboundNat
 }
 
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
