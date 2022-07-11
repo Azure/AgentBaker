@@ -73,6 +73,25 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   fi
 fi
 
+#cleanup managed image sig image version
+if [[ -n "${WINDOWS_SKU}" ]]; then
+   echo "Windows SKU is ${WINDOWS_SKU}"
+   MANAGED_IMAGE_SIG_NAME=${WINDOWS_SKU}
+   versions=$(az sig image-version list -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
+   for version in $versions; do
+       az sig image-version show -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
+       echo "Deleting sig image-version ${version} ${MANAGED_IMAGE_SIG_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+       az sig image-version delete -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+       #double confirm
+       id=$(az sig image-version show -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+       if [ -n "$id" ]; then
+          echo "Deleting sig image-version $version failed"
+       else 
+          echo "Deletion of sig image-version $version completed"
+       fi
+   done
+fi
+
 #clean up arm64 OS disk snapshot
 if [ ${ARCHITECTURE,,} == "arm64" ] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
   id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
