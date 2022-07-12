@@ -463,7 +463,7 @@
       ]
     },
     {
-      "fileName": "azure-vnet-cni-swift-windows-amd64-v*.zip",
+      "fileName": "azure-vnet-cni-singletenancy-swift-windows-amd64-v*.zip",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
