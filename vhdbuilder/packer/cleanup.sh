@@ -92,6 +92,26 @@ if [[ -n "${WINDOWS_SKU}" ]]; then
    done
 fi
 
+#cleanup managed image sig image definition
+if [[ -n "${WINDOWS_SKU}" ]]; then
+   echo "Windows SKU is ${WINDOWS_SKU}"
+   MANAGED_IMAGE_SIG_NAME=${WINDOWS_SKU}
+   if [[ -n "${MANAGED_IMAGE_SIG_NAME}" ]]; then
+     id=$(az sig image-definition show --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+     if [ -n "$id" ]; then
+        echo "Deleting sig image-definition ${MANAGED_IMAGE_SIG_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+        az sig image-definition delete --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
+        #double confirm
+        id=$(az sig image-definition show --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+        if [ -n "$id" ]; then
+           echo "Deleting sig image-definition ${MANAGED_IMAGE_SIG_NAME} failed"
+        else 
+           echo "Deletion of sig image-definition ${MANAGED_IMAGE_SIG_NAME} completed"
+        fi
+     fi
+   fi
+fi
+
 #clean up arm64 OS disk snapshot
 if [ ${ARCHITECTURE,,} == "arm64" ] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
   id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
