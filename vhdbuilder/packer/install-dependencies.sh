@@ -277,9 +277,10 @@ AMD64_ONLY_CNI_VERSIONS="
 "
 #Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
-1.4.14
-1.4.21
 1.4.22
+1.4.27
+1.4.28
+1.4.29
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -306,8 +307,10 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 "
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
-1.4.21
 1.4.22
+1.4.27
+1.4.28
+1.4.29
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -322,12 +325,18 @@ fi
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
+    if [[ $(isARM64) != 1 ]]; then
+      VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-windows-amd64-v${VNET_CNI_VERSION}.zip"
+      downloadAzureCNI
+    fi
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 
 OVERLAY_CNI_VERSIONS="
 1.4.27
+1.4.28
+1.4.29
 "
 
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do

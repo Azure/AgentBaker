@@ -83,13 +83,19 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.22",
-        "v1.4.27"
+        "v1.4.27",
+        "v1.4.28",
+        "v1.4.29"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "v1.4.22",
+        "v1.4.27",
+        "v1.4.29"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
@@ -445,9 +451,10 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.14",
-        "1.4.21",
-        "1.4.22"
+        "1.4.22",
+        "1.4.27",
+        "1.4.28",
+        "1.4.29"
       ]
     },
     {
@@ -456,9 +463,20 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.2.7",
-        "1.4.12",
-        "1.4.21",
-        "1.4.22"
+        "1.4.22",
+        "1.4.27",
+        "1.4.28",
+        "1.4.29"
+      ]
+    },
+    {
+      "fileName": "azure-vnet-cni-swift-windows-amd64-v*.zip",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
+      "versions": [
+        "1.4.27",
+        "1.4.28",
+        "1.4.29"
       ]
     },
     {
@@ -466,7 +484,9 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.27"
+        "1.4.27",
+        "1.4.28",
+        "1.4.29"
       ]
     },
     {
