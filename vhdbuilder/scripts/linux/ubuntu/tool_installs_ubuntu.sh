@@ -39,7 +39,7 @@ installBcc() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [[ "${VERSION}" == "22.04" ]]; then
-        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm11 llvm-11-dev libclang-cpp11 zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
