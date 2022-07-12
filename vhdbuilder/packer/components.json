@@ -84,7 +84,6 @@
       "multiArchVersions": [
         "v1.4.22",
         "v1.4.27",
-        "v1.4.28",
         "v1.4.29"
       ]
     },
@@ -92,8 +91,6 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.22",
-        "v1.4.27",
         "v1.4.29"
       ]
     },
@@ -452,8 +449,6 @@
       "versions": [
         "1.2.7",
         "1.4.22",
-        "1.4.27",
-        "1.4.28",
         "1.4.29"
       ]
     },
@@ -464,8 +459,6 @@
       "versions": [
         "1.2.7",
         "1.4.22",
-        "1.4.27",
-        "1.4.28",
         "1.4.29"
       ]
     },
@@ -474,8 +467,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.27",
-        "1.4.28",
         "1.4.29"
       ]
     },
@@ -485,7 +476,6 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.4.27",
-        "1.4.28",
         "1.4.29"
       ]
     },

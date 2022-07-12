@@ -192,11 +192,7 @@ $global:map = @{
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.22.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.27/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.27.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.28/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.28.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.29/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.29.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.27/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.27.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.28/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.28.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.29/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.29.zip"
     );
     "c:\akse-cache\calico\" = @(
