@@ -17,10 +17,6 @@ parameters:
   displayName: Build 2022 containerd
   type: boolean
   default: True
-- name: build2019containerdgen2
-  displayName: Build 2019 containerd Gen 2
-  type: boolean
-  default: True
 - name: build2022containerdgen2
   displayName: Build 2022 containerd Gen 2
   type: boolean
