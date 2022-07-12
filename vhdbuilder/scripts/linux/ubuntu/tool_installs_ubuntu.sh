@@ -62,7 +62,11 @@ installBcc() {
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
     apt list --installed | grep cloud
-    apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    if [[ "${VERSION}" == "22.04" ]]; then
+        apt_get_install 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    else
+        apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
 }
 
 configGPUDrivers() {
