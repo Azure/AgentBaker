@@ -102,8 +102,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.27",
-        "v0.0.30"
+        "v0.0.30",
+        "v0.0.32"
       ]
     },
     {
