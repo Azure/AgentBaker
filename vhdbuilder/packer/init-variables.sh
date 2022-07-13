@@ -286,6 +286,25 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	echo "GEN2 BASE IMAGE URL ${WINDOWS_GEN2_BASE_IMAGE_URL}"
 	echo "BASE IMAGE URL ${WINDOWS_BASE_IMAGE_URL}"
 
+	if [[ "${WINDOWS_GEN2_BASE_IMAGE_URL}" ]]; then
+		echo "WINDOWS_GEN2_BASE_IMAGE_URL is set in pipeline variables"
+		echo "GEN2 BASE IMAGE URL ${WINDOWS_GEN2_BASE_IMAGE_URL}"
+	fi
+
+	if [ "${WINDOWS_GEN2_BASE_IMAGE_URL}" ]; then
+		echo "WINDOWS_GEN2_BASE_IMAGE_URL is set in pipeline variables"
+		echo "GEN2 BASE IMAGE URL ${WINDOWS_GEN2_BASE_IMAGE_URL}"
+	fi
+
+	if [[ $HYPERV_GENERATION == "V2" ]]; then
+	   echo "gen 2 base ${WINDOWS_GEN2_BASE_IMAGE_URL}"
+	   if [[ -z "${WINDOWS_GEN2_BASE_IMAGE_URL}" ]]; then
+	       WINDOWS_BASE_IMAGE_URL="" 
+       fi
+	fi
+
+	echo "${WINDOWS_2022_GEN2_BASE_IMAGE_URL}"
+
 	if [ "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 		echo "base image url ${WINDOWS_BASE_IMAGE_URL}"
