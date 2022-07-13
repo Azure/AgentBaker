@@ -274,7 +274,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
-
+		echo "base image url ${WINDOWS_BASE_IMAGE_URL}"
 		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
 
 		echo "Generating sas token to copy Windows base image"
