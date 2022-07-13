@@ -308,6 +308,10 @@ MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.22
 1.4.29
 "
+# Windows Swift CNI has binaries and container images for AMD64 from 1.4.29
+WINDOWS_SWIFT_CNI_VERSIONS="
+1.4.29
+"
 
 if [[ $(isARM64) == 1 ]]; then
   ARM64_SWIFT_CNI_VERSIONS_IN_USE="
@@ -321,11 +325,15 @@ fi
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
+    echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+for VNET_CNI_VERSION in $WINDOWS_SWIFT_CNI_VERSIONS; do
     if [[ $(isARM64) != 1 ]]; then
       VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v${VNET_CNI_VERSION}.zip"
       downloadAzureCNI
     fi
-    echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+    echo "  - Azure Windows Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 
