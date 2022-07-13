@@ -272,6 +272,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
+	echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
 	if [[ -n "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]]; then
 		echo "WINDOWS_GEN1_BASE_IMAGE_URL is set in pipeline variables"
 		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
@@ -282,9 +283,13 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
 	fi
 
+	echo "GEN2 BASE IMAGE URL ${WINDOWS_GEN2_BASE_IMAGE_URL}"
+	echo "BASE IMAGE URL ${WINDOWS_BASE_IMAGE_URL}"
+
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 		echo "base image url ${WINDOWS_BASE_IMAGE_URL}"
+		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
 		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
 
 		echo "Generating sas token to copy Windows base image"
