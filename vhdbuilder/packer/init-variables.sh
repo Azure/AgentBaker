@@ -272,6 +272,16 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
+	if [[ -n "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]]; then
+		echo "WINDOWS_GEN1_BASE_IMAGE_URL is set in pipeline variables"
+		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
+	fi
+
+    if [ -n "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]; then
+		echo "WINDOWS_GEN1_BASE_IMAGE_URL is set in pipeline variables"
+		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
+	fi
+
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 		echo "base image url ${WINDOWS_BASE_IMAGE_URL}"
