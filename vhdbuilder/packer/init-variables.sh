@@ -303,6 +303,16 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		   # if that variable was not explicitly set in the pipeline run
 	       WINDOWS_BASE_IMAGE_URL="" 
        fi
+
+	   echo "gen 2 nano ${WINDOWS_2022_GEN2_NANO_IMAGE_URL}"
+	   if [[ -z "${WINDOWS_2022_GEN2_NANO_IMAGE_URL}" ]]; then
+	       WINDOWS_NANO_IMAGE_URL="" 
+       fi
+
+	   echo "gen2 server core ${WINDOWS_2022_GEN2_CORE_IMAGE_URL}"
+	   if [[ -z "${WINDOWS_2022_GEN2_CORE_IMAGE_URL}" ]]; then
+	       WINDOWS_CORE_IMAGE_URL="" 
+       fi
 	fi
 
 	echo "${WINDOWS_2022_GEN2_BASE_IMAGE_URL}"
