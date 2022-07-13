@@ -4,7 +4,8 @@
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.13-3"
+            "1.4.13-3",
+            "1.6.4-4"
         ],
         "edge": "1.6.4-4",
         "latest": "1.5.11-2",
