@@ -273,12 +273,12 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	esac
 
 	echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
-	if [[ -n "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]]; then
+	if [[ "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]]; then
 		echo "WINDOWS_GEN1_BASE_IMAGE_URL is set in pipeline variables"
 		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
 	fi
 
-    if [ -n "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]; then
+    if [ "${WINDOWS_GEN1_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_GEN1_BASE_IMAGE_URL is set in pipeline variables"
 		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
 	fi
@@ -286,7 +286,7 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 	echo "GEN2 BASE IMAGE URL ${WINDOWS_GEN2_BASE_IMAGE_URL}"
 	echo "BASE IMAGE URL ${WINDOWS_BASE_IMAGE_URL}"
 
-	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+	if [ "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 		echo "base image url ${WINDOWS_BASE_IMAGE_URL}"
 		echo "GEN1 BASE IMAGE URL ${WINDOWS_GEN1_BASE_IMAGE_URL}"
@@ -307,12 +307,12 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		WINDOWS_IMAGE_VERSION=""
 	fi
 
-	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
+	if [ "${WINDOWS_NANO_IMAGE_URL}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
 		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
 	fi
 
-	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
+	if [ "${WINDOWS_CORE_IMAGE_URL}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
