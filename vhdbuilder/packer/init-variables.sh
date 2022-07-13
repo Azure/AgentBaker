@@ -298,7 +298,9 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 
 	if [[ $HYPERV_GENERATION == "V2" ]]; then
 	   echo "gen 2 base ${WINDOWS_GEN2_BASE_IMAGE_URL}"
-	   if [[ -z "${WINDOWS_GEN2_BASE_IMAGE_URL}" ]]; then
+	   if [[ -z "${WINDOWS_2022_GEN2_BASE_IMAGE_URL}" ]]; then
+	       # we find that ${WINDOWS_GEN2_BASE_IMAGE_URL} was set to $(WINDOWS_2022_GEN2_BASE_IMAGE_URL)
+		   # if that variable was not explicitly set in the pipeline run
 	       WINDOWS_BASE_IMAGE_URL="" 
        fi
 	fi
