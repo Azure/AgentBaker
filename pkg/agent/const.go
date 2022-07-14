@@ -48,8 +48,6 @@ const (
 	kubernetesCSEInstallUbuntu        = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 	kubernetesCSEInstallMariner       = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
 	kubernetesCSEConfig               = "linux/cloud-init/artifacts/cse_config.sh"
-	kubernetesCSESendLogs             = "linux/cloud-init/artifacts/cse_send_logs.py"
-	kubernetesCSERedactCloudConfig    = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
 	kubernetesCISScript               = "linux/cloud-init/artifacts/cis.sh"
 	kubernetesHealthMonitorScript     = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
@@ -59,7 +57,6 @@ const (
 	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
 	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
-	syncTunnelLogsScript                      = "linux/cloud-init/artifacts/sync-tunnel-logs.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
 	krustletSystemdService                    = "linux/cloud-init/artifacts/krustlet.service"
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
