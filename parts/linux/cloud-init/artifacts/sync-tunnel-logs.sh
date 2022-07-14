@@ -4,7 +4,11 @@ SRC=/var/log/containers
 DST=/var/log/azure/aks/pods
 
 # Install inotify-tools if they're missing from the image
+{{- if IsMariner }}
+command -v inotifywait >/dev/null 2>&1 || dnf install -y inotify-tools
+{{- else }}
 command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y install inotify-tools
+{{end}}
 
 # Set globbing options so that compgen grabs only the logs we want
 shopt -s extglob

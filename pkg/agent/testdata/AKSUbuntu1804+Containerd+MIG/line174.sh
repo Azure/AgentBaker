@@ -6,6 +6,7 @@ DST=/var/log/azure/aks/pods
 # Install inotify-tools if they're missing from the image
 command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y install inotify-tools
 
+
 # Set globbing options so that compgen grabs only the logs we want
 shopt -s extglob
 shopt -s nullglob
