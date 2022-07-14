@@ -281,18 +281,16 @@ addNvidiaAptRepo() {
         return
     fi
     local release=$(lsb_release -r -s)
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | gpg --dearmor > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/aptnvidia.gpg /etc/apt/trusted.gpg.d || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
     retrycmd_if_failure_no_stats 120 5 25 cat /tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    if [[ "${release}" == "22.04" ]]; then
-        cd /etc/apt
-        cp trusted.gpg trusted.gpg.d
-        cd ../..
-    fi
+    # if [[ "${release}" == "22.04" ]]; then
+    #     cp /etc/apt/trusted.gpg /etc/apt/trusted.gpg.d
+    # fi
     apt_get_update
 }
 
