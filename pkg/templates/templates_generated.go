@@ -16,6 +16,8 @@
 // linux/cloud-init/artifacts/cse_helpers.sh
 // linux/cloud-init/artifacts/cse_install.sh
 // linux/cloud-init/artifacts/cse_main.sh
+// linux/cloud-init/artifacts/cse_redact_cloud_config.py
+// linux/cloud-init/artifacts/cse_send_logs.py
 // linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/disk_queue.service
@@ -56,6 +58,7 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
+// linux/cloud-init/artifacts/sync-tunnel-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
@@ -66,6 +69,7 @@
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
+// windows/sendlogs.ps1
 // windows/windowscsehelper.ps1
 package templates
 
@@ -1896,6 +1900,22 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+# Setup logs for upload to host
+LOG_DIR=/var/log/azure/aks
+mkdir -p ${LOG_DIR}
+ln -s /var/log/azure/cluster-provision.log \
+      /var/log/azure/cluster-provision-cse-output.log \
+      /opt/azure/*.json \
+      /opt/azure/cloud-init-files.paved \
+      /opt/azure/vhd-install.complete \
+      ${LOG_DIR}/
+
+# Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
+# when cloud-config.txt gets included within log bundles
+python3 /opt/azure/containers/provision_redact_cloud_config.py \
+    --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
+    --output-path ${LOG_DIR}/cloud-config.txt
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -2067,6 +2087,9 @@ ensureContainerd {{/* containerd should not be configured until cni has been con
 ensureDocker
 {{- end}}
 
+# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
+systemctlEnableAndStart sync-tunnel-logs
+
 ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
@@ -2191,8 +2214,154 @@ func linuxCloudInitArtifactsCse_mainSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsCse_redact_cloud_configPy = []byte(`import yaml
+import argparse
+
+# String value used to replace secret data
+REDACTED = 'REDACTED'
+
+# Redact functions
+def redact_bootstrap_kubeconfig_tls_token(bootstrap_kubeconfig_write_file):
+    content_yaml = yaml.safe_load(bootstrap_kubeconfig_write_file['content'])
+    content_yaml['users'][0]['user']['token'] = REDACTED
+    bootstrap_kubeconfig_write_file['content'] = yaml.dump(content_yaml)
+
+
+def redact_service_principal_secret(sp_secret_write_file):
+    sp_secret_write_file['content'] = REDACTED
+
+
+# Maps write_file's path to the corresponding function used to redact it within cloud-config.txt
+# This script will always redact these write_files if they exist within the specified cloud-config.txt
+PATH_TO_REDACT_FUNC = {
+    '/var/lib/kubelet/bootstrap-kubeconfig': redact_bootstrap_kubeconfig_tls_token,
+    '/etc/kubernetes/sp.txt': redact_service_principal_secret
+}
+
+
+def redact_cloud_config(cloud_config_path, output_path):
+    target_paths = set(PATH_TO_REDACT_FUNC.keys())
+
+    with open(cloud_config_path, 'r') as f:
+        cloud_config_data = f.read()
+    cloud_config = yaml.safe_load(cloud_config_data)
+
+    for write_file in cloud_config['write_files']:
+        if write_file['path'] in target_paths:
+            target_path = write_file['path']
+            target_paths.remove(target_path)
+
+            print('Redacting secrets from write_file: ' + target_path)
+            PATH_TO_REDACT_FUNC[target_path](write_file)
+
+        if len(target_paths) == 0:
+            break
+
+
+    print('Dumping redacted cloud-config to: ' + output_path)
+    with open(output_path, 'w+') as output_file:
+        output_file.write(yaml.dump(cloud_config))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Command line utility used to redact secrets from write_file definitions for ' +
+            str([", ".join(PATH_TO_REDACT_FUNC)]) + ' within a specified cloud-config.txt. \
+            These secrets must be redacted before cloud-config.txt can be collected for logging.')
+    parser.add_argument(
+        "--cloud-config-path",
+        required=True,
+        type=str,
+        help='Path to cloud-config.txt to redact')
+    parser.add_argument(
+        "--output-path",
+        required=True,
+        type=str,
+        help='Path to the newly generated cloud-config.txt with redacted secrets')
+
+    args = parser.parse_args()
+    redact_cloud_config(args.cloud_config_path, args.output_path)`)
+
+func linuxCloudInitArtifactsCse_redact_cloud_configPyBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_redact_cloud_configPy, nil
+}
+
+func linuxCloudInitArtifactsCse_redact_cloud_configPy() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_redact_cloud_configPyBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_redact_cloud_config.py", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCse_send_logsPy = []byte(`#! /usr/bin/env python3
+
+import urllib3
+import uuid
+import xml.etree.ElementTree as ET
+
+http = urllib3.PoolManager()
+
+# Get the container_id and deployment_id from the Goal State
+goal_state_xml = http.request(
+        'GET',
+        'http://168.63.129.16/machine/?comp=goalstate',
+        headers={
+            'x-ms-version': '2012-11-30'
+        }
+    )
+goal_state = ET.fromstring(goal_state_xml.data.decode('utf-8'))
+container_id = goal_state.findall('./Container/ContainerId')[0].text
+role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
+deployment_id = role_config_name.split('.')[0]
+
+# Upload the logs
+with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
+    logs_data = logs.read()
+    upload_logs = http.request(
+        'PUT',
+        'http://168.63.129.16:32526/vmAgentLog',
+        headers={
+            'x-ms-version': '2015-09-01',
+            'x-ms-client-correlationid': str(uuid.uuid4()),
+            'x-ms-client-name': 'AKSCSEPlugin',
+            'x-ms-client-version': '0.1.0',
+            'x-ms-containerid': container_id,
+            'x-ms-vmagentlog-deploymentid': deployment_id,
+        },
+        body=logs_data,
+    )
+
+if upload_logs.status == 200:
+    print("Successfully uploaded logs")
+    exit(0)
+else:
+    print('Failed to upload logs')
+    print(f'Response status: {upload_logs.status}')
+    print(f'Response body:\n{upload_logs.data.decode("utf-8")}')
+    exit(1)
+`)
+
+func linuxCloudInitArtifactsCse_send_logsPyBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCse_send_logsPy, nil
+}
+
+func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCse_send_logsPyBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cse_send_logs.py", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
-/bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
@@ -2213,7 +2382,26 @@ JSON_STRING=$( jq -n \
                   --arg ss "$SYSTEMD_SUMMARY" \
                   --arg kubelet "$KUBELET_START_TIME" \
                   '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
-echo $JSON_STRING
+mkdir -p /var/log/azure/aks
+echo $JSON_STRING | tee /var/log/azure/aks/provision.json
+
+# force a log upload to the host after the provisioning script finishes
+# if we failed, wait for the upload to complete so that we don't remove
+# the VM before it finishes. if we succeeded, upload in the background
+# so that the provisioning script returns success more quickly
+upload_logs() {
+    # find the most recent version of WALinuxAgent and use it to collect logs per
+    # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
+    PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
+    python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+    python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
+}
+if [ $EXIT_CODE -ne 0 ]; then
+    upload_logs
+else
+    upload_logs &
+fi
+
 exit $EXIT_CODE`)
 
 func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
@@ -4148,6 +4336,74 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
+
+SRC=/var/log/containers
+DST=/var/log/azure/aks/pods
+
+# Install inotify-tools if they're missing from the image
+command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y install inotify-tools
+
+# Set globbing options so that compgen grabs only the logs we want
+shopt -s extglob
+shopt -s nullglob
+
+# Wait for /var/log/containers to exist
+if [ ! -d $SRC ]; then
+  echo -n "Waiting for $SRC to exist..."
+  while [ ! -d $SRC ]; do
+    sleep 15
+    echo -n "."
+  done
+  echo "done."
+fi
+
+# Make the destination directory if not already present
+mkdir -p $DST
+
+# Start a background process to clean up logs from deleted pods that
+# haven't been modified in 2 hours. This allows us to retain tunnel pod
+# logs after a restart.
+while true; do
+  find /var/log/azure/aks/pods -type f -links 1 -mmin +120 -delete
+  sleep 3600
+done &
+
+# Manually sync all matching logs once
+for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|konnectivity|tunnelfront)-*_kube-system_*.log"); do
+   echo "Linking $TUNNEL_LOG_FILE"
+   /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
+done
+echo "Starting inotifywait..."
+
+# Monitor for changes
+inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
+    case $FILE in
+        aks-link-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+            case $EVENT in
+                CREATE*)
+                    echo "Linking $FILE"
+                    /bin/ln -Lf "$DIRECTORY/$FILE" "$DST/$FILE"
+                    ;;
+            esac;;
+    esac
+done`)
+
+func linuxCloudInitArtifactsSyncTunnelLogsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncTunnelLogsSh, nil
+}
+
+func linuxCloudInitArtifactsSyncTunnelLogsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
@@ -4354,7 +4610,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -4663,8 +4919,7 @@ installNvidiaDocker() {
     popd
 }
 
-#EOF
-`)
+#EOF`)
 
 func linuxCloudInitArtifactsUbuntuCse_install_ubuntuShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, nil
@@ -4844,6 +5099,20 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
+
+- path: /opt/azure/containers/provision_redact_cloud_config.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
+
+- path: /opt/azure/containers/provision_send_logs.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
 
 {{if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
@@ -5187,6 +5456,28 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 {{end}}
+
+- path: /etc/systemd/system/sync-tunnel-logs.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+    After=containerd.service
+
+    [Service]
+    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+
+- path: /opt/azure/containers/sync-tunnel-logs.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
@@ -5683,8 +5974,7 @@ runcmd:
 - set -x
 - . {{GetCSEHelpersScriptFilepath}}
 - . {{GetCSEHelpersScriptDistroFilepath}}
-- aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}
-`)
+- aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}`)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
 	return _linuxCloudInitNodecustomdataYml, nil
@@ -6276,6 +6566,60 @@ func windowsKuberneteswindowssetupPs1() (*asset, error) {
 	return a, nil
 }
 
+var _windowsSendlogsPs1 = []byte(`<#
+    .SYNOPSIS
+        Uploads a log bundle to the host for retrieval via GuestVMLogs.
+
+    .DESCRIPTION
+        Uploads a log bundle to the host for retrieval via GuestVMLogs.
+
+        Takes a parameter of a ZIP file name to upload, which is sent to the HostAgent
+        via the /vmAgentLog endpoint.
+#>
+[CmdletBinding()]
+param(
+    [string]
+    [ValidateScript({Test-Path $_})]
+    $Path
+)
+
+$GoalStateArgs = @{
+    "Method"="Get";
+    "Uri"="http://168.63.129.16/machine/?comp=goalstate";
+    "Headers"=@{"x-ms-version"="2012-11-30"}
+}
+$GoalState = $(Invoke-RestMethod @GoalStateArgs).GoalState
+
+$UploadArgs = @{
+    "Method"="Put";
+    "Uri"="http://168.63.129.16:32526/vmAgentLog";
+    "InFile"=$Path;
+    "Headers"=@{
+        "x-ms-version"="2015-09-01";
+        "x-ms-client-correlationid"="";
+        "x-ms-client-name"="AKSCSEPlugin";
+        "x-ms-client-version"="0.1.0";
+        "x-ms-containerid"=$GoalState.Container.ContainerId;
+        "x-ms-vmagentlog-deploymentid"=($GoalState.Container.RoleInstanceList.RoleInstance.Configuration.ConfigName -split "\.")[0]
+    }
+}
+Invoke-RestMethod @UploadArgs`)
+
+func windowsSendlogsPs1Bytes() ([]byte, error) {
+	return _windowsSendlogsPs1, nil
+}
+
+func windowsSendlogsPs1() (*asset, error) {
+	bytes, err := windowsSendlogsPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/sendlogs.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _windowsWindowscsehelperPs1 = []byte(`# This script is used to define basic util functions
 # It is better to define functions in the scripts under staging/cse/windows.
 
@@ -6593,6 +6937,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
 	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
 	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
+	"linux/cloud-init/artifacts/cse_redact_cloud_config.py":                linuxCloudInitArtifactsCse_redact_cloud_configPy,
+	"linux/cloud-init/artifacts/cse_send_logs.py":                          linuxCloudInitArtifactsCse_send_logsPy,
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
@@ -6633,6 +6979,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
+	"linux/cloud-init/artifacts/sync-tunnel-logs.sh":                       linuxCloudInitArtifactsSyncTunnelLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
@@ -6643,6 +6990,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
+	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
 }
 
@@ -6706,6 +7054,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
 				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
 				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"cse_redact_cloud_config.py":                &bintree{linuxCloudInitArtifactsCse_redact_cloud_configPy, map[string]*bintree{}},
+				"cse_send_logs.py":                          &bintree{linuxCloudInitArtifactsCse_send_logsPy, map[string]*bintree{}},
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
@@ -6748,6 +7098,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
+				"sync-tunnel-logs.sh":             &bintree{linuxCloudInitArtifactsSyncTunnelLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
@@ -6764,6 +7115,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"windows": &bintree{nil, map[string]*bintree{
 		"csecmd.ps1":                 &bintree{windowsCsecmdPs1, map[string]*bintree{}},
 		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
+		"sendlogs.ps1":               &bintree{windowsSendlogsPs1, map[string]*bintree{}},
 		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
 	}},
 }}
