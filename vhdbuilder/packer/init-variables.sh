@@ -253,15 +253,38 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 	echo "Set the base image sku and version from windows-image.env"
 	case "${WINDOWS_SKU}" in
-	"2019"|"2019-containerd")
+	"2019")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
 		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2019-containerd")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		imported_windows_image_name="windows-2019-containerd-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
 		;;
 	"2022-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2022-imported-${CREATE_TIME}-${RANDOM}"
+		imported_windows_image_name="windows-2022-containerd-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
 		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
@@ -339,32 +362,6 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
-
-	echo "Set OS disk size"
-	case "${WINDOWS_SKU}" in
-	"2019")
-		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2019-containerd")
-		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2022-containerd")
-		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		;;
-	*)
-		echo "unsupported windows sku: ${WINDOWS_SKU}"
-		exit 1
-		;;
-	esac
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
