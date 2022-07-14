@@ -160,26 +160,28 @@ installStandaloneContainerd() {
         removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_TMP="moby-containerd_${CONTAINERD_VERSION/-/\~}+azure-${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
-        CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
-        fi 
+        fi
         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+            echo "Failed to locate cached containerd deb"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
 
 downloadContainerdFromVersion() {
-    #containerd has arm64 binaries from 1.4.4 or later on moby.blob.core.windows.net
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CONTAINERD_VERSION=$1
-    # currently upstream maintains the package on a storage endpoint rather than an actual apt repo
-    CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_DOWNLOAD_URL="https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb"
-    downloadContainerdFromURL $CONTAINERD_DOWNLOAD_URL
+    updateAptWithMicrosoftPkg
+    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromURL() {
@@ -246,6 +248,7 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+        return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
