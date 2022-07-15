@@ -1957,11 +1957,14 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+# Bring in OS-related vars
+source /etc/os-release
+
 # Mandb is not currently available on MarinerV1
-{{- if not IsMariner}}
-echo "Removing man-db auto-update flag file..."
-removeManDbAutoUpdateFlagFile
-{{- end}}
+if [[ ${ID} != "mariner" ]]; then
+    echo "Removing man-db auto-update flag file..."
+    removeManDbAutoUpdateFlagFile
+fi
 
 {{- if not NeedsContainerd}}
 cleanUpContainerd
@@ -2174,11 +2177,11 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-{{- if not IsMariner}}
-echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
-createManDbAutoUpdateFlagFile
-/usr/bin/mandb && echo "man-db finished updates at $(date)" &
-{{- end}}
+if [[ ${ID} != "mariner" ]]; then
+    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+    createManDbAutoUpdateFlagFile
+    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+fi
 
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
 REBOOTREQUIRED=false
@@ -4346,12 +4349,15 @@ var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
 SRC=/var/log/containers
 DST=/var/log/azure/aks/pods
 
+# Bring in OS-related bash vars
+source /etc/os-release
+
 # Install inotify-tools if they're missing from the image
-{{- if IsMariner}}
-command -v inotifywait >/dev/null 2>&1 || dnf install -y inotify-tools
-{{- else}}
-command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y install inotify-tools
-{{end}}
+if [[ ${ID} == "mariner" ]]; then
+  command -v inotifywait >/dev/null 2>&1 || dnf install -y inotify-tools
+else 
+  command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y install inotify-tools
+fi
 
 # Set globbing options so that compgen grabs only the logs we want
 shopt -s extglob
