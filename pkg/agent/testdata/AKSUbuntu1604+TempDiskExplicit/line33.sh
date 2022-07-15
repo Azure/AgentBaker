@@ -6,6 +6,22 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+# Setup logs for upload to host
+LOG_DIR=/var/log/azure/aks
+mkdir -p ${LOG_DIR}
+ln -s /var/log/azure/cluster-provision.log \
+      /var/log/azure/cluster-provision-cse-output.log \
+      /opt/azure/*.json \
+      /opt/azure/cloud-init-files.paved \
+      /opt/azure/vhd-install.complete \
+      ${LOG_DIR}/
+
+# Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
+# when cloud-config.txt gets included within log bundles
+python3 /opt/azure/containers/provision_redact_cloud_config.py \
+    --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
+    --output-path ${LOG_DIR}/cloud-config.txt
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -42,8 +58,14 @@ source /opt/azure/containers/provision_installs_distro.sh
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
 
-echo "Removing man-db auto-update flag file..."
-removeManDbAutoUpdateFlagFile
+# Bring in OS-related vars
+source /etc/os-release
+
+# Mandb is not currently available on MarinerV1
+if [[ ${ID} != "mariner" ]]; then
+    echo "Removing man-db auto-update flag file..."
+    removeManDbAutoUpdateFlagFile
+fi
 cleanUpContainerd
 
 if [[ "${GPU_NODE}" != "true" ]]; then
@@ -93,6 +115,9 @@ configureCNI
 
 
 ensureDocker
+
+# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
+systemctlEnableAndStart sync-tunnel-logs
 
 ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
@@ -145,9 +170,11 @@ else
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
-createManDbAutoUpdateFlagFile
-/usr/bin/mandb && echo "man-db finished updates at $(date)" &
+if [[ ${ID} != "mariner" ]]; then
+    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+    createManDbAutoUpdateFlagFile
+    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+fi
 
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
 REBOOTREQUIRED=false
