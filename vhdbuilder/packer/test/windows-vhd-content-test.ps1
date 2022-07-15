@@ -111,7 +111,7 @@ function Test-FilesToCacheOnVHD
                 try {
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
-                        $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64")
+                        $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64", "azure-vnet-cni-singletenancy-swift-windows-amd64")
 
                         $isIgnore=$False
                         foreach($excludePackage in $excludeSizeComparisionList) {
