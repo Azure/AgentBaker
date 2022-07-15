@@ -195,7 +195,7 @@ fi
 
 waitForDeleteStartTime=$(date +%s)
 
-kubectl delete node $vmInstanceName
+#kubectl delete node $vmInstanceName
 
 waitForDeleteEndTime=$(date +%s)
 log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
