@@ -311,9 +311,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		WINDOWS_IMAGE_OFFER=""
 		WINDOWS_IMAGE_SKU=""
 		WINDOWS_IMAGE_VERSION=""
+	fi
 
-		# Need to use a sig image to create the build VM
-		if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
+	# Need to use a sig image to create the build VM
+	if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
+		if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+			# Reuse IMPORTED_IMAGE_NAME so the shared code in cleanup.sh can delete the temporary resource
 			IMPORTED_IMAGE_NAME=$imported_windows_image_name
 			echo "Creating new image for imported vhd ${WINDOWS_IMAGE_URL}"
 			az image create \
@@ -348,6 +351,18 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 			# Use imported sig image to create the build VM
 			WINDOWS_IMAGE_URL=""
+			windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
+			windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
+			windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
+			windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
+			windows_sigmode_source_image_version="1.0.0"
+		else
+			# Create the sig image from the official images defined in windows-image.env
+			windows_sigmode_source_subscription_id=""
+			windows_sigmode_source_resource_group_name=""
+			windows_sigmode_source_gallery_name=""
+			windows_sigmode_source_image_name=""
+			windows_sigmode_source_image_version=""
 		fi
 	fi
 
@@ -386,7 +401,12 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
-  "core_image_url": "${windows_servercore_image_url}"
+  "core_image_url": "${windows_servercore_image_url}",
+  "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
+  "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
+  "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
+  "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
+  "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}"
 }
 EOF
 
