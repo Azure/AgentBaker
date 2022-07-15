@@ -63,6 +63,7 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+# Mandb is not currently available on MarinerV1
 {{- if not IsMariner}}
 echo "Removing man-db auto-update flag file..."
 removeManDbAutoUpdateFlagFile

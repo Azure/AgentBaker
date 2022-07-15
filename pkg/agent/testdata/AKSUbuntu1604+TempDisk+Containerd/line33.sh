@@ -57,6 +57,8 @@ source /opt/azure/containers/provision_installs_distro.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
+
+# Mandb is not currently available on MarinerV1
 echo "Removing man-db auto-update flag file..."
 removeManDbAutoUpdateFlagFile
 
