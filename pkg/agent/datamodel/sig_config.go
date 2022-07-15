@@ -223,7 +223,7 @@ const (
 	Windows2022SIGImageVersion string = "20348.825.220713"
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
-	Arm64LinuxSIGImageVersion    string = "2022.07.12"
+	Arm64LinuxSIGImageVersion    string = "2022.07.19"
 	Ubuntu2004SIGImageVersion    string = "2022.04.16"
 	Ubuntu2004CVMSIGImageVersion string = "2022.06.16"
 )
