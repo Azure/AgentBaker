@@ -203,6 +203,17 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.11.zip"
+    Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
+    Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
+    # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
+    # but it is better to set the CSE package version in Windows CSE in AgentBaker
+    # since most changes in CSE package also need the change in Windows CSE in AgentBaker
+    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
+    if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
+        $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
+        Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
+    }
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"
     $tempfile = 'c:\csescripts.zip'
@@ -275,7 +286,7 @@ try
             $cniBinPath = $global:CNIPath
             $cniConfigPath = $global:CNIConfigPath
         }
-        Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir
+        Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
     } else {
         Write-Log "Install docker"
         Install-Docker -DockerVersion $global:DockerVersion

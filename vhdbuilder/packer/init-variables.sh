@@ -259,20 +259,44 @@ WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
-# shellcheck disable=SC2236
-if [ ! -z "${WINDOWS_SKU}" ]; then
-	IMPORTED_IMAGE_NAME=""
+if [ "$OS_TYPE" == "Windows" ]; then
+	imported_windows_image_name=""
 	source $CDIR/windows-image.env
+
+	echo "Set the base image sku and version from windows-image.env"
 	case "${WINDOWS_SKU}" in
-	"2019"|"2019-containerd")
+	"2019")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		IMPORTED_IMAGE_NAME="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
+		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2019-containerd")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		imported_windows_image_name="windows-2019-containerd-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
 		;;
 	"2022-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-		IMPORTED_IMAGE_NAME="windows-2022-imported-${CREATE_TIME}-${RANDOM}"
+		imported_windows_image_name="windows-2022-containerd-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
+		fi
 		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
@@ -280,10 +304,11 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		;;
 	esac
 
+	# Set the base image url if the pipeline variable is set
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
 
-		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${IMPORTED_IMAGE_NAME}.vhd"
+		WINDOWS_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/${imported_windows_image_name}.vhd"
 
 		echo "Generating sas token to copy Windows base image"
 		expiry_date=$(date -u -d "20 minutes" '+%Y-%m-%dT%H:%MZ')
@@ -300,40 +325,70 @@ if [ ! -z "${WINDOWS_SKU}" ]; then
 		WINDOWS_IMAGE_VERSION=""
 	fi
 
+	# Need to use a sig image to create the build VM
+	if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
+		if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+			# Reuse IMPORTED_IMAGE_NAME so the shared code in cleanup.sh can delete the temporary resource
+			IMPORTED_IMAGE_NAME=$imported_windows_image_name
+			echo "Creating new image for imported vhd ${WINDOWS_IMAGE_URL}"
+			az image create \
+				--resource-group $AZURE_RESOURCE_GROUP_NAME \
+				--name $IMPORTED_IMAGE_NAME \
+				--source $WINDOWS_IMAGE_URL \
+				--location $AZURE_LOCATION \
+				--hyper-v-generation $HYPERV_GENERATION \
+				--os-type ${OS_TYPE}
+
+			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+			az sig image-definition create \
+				--resource-group $AZURE_RESOURCE_GROUP_NAME \
+				--gallery-name $SIG_GALLERY_NAME \
+				--gallery-image-definition $IMPORTED_IMAGE_NAME \
+				--location $AZURE_LOCATION \
+				--os-type ${OS_TYPE} \
+				--publisher microsoft-aks \
+				--offer "aks-windows" \
+				--sku ${WINDOWS_SKU} \
+				--offer $IMPORTED_IMAGE_NAME \
+				--description "Imported image for AKS Packer build"
+
+			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
+			az sig image-version create \
+				--location $AZURE_LOCATION \
+				--resource-group $AZURE_RESOURCE_GROUP_NAME \
+				--gallery-name $SIG_GALLERY_NAME \
+				--gallery-image-definition $IMPORTED_IMAGE_NAME \
+				--gallery-image-version 1.0.0 \
+				--managed-image $IMPORTED_IMAGE_NAME
+
+			# Use imported sig image to create the build VM
+			WINDOWS_IMAGE_URL=""
+			windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
+			windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
+			windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
+			windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
+			windows_sigmode_source_image_version="1.0.0"
+		else
+			# Create the sig image from the official images defined in windows-image.env
+			windows_sigmode_source_subscription_id=""
+			windows_sigmode_source_resource_group_name=""
+			windows_sigmode_source_gallery_name=""
+			windows_sigmode_source_image_name=""
+			windows_sigmode_source_image_version=""
+		fi
+	fi
+
+	# Set nanoserver image url if the pipeline variable is set
 	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
 		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
 	fi
 
+	# Set servercore image url if the pipeline variable is set
 	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
-	
-	case "${WINDOWS_SKU}" in
-	"2019")
-		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2019-containerd")
-		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2022-containerd")
-		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		;;
-	*)
-		echo "unsupported windows sku: ${WINDOWS_SKU}"
-		exit 1
-		;;
-	esac
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -358,7 +413,12 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
-  "core_image_url": "${windows_servercore_image_url}"
+  "core_image_url": "${windows_servercore_image_url}",
+  "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
+  "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
+  "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
+  "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
+  "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}"
 }
 EOF
 
