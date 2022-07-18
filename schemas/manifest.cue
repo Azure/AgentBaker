@@ -51,12 +51,11 @@
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu18.04u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.4.13-3",
             "1.6.4-4"
         ],
         "edge": "1.6.4-4",
         "latest": "1.5.11-2", // latest is default in vhd.
-        "stable": "1.4.13-3", // we use latest vs stable at runtime depending on k8s version.
+        "stable": "1.5.11-2", // we use latest vs stable at runtime depending on k8s version.
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
