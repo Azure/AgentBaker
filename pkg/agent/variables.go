@@ -28,6 +28,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionInstallsUbuntu":      getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
 			"provisionInstallsMariner":     getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
 			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"provisionSendLogs":            getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
+			"provisionRedactCloudConfig":   getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
 			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
 			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
@@ -47,6 +49,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
 			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
+			"syncTunnelLogsScript":         getBase64EncodedGzippedCustomScript(syncTunnelLogsScript, config),
 		},
 	}
 

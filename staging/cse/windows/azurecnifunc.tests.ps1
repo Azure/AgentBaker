@@ -1,4 +1,7 @@
-. $PSScriptRoot\windowsazurecnifunc.ps1
+BeforeAll {
+    . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+    . $PSCommandPath.Replace('.tests.ps1','.ps1')
+  }
 
 Describe 'GetBroadestRangesForEachAddress' {
 

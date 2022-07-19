@@ -132,4 +132,4 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
           echo "Deletion completed"
       fi
   done
-fi 
+fi

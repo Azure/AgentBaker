@@ -250,13 +250,25 @@ WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
-IMPORTED_IMAGE_NAME=""
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
 	source $CDIR/windows-image.env
+
+	echo "Set the base image sku and version from windows-image.env"
 	case "${WINDOWS_SKU}" in
 	"2019")
+		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
+		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
+		fi
+		;;
+	"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
 		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
@@ -372,13 +384,13 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	fi
 
 	# Set nanoserver image url if the pipeline variable is set
-	if [ "${WINDOWS_NANO_IMAGE_URL}" ]; then
+	if [ -n "${WINDOWS_NANO_IMAGE_URL}" ]; then
 		echo "WINDOWS_NANO_IMAGE_URL is set in pipeline variables"
 		windows_nanoserver_image_url="${WINDOWS_NANO_IMAGE_URL}"
 	fi
 
 	# Set servercore image url if the pipeline variable is set
-	if [ "${WINDOWS_CORE_IMAGE_URL}" ]; then
+	if [ -n "${WINDOWS_CORE_IMAGE_URL}" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
