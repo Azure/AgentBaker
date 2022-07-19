@@ -48,7 +48,7 @@ stages:
             command: download
             vstsFeed: ASMPackages
             vstsFeedPackage: asc-baseline
-            vstsPackageVersion: '1.0.0-35'
+            vstsPackageVersion: '1.1.0-268'
             downloadDirectory: vhdbuilder/packer
         - bash: |
             GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
