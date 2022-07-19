@@ -1569,6 +1569,7 @@ installCrictl() {
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
+    rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
 {{- if TeleportEnabled}}
 downloadTeleportdPlugin() {
