@@ -217,7 +217,7 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.07.11"
+	LinuxSIGImageVersion string = "2022.07.18"
 
 	Windows2019SIGImageVersion string = "17763.3165.220713"
 	Windows2022SIGImageVersion string = "20348.825.220713"
