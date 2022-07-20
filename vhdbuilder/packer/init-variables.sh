@@ -107,6 +107,11 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 		fi
 		if [[ "$OS_TYPE" == "Windows" ]]; then
 			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
+			if [[ $HYPERV_GENERATION == "V2" ]]; then
+				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}Gen2
+				echo ${WINDOWS_SKU}
+				echo ${WINDOWS_SKU}${WINDOWS_VERSION}
+			fi
 		fi
 		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to `${SIG_IMAGE_NAME}`"
 	fi
