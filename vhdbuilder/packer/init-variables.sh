@@ -355,6 +355,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--gallery-name $SIG_GALLERY_NAME \
 				--gallery-image-definition $IMPORTED_IMAGE_NAME \
 				--location $AZURE_LOCATION \
+				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE} \
 				--publisher microsoft-aks \
 				--offer "aks-windows" \
