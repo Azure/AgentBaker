@@ -193,15 +193,21 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.10.5"
+        "v1.12.0"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "v1.12.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.10.5.10",
-        "1.10.5.11"
+        "v1.12.0"
       ]
     },
     {
@@ -286,6 +292,7 @@
       ],
       "multiArchVersions": [
         "v1.19.0.1",
+        "v1.19.0.2",
         "v1.20.0"
       ]
     },
@@ -404,8 +411,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.8.3",
-        "v1.8.8.4"
+        "v1.8.8.4",
+        "v1.8.8.5"
       ]
     },
     {
