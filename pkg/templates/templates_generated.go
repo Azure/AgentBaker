@@ -4741,10 +4741,12 @@ installStandaloneContainerd() {
         return 0
     fi
 
-    #if there is no containerd_version input from RP, use hardcoded version
+    #if there is no containerd_version input from RP, use stable version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.13"
-        CONTAINERD_PATCH_VERSION="2"
+        containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+        stable_version="$(echo ${containerd_manifest} | jq -r '.stable')"
+        CONTAINERD_VERSION="$(echo "$stable_version" | cut -d- -f1)"
+        CONTAINERD_PATCH_VERSION="$(echo "$stable_version" | cut -d- -f2)"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
