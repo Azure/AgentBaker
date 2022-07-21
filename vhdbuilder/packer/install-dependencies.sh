@@ -153,6 +153,9 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
+  
+  KUBERNETES_VERSION=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ') installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+
   # k8s will use images in the k8s.io namespaces - create it
   ctr namespace create k8s.io
   cliTool="ctr"
