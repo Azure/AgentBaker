@@ -659,6 +659,22 @@ func TestGetSubnetName(t *testing.T) {
 			}
 		})
 	}
+
+	badvnetsubnetid := &Properties{
+		AgentPoolProfiles: []*AgentPoolProfile{
+			{
+				Name:         "agentpool",
+				VnetSubnetID: "wiggeity/wackity/wackitywack",
+			},
+		},
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	_ = badvnetsubnetid.GetSubnetName()
+
 }
 
 func TestGetRouteTableName(t *testing.T) {
@@ -754,6 +770,21 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 			}
 		})
 	}
+
+	badvnetsubnetid := &Properties{
+		AgentPoolProfiles: []*AgentPoolProfile{
+			{
+				Name:         "agentpool",
+				VnetSubnetID: "wiggeity/wackity/wackitywack",
+			},
+		},
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	_ = badvnetsubnetid.GetVirtualNetworkName()
 }
 
 func TestProperties_GetVNetResourceGroupName(t *testing.T) {
@@ -779,6 +810,21 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 	if expectedVNETResourceGroupName != actual {
 		t.Errorf("expected vnet resource group name name %s, but got %s", expectedVNETResourceGroupName, actual)
 	}
+
+	badvnetsubnetid := &Properties{
+		AgentPoolProfiles: []*AgentPoolProfile{
+			{
+				Name:         "agentpool",
+				VnetSubnetID: "wiggeity/wackity/wackitywack",
+			},
+		},
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	_ = badvnetsubnetid.GetVNetResourceGroupName()
 }
 
 func TestGetPrimaryAvailabilitySetName(t *testing.T) {
