@@ -7,14 +7,12 @@
 
 param (
     $containerRuntime,
-    $windowsSKU,
-    $windowsPatchId
+    $windowsSKU
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:ContainerRuntime=$containerRuntime
 $env:WindowsSKU=$windowsSKU
-$env:WindowsPatchId=$windowsPatchId
 
 . c:\windows-vhd-configuration.ps1
 
@@ -113,7 +111,7 @@ function Test-FilesToCacheOnVHD
                 try {
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
-                        $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64")
+                        $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64", "azure-vnet-cni-singletenancy-swift-windows-amd64")
 
                         $isIgnore=$False
                         foreach($excludePackage in $excludeSizeComparisionList) {
@@ -178,7 +176,6 @@ function Test-ImagesPulled {
     elseif ($containerRuntime -eq 'docker') {
         Start-Service docker
         $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
-
     }
     else {
         Write-Error "unsupported container runtime $containerRuntime"
@@ -233,10 +230,24 @@ function Test-AzureExtensions {
     }
 }
 
+function Test-DockerCat {
+    if ($containerRuntime -eq 'docker') {
+        $dockerVersion = (docker version --format '{{.Server.Version}}')
+        Write-Output "The docker version is $dockerVersion"
+        if ($dockerVersion -eq "20.10.9") {
+            $catFilePath = "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
+            if (!(Test-Path $catFilePath)) {
+                Write-Error "$catFilePath does not exist"
+            }
+        }
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
+Test-DockerCat
 Remove-Item -Path c:\windows-vhd-configuration.ps1

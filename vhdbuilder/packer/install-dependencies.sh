@@ -1,6 +1,7 @@
 #!/bin/bash
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -48,7 +49,7 @@ installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - apache2-utils
   - apt-transport-https
-  - blobfuse=1.3.7
+  - blobfuse=1.4.4
   - ca-certificates
   - ceph-common
   - cgroup-lite
@@ -114,7 +115,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables
     forceEnableIpForward
-    networkdWorkaround
+    setMarinerNetworkdConfig
     enableDNFAutomatic
     fixCBLMarinerPermissions
     overrideNetworkConfig || exit 1
@@ -125,6 +126,7 @@ echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
+  updateAptWithMicrosoftPkg
   containerd_manifest="$(jq .containerd manifest.json)" || exit $?
   containerd_versions="$(echo ${containerd_manifest} | jq -r '.versions[]')" || exit $?
 
@@ -196,7 +198,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
 addNvidiaAptRepo
 installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
 downloadGPUDrivers
-retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
+retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
 mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
 echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
@@ -276,9 +278,8 @@ AMD64_ONLY_CNI_VERSIONS="
 "
 #Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
-1.4.14
-1.4.21
 1.4.22
+1.4.29
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -305,8 +306,8 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 "
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
-1.4.21
 1.4.22
+1.4.29
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -324,6 +325,17 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+OVERLAY_CNI_VERSIONS="
+1.4.27
+1.4.29
+"
+
+for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
 if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
   CNI_PLUGIN_VERSIONS="
   0.7.6
@@ -339,15 +351,7 @@ fi
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
 0.9.1
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  ARM64_CNI_PLUGIN_VERSIONS_IN_USE="
-  0.8.7
-  "
-  CNI_PLUGIN_VERSIONS="${ARM64_CNI_PLUGIN_VERSIONS_IN_USE} ${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-else
-  CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-fi
+CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
@@ -473,14 +477,13 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.21.7-hotfix.20220204
-1.21.9-hotfix.20220204
-1.22.4-hotfix.20220201
-1.22.6-hotfix.20220130
-1.23.3-hotfix.20220401
-1.23.4-hotfix.20220331
-1.23.5-hotfix.20220331
-1.24.0
+1.21.9-hotfix.20220420
+1.21.14-hotfix.20220620
+1.22.6-hotfix.20220615
+1.22.11-hotfix.20220620
+1.23.5-hotfix.20220615
+1.23.8-hotfix.20220620
+1.24.0-hotfix.20220615
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"

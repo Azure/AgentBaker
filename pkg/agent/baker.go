@@ -275,6 +275,13 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 		}
+
+		// ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s version 1.20 or higher
+		// Until Container Insights move to new API adding this feature gate to get the GPU metrics continue to work
+		// Reference - https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+		}
 	}
 }
 
@@ -412,7 +419,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
-			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
+			return strings.Contains(config.OSSKU, "CBLMariner")
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -798,7 +805,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.MessageOfTheDay != ""
 		},
 		"GetOutboundCommand": func() string {
-			return getOutBoundCmd(cs, config.CloudSpecConfig)
+			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 	}
 }

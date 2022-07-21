@@ -136,6 +136,7 @@ const (
 	AKSUbuntuGPUContainerd1804         Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                    Distro = "aks-cblmariner-v1"
+	AKSCBLMarinerV2                    Distro = "aks-cblmariner-v2"
 	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
@@ -143,6 +144,7 @@ const (
 	AKSUbuntuArm64Containerd1804Gen2   Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
 	AKSUbuntuContainerd2004            Distro = "aks-ubuntu-containerd-20.04"
 	AKSUbuntuContainerd2004Gen2        Distro = "aks-ubuntu-containerd-20.04-gen2"
+	AKSUbuntuContainerd2004CVMGen2     Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	RHEL                               Distro = "rhel"
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
@@ -177,6 +179,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
+	AKSCBLMarinerV2,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
@@ -184,6 +187,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuContainerd2004,
 	AKSUbuntuContainerd2004Gen2,
+	AKSUbuntuContainerd2004CVMGen2,
 }
 
 type CustomConfigurationComponent string

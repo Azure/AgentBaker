@@ -74,6 +74,7 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 var AvailableUbuntu2004Distros []Distro = []Distro{
 	AKSUbuntuContainerd2004,
 	AKSUbuntuContainerd2004Gen2,
+	AKSUbuntuContainerd2004CVMGen2,
 }
 
 var AvailableContainerdDistros []Distro = []Distro{
@@ -86,9 +87,11 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
+	AKSCBLMarinerV2,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuContainerd2004,
 	AKSUbuntuContainerd2004Gen2,
+	AKSUbuntuContainerd2004CVMGen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -109,10 +112,12 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuContainerd2004Gen2,
+	AKSUbuntuContainerd2004CVMGen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
+	AKSCBLMarinerV2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled
@@ -214,14 +219,15 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.05.31"
+	LinuxSIGImageVersion string = "2022.07.18"
 
-	Windows2019SIGImageVersion string = "17763.2928.220525"
-	Windows2022SIGImageVersion string = "20348.707.220525"
+	Windows2019SIGImageVersion string = "17763.3165.220713"
+	Windows2022SIGImageVersion string = "20348.825.220713"
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
-	Arm64LinuxSIGImageVersion string = "2022.05.31"
-	Ubuntu2004SIGImageVersion string = "2022.04.16"
+	Arm64LinuxSIGImageVersion    string = "2022.07.19"
+	Ubuntu2004SIGImageVersion    string = "2022.04.16"
+	Ubuntu2004CVMSIGImageVersion string = "2022.06.16"
 )
 
 // SIG config Template
@@ -336,10 +342,25 @@ var (
 		Definition:    "2004gen2containerd",
 		Version:       Ubuntu2004SIGImageVersion,
 	}
+
+	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2004gen2CVMcontainerd",
+		Version:       Ubuntu2004CVMSIGImageVersion,
+	}
+
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2gen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -381,11 +402,13 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuArm64Containerd1804Gen2:   SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004:            SIGUbuntuContainerd2004ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004Gen2:        SIGUbuntuContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSCBLMarinerV1: SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2: SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

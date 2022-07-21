@@ -5,10 +5,7 @@ ifeq (${OS_SKU},Ubuntu)
 ifeq (${ARCHITECTURE},ARM64)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
-	@rm -f ./vhdbuilder/packer/packer
-	@curl -fsSL https://packerbinary.blob.core.windows.net/bin/packer -o ./vhdbuilder/packer/packer
-	@chmod a+x ./vhdbuilder/packer/packer
-	@./vhdbuilder/packer/packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
 	@echo "${MODE}: Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
 else ifeq (${MODE},sigMode)
@@ -29,6 +26,7 @@ else
 endif
 endif
 else ifeq (${OS_SKU},CBLMariner)
+ifeq (${OS_VERSION},V1)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-gen2.json
@@ -37,6 +35,18 @@ else ifeq (${MODE},sigMode)
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
+else ifeq (${OS_VERSION},V2)
+ifeq (${MODE},gen2Mode)
+	@echo "${MODE}: Building with Hyper-v generation 2 VM"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
+else ifeq (${MODE},sigMode)
+	$(error sigMode not supported yet)
+else
+	$(error MarinerV2 gen1 VMs are not supported yet)
+endif
+else
+	$(error OS_VERSION was invalid ${OS_VERSION})
 endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})

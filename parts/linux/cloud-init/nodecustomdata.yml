@@ -46,6 +46,20 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
+- path: /opt/azure/containers/provision_redact_cloud_config.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
+
+- path: /opt/azure/containers/provision_send_logs.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
+
 {{if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
@@ -278,11 +292,12 @@ write_files:
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.pem
+- path: /usr/local/share/ca-certificates/proxyCA.crt
   permissions: "0644"
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+    #EOF
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
@@ -387,6 +402,28 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 {{end}}
+
+- path: /etc/systemd/system/sync-tunnel-logs.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+    After=containerd.service
+
+    [Service]
+    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+
+- path: /opt/azure/containers/sync-tunnel-logs.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf

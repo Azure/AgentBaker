@@ -5,7 +5,9 @@ parameters:
 
 steps:
   - bash: |
-      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
+      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"; else m="default"; fi && \
+      echo "Set SIG_IMAGE_NAME to $sigImageName" && \
+      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=MODE]$m" && \
       if [[ "${USE_RELEASE_DATE}" = "False" ]]; then \
@@ -43,8 +45,9 @@ steps:
       -e HYPERV_GENERATION="V1" \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
       -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
-      -e WINDOWS_BASE_IMAGE_SKU=${WINDOWS_BASE_IMAGE_SKU} \
-      -e WINDOWS_BASE_IMAGE_VERSION=${WINDOWS_BASE_IMAGE_VERSION} \
+      -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
+      -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
+      -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - script: |
@@ -67,7 +70,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e WINDOWS_PATCH_ID=${WINDOWS_PATCH_ID} \
+      -e ARCHITECTURE=${ARCHITECTURE} \
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
   - task: PublishPipelineArtifact@0
@@ -96,6 +99,9 @@ steps:
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)" && \
+      gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$UPDATED_SIG_IMAGE_NAME; fi && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -108,8 +114,10 @@ steps:
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
       -e DRY_RUN=${DRY_RUN} \
-      -e IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e IMAGE_NAME=${IMAGE_NAME} \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
+      -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()

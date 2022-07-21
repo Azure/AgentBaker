@@ -66,6 +66,10 @@ function Retry-Command {
                 return
             } catch {
                 Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
+                    Write-Error "Exit retry since there is not enough space on the disk"
+                    break
+                }
                 Start-Sleep $Delay
             }
         } while ($cnt -lt $Maximum)
@@ -123,10 +127,32 @@ function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
         foreach ($image in $imagesToPull) {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+                $url=""
+                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                    $url=$env:WindowsServerCoreImageURL
+                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                    $url=$env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            } else {
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    & crictl.exe pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd
@@ -134,10 +160,32 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                docker pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+                $url=""
+                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                    $url=$env:WindowsServerCoreImageURL
+                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                    $url=$env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & docker load -i $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            } else {
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    docker pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
     }
 }
@@ -220,6 +268,15 @@ function Install-Docker {
     $package = Find-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $defaultDockerVersion
     Write-Log "Installing Docker version $($package.Version)"
     $package | Install-Package -Force | Out-Null
+
+    if ($defaultDockerVersion -eq "20.10.9"){
+        # We only do this for docker 20.10.9 so we do not need to add below code in Install-Docker in configfunc.ps1 because
+        # 1. the cat file is installed in building WS2019+docker
+        # 2. it does not need to run below code if a newer docker version is used in CSE later
+        Write-Log "Downloading cat for docker 20.10.9"
+        DownloadFileWithRetry -URL "https://dockermsft.azureedge.net/dockercontainer/docker-20-10-9.cat" -Dest "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
+    }
+
     Start-Service docker
 }
 
