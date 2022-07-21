@@ -360,7 +360,7 @@ var (
 	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2",
+		Definition:    "V2gen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
