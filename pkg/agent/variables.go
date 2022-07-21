@@ -55,7 +55,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		if strings.EqualFold(string(config.OSSKU), string("CBLMariner")) {
+		if strings.Contains(config.OSSKU, "CBLMariner") {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
 		} else {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
