@@ -11,6 +11,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
         "v2.0.0",
+        "v2.0.0-rc7",
         "v2.0.1"
       ],
       "multiArchVersions": [
@@ -123,14 +124,17 @@
       ],
       "multiArchVersions": [
         "v1.0.0.2",
-        "v1.0.0.3"
+        "v1.0.0.3",
+        "v1.1.1.6",
+        "v1.1.1.7"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.0.0"
+        "v1.0.0",
+        "v1.1.0"
       ]
     },
     {
@@ -200,8 +204,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.10.5.10",
-        "1.10.5.11"
+        "1.10.5.11",
+        "1.10.5.12"
       ]
     },
     {
@@ -286,6 +290,7 @@
       ],
       "multiArchVersions": [
         "v1.19.0.1",
+        "v1.19.0.2",
         "v1.20.0"
       ]
     },
@@ -404,8 +409,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.8.3",
-        "v1.8.8.4"
+        "v1.8.8.4",
+        "v1.8.8.5"
       ]
     },
     {
