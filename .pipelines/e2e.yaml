@@ -55,6 +55,6 @@ jobs:
     artifact: $(SCENARIO_NAME)-logs
     condition: always()
   - bash: |
-      #az vmss delete -g $(jq -r .group e2e/$(SCENARIO_NAME)-vmss.json) -n $(jq -r .vmss e2e/$(SCENARIO_NAME)-vmss.json)
+      az vmss delete -g $(jq -r .group e2e/$(SCENARIO_NAME)-vmss.json) -n $(jq -r .vmss e2e/$(SCENARIO_NAME)-vmss.json)
     displayName: delete vmss
     condition: always()

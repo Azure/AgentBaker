@@ -3,9 +3,9 @@
 set -euxo pipefail
 
 : "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
-: "${RESOURCE_GROUP_NAME:=2204-test}"
+: "${RESOURCE_GROUP_NAME:=agentbaker-e2e-tests}"
 : "${LOCATION:=eastus}"
-: "${CLUSTER_NAME:=2204-test-cluster}"
+: "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
 
 SCENARIO_NAME=$1
 VM_SKU=$2
