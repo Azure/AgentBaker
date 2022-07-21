@@ -80,6 +80,36 @@ function Retry-Command {
     }
 }
 
+function Invoke-Executable {
+    Param(
+        [string]
+        $Executable,
+        [string[]]
+        $ArgList,
+        [int]
+        $Retries = 1,
+        [int]
+        $RetryDelaySeconds = 1
+    )
+
+    for ($i = 0; $i -lt $Retries; $i++) {
+        Write-Log "Running $Executable $ArgList ..."
+        & $Executable $ArgList
+        if ($LASTEXITCODE) {
+            Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
+            Start-Sleep -Seconds $RetryDelaySeconds
+            continue
+        }
+        else {
+            Write-Log "$Executable returned successfully"
+            return
+        }
+    }
+
+    Write-Log "Exhausted retries for $Executable $ArgList"
+    exit 1
+}
+
 function Expand-OS-Partition {
     $customizedDiskSize = $env:CustomizedDiskSize
     if ([string]::IsNullOrEmpty($customizedDiskSize)) {
@@ -383,6 +413,16 @@ function Get-DefenderPreferenceInfo {
     Write-Log(Get-MpPreference | Format-List | Out-String)
 }
 
+function Exclude-ReservedUDPSourcePort()
+{
+    # https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#what-protocols-can-i-use-within-vnets
+    # Default UDP Dynamic Port Range in Windows server: Start Port: 49152, Number of Ports : 16384. Range: [49152, 65535]
+    # Exclude UDP source port 65330. This only excludes the port in AKS Windows nodes but will not impact Windows containers.
+    # Reference: https://github.com/Azure/AKS/issues/2988
+    # List command: netsh int ipv4 show excludedportrange udp
+    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -391,6 +431,7 @@ try{
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
+            Exclude-ReservedUDPSourcePort
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
