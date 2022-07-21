@@ -11,7 +11,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
         "v2.0.0",
-        "v2.0.0-rc7",
         "v2.0.1"
       ],
       "multiArchVersions": [
@@ -124,17 +123,14 @@
       ],
       "multiArchVersions": [
         "v1.0.0.2",
-        "v1.0.0.3",
-        "v1.1.1.6",
-        "v1.1.1.7"
+        "v1.0.0.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.0.0",
-        "v1.1.0"
+        "v1.0.0"
       ]
     },
     {
