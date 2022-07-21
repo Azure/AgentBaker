@@ -276,17 +276,6 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	"2019-containerd")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
-
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2019-containerd")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
 		imported_windows_image_name="windows-2019-containerd-imported-${CREATE_TIME}-${RANDOM}"
 
 		echo "Set OS disk size"
