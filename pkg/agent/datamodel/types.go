@@ -862,7 +862,11 @@ func (p *Properties) GetSubnetName() string {
 	var subnetName string
 
 	if p.AreAgentProfilesCustomVNET() {
-		subnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultSubnetNameResourceSegmentIndex]
+		vnetparts := strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")
+		if len(vnetparts) < DefaultSubnetNameResourceSegmentIndex {
+			panic("invalid vnetSubnetID: " + p.AgentPoolProfiles[0].VnetSubnetID)
+		}
+		subnetName = vnetparts[DefaultSubnetNameResourceSegmentIndex]
 	} else {
 		subnetName = p.K8sOrchestratorName() + "-subnet"
 	}
@@ -884,7 +888,11 @@ func (p *Properties) GetResourcePrefix() string {
 func (p *Properties) GetVirtualNetworkName() string {
 	var vnetName string
 	if p.AreAgentProfilesCustomVNET() {
-		vnetName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetNameResourceSegmentIndex]
+		vnetparts := strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")
+		if len(vnetparts) < DefaultVnetNameResourceSegmentIndex {
+			panic("invalid vnetSubnetID: " + p.AgentPoolProfiles[0].VnetSubnetID)
+		}
+		vnetName = vnetparts[DefaultVnetNameResourceSegmentIndex]
 	} else {
 		vnetName = p.K8sOrchestratorName() + "-vnet-" + p.GetClusterID()
 	}
@@ -895,7 +903,12 @@ func (p *Properties) GetVirtualNetworkName() string {
 func (p *Properties) GetVNetResourceGroupName() string {
 	var vnetResourceGroupName string
 	if p.AreAgentProfilesCustomVNET() {
-		vnetResourceGroupName = strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")[DefaultVnetResourceGroupSegmentIndex]
+		vnetparts := strings.Split(p.AgentPoolProfiles[0].VnetSubnetID, "/")
+
+		if len(vnetparts) < DefaultVnetNameResourceSegmentIndex {
+			panic("invalid vnetSubnetID: " + p.AgentPoolProfiles[0].VnetSubnetID)
+		}
+		vnetResourceGroupName = vnetparts[DefaultVnetResourceGroupSegmentIndex]
 	}
 	return vnetResourceGroupName
 }
