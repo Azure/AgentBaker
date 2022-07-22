@@ -12,3 +12,5 @@ else
     echo "Unknown container runtime: ${CONTAINER_RUNTIME}"
     exit 1
 fi
+
+chmod a+r /opt/azure/containers/image-bom.json
