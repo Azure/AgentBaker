@@ -339,12 +339,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--os-type ${OS_TYPE}
 
 			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+			# Need to specifiy hyper-v-generation to support Gen 2
 			az sig image-definition create \
 				--resource-group $AZURE_RESOURCE_GROUP_NAME \
 				--gallery-name $SIG_GALLERY_NAME \
 				--gallery-image-definition $IMPORTED_IMAGE_NAME \
 				--location $AZURE_LOCATION \
-				# Need to specifiy this to support Gen 2
 				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE} \
 				--publisher microsoft-aks \
