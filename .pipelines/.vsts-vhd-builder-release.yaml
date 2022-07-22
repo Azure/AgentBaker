@@ -563,4 +563,4 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: 2004-cvm-gen2-containerd 
+            artifactName: 2004-cvm-gen2-containerd
