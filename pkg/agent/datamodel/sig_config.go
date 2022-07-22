@@ -87,7 +87,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
-	AKSCBLMarinerV2,
+	AKSCBLMarinerV2Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuContainerd2004,
 	AKSUbuntuContainerd2004Gen2,
@@ -117,7 +117,7 @@ var AvailableGen2Distros []Distro = []Distro{
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
-	AKSCBLMarinerV2,
+	AKSCBLMarinerV2Gen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled
@@ -407,8 +407,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSCBLMarinerV1: SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
-		AKSCBLMarinerV2: SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV1:     SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2: SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
