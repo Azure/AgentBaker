@@ -60,9 +60,9 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
 fi
 
 #cleanup managed image sig image version
-if [[ -n "${WINDOWS_SKU}" ]]; then
-   echo "Windows SKU is ${WINDOWS_SKU}"
-   MANAGED_IMAGE_SIG_NAME=${WINDOWS_SKU}
+if [[ -n "${SIG_IMAGE_NAME}" ]]; then
+   echo "SIG_IMAGE_NAME is ${SIG_IMAGE_NAME}"
+   MANAGED_IMAGE_SIG_NAME=${SIG_IMAGE_NAME}
    versions=$(az sig image-version list -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
    for version in $versions; do
        az sig image-version show -e $version -i ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
@@ -79,9 +79,9 @@ if [[ -n "${WINDOWS_SKU}" ]]; then
 fi
 
 #cleanup managed image sig image definition
-if [[ -n "${WINDOWS_SKU}" ]]; then
-   echo "Windows SKU is ${WINDOWS_SKU}"
-   MANAGED_IMAGE_SIG_NAME=${WINDOWS_SKU}
+if [[ -n "${SIG_IMAGE_NAME}" ]]; then
+   echo "SIG_IMAGE_NAME is ${SIG_IMAGE_NAME}"
+   MANAGED_IMAGE_SIG_NAME=${SIG_IMAGE_NAME}
    if [[ -n "${MANAGED_IMAGE_SIG_NAME}" ]]; then
      id=$(az sig image-definition show --gallery-image-definition ${MANAGED_IMAGE_SIG_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
      if [ -n "$id" ]; then

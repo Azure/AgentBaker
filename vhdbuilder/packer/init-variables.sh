@@ -108,9 +108,8 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 		if [[ "$OS_TYPE" == "Windows" ]]; then
 			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
 			if [[ $HYPERV_GENERATION == "V2" ]]; then
-				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}Gen2
-				echo ${WINDOWS_SKU}
-				echo ${WINDOWS_SKU}${WINDOWS_VERSION}
+				# Add suffix Gen 2 to differentiate
+				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-Gen2
 			fi
 		fi
 		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to `${SIG_IMAGE_NAME}`"
@@ -294,6 +293,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
 			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
 		fi
+		# Default: read from the official MCR image
 		if [[ $HYPERV_GENERATION == "V2" ]]; then
 			WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
 			WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
@@ -344,6 +344,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--gallery-name $SIG_GALLERY_NAME \
 				--gallery-image-definition $IMPORTED_IMAGE_NAME \
 				--location $AZURE_LOCATION \
+				# Need to specifiy this to support Gen 2
 				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE} \
 				--publisher microsoft-aks \

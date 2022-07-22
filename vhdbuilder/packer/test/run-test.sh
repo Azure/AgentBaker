@@ -64,8 +64,17 @@ else
     IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
   else 
     # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
-    echo ${MANAGED_SIG_ID}
-    IMG_DEF=${MANAGED_SIG_ID}
+    if [ "$OS_TYPE" == "Linux" ]; then
+      IMG_DEF=${MANAGED_SIG_ID}
+    else
+      # (to-do) for Windows: MANAGED_SIG_ID reads as "file"
+      echo "Subscription ${SUBSCRIPTION_ID}"
+      echo "RG ${AZURE_RESOURCE_GROUP_NAME}"
+      echo "SIG GALLERY NAME ${SIG_GALLERY_NAME}"
+      echo "gen 2 captured version ${GEN2_CAPTURED_SIG_VERSION}"
+      IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
+      echo "IMG_DEF is ${IMG_DEF}"
+    fi
   fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,

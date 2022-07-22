@@ -49,13 +49,14 @@ steps:
       -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
       -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
       -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
-      -e WINDOWS_GEN1_BASE_IMAGE_URL=${WINDOWS_GEN1_BASE_IMAGE_URL} \
-      -e WINDOWS_GEN2_BASE_IMAGE_URL=${WINDOWS_GEN2_BASE_IMAGE_URL} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
   - script: |
-      OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)" && \
-      MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+      OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+# Grab this which will be imported as the image definition to create the test VM later
+      MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+# Use this for the imported image definition to create Windows test VM      
+      gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \  
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -75,6 +76,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+      -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
       -e ARCHITECTURE=${ARCHITECTURE} \
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
@@ -103,6 +105,7 @@ steps:
     displayName: Copying resource to Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
   - bash: |
+# Moved this conversion before cleanup because packer-generated SIG is already in VHD, and so can be cleaned.  
         echo MODE=$(MODE) && \
         create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -128,10 +131,14 @@ steps:
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
+# temporary storage account name
       SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)" && \
+# Used to create a new SIG image from the imported VHD for the build VHD. Can be deleted after building.
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+# Packer-generated SIG image definitions and versions for sigMode and gen2Mode. Can be deleted after conversion.
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+# Managed image created by packer: ManagedImageName in log. No longer used.
       if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="${SIG_IMAGE_NAME}-${gen2_captured_sig_version}"; else IMAGE_NAME=$UPDATED_SIG_IMAGE_NAME; fi && \       
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -145,6 +152,7 @@ steps:
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
       -e DRY_RUN=${DRY_RUN} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e IMAGE_NAME=${IMAGE_NAME} \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
@@ -155,6 +163,7 @@ steps:
     condition: always()
   - bash: |
       echo MODE=$(MODE) && \
+# Set VHD_NAME and SKU_NAME for Gen 2, which will be published.      
       if [[ $(MODE) == "gen2Mode" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
       [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
       SKU_NAME="windows-$WINDOWS_SKU-gen2"; \
