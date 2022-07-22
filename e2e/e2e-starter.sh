@@ -6,41 +6,57 @@ source e2e-helper.sh
 
 log "Starting e2e tests"
 
-# Create a resource group for the cluster
-log "Creating resource group"
-rgStartTime=$(date +%s)
-az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
-rgEndTime=$(date +%s)
-log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
+function create_rg() {
+    log "Creating resource group"
+    rgStartTime=$(date +%s)
+    az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
+    rgEndTime=$(date +%s)
+    log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
+}
 
-# Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
-# MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
-out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
-create_cluster="false"
-if [ -n "$out" ]; then
-    MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
-    exists=$(az group exists -n $MC_RG_NAME)
-    if [ $exists = "false" ]; then
-        log "Deleting cluster"
-        clusterDeleteStartTime=$(date +%s)
-        az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
-        clusterDeleteEndTime=$(date +%s)
-        log "Deleted cluster in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
-        create_cluster="true"
-    fi
-else
-    create_cluster="true"
-fi
-
-# Create the AKS cluster and get the kubeconfig
-if [ "$create_cluster" == "true" ]; then
+function create_cluster() {
     log "Creating cluster"
     clusterCreateStartTime=$(date +%s)
     az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys -ojson
     clusterCreateEndTime=$(date +%s)
     log "Created cluster in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
+}
+
+function delete_cluster() {
+    log "Deleting cluster"
+    clusterDeleteStartTime=$(date +%s)
+    az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
+    clusterDeleteEndTime=$(date +%s)
+    log "Deleted cluster in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
+}
+
+# Check the resource group for the cluster
+exists=$(az group exists -n $RESOURCE_GROUP_NAME)
+if [ $exists = "false" ]; then
+    create_rg
 fi
 
+# Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
+# MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
+out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
+if [ -n "$out" ]; then
+    MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
+    exists=$(az group exists -n $MC_RG_NAME)
+    if [ $exists = "false" ]; then
+        delete_cluster
+        create_cluster
+    else
+        clusterStatus=$(az aks show -g $RESOURCE_GROUP_NAME -n ${CLUSTER_NAME} | jq '.provisioningState')
+        if [ $clusterStatus = "Failed" ]; then
+            delete_cluster
+            create_cluster
+        fi
+    fi
+else
+    create_cluster
+fi
+
+# Get the kubeconfig
 az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
