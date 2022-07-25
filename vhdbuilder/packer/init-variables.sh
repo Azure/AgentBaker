@@ -112,7 +112,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-Gen2
 			fi
 		fi
-		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to `${SIG_IMAGE_NAME}`"
+		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to ${SIG_IMAGE_NAME}"
 	fi
 fi
 
