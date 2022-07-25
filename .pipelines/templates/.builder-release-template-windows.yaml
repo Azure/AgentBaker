@@ -53,10 +53,7 @@ steps:
     displayName: Building windows VHD
   - script: |
       OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)" && \
-      OS_DISK_URI2="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-      MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \  
-      MANAGED_SIG_ID2="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \  
-      gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \  
+      MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -66,9 +63,7 @@ steps:
       -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
       -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e OS_DISK_URI=${OS_DISK_URI} \
-      -e OS_DISK_URI2=${OS_DISK_URI2} \      
       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-      -e MANAGED_SIG_ID2=${MANAGED_SIG_ID2} \      
       -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
@@ -78,8 +73,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
-      -e ARCHITECTURE=${ARCHITECTURE} \ 
+      -e ARCHITECTURE=${ARCHITECTURE} \
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
   - task: PublishPipelineArtifact@0

@@ -35,9 +35,7 @@ DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
 echo ${OS_DISK_URI}
-echo ${OS_DISK_URI2}
 echo ${MANAGED_SIG_ID}
-echo ${MANAGED_SIG_ID2}
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
