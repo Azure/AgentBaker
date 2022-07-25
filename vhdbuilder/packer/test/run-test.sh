@@ -33,9 +33,11 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-echo ${OUTPUT}
+
 echo ${OS_DISK_URI}
 echo ${MANAGED_SIG_ID}
+echo ${OUTPUT}
+
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
