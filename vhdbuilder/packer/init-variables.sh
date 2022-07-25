@@ -109,7 +109,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
 			if [[ $HYPERV_GENERATION == "V2" ]]; then
 				# Add suffix Gen 2 to differentiate
-				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-Gen2
+				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-gen2
 			fi
 		fi
 		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to ${SIG_IMAGE_NAME}"
