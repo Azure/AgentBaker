@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euxo pipefail
+set -eux
 
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
 
@@ -12,10 +12,15 @@ elif [[ ${CONTAINER_RUNTIME} == "docker" ]]; then
     sleep 5
     echo "output without filter"
     docker inspect $(docker images -aq) -f '{{json .}}'
-    docker inspect $(docker images -aq) -f '{{json .}}' | jq
+    echo $?
+    docker inspect $(docker images -aq) -f '{{json .}}' | jq .
+    echo $?
     sleep 5
     echo "output with filter"
-    docker inspect $(docker images -aq) -f '{"id":"{{.ID}}","repoTags":{{json .RepoTags}},"repoDigests":{{json .RepoDigests}}}' | jq --slurp > /opt/azure/containers/image-bom.json
+    docker inspect $(docker images -aq) -f '{"id":"{{.ID}}","repoTags":{{json .RepoTags}},"repoDigests":{{json .RepoDigests}}}' 
+    sleep 5
+    echo "final output"
+    docker inspect $(docker images -aq) -f '{"id":"{{.ID}}","repoTags":{{json .RepoTags}},"repoDigests":{{json .RepoDigests}}}' | jq --slurp . > /opt/azure/containers/image-bom.json
 
 else
     echo "Unknown container runtime: ${CONTAINER_RUNTIME}"
