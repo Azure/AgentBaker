@@ -6,7 +6,7 @@ WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
-set +x
+
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
@@ -34,8 +34,8 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-echo ${OS_DISK_URI}
-echo ${MANAGED_SIG_ID}
+echo "OS DISK URI ${OS_DISK_URI}"
+echo "MANAGED SIG ID ${MANAGED_SIG_ID}"
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $RESOURCE_GROUP_NAME \
@@ -76,7 +76,8 @@ else
       echo "SIG GALLERY NAME ${SIG_GALLERY_NAME}"
       echo "gen 2 captured version ${GEN2_CAPTURED_SIG_VERSION}"
       IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
-      echo "IMG_DEF is ${IMG_DEF}"
+      echo "manually set IMG_DEF to ${IMG_DEF}"
+      echo "IMG_DEF read from packer-output is ${IMG_DEF}"
     fi
   fi
 
