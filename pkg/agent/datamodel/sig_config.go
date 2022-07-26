@@ -87,7 +87,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
-	AKSCBLMarinerV2,
+	AKSCBLMarinerV2Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuContainerd2004,
 	AKSUbuntuContainerd2004Gen2,
@@ -117,7 +117,7 @@ var AvailableGen2Distros []Distro = []Distro{
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
-	AKSCBLMarinerV2,
+	AKSCBLMarinerV2Gen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled
@@ -221,11 +221,13 @@ const (
 const (
 	LinuxSIGImageVersion string = "2022.07.18"
 
-	Windows2019SIGImageVersion string = "17763.3165.220713"
-	Windows2022SIGImageVersion string = "20348.825.220713"
+	// AKS RP always uses a configuration file to set the latest SIG image versions for Windows
+	// so we leave the version to empty here
+	Windows2019SIGImageVersion string = ""
+	Windows2022SIGImageVersion string = ""
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
-	Arm64LinuxSIGImageVersion    string = "2022.07.19"
+	Arm64LinuxSIGImageVersion    string = "2022.07.26"
 	Ubuntu2004SIGImageVersion    string = "2022.04.16"
 	Ubuntu2004CVMSIGImageVersion string = "2022.06.16"
 )
@@ -407,8 +409,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSCBLMarinerV1: SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
-		AKSCBLMarinerV2: SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV1:     SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2: SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
