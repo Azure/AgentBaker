@@ -93,4 +93,12 @@ windows-vhd-publishing-info: az-login
 	@./vhdbuilder/packer/generate-windows-vhd-publishing-info.sh
 
 test-building-vhd: az-login
+	@OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
+	@MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
+	@gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \        
+	@echo "packer OS_DISK_URI ${OS_DISK_URI}"
+	@echo "packer MANAGED_SIG_ID ${MANAGED_SIG_ID}"
+	@echo "packer gen2_captured_sig_version ${gen2_captured_sig_version}"
 	@./vhdbuilder/packer/test/run-test.sh
+	@OUTPUT="$(cat packer-output)"
+	@echo "Entire output is ${OUTPUT}"

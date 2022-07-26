@@ -77,7 +77,7 @@ else
       echo "gen 2 captured version ${GEN2_CAPTURED_SIG_VERSION}"
       IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
       echo "manually set IMG_DEF to ${IMG_DEF}"
-      echo "IMG_DEF read from packer-output is ${IMG_DEF}"
+      echo "IMG_DEF read from packer-output is ${MANAGED_SIG_ID}"
     fi
   fi
 
