@@ -221,8 +221,10 @@ const (
 const (
 	LinuxSIGImageVersion string = "2022.07.18"
 
-	Windows2019SIGImageVersion string = "17763.3232.220722"
-	Windows2022SIGImageVersion string = "20348.859.220722"
+	// AKS RP always uses a configuration file to set the latest SIG image versions for Windows
+	// so we leave the version to empty here
+	Windows2019SIGImageVersion string = ""
+	Windows2022SIGImageVersion string = ""
 
 	// will not do weekly vhd release as amd64 when ARM64 Compute/AKS is still under development
 	Arm64LinuxSIGImageVersion    string = "2022.07.26"
