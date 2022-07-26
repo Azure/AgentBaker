@@ -109,7 +109,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
 			if [[ $HYPERV_GENERATION == "V2" ]]; then
 				# Add suffix Gen 2 to differentiate
-				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
+				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-gen2
 				#-gen2
 			fi
 		fi
@@ -349,9 +349,9 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE} \
 				--publisher microsoft-aks \
-				--offer "aks-windows" \
 				--sku ${WINDOWS_SKU} \
 				--offer $IMPORTED_IMAGE_NAME \
+				--os-state generalized \
 				--description "Imported image for AKS Packer build"
 
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
