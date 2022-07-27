@@ -358,6 +358,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--offer $IMPORTED_IMAGE_NAME \
 				--os-state generalized \
 				--description "Imported image for AKS Packer build"
+			
+			id=$(az sig image-definition show --gallery-image-definition ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+			if [ -n "$id" ]; then
+				echo "Showing sig image-definition ${SIG_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+				az sig image-definition delete --gallery-image-definition ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}					
+			fi
 
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 			az sig image-version create \
@@ -367,6 +373,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--gallery-image-definition $IMPORTED_IMAGE_NAME \
 				--gallery-image-version 1.0.0 \
 				--managed-image $IMPORTED_IMAGE_NAME
+
+			versions=$(az sig image-version list -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
+			for version in $versions; do
+				az sig image-version show -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
+				echo "Showing sig image-version ${version} ${SIG_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"				
+			done
 
 			# Use imported sig image to create the build VM
 			WINDOWS_IMAGE_URL=""
