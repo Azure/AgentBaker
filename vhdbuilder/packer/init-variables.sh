@@ -109,7 +109,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
 			if [[ $HYPERV_GENERATION == "V2" ]]; then
 				# Add suffix Gen 2 to differentiate
-				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-gen2
+				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}g2
 				#-gen2
 			fi
 		fi
@@ -343,6 +343,13 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--location $AZURE_LOCATION \
 				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE}
+			
+			# Showing the created managed image from imported image
+			id=$(az image show --name ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+			if [ -n "$id" ]; then
+				echo "Showing image ${IMPORTED_IMAGE_NAME} from rg ${AZURE_RESOURCE_GROUP_NAME}"
+			fi
+			az image show --name ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
 
 			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
 			# Need to specifiy hyper-v-generation to support Gen 2
@@ -359,11 +366,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--os-state generalized \
 				--description "Imported image for AKS Packer build"
 			
-			id=$(az sig image-definition show --gallery-image-definition ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+			# Showing the created sig image definition from the imported image
+			id=$(az sig image-definition show --gallery-image-definition ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
 			if [ -n "$id" ]; then
-				echo "Showing sig image-definition ${SIG_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
-				az sig image-definition delete --gallery-image-definition ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}					
+				echo "Showing sig image-definition ${IMPORTED_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
 			fi
+			az sig image-definition show --gallery-image-definition ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
 
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 			az sig image-version create \
@@ -374,10 +382,11 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--gallery-image-version 1.0.0 \
 				--managed-image $IMPORTED_IMAGE_NAME
 
-			versions=$(az sig image-version list -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
+			# Showing the created sig image versions
+			versions=$(az sig image-version list -i ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
 			for version in $versions; do
-				az sig image-version show -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
-				echo "Showing sig image-version ${version} ${SIG_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"				
+				az sig image-version show -e $version -i ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
+				echo "Showing sig image-version ${version} ${IMPORTED_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"				
 			done
 
 			# Use imported sig image to create the build VM
