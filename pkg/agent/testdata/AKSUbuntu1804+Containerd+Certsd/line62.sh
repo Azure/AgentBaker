@@ -187,6 +187,10 @@ installStandaloneContainerd() {
 downloadContainerdFromVersion() {
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
+    # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
+    # This won't be called for new VHDs as they have containerd 1.6 cached
+    updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
