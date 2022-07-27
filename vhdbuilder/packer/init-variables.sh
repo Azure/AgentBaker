@@ -306,6 +306,13 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		;;
 	esac
 
+	# Create the sig image from the official images defined in windows-image.env by default
+	windows_sigmode_source_subscription_id=""
+	windows_sigmode_source_resource_group_name=""
+	windows_sigmode_source_gallery_name=""
+	windows_sigmode_source_image_name=""
+	windows_sigmode_source_image_version=""
+
 	# Set the base image url if the pipeline variable is set
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
 		echo "WINDOWS_BASE_IMAGE_URL is set in pipeline variables"
@@ -323,11 +330,9 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		WINDOWS_IMAGE_OFFER=""
 		WINDOWS_IMAGE_SKU=""
 		WINDOWS_IMAGE_VERSION=""
-	fi
 
-	# Need to use a sig image to create the build VM
-	if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
-		if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		# Need to use a sig image to create the build VM
+		if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 			# Reuse IMPORTED_IMAGE_NAME so the shared code in cleanup.sh can delete the temporary resource
 			IMPORTED_IMAGE_NAME=$imported_windows_image_name
 			echo "Creating new image for imported vhd ${WINDOWS_IMAGE_URL}"
@@ -370,13 +375,6 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
 			windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
 			windows_sigmode_source_image_version="1.0.0"
-		else
-			# Create the sig image from the official images defined in windows-image.env
-			windows_sigmode_source_subscription_id=""
-			windows_sigmode_source_resource_group_name=""
-			windows_sigmode_source_gallery_name=""
-			windows_sigmode_source_image_name=""
-			windows_sigmode_source_image_version=""
 		fi
 	fi
 
