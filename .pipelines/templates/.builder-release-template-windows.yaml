@@ -19,6 +19,7 @@ steps:
       echo "Set build date to $BUILD_DATE" && \
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
+
   - script: |
       echo MODE=$(MODE) && \
       docker run --rm \
@@ -51,10 +52,12 @@ steps:
       -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
+
+# Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
       echo MODE=$(MODE) && \
       OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)" && \
-      MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+      MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       echo "OS_DISK_URI ${OS_DISK_URI}" && \
       echo "MANAGEd_SIG_ID ${MANAGED_SIG_ID}" && \
@@ -82,10 +85,12 @@ steps:
       -e ARCHITECTURE=${ARCHITECTURE} \
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
+
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
+
   - script: |
       echo MODE=$(MODE) && \
       OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
@@ -106,6 +111,7 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+
 # Moved this conversion before cleanup because packer-generated SIG is already in VHD, and so can be cleaned.  
   - bash: |
         echo MODE=$(MODE) && \
@@ -130,12 +136,14 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+
 # SA_NAME:             Temporary storage account name
 # IMPORTED_IMAGE_NAME: Used to create a new SIG image from the imported VHD for the build VHD.
 #                      Can be deleted after building.
 # SIG_IMAGE_NAME:      Packer-generated SIG image definitions and versions for sig and gen2 modes.
 #                      Can be deleted after conversion.
 # IMAGE_NAME:          Managed image created by packer: ManagedImageName in log. No longer used.
+#                      Can be cleaned up in this step.
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -165,14 +173,16 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
+
 # Set VHD_NAME and SKU_NAME for Gen 2, which will be published.
+# Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
   - bash: |
       echo MODE=$(MODE) && \
       if [[ $(MODE) == "gen2Mode" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
       [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
       SKU_NAME="windows-$WINDOWS_SKU-gen2"; \
       else \
-      OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
+      OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
       SKU_NAME="windows-$WINDOWS_SKU"; fi && \
       WINDOWS_VERSION="$(grep -a "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
@@ -195,6 +205,7 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
+    
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
