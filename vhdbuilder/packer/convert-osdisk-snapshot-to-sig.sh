@@ -21,6 +21,6 @@ echo "ManagedImageSharedImageGalleryId: /subscriptions/${SUBSCRIPTION_ID}/resour
 
 disk_snapshot_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/snapshots/${ARM64_OS_DISK_SNAPSHOT_NAME}"
 az snapshot update --resource-group ${AZURE_RESOURCE_GROUP_NAME} -n ${ARM64_OS_DISK_SNAPSHOT_NAME} --architecture Arm64
-az sig image-version create --location $AZURE_LOCATION --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} \
+az sig image-version create --location $AZURE_LOCATION --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name PackerSigGalleryEastUS \
      --gallery-image-definition ${SIG_IMAGE_NAME} --gallery-image-version ${GEN2_CAPTURED_SIG_VERSION} \
      --os-snapshot ${disk_snapshot_id}

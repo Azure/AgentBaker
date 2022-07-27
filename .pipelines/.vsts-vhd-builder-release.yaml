@@ -53,7 +53,7 @@ parameters:
   displayName: Build MarinerV2 Gen2
   type: boolean
   default: true
-- name: buildMarinerV2gen2ARM64
+- name: buildMarinerV2ARM64
   displayName: Build MarinerV2 Gen2 - ARM64
   type: boolean
   default: false
@@ -360,9 +360,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-  - stage: build_vhd_mariner2_gen2_arm64
+  - stage: build_vhd_mariner2_arm64
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen2ARM64 }}', true)
+    condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
