@@ -145,6 +145,7 @@ const (
 	AKSUbuntuContainerd2204            Distro = "aks-ubuntu-containerd-22.04"
 	AKSUbuntuContainerd2204Gen2        Distro = "aks-ubuntu-containerd-22.04-gen2"
 	AKSUbuntuContainerd2004CVMGen2     Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
+	AKSUbuntuArm64Containerd2204Gen2   Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	RHEL                               Distro = "rhel"
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
@@ -188,6 +189,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSUbuntuArm64Containerd2204Gen2,
 }
 
 type CustomConfigurationComponent string
