@@ -96,6 +96,12 @@ steps:
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
+    displayName: publish release notes
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+        targetPath: 'image-bom.json'
+    displayName: publish container image list
   - bash: |
         echo MODE=$(MODE) && \
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \

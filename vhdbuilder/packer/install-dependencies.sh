@@ -102,7 +102,7 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   exit 1
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
+if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -129,6 +129,11 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   for version in $containerd_versions; do
     containerd_version="$(echo "$version" | cut -d- -f1)"
     containerd_patch_version="$(echo "$version" | cut -d- -f2)"
+    # containerd 1.4 not available in ubuntu 22.04
+    if [[ ${UBUNTU_RELEASE} == "22.04" && ${containerd_version} == "1.4.13" ]]; then
+      continue
+    fi
+
     downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
     echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
   done
@@ -149,6 +154,9 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
+  
+  KUBERNETES_VERSION=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ') installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+
   # k8s will use images in the k8s.io namespaces - create it
   ctr namespace create k8s.io
   cliTool="ctr"
@@ -480,6 +488,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.5-hotfix.20220615
 1.23.8-hotfix.20220620
 1.24.0-hotfix.20220615
+1.24.3
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"

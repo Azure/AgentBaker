@@ -29,7 +29,7 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 ]]; then
+    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
       # no blobfuse package in arm64 ubuntu repo
       for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
         if ! apt_get_install 30 1 600 $apt_package; then
@@ -288,9 +288,9 @@ addNvidiaAptRepo() {
         return
     fi
     local release=$(lsb_release -r -s)
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | gpg --dearmor > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/aptnvidia.gpg /etc/apt/trusted.gpg.d || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks

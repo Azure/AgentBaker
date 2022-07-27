@@ -318,10 +318,15 @@ var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
 
 assignRootPW() {
   if grep '^root:[!*]:' /etc/shadow; then
+    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     SALT=$(openssl rand -base64 5)
     SECRET=$(openssl rand -base64 37)
-    CMD="import crypt, getpass, pwd; print crypt.crypt('$SECRET', '\$6\$$SALT\$')"
-    HASH=$(python -c "$CMD")
+    CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
+    if [[ "${VERSION}" == "22.04" ]]; then
+      HASH=$(python3 -c "$CMD")
+    else
+      HASH=$(python -c "$CMD")
+    fi
 
     echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
   fi
@@ -794,7 +799,7 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
+    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
         echo "Ingorings systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
@@ -1569,7 +1574,6 @@ installCrictl() {
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
-    rm -rf ${CRICTL_DOWNLOAD_DIR}
 }
 {{- if TeleportEnabled}}
 downloadTeleportdPlugin() {
@@ -4621,7 +4625,7 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 ]]; then
+    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
       # no blobfuse package in arm64 ubuntu repo
       for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
         if ! apt_get_install 30 1 600 $apt_package; then
@@ -4883,9 +4887,9 @@ addNvidiaAptRepo() {
         return
     fi
     local release=$(lsb_release -r -s)
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | gpg --dearmor > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-key add /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/aptnvidia.gpg /etc/apt/trusted.gpg.d || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     wait_for_apt_locks

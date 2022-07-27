@@ -274,6 +274,23 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/list-images.sh",
+      "destination": "/home/packer/list-images.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/image-bom.json",
+      "destination": "image-bom.json"
+    },
+    {
+      "type": "file",
       "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
