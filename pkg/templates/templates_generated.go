@@ -1106,7 +1106,8 @@ ensureGPUDrivers() {
         # needs to happen even on gpu vhd because newer containerd/runc broke old 
         # nvidia-container-runtime. containerd [1.5.9, 1.4.12] + runc 1.0.2 don't work with 
         # old nvidia-container-runtime like 2.0.0, only new like 3.6.0
-        installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
+        addNvidiaAptRepo
+        installNvidiaContainerRuntime
         installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
         validateGPUDrivers
     fi
@@ -1222,7 +1223,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV=470.57.02
+export GPU_DV="{{GPUDriverVersion}}"
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1

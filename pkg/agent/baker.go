@@ -807,5 +807,16 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
+		"GPUDriverVersion": func() string {
+			if isStandardNCv1(profile.VMSize) {
+				return "470.57.02"
+			}
+			return "510.47.03"
+		},
 	}
+}
+
+func isStandardNCv1(size string) bool {
+	tmp := strings.ToLower(size)
+	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
 }
