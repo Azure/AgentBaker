@@ -147,7 +147,9 @@
         "v3.8.9.3"
       ],
       "multiArchVersions": [
-        "v3.21.4"
+        "v3.21.4",
+        "v3.21.6",
+        "v3.23.1"
       ]
     },
     {
@@ -156,7 +158,9 @@
         "v3.8.9.5"
       ],
       "multiArchVersions": [
-        "v3.21.4"
+        "v3.21.4",
+        "v3.21.6",
+        "v3.23.1"
       ]
     },
     {
@@ -165,7 +169,9 @@
         "v3.8.9"
       ],
       "multiArchVersions": [
-        "v3.21.4"
+        "v3.21.4",
+        "v3.21.6",
+        "v3.23.1"
       ]
     },
     {
@@ -174,14 +180,18 @@
         "v3.8.9.1"
       ],
       "multiArchVersions": [
-        "v3.21.4"
+        "v3.21.4",
+        "v3.21.6",
+        "v3.23.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.21.4"
+        "v3.21.4",
+        "v3.21.6",
+        "v3.23.1"
       ]
     },
     {
