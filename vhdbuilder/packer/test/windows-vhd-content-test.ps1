@@ -238,8 +238,22 @@ function Test-DockerCat {
             $catFilePath = "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
             if (!(Test-Path $catFilePath)) {
                 Write-Error "$catFilePath does not exist"
+                exit 1
+            } else {
+                Write-Output "$catFilePath exists"
             }
         }
+    }
+}
+
+function Test-ExcludeUDPSourcePort {
+    Write-Output "Checking whether the UDP source port 65330 is excluded"
+    $result = $(netsh int ipv4 show excludedportrange udp | findstr.exe 65330)
+    if ($result) {
+        Write-Output "The UDP source port 65330 is excluded: $result"
+    } else {
+        Write-Error "The UDP source port 65330 is not excluded."
+        exit 1
     }
 }
 
@@ -250,4 +264,5 @@ Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
 Test-DockerCat
+Test-ExcludeUDPSourcePort
 Remove-Item -Path c:\windows-vhd-configuration.ps1

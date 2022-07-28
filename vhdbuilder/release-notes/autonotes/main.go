@@ -125,28 +125,44 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 	defer os.RemoveAll(tmpdir)
 
-	artifactName := fmt.Sprintf("vhd-release-notes-%s", sku)
-	artifactFileIn := filepath.Join(tmpdir, "release-notes.txt")
-	artifactDirOut := filepath.Join(fl.path, path)
-	artifactFileOut := filepath.Join(artifactDirOut, fmt.Sprintf("%s.txt", fl.date))
+	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
+	releaseNotesFileIn := filepath.Join(tmpdir, "release-notes.txt")
+	imageListName := fmt.Sprintf("vhd-image-bom-%s", sku)
+	imageListFileIn := filepath.Join(tmpdir, "image-bom.json")
+	artifactsDirOut := filepath.Join(fl.path, path)
+	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
+	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", fl.date))
 
-	if err := os.MkdirAll(artifactDirOut, 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactDirOut, err)
+	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 		return
 	}
 
-	fmt.Printf("downloading artifact '%s' from build '%s'\n", artifactName, fl.build)
+	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
 
-	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", artifactName)
+	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", releaseNotesName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %s, output: %s", sku, err, string(stdout))
+			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
 		}
 		return
 	}
 
-	if err := os.Rename(artifactFileIn, artifactFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", artifactFileIn, artifactFileOut, err)
+	if err := os.Rename(releaseNotesFileIn, releaseNotesFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", releaseNotesFileIn, releaseNotesFileOut, err)
+		return
+	}
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", imageListName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(imageListFileIn, imageListFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
 		return
 	}
 }
@@ -188,4 +204,5 @@ var artifactToPath = map[string]string{
 	"1804-fips-gen2-gpu-containerd": filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
 	"marinerv1":                     filepath.Join("AKSCBLMariner", "gen1"),
 	"marinerv1-gen2":                filepath.Join("AKSCBLMariner", "gen2"),
+	"marinerv2-gen2":                filepath.Join("AKSCBLMarinerV2", "gen2"),
 }

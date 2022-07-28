@@ -37,6 +37,18 @@ else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else ifeq (${OS_VERSION},V2)
+ifeq (${ARCHITECTURE}, ARM64)
+ifeq (${MODE},gen2Mode)
+	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-arm64.json
+	@echo "${MODE}: Convert os disk snapshot to SIG"
+	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
+else ifeq (${MODE},sigMode)
+	$(error sigMode not supported yet)
+else
+	$(error arm64 generation 1 VM not supported)
+endif
+else
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
@@ -44,6 +56,7 @@ else ifeq (${MODE},sigMode)
 	$(error sigMode not supported yet)
 else
 	$(error MarinerV2 gen1 VMs are not supported yet)
+endif
 endif
 else
 	$(error OS_VERSION was invalid ${OS_VERSION})
