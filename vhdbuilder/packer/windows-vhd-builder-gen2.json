@@ -31,7 +31,7 @@
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
-            "os_disk_size_gb": 40,
+            "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
             "image_publisher": "{{user `windows_image_publisher`}}",
             "image_offer": "{{user `windows_image_offer`}}",

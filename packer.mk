@@ -98,7 +98,5 @@ test-building-vhd: az-login
 	@MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
 	@echo "packer MANAGED_SIG_ID ${MANAGED_SIG_ID}"
 	@gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"       
-	@echo "packer gen2_captured_sig_version ${gen2_captured_sig_version}"
-	@OUTPUT="$(cat packer-output)"
-	@echo "Entire output is ${OUTPUT}"
+	@echo "packer gen2_captured_sig_version ${gen2_captured_sig_version}"	
 	@./vhdbuilder/packer/test/run-test.sh

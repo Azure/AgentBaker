@@ -109,7 +109,7 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 			SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}
 			if [[ $HYPERV_GENERATION == "V2" ]]; then
 				# Add suffix Gen 2 to differentiate
-				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}g2
+				SIG_IMAGE_NAME=${WINDOWS_SKU}${WINDOWS_VERSION//./}-g2
 				#-gen2
 			fi
 		fi

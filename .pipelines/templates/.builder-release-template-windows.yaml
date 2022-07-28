@@ -62,6 +62,7 @@ steps:
       echo "OS_DISK_URI ${OS_DISK_URI}" && \
       echo "MANAGEd_SIG_ID ${MANAGED_SIG_ID}" && \
       echo "$(cat packer-output)" && \
+      echo "SIG_GALLERY_NAME is ${SIG_GALLERY_NAME}" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
