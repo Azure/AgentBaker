@@ -243,7 +243,6 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [
-        "1.7.1-hotfix.20200403",
         "1.8.3"
       ],
       "multiArchVersions": [
@@ -452,7 +451,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.2.7",
         "1.4.22",
         "1.4.29"
       ]
@@ -462,7 +460,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.2.7",
         "1.4.22",
         "1.4.29"
       ]
