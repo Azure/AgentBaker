@@ -847,6 +847,14 @@ func (p *Properties) IsVHDDistroForAllNodes() bool {
 	return true
 }
 
+func (config *NodeBootstrappingConfiguration) Is2204VHD() bool {
+	if config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204 || config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204Gen2 {
+		return true
+	}
+
+	return false
+}
+
 // GetVMType returns the type of VM "vmss" or "standard" to be passed to the cloud provider
 func (p *Properties) GetVMType() string {
 	if p.HasVMSSAgentPool() {
