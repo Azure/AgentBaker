@@ -138,7 +138,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "ciprod05192022",
-        "ciprod06272022"
+        "ciprod06272022",
+        "ciprod06272022-hotfix"
       ]
     },
     {
