@@ -208,7 +208,7 @@ function Build-PauseContainer {
     "FROM $($WindowsBase)" | Out-File -encoding ascii -FilePath Dockerfile
     "CMD cmd /c ping -t localhost" | Out-File -encoding ascii -FilePath Dockerfile -Append
     if ($ContainerRuntime -eq "docker") {
-        Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".")
+        Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER
     }
     else {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER -ErrorMessage "Cannot build pause container without Docker"
@@ -234,16 +234,16 @@ function New-InfraContainer {
 
     if ($ContainerRuntime -eq "docker") {
         if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-            Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
+            Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30 -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE
         }
-        Invoke-Executable -Executable "docker" -ArgList @("tag", "$defaultPauseImage", "$DestinationTag")
+        Invoke-Executable -Executable "docker" -ArgList @("tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
     }
     else {
         # containerd
         if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
+            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30 -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE
         }
-        Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag")
+        Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
     }
 }
 

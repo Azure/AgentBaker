@@ -6706,6 +6706,10 @@ $global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE=37
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE=38
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE=39
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE=40
+$global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE=41
+$global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER=42
+$global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
+$global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -6862,13 +6866,15 @@ function Invoke-Executable {
         [int[]]
         $AllowedExitCodes = @(0),
         [int]
-        $Retries = 1,
+        $Retries = 0,
         [int]
-        $RetryDelaySeconds = 1
+        $RetryDelaySeconds = 1,
+        [int]
+        $ExitCode = $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE
     )
 
-    for ($i = 0; $i -lt $Retries; $i++) {
-        Write-Log "Running $Executable $ArgList ..."
+    for ($i = 0; $i -le $Retries; $i++) {
+        Write-Log "$i - Running $Executable $ArgList ..."
         & $Executable $ArgList
         if ($LASTEXITCODE -notin $AllowedExitCodes) {
             Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
@@ -6881,7 +6887,7 @@ function Invoke-Executable {
         }
     }
 
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
+    Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Exhausted retries for $Executable $ArgList"
 }
 
 function Assert-FileExists {

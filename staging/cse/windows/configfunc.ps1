@@ -122,7 +122,7 @@ function Adjust-DynamicPortRange()
     #
     # The fix which reduces dynamic port usage is still needed for DSR mode
     # Update the range to [33000, 65535] to avoid that it conflicts with NodePort range (30000 - 32767)
-    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536")
+    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
 }
 
 # TODO: should this be in this PR?
