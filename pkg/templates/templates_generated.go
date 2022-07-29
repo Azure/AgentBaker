@@ -1,6 +1,7 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // linux/cloud-init/artifacts/10-bindmount.conf
+// linux/cloud-init/artifacts/10-cgroupv2.conf
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
@@ -139,6 +140,24 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10Cgroupv2Conf = []byte(`[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"`)
+
+func linuxCloudInitArtifacts10Cgroupv2ConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10Cgroupv2Conf, nil
+}
+
+func linuxCloudInitArtifacts10Cgroupv2Conf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10Cgroupv2ConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-cgroupv2.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3166,6 +3185,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
 [Install]
@@ -5521,7 +5541,16 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-{{if UseRuncShimV2}}
+
+{{- if Is2204VHD}}
+- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
+{{- end}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -5552,6 +5581,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
@@ -5578,58 +5610,7 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     {{- end}}
     #EOF
-{{else}}
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    subreaper = false
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{ if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{ end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{ end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{ if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{ end}}
-    #EOF
-{{end}}
+
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -6957,6 +6938,7 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-cgroupv2.conf":                          linuxCloudInitArtifacts10Cgroupv2Conf,
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
@@ -7074,6 +7056,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
 				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-cgroupv2.conf":                          &bintree{linuxCloudInitArtifacts10Cgroupv2Conf, map[string]*bintree{}},
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
