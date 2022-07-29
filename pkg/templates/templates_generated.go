@@ -145,7 +145,8 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10Cgroupv2Conf = []byte(`[Service]
-Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"`)
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
+`)
 
 func linuxCloudInitArtifacts10Cgroupv2ConfBytes() ([]byte, error) {
 	return _linuxCloudInitArtifacts10Cgroupv2Conf, nil

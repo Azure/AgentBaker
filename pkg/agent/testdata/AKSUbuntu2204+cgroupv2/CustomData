@@ -161,7 +161,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7FV8g51cvVxDYl3dg/yDw2Id/NxdA+21dVNTi/KLy3QTSnKLEstsi2uLC5JzU1RAgQAAP//jlSXsUQAAAA=
+    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7FV8g51cvVxDYl3dg/yDw2Id/NxdA+21dVNTi/KLy3QTSnKLEstsi2uLC5JzU1R4gIEAAD//+A/ZjhFAAAA
 
 - path: /etc/containerd/config.toml
   permissions: "0644"
