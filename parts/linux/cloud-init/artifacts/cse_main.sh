@@ -110,8 +110,6 @@ else
     echo "Golden image; skipping dependencies installation"
 fi
 
-updateAptWithMicrosoftPkg
-
 installContainerRuntime
 {{- if and NeedsContainerd TeleportEnabled}}
 installTeleportdPlugin

@@ -122,15 +122,14 @@
         "v0.0.21.4"
       ],
       "multiArchVersions": [
-        "v1.0.0.2",
-        "v1.0.0.3"
+        "v1.2.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.0.0"
+        "v1.2.0"
       ]
     },
     {
@@ -138,7 +137,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "ciprod05192022",
-        "ciprod06272022"
+        "ciprod06272022",
+        "ciprod06272022-hotfix"
       ]
     },
     {
@@ -243,7 +243,6 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [
-        "1.7.1-hotfix.20200403",
         "1.8.3"
       ],
       "multiArchVersions": [
@@ -452,7 +451,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.2.7",
         "1.4.22",
         "1.4.29"
       ]
@@ -462,7 +460,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.2.7",
         "1.4.22",
         "1.4.29"
       ]
