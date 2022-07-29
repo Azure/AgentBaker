@@ -183,14 +183,14 @@ function Install-Containerd {
   # Extract the package
   if ($ContainerdUrl.endswith(".zip")) {
     $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
+    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile -ErrorCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
     Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
     Remove-Item -Path $zipfile -Force
   }
   elseif ($ContainerdUrl.endswith(".tar.gz")) {
     # upstream containerd package is a tar 
     $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
+    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ErrorCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
     Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
     tar -xzf $tarfile -C $global:ContainerdInstallLocation
 

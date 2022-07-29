@@ -2,6 +2,7 @@ function Get-ProvisioningScripts {
     # Plan to move provisioning scripts from ProvisioningScriptsPackage to CSEScriptsPackage.
     if ($global:ProvisioningScriptsPackageUrl) {
         Write-Log "Getting provisioning scripts"
+        # Do not set specific error code since we do not need to download it
         DownloadFileOverHttp -Url $global:ProvisioningScriptsPackageUrl -DestinationPath 'c:\k\provisioningscripts.zip'
         Expand-Archive -Path 'c:\k\provisioningscripts.zip' -DestinationPath 'c:\k' -Force
         Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force

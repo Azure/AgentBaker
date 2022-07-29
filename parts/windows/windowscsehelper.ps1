@@ -34,6 +34,14 @@ $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
 $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE=33
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE=34
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE=35
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE=36
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE=37
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE=38
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE=39
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE=40
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -50,7 +58,9 @@ function DownloadFileOverHttp {
         [Parameter(Mandatory = $true)][string]
         $Url,
         [Parameter(Mandatory = $true)][string]
-        $DestinationPath
+        $DestinationPath,
+        [Parameter(Mandatory = $false)][int]
+        $ExitCode = $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY
     )
 
     # First check to see if a file with the same name is already cached on the VHD
@@ -84,7 +94,7 @@ function DownloadFileOverHttp {
             $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
             Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Failed in downloading $Url. Error: $_"
+            Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $Url. Error: $_"
         }
         $downloadTimer.Stop()
 
