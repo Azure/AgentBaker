@@ -214,8 +214,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     downloadGPUDrivers
 
     # also download the fabric manager bits required for MIG, only compatible with newer drivers
-    retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
-    tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
+    retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.zz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
+    tar -xvf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
     mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
   fi
   {
