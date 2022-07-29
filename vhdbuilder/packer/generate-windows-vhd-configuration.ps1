@@ -100,7 +100,7 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022",
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
-            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29",
+            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
         )
     }
     default {
