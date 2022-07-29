@@ -234,14 +234,14 @@ function New-InfraContainer {
 
     if ($ContainerRuntime -eq "docker") {
         if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-            Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30 -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE
+            Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE -Retries 5 -RetryDelaySeconds 30
         }
         Invoke-Executable -Executable "docker" -ArgList @("tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
     }
     else {
         # containerd
         if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30 -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE
+            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE -Retries 5 -RetryDelaySeconds 30
         }
         Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
     }

@@ -64,8 +64,8 @@ function DownloadFileOverHttp {
         $Url,
         [Parameter(Mandatory = $true)][string]
         $DestinationPath,
-        [Parameter(Mandatory = $false)][int]
-        $ExitCode = $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
     )
 
     # First check to see if a file with the same name is already cached on the VHD
@@ -196,18 +196,18 @@ function Retry-Command {
 
 function Invoke-Executable {
     Param(
-        [string]
+        [Parameter(Mandatory=$true)][string]
         $Executable,
-        [string[]]
+        [Parameter(Mandatory=$true)][string[]]
         $ArgList,
+        [Parameter(Mandatory=$true)][int]
+        $ExitCode,
         [int[]]
         $AllowedExitCodes = @(0),
         [int]
         $Retries = 0,
         [int]
-        $RetryDelaySeconds = 1,
-        [int]
-        $ExitCode = $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE
+        $RetryDelaySeconds = 1
     )
 
     for ($i = 0; $i -le $Retries; $i++) {
@@ -229,14 +229,14 @@ function Invoke-Executable {
 
 function Assert-FileExists {
     Param(
-        [Parameter(Mandatory = $true, Position = 0)][string]
+        [Parameter(Mandatory = $true)][string]
         $Filename,
-        [Parameter(Mandatory = $false)][int]
-        $ExitCode = $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
     )
 
     if (-Not (Test-Path $Filename)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
+        Set-ExitCode -ExitCode $ExitCode -ErrorMessage "$Filename does not exist"
     }
 }
 
