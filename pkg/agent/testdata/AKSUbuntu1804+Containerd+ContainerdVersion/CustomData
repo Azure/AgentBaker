@@ -84,7 +84,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4yTS2/aQBDH7/4UKyuH9rDZvm6RD5CYCMUKUUzUA0FovR5gxHps7c4CadPvXplHWgJU9c07v//jMDN6IuRxdAPeOGwYa0ruQgEWOLquqcT25UHzPF2jZ5+o4J2ytdFWFUhqsUO/a2KfEPCqdgtZk0WCS9ZuBhx1pgzuzCwa5eCWaGAcPYJn7TjRdqVffJTSEl1NFRD30EKigI0qYaqD5bfYPBgD3qdr5Jw1B598/vY1Stdg8tbrwUGyqVloPxeqbljpH8GBMjWxRgLn91aXfn5CVy1KdEI2Qi21UxaLt+T/YQ3huS7SiBinYiQuPlR1IBavYuagEc/x+6TnWLyKlRHSfhTSgvgkxuJK8BxIbGM3cikLpPKo5vHDlZhifKr9zqbSC5B+rh0cu0WHOql8q4SCdWHBC8mCdOth0fNJFJv3KIUKHJq96I/qzKKJ50jsPimBWjfpwS3BHUyoLkFaXYD1SXzx8+6pm2bpcHI/uEknWaebZvmv+ECwTL4c/tc2VCAbG2ZIskS33b+2hSNg8GpLbAH/l/ZiHzbM8kl3MBjmw8fOw6SXdW7zU9j14L7Xv530+ln6T2jY6d+njzfnmc0gikZ98qytHW9uEsruS1IFyyiDB7c/u98BAAD//8jYo2D1AwAA
+    H4sIAAAAAAAA/4yTyW7bPBDH73oKQsjh+w4Mu90CHexEDowIcWA56MExDIoaxwNTI4EcOk6bvnshL2kdL6hu4vz+y2Fm/EjIk+gGvHHYMNaU3IUCLHB0XVOJ7cuD5nm6Qs8+UcE7ZWujrSqQ1GKLftfEPiHgl9otZE0WCS5Zu2fgqDNjcCdm0TgHt0QDk2gInrXjRNsX/eqjlJboaqqAuIcWEgVsVAkzHSy/x+bBGPA+XSHnrDn45PO3r1G6ApO3Xg8OknXNQvu5UHXDSv8IDpSpiTUSOL+zuvTzI7pqUaITshFqqZ2yWLwn/wtrCE91kUbEOBNjcfFfVQdi8SaeHTTiKf6Y9BSLN/FihLT/C2lBfBITcSV4DiQ2sWu5lAVSeVDz8OFKzDA+1n5rU+kFSD/XDg7don2dVL5VQsG6sOCFZEG69bDo+SiKzUeUQgUOzU70R3Vi0cRTJLaflECtm/TgluD2JlSXIK0uwPokvvh599hNs3Q0vR/cpNOs002z/Fe8J1gmX/b/axsqkI0Nz0iyRLfZv7aFI2DwakNsAP+X9mIXNsryaXcwGOWjYedh2ss6t/kx7Hpw3+vfTnv9LD0LjTr9+3R4c4a5HQ4ezwStB1E07pNnbe1kfbNQdl+TKlhGGTy43Vn+DgAA//9u+gahFQQAAA==
 
 
 
@@ -162,24 +162,23 @@ write_files:
   owner: root
   content: |
     version = 2
-    subreaper = false
     oom_score = 0
     [plugins."io.containerd.grpc.v1.cri"]
       sandbox_image = "oss/kubernetes/pause:1.3.1"
       [plugins."io.containerd.grpc.v1.cri".containerd]
-        
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          runtime_engine = "/usr/bin/runc"
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          runtime_engine = "/usr/bin/runc"
-      
+        default_runtime_name = "runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          BinaryName = "/usr/bin/runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+          BinaryName = "/usr/bin/runc"
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
     [metrics]
       address = "0.0.0.0:10257"
-    
     #EOF
 
 - path: /etc/containerd/kubenet_template.conf

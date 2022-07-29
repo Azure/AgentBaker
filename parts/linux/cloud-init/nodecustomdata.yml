@@ -433,14 +433,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 
-{{ if Is2204VHD}}
+{{- if Is2204VHD}}
 - path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
-{{end}}
+{{- end}}
 
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -501,7 +501,6 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     {{- end}}
     #EOF
-{{end}}
 
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
