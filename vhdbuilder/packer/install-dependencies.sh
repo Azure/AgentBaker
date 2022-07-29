@@ -205,6 +205,11 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
     export GPU_DV=470.57.02
     ensureGPUDrivers
+
+    # also download the fabric manager bits required for MIG, old version only necessary on A100 with dedicated GPU VHD
+    retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
+    tar -xvf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
+    mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
   else
     # for non-GPU VHD, download all the newer driver bits, but don't install them yet.
     export GPU_DV=510.47.03
@@ -213,7 +218,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     downloadNvidiaContainerRuntime
     downloadGPUDrivers
 
-    # also download the fabric manager bits required for MIG, only compatible with newer drivers
+    # also download the fabric manager bits required for MIG, newer version
     retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
     tar -xvf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
     mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
