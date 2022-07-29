@@ -100,7 +100,7 @@ setupGpuRunfileInstall() {
     export -f retrycmd_if_failure
     export -f downloadGPUDrivers
     export -f installGPUDriversRun
-    retrycmd_if_failure 3 1 600 installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
     mv ${GPU_DEST}/bin/* /usr/bin
     echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
