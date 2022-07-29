@@ -6710,6 +6710,7 @@ $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE=41
 $global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER=42
 $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
 $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
+$global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST=45
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -6893,7 +6894,9 @@ function Invoke-Executable {
 function Assert-FileExists {
     Param(
         [Parameter(Mandatory = $true, Position = 0)][string]
-        $Filename
+        $Filename,
+        [Parameter(Mandatory = $false)][int]
+        $ExitCode = $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST
     )
 
     if (-Not (Test-Path $Filename)) {

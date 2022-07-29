@@ -14,7 +14,7 @@ function RegisterContainerDService {
     $kubedir
   )
 
-  Assert-FileExists $global:Containerdbinary
+  Assert-FileExists $global:Containerdbinary -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST
 
   # in the past service was not installed via nssm so remove it in case
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
