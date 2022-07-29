@@ -165,9 +165,6 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "";
 
-# These scripts are used after node is provisioned
-$global:ProvisioningScriptsPackageUrl = "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip";
-
 # PauseImage
 $global:WindowsPauseImageURL = "mcr.microsoft.com/oss/kubernetes/pause:1.4.0";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("false");
