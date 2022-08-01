@@ -4689,6 +4689,10 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
+    if [ -f "/etc/apt/sources.list.d/microsoft-prod.list" ] && [ -f "/etc/apt/sources.list.d/microsoft-prod-testing.list" ]; then
+        echo "microsoft-prod.list and microsoft-prod-testing.list already exists, no need to update"
+        return
+    fi
     if [[ $(isARM64) == 1 ]]; then
         retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     else
