@@ -524,8 +524,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
-sudo du -a /tmp 2>/dev/null | sort -n -r | head -n 20 | numfmt --to=iec
-
+du -hs /tmp
 rm -rf /tmp/*
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
