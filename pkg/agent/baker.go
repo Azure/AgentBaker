@@ -808,12 +808,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 		"GPUDriverVersion": func() string {
+			if isGPUDedicatedVHD(config) {
+				return "470.57.02"
+			}
 			if isStandardNCv1(profile.VMSize) {
 				return "470.57.02"
 			}
 			return "510.47.03"
 		},
 	}
+}
+
+func isGPUDedicatedVHD(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return config.EnableNvidia && !config.ConfigGPUDriverIfNeeded
 }
 
 func isStandardNCv1(size string) bool {
