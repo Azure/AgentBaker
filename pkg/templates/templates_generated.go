@@ -6293,7 +6293,7 @@ try
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"
     $tempfile = 'c:\csescripts.zip'
-    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ErrorCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
+    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 

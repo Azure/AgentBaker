@@ -257,7 +257,7 @@ function Get-KubePackage {
 
     $zipfile = "c:\k.zip"
     for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ErrorCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
+        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
         if ($?) {
             break
         }
