@@ -4614,7 +4614,7 @@ installDeps() {
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_update || (echo "failed install deps"; exit $ERR_APT_UPDATE_TIMEOUT)
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     BLOBFUSE_VERSION="1.4.4"
     local OSVERSION
@@ -4689,10 +4689,10 @@ installSGXDrivers() {
 }
 
 updateAptWithMicrosoftPkg() {
-    if [ -f "/etc/apt/sources.list.d/microsoft-prod.list" ] && [ -f "/etc/apt/sources.list.d/microsoft-prod-testing.list" ]; then
-        echo "microsoft-prod.list and microsoft-prod-testing.list already exists, no need to update"
-        return
-    fi
+    # if [ -f "/etc/apt/sources.list.d/microsoft-prod.list" ] && [ -f "/etc/apt/sources.list.d/microsoft-prod-testing.list" ]; then
+    #     echo "microsoft-prod.list and microsoft-prod-testing.list already exists, no need to update"
+    #     return
+    # fi
     if [[ $(isARM64) == 1 ]]; then
         retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     else
@@ -4710,7 +4710,7 @@ updateAptWithMicrosoftPkg() {
     
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_update || (echo "failed updateAptWithMicrosoftPkg"; exit $ERR_APT_UPDATE_TIMEOUT)
 }
 
 {{- if NeedsContainerd}}
@@ -4790,6 +4790,7 @@ downloadContainerdFromVersion() {
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
+    echo "installing containerd"
     updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -4813,6 +4814,7 @@ installMoby() {
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
         removeMoby
+        echo "installing docker moby"
         updateAptWithMicrosoftPkg
         MOBY_CLI=${MOBY_VERSION}
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
