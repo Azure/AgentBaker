@@ -208,9 +208,11 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
 
     # also download the fabric manager bits required for MIG, old version only necessary on A100 with dedicated GPU VHD
     retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
-    mkdir -p /opt/azure/fabricmanager-${GPU_DV}
-    tar -xvf fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz -C /opt/azure/fabricmanager-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    tar -xvf fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz -C /opt/azure || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     rm fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz
+    ls -al /opt/azure
+    ls -al /opt/azure/fabricmanager-linux-x86_64-${GPU_DV}-archive
+    mv /opt/azure/fabricmanager-linux-x86_64-${GPU_DV}-archive /opt/azure/fabricmanager-${GPU_DV}
   else
     # for non-GPU VHD, download all the newer driver bits, but don't install them yet.
     export GPU_DV=510.47.03
@@ -221,9 +223,11 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
 
     # also download the fabric manager bits required for MIG, newer version
     retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
-    mkdir -p /opt/azure/fabricmanager-${GPU_DV}
-    tar -xvf fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz -C /opt/azure/fabricmanager-${GPU_DV} || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    tar -xvf fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz -C /opt/azure || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     rm fabricmanager-linux-x86_64-${GPU_DV}-archive.tar.xz
+    ls -al /opt/azure
+    ls -al /opt/azure/fabricmanager-linux-x86_64-${GPU_DV}-archive
+    mv /opt/azure/fabricmanager-linux-x86_64-${GPU_DV}-archive /opt/azure/fabricmanager-${GPU_DV}
   fi
   {
     echo "  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}" >> ${VHD_LOGS_FILEPATH}
