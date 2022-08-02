@@ -165,9 +165,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 			if properties.HasWindows() {
 				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
 
-				// Kubernetes node binaries as packaged by upstream kubernetes
-				// example at https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.11.md#node-binaries-1
-				addValue(parametersMap, "windowsKubeBinariesURL", kubernetesConfig.WindowsNodeBinariesURL)
 				addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
 				addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
 				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
