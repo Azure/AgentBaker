@@ -383,7 +383,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220114.1",
-        "prod_20220225.1",
         "prod_20220512.2"
       ]
     },
