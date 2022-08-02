@@ -411,7 +411,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
   pushd /opt/azure/fabricmanager-${GPU_DV} || exit
-  /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
+  /opt/azure/fabricmanager-${GPU_DV}/sbin/fm_run_package_installer.sh
   systemctlEnableAndStart nvidia-fabricmanager
   popd || exit
 fi
