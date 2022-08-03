@@ -196,7 +196,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; 
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
       mkdir -p /opt/{actions,gpu}
       ctr image pull docker.io/alexeldeib/aks-gpu:latest
       ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
