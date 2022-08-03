@@ -198,10 +198,20 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
       ctr image pull docker.io/alexeldeib/aks-gpu:latest
-      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind -t docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
+      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     else
       ctr image pull docker.io/alexeldeib/aks-gpu:latest
-      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind -t docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh copy
+      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh copy
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   else
     echo "FAILURE: GPU is not supported for docker runtime"
