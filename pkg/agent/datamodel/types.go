@@ -848,7 +848,9 @@ func (p *Properties) IsVHDDistroForAllNodes() bool {
 }
 
 func (config *NodeBootstrappingConfiguration) Is2204VHD() bool {
-	if config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204 || config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204Gen2 {
+	if config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204 ||
+		config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204Gen2 ||
+		config.AgentPoolProfile.Distro == AKSUbuntuArm64Containerd2204Gen2 {
 		return true
 	}
 
