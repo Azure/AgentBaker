@@ -221,6 +221,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   fi
 fi
 
+ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
