@@ -198,24 +198,24 @@ installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-addNvidiaAptRepo
-installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
-downloadGPUDrivers
-retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
-tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
-mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
-echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
-downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-{
-  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}";
-  echo "  - nvidia-gpu-driver-version=${GPU_DV}";
-  echo "  - nvidia-fabricmanager=${GPU_DV}";
-} >> ${VHD_LOGS_FILEPATH}
-if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
-    ensureGPUDrivers
+  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind -t docker.io/alexeldeib/aks-gpu:latest /entrypoint.sh install.sh
+    else
+      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind -t docker.io/alexeldeib/aks-gpu:latest /entrypoint.sh copy
+    fi
+  else
+    echo "FAILURE: GPU is not supported for docker runtime"
+    exit 1
+  fi
 fi
-fi
+
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
+  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
+  - nvidia-gpu-driver-version=${GPU_DV}
+  - nvidia-fabricmanager=${GPU_DV}
+EOF
 
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
@@ -390,10 +390,6 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
-  pushd /opt/azure/fabricmanager-${GPU_DV} || exit
-  /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-  systemctlEnableAndStart nvidia-fabricmanager
-  popd || exit
 fi
 
 installSGX=${SGX_INSTALL:-"False"}

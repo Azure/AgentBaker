@@ -67,9 +67,9 @@ if [[ ${ID} != "mariner" ]]; then
     removeManDbAutoUpdateFlagFile
 fi
 
-if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
-fi
+# if [[ "${GPU_NODE}" != "true" ]]; then
+#     cleanUpGPUDrivers
+# fi
 
 disableSystemdResolved
 
@@ -105,9 +105,6 @@ setupCNIDirs
 installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        downloadGPUDrivers
-    fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
