@@ -270,7 +270,6 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
-
     # install gpu driver
     mkdir -p /opt/{actions,gpu}
     ctr image pull docker.io/alexeldeib/aks-gpu:latest
@@ -323,6 +322,7 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
+      mkdir -p /opt/{actions,gpu}
       ctr image pull docker.io/alexeldeib/aks-gpu:latest
       ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
       ret=$?
