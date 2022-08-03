@@ -98,7 +98,9 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022"
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022",
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
+            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
         )
     }
     default {
@@ -123,7 +125,8 @@ $global:map = @{
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.12.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -166,13 +169,17 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.1-hotfix.20211115/windowszip/v1.22.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.4-hotfix.20220201/windowszip/v1.22.4-hotfix.20220201-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220130/windowszip/v1.22.6-hotfix.20220130-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220728/windowszip/v1.22.6-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.10/windowszip/v1.22.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.11/windowszip/v1.22.11-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.11-hotfix.20220728/windowszip/v1.22.11-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.3-hotfix.20220130/windowszip/v1.23.3-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.23.8/windowszip/v1.23.8-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220331/windowszip/v1.23.5-hotfix.20220331-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220728/windowszip/v1.23.5-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.7/windowszip/v1.23.7-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.8/windowszip/v1.23.8-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.8-hotfix.20220728/windowszip/v1.23.8-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/windowszip/v1.24.0-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.3/windowszip/v1.24.3-1int.zip"
     );
