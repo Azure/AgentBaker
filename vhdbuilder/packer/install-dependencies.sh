@@ -194,9 +194,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   done
 fi
 
-installBpftrace
-echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
-
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
@@ -211,6 +208,9 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     exit 1
   fi
 fi
+
+installBpftrace
+echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
