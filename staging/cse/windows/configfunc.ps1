@@ -122,7 +122,7 @@ function Adjust-DynamicPortRange()
     #
     # The fix which reduces dynamic port usage is still needed for DSR mode
     # Update the range to [33000, 65535] to avoid that it conflicts with NodePort range (30000 - 32767)
-    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536")
+    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
 }
 
 # TODO: should this be in this PR?
@@ -232,7 +232,7 @@ function Install-GmsaPlugin {
     $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
 
     Write-Log "Getting the GMSA plugin package"
-    DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile
+    DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE
     Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
     if ($LASTEXITCODE) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
@@ -390,7 +390,7 @@ function New-CsiProxyService {
     $tempdir = New-TemporaryDirectory
     $binaryPackage = "$tempdir\csiproxy.tar"
 
-    DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage
+    DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE
 
     tar -xzf $binaryPackage -C $tempdir
     cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"

@@ -15,7 +15,7 @@ function Install-VnetPlugins
     # Download Azure VNET CNI plugins.
     # Mirror from https://github.com/Azure/azure-container-networking/releases
     $zipfile =  [Io.path]::Combine("$AzureCNIDir", "azure-vnet.zip")
-    DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile
+    DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
     Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
     del $zipfile
 
@@ -371,5 +371,5 @@ function Get-HnsPsm1
         [Parameter(Mandatory=$true)][string]
         $HNSModule
     )
-    DownloadFileOverHttp -Url $HnsUrl -DestinationPath "$HNSModule"
+    DownloadFileOverHttp -Url $HnsUrl -DestinationPath "$HNSModule" -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE
 }

@@ -84,10 +84,6 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No FIPS support on arm64, exiting..."
     exit 1
   fi
-  if [[ $OS == $MARINER_OS_NAME ]]; then
-    echo "No arm64 support for Mariner OS, exiting..."
-    exit 1
-  fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
@@ -492,6 +488,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.5-hotfix.20220615
 1.23.8-hotfix.20220620
 1.24.0-hotfix.20220615
+1.24.3
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
@@ -540,7 +537,7 @@ if [[ $(isARM64) != 1 ]]; then
   installAscBaseline
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi
