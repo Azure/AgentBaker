@@ -819,6 +819,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
+		"ShouldConfigureCustomCATrust": func() bool {
+			return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
+		},
+		"GetCustomCATrustConfigCerts": func() []string {
+			if config.CustomCATrustConfig != nil && config.CustomCATrustConfig.CustomCATrustCerts != nil {
+				indentedCerts := make([]string, 0, len(config.CustomCATrustConfig.CustomCATrustCerts))
+				for _, cert := range config.CustomCATrustConfig.CustomCATrustCerts {
+					indentedCerts = append(indentedCerts, datamodel.IndentString(cert, 4))
+				}
+				return indentedCerts
+			}
+			return []string{}
+		},
 	}
 }
 

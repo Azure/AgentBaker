@@ -486,7 +486,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-				CustomCATrustCerts: []string{EncodedTestCert},
+				CustomCATrustCerts: []string{EncodedTestCert, EncodedTestCert, EncodedTestCert},
 			}
 		}),
 
