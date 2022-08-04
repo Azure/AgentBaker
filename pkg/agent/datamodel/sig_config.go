@@ -235,7 +235,7 @@ const (
 
 	Arm64LinuxSIGImageVersion    string = "2022.08.02"
 	Ubuntu2204SIGImageVersion    string = "2022.07.25"
-	Ubuntu2004CVMSIGImageVersion string = "2022.06.16"
+	Ubuntu2004CVMSIGImageVersion string = "2022.08.02"
 )
 
 // SIG config Template
