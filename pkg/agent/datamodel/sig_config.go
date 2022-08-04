@@ -226,7 +226,7 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.07.28"
+	LinuxSIGImageVersion string = "2022.08.02"
 
 	// AKS RP always uses a configuration file to set the latest SIG image versions for Windows
 	// so we leave the version to empty here
@@ -235,7 +235,7 @@ const (
 
 	Arm64LinuxSIGImageVersion    string = "2022.08.02"
 	Ubuntu2204SIGImageVersion    string = "2022.07.25"
-	Ubuntu2004CVMSIGImageVersion string = "2022.06.16"
+	Ubuntu2004CVMSIGImageVersion string = "2022.08.02"
 )
 
 // SIG config Template
