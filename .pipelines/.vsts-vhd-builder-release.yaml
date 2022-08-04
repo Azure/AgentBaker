@@ -92,7 +92,7 @@ parameters:
 - name: build2004cvmgen2containerd
   displayName: Build 2004 CVM Gen2 Containerd
   type: boolean
-  default: false
+  default: true
 - name: dryrun
   displayName: Dry run
   type: boolean
@@ -157,6 +157,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -201,6 +202,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -245,6 +247,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -289,6 +292,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -422,6 +426,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -468,6 +473,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
@@ -563,6 +569,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -585,6 +592,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-confidential-vm-focal'
             echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-cvm'
+            echo '##vso[task.setvariable variable=IMG_VERSION]20.04.202205100'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'

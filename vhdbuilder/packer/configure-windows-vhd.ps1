@@ -87,13 +87,13 @@ function Invoke-Executable {
         [string[]]
         $ArgList,
         [int]
-        $Retries = 1,
+        $Retries = 0,
         [int]
         $RetryDelaySeconds = 1
     )
 
-    for ($i = 0; $i -lt $Retries; $i++) {
-        Write-Log "Running $Executable $ArgList ..."
+    for ($i = 0; $i -le $Retries; $i++) {
+        Write-Log "$i - Running $Executable $ArgList ..."
         & $Executable $ArgList
         if ($LASTEXITCODE) {
             Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
