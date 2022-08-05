@@ -828,7 +828,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				for _, cert := range config.CustomCATrustConfig.CustomCATrustCerts {
 					indentedCerts = append(indentedCerts, datamodel.IndentString(cert, 4))
 				}
-				return indentedCerts
+				return config.CustomCATrustConfig.CustomCATrustCerts
 			}
 			return []string{}
 		},
