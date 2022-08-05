@@ -11,8 +11,8 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || { [ "$OS_VERSION" == "16.04" ] || [ "$IMG_SKU" == "20_04-lts-cvm" ] || [ "$OS_VERSION" == "22.04" ]; }; then
-    echo "Skipping tests for Mariner, Ubuntu 16.04, 22.04 and CVM 20.04"
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$IMG_SKU" == "20_04-lts-cvm" ] || [ "$OS_VERSION" == "22.04" ] && [ "${ARCHITECTURE,,}" != "arm64" ]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04, CVM 20.04 and AMD64 22.04"
     exit 0
   fi
 fi
