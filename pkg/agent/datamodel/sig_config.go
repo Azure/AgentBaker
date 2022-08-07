@@ -231,7 +231,7 @@ const (
 	Windows2019SIGImageVersion string = "17763.3232.220722"
 	Windows2022SIGImageVersion string = "20348.859.220722"
 
-	Arm64LinuxSIGImageVersion    string = "2022.08.09"
+	Arm64LinuxSIGImageVersion    string = "2022.08.02"
 	Ubuntu2204SIGImageVersion    string = "2022.07.25"
 	Ubuntu2004CVMSIGImageVersion string = "2022.08.02"
 )
