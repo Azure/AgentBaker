@@ -96,7 +96,7 @@ DOCKER_VERSION=1.13.1-1
 export NVIDIA_DRIVER_IMAGE_TAG="{{GPUDriverVersion}}"
 export NVIDIA_DRIVER_IMAGE="docker.io/alexeldeib/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
-export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
+export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 
