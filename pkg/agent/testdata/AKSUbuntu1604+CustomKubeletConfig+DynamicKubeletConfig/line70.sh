@@ -428,6 +428,7 @@ ensureGPUDrivers() {
     else
         validateGPUDrivers
     fi
+    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
 #EOF
