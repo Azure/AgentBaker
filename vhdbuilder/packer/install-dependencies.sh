@@ -195,29 +195,31 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+  gpu_action="copy"
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    # force older driver on dedicated vhd to avoid build failures.
+    export NVIDIA_DRIVER_IMAGE_TAG="470.57.02"
+    gpu_action="install"
+  else
+    export NVIDIA_DRIVER_IMAGE_TAG="510.47.03"
+  fi
+
+  mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-      mkdir -p /opt/{actions,gpu}
-      ctr image pull docker.io/alexeldeib/aks-gpu:latest
-      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
-    else
-      mkdir -p /opt/{actions,gpu}
-      ctr image pull docker.io/alexeldeib/aks-gpu:latest
-      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh copy
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
+    ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
     fi
   else
-    echo "FAILURE: GPU is not supported for docker runtime"
-    exit 1
+    bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action" 
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi
   fi
 fi
 
