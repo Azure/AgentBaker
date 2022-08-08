@@ -43,6 +43,7 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
@@ -51,12 +52,15 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
+            # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
+            # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022")
     }
     "2019-containerd" {
@@ -64,6 +68,7 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
@@ -72,13 +77,16 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
+            # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
+            # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022")
     }
     "2022-containerd" {
@@ -86,6 +94,7 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
@@ -94,11 +103,15 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
+            # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
+            # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod06142022",
+            # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
         )
