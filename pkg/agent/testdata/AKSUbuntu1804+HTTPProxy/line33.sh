@@ -70,9 +70,9 @@ if [[ ${ID} != "mariner" ]]; then
 fi
 cleanUpContainerd
 
-# if [[ "${GPU_NODE}" != "true" ]]; then
-#     cleanUpGPUDrivers
-# fi
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
 
 disableSystemdResolved
 
