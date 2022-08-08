@@ -20,17 +20,13 @@ create_cluster="false"
 if [ -n "$out" ]; then
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
-    if [ $exists = "false" ]; then
+    state="$(az aks show -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME | jq -r .provisioningState)"
+    if [ $exists = "false" ] || [ "$state" == "Failed" ]; then
         log "Deleting cluster"
         clusterDeleteStartTime=$(date +%s)
         az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
         clusterDeleteEndTime=$(date +%s)
         log "Deleted cluster in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
-        create_cluster="true"
-    fi
-    state="$(az aks show -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME | jq -r .provisioningState)"
-    if [[ "$state" == "Failed" ]]; then
-        log "Cluster in failed state, recreating"
         create_cluster="true"
     fi
 else
