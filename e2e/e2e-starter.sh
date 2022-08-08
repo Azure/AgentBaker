@@ -28,6 +28,11 @@ if [ -n "$out" ]; then
         log "Deleted cluster in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
         create_cluster="true"
     fi
+    state="$(az aks show -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME | jq -r .provisioningState)"
+    if [[ "$state" == "Failed" ]]; then
+        log "Cluster in failed state, recreating"
+        create_cluster="true"
+    fi
 else
     create_cluster="true"
 fi
