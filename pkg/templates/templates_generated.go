@@ -1009,24 +1009,34 @@ configAzurePolicyAddon() {
 configGPUDrivers() {
     # install gpu driver
     mkdir -p /opt/{actions,gpu}
-    ctr image pull docker.io/alexeldeib/aks-gpu:latest
-    ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
         echo "Failed to install GPU driver, exiting..."
-        exit $ret
+        exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    else
+        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
     fi
 
+    # validate on host, already done inside container.
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
     # reload containerd/dockerd
-    {{if NeedsContainerd}}
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    {{else}}
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    {{end}}
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    else
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
 }
 
 validateGPUDrivers() {
@@ -1061,18 +1071,10 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-      mkdir -p /opt/{actions,gpu}
-      ctr image pull docker.io/alexeldeib/aks-gpu:latest
-      ctr run --privileged --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind docker.io/alexeldeib/aks-gpu:latest gpuinstall /entrypoint.sh install.sh
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
+        configGPUDrivers
     else
         validateGPUDrivers
     fi
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
 #EOF
@@ -1188,11 +1190,10 @@ export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
-NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
-NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
-APT_CACHE_DIR=/var/cache/apt/archives/
-PERMANENT_CACHE_DIR=/root/aptcache/
+export NVIDIA_DRIVER_IMAGE_TAG="{{GPUDriverVersion}}"
+export NVIDIA_DRIVER_IMAGE="docker.io/alexeldeib/aks-gpu"
+export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+export DOCKER_GPU_INSTALL_CMD="docker run -it --privileged --net=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -2001,19 +2002,6 @@ fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
 if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    STATUS=`+"`"+`systemctl is-active nvidia-fabricmanager`+"`"+`
-    if [ ${STATUS} = 'active' ]; then
-        echo "Fabric Manager service is running, no need to install."
-    else
-        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
-            pushd /opt/azure/fabricmanager-${GPU_DV}
-            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-            systemctlEnableAndStart nvidia-fabricmanager
-            popd
-        else
-            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
-        fi
-    fi
     ensureMigPartition
 fi
 

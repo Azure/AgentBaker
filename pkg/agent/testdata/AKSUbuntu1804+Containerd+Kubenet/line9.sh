@@ -93,11 +93,10 @@ export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
-NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
-NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
-APT_CACHE_DIR=/var/cache/apt/archives/
-PERMANENT_CACHE_DIR=/root/aptcache/
+export NVIDIA_DRIVER_IMAGE_TAG="510.47.03"
+export NVIDIA_DRIVER_IMAGE="docker.io/alexeldeib/aks-gpu"
+export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+export DOCKER_GPU_INSTALL_CMD="docker run -it --privileged --net=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
