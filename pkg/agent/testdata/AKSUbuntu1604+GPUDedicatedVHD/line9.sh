@@ -89,10 +89,10 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
+NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
 export NVIDIA_DRIVER_IMAGE_TAG="470.57.02"
 export NVIDIA_DRIVER_IMAGE="docker.io/alexeldeib/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"

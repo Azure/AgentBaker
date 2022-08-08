@@ -1186,10 +1186,10 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV=470.57.02
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
+NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
 export NVIDIA_DRIVER_IMAGE_TAG="{{GPUDriverVersion}}"
 export NVIDIA_DRIVER_IMAGE="docker.io/alexeldeib/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -1941,9 +1941,9 @@ fi
 cleanUpContainerd
 {{- end}}
 
-# if [[ "${GPU_NODE}" != "true" ]]; then
-#     cleanUpGPUDrivers
-# fi
+if [[ "${GPU_NODE}" != "true" ]]; then
+    cleanUpGPUDrivers
+fi
 
 disableSystemdResolved
 
@@ -3350,19 +3350,7 @@ installStandaloneContainerd() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST
-}
-
-installNvidiaContainerRuntime() {
-    echo "installNvidiaContainerRuntime not implemented for mariner"
-}
-
-installNvidiaDocker() {
-    echo "installNvidiaDocker not implemented for mariner"
-}
-
-addNvidiaAptRepo() {
-    echo "addNvidiaAptRepo not implemented for mariner"
+    rm -Rf $GPU_DEST /opt/gpu
 }
 
 downloadContainerdFromVersion() {
@@ -4653,6 +4641,10 @@ updateAptWithMicrosoftPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+cleanUpGPUDrivers() {
+    rm -Rf $GPU_DEST /opt/gpu
 }
 
 {{- if NeedsContainerd}}
