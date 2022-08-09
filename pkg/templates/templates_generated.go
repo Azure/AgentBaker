@@ -1449,7 +1449,6 @@ CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
-UBUNTU_CODENAME=$(lsb_release -s -c)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 KRUSTLET_VERSION="v0.0.1"
@@ -4722,6 +4721,8 @@ updateAptWithMicrosoftPkg() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    UBUNTU_CODENAME=$(lsb_release -c -s)
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)

@@ -32,9 +32,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
-else
-  # now we support both 18.04/22.04 (bionic/jammy), need the codename for some download url
-  UBUNTU_CODENAME=$(lsb_release -s -c)
 fi
 
 copyPackerFiles
