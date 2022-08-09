@@ -33,7 +33,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [
-        "1.8.5",
+        "1.8.5"
       ],
       "multiArchVersions": [
         "1.8.14"
@@ -49,13 +49,6 @@
         "v0.5.2",
         "v0.6.1"
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/k8s/core/pause:*",
-      "amd64OnlyVersions": [
-        "1.2.0"
-      ],
-      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
