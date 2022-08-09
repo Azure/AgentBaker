@@ -140,14 +140,13 @@ retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
     for i in $(seq 1 $curl_retries); do
-        #[[ -f $filepath ]] && break
+        [[ -f $filepath ]] && break
         if [ $i -eq $curl_retries ]; then
             return 1
         else
             timeout $timeout curl -fsSL $url -o $filepath
             sleep $wait_sleep
         fi
-        [[ -f $filepath ]] && break
     done
 }
 wait_for_file() {
