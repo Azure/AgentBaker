@@ -274,16 +274,18 @@ configGPUDrivers() {
         bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
         ret=$?
         if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ERR_GPU_DRIVERS_START_FAIL
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
         fi
+        ctr images rm $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     else
         bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
         ret=$?
         if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ERR_GPU_DRIVERS_START_FAIL
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
         fi
+        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     fi
 
     # validate on host, already done inside container.
