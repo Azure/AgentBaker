@@ -10,12 +10,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
-        "v2.0.0",
         "v2.0.1"
       ],
-      "multiArchVersions": [
-        "v2.4.0"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-scraper:*",
