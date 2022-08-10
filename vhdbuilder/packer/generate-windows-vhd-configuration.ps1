@@ -23,12 +23,12 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 switch -Regex ($windowsSKU) {
     "2019*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/07/windows10.0-kb5015880-x64_1b8eadaa8f12dacd77342353c257e236e167a802.msu")
-        $global:patchIDs = @("KB5015880")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
     "2022*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/07/windows10.0-kb5015879-x64_d3d21b35480b32403c84cccc9ed0ede3c4009ccc.msu")
-        $global:patchIDs = @("KB5015879")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
 }
 
