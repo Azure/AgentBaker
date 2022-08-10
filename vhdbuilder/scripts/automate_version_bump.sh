@@ -69,10 +69,10 @@ cut_official_branch() {
     update_image_version
     git add .
     git commit -m"Update image version in official branch"
-    git push -u origin $official_branch_name
+    git push -u origin $official_branch_name -f
 
     git tag $official_tag
-    git push origin tag $official_tag
+    git push origin tag $official_tag -f
     git checkout master
 }
 
