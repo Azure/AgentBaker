@@ -582,8 +582,6 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		VolumePluginDir:                  kc["--volume-plugin-dir"],
 		VolumeStatsAggPeriod:             metav1.Duration{Duration: strToDuration(kc["--volume-stats-agg-period"])},
 	}
-	resolverConfig := kc["--resolv-conf"]
-	kubeletConfig.ResolverConfig = &resolverConfig
 
 	// Authentication
 	kubeletConfig.Authentication = kubeletconfigv1beta1.KubeletAuthentication{
