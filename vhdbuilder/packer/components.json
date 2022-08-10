@@ -10,12 +10,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
-        "v2.0.0",
         "v2.0.1"
       ],
-      "multiArchVersions": [
-        "v2.4.0"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-scraper:*",
@@ -36,8 +33,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [
-        "1.8.5",
-        "1.7"
+        "1.8.5"
       ],
       "multiArchVersions": [
         "1.8.14"
@@ -53,13 +49,6 @@
         "v0.5.2",
         "v0.6.1"
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/k8s/core/pause:*",
-      "amd64OnlyVersions": [
-        "1.2.0"
-      ],
-      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
@@ -233,12 +222,8 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
-      "amd64OnlyVersions": [
-        "v1.0.2",
-        "v1.1.1"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.7.21",
         "v1.0.18",
         "v1.1.14",
         "v1.23.11",
@@ -384,7 +369,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220114.1",
-        "prod_20220225.1",
         "prod_20220512.2"
       ]
     },
@@ -395,7 +379,6 @@
       ],
       "multiArchVersions": [
         "prod_20211230.1",
-        "prod_20220225.1",
         "prod_20220512.2"
       ]
     },
@@ -479,7 +462,6 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.21.0",
         "1.22.0",
         "1.23.0",
         "1.24.0"

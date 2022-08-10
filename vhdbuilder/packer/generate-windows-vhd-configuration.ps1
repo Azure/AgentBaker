@@ -23,12 +23,12 @@ if (-not ($validSKU -contains $windowsSKU)) {
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 switch -Regex ($windowsSKU) {
     "2019*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/07/windows10.0-kb5015880-x64_1b8eadaa8f12dacd77342353c257e236e167a802.msu")
-        $global:patchIDs = @("KB5015880")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
     "2022*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/07/windows10.0-kb5015879-x64_d3d21b35480b32403c84cccc9ed0ede3c4009ccc.msu")
-        $global:patchIDs = @("KB5015879")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
 }
 
@@ -169,10 +169,6 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.20.7-hotfix.20211115/windowszip/v1.20.7-hotfix.20211115-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.20.9-hotfix.20211115/windowszip/v1.20.9-hotfix.20211115-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.20.13-hotfix.20220210/windowszip/v1.20.13-hotfix.20220210-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.20.15-hotfix.20220201/windowszip/v1.20.15-hotfix.20220201-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20211115/windowszip/v1.21.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20211115/windowszip/v1.21.2-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.21.7-hotfix.20220204/windowszip/v1.21.7-hotfix.20220204-1int.zip",
