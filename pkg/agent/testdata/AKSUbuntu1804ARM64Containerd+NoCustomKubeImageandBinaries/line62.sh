@@ -125,6 +125,8 @@ updateAptWithMicrosoftPkg() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    UBUNTU_CODENAME=$(lsb_release -c -s)
     CONTAINERD_VERSION=$1
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
