@@ -21,7 +21,7 @@ pr_title="VersionBump"
 find_current_image_version() {
     filepath=$1
     while read -r p; do
-        if [[ $p == *"LinuxSIGImageVersion"* ]] && [[ $p != *"Arm64LinuxSIGImageVersion" ]]; then
+        if [[ $p == *"LinuxSIGImageVersion"* ]] && [[ $p != *"Arm64LinuxSIGImageVersion"* ]]; then
             current_image_version=$(echo $p | awk -F'\"' '{print $2}')
             echo "Image version is $current_image_version, cut from line $p"
             break
