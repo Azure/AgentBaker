@@ -104,8 +104,15 @@ EOF
 {
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
+    "enableServer": null,
     "staticPodPath": "/etc/kubernetes/manifests",
+    "syncFrequency": "0s",
+    "fileCheckFrequency": "0s",
+    "httpCheckFrequency": "0s",
+    "staticPodURL": "",
+    "staticPodURLHeader": null,
     "address": "0.0.0.0",
+    "port": 0,
     "readOnlyPort": 10255,
     "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
     "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
@@ -119,39 +126,92 @@ EOF
         "TLS_RSA_WITH_AES_256_GCM_SHA384",
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
+    "tlsMinVersion": "",
     "rotateCertificates": true,
+    "serverTLSBootstrap": false,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
         },
         "webhook": {
-            "enabled": true
+            "enabled": true,
+            "cacheTTL": "0s"
         },
-        "anonymous": {}
+        "anonymous": {
+            "enabled": false
+        }
     },
     "authorization": {
         "mode": "Webhook",
-        "webhook": {}
+        "webhook": {
+            "cacheAuthorizedTTL": "0s",
+            "cacheUnauthorizedTTL": "0s"
+        }
     },
+    "registryPullQPS": null,
+    "registryBurst": 0,
     "eventRecordQPS": 0,
+    "eventBurst": 0,
+    "enableDebuggingHandlers": null,
+    "enableContentionProfiling": false,
+    "healthzPort": null,
+    "healthzBindAddress": "",
+    "oomScoreAdj": null,
     "clusterDomain": "cluster.local",
     "clusterDNS": [
         "10.0.0.10"
     ],
     "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
+    "nodeStatusReportFrequency": "0s",
+    "nodeLeaseDurationSeconds": 0,
+    "imageMinimumGCAge": "0s",
     "imageGCHighThresholdPercent": 85,
     "imageGCLowThresholdPercent": 80,
+    "volumeStatsAggPeriod": "0s",
+    "kubeletCgroups": "",
+    "systemCgroups": "",
+    "cgroupRoot": "",
     "cgroupsPerQOS": true,
+    "cgroupDriver": "",
+    "cpuManagerPolicy": "",
+    "cpuManagerPolicyOptions": null,
+    "cpuManagerReconcilePeriod": "0s",
+    "memoryManagerPolicy": "",
+    "topologyManagerPolicy": "",
+    "topologyManagerScope": "",
+    "qosReserved": null,
+    "runtimeRequestTimeout": "0s",
+    "hairpinMode": "",
     "maxPods": 110,
-    "podPidsLimit": -1,
+    "podCIDR": "",
+    "podPidsLimit": null,
     "resolvConf": "/etc/resolv.conf",
+    "runOnce": false,
+    "cpuCFSQuota": null,
+    "cpuCFSQuotaPeriod": "0s",
+    "nodeStatusMaxImages": null,
+    "maxOpenFiles": 0,
+    "contentType": "",
+    "kubeAPIQPS": null,
+    "kubeAPIBurst": 0,
+    "serializeImagePulls": null,
     "evictionHard": {
         "memory.available": "750Mi",
         "nodefs.available": "10%",
         "nodefs.inodesFree": "5%"
     },
+    "evictionSoft": null,
+    "evictionSoftGracePeriod": null,
+    "evictionPressureTransitionPeriod": "0s",
+    "evictionMaxPodGracePeriod": 0,
+    "evictionMinimumReclaim": null,
+    "podsPerCore": 0,
+    "enableControllerAttachDetach": null,
     "protectKernelDefaults": true,
+    "makeIPTablesUtilChains": null,
+    "iptablesMasqueradeBit": null,
+    "iptablesDropBit": null,
     "featureGates": {
         "DynamicKubeletConfig": false,
         "PodPriority": true,
@@ -159,7 +219,11 @@ EOF
         "a": false,
         "x": false
     },
+    "failSwapOn": null,
+    "memorySwap": {},
     "containerLogMaxSize": "50M",
+    "containerLogMaxFiles": null,
+    "configMapAndSecretChangeDetectionStrategy": "",
     "systemReserved": {
         "cpu": "2",
         "memory": "1Gi"
@@ -168,9 +232,39 @@ EOF
         "cpu": "100m",
         "memory": "1638Mi"
     },
+    "reservedSystemCPUs": "",
+    "showHiddenMetricsForVersion": "",
+    "systemReservedCgroup": "",
+    "kubeReservedCgroup": "",
     "enforceNodeAllocatable": [
         "pods"
-    ]
+    ],
+    "allowedUnsafeSysctls": [
+        ""
+    ],
+    "volumePluginDir": "",
+    "providerID": "",
+    "kernelMemcgNotification": false,
+    "logging": {
+        "flushFrequency": 0,
+        "verbosity": 0,
+        "options": {
+            "json": {
+                "infoBufferSize": "0"
+            }
+        }
+    },
+    "enableSystemLogHandler": null,
+    "shutdownGracePeriod": "0s",
+    "shutdownGracePeriodCriticalPods": "0s",
+    "shutdownGracePeriodByPodPriority": null,
+    "reservedMemory": null,
+    "enableProfilingHandler": null,
+    "enableDebugFlagsHandler": null,
+    "seccompDefault": null,
+    "memoryThrottlingFactor": null,
+    "registerWithTaints": null,
+    "registerNode": null
 }
 EOF
     set -x
