@@ -1,8 +1,9 @@
 # Stop and remove Azure Agents to enable use in Azure Stack
 # If deploying an Azure VM the agents will be re-added to the VMs at deployment time
-Stop-Service WindowsAzureGuestAgent
+Get-Service WindowsAzureGuestAgent
+#Stop-Service WindowsAzureGuestAgent
 Stop-Service RdAgent
-& sc.exe delete WindowsAzureGuestAgent
+# & sc.exe delete WindowsAzureGuestAgent
 & sc.exe delete RdAgent
 
 # Remove the WindowsAzureGuestAgent registry key for sysprep 
