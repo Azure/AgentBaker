@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 build_ids=$1
-global_image_version="${IMAGE_VERSION}"
+global_image_version="${IMAGE_VERSION:=}"
 for build_id in $build_ids; do
     for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
         # This loop is because of how the Image Version is set for builds. 
