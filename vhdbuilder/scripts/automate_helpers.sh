@@ -23,8 +23,8 @@ configure_az_devops() {
 create_branch() {
     # Create PR branch
     echo "Create branch named $1"
-    # git checkout master
-    # git pull
+    git checkout master
+    git pull
     git checkout -b $1
 }
 
@@ -43,7 +43,7 @@ create_pull_request() {
         git commit -m "Bumping image version to $1"
     fi
 
-    git push -u origin $3
+    git push -u origin $3 -f
 
     set +x  # To avoid logging PAT during curl
     curl \
