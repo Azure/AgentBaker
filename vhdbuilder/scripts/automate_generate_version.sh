@@ -17,7 +17,8 @@ for build_id in $build_ids; do
                 if [[ -z $global_image_version ]]; then
                     global_image_version=$current_image_version
                 else 
-                    continue
+                    echo "mismatched image, exiting"
+                    exit 1
                 fi
             fi
         fi
