@@ -304,6 +304,10 @@ else
     fi
 fi
 
+echo "Uninstalling apport"
+sudo apt-get purge 
+
+
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
