@@ -110,6 +110,13 @@ function Write-KubeClusterConfig {
         EnableProxy = $global:EnableCsiProxy
     }
 
+    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Services -Value @{
+        HNSRemediator       = @{
+            Enabled = $Global:HNSRemediatorEnabled;
+            IntervalInMinutes = $Global:HNSRemediatorIntervalInMinutes;
+        };
+    }
+
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Kubernetes -Value @{
         Source       = @{
             Release = $global:KubeBinariesVersion;
