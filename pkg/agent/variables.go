@@ -110,6 +110,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
 		"isNotRebootWindowsNode":               strconv.FormatBool(config.AgentPoolProfile.IsNotRebootWindowsNode()),
+		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.ISDisableWindowsOutboundNat()),
 		"hnsRemediatorIntervalInMinutes":       cs.Properties.WindowsProfile.HnsRemediatorIntervalInMinutes,
 	}
 
