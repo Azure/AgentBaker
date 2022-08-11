@@ -525,9 +525,13 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 
 dpkg-query -W --showformat='${Installed-Size} ${Package}\n' | sort -nr | numfmt --to=iec | head -n 25 >> ${VHD_LOGS_FILEPATH}
 
-# apt-get autoclean -y
-# apt-get autoremove -y
-# apt-get clean -y
+df -h
+
+apt-get autoclean -y
+apt-get autoremove -y
+apt-get clean -y
+
+df -h
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
