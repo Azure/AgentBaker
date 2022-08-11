@@ -528,7 +528,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 } >> ${VHD_LOGS_FILEPATH}
 
 if [[ $(isARM64) != 1 ]]; then
-  # no asc-baseline-1.0.0-35.arm64.deb
+  # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
 
