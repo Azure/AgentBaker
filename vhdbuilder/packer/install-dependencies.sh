@@ -198,10 +198,10 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   gpu_action="copy"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     # force older driver on dedicated vhd to avoid build failures.
-    export NVIDIA_DRIVER_IMAGE_TAG="470.57.02-v0.0.2-rev17-sha-ff708e"
+    export NVIDIA_DRIVER_IMAGE_TAG="470.57.02-v0.0.2-rev20-sha-a0bbd5"
     gpu_action="install"
   else
-    export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-v0.0.2-rev17-sha-ff708e"
+    export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-v0.0.2-rev20-sha-a0bbd5"
   fi
 
   mkdir -p /opt/{actions,gpu}
@@ -523,15 +523,9 @@ ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
-dpkg-query -W --showformat='${Installed-Size} ${Package}\n' | sort -nr | numfmt --to=iec | head -n 25 >> ${VHD_LOGS_FILEPATH}
-
-df -h
-
 apt-get autoclean -y
 apt-get autoremove -y
 apt-get clean -y
-
-df -h
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
