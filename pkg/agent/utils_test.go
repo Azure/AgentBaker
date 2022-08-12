@@ -1032,6 +1032,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		}
 		k := map[string]string{
 			"--node-status-update-frequency": "10s",
+			"--node-status-report-frequency": "10s",
 			"--image-gc-high-threshold":      "85",
 			"--event-qps":                    "0",
 		}

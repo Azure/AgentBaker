@@ -372,7 +372,11 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 
 	keys := []string{}
 	for key := range config {
-		keys = append(keys, key)
+		// --node-status-report-frequency is not a valid command line flag
+		// and should only be explicitely set in the config file
+		if key != "--node-status-report-frequency" {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
