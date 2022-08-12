@@ -46,13 +46,19 @@ function Unregister-HNSRemediatorScriptTask {
     $hnsPIDFile="C:\k\hns.pid"
     if (Test-Path $hnsPIDFile) {
         # Remove this file since PID of HNS service may have been changed after node crashes or is rebooted
-        while ($true) {
+        # It should not always fail since hns-remediator-task is unregistered.
+        # We set the max retry count to 20 to avoid dead loop for unknown issues.
+        $maxRetries=20
+        $retryCount=0
+        while ($retryCount -lt $maxRetries) {
             Write-Log "Deleting $hnsPIDFile"
             Remove-Item -Path $hnsPIDFile -Force -Confirm:$false -ErrorAction Ignore
 
             # The file may not be deleted successfully because hnsremediator.ps1 is still writing the logs
             if (Test-Path $hnsPIDFile) {
-                Start-Sleep -Milliseconds 50
+                # Do not log the failure to reduce log
+                Start-Sleep -Milliseconds 500
+                $retryCount=$retryCount+1
             } else {
                 Write-Log "$hnsPIDFile is deleted"
                 break
