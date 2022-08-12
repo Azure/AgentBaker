@@ -305,7 +305,7 @@ else
 fi
 
 echo "Uninstalling apport"
-sudo apt-get purge 
+sudo apt-get purge apport
 
 
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
