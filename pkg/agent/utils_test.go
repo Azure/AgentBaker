@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -920,7 +919,6 @@ func TestGetKubeletConfigFileFromFlagsWithReservedMemory(t *testing.T) {
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSONWithReservedMemory, configFileStr)
-	fmt.Println(configFileStr)
 	if diff != "" {
 		t.Errorf("Generated config file is different than expected: %s", diff)
 	}
@@ -999,13 +997,11 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 
 var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	It("should return expected kubelet config when custom configuration is not set", func() {
-
 		cs := &datamodel.ContainerService{
 			Location:   "southcentralus",
 			Type:       "Microsoft.ContainerService/ManagedClusters",
 			Properties: &datamodel.Properties{},
 		}
-
 		k := map[string]string{
 			"--node-status-update-frequency": "10s",
 			"--image-gc-high-threshold":      "85",
@@ -1018,7 +1014,6 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		Expect(expectStr).To(Equal(actucalStr))
 	})
 	It("should return expected kubelet config when custom configuration is set", func() {
-
 		cs := &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -1035,7 +1030,6 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 				},
 			},
 		}
-
 		k := map[string]string{
 			"--node-status-update-frequency": "10s",
 			"--image-gc-high-threshold":      "85",
@@ -1046,6 +1040,49 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --streaming-connection-idle-timeout=4h0m0s "
 		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
 		Expect(expectStr).To(Equal(actucalStr))
+	})
+	It("should return expected kubelet command line flags when a config file is being used", func() {
+		cs := &datamodel.ContainerService{
+			Location: "southcentralus",
+			Type:     "Microsoft.ContainerService/ManagedClusters",
+			Properties: &datamodel.Properties{
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					OrchestratorType:    "Kubernetes",
+					OrchestratorVersion: "1.22.11",
+				},
+			},
+		}
+		k := map[string]string{
+			"--node-labels":                  "topology.kubernetes.io/region=southcentralus",
+			"--node-status-update-frequency": "10s",
+			"--node-status-report-frequency": "5m0s",
+			"--image-gc-high-threshold":      "85",
+			"--event-qps":                    "0",
+		}
+
+		ap := &datamodel.AgentPoolProfile{}
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		actualStr := GetOrderedKubeletConfigFlagString(k, cs, ap, true)
+		Expect(expectedStr).To(Equal(actualStr))
+	})
+	It("should return expected kubelet command line flags when a confg file is NOT being used", func() {
+		cs := &datamodel.ContainerService{
+			Location:   "southcentralus",
+			Type:       "Microsoft.ContainerService/ManagedClusters",
+			Properties: &datamodel.Properties{},
+		}
+		k := map[string]string{
+			"--node-labels":                  "topology.kubernetes.io/region=southcentralus",
+			"--node-status-update-frequency": "10s",
+			"--node-status-report-frequency": "5m0s",
+			"--image-gc-high-threshold":      "85",
+			"--event-qps":                    "0",
+		}
+
+		ap := &datamodel.AgentPoolProfile{}
+		expectedStr := "--event-qps=0 --image-gc-high-threshold=85 --node-labels=topology.kubernetes.io/region=southcentralus --node-status-update-frequency=10s "
+		actualStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
+		Expect(expectedStr).To(Equal(actualStr))
 	})
 })
 

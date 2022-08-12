@@ -189,7 +189,7 @@ EOF
     "resolvConf": "/etc/resolv.conf",
     "runOnce": false,
     "cpuCFSQuota": null,
-    "cpuCFSQuotaPeriod": "0s",
+    "cpuCFSQuotaPeriod": null,
     "nodeStatusMaxImages": null,
     "maxOpenFiles": 0,
     "contentType": "",
