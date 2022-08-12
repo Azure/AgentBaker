@@ -112,7 +112,6 @@ function Write-KubeClusterConfig {
 
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Services -Value @{
         HNSRemediator       = @{
-            Enabled = $Global:HNSRemediatorEnabled;
             IntervalInMinutes = $Global:HNSRemediatorIntervalInMinutes;
         };
     }

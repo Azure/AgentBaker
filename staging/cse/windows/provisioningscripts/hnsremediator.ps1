@@ -4,12 +4,11 @@
     We use this script to restart kubeproxy to recover the node from the hns crash.
 
     Start sequence:
-    1. when $Global:ClusterConfiguration.Services.HNSRemediator.Enabled in c:\k\kubeclusterconfig.json is true:
-      a) windowsnodereset.ps1 deletes hns-remediator-task
-      b) windowsnodereset.ps1 deletes "C:\k\hns.pid"
-    2. windowsnodereset.ps1 resets all services, hns, csi, kubeproxy, kubelet, etc.
-    3. when $Global:ClusterConfiguration.Services.HNSRemediator.Enabled in c:\k\kubeclusterconfig.json is true:
-      a) windowsnodereset.ps1 creates hns-remediator-task with $Global:ClusterConfiguration.Services.HNSRemediator.IntervalInMinutes in c:\k\kubeclusterconfig.json
+    1. windowsnodereset.ps1 deletes hns-remediator-task if hns-remediator-task exists
+    2. windowsnodereset.ps1 deletes "C:\k\hns.pid" if "C:\k\hns.pid" exists
+    3. windowsnodereset.ps1 resets all services, hns, csi, kubeproxy, kubelet, etc.
+    4. windowsnodereset.ps1 creates hns-remediator-task with $Global:ClusterConfiguration.Services.HNSRemediator.IntervalInMinutes
+       in c:\k\kubeclusterconfig.json when the value is not 0
 
     NOTES:
     1. We cannot run hns-remediator-task with an interval less than 1 minute since the RepetitionInterval parameter value in New-JobTrigger must be greater than 1 minute.
