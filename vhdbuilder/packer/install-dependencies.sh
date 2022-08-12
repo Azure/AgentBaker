@@ -199,7 +199,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   gpu_action="copy"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
-  else
+  fi
 
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
