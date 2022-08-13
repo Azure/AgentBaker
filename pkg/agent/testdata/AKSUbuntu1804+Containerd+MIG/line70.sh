@@ -256,61 +256,39 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-
-installGPUDriversRun() {
-    set -x
-    MODULE_NAME="nvidia"
-    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
-    KERNEL_NAME=$(uname -r)
-    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
-        if [ -x "$(command -v dkms)" ]; then
-          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
-        else
-          rm -rf "${NVIDIA_DKMS_DIR}"
-        fi
-    fi
-    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
-    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
-        downloadGPUDrivers
-    fi
-    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
-        -k=$KERNEL_NAME \
-        --log-file-name=${log_file_name} \
-        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
-    exit $?
-}
-
 configGPUDrivers() {
-    blacklistNouveau
-    addNvidiaAptRepo
-    installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
-    installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
-
-    # tidy
-    rm -rf $GPU_DEST/tmp
-
-    # reload containerd/dockerd
-    
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    
-
     # install gpu driver
-    setupGpuRunfileInstall
+    mkdir -p /opt/{actions,gpu}
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    else
+        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    fi
 
+    # validate on host, already done inside container.
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-}
-
-setupGpuRunfileInstall() {
-    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
-    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    export -f installGPUDriversRun
-    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
-    mv ${GPU_DEST}/bin/* /usr/bin
-    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-    umount -l /usr/lib/x86_64-linux-gnu
+    
+    # reload containerd/dockerd
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    else
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
 }
 
 validateGPUDrivers() {
@@ -347,11 +325,6 @@ ensureGPUDrivers() {
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         configGPUDrivers
     else
-        # needs to happen even on gpu vhd because newer containerd/runc broke old 
-        # nvidia-container-runtime. containerd [1.5.9, 1.4.12] + runc 1.0.2 don't work with 
-        # old nvidia-container-runtime like 2.0.0, only new like 3.6.0
-        installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
-        installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
         validateGPUDrivers
     fi
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
