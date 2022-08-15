@@ -14,120 +14,58 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logsapi "k8s.io/component-base/config/v1alpha1"
-	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
+)
+
+const (
+	// Corresponds to NodeStatusReportFrequency in datamodel.AKSKubeletConfiguration,
+	// should never be used directly on the command line for kubelet configuration
+	nodeStatusReportFrequencyFlag = "--node-status-report-frequency"
 )
 
 // TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
-	"--address":                                      true,
-	"--allowed-unsafe-sysctls":                       true,
-	"--anonymous-auth":                               true,
-	"--authentication-token-webhook":                 true,
-	"--authentication-token-webhook-cache-ttl":       true,
-	"--authorization-mode":                           true,
-	"--authorization-webhook-cache-authorized-ttl":   true,
-	"--authorization-webhook-cache-unauthorized-ttl": true,
-	"--cgroup-driver":                                true,
-	"--cgroup-root":                                  true,
-	"--cgroups-per-qos":                              true,
-	"--client-ca-file":                               true,
-	"--cluster-dns":                                  true,
-	"--cluster-domain":                               true,
-	"--container-log-max-files":                      true,
-	"--container-log-max-size":                       true,
-	"--contention-profiling":                         true,
-	"--cpu-cfs-quota":                                true,
-	"--cpu-cfs-quota-period":                         true,
-	"--cpu-manager-policy":                           true,
-	"--cpu-manager-policy-options":                   true,
-	"--cpu-manager-reconcile-period":                 true,
-	"--enable-controller-attach-detach":              true,
-	"--enable-debugging-handlers":                    true,
-	"--enforce-node-allocatable":                     true,
-	"--event-burst":                                  true,
-	"--event-qps":                                    true,
-	"--eviction-hard":                                true,
-	"--eviction-max-pod-grace-period":                true,
-	"--eviction-minimum-reclaim":                     true,
-	"--eviction-pressure-transition-period":          true,
-	"--eviction-soft":                                true,
-	"--eviction-soft-grace-period":                   true,
-	"--fail-swap-on":                                 true,
-	"--feature-gates":                                true,
-	"--file-check-frequency":                         true,
-	"--hairpin-mode":                                 true,
-	"--healthz-bind-address":                         true,
-	"--healthz-port":                                 true,
-	"--http-check-frequency":                         true,
-	"--image-gc-high-threshold":                      true,
-	"--image-gc-low-threshold":                       true,
-	"--iptables-drop-bit":                            true,
-	"--iptables-masquerade-bit":                      true,
-	"--kernel-memcg-notification":                    true,
-	"--kube-api-burst":                               true,
-	"--kube-api-content-type":                        true,
-	"--kube-api-qps":                                 true,
-	"--kube-reserved":                                true,
-	"--kube-reserved-cgroup":                         true,
-	"--kubelet-cgroups":                              true,
-	"--log-flush-frequency":                          true,
-	"--log-json-info-buffer-size":                    true,
-	"--log-json-split-stream":                        true,
-	"--logging-format":                               true,
-	"--make-iptables-util-chains":                    true,
-	"--manifest-url":                                 true,
-	"--manifest-url-header":                          true,
-	"--max-open-files":                               true,
-	"--max-pods":                                     true,
-	"--memory-manager-policy":                        true,
-	"--node-status-max-images":                       true,
-	"--node-status-update-frequency":                 true,
-	"--node-status-report-frequency":                 true,
-	"--oom-score-adj":                                true,
-	"--pod-cidr":                                     true,
-	"--pod-manifest-path":                            true,
-	"--pod-max-pids":                                 true,
-	"--pods-per-core":                                true,
-	"--port":                                         true,
-	"--protect-kernel-defaults":                      true,
-	"--provider-id":                                  true,
-	"--qos-reserved":                                 true,
-	"--read-only-port":                               true,
-	"--registry-burst":                               true,
-	"--resolv-conf":                                  true,
-	"--register-node":                                true,
-	"--register-with-taints":                         true,
-	"--registry-qps":                                 true,
-	"--reserved-cpus":                                true,
-	"--reserved-memory":                              true,
-	"--rotate-certificates":                          true,
-	"--runonce":                                      true,
-	"--runtime-request-timeout":                      true,
-	"--seccomp-default":                              true,
-	"--serialize-image-pulls":                        true,
-	"--streaming-connection-idle-timeout":            true,
-	"--sync-frequency":                               true,
-	"--system-cgroups":                               true,
-	"--system-reserved":                              true,
-	"--system-reserved-cgroup":                       true,
-	"--tls-cert-file":                                true,
-	"--tls-cipher-suites":                            true,
-	"--tls-min-version":                              true,
-	"--tls-private-key-file":                         true,
-	"--topology-manager-policy":                      true,
-	"--topology-manager-scope":                       true,
-	"--volume-plugin-dir":                            true,
-	"--volume-stats-agg-period":                      true,
+	"--address":                           true,
+	"--anonymous-auth":                    true,
+	"--client-ca-file":                    true,
+	"--authentication-token-webhook":      true,
+	"--authorization-mode":                true,
+	"--pod-manifest-path":                 true,
+	"--cluster-dns":                       true,
+	"--cgroups-per-qos":                   true,
+	"--tls-cert-file":                     true,
+	"--tls-private-key-file":              true,
+	"--tls-cipher-suites":                 true,
+	"--cluster-domain":                    true,
+	"--max-pods":                          true,
+	"--eviction-hard":                     true,
+	"--node-status-update-frequency":      true,
+	nodeStatusReportFrequencyFlag:         true,
+	"--image-gc-high-threshold":           true,
+	"--image-gc-low-threshold":            true,
+	"--event-qps":                         true,
+	"--pod-max-pids":                      true,
+	"--enforce-node-allocatable":          true,
+	"--streaming-connection-idle-timeout": true,
+	"--rotate-certificates":               true,
+	"--read-only-port":                    true,
+	"--feature-gates":                     true,
+	"--protect-kernel-defaults":           true,
+	"--resolv-conf":                       true,
+	"--system-reserved":                   true,
+	"--kube-reserved":                     true,
+	"--cpu-manager-policy":                true,
+	"--cpu-cfs-quota":                     true,
+	"--cpu-cfs-quota-period":              true,
+	"--topology-manager-policy":           true,
+	"--allowed-unsafe-sysctls":            true,
+	"--fail-swap-on":                      true,
+	"--container-log-max-size":            true,
+	"--container-log-max-files":           true,
 }
 
 var keyvaultSecretPathRe *regexp.Regexp
@@ -346,8 +284,8 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	for key := range k {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			// --node-status-report-frequency is not a valid command line flag
-			// and should only be explicitely set in the config file
-			if key != "--node-status-report-frequency" {
+			// and should only be explicitly set in the config file
+			if key != nodeStatusReportFrequencyFlag {
 				keys = append(keys, key)
 			}
 		}
@@ -373,8 +311,8 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 	keys := []string{}
 	for key := range config {
 		// --node-status-report-frequency is not a valid command line flag
-		// and should only be explicitely set in the config file
-		if key != "--node-status-report-frequency" {
+		// and should only be explicitly set in the config file
+		if key != nodeStatusReportFrequencyFlag {
 			keys = append(keys, key)
 		}
 	}
@@ -387,7 +325,6 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 }
 
 func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
-
 	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
 		return nil
 	}
@@ -437,176 +374,69 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	if kc == nil {
 		return ""
 	}
-	// Translate simple values
+	// translate simple values
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
-		APIVersion:                       "kubelet.config.k8s.io/v1beta1",
-		Kind:                             "KubeletConfiguration",
-		Address:                          kc["--address"],
-		AllowedUnsafeSysctls:             strings.Split(kc["--allowed-unsafe-sysctls"], ","),
-		CgroupDriver:                     kc["--cgroup-driver"],
-		CgroupRoot:                       kc["--cgroup-root"],
-		CgroupsPerQOS:                    strToBoolPtr(kc["--cgroups-per-qos"]),
-		ClusterDNS:                       strings.Split(kc["--cluster-dns"], ","),
-		ClusterDomain:                    kc["--cluster-domain"],
-		ContainerLogMaxFiles:             strToInt32Ptr(kc["--container-log-max-files"]),
-		ContainerLogMaxSize:              kc["--container-log-max-size"],
-		ContentType:                      kc["--kube-api-content-type"],
-		CPUCFSQuota:                      strToBoolPtr(kc["--cpu-cfs-quota"]),
-		CPUCFSQuotaPeriod:                strToMetaDurationPtr(kc["--cpu-cfs-quota-period"]),
-		CPUManagerPolicy:                 kc["--cpu-manager-policy"],
-		CPUManagerReconcilePeriod:        strToMetaDuration(kc["--cpu-manager-reconcile-period"]),
-		EnableContentionProfiling:        strToBool(kc["--contention-profiling"]),
-		EnableControllerAttachDetach:     strToBoolPtr(kc["--enable-controller-attach-detach"]),
-		EnableDebuggingHandlers:          strToBoolPtr(kc["--enable-debugging-handlers"]),
-		EnableServer:                     strToBoolPtr(kc["--enable-server"]),
-		EnforceNodeAllocatable:           strings.Split(kc["--enforce-node-allocatable"], ","),
-		EventBurst:                       strToInt32(kc["--event-burst"]),
-		EventRecordQPS:                   strToInt32Ptr(kc["--event-qps"]),
-		EvictionMaxPodGracePeriod:        strToInt32(kc["--eviction-max-pod-grace-period"]),
-		EvictionPressureTransitionPeriod: strToMetaDuration(kc["--eviction-pressure-transition-period"]),
-		FailSwapOn:                       strToBoolPtr(kc["--fail-swap-on"]),
-		FileCheckFrequency:               strToMetaDuration(kc["--file-check-frequency"]),
-		HairpinMode:                      kc["--hairpin-mode"],
-		HealthzBindAddress:               kc["--healthz-bind-address"],
-		HealthzPort:                      strToInt32Ptr(kc["--healthz-port"]),
-		HTTPCheckFrequency:               strToMetaDuration(kc["--http-check-frequency"]),
-		ImageGCHighThresholdPercent:      strToInt32Ptr(kc["--image-gc-high-threshold"]),
-		ImageGCLowThresholdPercent:       strToInt32Ptr(kc["--image-gc-low-threshold"]),
-		IPTablesDropBit:                  strToInt32Ptr(kc["--iptables-drop-bit"]),
-		IPTablesMasqueradeBit:            strToInt32Ptr(kc["--iptables-masquerade-bit"]),
-		KernelMemcgNotification:          strToBool(kc["--kernel-memcg-notification"]),
-		KubeAPIBurst:                     strToInt32(kc["--kube-api-burst"]),
-		KubeAPIQPS:                       strToInt32Ptr(kc["--kube-api-qps"]),
-		KubeReservedCgroup:               kc["--kube-reserved-cgroup"],
-		KubeletCgroups:                   kc["--kubelet-cgroups"],
-		MakeIPTablesUtilChains:           strToBoolPtr(kc["--make-iptables-util-chains"]),
-		MaxOpenFiles:                     strToInt64(kc["--max-open-files"]),
-		MaxPods:                          strToInt32(kc["--max-pods"]),
-		MemoryManagerPolicy:              kc["--memory-manager-policy"],
-		NodeStatusMaxImages:              strToInt32Ptr(kc["--node-status-max-images"]),
-		NodeStatusUpdateFrequency:        strToMetaDuration(kc["--node-status-update-frequency"]),
-		NodeStatusReportFrequency:        strToMetaDuration(kc["--node-status-report-frequency"]),
-		OOMScoreAdj:                      strToInt32Ptr(kc["--oom-score-adj"]),
-		PodCIDR:                          kc["--pod-cidr"],
-		PodPidsLimit:                     strToInt64Ptr(kc["--pod-max-pods"]),
-		PodsPerCore:                      strToInt32(kc["--pods-per-core"]),
-		Port:                             strToInt32(kc["--port"]),
-		ProtectKernelDefaults:            strToBool(kc["--protect-kernel-defaults"]),
-		ProviderID:                       kc["--provider-id"],
-		ReadOnlyPort:                     strToInt32(kc["--read-only-port"]),
-		RegisterNode:                     strToBoolPtr(kc["--register-node"]),
-		RegisterWithTaints:               strToTaintSlice(kc["--register-with-taints"]),
-		RegistryBurst:                    strToInt32(kc["--registry-burst"]),
-		RegistryPullQPS:                  strToInt32Ptr(kc["--registry-qps"]),
-		ReservedSystemCPUs:               kc["--reserved-cpus"],
-		ResolverConfig:                   strToStrPtr(kc["--resolv-conf"]),
-		RotateCertificates:               strToBool(kc["--rotate-certificates"]),
-		RunOnce:                          strToBool(kc["--run-once"]),
-		RuntimeRequestTimeout:            strToMetaDuration(kc["--runtime-request-timeout"]),
-		SeccompDefault:                   strToBoolPtr(kc["--seccomp-default"]),
-		SerializeImagePulls:              strToBoolPtr(kc["--serialize-image-pulls"]),
-		StaticPodPath:                    kc["--pod-manifest-path"],
-		StaticPodURL:                     kc["--manifest-url"],
-		StreamingConnectionIdleTimeout:   strToMetaDuration(kc["--streaming-connection-idle-timeout"]),
-		SyncFrequency:                    strToMetaDuration(kc["--sync-frequency"]),
-		SystemCgroups:                    kc["--system-cgroups"],
-		SystemReservedCgroup:             kc["--system-reserved-cgroup"],
-		TLSCertFile:                      kc["--tls-cert-file"],
-		TLSCipherSuites:                  strings.Split(kc["--tls-cipher-suites"], ","),
-		TLSMinVersion:                    kc["--tls-min-version"],
-		TLSPrivateKeyFile:                kc["--tls-private-key-file"],
-		TopologyManagerPolicy:            kc["--topology-manager-policy"],
-		TopologyManagerScope:             kc["--topology-manager-scope"],
-		VolumePluginDir:                  kc["--volume-plugin-dir"],
-		VolumeStatsAggPeriod:             strToMetaDuration(kc["--volume-stats-agg-period"]),
+		APIVersion:    "kubelet.config.k8s.io/v1beta1",
+		Kind:          "KubeletConfiguration",
+		Address:       kc["--address"],
+		StaticPodPath: kc["--pod-manifest-path"],
+		Authorization: datamodel.KubeletAuthorization{
+			Mode: datamodel.KubeletAuthorizationMode(kc["--authorization-mode"]),
+		},
+		ClusterDNS:                     strings.Split(kc["--cluster-dns"], ","),
+		CgroupsPerQOS:                  strToBoolPtr(kc["--cgroups-per-qos"]),
+		TLSCertFile:                    kc["--tls-cert-file"],
+		TLSPrivateKeyFile:              kc["--tls-private-key-file"],
+		TLSCipherSuites:                strings.Split(kc["--tls-cipher-suites"], ","),
+		ClusterDomain:                  kc["--cluster-domain"],
+		MaxPods:                        strToInt32(kc["--max-pods"]),
+		NodeStatusUpdateFrequency:      datamodel.Duration(kc["--node-status-update-frequency"]),
+		NodeStatusReportFrequency:      datamodel.Duration(kc[nodeStatusReportFrequencyFlag]),
+		ImageGCHighThresholdPercent:    strToInt32Ptr(kc["--image-gc-high-threshold"]),
+		ImageGCLowThresholdPercent:     strToInt32Ptr(kc["--image-gc-low-threshold"]),
+		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
+		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
+		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
+		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
+		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
+		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
+		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
+		ResolverConfig:                 kc["--resolv-conf"],
+		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
 
 	// Authentication
-	kubeletConfig.Authentication = kubeletconfigv1beta1.KubeletAuthentication{
-		X509: kubeletconfigv1beta1.KubeletX509Authentication{
-			ClientCAFile: kc["--client-ca-file"],
-		},
-		Webhook: kubeletconfigv1beta1.KubeletWebhookAuthentication{
-			Enabled:  strToBoolPtr(kc["--authentication-token-webhook"]),
-			CacheTTL: strToMetaDuration(kc["--authentication-token-webhook-cache-ttl"]),
-		},
-		Anonymous: kubeletconfigv1beta1.KubeletAnonymousAuthentication{
-			Enabled: strToBoolPtr(kc["--anonymous-auth"]),
-		},
-	}
-
-	// Authorization
-	kubeletConfig.Authorization = kubeletconfigv1beta1.KubeletAuthorization{
-		Mode: kubeletconfigv1beta1.KubeletAuthorizationMode(kc["--authorization-mode"]),
-		Webhook: kubeletconfigv1beta1.KubeletWebhookAuthorization{
-			CacheAuthorizedTTL:   strToMetaDuration(kc["--authorization-webhook-cache-authorized-ttl"]),
-			CacheUnauthorizedTTL: strToMetaDuration(kc["--authorization-webhook-cache-unauthorized-ttl"]),
-		},
-	}
-
-	//Logging
-	kubeletConfig.Logging = logsapi.LoggingConfiguration{
-		Format: kc["--logging-format"],
-		Options: logsapi.FormatOptions{
-			JSON: logsapi.JSONOptions{
-				SplitStream: strToBool(kc["--log-json-split-stream"]),
-			},
-		},
-	}
-	if infoBufferSize := kc["--log-json-info-buffer-size"]; infoBufferSize != "" {
-		kubeletConfig.Logging.Options.JSON.InfoBufferSize = resource.QuantityValue{
-			Quantity: resource.MustParse(infoBufferSize),
+	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
+	if ca := kc["--client-ca-file"]; ca != "" {
+		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
+			ClientCAFile: ca,
 		}
 	}
-	flushFrequency, _ := time.ParseDuration(kc["--log-flush-frequency"])
-	kubeletConfig.Logging.FlushFrequency = flushFrequency
+	if aw := kc["--authentication-token-webhook"]; aw != "" {
+		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
+			Enabled: strToBool(aw),
+		}
+	}
+	if aa := kc["--anonymous-auth"]; aa != "" {
+		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
+			Enabled: strToBool(aa),
+		}
+	}
 
-	// StaticPodURLHeader
-	kubeletConfig.StaticPodURLHeader = strKeySliceValToMap(kc["--manifest-url-header"], ",", ":")
-	// CPUManagerPolicyOptions and EvictionMinimumReclaim
-	if cpuManagerPolicyOpts := kc["--cpu-manager-policy-options"]; cpuManagerPolicyOpts != "" {
-		kubeletConfig.CPUManagerPolicyOptions = strKeyValToMap(cpuManagerPolicyOpts, ",", "=")
-	}
-	// EvictionMinimumReclaim
-	if evictionMinReclaim := kc["--eviction-minimum-reclaim"]; evictionMinReclaim != "" {
-		kubeletConfig.EvictionMinimumReclaim = strKeyValToMap(evictionMinReclaim, ",", "=")
-	}
 	// EvictionHard
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
-	if evictionHard := kc["--eviction-hard"]; evictionHard != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(evictionHard, ",", "<")
+	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
+		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
 	}
-	// EvictionSoft
-	if evictionSoft := kc["--eviction-soft"]; evictionSoft != "" {
-		kubeletConfig.EvictionSoft = strKeyValToMap(evictionSoft, ",", "<")
-	}
-	// EvictionSoftGracePeriod
-	if evictionSoftGracePeriod := kc["--eviction-soft-grace-period"]; evictionSoftGracePeriod != "" {
-		kubeletConfig.EvictionSoftGracePeriod = strKeyValToMap(evictionSoftGracePeriod, ",", "=")
-	}
-	// FeatureGates
-	// look like "f1=true,f2=true"
-	if featureGates := kc["--feature-gates"]; featureGates != "" {
-		kubeletConfig.FeatureGates = strKeyValToMapBool(featureGates, ",", "=")
-	}
-	// numa node memory reservations
-	// looks like "0:memory=1Gi,hugepages-1M=2Gi"
-	kubeletConfig.ReservedMemory = strToMemoryReservationSlice(kc["--reserved-memory"])
 
-	// SystemReserved
+	// feature gates
+	// look like "f1=true,f2=true"
+	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+
+	// system reserve and kube reserve
 	// looks like "cpu=100m,memory=1638Mi"
-	if systemReserved := kc["--system-reserved"]; systemReserved != "" {
-		kubeletConfig.SystemReserved = strKeyValToMap(systemReserved, ",", "=")
-	}
-	// KubeReserved
-	if kubeReserved := kc["--kube-reserved"]; kubeReserved != "" {
-		kubeletConfig.KubeReserved = strKeyValToMap(kubeReserved, ",", "=")
-	}
-	// QosReserved
-	// looks like "memory=50%,cpu=30%"
-	if qosReserved := kc["--qos-reserved"]; qosReserved != "" {
-		kubeletConfig.QOSReserved = strKeyValToMap(qosReserved, ",", "=")
-	}
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
 
 	// Settings from customKubeletConfig, only take if it's set
 	if customKc != nil {
@@ -617,7 +447,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 			kubeletConfig.CPUCFSQuota = customKc.CPUCfsQuota
 		}
 		if customKc.CPUCfsQuotaPeriod != "" {
-			kubeletConfig.CPUCFSQuotaPeriod = strToMetaDurationPtr(customKc.CPUCfsQuotaPeriod)
+			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
 			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration
 			kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
 		}
@@ -690,86 +520,6 @@ func strToInt64Ptr(str string) *int64 {
 	}
 	i := strToInt64(str)
 	return &i
-}
-
-func strToStrPtr(str string) *string {
-	if str == "" {
-		return nil
-	}
-	return &str
-}
-
-func strToMetaDuration(str string) metav1.Duration {
-	d, _ := time.ParseDuration(str)
-	return metav1.Duration{Duration: d}
-}
-
-func strToMetaDurationPtr(str string) *metav1.Duration {
-	if str == "" {
-		return nil
-	}
-	d := strToMetaDuration(str)
-	return &d
-}
-
-func strToTaint(str string) v1.Taint {
-	taintParts := strings.Split(str, "=")
-	valueAndEffect := strings.Split(taintParts[1], ":")
-	return v1.Taint{
-		Key:    taintParts[0],
-		Value:  valueAndEffect[0],
-		Effect: v1.TaintEffect(valueAndEffect[1]),
-	}
-}
-
-func strToTaintSlice(str string) []v1.Taint {
-	if str == "" {
-		return nil
-	}
-	taints := []v1.Taint{}
-	rawTaints := strings.Split(str, ",")
-	for _, taintStr := range rawTaints {
-		taints = append(taints, strToTaint(taintStr))
-	}
-	return taints
-}
-
-func strToMemoryReservationSlice(str string) []kubeletconfigv1beta1.MemoryReservation {
-	if str == "" {
-		return nil
-	}
-	reservations := []kubeletconfigv1beta1.MemoryReservation{}
-	for _, reservation := range strings.Split(str, ";") {
-		reservationParts := strings.Split(reservation, ":")
-		nodeIndex := strToInt32(reservationParts[0])
-		limits := v1.ResourceList{}
-		for _, limit := range strings.Split(reservationParts[1], ",") {
-			resourceNameAndQuantity := strings.Split(limit, "=")
-			resourceName := v1.ResourceName(resourceNameAndQuantity[0])
-			quantity := resource.MustParse(resourceNameAndQuantity[1])
-			limits[resourceName] = quantity
-		}
-		reservations = append(reservations, kubeletconfigv1beta1.MemoryReservation{
-			NumaNode: nodeIndex,
-			Limits:   limits,
-		})
-	}
-	return reservations
-}
-
-func strKeySliceValToMap(str string, strDelim string, pairDelim string) map[string][]string {
-	if str == "" {
-		return nil
-	}
-	m := make(map[string][]string)
-	pairs := strings.Split(str, strDelim)
-	for _, pairRaw := range pairs {
-		pair := strings.Split(pairRaw, pairDelim)
-		key := strings.TrimSpace(pair[0])
-		val := []string{strings.TrimSpace(pair[1])}
-		m[key] = val
-	}
-	return m
 }
 
 func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
