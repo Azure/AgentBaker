@@ -84,6 +84,8 @@ ERR_DISBALE_IPTABLES=170
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 
 
+ERR_VHD_REBOOT_REQUIRED=200 
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
