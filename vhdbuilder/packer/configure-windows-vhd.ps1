@@ -313,7 +313,10 @@ function Install-Docker {
 
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
+    Get-LocalUser | Write-Host
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+    Write-Log "Installed OpenSSH Server"
+    Get-LocalUser | Write-Host
 }
 
 function Install-WindowsPatches {
