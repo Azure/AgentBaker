@@ -1467,10 +1467,6 @@ cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
-removeApport() {
-    sudo apt-get purge apport
-}
-
 installContainerRuntime() {
 {{if NeedsContainerd}}
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"

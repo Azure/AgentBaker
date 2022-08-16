@@ -29,10 +29,6 @@ cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
-removeApport() {
-    sudo apt-get purge apport
-}
-
 installContainerRuntime() {
 
     installMoby
