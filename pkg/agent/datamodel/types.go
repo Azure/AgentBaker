@@ -1319,7 +1319,10 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 
 	keys := []string{}
 	for key := range kubeletConfig {
-		keys = append(keys, key)
+		// Ignore node-status-report-frequency as it's not a kubelet command line flag
+		if key != "--node-status-report-frequency" {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
