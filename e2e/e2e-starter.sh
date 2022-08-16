@@ -20,8 +20,7 @@ create_cluster="false"
 if [ -n "$out" ]; then
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
-    state="$(az aks show -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME | jq -r .provisioningState)"
-    if [ $exists = "false" ] || [ "$state" == "Failed" ]; then
+    if [ $exists = "false" ]; then
         log "Deleting cluster"
         clusterDeleteStartTime=$(date +%s)
         az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
@@ -37,7 +36,7 @@ fi
 if [ "$create_cluster" == "true" ]; then
     log "Creating cluster"
     clusterCreateStartTime=$(date +%s)
-    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
+    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
     clusterCreateEndTime=$(date +%s)
     log "Created cluster in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
 fi
