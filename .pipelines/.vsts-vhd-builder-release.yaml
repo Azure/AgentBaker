@@ -181,7 +181,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
           displayName: Setup Build Variables
@@ -271,7 +271,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
           displayName: Setup Build Variables
@@ -451,7 +451,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
