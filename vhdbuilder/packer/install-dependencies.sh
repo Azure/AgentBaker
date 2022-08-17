@@ -497,6 +497,11 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove apport
+  apt-get purge --auto-remove apport -y
+fi
+
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
@@ -544,9 +549,4 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-fi
-
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  # remove apport
-  apt-get purge --auto-remove apport -y
 fi
