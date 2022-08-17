@@ -419,7 +419,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
-			return strings.Contains(config.OSSKU, "CBLMariner")
+			return strings.Contains(config.OSSKU, "Mariner")
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
