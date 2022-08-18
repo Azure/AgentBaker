@@ -510,7 +510,7 @@ done
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
-  apt-get purge apport
+  apt-get purge apport -y
 fi
 
 # shellcheck disable=SC2129
