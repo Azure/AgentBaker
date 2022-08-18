@@ -256,5 +256,78 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+configGPUDrivers() {
+    # install gpu driver
+    mkdir -p /opt/{actions,gpu}
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    else
+        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    fi
+
+    # validate on host, already done inside container.
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    
+    # reload containerd/dockerd
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    else
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
+}
+
+validateGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    which nvidia-smi
+    if [[ $? == 0 ]]; then
+        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
+    else
+        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+    fi
+    SMI_STATUS=$?
+    if [[ $SMI_STATUS != 0 ]]; then
+        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
+            exit $ERR_GPU_INFO_ROM_CORRUPTED
+        else
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    else
+        echo "gpu driver working fine"
+    fi
+}
+
+ensureGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
+    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
+        configGPUDrivers
+    else
+        validateGPUDrivers
+    fi
+    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+}
 
 #EOF

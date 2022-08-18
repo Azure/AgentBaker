@@ -105,9 +105,6 @@ setupCNIDirs
 installNetworkPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        downloadGPUDrivers
-    fi
     ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
@@ -121,19 +118,7 @@ fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
 if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    STATUS=`systemctl is-active nvidia-fabricmanager`
-    if [ ${STATUS} = 'active' ]; then
-        echo "Fabric Manager service is running, no need to install."
-    else
-        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
-            pushd /opt/azure/fabricmanager-${GPU_DV}
-            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-            systemctlEnableAndStart nvidia-fabricmanager
-            popd
-        else
-            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
-        fi
-    fi
+    systemctlEnableAndStart nvidia-fabricmanager || exit $ERR_GPU_DRIVERS_START_FAIL
     ensureMigPartition
 fi
 
