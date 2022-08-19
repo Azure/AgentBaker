@@ -118,6 +118,12 @@ const (
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
+// These are the flags set by RP that should NOT be included
+// within the set of command line flags when configuring kubelet
+var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
+	"--node-status-report-frequency": true,
+}
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -1320,7 +1326,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	keys := []string{}
 	for key := range kubeletConfig {
 		// Ignore node-status-report-frequency as it's not a kubelet command line flag
-		if key != "--node-status-report-frequency" {
+		if !CommandLineOmittedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}

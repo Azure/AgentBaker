@@ -21,12 +21,6 @@ import (
 	"github.com/blang/semver"
 )
 
-const (
-	// Corresponds to NodeStatusReportFrequency in datamodel.AKSKubeletConfiguration,
-	// should never be used directly on the command line for kubelet configuration
-	nodeStatusReportFrequencyFlag = "--node-status-report-frequency"
-)
-
 // TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--address":                           true,
@@ -44,7 +38,7 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--max-pods":                          true,
 	"--eviction-hard":                     true,
 	"--node-status-update-frequency":      true,
-	nodeStatusReportFrequencyFlag:         true,
+	"--node-status-report-frequency":      true,
 	"--image-gc-high-threshold":           true,
 	"--image-gc-low-threshold":            true,
 	"--event-qps":                         true,
@@ -283,9 +277,7 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	keys := []string{}
 	for key := range k {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
-			// --node-status-report-frequency is not a valid command line flag
-			// and should only be explicitly set in the config file
-			if key != nodeStatusReportFrequencyFlag {
+			if !datamodel.CommandLineOmittedKubeletConfigFlags[key] {
 				keys = append(keys, key)
 			}
 		}
@@ -310,9 +302,7 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 
 	keys := []string{}
 	for key := range config {
-		// --node-status-report-frequency is not a valid command line flag
-		// and should only be explicitly set in the config file
-		if key != nodeStatusReportFrequencyFlag {
+		if !datamodel.CommandLineOmittedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -391,7 +381,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ClusterDomain:                  kc["--cluster-domain"],
 		MaxPods:                        strToInt32(kc["--max-pods"]),
 		NodeStatusUpdateFrequency:      datamodel.Duration(kc["--node-status-update-frequency"]),
-		NodeStatusReportFrequency:      datamodel.Duration(kc[nodeStatusReportFrequencyFlag]),
+		NodeStatusReportFrequency:      datamodel.Duration(kc["--node-status-report-frequency"]),
 		ImageGCHighThresholdPercent:    strToInt32Ptr(kc["--image-gc-high-threshold"]),
 		ImageGCLowThresholdPercent:     strToInt32Ptr(kc["--image-gc-low-threshold"]),
 		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
