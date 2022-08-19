@@ -1325,7 +1325,6 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 
 	keys := []string{}
 	for key := range kubeletConfig {
-		// Ignore node-status-report-frequency as it's not a kubelet command line flag
 		if !CommandLineOmittedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
