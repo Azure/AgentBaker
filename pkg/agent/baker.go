@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -819,4 +820,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 func isStandardNCv1(size string) bool {
 	tmp := strings.ToLower(size)
 	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+var standardNCT4v3Regex = regexp.MustCompile(`(?i)Standard_NC(\d+)as_T4_v3`)
+
+func isStandardNCT4v3(size string) bool {
+	return standardNCT4v3Regex.MatchString(size)
 }
