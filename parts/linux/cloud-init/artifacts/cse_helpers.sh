@@ -102,6 +102,7 @@ export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -288,5 +289,26 @@ isARM64() {
     else
         echo 0
     fi
+}
+
+logs_to_events() {
+    startTime=$1; endTime=$2; version=$3; task=$4; eventlevel=$5; message=$6
+
+    eventsFileName=$(date +%s%3N)
+
+    # arg names are defined by GA and all these are required to be correctly read by GA
+    # EventPid, EventTid are required to be int. No use case for them at this point.
+    json_string=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "${version}" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "${eventlevel}" \
+        --arg Message     "${message}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 }
 #HELPERSEOF
