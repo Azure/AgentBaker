@@ -1024,6 +1024,17 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			osSku:         "CBLMariner",
 			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/os-sku=CBLMariner,kubernetes.azure.com/cluster=my-resource-group",
 		},
+		{
+			name: "cvm enabled node",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2004CVMGen2,
+			},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			fipsEnabled:   false,
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/security-type=cvm,kubernetes.azure.com/cluster=my-resource-group",
+		},
 	}
 
 	for _, c := range cases {

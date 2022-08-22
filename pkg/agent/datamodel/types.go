@@ -1031,6 +1031,11 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 	if osSku != "" {
 		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/os-sku=%s", osSku))
 	}
+
+	if a.Distro == AKSUbuntuContainerd2004CVMGen2 {
+		buf.WriteString(",kubernetes.azure.com/security-type=cvm")
+	}
+	
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
