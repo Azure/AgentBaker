@@ -151,7 +151,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   # remove unpacked layers after pull to optimize final vhd size.
   sed -i 's|discard_unpacked_layers \= false|discard_unpacked_layers \= true|' /etc/containerd/config.toml
 
-  cat /etc/containerd/config.toml | grep discard_unpacked_layers
+  grep discard_unpacked_layers < /etc/containerd/config.toml
 
   systemctl restart containerd
 
