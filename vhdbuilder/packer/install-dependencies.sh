@@ -144,6 +144,8 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
+  cat /etc/containerd/config.toml
+
   CRICTL_VERSIONS="
   1.22.0
   1.23.0
