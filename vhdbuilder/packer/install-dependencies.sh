@@ -153,6 +153,8 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
 
   cat /etc/containerd/config.toml | grep discard_unpacked_layers
 
+  systemctl restart containerd
+
   CRICTL_VERSIONS="
   1.22.0
   1.23.0
