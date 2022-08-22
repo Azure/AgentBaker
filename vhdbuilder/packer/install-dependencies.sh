@@ -144,7 +144,14 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-  cat /etc/containerd/config.toml
+  mkdir -p /etc/containerd
+
+  containerd config default > /etc/containerd/config.toml
+
+  # remove unpacked layers after pull to optimize final vhd size.
+  sed -i 's|discard_unpacked_layers \= false|discard_unpacked_layers \= true|' /etc/containerd/config.toml
+
+  cat /etc/containerd/config.toml | grep discard_unpacked_layers
 
   CRICTL_VERSIONS="
   1.22.0
