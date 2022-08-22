@@ -1033,7 +1033,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/security-type=cvm,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/security-type=ConfidentialVM,kubernetes.azure.com/cluster=my-resource-group",
 		},
 	}
 
