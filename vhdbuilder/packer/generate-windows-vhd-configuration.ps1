@@ -48,8 +48,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.20.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -73,8 +73,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.20.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -99,8 +99,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.20.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
