@@ -69,7 +69,10 @@ fi
 cleanUpContainerd
 
 if [[ "${GPU_NODE}" != "true" ]]; then
+    step_starttime=$(date)
     cleanUpGPUDrivers
+    step_endtime=$(date)
+    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.cleanUpGPUDrivers" "Informational" ""
 fi
 
 disableSystemdResolved
@@ -79,7 +82,10 @@ configureAdminUser
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
+    step_starttime=$(date)
     cleanUpContainerImages
+    step_endtime=$(date)
+    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.cleanUpContainerImages" "Informational" ""
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -90,45 +96,81 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    step_starttime=$(date)
     installDeps
+    step_endtime=$(date)
+    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installDeps" "Informational" ""
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
+step_starttime=$(date)
 installContainerRuntime
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installContainerRuntime" "Informational" ""
 
 setupCNIDirs
 
+step_starttime=$(date)
 installNetworkPlugin
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installNetworkPlugin" "Informational" ""
 
+step_starttime=$(date)
 installKubeletKubectlAndKubeProxy
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installKubeletKubectlAndKubeProxy" "Informational" ""
 
 ensureRPC
 
 createKubeManifestDir
 
+step_starttime=$(date) 
 configureK8s
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configureK8s" "Informational" ""
 
+step_starttime=$(date)
 configureCNI
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configureCNI" "Informational" ""
 
 
+step_starttime=$(date) 
 ensureDocker
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureDocker" "Informational" ""
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 systemctlEnableAndStart sync-tunnel-logs
 
+step_starttime=$(date) 
 ensureMonitorService
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureMonitorService" "Informational" ""
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
 if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
+step_starttime=$(date)
 configPrivateClusterHosts
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configPrivateClusterHosts" "Informational" ""
 
+step_starttime=$(date)
 ensureSysctl
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureSysctl" "Informational" ""
+step_starttime=$(date)
 ensureJournal
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureJournal" "Informational" ""
+step_starttime=$(date)
 ensureKubelet
+step_endtime=$(date)
+logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureKubelet" "Informational" ""
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -140,7 +182,10 @@ fi
 rm -f /etc/apt/apt.conf.d/99periodic
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    step_starttime=$(date)
     apt_get_purge 20 30 120 apache2-utils &
+    step_endtime=$(date)
+    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.apt_get_purge.apache2-utils" "Informational" ""
 fi
 
 VALIDATION_ERR=0
@@ -162,10 +207,16 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
+        step_starttime=$(date)
         retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        step_endtime=$(date)
+        logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.retrycmd_if_failure" "Informational" ""
     fi
 else
+    step_starttime=$(date)
     retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    step_endtime=$(date)
+    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.retrycmd_if_failure" "Informational" ""
 fi
 
 if [[ ${ID} != "mariner" ]]; then
@@ -184,8 +235,11 @@ if $REBOOTREQUIRED; then
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        step_starttime=$(date)
         /usr/lib/apt/apt.systemd.daily &
         aptmarkWALinuxAgent unhold &
+        step_endtime=$(date)
+        logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.aptmarkWALinuxAgent" "Informational" ""
     fi
 fi
 
