@@ -1392,21 +1392,22 @@ isARM64() {
 }
 
 logs_to_events() {
-    startTime=$1; endTime=$2; version=$3; task=$4
-
+    task=$1; shift
     eventsFileName=$(date +%s%3N)
+
+    startTime=$(date +"%F %T.%3N")
+    ${@}
+    endTime=$(date +"%F %T.%3N")
 
     # arg names are defined by GA and all these are required to be correctly read by GA
     # EventPid, EventTid are required to be int. No use case for them at this point.
-    # Same scenario with EventLevel and Message. Both required but no use case yet.
-    # and they can't be passed in as an empty ""
     json_string=$( jq -n \
         --arg Timestamp   "${startTime}" \
         --arg OperationId "${endTime}" \
-        --arg Version     "${version}" \
+        --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Informational" \
-        --arg Message     "Completed" \
+        --arg Message     "Completed: ${@}" \
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
@@ -1964,7 +1965,7 @@ source /etc/os-release
 # Mandb is not currently available on MarinerV1
 if [[ ${ID} != "mariner" ]]; then
     echo "Removing man-db auto-update flag file..."
-    removeManDbAutoUpdateFlagFile
+    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
 {{- if not NeedsContainerd}}
@@ -1972,33 +1973,24 @@ cleanUpContainerd
 {{- end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    step_starttime=$(date)
-    cleanUpGPUDrivers
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.cleanUpGPUDrivers"
+    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
-disableSystemdResolved
+logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
-configureAdminUser
+logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 {{- if NeedsContainerd}}
 # If crictl gets installed then use it as the cri cli instead of ctr
 # crictl is not a critical component so continue with boostrapping if the install fails
 # CLI_TOOL is by default set to "ctr"
-step_starttime=$(date)
-installCrictl && CLI_TOOL="crictl"
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installCrictl"
+logs_to_events "AKS.CSE.installCrictl" 'installCrictl && CLI_TOOL="crictl"'
 {{- end}}
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    step_starttime=$(date)
-    cleanUpContainerImages
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.cleanUpContainerImages"
+    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -2009,46 +2001,28 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    step_starttime=$(date)
-    installDeps
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installDeps"
+    logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-step_starttime=$(date)
-installContainerRuntime
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installContainerRuntime"
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 {{- if and NeedsContainerd TeleportEnabled}}
-step_starttime=$(date)
-installTeleportdPlugin
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installTeleportdPlugin"
+logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 {{- end}}
 
 setupCNIDirs
 
-step_starttime=$(date)
-installNetworkPlugin
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installNetworkPlugin"
+logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 {{- if IsKrustlet }}
-    step_starttime=$(date)
-    downloadKrustlet
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.downloadKrustlet"
+    logs_to_events "AKS.CSE.downloadKrustlet" downloadKrustlet
 {{- end }}
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-    step_starttime=$(date)
-    ensureGPUDrivers
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureGPUDrivers"
+    logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
             wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
@@ -2060,89 +2034,56 @@ if [[ "${GPU_NODE}" = true ]]; then
 fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
 if [[ "${MIG_NODE}" == "true" ]]; then
-    step_starttime=$(date) 
     REBOOTREQUIRED=true
-    systemctlEnableAndStart nvidia-fabricmanager || exit $ERR_GPU_DRIVERS_START_FAIL
-    ensureMigPartition
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.nvidia-fabricmanager"
+    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager || exit $ERR_GPU_DRIVERS_START_FAIL"
+    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 {{end}}
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
-step_starttime=$(date)
 set +x
-docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+logs_to_events "AKS.CSE.GetPrivateAzureRegistryServer" "docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}"
 set -x
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.GetPrivateAzureRegistryServer"
 {{end}}
 
-step_starttime=$(date)
-installKubeletKubectlAndKubeProxy
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installKubeletKubectlAndKubeProxy"
+logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
-ensureRPC
+logs_to_events "AKS.CSE.ensureRPC" ensureRPC
 
 createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    step_starttime=$(date)
-    installSGXDrivers
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.installSGXDrivers"
+    logs_to_events "AKS.CSE.installSGXDrivers" installSGXDrivers
 fi
 {{end}}
 
 {{- if HasCustomSearchDomain}}
-step_starttime=$(date)
-wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.GetCustomSearchDomainsCSEScriptFilepath"
+logs_to_events "AKS.CSE.GetCustomSearchDomainsCSEScriptFilepath" "wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT"
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-step_starttime=$(date) 
-configureK8s
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configureK8s"
+logs_to_events "AKS.CSE.configureK8s" configureK8s
 
-step_starttime=$(date)
-configureCNI
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configureCNI"
+logs_to_events "AKS.CSE.configureCNI" configureCNI
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-step_starttime=$(date) 
-ensureDHCPv6
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureDHCPv6"
+logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
-step_starttime=$(date)
-ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureContainerd"
+logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
-step_starttime=$(date) 
-ensureDocker
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureDocker"
+logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 {{- end}}
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-systemctlEnableAndStart sync-tunnel-logs
-
-step_starttime=$(date) 
-ensureMonitorService
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureMonitorService"
+logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
+ 
+logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
@@ -2151,49 +2092,26 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
 fi
 
 {{- if EnableHostsConfigAgent}}
-step_starttime=$(date)
-configPrivateClusterHosts
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configPrivateClusterHosts"
+logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 {{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
-step_starttime=$(date)
-configureTransparentHugePage
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configureTransparentHugePage"
+logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
 {{- if ShouldConfigSwapFile}}
-step_starttime=$(date)
-configureSwapFile
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.configureSwapFile"
+logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 {{- end}}
 
-step_starttime=$(date)
-ensureSysctl
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureSysctl"
-step_starttime=$(date)
-ensureJournal
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureJournal"
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 {{- if IsKrustlet}}
-step_starttime=$(date)
-systemctlEnableAndStart krustlet
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.krustlet"
+logs_to_events "AKS.CSE.krustlet" systemctlEnableAndStart krustlet
 {{- else}}
-step_starttime=$(date)
-ensureKubelet
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureKubelet"
+
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-step_starttime=$(date)
-ensureNoDupOnPromiscuBridge
-step_endtime=$(date)
-logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.ensureNoDupOnPromiscuBridge"
+logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
 {{- end}}
 
@@ -2209,10 +2127,8 @@ fi
 rm -f /etc/apt/apt.conf.d/99periodic
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    step_starttime=$(date)
+    # logs_to_events should not be run on & commands
     apt_get_purge 20 30 120 apache2-utils &
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.apt_get_purge.apache2-utils"
 fi
 
 VALIDATION_ERR=0
@@ -2244,16 +2160,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        step_starttime=$(date)
-        retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-        step_endtime=$(date)
-        logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.retrycmd_if_failure"
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL"
     fi
 else
-    step_starttime=$(date)
-    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-    step_endtime=$(date)
-    logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.retrycmd_if_failure"
+    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL"
 fi
 
 if [[ ${ID} != "mariner" ]]; then
@@ -2268,15 +2178,14 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        step_starttime=$(date)
+        # logs_to_events should not be run on & commands
         /usr/lib/apt/apt.systemd.daily &
         aptmarkWALinuxAgent unhold &
-        step_endtime=$(date)
-        logs_to_events "${step_starttime}" "${step_endtime}" "1.23" "AKS.CSE.aptmarkWALinuxAgent"
     fi
 fi
 
@@ -2451,6 +2360,7 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
+CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
@@ -2459,7 +2369,7 @@ KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestam
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
-CSE_ENDTIME=$(date)
+CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
@@ -2481,12 +2391,12 @@ echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 # arg names are defined by GA and all these are required to be correctly read by GA
 # EventPid, EventTid are required to be int. No use case for them at this point.
 EVENT_JSON=$( jq -n \
-    --arg Timestamp   "${CSE_STARTTIME}" \
-    --arg OperationId "${CSE_ENDTIME}" \
+    --arg Timestamp   "${CSE_STARTTIME_FORMATTED}" \
+    --arg OperationId "${CSE_ENDTIME_FORMATTED}" \
     --arg Version     "1.23" \
-    --arg TaskName    "AKS.CSE.CSE_START" \
+    --arg TaskName    "AKS.CSE.cse_start" \
     --arg EventLevel  "${eventlevel}" \
-    --arg Message     "ExitCode: ${EXIT_CODE}" \
+    --arg Message     "Duration in seconds: ${EXECUTION_DURATION} ExitCode: ${EXIT_CODE}" \
     --arg EventPid    "0" \
     --arg EventTid    "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'

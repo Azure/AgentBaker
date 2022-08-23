@@ -292,21 +292,22 @@ isARM64() {
 }
 
 logs_to_events() {
-    startTime=$1; endTime=$2; version=$3; task=$4
-
+    task=$1; shift
     eventsFileName=$(date +%s%3N)
+
+    startTime=$(date +"%F %T.%3N")
+    ${@}
+    endTime=$(date +"%F %T.%3N")
 
     # arg names are defined by GA and all these are required to be correctly read by GA
     # EventPid, EventTid are required to be int. No use case for them at this point.
-    # Same scenario with EventLevel and Message. Both required but no use case yet.
-    # and they can't be passed in as an empty ""
     json_string=$( jq -n \
         --arg Timestamp   "${startTime}" \
         --arg OperationId "${endTime}" \
-        --arg Version     "${version}" \
+        --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Informational" \
-        --arg Message     "Completed" \
+        --arg Message     "Completed: ${@}" \
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
