@@ -813,6 +813,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return "510.47.03"
 		},
+		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
+			if cs.Properties.WindowsProfile != nil {
+				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
+			}
+			return 0
+		},
 	}
 }
 
