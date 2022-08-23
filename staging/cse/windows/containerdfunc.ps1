@@ -4,7 +4,7 @@ $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containe
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
-$global:StableContainerdPackage = "v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
 # The containerd package name may be changed in future
 $global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
 
