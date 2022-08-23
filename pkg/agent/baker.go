@@ -419,7 +419,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
-			return strings.Contains(config.OSSKU, "CBLMariner")
+			return strings.Contains(config.OSSKU, "Mariner")
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -812,6 +812,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return "470.57.02"
 			}
 			return "510.47.03"
+		},
+		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
+			if cs.Properties.WindowsProfile != nil {
+				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
+			}
+			return 0
 		},
 	}
 }
