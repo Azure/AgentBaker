@@ -2025,11 +2025,11 @@ if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
+            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT"
         fi
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL"
     else
-        systemctlDisableAndStop nvidia-device-plugin
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
@@ -2366,8 +2366,11 @@ EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+KERNEL_STARTTIME_FORMATTED=$(echo ${KERNEL_STARTTIME} | xargs -i date -d {} +"%F %T.%3N" )
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME_FORMATTED=$(echo ${GUEST_AGENT_STARTTIME} | xargs -i date -d {} +"%F %T.%3N" )
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+KUBELET_START_TIME_FORMATTED=$(echo ${KUBELET_START_TIME} | xargs -i date -d {} +"%F %T.%3N" )
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
@@ -2390,15 +2393,16 @@ echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
 # arg names are defined by GA and all these are required to be correctly read by GA
 # EventPid, EventTid are required to be int. No use case for them at this point.
+# Message didn't like being a json value. So having to just create a long string instead...
 EVENT_JSON=$( jq -n \
-    --arg Timestamp   "${CSE_STARTTIME_FORMATTED}" \
-    --arg OperationId "${CSE_ENDTIME_FORMATTED}" \
-    --arg Version     "1.23" \
-    --arg TaskName    "AKS.CSE.cse_start" \
-    --arg EventLevel  "${eventlevel}" \
-    --arg Message     "Duration in seconds: ${EXECUTION_DURATION} ExitCode: ${EXIT_CODE}" \
-    --arg EventPid    "0" \
-    --arg EventTid    "0" \
+    --arg Timestamp             "${CSE_STARTTIME_FORMATTED}" \
+    --arg OperationId           "${CSE_ENDTIME_FORMATTED}" \
+    --arg Version               "1.23" \
+    --arg TaskName              "AKS.CSE.cse_start" \
+    --arg EventLevel            "${eventlevel}" \
+    --arg Message               "ExitCode: ${EXIT_CODE} E2E: ${EXECUTION_DURATION} KernelStartTime: ${KERNEL_STARTTIME_FORMATTED} GuestAgentStartTime: ${GUEST_AGENT_STARTTIME_FORMATTED} KubeletStartTime: ${KUBELET_START_TIME_FORMATTED}" \
+    --arg EventPid              "0" \
+    --arg EventTid              "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
