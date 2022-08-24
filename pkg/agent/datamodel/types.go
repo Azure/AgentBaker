@@ -118,6 +118,12 @@ const (
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
+// These are the flags set by RP that should NOT be included
+// within the set of command line flags when configuring kubelet
+var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
+	"--node-status-report-frequency": true,
+}
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -1330,7 +1336,9 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 
 	keys := []string{}
 	for key := range kubeletConfig {
-		keys = append(keys, key)
+		if !CommandLineOmittedKubeletConfigFlags[key] {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
@@ -1619,6 +1627,16 @@ type AKSKubeletConfiguration struct {
 	// Default: "10s"
 	// +optional
 	NodeStatusUpdateFrequency Duration `json:"nodeStatusUpdateFrequency,omitempty"`
+	// nodeStatusReportFrequency is the frequency that kubelet posts node
+	// status to master if node status does not change. Kubelet will ignore this
+	// frequency and post node status immediately if any change is detected. It is
+	// only used when node lease feature is enabled. nodeStatusReportFrequency's
+	// default value is 5m. But if nodeStatusUpdateFrequency is set explicitly,
+	// nodeStatusReportFrequency's default value will be set to
+	// nodeStatusUpdateFrequency for backward compatibility.
+	// Default: "5m"
+	// +optional
+	NodeStatusReportFrequency Duration `json:"nodeStatusReportFrequency,omitempty"`
 	// imageGCHighThresholdPercent is the percent of disk usage after which
 	// image garbage collection is always run. The percent is calculated as
 	// this field value out of 100.
@@ -1855,6 +1873,7 @@ type KubeletWebhookAuthorization struct {
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
+
 type CSEStatus struct {
 	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
