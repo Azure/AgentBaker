@@ -102,7 +102,7 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   exit 1
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -196,7 +196,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-v0.0.2-rev17-sha-ff708e"
+  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-106e2e"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
@@ -297,7 +297,7 @@ AMD64_ONLY_CNI_VERSIONS="
 #Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.22
-1.4.29
+1.4.32
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -325,7 +325,7 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.22
-1.4.29
+1.4.32
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -345,7 +345,7 @@ done
 
 OVERLAY_CNI_VERSIONS="
 1.4.27
-1.4.29
+1.4.32
 "
 
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
@@ -507,6 +507,11 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove apport
+  apt-get purge --auto-remove apport -y
+fi
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
