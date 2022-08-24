@@ -165,6 +165,8 @@ const (
 	AKSWindows2019Containerd Distro = "aks-windows-2019-containerd"
 	// AKSWindows2022Containerd stands for distro for windows server 2022 SIG image with containerd
 	AKSWindows2022Containerd Distro = "aks-windows-2022-containerd"
+	// AKSWindows2022ContainerdGen2 stands for distro for windows server 2022 Gen 2 SIG image with containerd
+	AKSWindows2022ContainerdGen2 Distro = "aks-windows-2022-containerd-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
