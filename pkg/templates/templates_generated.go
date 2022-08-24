@@ -2025,9 +2025,9 @@ if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT"
+            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
         fi
-        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL"
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
@@ -2035,7 +2035,7 @@ fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
 if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager || exit $ERR_GPU_DRIVERS_START_FAIL"
+    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
     logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
@@ -2061,7 +2061,7 @@ fi
 {{end}}
 
 {{- if HasCustomSearchDomain}}
-logs_to_events "AKS.CSE.GetCustomSearchDomainsCSEScriptFilepath" "wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT"
+logs_to_events "AKS.CSE.GetCustomSearchDomainsCSEScriptFilepath" "wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}}" || exit $ERR_FILE_WATCH_TIMEOUT
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
@@ -2106,7 +2106,7 @@ logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 {{- if IsKrustlet}}
-logs_to_events "AKS.CSE.krustlet" systemctlEnableAndStart krustlet
+logs_to_events "AKS.CSE.krustlet" "systemctlEnableAndStart krustlet"
 {{- else}}
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
@@ -2160,10 +2160,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL"
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL"
+    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if [[ ${ID} != "mariner" ]]; then
@@ -2366,11 +2366,11 @@ EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
-KERNEL_STARTTIME_FORMATTED=$(echo ${KERNEL_STARTTIME} | xargs -i date -d {} +"%F %T.%3N" )
+KERNEL_STARTTIME_FORMATTED=$(date -d "${KERNEL_STARTTIME}" +"%F %T.%3N" )
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
-GUEST_AGENT_STARTTIME_FORMATTED=$(echo ${GUEST_AGENT_STARTTIME} | xargs -i date -d {} +"%F %T.%3N" )
+GUEST_AGENT_STARTTIME_FORMATTED=$(date -d "${GUEST_AGENT_STARTTIME}" +"%F %T.%3N" )
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
-KUBELET_START_TIME_FORMATTED=$(echo ${KUBELET_START_TIME} | xargs -i date -d {} +"%F %T.%3N" )
+KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
@@ -2391,18 +2391,30 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+# messsage_string is here because GA only accepts strings in Message.
+message_string=$( jq -n \
+--arg EXECUTION_DURATION                "${EXECUTION_DURATION}" \
+--arg EXIT_CODE                         "${EXIT_CODE}" \
+--arg KERNEL_STARTTIME_FORMATTED        "${KERNEL_STARTTIME_FORMATTED}" \
+--arg GUEST_AGENT_STARTTIME_FORMATTED   "${GUEST_AGENT_STARTTIME_FORMATTED}" \
+--arg KUBELET_START_TIME_FORMATTED      "${KUBELET_START_TIME_FORMATTED}" \
+'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED } | tostring'
+)
+# this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
+# allows parsing to happening without additional manipulation
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
 # arg names are defined by GA and all these are required to be correctly read by GA
 # EventPid, EventTid are required to be int. No use case for them at this point.
-# Message didn't like being a json value. So having to just create a long string instead...
 EVENT_JSON=$( jq -n \
-    --arg Timestamp             "${CSE_STARTTIME_FORMATTED}" \
-    --arg OperationId           "${CSE_ENDTIME_FORMATTED}" \
-    --arg Version               "1.23" \
-    --arg TaskName              "AKS.CSE.cse_start" \
-    --arg EventLevel            "${eventlevel}" \
-    --arg Message               "ExitCode: ${EXIT_CODE} E2E: ${EXECUTION_DURATION} KernelStartTime: ${KERNEL_STARTTIME_FORMATTED} GuestAgentStartTime: ${GUEST_AGENT_STARTTIME_FORMATTED} KubeletStartTime: ${KUBELET_START_TIME_FORMATTED}" \
-    --arg EventPid              "0" \
-    --arg EventTid              "0" \
+    --arg Timestamp     "${CSE_STARTTIME_FORMATTED}" \
+    --arg OperationId   "${CSE_ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "AKS.CSE.cse_start" \
+    --arg EventLevel    "${eventlevel}" \
+    --arg Message       "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
