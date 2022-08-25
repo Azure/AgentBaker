@@ -1397,6 +1397,7 @@ logs_to_events() {
 
     startTime=$(date +"%F %T.%3N")
     ${@}
+    ret=$?
     endTime=$(date +"%F %T.%3N")
 
     # arg names are defined by GA and all these are required to be correctly read by GA
@@ -1413,6 +1414,11 @@ logs_to_events() {
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+    # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
 }
 #HELPERSEOF
 `)
@@ -2160,10 +2166,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL"
     fi
 else
-    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL"
 fi
 
 if [[ ${ID} != "mariner" ]]; then
