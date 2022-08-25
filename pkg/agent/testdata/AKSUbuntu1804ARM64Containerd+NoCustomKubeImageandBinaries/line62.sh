@@ -159,6 +159,15 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
+    # install moby components common between containerd and docker
+    local MOBY_VERSION="19.03.14"
+    MOBY_CLI=${MOBY_VERSION}
+    if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+        MOBY_CLI="3.0.3"
+    fi
+    echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
+    apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+
     CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
@@ -206,23 +215,25 @@ downloadContainerdFromURL() {
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
-installMoby() {
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
-    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-    local MOBY_VERSION="19.03.14"
-    local MOBY_CONTAINERD_VERSION="1.4.13"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-    else
-        removeMoby
-        updateAptWithMicrosoftPkg
-        MOBY_CLI=${MOBY_VERSION}
-        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
-            MOBY_CLI="3.0.3"
-        fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-    fi
-}
+# installMoby() {
+#     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+#     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
+#     local MOBY_VERSION="19.03.14"
+#     local MOBY_CONTAINERD_VERSION="1.4.13"
+#     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
+#         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
+#     else
+#         removeMoby
+#         updateAptWithMicrosoftPkg
+#         MOBY_CLI=${MOBY_VERSION}
+
+#         # why is this here? will MOBY_VERSION not always be "19.03.14"?
+#         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+#             MOBY_CLI="3.0.3"
+#         fi
+#         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+#     fi
+# }
 
 ensureRunc() {
     RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"

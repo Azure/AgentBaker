@@ -30,7 +30,6 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
@@ -69,7 +68,6 @@ installContainerRuntime() {
     fi
     installStandaloneContainerd "${containerd_version}" "${containerd_patch_version}"
     echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
-
 }
 
 installNetworkPlugin() {
