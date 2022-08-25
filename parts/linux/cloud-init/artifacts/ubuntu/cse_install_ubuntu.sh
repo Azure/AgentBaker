@@ -161,15 +161,6 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    # install moby components common between containerd and docker
-    local MOBY_VERSION="19.03.14"
-    MOBY_CLI=${MOBY_VERSION}
-    if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
-        MOBY_CLI="3.0.3"
-    fi
-    echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
-    apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-
     CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
@@ -196,6 +187,15 @@ installStandaloneContainerd() {
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
+
+    # install moby components common between containerd and docker
+    local MOBY_VERSION="19.03.14"
+    MOBY_CLI=${MOBY_VERSION}
+    if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+        MOBY_CLI="3.0.3"
+    fi
+    echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
+    apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
