@@ -4564,7 +4564,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.4"
+    BLOBFUSE_VERSION="1.4.5"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
@@ -4573,7 +4573,7 @@ installDeps() {
 
     if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
       # no blobfuse package in arm64 ubuntu repo
-      for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
+      for apt_package in blobfuse=${BLOBFUSE_VERSION} blobfuse2; do
         if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -4817,7 +4817,8 @@ ensureRunc() {
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
-#EOF`)
+#EOF
+`)
 
 func linuxCloudInitArtifactsUbuntuCse_install_ubuntuShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, nil
