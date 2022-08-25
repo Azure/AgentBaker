@@ -59,7 +59,10 @@ installStandaloneContainerd() {
     if [[ -f /etc/containerd/config.toml.rpmsave ]]; then
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
-    
+    installMissingMobyComponentsForContainerd
+}
+
+installMissingMobyComponentsForContainerd() {
     # install moby components common between containerd and docker
     local MOBY_VERSION="19.03.14"
     MOBY_CLI=${MOBY_VERSION}

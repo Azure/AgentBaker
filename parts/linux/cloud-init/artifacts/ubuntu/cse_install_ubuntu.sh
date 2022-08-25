@@ -166,7 +166,7 @@ installStandaloneContainerd() {
     HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
 
     if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping only installing missing moby components..."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeMoby
@@ -176,26 +176,28 @@ installStandaloneContainerd() {
         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            return 0
+        else 
+            downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+            CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+            if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+                echo "Failed to locate cached containerd deb"
+                exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            fi
+            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
-        downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-            echo "Failed to locate cached containerd deb"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        return 0
     fi
+    installMissingMobyComponentsForContainerd
+}
 
-    # install moby components common between containerd and docker
+installMissingMobyComponentsForContainerd() {
+    # install moby components used in docker missing in containerd (currently moby-engine and moby-cli)
     local MOBY_VERSION="19.03.14"
     MOBY_CLI=${MOBY_VERSION}
     if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
         MOBY_CLI="3.0.3"
     fi
     echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
-    apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT 
 }
 
 downloadContainerdFromVersion() {
