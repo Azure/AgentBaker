@@ -163,12 +163,8 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   # also pre-download Teleportd plugin for containerd
   downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 else
-  CONTAINER_RUNTIME="docker"
-  MOBY_VERSION="19.03.14"
-  installMoby
-  echo "VHD will be built with docker as container runtime"
-  echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  cliTool="docker"
+  echo "Attempted to install an unrecognized container runtime: ${CONTAINER_RUNTIME}, exiting..."
+  exit 1 
 fi
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')

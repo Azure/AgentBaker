@@ -50,6 +50,7 @@ installStandaloneContainerd() {
     if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
         MOBY_CLI="3.0.3"
     fi
+    echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
     dnf_install 30 1 600 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
     
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
