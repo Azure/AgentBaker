@@ -2034,14 +2034,14 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
-		expectedForPowershell string
 		CustomKubeletConfig   *CustomKubeletConfig
+		expectedForPowershell string
 	}{
 		{
 			name:                  "zero value kubernetesConfig",
 			config:                &NodeBootstrappingConfiguration{},
-			expectedForPowershell: "",
 			CustomKubeletConfig:   nil,
+			expectedForPowershell: "",
 		},
 		// Some values
 		{
@@ -2062,13 +2062,13 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
-			expectedForPowershell: alphabetizedStringForPowershell,
 			CustomKubeletConfig: &CustomKubeletConfig{
 				ImageGcHighThreshold:  to.Int32Ptr(80),
 				ImageGcLowThreshold:   to.Int32Ptr(60),
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
+			expectedForPowershell: alphabetizedStringForPowershell,
 		},
 		// Switch the "order" in the map, validate the same return string
 		{
@@ -2089,13 +2089,13 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
-			expectedForPowershell: alphabetizedStringForPowershell,
 			CustomKubeletConfig: &CustomKubeletConfig{
 				ImageGcHighThreshold:  to.Int32Ptr(80),
 				ImageGcLowThreshold:   to.Int32Ptr(60),
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
+			expectedForPowershell: alphabetizedStringForPowershell,
 		},
 	}
 
@@ -2299,8 +2299,8 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	cases := []struct {
 		name                string
 		config              *NodeBootstrappingConfiguration
-		expected            string
 		CustomKubeletConfig *CustomKubeletConfig
+		expected            string
 	}{
 		{
 			name: "KubeletConfig is empty",
@@ -2309,8 +2309,8 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					Properties: &Properties{},
 				},
 			},
-			expected:            "",
 			CustomKubeletConfig: nil,
+			expected:            "",
 		},
 		{
 			name: "KubeletConfig is not empty",
@@ -2325,11 +2325,11 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					"--node-status-report-frequency": "5m0s",
 				},
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 			CustomKubeletConfig: &CustomKubeletConfig{
 				ImageGcLowThreshold:  to.Int32Ptr(60),
 				ImageGcHighThreshold: to.Int32Ptr(80),
 			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 		{
 			name: "custom configuration overrides default KubeletConfig",
@@ -2352,11 +2352,11 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					"--node-status-report-frequency": "5m0s",
 				},
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
 			CustomKubeletConfig: &CustomKubeletConfig{
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
@@ -2383,13 +2383,13 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					"--image-gc-low-threshold":       "10",
 				},
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 			CustomKubeletConfig: &CustomKubeletConfig{
 				ImageGcHighThreshold:  to.Int32Ptr(80),
 				ImageGcLowThreshold:   to.Int32Ptr(60),
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 	}
 
