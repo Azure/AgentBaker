@@ -172,34 +172,36 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
+    removeMoby
+    removeContainerd
+    installMobyPackagesForContainerd
 
-    if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only installing missing moby components..."
-    else
-        echo "installing containerd version ${CONTAINERD_VERSION} and moby packages with moby version ${MOBY_VERSION}"
-        removeMoby
-        removeContainerd
-        installMobyPackages
-        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-        # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        else 
-            downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
-            CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-            if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-                echo "Failed to locate cached containerd deb"
-                exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            fi
-            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    fi
-    
+    # CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    # DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    # HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
 
+    # if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
+    #     echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only installing missing moby components..."
+    # else
+    #     echo "installing containerd version ${CONTAINERD_VERSION} and moby packages with moby version ${MOBY_VERSION}"
+    #     removeMoby
+    #     removeContainerd
+    #     installMobyPackages
+    #     # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+    #     # if no files found then try fetching from packages.microsoft repo
+    #     CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+    #     if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+    #         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    #     else 
+    #         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+    #         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+    #         if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+    #             echo "Failed to locate cached containerd deb"
+    #             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    #         fi
+    #         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    #     fi
+    # fi
 }
 
 # installMobyPackages() {
