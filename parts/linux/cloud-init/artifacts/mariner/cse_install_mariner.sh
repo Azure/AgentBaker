@@ -59,22 +59,14 @@ installStandaloneContainerd() {
     if [[ -f /etc/containerd/config.toml.rpmsave ]]; then
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
-    installMissingMobyComponentsForContainerd
-}
-
-installMissingMobyComponentsForContainerd() {
-    # install moby components common between containerd and docker
-    local MOBY_VERSION="19.03.14"
-    MOBY_CLI=${MOBY_VERSION}
-    if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
-        MOBY_CLI="3.0.3"
-    fi
-    echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
-    dnf_install 30 1 600 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
 }
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
+}
+
+downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
+    echo "downloadAndInstallMobyDockerPackagesForContainerdFromVersion not implemented for mariner"
 }
 
 downloadContainerdFromVersion() {

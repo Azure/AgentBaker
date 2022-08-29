@@ -116,26 +116,6 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
-# installMoby() {
-#     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
-#     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
-#     local MOBY_VERSION="19.03.14"
-#     local MOBY_CONTAINERD_VERSION="1.4.13"
-#     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
-#         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
-#     else
-#         removeMoby
-#         updateAptWithMicrosoftPkg
-#         MOBY_CLI=${MOBY_VERSION}
-
-#         # why is this here? will MOBY_VERSION not always be "19.03.14"?
-#         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
-#             MOBY_CLI="3.0.3"
-#         fi
-#         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
-#     fi
-# }
-
 ensureRunc() {
     RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
@@ -179,17 +159,15 @@ ensureRunc() {
 
     RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
     RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-    if [[ -f "${RUNC_DEB_FILE}" ]]; then
-        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
-    else
+    if [[ -z "${RUNC_DEB_FILE}" ]]; then
         downloadRuncFromVersionAndCPUArch ${TARGET_VERSION/-/\~} $CPU_ARCH
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -z "${RUNC_DEB_FILE}" ]]; then
             echo "Failed to locate cached moby-runc deb"
             exit $ERR_RUNC_INSTALL_TIMEOUT
         fi
-        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
+    installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
@@ -206,52 +184,4 @@ downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
     done
 }
 
-downloadMobyPackagesForContainerd() {
-    local RUNC_VERSION=$1
-    local CONTAINERD_VERSION=$2
-    local CPU_ARCH=$3
-    mkdir -p $RUNC_DOWNLOADS_DIR
-    mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    mkdir -p $MOBY_DOWNLOADS_DIR
-    runc_found=$(ls $RUNC_DOWNLOADS_DIR | grep moby-runc_${RUNC_VERSION/-/\~} | wc -l)
-    if [ "$runc_found" == "0" ]; then
-        echo "moby-runc not cached, downloading..."
-        apt_get_download 20 30 "moby-runc=${RUNC_VERSION/-/\~}*" || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
-        cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
-    fi
-    containerd_found=$(ls $CONTAINERD_DOWNLOADS_DIR | grep moby-containerd_${CONTAINERD_VERSION} | wc -l)
-    if [ "$containerd_found" == "0" ]; then
-        echo "moby-containerd not cached, downloading..."
-        apt_get_download 20 30 "moby-containerd=${CONTAINERD_VERSION}" || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
-        cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION} $CONTAINERD_DOWNLOADS_DIR || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
-    fi
-    for moby_package in $MOBY_PACKAGES; do
-        package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
-        if [ "$package_found" == "0" ]; then
-            echo "$moby_package not cached, downloading..."
-            apt_get_download 20 30 "${moby_package}=${MOBY_VERSION}*" || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
-            cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
-        fi
-    done
-}
-
-installMobyPackagesForContainerd() {
-    local RUNC_VERSION=$1
-    local CONTAINERD_VERSION=$2
-    local CPU_ARCH=$(getCPUArch)
-    downloadMobyPackagesForContainerd $RUNC_VERSION $CONTAINERD_VERSION $CPU_ARCH || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
-    # install moby-runc
-
-    RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
-    RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-    installDebPackageFromFile ${RUNC_DOWNLOADS_DIR}/${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
-    # install moby-containerd
-    CONTAINERD_DEB_FILE=$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)
-    installDebPackageFromFile $CONTAINERD_DEB_FILE || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    # install moby-engine and moby-cli
-    for moby_package in $MOBY_PACKAGES; do
-        MOBY_PACKAGE_DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${moby_package}_${MOBY_VERSION}*)
-        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || exit $ERR_MOBY_INSTALL_TIMEOUT
-    done
-}
 #EOF
