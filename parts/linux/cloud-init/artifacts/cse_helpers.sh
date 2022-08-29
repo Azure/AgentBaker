@@ -62,6 +62,7 @@ ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
 ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
 ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
 ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
+ERR_MOBY_DOWNLOAD_TIMEOUT=140 {{/* Error downloading moby packages for moby-containerd operation */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}

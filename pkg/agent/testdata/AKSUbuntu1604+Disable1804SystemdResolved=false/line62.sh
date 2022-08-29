@@ -201,8 +201,8 @@ downloadMobyPackagesForContainerd() {
         package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
         if [ "$package_found" == "0" ]; then
             echo "$moby_package not cached, downloading..."
-            apt_get_download 20 30 "${moby_package}=${MOBY_VERSION}*" || exit $ERR_MOBY_INSTALL_TIMEOUT
-            cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_INSTALL_TIMEOUT
+            apt_get_download 20 30 "${moby_package}=${MOBY_VERSION}*" || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
+            cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
         fi
     done
 }
@@ -211,8 +211,9 @@ installMobyPackagesForContainerd() {
     local RUNC_VERSION=$1
     local CONTAINERD_VERSION=$2
     local CPU_ARCH=$(getCPUArch)
-    downloadMobyPackagesForContainerd $RUNC_VERSION $CONTAINERD_VERSION $CPU_ARCH || exit $ERR_MOBY_INSTALL_TIMEOUT
+    downloadMobyPackagesForContainerd $RUNC_VERSION $CONTAINERD_VERSION $CPU_ARCH || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
     # install moby-runc
+
     RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
     RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
     installDebPackageFromFile ${RUNC_DOWNLOADS_DIR}/${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
