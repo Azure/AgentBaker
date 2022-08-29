@@ -1313,7 +1313,7 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell() string {
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1330,6 +1330,22 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		}
 	}
 
+	// Settings from customKubeletConfig, only take if it's set
+	if customKc != nil {
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
+		}
+	}
+
 	if len(kubeletConfig) == 0 {
 		return ""
 	}
@@ -1340,6 +1356,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 			keys = append(keys, key)
 		}
 	}
+
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
