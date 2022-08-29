@@ -4754,18 +4754,18 @@ installStandaloneContainerd() {
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
-    TARGET_RUNC_VERSION=${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
-    if [[ -z ${TARGET_RUNC_VERSION} ]]; then
-        TARGET_RUNC_VERSION="1.0.3"
+    # TARGET_RUNC_VERSION=${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+    # if [[ -z ${TARGET_RUNC_VERSION} ]]; then
+    #     TARGET_RUNC_VERSION="1.0.3"
 
-        if [[ $(isARM64) == 1 ]]; then
-            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-            # so use different target version for different arch to avoid affecting each other during provisioning
-            TARGET_RUNC_VERSION="1.0.3"
-        fi
-    fi
+    #     if [[ $(isARM64) == 1 ]]; then
+    #         # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+    #         # so use different target version for different arch to avoid affecting each other during provisioning
+    #         TARGET_RUNC_VERSION="1.0.3"
+    #     fi
+    # fi
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    ensureRunc $TARGET_RUNC_VERSION
+    ensureRunc ${RUNC_VERSION:-""}
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
@@ -4778,6 +4778,7 @@ installStandaloneContainerd() {
         downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        downloadAndInstallMobyDockerPackagesForContainerd ${MOBY_VERSION}
         return 0
     fi
 
@@ -4790,67 +4791,33 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    removeMoby
-    removeContainerd
-    installMobyPackagesForContainerd $TARGET_RUNC_VERSION $CONTAINERD_VERSION
+    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
 
-    # CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    # DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    # HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
-
-    # if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-    #     echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only installing missing moby components..."
-    # else
-    #     echo "installing containerd version ${CONTAINERD_VERSION} and moby packages with moby version ${MOBY_VERSION}"
-    #     removeMoby
-    #     removeContainerd
-    #     installMobyPackages
-    #     # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-    #     # if no files found then try fetching from packages.microsoft repo
-    #     CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-    #     if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-    #         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    #     else 
-    #         downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
-    #         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-    #         if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-    #             echo "Failed to locate cached containerd deb"
-    #             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    #         fi
-    #         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    #     fi
-    # fi
+    if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
+        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only installing missing moby components..."
+    else
+        echo "installing containerd version ${CONTAINERD_VERSION} and moby packages with moby version ${MOBY_VERSION}"
+        removeMoby
+        removeContainerd
+        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+        # if no files found then try fetching from packages.microsoft repo
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        else 
+            downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+            CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+            if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+                echo "Failed to locate cached containerd deb"
+                exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            fi
+            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+    fi
+    downloadAndInstallMobyDockerPackagesForContainerd ${MOBY_VERSION}
 }
-
-# installMobyPackages() {
-#     local errExitCode
-#     for mobyPackage in $MOBY_PACKAGES; do
-#         if [[ "${mobyPackage}" == "moby-containerd" ]]; then
-#             DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/${mobyPackage}_${CONTAINERD_VERSION}*)"
-#             errExitCode=$ERR_CONTAINERD_INSTALL_TIMEOUT
-#         else
-#             DEB_FILE="$(ls ${MOBY_DOWNLOADS_DIR}/${mobyPackage}_${MOBY_VERSION}*)"
-#             errExitCode=$ERR_MOBY_INSTALL_TIMEOUT
-#         fi
-
-#         if [[ -f "${DEB_FILE}" ]]; then
-#             installDebPackageFromFile ${DEB_FILE} || exit $errExitCode
-#         else
-#             if [[ "${mobyPackage}" == "moby-containerd" ]]; then
-#                 downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
-#                 DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/${mobyPackage}_${CONTAINERD_VERSION}*)"
-#             else
-#                 downloadMobyPackageFromVersion ${mobyPackage} ${MOBY_VERSION}
-#                 DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${mobyPackage}_${MOBY_VERSION}*)
-#             fi
-#             if [[ -z "${DEB_FILE}" ]]; then
-#                 echo "Failed to locate cached ${mobyPackage} deb"
-#                 exit errExitCode
-#             fi
-#             installDebPackageFromFile ${DEB_FILE} || exit $errExitCode
-#         fi
-#     done 
-# }
 
 installMissingMobyComponentsForContainerd() {
     # install moby components used in docker missing in containerd (currently moby-engine and moby-cli)
@@ -4861,6 +4828,14 @@ installMissingMobyComponentsForContainerd() {
     fi
     echo "Installing moby-engine version ${MOBY_VERSION}, moby-cli version ${MOBY_CLI}"
     apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT 
+}
+
+downloadRuncFromVersionAndCPUArch() {
+    local RUNC_VERSION=$1
+    CPU_ARCH=$2
+    mkdir -p $RUNC_DOWNLOADS_DIR
+    apt_get_download 20 30 "moby-runc=${RUNC_VERSION/-/\~}*" || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
@@ -4920,6 +4895,16 @@ ensureRunc() {
     fi
 
     TARGET_VERSION=$1
+    if [[ -z ${TARGET_VERSION} ]]; then
+        TARGET_VERSION="1.0.3"
+
+        if [[ $(isARM64) == 1 ]]; then
+            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+            # so use different target version for different arch to avoid affecting each other during provisioning
+            TARGET_VERSION="1.0.3"
+        fi
+    fi
+
     if [[ $(isARM64) == 1 ]]; then
         if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
             # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
@@ -4933,16 +4918,34 @@ ensureRunc() {
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
-    # if on a vhd-built image, first check if we've cached the deb file
-    if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+
+    RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+    RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+    if [[ -f "${RUNC_DEB_FILE}" ]]; then
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+    else
+        downloadRuncFromVersionAndCPUArch ${TARGET_VERSION/-/\~} $CPU_ARCH
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
-            return 0
+        if [[ -z "${RUNC_DEB_FILE}" ]]; then
+            echo "Failed to locate cached moby-runc deb"
+            exit $ERR_RUNC_INSTALL_TIMEOUT
         fi
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+}
+
+downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
+    local MOBY_VERSION=$1
+    for moby_package in $MOBY_PACKAGES; do
+        package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
+        if [ "$package_found" == "0" ]; then
+            echo "$moby_package not cached, downloading..."
+            apt_get_download 20 30 "${moby_package}=${MOBY_VERSION}*" || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
+            cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
+        fi
+        MOBY_PACKAGE_DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${moby_package}_${MOBY_VERSION}*)
+        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || exit $ERR_MOBY_INSTALL_TIMEOUT
+    done
 }
 
 downloadMobyPackagesForContainerd() {

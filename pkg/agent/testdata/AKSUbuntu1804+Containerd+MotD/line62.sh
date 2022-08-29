@@ -153,6 +153,16 @@ ensureRunc() {
     fi
 
     TARGET_VERSION=$1
+    if [[ -z ${TARGET_VERSION} ]]; then
+        TARGET_VERSION="1.0.3"
+
+        if [[ $(isARM64) == 1 ]]; then
+            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
+            # so use different target version for different arch to avoid affecting each other during provisioning
+            TARGET_VERSION="1.0.3"
+        fi
+    fi
+
     if [[ $(isARM64) == 1 ]]; then
         if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
             # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
@@ -166,16 +176,34 @@ ensureRunc() {
         echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
-    # if on a vhd-built image, first check if we've cached the deb file
-    if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+
+    RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+    RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+    if [[ -f "${RUNC_DEB_FILE}" ]]; then
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+    else
+        downloadRuncFromVersionAndCPUArch ${TARGET_VERSION/-/\~} $CPU_ARCH
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
-            return 0
+        if [[ -z "${RUNC_DEB_FILE}" ]]; then
+            echo "Failed to locate cached moby-runc deb"
+            exit $ERR_RUNC_INSTALL_TIMEOUT
         fi
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+}
+
+downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
+    local MOBY_VERSION=$1
+    for moby_package in $MOBY_PACKAGES; do
+        package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
+        if [ "$package_found" == "0" ]; then
+            echo "$moby_package not cached, downloading..."
+            apt_get_download 20 30 "${moby_package}=${MOBY_VERSION}*" || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
+            cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
+        fi
+        MOBY_PACKAGE_DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${moby_package}_${MOBY_VERSION}*)
+        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || exit $ERR_MOBY_INSTALL_TIMEOUT
+    done
 }
 
 downloadMobyPackagesForContainerd() {
