@@ -23,7 +23,7 @@ steps:
           echo "##vso[task.setvariable variable=GEN2_SIG_FOR_PRODUCTION]False"; \
         else
           sigImageName="windows-${WINDOWS_SKU}"; \
-          sigGalleryName=WS2022Gen2Gallery$(Build.BuildNumber)${RANDOM}"; \
+          sigGalleryName="WS2022Gen2Gallery$(Build.BuildNumber)${RANDOM}"; \
           sigGalleryName=$(echo $sigGalleryName | tr '-' '_'); \
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
