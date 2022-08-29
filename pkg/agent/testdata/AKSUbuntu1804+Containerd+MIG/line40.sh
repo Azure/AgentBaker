@@ -9,6 +9,7 @@ CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
+MOBY_DOWNLOADS_DIR="/opt/moby/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
