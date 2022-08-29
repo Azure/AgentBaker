@@ -128,7 +128,7 @@ ensureRunc() {
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
         installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
-        echo "Succeeded to install runc from user input: ${RUNC_PACKAGE_URL}"
+        echo "Successfully installed runc from user input: ${RUNC_PACKAGE_URL}"
         return 0
     fi
 
