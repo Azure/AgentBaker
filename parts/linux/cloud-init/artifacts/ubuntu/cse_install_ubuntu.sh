@@ -177,7 +177,7 @@ installStandaloneContainerd() {
     HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
 
     if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only install missing docker packages for containerd..."
+        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only installing missing docker packages for containerd with moby version ${MOBY_VERSION}..."
     else
         echo "installing containerd version ${CONTAINERD_VERSION} and missing docker packages with moby version ${MOBY_VERSION}"
         removeMoby
