@@ -3429,8 +3429,8 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
-downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
-    echo "downloadAndInstallMobyDockerPackagesForContainerdFromVersion not implemented for mariner"
+downloadAndInstallMobyDockerPackagesFromVersion() {
+    echo "downloadAndInstallMobyDockerPackagesFromVersion not implemented for mariner"
 }
 
 downloadContainerdFromVersion() {
