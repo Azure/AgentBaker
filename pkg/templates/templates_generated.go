@@ -4760,7 +4760,7 @@ installStandaloneContainerd() {
         downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         echo "Successfully installed containerd from user input: ${CONTAINERD_PACKAGE_URL}"
-        downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION} || exit $ERR_MOBY_INSTALL_TIMEOUT
+        downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
         return 0
     fi
 
@@ -4796,7 +4796,7 @@ installStandaloneContainerd() {
         fi
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION} || exit $ERR_MOBY_INSTALL_TIMEOUT
+    downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
 }
 
 downloadRuncFromVersionAndCPUArch() {
@@ -4894,12 +4894,9 @@ downloadAndInstallMobyDockerPackagesFromVersion() {
         MOBY_PACKAGE_DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${moby_package}_${MOBY_VERSION}*)
         if [[ -z "${MOBY_PACKAGE_DEB_FILE}" ]]; then
             echo "Failed to locate cached $moby_package deb"
-            return 1
+            exit $ERR_MOBY_DOWNLOAD_TIMEOUT
         fi
-        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE
-        if [[ $? -ne 0 ]]; then
-            return 1
-        fi
+        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || exit $ERR_MOBY_INSTALL_TIMEOUT
     done
 }
 
