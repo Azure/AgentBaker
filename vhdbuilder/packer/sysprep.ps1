@@ -1,9 +1,9 @@
 # Stop and remove Azure Agents to enable use in Azure Stack
 # If deploying an Azure VM the agents will be re-added to the VMs at deployment time
-$ServiceName = 'WindowsAzureGuestAgent'
-$arrService = Get-Service -Name $ServiceName
-if ($arrService.Status -eq 'Running'){
-    echo "$ServiceName is still running, trying to stop now."
+$serviceName = 'WindowsAzureGuestAgent'
+$gotService = Get-Service -Name $serviceName -ErrorAction Ignore
+if ($gotService.Status -eq 'Running'){
+    echo "$serviceName is still running, trying to stop now."
     Stop-Service WindowsAzureGuestAgent
 }
 Stop-Service RdAgent
