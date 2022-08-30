@@ -65,7 +65,7 @@ cut_official_branch() {
     echo "All builds are based off the same commit"
 
     # Checkout branch and commit the image bump file diff to official branch too
-    if [ `git branch --list $official_branch_name` ]; then
+    if [ `git branch -r | grep $official_branch_name` ]; then
         git checkout $official_branch_name
         git pull origin
     else
