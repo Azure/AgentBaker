@@ -180,7 +180,11 @@ downloadAndInstallMobyDockerPackagesFromVersion() {
             cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
         fi
         MOBY_PACKAGE_DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${moby_package}_${MOBY_VERSION}*)
-        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || exit $ERR_MOBY_INSTALL_TIMEOUT
+        if [[ -z "${MOBY_PACKAGE_DEB_FILE}" ]]; then
+            echo "Failed to locate cached $moby_package deb"
+            return 1
+        fi
+        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || return 1
     done
 }
 
