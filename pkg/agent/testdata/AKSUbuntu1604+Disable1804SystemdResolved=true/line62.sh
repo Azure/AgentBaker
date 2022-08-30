@@ -170,7 +170,7 @@ ensureRunc() {
     installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
-downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
+downloadAndInstallMobyDockerPackagesFromVersion() {
     local MOBY_VERSION=$1
     for moby_package in $MOBY_PACKAGES; do
         package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"

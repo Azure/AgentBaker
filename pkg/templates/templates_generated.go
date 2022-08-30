@@ -4760,7 +4760,7 @@ installStandaloneContainerd() {
         downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         echo "Successfully installed containerd from user input: ${CONTAINERD_PACKAGE_URL}"
-        downloadAndInstallMobyDockerPackagesForContainerd ${MOBY_VERSION}
+        downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
         return 0
     fi
 
@@ -4796,7 +4796,7 @@ installStandaloneContainerd() {
         fi
         installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-    downloadAndInstallMobyDockerPackagesForContainerd ${MOBY_VERSION}
+    downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
 }
 
 downloadRuncFromVersionAndCPUArch() {
@@ -4881,7 +4881,7 @@ ensureRunc() {
     installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
-downloadAndInstallMobyDockerPackagesForContainerdFromVersion() {
+downloadAndInstallMobyDockerPackagesFromVersion() {
     local MOBY_VERSION=$1
     for moby_package in $MOBY_PACKAGES; do
         package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
