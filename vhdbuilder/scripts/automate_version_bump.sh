@@ -66,7 +66,7 @@ cut_official_branch() {
 
     # Checkout branch and commit the image bump file diff to official branch too
     if [ `git branch --list $official_branch_name` ]; then
-        git checkout official_branch_name
+        git checkout $official_branch_name
         git pull origin
     else
         git checkout -b $official_branch_name $final_commit_hash
