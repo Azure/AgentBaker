@@ -2030,18 +2030,17 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedString := "--address=0.0.0.0 --allow-privileged=true --anonymous-auth=false --authorization-mode=Webhook --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --keep-terminated-pod-volumes=false --kubeconfig=/var/lib/kubelet/kubeconfig --pod-manifest-path=/etc/kubernetes/manifests "
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
-		expected              string
+		CustomKubeletConfig   *CustomKubeletConfig
 		expectedForPowershell string
 	}{
 		{
 			name:                  "zero value kubernetesConfig",
 			config:                &NodeBootstrappingConfiguration{},
-			expected:              "",
+			CustomKubeletConfig:   nil,
 			expectedForPowershell: "",
 		},
 		// Some values
@@ -2049,18 +2048,26 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 			name: "expected values",
 			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
-					"--address":                     "0.0.0.0",
-					"--allow-privileged":            "true",
-					"--anonymous-auth":              "false",
-					"--authorization-mode":          "Webhook",
-					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
-					"--pod-manifest-path":           "/etc/kubernetes/manifests",
-					"--cgroups-per-qos":             "true",
-					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes": "false",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--anonymous-auth":               "false",
+					"--authorization-mode":           "Webhook",
+					"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+					"--pod-manifest-path":            "/etc/kubernetes/manifests",
+					"--node-status-report-frequency": "5m0s",
+					"--cgroups-per-qos":              "true",
+					"--image-gc-high-threshold":      "80",
+					"--image-gc-low-threshold":       "60",
+					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
+					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
-			expected:              alphabetizedString,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcHighThreshold:  to.Int32Ptr(80),
+				ImageGcLowThreshold:   to.Int32Ptr(60),
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
 			expectedForPowershell: alphabetizedStringForPowershell,
 		},
 		// Switch the "order" in the map, validate the same return string
@@ -2068,18 +2075,26 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 			name: "expected values re-ordered",
 			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
-					"--address":                     "0.0.0.0",
-					"--allow-privileged":            "true",
-					"--anonymous-auth":              "false",
-					"--authorization-mode":          "Webhook",
-					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
-					"--pod-manifest-path":           "/etc/kubernetes/manifests",
-					"--cgroups-per-qos":             "true",
-					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes": "false",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--anonymous-auth":               "false",
+					"--authorization-mode":           "Webhook",
+					"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+					"--container-log-max-files":      "20",
+					"--container-log-max-size":       "1024Mi",
+					"--pod-manifest-path":            "/etc/kubernetes/manifests",
+					"--node-status-report-frequency": "1m0s",
+					"--cgroups-per-qos":              "true",
+					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
+					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
-			expected:              alphabetizedString,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcHighThreshold:  to.Int32Ptr(80),
+				ImageGcLowThreshold:   to.Int32Ptr(60),
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
 			expectedForPowershell: alphabetizedStringForPowershell,
 		},
 	}
@@ -2088,8 +2103,8 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell() {
-				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell())
+			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig) {
+				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig))
 			}
 		})
 	}
@@ -2282,9 +2297,10 @@ func TestGetOrderedKubeproxyConfigStringForPowershell(t *testing.T) {
 
 func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	cases := []struct {
-		name     string
-		config   *NodeBootstrappingConfiguration
-		expected string
+		name                string
+		config              *NodeBootstrappingConfiguration
+		CustomKubeletConfig *CustomKubeletConfig
+		expected            string
 	}{
 		{
 			name: "KubeletConfig is empty",
@@ -2293,7 +2309,8 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					Properties: &Properties{},
 				},
 			},
-			expected: "",
+			CustomKubeletConfig: nil,
+			expected:            "",
 		},
 		{
 			name: "KubeletConfig is not empty",
@@ -2302,12 +2319,17 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					Properties: &Properties{},
 				},
 				KubeletConfig: map[string]string{
-					"--address":          "0.0.0.0",
-					"--allow-privileged": "true",
-					"--cloud-config":     "c:\\k\\azure.json",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--cloud-config":                 "c:\\k\\azure.json",
+					"--node-status-report-frequency": "5m0s",
 				},
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json"`,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcLowThreshold:  to.Int32Ptr(60),
+				ImageGcHighThreshold: to.Int32Ptr(80),
+			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 		{
 			name: "custom configuration overrides default KubeletConfig",
@@ -2324,12 +2346,17 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					},
 				},
 				KubeletConfig: map[string]string{
-					"--address":          "0.0.0.0",
-					"--allow-privileged": "true",
-					"--cloud-config":     "c:\\k\\azure.json",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--cloud-config":                 "c:\\k\\azure.json",
+					"--node-status-report-frequency": "5m0s",
 				},
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json"`,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
@@ -2346,12 +2373,23 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 					},
 				},
 				KubeletConfig: map[string]string{
-					"--address":          "0.0.0.0",
-					"--allow-privileged": "true",
-					"--cloud-config":     "c:\\k\\azure.json",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--cloud-config":                 "c:\\k\\azure.json",
+					"--node-status-report-frequency": "5m0s",
+					"--container-log-max-files":      "10",
+					"--container-log-max-size":       "512Mi",
+					"--image-gc-high-threshold":      "30",
+					"--image-gc-low-threshold":       "10",
 				},
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--event-qps=100"`,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcHighThreshold:  to.Int32Ptr(80),
+				ImageGcLowThreshold:   to.Int32Ptr(60),
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 	}
 
@@ -2359,7 +2397,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			actual := c.config.GetOrderedKubeletConfigStringForPowershell()
+			actual := c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig)
 			if c.expected != actual {
 				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
 			}

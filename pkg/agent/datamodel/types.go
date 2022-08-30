@@ -118,6 +118,12 @@ const (
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
+// These are the flags set by RP that should NOT be included
+// within the set of command line flags when configuring kubelet
+var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
+	"--node-status-report-frequency": true,
+}
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -159,6 +165,8 @@ const (
 	AKSWindows2019Containerd Distro = "aks-windows-2019-containerd"
 	// AKSWindows2022Containerd stands for distro for windows server 2022 SIG image with containerd
 	AKSWindows2022Containerd Distro = "aks-windows-2022-containerd"
+	// AKSWindows2022ContainerdGen2 stands for distro for windows server 2022 Gen 2 SIG image with containerd
+	AKSWindows2022ContainerdGen2 Distro = "aks-windows-2022-containerd-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
@@ -1305,7 +1313,7 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell() string {
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1322,14 +1330,33 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		}
 	}
 
+	// Settings from customKubeletConfig, only take if it's set
+	if customKc != nil {
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
+		}
+	}
+
 	if len(kubeletConfig) == 0 {
 		return ""
 	}
 
 	keys := []string{}
 	for key := range kubeletConfig {
-		keys = append(keys, key)
+		if !CommandLineOmittedKubeletConfigFlags[key] {
+			keys = append(keys, key)
+		}
 	}
+
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
@@ -1617,6 +1644,16 @@ type AKSKubeletConfiguration struct {
 	// Default: "10s"
 	// +optional
 	NodeStatusUpdateFrequency Duration `json:"nodeStatusUpdateFrequency,omitempty"`
+	// nodeStatusReportFrequency is the frequency that kubelet posts node
+	// status to master if node status does not change. Kubelet will ignore this
+	// frequency and post node status immediately if any change is detected. It is
+	// only used when node lease feature is enabled. nodeStatusReportFrequency's
+	// default value is 5m. But if nodeStatusUpdateFrequency is set explicitly,
+	// nodeStatusReportFrequency's default value will be set to
+	// nodeStatusUpdateFrequency for backward compatibility.
+	// Default: "5m"
+	// +optional
+	NodeStatusReportFrequency Duration `json:"nodeStatusReportFrequency,omitempty"`
 	// imageGCHighThresholdPercent is the percent of disk usage after which
 	// image garbage collection is always run. The percent is calculated as
 	// this field value out of 100.
@@ -1853,6 +1890,7 @@ type KubeletWebhookAuthorization struct {
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
+
 type CSEStatus struct {
 	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
