@@ -172,11 +172,12 @@ ensureRunc() {
 
 downloadAndInstallMobyDockerPackagesFromVersion() {
     local MOBY_VERSION=$1
+    mkdir -p $MOBY_DOWNLOADS_DIR
     for moby_package in $MOBY_PACKAGES; do
         package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
         if [ "$package_found" == "0" ]; then
             echo "$moby_package not cached, downloading..."
-            apt_get_download 20 30 "${moby_package}=${MOBY_VERSION}*" || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
+            apt_get_download 20 30 ${moby_package}=${MOBY_VERSION}* || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
             cp -al ${APT_CACHE_DIR}${moby_package}_${MOBY_VERSION}* $MOBY_DOWNLOADS_DIR || exit $ERR_MOBY_DOWNLOAD_TIMEOUT
         fi
         MOBY_PACKAGE_DEB_FILE=$(ls ${MOBY_DOWNLOADS_DIR}/${moby_package}_${MOBY_VERSION}*)
@@ -184,7 +185,10 @@ downloadAndInstallMobyDockerPackagesFromVersion() {
             echo "Failed to locate cached $moby_package deb"
             return 1
         fi
-        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE || return 1
+        installDebPackageFromFile $MOBY_PACKAGE_DEB_FILE
+        if [[ $? -ne 0 ]]; then
+            return 1
+        fi
     done
 }
 
