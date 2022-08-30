@@ -4799,14 +4799,6 @@ installStandaloneContainerd() {
     downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
 }
 
-downloadRuncFromVersionAndCPUArch() {
-    local RUNC_VERSION=$1
-    local CPU_ARCH=$2
-    mkdir -p $RUNC_DOWNLOADS_DIR
-    apt_get_download 20 30 "moby-runc=${RUNC_VERSION/-/\~}*" || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
-    cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
-}
-
 downloadContainerdFromVersion() {
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
@@ -4826,6 +4818,32 @@ downloadContainerdFromURL() {
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 {{- end}}
+
+installMoby() {
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+    CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
+    local MOBY_VERSION="19.03.14"
+    local MOBY_CONTAINERD_VERSION="1.4.13"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
+        echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
+    else
+        removeMoby
+        updateAptWithMicrosoftPkg
+        MOBY_CLI=${MOBY_VERSION}
+        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+            MOBY_CLI="3.0.3"
+        fi
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+    fi
+}
+
+downloadRuncFromVersionAndCPUArch() {
+    local RUNC_VERSION=$1
+    local CPU_ARCH=$2
+    mkdir -p $RUNC_DOWNLOADS_DIR
+    apt_get_download 20 30 "moby-runc=${RUNC_VERSION/-/\~}*" || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+}
 
 ensureRunc() {
     RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
