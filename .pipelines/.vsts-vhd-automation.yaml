@@ -22,10 +22,7 @@ steps:
         GOLANG_VERSION="go1.18.5"
         echo "Downloading ${GOLANG_VERSION}"
         curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
-        
-        echo "removing existing go environment"
-        sudo rm -r /usr/local/go
-        
+
         echo "unpacking go"
         sudo mkdir -p /usr/local/go
         sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
