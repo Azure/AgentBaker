@@ -85,7 +85,7 @@ ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
 
 ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
-ERR_VHD_REBOOT_REQUIRED=201 {{/* Reserved for no security package found exit condition */}}
+ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
