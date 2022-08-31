@@ -246,7 +246,6 @@ disableSystemdResolved() {
     fi
 }
 
-{{- if NeedsContainerd}}
 ensureContainerd() {
   {{- if TeleportEnabled}}
   ensureTeleportd
@@ -271,7 +270,6 @@ ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{- else}}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -293,7 +291,6 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-{{- end}}
 {{- if NeedsContainerd}}
 ensureMonitorService() {
     {{/* Delay start of containerd-monitor for 30 mins after booting */}}

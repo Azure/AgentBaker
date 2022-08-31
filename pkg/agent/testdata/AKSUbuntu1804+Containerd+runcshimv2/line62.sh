@@ -116,6 +116,95 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
+# CSE+VHD can dictate the containerd version, users don't care as long as it works
+installStandaloneContainerd() {
+    UBUNTU_RELEASE=$(lsb_release -r -s)
+    UBUNTU_CODENAME=$(lsb_release -c -s)
+    CONTAINERD_VERSION=$1
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
+    # v1.4.1 is our lowest supported version of containerd
+
+    if [ -z "$CURRENT_VERSION" ]; then
+        CURRENT_VERSION="0.0.0"
+    fi
+    
+    # we always default to the .1 patch versons
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+
+    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+
+    # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
+    CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
+    if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
+        echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        removeMoby
+        removeContainerd
+        downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        echo "Successfully installed containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
+        return 0
+    fi
+
+    #if there is no containerd_version input from RP, use hardcoded version
+    if [[ -z ${CONTAINERD_VERSION} ]]; then
+        CONTAINERD_VERSION="1.4.13"
+        CONTAINERD_PATCH_VERSION="2"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
+    fi
+
+    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
+
+    if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
+        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}, only installing moby docker packages with docker version ${MOBY_VERSION}..."
+    else
+        echo "installing containerd version ${CONTAINERD_VERSION} and moby docker packages with docker version ${MOBY_VERSION}"
+        removeMoby
+        removeContainerd
+        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+        # if no files found then try fetching from packages.microsoft repo
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+            downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+            CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+            if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+                echo "Failed to locate cached containerd deb"
+                exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            fi
+        fi
+        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+    downloadAndInstallMobyDockerPackagesFromVersion ${MOBY_VERSION}
+}
+
+downloadContainerdFromVersion() {
+    CONTAINERD_VERSION=$1
+    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
+    # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
+    # This won't be called for new VHDs as they have containerd 1.6 cached
+    updateAptWithMicrosoftPkg 
+    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+}
+
+downloadContainerdFromURL() {
+    CONTAINERD_DOWNLOAD_URL=$1
+    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
+}
+
 installMoby() {
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)

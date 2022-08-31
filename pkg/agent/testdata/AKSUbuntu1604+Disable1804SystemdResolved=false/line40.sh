@@ -104,6 +104,36 @@ downloadAzureCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadCrictl() {
+    CRICTL_VERSION=$1
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    mkdir -p $CRICTL_DOWNLOAD_DIR
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
+    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
+}
+
+installCrictl() {
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
+    local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
+    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
+    else
+        # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
+        # if the vhd does not have crictl pre-baked, return early
+        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
+        if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
+            rm -rf ${CRICTL_DOWNLOAD_DIR}
+            echo "pre-cached crictl not found: skipping installCrictl"
+            return 1
+        fi
+        echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
+        tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chmod 755 $CRICTL_BIN_DIR/crictl
+    fi
+}
+
 setupCNIDirs() {
     mkdir -p $CNI_BIN_DIR
     chown -R root:root $CNI_BIN_DIR
@@ -277,17 +307,17 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        
-        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-        
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        fi
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
-                removeContainerImage "docker" ${image}
-                
+                removeContainerImage ${CLI_TOOL} ${image}
             done
         fi
     }
@@ -309,14 +339,16 @@ cleanUpKubeProxyImages() {
 
 cleanupRetaggedImages() {
     if [[ "AzurePublicCloud" != "AzureChinaCloud" ]]; then
-        
-        images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-        
+        if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        else
+            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+        fi
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
-                removeContainerImage "docker" ${image}
-                
+                # always use ctr, even if crictl is installed.
+                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                removeContainerImage "ctr" ${image}
             done
         fi
     else

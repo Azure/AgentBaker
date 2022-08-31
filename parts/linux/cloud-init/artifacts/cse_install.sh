@@ -103,7 +103,6 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{- if NeedsContainerd}}
 
 downloadCrictl() {
     CRICTL_VERSION=$1
@@ -172,7 +171,6 @@ installTeleportdPlugin() {
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
-{{- end}}
 {{- end}}
 
 setupCNIDirs() {
@@ -348,25 +346,17 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        {{if NeedsContainerd}}
         if [[ "${CLI_TOOL}" == "crictl" ]]; then
             images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-        {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
                 removeContainerImage ${CLI_TOOL} ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
             done
         fi
     }
@@ -388,24 +378,16 @@ cleanUpKubeProxyImages() {
 
 cleanupRetaggedImages() {
     if [[ "{{GetTargetEnvironment}}" != "AzureChinaCloud" ]]; then
-        {{if NeedsContainerd}}
         if [[ "${CLI_TOOL}" == "crictl" ]]; then
             images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         else
             images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-        {{end}}
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
                 # always use ctr, even if crictl is installed.
                 # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
                 removeContainerImage "ctr" ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
             done
         fi
     else
