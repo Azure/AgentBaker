@@ -442,4 +442,10 @@ datasource:
         apply_network_config: false
 EOF
 }
+
+addUdevDriverRule() {
+    cat << EOF > tmp
+SUBSYSTEM=="net", SUBSYSTEMS=="vmbus", DRIVERS=="hv_netvsc", ENV{ID_NET_DRIVER}="hv_netvsc"
+EOF
+}
 #EOF

@@ -105,6 +105,7 @@ fi
 if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
+  addUdevDriverRule || exit 1
 fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
