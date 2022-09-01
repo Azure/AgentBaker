@@ -10,6 +10,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
+        "v2.0.0",
+        "v2.0.0-rc7",
         "v2.0.1"
       ],
       "multiArchVersions": []
@@ -112,7 +114,7 @@
       ],
       "multiArchVersions": [
         "v1.2.2",
-        "v1.2.2.1"
+        "v1.2.2.2"
       ]
     },
     {
@@ -281,7 +283,8 @@
       ],
       "multiArchVersions": [
         "v1.21.0",
-        "v1.22.0"
+        "v1.22.0",
+        "v1.22.0.1"
       ]
     },
     {
@@ -395,7 +398,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.8.8.5",
-        "v1.8.8.6"
+        "v1.8.8.7"
       ]
     },
     {
