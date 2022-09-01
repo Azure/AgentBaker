@@ -99,8 +99,8 @@ updateAptWithMicrosoftPkg() {
     fi
 
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
-    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then {
-        echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
+    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "16.04" ]]; then {
+        echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     elif [[ ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list

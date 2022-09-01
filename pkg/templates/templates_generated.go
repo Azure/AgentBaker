@@ -1159,7 +1159,7 @@ ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
 ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
 ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
 ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
-ERR_MOBY_DOWNLOAD_TIMEOUT=140 {{/* Error downloading moby packages for moby-containerd operation */}}
+ERR_MOBY_DOWNLOAD_TIMEOUT=140 {{/* Error downloading docker packages for moby-containerd */}}
 
 ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
 ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
@@ -4692,8 +4692,8 @@ updateAptWithMicrosoftPkg() {
     fi
 
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
-    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then {
-        echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
+    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "16.04" ]]; then {
+        echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     elif [[ ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
