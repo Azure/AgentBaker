@@ -18,3 +18,70 @@ Describe 'GetBroadestRangesForEachAddress' {
         $actual | Should -Be $Expected
     }
 }
+
+Describe 'Set-AzureCNIConfig' {
+    BeforeEach {
+        $azureCNIConfDir = "$PSScriptRoot\azurecnifunc.tests.suites"
+        $kubeDnsSearchPath = "svc.cluster.local"
+        $kubeClusterCIDR = "10.224.0.0/12"
+        $kubeServiceCIDR = "10.0.0.0/16"
+        $vNetCIDR = "10.224.1.0/12"
+        $isDualStackEnabled = $false
+
+        $KubeDnsServiceIp = "10.0.0.10"
+        $global:IsDisableWindowsOutboundNat = $false
+        $global:KubeproxyFeatureGates = @()
+
+        $defaultFile = [Io.path]::Combine($azureCNIConfDir, "DefaultAzureCNI.conflist")
+        $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
+        Copy-Item -Path $defaultFile -Destination $azureCNIConfigFile
+
+        # Read Json with the same format (depth = 20) for Json Comparation
+        function Read-Format-Json ([string]$JsonFile)
+        {
+            $json = Get-Content $JsonFile | ConvertFrom-Json
+            $json = $json | ConvertTo-Json -depth 20
+            return $json
+        }
+    }
+
+    AfterEach {
+        $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
+        if (Test-Path $azureCNIConfigFile) {
+            Remove-Item -Path $azureCNIConfigFile
+        }
+    }
+
+    It "Should remove ROUTE when WinDSR is enabled" {
+        $global:KubeproxyFeatureGates = @("WinDSR=true")
+
+        Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+            -KubeDnsSearchPath $kubeDnsSearchPath `
+            -KubeClusterCIDR $kubeClusterCIDR `
+            -KubeServiceCIDR $kubeServiceCIDR `
+            -VNetCIDR $vNetCIDR `
+            -IsDualStackEnabled $isDualStackEnabled
+
+        $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+        $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.WinDSR.conflist"))
+        $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+        $diffence | Should -Be $null
+    }
+
+    It "Should replace OutboundNAT with LoopbackDSR when IsDisableWindowsOutboundNat is true" {
+        $global:KubeproxyFeatureGates = @("WinDSR=true")
+        $global:IsDisableWindowsOutboundNat = $true
+
+        Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+            -KubeDnsSearchPath $kubeDnsSearchPath `
+            -KubeClusterCIDR $kubeClusterCIDR `
+            -KubeServiceCIDR $kubeServiceCIDR `
+            -VNetCIDR $vNetCIDR `
+            -IsDualStackEnabled $isDualStackEnabled
+
+        $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+        $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.DisableWindowsOutboundNat.conflist"))
+        $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+        $diffence | Should -Be $null
+    }
+}
