@@ -1,0 +1,29 @@
+name: Release Binary
+
+on:
+  create:
+    tags:
+    # sample: v0.20220823.1
+    - v*.*.*
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+
+    - name: Release
+      uses: goreleaser/goreleaser-action@v3
+      with:
+        args: release --rm-dist
+        workdir: ./cmd
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
