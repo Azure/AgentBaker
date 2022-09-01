@@ -202,6 +202,8 @@ installAzureCNI() {
 extractKubeBinaries() {
     K8S_VERSION=$1
     KUBE_BINARY_URL=$2
+    echo "Checking available disk space..."
+    df -h
 
     mkdir -p ${K8S_DOWNLOADS_DIR}
     K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
