@@ -208,6 +208,7 @@ var AvailableWindowsSIGDistros []Distro = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
+	AKSWindows2022ContainerdGen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -226,14 +227,14 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.08.15"
+	LinuxSIGImageVersion string = "2022.08.29"
 
 	Windows2019SIGImageVersion string = "17763.3287.220810"
 	Windows2022SIGImageVersion string = "20348.887.220810"
 
-	Arm64LinuxSIGImageVersion    string = "2022.08.23"
+	Arm64LinuxSIGImageVersion    string = "2022.08.30"
 	Ubuntu2204SIGImageVersion    string = "2022.07.25"
-	Ubuntu2004CVMSIGImageVersion string = "2022.08.15"
+	Ubuntu2004CVMSIGImageVersion string = "2022.08.29"
 )
 
 // SIG config Template
@@ -402,6 +403,12 @@ var (
 		Definition:    "windows-2022-containerd",
 		Version:       Windows2022SIGImageVersion,
 	}
+	SIGWindows2022ContainerdGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2022-containerd-gen2",
+		Version:       Windows2022SIGImageVersion,
+	}
 )
 
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
@@ -439,6 +446,7 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

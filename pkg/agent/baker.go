@@ -359,7 +359,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return ""
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeletConfigStringForPowershell()
+			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
@@ -812,6 +812,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return "470.57.02"
 			}
 			return "510.47.03"
+		},
+		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
+			if cs.Properties.WindowsProfile != nil {
+				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
+			}
+			return 0
 		},
 	}
 }

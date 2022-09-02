@@ -207,7 +207,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-v0.0.2-rev17-sha-ff708e"
+  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-106e2e"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
@@ -308,7 +308,7 @@ AMD64_ONLY_CNI_VERSIONS="
 #Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.22
-1.4.29
+1.4.32
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -336,7 +336,7 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.22
-1.4.29
+1.4.32
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -356,7 +356,7 @@ done
 
 OVERLAY_CNI_VERSIONS="
 1.4.27
-1.4.29
+1.4.32
 "
 
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
@@ -521,7 +521,7 @@ done
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
-  apt-get purge --auto-remove apport -y
+  apt-get purge --auto-remove apport open-vm-tools -y
 fi
 
 # shellcheck disable=SC2129

@@ -33,7 +33,7 @@ switch -Regex ($windowsSKU) {
 }
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
 
 $global:defaultDockerVersion = "20.10.9"
 
@@ -50,8 +50,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -75,8 +75,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -101,8 +101,8 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.19.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -194,8 +194,8 @@ $global:map = @{
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.22.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.29/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.29.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.29/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.29.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.32/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.32.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.32/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.32.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.4/binaries/calico-windows-v3.21.4.zip",
