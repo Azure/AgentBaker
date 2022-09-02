@@ -510,7 +510,7 @@ done
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
-  apt-get purge --auto-remove apport -y
+  apt-get purge --auto-remove apport open-vm-tools -y
 fi
 
 # shellcheck disable=SC2129
