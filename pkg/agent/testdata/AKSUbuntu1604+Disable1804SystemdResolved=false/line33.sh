@@ -64,22 +64,22 @@ source /etc/os-release
 # Mandb is not currently available on MarinerV1
 if [[ ${ID} != "mariner" ]]; then
     echo "Removing man-db auto-update flag file..."
-    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+    removeManDbAutoUpdateFlagFile
 fi
 cleanUpContainerd
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
+    cleanUpGPUDrivers
 fi
 
-logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
+disableSystemdResolved
 
-logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
+configureAdminUser
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
+    cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -90,34 +90,34 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    logs_to_events "AKS.CSE.installDeps" installDeps
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+installContainerRuntime
 
 setupCNIDirs
 
-logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+installNetworkPlugin
 
-logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+installKubeletKubectlAndKubeProxy
 
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
+ensureRPC
 
 createKubeManifestDir
 
-logs_to_events "AKS.CSE.configureK8s" configureK8s
+configureK8s
 
-logs_to_events "AKS.CSE.configureCNI" configureCNI
+configureCNI
 
 
-logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+ensureDocker
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
- 
-logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
+systemctlEnableAndStart sync-tunnel-logs
+
+ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
@@ -125,10 +125,9 @@ if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
-
-logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+ensureSysctl
+ensureJournal
+ensureKubelet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -140,7 +139,6 @@ fi
 rm -f /etc/apt/apt.conf.d/99periodic
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # logs_to_events should not be run on & commands
     apt_get_purge 20 30 120 apache2-utils &
 fi
 
@@ -164,10 +162,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if [[ ${ID} != "mariner" ]]; then
@@ -182,12 +180,10 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        # logs_to_events should not be run on & commands
         /usr/lib/apt/apt.systemd.daily &
         aptmarkWALinuxAgent unhold &
     fi
