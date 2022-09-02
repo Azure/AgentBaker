@@ -23,6 +23,36 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
+
+# remove unnecessary packages individually, these have been marked as prune-able by the infra team
+apt-get remove --purge --autoremove --yes apport
+apt-get remove --purge --autoremove --yes btrfs-*
+apt-get remove --purge --autoremove --yes ftp
+apt-get remove --purge --autoremove --yes lxc
+apt-get remove --purge --autoremove --yes lxd
+apt-get remove --purge --autoremove --yes motd-news-config
+apt-get remove --purge --autoremove --yes ntfs-3g
+apt-get remove --purge --autoremove --yes open-iscsi
+apt-get remove --purge --autoremove --yes open-vm-tools
+apt-get remove --purge --autoremove --yes pastebinit
+apt-get remove --purge --autoremove --yes popularity-contest
+apt-get remove --purge --autoremove --yes samba
+apt-get remove --purge --autoremove --yes samba-*
+apt-get remove --purge --autoremove --yes screen
+apt-get remove --purge --autoremove --yes snapd
+apt-get remove --purge --autoremove --yes telnet
+apt-get remove --purge --autoremove --yes tmux
+apt-get remove --purge --autoremove --yes update-manager-core
+apt-get remove --purge --autoremove --yes update-notifier-common
+apt-get remove --purge --autoremove --yes ubuntu-release-upgrader-core
+apt-get remove --purge --autoremove --yes vim
+apt-get remove --purge --autoremove --yes vim-tiny
+apt-get remove --purge --autoremove --yes vim-common
+apt-get remove --purge --autoremove --yes wireless-regdb
+apt-get remove --purge --autoremove --yes xauth
+apt-get remove --purge --autoremove --yes xdg-user-dirs
+apt-get remove --purge --autoremove --yes xfsprogs
+
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
