@@ -61,16 +61,18 @@ else
       exit 1
     fi
 
+    echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
     IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+    echo "Image definition defined using SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION is ${IMG_DEF}"
   else 
-    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+    # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
     IMG_DEF=${MANAGED_SIG_ID}
   fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \
