@@ -1941,8 +1941,8 @@ type AgentPoolWindowsProfile struct {
 	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
 }
 
-// ISDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT
-func (ap *AgentPoolProfile) ISDisableWindowsOutboundNat() bool {
+// IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT
+func (ap *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 	return ap.AgentPoolWindowsProfile != nil &&
 		ap.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
 		*ap.AgentPoolWindowsProfile.DisableOutboundNat
