@@ -2,13 +2,19 @@
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
+# NOTE: KubernetesVersion does not contain "v"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+# The containerd package name may be changed in future
+$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
+
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
     $kubedir
   )
 
-  Assert-FileExists $global:Containerdbinary
+  Assert-FileExists -Filename $global:Containerdbinary -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST
 
   # in the past service was not installed via nssm so remove it in case
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
@@ -119,6 +125,41 @@ function Enable-Logging {
   }
 }
 
+function Install-Containerd-Based-On-Kubernetes-Version {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $ContainerdUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubernetesVersion
+  )
+
+  # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+  # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
+  # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
+  #   1. Current behavior to set the full URL
+  #   2. Setting containerd package in toggle for test purpose or hotfix
+  if ($ContainerdUrl.EndsWith("/")) {
+    Write-Log "ContainerdURL is $ContainerdUrl"
+    $containerdPackage=$global:StableContainerdPackage
+    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+      $containerdPackage=$global:LatestContainerdPackage
+      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+    } else {
+      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
+    }
+    $ContainerdUrl = $ContainerdUrl + $containerdPackage
+  }
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
 function Install-Containerd {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -140,23 +181,15 @@ function Install-Containerd {
   # TODO: check if containerd is already installed and is the same version before this.
   
   # Extract the package
-  if ($ContainerdUrl.endswith(".zip")) {
-    $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
-    Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    Remove-Item -Path $zipfile -Force
-  }
-  elseif ($ContainerdUrl.endswith(".tar.gz")) {
-    # upstream containerd package is a tar 
-    $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
-    Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
-    tar -xzf $tarfile -C $global:ContainerdInstallLocation
+  # upstream containerd package is a tar 
+  $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
+  DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+  Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
+  tar -xzf $tarfile -C $global:ContainerdInstallLocation
 
-    mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    Remove-Item -Path $tarfile -Force
-    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
-  }
+  mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
+  Remove-Item -Path $tarfile -Force
+  Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation

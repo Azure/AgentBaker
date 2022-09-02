@@ -14,6 +14,7 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
+    "gen2_captured_sig_version": "{{env `${GEN2_CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}"
   },
   "builders": [
@@ -41,12 +42,12 @@
         "image_version": "latest"
       },
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "PackerSigGalleryEastUS",
         "image_name": "{{user `sig_image_name`}}",
-        "image_version": "1.0.{{user `create_time`}}",
+        "image_version": "{{user `gen2_captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
@@ -270,6 +271,23 @@
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/list-images.sh",
+      "destination": "/home/packer/list-images.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/image-bom.json",
+      "destination": "image-bom.json"
     },
     {
       "type": "file",

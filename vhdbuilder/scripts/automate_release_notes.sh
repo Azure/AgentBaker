@@ -31,7 +31,14 @@ generate_release_notes() {
 }
 
 set_git_config
-create_branch $branch_name
+if [ `git branch --list $branch_name` ]; then
+    git checkout $branch_name
+    git pull origin
+    git checkout master -- .
+else
+    create_branch $branch_name
+fi
+
 generate_release_notes
 git status
 set +x

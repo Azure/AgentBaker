@@ -11,13 +11,13 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
-    echo "Skipping tests for Mariner, Ubuntu 16.04"
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$IMG_SKU" == "20_04-lts-cvm" ] || [[ "$OS_VERSION" == "22.04"  &&  "${ARCHITECTURE,,}" != "arm64" ]]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04, CVM 20.04 and AMD64 22.04"
     exit 0
   fi
 fi
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
+RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled
@@ -61,16 +61,18 @@ else
       exit 1
     fi
 
+    echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
     IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
+    echo "Image definition defined using SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION is ${IMG_DEF}"
   else 
-    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+    # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
     IMG_DEF=${MANAGED_SIG_ID}
   fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  if [ ${ARCHITECTURE,,} == "arm64" ]; then
+  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     az vm create \
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \
@@ -143,7 +145,7 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}" "windowsPatchId=${WINDOWS_PATCH_ID}")
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
   # An example of failed run-command output:
   # {
   #   "value": [

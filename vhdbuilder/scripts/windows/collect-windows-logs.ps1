@@ -140,6 +140,17 @@ else {
   Write-Host "ctr.exe command not available"
 }
 
+# log containers the CRI plugin is aware of, and their state.
+Write-Host "Collecting CRI plugin containers"
+$res = Get-Command crictl.exe -ErrorAction SilentlyContinue
+if ($res) {
+  & crictl.exe ps -a > "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
+}
+else {
+  Write-Host "crictl.exe command not available"
+}
+
 # Containerd panic log is outside the c:\k folder
 Write-Host "Collecting containerd panic logs"
 $containerdPanicLog = "c:\ProgramData\containerd\root\panic.log"
@@ -177,6 +188,11 @@ if (Test-Path "c:\CalicoWindows\logs") {
 else {
   Write-Host "Calico logs not available"
 }
+
+Write-Host "Collecting disk usage"
+$tempDiskUsageFile = Join-Path ([System.IO.Path]::GetTempPath()) ("disk-usage.txt")
+Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Expression={$_.size/1gb}}, @{Name="Free Space(GB)";Expression={$_.freespace/1gb}}, @{Name="Free (%)";Expression={"{0,6:P0}" -f(($_.freespace/1gb) / ($_.size/1gb))}}, DeviceID, DriveType | Where-Object DriveType -EQ '3' > $tempDiskUsageFile
+$paths += $tempDiskUsageFile
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize

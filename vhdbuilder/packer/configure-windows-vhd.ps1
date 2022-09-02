@@ -66,6 +66,10 @@ function Retry-Command {
                 return
             } catch {
                 Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
+                    Write-Error "Exit retry since there is not enough space on the disk"
+                    break
+                }
                 Start-Sleep $Delay
             }
         } while ($cnt -lt $Maximum)
@@ -74,6 +78,36 @@ function Retry-Command {
         # a condition, since the function returns upon successful invocation.
         throw 'All retries failed. $ErrorMessage'
     }
+}
+
+function Invoke-Executable {
+    Param(
+        [string]
+        $Executable,
+        [string[]]
+        $ArgList,
+        [int]
+        $Retries = 0,
+        [int]
+        $RetryDelaySeconds = 1
+    )
+
+    for ($i = 0; $i -le $Retries; $i++) {
+        Write-Log "$i - Running $Executable $ArgList ..."
+        & $Executable $ArgList
+        if ($LASTEXITCODE) {
+            Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
+            Start-Sleep -Seconds $RetryDelaySeconds
+            continue
+        }
+        else {
+            Write-Log "$Executable returned successfully"
+            return
+        }
+    }
+
+    Write-Log "Exhausted retries for $Executable $ArgList"
+    exit 1
 }
 
 function Expand-OS-Partition {
@@ -123,10 +157,32 @@ function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
         foreach ($image in $imagesToPull) {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+                $url=""
+                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                    $url=$env:WindowsServerCoreImageURL
+                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                    $url=$env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            } else {
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    & crictl.exe pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd
@@ -134,10 +190,32 @@ function Get-ContainerImages {
     else {
         Write-Log "Pulling images for windows server 2019 with docker"
         foreach ($image in $imagesToPull) {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                docker pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+                $url=""
+                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                    $url=$env:WindowsServerCoreImageURL
+                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                    $url=$env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & docker load -i $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
+            } else {
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    docker pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
     }
 }
@@ -220,6 +298,15 @@ function Install-Docker {
     $package = Find-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $defaultDockerVersion
     Write-Log "Installing Docker version $($package.Version)"
     $package | Install-Package -Force | Out-Null
+
+    if ($defaultDockerVersion -eq "20.10.9"){
+        # We only do this for docker 20.10.9 so we do not need to add below code in Install-Docker in configfunc.ps1 because
+        # 1. the cat file is installed in building WS2019+docker
+        # 2. it does not need to run below code if a newer docker version is used in CSE later
+        Write-Log "Downloading cat for docker 20.10.9"
+        DownloadFileWithRetry -URL "https://dockermsft.azureedge.net/dockercontainer/docker-20-10-9.cat" -Dest "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
+    }
+
     Start-Service docker
 }
 
@@ -326,6 +413,16 @@ function Get-DefenderPreferenceInfo {
     Write-Log(Get-MpPreference | Format-List | Out-String)
 }
 
+function Exclude-ReservedUDPSourcePort()
+{
+    # https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#what-protocols-can-i-use-within-vnets
+    # Default UDP Dynamic Port Range in Windows server: Start Port: 49152, Number of Ports : 16384. Range: [49152, 65535]
+    # Exclude UDP source port 65330. This only excludes the port in AKS Windows nodes but will not impact Windows containers.
+    # Reference: https://github.com/Azure/AKS/issues/2988
+    # List command: netsh int ipv4 show excludedportrange udp
+    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -334,6 +431,7 @@ try{
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
+            Exclude-ReservedUDPSourcePort
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
