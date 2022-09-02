@@ -1885,7 +1885,7 @@ EOF
 }
 
 addUdevDriverRule() {
-    cat << EOF > tmp
+    cat << 'EOF' > tmp
 SUBSYSTEM=="net", SUBSYSTEMS=="vmbus", DRIVERS=="hv_netvsc", ENV{ID_NET_DRIVER}="$driver"
 EOF
 }
