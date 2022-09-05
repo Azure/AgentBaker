@@ -185,7 +185,7 @@ steps:
       -e SA_NAME=${SA_NAME} \
       -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e PKR_RG_NAME=${PKR_RG_NAME} \
-      -e MODE=${MODE} \
+      -e MODE=$(MODE) \
       -e DRY_RUN=${DRY_RUN} \
       -e IMAGE_NAME=${IMAGE_NAME} \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
