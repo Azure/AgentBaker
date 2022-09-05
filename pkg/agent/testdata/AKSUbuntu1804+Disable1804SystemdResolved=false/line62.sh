@@ -209,6 +209,10 @@ downloadRuncFromVersionAndCPUArch() {
     local RUNC_VERSION=$1
     local CPU_ARCH=$2
     mkdir -p $RUNC_DOWNLOADS_DIR
+    # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
+    # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
+    # This also fixes an issue where the required moby-runc package cannot be found on Ubuntu 16.04.
+    updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-runc=${RUNC_VERSION} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
 }
