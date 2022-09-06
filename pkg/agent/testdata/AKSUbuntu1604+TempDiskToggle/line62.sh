@@ -208,6 +208,7 @@ downloadContainerdFromURL() {
 downloadRuncFromVersionAndCPUArch() {
     local RUNC_VERSION=$1
     local CPU_ARCH=$2
+    echo "in downloadRuncFromVersionAndCPUArch with RUNC_VERSION=${RUNC_VERSION}, CPU_ARCH=${CPU_ARCH}"
     mkdir -p $RUNC_DOWNLOADS_DIR
     updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-runc=${RUNC_VERSION}+azure-*_${CPU_ARCH}.deb || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
