@@ -10,6 +10,9 @@
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.14
+- feat: Windows CSE support disabling OutboundNAT and removing ROUTE if WinDSR is enabled #2144
+
 ## v0.0.13
 - feat: Add hnsremediator for hns crash in Windows nodes #2085
 
