@@ -1,4 +1,5 @@
 #!/bin/bash -x
+echo "MODE=$MODE"
 
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
