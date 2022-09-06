@@ -9,12 +9,16 @@ fi
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
-ln -s /var/log/azure/cluster-provision.log \
-      /var/log/azure/cluster-provision-cse-output.log \
-      /opt/azure/*.json \
-      /opt/azure/cloud-init-files.paved \
-      /opt/azure/vhd-install.complete \
-      ${LOG_DIR}/
+LOGS_TO_INCLUDE=(
+    /var/log/azure/cluster-provision.log
+    /var/log/azure/cluster-provision-cse-output.log
+    /opt/azure/*.json
+    /opt/azure/cloud-init-files.paved
+    /opt/azure/vhd-install.complete
+)
+for LOG in "${LOGS_TO_INCLUDE[@]}"; do
+    [[ -f $LOG ]] && ln -sf ${LOG} ${LOG_DIR}/
+done
 
 # Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
 # when cloud-config.txt gets included within log bundles
