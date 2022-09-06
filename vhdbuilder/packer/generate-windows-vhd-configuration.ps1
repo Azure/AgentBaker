@@ -112,7 +112,7 @@ switch ($windowsSKU) {
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod08102022",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.33",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
         )
     }
