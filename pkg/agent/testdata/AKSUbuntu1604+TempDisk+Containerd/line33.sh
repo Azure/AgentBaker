@@ -31,7 +31,15 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
+# cse_start executes cse_main with a timeout command
+# timeout will SIGTERM cse_main after 15m
+# if user has firewall blocking egress, this will timeout
+# so we trap the SIGTERM to return the correct code,
+# setting `timeout --preserve-status` so it bubbles
+# up correctly.
+trap 'exit $ERR_OUTBOUND_CONN_FAIL' SIGTERM
 retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 nc -vz mcr.microsoft.com 443 >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz mcr.microsoft.com 443 || exit $ERR_OUTBOUND_CONN_FAIL;
+trap - SIGTERM
 
 for i in $(seq 1 3600); do
     if [ -s /opt/azure/containers/provision_source.sh ]; then

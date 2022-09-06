@@ -1908,7 +1908,15 @@ configureHTTPProxyCA
 configureEtcEnvironment
 {{- end}}
 
+# cse_start executes cse_main with a timeout command
+# timeout will SIGTERM cse_main after 15m
+# if user has firewall blocking egress, this will timeout
+# so we trap the SIGTERM to return the correct code,
+# setting `+"`"+`timeout --preserve-status`+"`"+` so it bubbles
+# up correctly.
+trap 'exit $ERR_OUTBOUND_CONN_FAIL' SIGTERM
 {{GetOutboundCommand}}
+trap - SIGTERM
 
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
@@ -2332,7 +2340,7 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
-timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+timeout --preserve-status -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")

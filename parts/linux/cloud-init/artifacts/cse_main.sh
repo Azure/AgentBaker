@@ -36,7 +36,15 @@ configureHTTPProxyCA
 configureEtcEnvironment
 {{- end}}
 
+# cse_start executes cse_main with a timeout command
+# timeout will SIGTERM cse_main after 15m
+# if user has firewall blocking egress, this will timeout
+# so we trap the SIGTERM to return the correct code,
+# setting `timeout --preserve-status` so it bubbles
+# up correctly.
+trap 'exit $ERR_OUTBOUND_CONN_FAIL' SIGTERM
 {{GetOutboundCommand}}
+trap - SIGTERM
 
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
