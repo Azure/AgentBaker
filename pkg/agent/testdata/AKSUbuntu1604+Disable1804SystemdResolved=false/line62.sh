@@ -208,19 +208,13 @@ downloadContainerdFromURL() {
 downloadRuncFromVersionAndCPUArch() {
     local RUNC_VERSION=$1
     local CPU_ARCH=$2
-    echo "in downloadRuncFromVersionAndCPUArch with RUNC_VERSION=${RUNC_VERSION}, CPU_ARCH=${CPU_ARCH}"
-
     mkdir -p $RUNC_DOWNLOADS_DIR
-    updateAptWithMicrosoftPkg 
-    apt_get_download 20 30 moby-runc=${RUNC_VERSION}+azure-*_${CPU_ARCH}.deb || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+    apt_get_download 20 30 moby-runc=${RUNC_VERSION} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
 }
 
 downloadAndInstallMobyDockerPackagesFromVersion() {
     local MOBY_VERSION=$1
-    if !(semverCompare ${UBUNTU_RELEASE} "18.04"); then
-        MOBY_VERSION=20.10.10
-    fi
     mkdir -p $MOBY_DOWNLOADS_DIR
     for moby_package in $MOBY_PACKAGES; do
         package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
@@ -283,7 +277,7 @@ ensureRunc() {
     RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
     RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
     if [[ -z "${RUNC_DEB_FILE}" ]]; then
-        downloadRuncFromVersionAndCPUArch ${TARGET_VERSION/-/\~} $CPU_ARCH
+        downloadRuncFromVersionAndCPUArch ${TARGET_VERSION/-/\~}* $CPU_ARCH
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -z "${RUNC_DEB_FILE}" ]]; then
             echo "Failed to locate cached moby-runc deb"
