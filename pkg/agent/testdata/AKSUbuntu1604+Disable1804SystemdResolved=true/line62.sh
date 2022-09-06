@@ -218,6 +218,9 @@ downloadRuncFromVersion() {
 
 downloadAndInstallMobyDockerPackagesFromVersion() {
     local MOBY_VERSION=$1
+    if !semverCompare ${UBUNTU_RELEASE} "18.04"; then
+        MOBY_VERSION="20.10.10"
+    fi
     mkdir -p $MOBY_DOWNLOADS_DIR
     for moby_package in $MOBY_PACKAGES; do
         package_found="$(ls $MOBY_DOWNLOADS_DIR | grep ${moby_package}_${MOBY_VERSION} | wc -l)"
