@@ -4732,6 +4732,7 @@ downloadRuncFromVersionAndCPUArch() {
     local RUNC_VERSION=$1
     local CPU_ARCH=$2
     mkdir -p $RUNC_DOWNLOADS_DIR
+    echo "Target moby-runc version: moby-runc_${RUNC_VERSION}*"
     apt_get_download 20 30 moby-runc=${RUNC_VERSION} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-runc_${RUNC_VERSION}+azure-*_${CPU_ARCH}.deb $RUNC_DOWNLOADS_DIR || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
 }
