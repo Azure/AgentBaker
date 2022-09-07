@@ -671,7 +671,8 @@ type AgentPoolProfile struct {
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
 	// This is a new property and all old agent pools do no have this field. We need to keep the default
 	// behavior to reboot Windows node when it is nil
-	NotRebootWindowsNode *bool `json:"notRebootWindowsNode,omitempty"`
+	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
+	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -1934,4 +1935,15 @@ func NewError(code CSEStatusParsingErrorCode, message string) *CSEStatusParsingE
 
 func (err *CSEStatusParsingError) Error() string {
 	return fmt.Sprintf("CSE has invalid message=%q, InstanceErrorCode=%s", err.Message, err.Code)
+}
+
+type AgentPoolWindowsProfile struct {
+	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
+}
+
+// IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT
+func (ap *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
+	return ap.AgentPoolWindowsProfile != nil &&
+		ap.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
+		*ap.AgentPoolWindowsProfile.DisableOutboundNat
 }

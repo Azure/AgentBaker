@@ -227,6 +227,9 @@ const (
 )
 
 const (
+	// DO NOT MODIFY: used for freezing linux images with docker
+	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
+
 	LinuxSIGImageVersion string = "2022.08.29"
 
 	Windows2019SIGImageVersion string = "17763.3287.220810"
@@ -245,31 +248,33 @@ var (
 		Definition:    "1604",
 		Version:       "2021.11.06",
 	}
+
 	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
+
 	SIGUbuntu1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
@@ -391,18 +396,21 @@ var (
 		Definition:    "windows-2019",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2022ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd",
 		Version:       Windows2022SIGImageVersion,
 	}
+
 	SIGWindows2022ContainerdGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
