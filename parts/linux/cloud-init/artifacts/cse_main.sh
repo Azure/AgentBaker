@@ -148,7 +148,7 @@ echo $(date),$(hostname), "End configuring GPU drivers"
 
 {{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
 set +x
-logs_to_events "AKS.CSE.GetPrivateAzureRegistryServer" "docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}"
+docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
 set -x
 {{end}}
 
