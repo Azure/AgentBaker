@@ -240,7 +240,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=${1:=""}
+    TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
 
