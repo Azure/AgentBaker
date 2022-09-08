@@ -165,7 +165,7 @@ fi
 {{end}}
 
 {{- if HasCustomSearchDomain}}
-logs_to_events "AKS.CSE.GetCustomSearchDomainsCSEScriptFilepath" "wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
