@@ -67,7 +67,7 @@ installContainerRuntime() {
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
-    installStandaloneContainerd "${containerd_version}" "${containerd_patch_version}"
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_version} ${containerd_patch_version}"
     echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
 {{else}}
     installMoby
@@ -254,18 +254,18 @@ installKubeletKubectlAndKubeProxy() {
         # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
-        extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
 
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
             else
                 if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                    extractHyperkube "ctr"
+                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube ctr
                 else
-                    extractHyperkube "docker"
+                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube docker
                 fi
             fi
         fi
@@ -287,11 +287,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
     else
-        retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
     fi
 }
 
