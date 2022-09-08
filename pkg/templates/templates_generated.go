@@ -5719,6 +5719,8 @@ write_files:
     net.ipv4.tcp_retries2=8
     net.core.message_burst=80
     net.core.message_cost=40
+    # To avoid node instability
+    kernel.pid_max=4194304
 {{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
     net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
 {{- else}}

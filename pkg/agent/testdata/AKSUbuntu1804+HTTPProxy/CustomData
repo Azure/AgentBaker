@@ -332,6 +332,8 @@ write_files:
     net.ipv4.tcp_retries2=8
     net.core.message_burst=80
     net.core.message_cost=40
+    # To avoid node instability
+    kernel.pid_max=4194304
     net.core.somaxconn=16384
     net.ipv4.tcp_max_syn_backlog=16384
     net.ipv4.neigh.default.gc_thresh1=4096
