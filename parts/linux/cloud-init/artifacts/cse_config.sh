@@ -48,9 +48,7 @@ configureSwapFile() {
         echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
     else
         echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
-        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
-    fi
-}
+    configGPUDrivers
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxy}}
@@ -511,7 +509,7 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
+        tdnf -y install make
     else
         validateGPUDrivers
     fi
