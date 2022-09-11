@@ -227,7 +227,9 @@ if $FULL_INSTALL_REQUIRED; then
 fi
 
 {{- /* re-enable unattended upgrades */}}
+{{- if EnableUnattendedUpgrade }} 
 rm -f /etc/apt/apt.conf.d/99periodic
+{{- end }} 
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     apt_get_purge 20 30 120 apache2-utils &
