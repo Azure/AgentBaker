@@ -61,6 +61,8 @@ copyPackerFiles() {
   UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
+  MARINER_GPU_INSTALL_SCRIPT_SRC=/home/packer/provision_gpu_fix.sh
+  MARINER_GPU_INSTALL_SCRIPT_DEST=/usr/local/bin/provision_gpu_fix.sh
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then

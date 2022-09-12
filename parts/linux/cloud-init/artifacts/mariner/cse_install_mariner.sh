@@ -23,6 +23,13 @@ installDeps() {
         fi
       done
     fi
+
+    echo -e "[Unit]\nDescription=Intercept cloud-init configurations and override them\nBefore=cloud-init.service\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
+    echo -e "[Service]\nType=simple\nExecStart=/usr/bin/bash -c /usr/local/bin/provision_gpu_fix.sh\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
+    echo -e "[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/cse-mariner-gpu.service
+
+    # systemctl enable cse-mariner-gpu.service
+    downloadGPUDrivers
 }
 
 downloadGPUDrivers() {

@@ -48,7 +48,9 @@ configureSwapFile() {
         echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
     else
         echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
-    configGPUDrivers
+        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
+    fi
+}
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxy}}
@@ -509,7 +511,7 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        tdnf -y install make
+        tdnf -y install cuda nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
     else
         validateGPUDrivers
     fi

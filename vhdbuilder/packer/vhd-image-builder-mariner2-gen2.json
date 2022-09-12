@@ -104,6 +104,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh",
+      "destination": "/home/packer/provision_gpu_fix.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cis.sh",
       "destination": "/home/packer/cis.sh"
     },
