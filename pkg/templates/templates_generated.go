@@ -5520,7 +5520,7 @@ write_files:
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
           {{- if Is2204VHD }}
-          SystemdCgroup = true
+          SystemdCgroup = false
           {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
