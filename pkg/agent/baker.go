@@ -316,8 +316,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"Disable1804SystemdResolved": func() bool {
 			return config.Disable1804SystemdResolved
 		},
-		"EnableUnattendedUpgrade": func() bool {
-			return !config.DisableUnattendedUpgrades
+		"DisableUnattendedUpgrade": func() bool {
+			return config.DisableUnattendedUpgrades
 		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
