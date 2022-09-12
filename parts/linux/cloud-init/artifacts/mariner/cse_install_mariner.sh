@@ -28,8 +28,7 @@ installDeps() {
     echo -e "[Service]\nType=simple\nExecStart=/usr/bin/bash -c /usr/local/bin/provision_gpu_fix.sh\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
     echo -e "[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/cse-mariner-gpu.service
 
-    # systemctl enable cse-mariner-gpu.service
-    downloadGPUDrivers
+    systemctl enable cse-mariner-gpu.service
 }
 
 downloadGPUDrivers() {

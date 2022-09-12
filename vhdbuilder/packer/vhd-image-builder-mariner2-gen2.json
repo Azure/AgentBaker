@@ -46,8 +46,8 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
-        "image_name": "{{user `sig_image_name`}}",
+        "gallery_name": "lihlakssig",
+        "image_name": "lihlmariner2g2",
         "image_version": "{{user `gen2_captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
