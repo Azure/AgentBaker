@@ -140,6 +140,17 @@ else {
   Write-Host "ctr.exe command not available"
 }
 
+# log containers the CRI plugin is aware of, and their state.
+Write-Host "Collecting CRI plugin containers"
+$res = Get-Command crictl.exe -ErrorAction SilentlyContinue
+if ($res) {
+  & crictl.exe ps -a > "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
+}
+else {
+  Write-Host "crictl.exe command not available"
+}
+
 # Containerd panic log is outside the c:\k folder
 Write-Host "Collecting containerd panic logs"
 $containerdPanicLog = "c:\ProgramData\containerd\root\panic.log"

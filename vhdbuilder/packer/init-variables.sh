@@ -247,6 +247,7 @@ WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
+# shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
 	source $CDIR/windows-image.env
@@ -285,12 +286,24 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
 			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
 		fi
+		# Default: read from the official MCR image
+		if [[ $HYPERV_GENERATION == "V2" ]]; then
+			WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
+			WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
+		fi
 		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
 		exit 1
 		;;
 	esac
+
+	# Create the sig image from the official images defined in windows-image.env by default
+	windows_sigmode_source_subscription_id=""
+	windows_sigmode_source_resource_group_name=""
+	windows_sigmode_source_gallery_name=""
+	windows_sigmode_source_image_name=""
+	windows_sigmode_source_image_version=""
 
 	# Set the base image url if the pipeline variable is set
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
@@ -301,21 +314,17 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "Generating sas token to copy Windows base image"
 		expiry_date=$(date -u -d "20 minutes" '+%Y-%m-%dT%H:%MZ')
 		sas_token=$(az storage account generate-sas --account-name ${STORAGE_ACCOUNT_NAME} --permissions cw --account-key "$key" --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
-
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}?${sas_token}"
-
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
 		WINDOWS_IMAGE_PUBLISHER=""
 		WINDOWS_IMAGE_OFFER=""
 		WINDOWS_IMAGE_SKU=""
 		WINDOWS_IMAGE_VERSION=""
-	fi
 
-	# Need to use a sig image to create the build VM
-	if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
-		if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		# Need to use a sig image to create the build VM
+		if [[ "$MODE" == "sigMode" ]]; then
 			# Reuse IMPORTED_IMAGE_NAME so the shared code in cleanup.sh can delete the temporary resource
 			IMPORTED_IMAGE_NAME=$imported_windows_image_name
 			echo "Creating new image for imported vhd ${WINDOWS_IMAGE_URL}"
@@ -326,20 +335,22 @@ if [ "$OS_TYPE" == "Windows" ]; then
 				--location $AZURE_LOCATION \
 				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE}
-
+			
 			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+			# Need to specifiy hyper-v-generation to support Gen 2
 			az sig image-definition create \
 				--resource-group $AZURE_RESOURCE_GROUP_NAME \
 				--gallery-name $SIG_GALLERY_NAME \
 				--gallery-image-definition $IMPORTED_IMAGE_NAME \
 				--location $AZURE_LOCATION \
+				--hyper-v-generation $HYPERV_GENERATION \
 				--os-type ${OS_TYPE} \
 				--publisher microsoft-aks \
-				--offer "aks-windows" \
 				--sku ${WINDOWS_SKU} \
 				--offer $IMPORTED_IMAGE_NAME \
+				--os-state generalized \
 				--description "Imported image for AKS Packer build"
-
+			
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 			az sig image-version create \
 				--location $AZURE_LOCATION \
@@ -356,13 +367,6 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
 			windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
 			windows_sigmode_source_image_version="1.0.0"
-		else
-			# Create the sig image from the official images defined in windows-image.env
-			windows_sigmode_source_subscription_id=""
-			windows_sigmode_source_resource_group_name=""
-			windows_sigmode_source_gallery_name=""
-			windows_sigmode_source_image_name=""
-			windows_sigmode_source_image_version=""
 		fi
 	fi
 

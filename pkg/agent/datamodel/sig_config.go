@@ -208,6 +208,7 @@ var AvailableWindowsSIGDistros []Distro = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
+	AKSWindows2022ContainerdGen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -226,14 +227,17 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.08.02"
+	// DO NOT MODIFY: used for freezing linux images with docker
+	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Windows2019SIGImageVersion string = "17763.3232.220722"
-	Windows2022SIGImageVersion string = "20348.859.220722"
+	LinuxSIGImageVersion string = "2022.08.29"
 
-	Arm64LinuxSIGImageVersion    string = "2022.08.02"
+	Windows2019SIGImageVersion string = "17763.3287.220810"
+	Windows2022SIGImageVersion string = "20348.887.220810"
+
+	Arm64LinuxSIGImageVersion    string = "2022.09.13"
 	Ubuntu2204SIGImageVersion    string = "2022.07.25"
-	Ubuntu2004CVMSIGImageVersion string = "2022.08.02"
+	Ubuntu2004CVMSIGImageVersion string = "2022.08.29"
 )
 
 // SIG config Template
@@ -244,31 +248,33 @@ var (
 		Definition:    "1604",
 		Version:       "2021.11.06",
 	}
+
 	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
+
 	SIGUbuntu1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
@@ -390,16 +396,25 @@ var (
 		Definition:    "windows-2019",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2022ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd",
+		Version:       Windows2022SIGImageVersion,
+	}
+
+	SIGWindows2022ContainerdGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2022-containerd-gen2",
 		Version:       Windows2022SIGImageVersion,
 	}
 )
@@ -439,6 +454,7 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
