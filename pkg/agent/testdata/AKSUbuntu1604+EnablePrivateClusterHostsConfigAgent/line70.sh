@@ -339,7 +339,7 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
+        tdnf -y install cuda nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
     else
         validateGPUDrivers
     fi

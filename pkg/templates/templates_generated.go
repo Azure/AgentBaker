@@ -38,6 +38,8 @@
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/manifest.json
+// linux/cloud-init/artifacts/mariner/cse-mariner-gpu.service
+// linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
 // linux/cloud-init/artifacts/mig-partition.service
@@ -1073,7 +1075,7 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
+        tdnf -y install cuda nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
     else
         validateGPUDrivers
     fi
@@ -2009,7 +2011,7 @@ else
     FULL_INSTALL_REQUIRED=true
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
@@ -3279,6 +3281,61 @@ func linuxCloudInitArtifactsManifestJson() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsMarinerCseMarinerGpuService = []byte(`[Unit]
+Description=Intercept cloud-init configurations and override them
+Before=cloud-init.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash -c /usr/local/bin/cse_fix_mariner_install_path.sh
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsMarinerCseMarinerGpuServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerCseMarinerGpuService, nil
+}
+
+func linuxCloudInitArtifactsMarinerCseMarinerGpuService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerCseMarinerGpuServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse-mariner-gpu.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh = []byte(`set +x
+
+
+echo "Waiting for provision_configs.sh"
+until [ -f /opt/azure/containers/provision_configs.sh ]
+do
+    :
+done
+echo "/opt/azure/containers/provision_configs.sh found"
+
+sed -i 's/\(.*\)configGPUDrivers$/\1tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1' /opt/azure/containers/provision_configs.sh
+
+echo "configuration successful"`)
+
+func linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh, nil
+}
+
+func linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsMarinerCse_helpers_marinerSh = []byte(`#!/bin/bash
 
 echo "Sourcing cse_helpers_distro.sh for Mariner"
@@ -3387,6 +3444,12 @@ installDeps() {
         fi
       done
     fi
+
+    echo -e "[Unit]\nDescription=Intercept cloud-init configurations and override them\nBefore=cloud-init.service\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
+    echo -e "[Service]\nType=simple\nExecStart=/usr/bin/bash -c /usr/local/bin/provision_gpu_fix.sh\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
+    echo -e "[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/cse-mariner-gpu.service
+
+    systemctl enable cse-mariner-gpu.service
 }
 
 downloadGPUDrivers() {
@@ -6902,6 +6965,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
+	"linux/cloud-init/artifacts/mariner/cse-mariner-gpu.service":           linuxCloudInitArtifactsMarinerCseMarinerGpuService,
+	"linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh":   linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
@@ -7020,8 +7085,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
-					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
-					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"cse-mariner-gpu.service":         &bintree{linuxCloudInitArtifactsMarinerCseMarinerGpuService, map[string]*bintree{}},
+					"cse_fix_mariner_install_path.sh": &bintree{linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh, map[string]*bintree{}},
+					"cse_helpers_mariner.sh":          &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
+					"cse_install_mariner.sh":          &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
 				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
