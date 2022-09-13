@@ -134,7 +134,7 @@ installStandaloneContainerd() {
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
@@ -142,10 +142,10 @@ installStandaloneContainerd() {
         echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
-        removeMoby
-        removeContainerd
-        downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
-        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         return 0
     fi
@@ -167,22 +167,22 @@ installStandaloneContainerd() {
         echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
-        removeMoby
-        removeContainerd
+        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
-        downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
-        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
@@ -240,7 +240,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=$1
+    TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
 
