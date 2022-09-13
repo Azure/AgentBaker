@@ -436,6 +436,15 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 
+{{- if Is2204VHD}}
+- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
+{{- end}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -466,6 +475,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
