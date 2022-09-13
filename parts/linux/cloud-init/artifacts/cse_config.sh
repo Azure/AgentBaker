@@ -516,7 +516,7 @@ ensureGPUDrivers() {
     else
         validateGPUDrivers
     fi
-    wait_for_file 300 1 /etc/systemd/system/nvidia-modprobe.service || exit $ERR_FILE_WATCH_TIMEOUT
+    # wait_for_file 300 1 /etc/systemd/system/nvidia-modprobe.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 

@@ -144,6 +144,7 @@ FAILED=0
 if [[ "$retval" -eq 0 ]]; then
     ok "Test succeeded, node joined the cluster"
     kubectl get nodes -o wide | grep $vmInstanceName
+    kubectl describe node $vmInstanceName
 else
     err "Node did not join cluster"
     FAILED=1
