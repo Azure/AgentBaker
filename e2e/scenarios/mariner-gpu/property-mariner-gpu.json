@@ -8,7 +8,7 @@
                     "osType": "Linux",
                     "availabilityProfile": "VirtualMachineScaleSets",
                     "storageProfile": "ManagedDisks",
-                    "distro": "aks-cblmariner-v2-gen2",
+                    "distro": "mariner",
                     "customNodeLabels": {
                         "kubernetes.azure.com/mode": "system",
                         "kubernetes.azure.com/node-image-version": "AKSMariner-marinerv2gen2-2022.08.15"
@@ -28,7 +28,7 @@
         "osType": "Linux",
         "availabilityProfile": "VirtualMachineScaleSets",
         "storageProfile": "ManagedDisks",
-        "distro": "aks-cblmariner-v2-gen2",
+        "distro": "mariner",
         "customNodeLabels": {
             "kubernetes.azure.com/mode": "system",
             "kubernetes.azure.com/node-image-version": "AKSMariner-marinerv2gen2-2022.08.15"
