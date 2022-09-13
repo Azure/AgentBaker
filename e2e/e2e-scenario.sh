@@ -77,6 +77,7 @@ az vmss create -n ${VMSS_NAME} \
     --assign-identity $msiResourceID \
     --image "MicrosoftCBLMariner:cbl-mariner:cbl-mariner-2-gen2:latest" \
     --upgrade-policy-mode Automatic \
+    --os-disk-size-gb 40 \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
 
