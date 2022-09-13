@@ -227,9 +227,6 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
-{{- /* re-enable unattended upgrades */}}
-rm -f /etc/apt/apt.conf.d/99periodic
-
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # logs_to_events should not be run on & commands
     apt_get_purge 20 30 120 apache2-utils &
