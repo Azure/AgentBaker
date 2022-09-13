@@ -446,28 +446,40 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     # install gpu driver
-    mkdir -p /opt/{actions,gpu}
-    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-            echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        mkdir -p /opt/{actions,gpu}
+        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        else
+            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-        ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    else
-        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-            echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
-        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        addMarinerNvidiaRepo
+        downloadGPUDrivers
+        installNvidiaContainerRuntime
+        installNvidiaDocker
+    else 
+        echo "os $OS not supported at this time. skipping configGPUDrivers"
+        exit 1
     fi
 
     # validate on host, already done inside container.
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -511,13 +523,13 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
-        systemctl restart containerd
+        configGPUDrivers
     else
         validateGPUDrivers
     fi
-    # wait_for_file 300 1 /etc/systemd/system/nvidia-modprobe.service || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 }
 
 #EOF

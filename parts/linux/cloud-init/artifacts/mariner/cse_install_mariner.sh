@@ -23,17 +23,43 @@ installDeps() {
         fi
       done
     fi
+}
 
-    echo -e "[Unit]\nDescription=Intercept cloud-init configurations and override them\nBefore=cloud-init.service\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
-    echo -e "[Service]\nType=simple\nExecStart=/usr/bin/bash -c /usr/local/bin/provision_gpu_fix.sh\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
-    echo -e "[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/cse-mariner-gpu.service
-
-    systemctl enable cse-mariner-gpu.service
+addMarinerNvidiaRepo() {
+    MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
+    touch "${MARINER_NVIDIA_REPO_FILEPATH}"
+    cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
+[mariner-official-nvidia]
+name=CBL-Mariner Official Nvidia $releasever $basearch
+baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/nvidia/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+    set -x
 }
 
 downloadGPUDrivers() {
-    echo "GPU drivers not yet supported for Mariner"
-    exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    if ! dnf_install 30 1 600 cuda; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+}
+
+installNvidiaContainerRuntime() {
+    for nvidia_package in nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
+}
+
+installNvidiaDocker() {
+    if ! dnf_install 30 1 600 nvidia-docker2; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
 }
 
 installSGXDrivers() {
