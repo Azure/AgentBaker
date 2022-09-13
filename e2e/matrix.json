@@ -1,7 +1,7 @@
 {
     "scenario_mariner_gpu": {
         "SCENARIO_NAME": "mariner-gpu",
-        "VM_SKU": "Standard_NC6s_v2"
+        "VM_SKU": "Standard_NC6s_v3"
     },
     "scenario_ubuntu_gpu": {
         "SCENARIO_NAME": "vanilla-gpu",
