@@ -476,10 +476,6 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
       ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
   fi
   # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then
-  echo "Hyperkube contains nf_tables, exiting..."
-  exit 99
-  fi
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
