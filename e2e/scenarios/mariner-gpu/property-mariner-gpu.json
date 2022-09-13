@@ -42,5 +42,6 @@
     "ConfigGPUDriverIfNeeded": true,
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableNvidia": true,
-    "GPUInstanceProfile": ""
+    "GPUInstanceProfile": "",
+    "OSSKU": "Mariner"
 }
