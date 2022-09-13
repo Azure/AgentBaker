@@ -75,7 +75,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
+    --image "MicrosoftCBLMariner:cbl-mariner:cbl-mariner-2-gen2:latest" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
