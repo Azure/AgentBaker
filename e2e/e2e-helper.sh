@@ -45,16 +45,6 @@ getTenantID() {
     addJsonToFile "tenantID" $tenantID
 }
 
-deleteCluster() {
-    name=$1; rg=$2
-    log "Deleting cluster $name"
-    clusterDeleteStartTime=$(date +%s)
-    az aks delete -n $name -g $rg --yes
-    clusterDeleteEndTime=$(date +%s)
-    log "Deleted cluster $name in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
-    create_cluster="true"
-}
-
 # waitForCluster() {
 #     name=$1; rg=$2
 #     cluster_provisioning_state=$(az aks show -n $name -g $rg | jq '.provisioningState')

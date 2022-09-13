@@ -4,6 +4,16 @@ set -euxo pipefail
 
 source e2e-helper.sh
 
+deleteCluster() {
+    name=$1; rg=$2
+    log "Deleting cluster $name"
+    clusterDeleteStartTime=$(date +%s)
+    az aks delete -n $name -g $rg --yes
+    clusterDeleteEndTime=$(date +%s)
+    log "Deleted cluster $name in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
+    create_cluster="true"
+}
+
 log "Starting e2e tests"
 
 # Create a resource group for the cluster
