@@ -365,7 +365,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"Is2204VHD": func() bool {
-			return config.Is2204VHD()
+			return profile.Is2204VHDDistro()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()

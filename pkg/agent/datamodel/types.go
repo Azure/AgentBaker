@@ -218,6 +218,14 @@ func (d Distro) IsVHDDistro() bool {
 	return false
 }
 
+func (d Distro) Is2204VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
 // for Service Principal's secret
 type KeyvaultSecretRef struct {
@@ -857,14 +865,6 @@ func (p *Properties) IsVHDDistroForAllNodes() bool {
 	return true
 }
 
-func (config *NodeBootstrappingConfiguration) Is2204VHD() bool {
-	if config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204 || config.AgentPoolProfile.Distro == AKSUbuntuContainerd2204Gen2 {
-		return true
-	}
-
-	return false
-}
-
 // GetVMType returns the type of VM "vmss" or "standard" to be passed to the cloud provider
 func (p *Properties) GetVMType() string {
 	if p.HasVMSSAgentPool() {
@@ -997,6 +997,11 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 // IsVHDDistro returns true if the distro uses VHD SKUs
 func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
+}
+
+// Is2204VHDDistro returns true if the distro uses 2204 VHD
+func (a *AgentPoolProfile) Is2204VHDDistro() bool {
+	return a.Distro.Is2204VHDDistro()
 }
 
 // IsCustomVNET returns true if the customer brought their own VNET
