@@ -148,6 +148,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   1.22.0
   1.23.0
   1.24.0
+  1.25.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -475,10 +476,6 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
       ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
   fi
   # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then
-  echo "Hyperkube contains nf_tables, exiting..."
-  exit 99
-  fi
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
@@ -495,6 +492,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.8-hotfix.20220620
 1.24.0-hotfix.20220615
 1.24.3
+1.25.0
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
