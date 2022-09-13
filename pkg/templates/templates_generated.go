@@ -1075,7 +1075,7 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        tdnf -y install nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
+        tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
         systemctl restart containerd
     else
         validateGPUDrivers
