@@ -36,6 +36,10 @@ configureHTTPProxyCA
 configureEtcEnvironment
 {{- end}}
 
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate
+{{- end}}
+
 {{GetOutboundCommand}}
 
 for i in $(seq 1 3600); do

@@ -654,8 +654,16 @@ configureEtcEnvironment() {
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
+
+configureCustomCaCertificate() {
+    {{- range $i, $cert := GetCustomCATrustConfigCerts}}
+    wait_for_file 1200 1 /usr/local/share/ca-certificates/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+}
+
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -1212,7 +1220,7 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
 ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
-ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
+ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided certificates */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
@@ -1973,6 +1981,10 @@ echo $(date),$(hostname), startcustomscript>>/opt/m
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA
 configureEtcEnvironment
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate
 {{- end}}
 
 {{GetOutboundCommand}}
@@ -4710,9 +4722,14 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
+    if [[ $(isARM64) != 1 ]]; then
       # no blobfuse package in arm64 ubuntu repo
-      for apt_package in blobfuse=${BLOBFUSE_VERSION} blobfuse2; do
+      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
+      if [[ "${OSVERSION}" == "22.04" ]]; then
+        # blobfuse package is not available on Ubuntu 22.04
+        pkg_list=(blobfuse2)
+      fi
+      for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -5393,6 +5410,18 @@ write_files:
   content: |
 {{GetHTTPProxyCA}}
     #EOF
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
+- path: /usr/local/share/ca-certificates/00000000000000cert{{$i}}.crt
+  permissions: "0644"
+  owner: root
+  content: |
+    {{$cert}}
+    #EOF
+{{end}}
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
