@@ -3429,8 +3429,8 @@ addMarinerNvidiaRepo() {
     touch "${MARINER_NVIDIA_REPO_FILEPATH}"
     cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
 [mariner-official-nvidia]
-name=CBL-Mariner Official Nvidia $releasever $basearch
-baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/nvidia/$basearch
+name=CBL-Mariner Official Nvidia 2.0 x86_64
+baseurl=https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64
 gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
 gpgcheck=1
 repo_gpgcheck=1
