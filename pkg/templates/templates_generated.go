@@ -3434,6 +3434,9 @@ installDeps() {
         fi
       done
     fi
+
+    tdnf -y remove kernel
+    tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/kernel-5.15.57.1-1.cm2.x86_64.rpm
 }
 
 addMarinerNvidiaRepo() {
