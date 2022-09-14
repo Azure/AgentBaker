@@ -844,5 +844,5 @@ func isStandardNCv1(size string) bool {
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
-	return config.CustomCATrustConfig != nil && config.CustomCATrustConfig.CustomCATrustCerts != nil
+	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
 }
