@@ -92,8 +92,8 @@ else
     FULL_INSTALL_REQUIRED=true
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    logs_to_events "AKS.CSE.installDeps" installDeps
+if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
