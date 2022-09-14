@@ -46,8 +46,8 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "lihlakssig",
-        "image_name": "lihlmariner2g2",
+        "gallery_name": "PackerSigGalleryEastUS",
+        "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `gen2_captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
@@ -101,11 +101,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
       "destination": "/home/packer/provision_source_distro.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh",
-      "destination": "/home/packer/provision_gpu_fix.sh"
     },
     {
       "type": "file",

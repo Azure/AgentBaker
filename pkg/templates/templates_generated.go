@@ -39,8 +39,6 @@
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/manifest.json
-// linux/cloud-init/artifacts/mariner/cse-mariner-gpu.service
-// linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
 // linux/cloud-init/artifacts/mig-partition.service
@@ -1030,28 +1028,40 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     # install gpu driver
-    mkdir -p /opt/{actions,gpu}
-    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-            echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        mkdir -p /opt/{actions,gpu}
+        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        else
+            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-        ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    else
-        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-            echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
-        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        addMarinerNvidiaRepo
+        downloadGPUDrivers
+        installNvidiaContainerRuntime
+        installNvidiaDocker
+    else 
+        echo "os $OS not supported at this time. skipping configGPUDrivers"
+        exit 1
     fi
 
     # validate on host, already done inside container.
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -1095,13 +1105,13 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1
-        systemctl restart containerd
+        configGPUDrivers
     else
         validateGPUDrivers
     fi
-    # wait_for_file 300 1 /etc/systemd/system/nvidia-modprobe.service || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 }
 
 #EOF
@@ -3304,61 +3314,6 @@ func linuxCloudInitArtifactsManifestJson() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsMarinerCseMarinerGpuService = []byte(`[Unit]
-Description=Intercept cloud-init configurations and override them
-Before=cloud-init.service
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/bash -c /usr/local/bin/cse_fix_mariner_install_path.sh
-
-[Install]
-WantedBy=multi-user.target`)
-
-func linuxCloudInitArtifactsMarinerCseMarinerGpuServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsMarinerCseMarinerGpuService, nil
-}
-
-func linuxCloudInitArtifactsMarinerCseMarinerGpuService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsMarinerCseMarinerGpuServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse-mariner-gpu.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh = []byte(`set +x
-
-
-echo "Waiting for provision_configs.sh"
-until [ -f /opt/azure/containers/provision_configs.sh ]
-do
-    :
-done
-echo "/opt/azure/containers/provision_configs.sh found"
-
-sed -i 's/\(.*\)configGPUDrivers$/\1tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1' /opt/azure/containers/provision_configs.sh
-
-echo "configuration successful"`)
-
-func linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh, nil
-}
-
-func linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsMarinerCse_helpers_marinerSh = []byte(`#!/bin/bash
 
 echo "Sourcing cse_helpers_distro.sh for Mariner"
@@ -3467,17 +3422,43 @@ installDeps() {
         fi
       done
     fi
+}
 
-    echo -e "[Unit]\nDescription=Intercept cloud-init configurations and override them\nBefore=cloud-init.service\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
-    echo -e "[Service]\nType=simple\nExecStart=/usr/bin/bash -c /usr/local/bin/provision_gpu_fix.sh\n\n" >> /etc/systemd/system/cse-mariner-gpu.service
-    echo -e "[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/cse-mariner-gpu.service
-
-    systemctl enable cse-mariner-gpu.service
+addMarinerNvidiaRepo() {
+    MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
+    touch "${MARINER_NVIDIA_REPO_FILEPATH}"
+    cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
+[mariner-official-nvidia]
+name=CBL-Mariner Official Nvidia $releasever $basearch
+baseurl=https://packages.microsoft.com/cbl-mariner/$releasever/prod/nvidia/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+    set -x
 }
 
 downloadGPUDrivers() {
-    echo "GPU drivers not yet supported for Mariner"
-    exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    if ! dnf_install 30 1 600 cuda; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+}
+
+installNvidiaContainerRuntime() {
+    for nvidia_package in nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
+}
+
+installNvidiaDocker() {
+    if ! dnf_install 30 1 600 nvidia-docker2; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
 }
 
 installSGXDrivers() {
@@ -7001,8 +6982,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
-	"linux/cloud-init/artifacts/mariner/cse-mariner-gpu.service":           linuxCloudInitArtifactsMarinerCseMarinerGpuService,
-	"linux/cloud-init/artifacts/mariner/cse_fix_mariner_install_path.sh":   linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
@@ -7122,10 +7101,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
-					"cse-mariner-gpu.service":         &bintree{linuxCloudInitArtifactsMarinerCseMarinerGpuService, map[string]*bintree{}},
-					"cse_fix_mariner_install_path.sh": &bintree{linuxCloudInitArtifactsMarinerCse_fix_mariner_install_pathSh, map[string]*bintree{}},
-					"cse_helpers_mariner.sh":          &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
-					"cse_install_mariner.sh":          &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
+					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
 				}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
 				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
