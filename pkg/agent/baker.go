@@ -368,6 +368,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
+		"Is2204VHD": func() bool {
+			return profile.Is2204VHDDistro()
+		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
 		},
@@ -823,10 +826,23 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
+		"ShouldConfigureCustomCATrust": func() bool {
+			return areCustomCATrustCertsPopulated(*config)
+		},
+		"GetCustomCATrustConfigCerts": func() []string {
+			if areCustomCATrustCertsPopulated(*config) {
+				return config.CustomCATrustConfig.CustomCATrustCerts
+			}
+			return []string{}
+		},
 	}
 }
 
 func isStandardNCv1(size string) bool {
 	tmp := strings.ToLower(size)
 	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
+	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
 }

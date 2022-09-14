@@ -1,6 +1,7 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // linux/cloud-init/artifacts/10-bindmount.conf
+// linux/cloud-init/artifacts/10-cgroupv2.conf
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
@@ -139,6 +140,25 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10Cgroupv2Conf = []byte(`[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
+`)
+
+func linuxCloudInitArtifacts10Cgroupv2ConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10Cgroupv2Conf, nil
+}
+
+func linuxCloudInitArtifacts10Cgroupv2Conf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10Cgroupv2ConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-cgroupv2.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -634,8 +654,16 @@ configureEtcEnvironment() {
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
+
+configureCustomCaCertificate() {
+    {{- range $i, $cert := GetCustomCATrustConfigCerts}}
+    wait_for_file 1200 1 /usr/local/share/ca-certificates/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+}
+
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -1178,7 +1206,7 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
 ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
-ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
+ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided certificates */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
@@ -1939,6 +1967,10 @@ echo $(date),$(hostname), startcustomscript>>/opt/m
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA
 configureEtcEnvironment
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate
 {{- end}}
 
 {{GetOutboundCommand}}
@@ -3190,6 +3222,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
 [Install]
@@ -4643,9 +4676,14 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
+    if [[ $(isARM64) != 1 ]]; then
       # no blobfuse package in arm64 ubuntu repo
-      for apt_package in blobfuse=${BLOBFUSE_VERSION} blobfuse2; do
+      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
+      if [[ "${OSVERSION}" == "22.04" ]]; then
+        # blobfuse package is not available on Ubuntu 22.04
+        pkg_list=(blobfuse2)
+      fi
+      for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -5328,6 +5366,18 @@ write_files:
     #EOF
 {{- end}}
 
+{{- if ShouldConfigureCustomCATrust}}
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
+- path: /usr/local/share/ca-certificates/00000000000000cert{{$i}}.crt
+  permissions: "0644"
+  owner: root
+  content: |
+    {{$cert}}
+    #EOF
+{{end}}
+{{- end}}
+
 {{- if HasMessageOfTheDay}}
 - path: /etc/motd
   permissions: "0644"
@@ -5461,6 +5511,15 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
 
+{{- if Is2204VHD}}
+- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
+{{- end}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -5491,6 +5550,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
@@ -6865,6 +6927,7 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-cgroupv2.conf":                          linuxCloudInitArtifacts10Cgroupv2Conf,
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
@@ -6982,6 +7045,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
 				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-cgroupv2.conf":                          &bintree{linuxCloudInitArtifacts10Cgroupv2Conf, map[string]*bintree{}},
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},

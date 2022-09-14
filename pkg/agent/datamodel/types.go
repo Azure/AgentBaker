@@ -218,6 +218,14 @@ func (d Distro) IsVHDDistro() bool {
 	return false
 }
 
+func (d Distro) Is2204VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
 // for Service Principal's secret
 type KeyvaultSecretRef struct {
@@ -991,6 +999,11 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
 }
 
+// Is2204VHDDistro returns true if the distro uses 2204 VHD
+func (a *AgentPoolProfile) Is2204VHDDistro() bool {
+	return a.Distro.Is2204VHDDistro()
+}
+
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -1489,6 +1502,7 @@ type NodeBootstrappingConfiguration struct {
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 	IsARM64                        bool
+	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
 }
 
@@ -1506,6 +1520,10 @@ type HTTPProxyConfig struct {
 	HTTPSProxy *string   `json:"httpsProxy,omitempty"`
 	NoProxy    *[]string `json:"noProxy,omitempty"`
 	TrustedCA  *string   `json:"trustedCa,omitempty"`
+}
+
+type CustomCATrustConfig struct {
+	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set

@@ -1,5 +1,11 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 
+pr:
+  branches:
+    include:
+    - main
+    - 'official/*'
+
 variables:
 - group: ab-e2e
 
