@@ -426,7 +426,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
-			return strings.Contains(config.OSSKU, "Mariner")
+			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
+			return profile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU)
+		},
+		"IsKata": func() bool {
+			return profile.Distro.IsKataDistro()
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -860,4 +864,9 @@ func useGridDrivers(size string) bool {
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
 	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
+}
+
+func isMariner(osSku string) bool {
+	// TODO(ace): consts?
+	return osSku == "CBLMariner" || osSku == "Mariner"
 }
