@@ -33,14 +33,9 @@ installDeps() {
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 ]]; then
+    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
       # no blobfuse package in arm64 ubuntu repo
-      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
-      if [[ "${OSVERSION}" == "22.04" ]]; then
-        # blobfuse package is not available on Ubuntu 22.04
-        pkg_list=(blobfuse2)
-      fi
-      for apt_package in ${pkg_list[*]}; do
+      for apt_package in blobfuse=${BLOBFUSE_VERSION} blobfuse2; do
         if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
