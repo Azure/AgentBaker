@@ -36,6 +36,10 @@ configureHTTPProxyCA
 configureEtcEnvironment
 {{- end}}
 
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate
+{{- end}}
+
 {{GetOutboundCommand}}
 
 for i in $(seq 1 3600); do
@@ -226,9 +230,6 @@ if $FULL_INSTALL_REQUIRED; then
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
 fi
-
-{{- /* re-enable unattended upgrades */}}
-rm -f /etc/apt/apt.conf.d/99periodic
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
     # logs_to_events should not be run on & commands
