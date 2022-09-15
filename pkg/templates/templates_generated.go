@@ -3434,9 +3434,6 @@ installDeps() {
         fi
       done
     fi
-
-    tdnf -y remove kernel
-    tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/prod/base/x86_64/kernel-5.15.57.1-1.cm2.x86_64.rpm
 }
 
 addMarinerNvidiaRepo() {
@@ -3457,9 +3454,12 @@ EOF
 }
 
 downloadGPUDrivers() {
-    if ! dnf_install 30 1 600 cuda; then
-      exit $ERR_APT_INSTALL_TIMEOUT
-    fi
+    #if ! dnf_install 30 1 600 cuda; then
+    #  exit $ERR_APT_INSTALL_TIMEOUT
+    #fi
+
+    # Test using the preview cuda driver for now
+    tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/preview/NVIDIA/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm
 }
 
 installNvidiaContainerRuntime() {
