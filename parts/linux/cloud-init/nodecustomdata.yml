@@ -303,6 +303,18 @@ write_files:
     #EOF
 {{- end}}
 
+{{- if ShouldConfigureCustomCATrust}}
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
+- path: /usr/local/share/ca-certificates/00000000000000cert{{$i}}.crt
+  permissions: "0644"
+  owner: root
+  content: |
+    {{$cert}}
+    #EOF
+{{end}}
+{{- end}}
+
 {{- if HasMessageOfTheDay}}
 - path: /etc/motd
   permissions: "0644"

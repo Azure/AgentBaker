@@ -78,7 +78,7 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
 ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
-ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
+ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided certificates */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 

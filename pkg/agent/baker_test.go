@@ -485,6 +485,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}),
 
+		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+				CustomCATrustCerts: []string{EncodedTestCert, EncodedTestCert, EncodedTestCert},
+			}
+		}),
+
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableRuncShimV2 = true
 		}),

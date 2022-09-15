@@ -826,10 +826,23 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
+		"ShouldConfigureCustomCATrust": func() bool {
+			return areCustomCATrustCertsPopulated(*config)
+		},
+		"GetCustomCATrustConfigCerts": func() []string {
+			if areCustomCATrustCertsPopulated(*config) {
+				return config.CustomCATrustConfig.CustomCATrustCerts
+			}
+			return []string{}
+		},
 	}
 }
 
 func isStandardNCv1(size string) bool {
 	tmp := strings.ToLower(size)
 	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
+	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
 }
