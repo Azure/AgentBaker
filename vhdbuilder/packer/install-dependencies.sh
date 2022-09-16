@@ -197,7 +197,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-7f3c6d"
+  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-8e58eb"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
