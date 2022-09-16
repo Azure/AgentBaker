@@ -231,6 +231,8 @@ const (
 
 	Windows2019SIGImageVersion string = "17763.3287.220810"
 	Windows2022SIGImageVersion string = "20348.887.220810"
+	// Freezing the version of Mariner 2.0 until fix for cloud-init is published.
+	MarinerV2Gen2SIGImageVersion string = "2022.08.29"
 
 	Arm64LinuxSIGImageVersion    string = "2022.09.06"
 	Ubuntu2204SIGImageVersion    string = "2022.07.25"
@@ -375,7 +377,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       MarinerV2Gen2SIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
