@@ -61,8 +61,8 @@ copyPackerFiles() {
   UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
   CI_SYSLOG_WATCHER_PATH_SRC=/home/packer/ci-syslog-watcher.path
   CI_SYSLOG_WATCHER_PATH_DEST=/etc/systemd/system/ci-syslog-watcher.path
-  CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog.timer
-  CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog.timer
+  CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog-watcher.service
+  CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
 
