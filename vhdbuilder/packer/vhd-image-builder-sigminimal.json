@@ -233,6 +233,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.path",
+      "destination": "/home/packer/ci-syslog-watcher.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.service",
+      "destination": "/home/packer/ci-syslog-watcher.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh",
+      "destination": "/home/packer/ci-syslog-watcher.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },

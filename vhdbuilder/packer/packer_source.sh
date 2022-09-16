@@ -59,14 +59,12 @@ copyPackerFiles() {
   UPDATE_CERTS_TIMER_DEST=/etc/systemd/system/update_certs.timer
   UPDATE_CERTS_SCRIPT_SRC=/home/packer/update_certs.sh
   UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
-  CI_SYSLOG_SERVICE_SRC=/home/packer/ci-syslog.service
-  CI_SYSLOG_SERVICE_DEST=/etc/systemd/system/ci-syslog.service
   CI_SYSLOG_WATCHER_PATH_SRC=/home/packer/ci-syslog-watcher.path
   CI_SYSLOG_WATCHER_PATH_DEST=/etc/systemd/system/ci-syslog-watcher.path
   CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog.timer
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog.timer
-  CI_SYSLOG_SCRIPT_SRC=/home/packer/ci-syslog.sh
-  CI_SYSLOG_SCRIPT_DEST=/usr/local/bin/ci-syslog.sh
+  CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
+  CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -99,10 +97,9 @@ copyPackerFiles() {
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
   cpAndMode $UPDATE_CERTS_TIMER_SRC $UPDATE_CERTS_TIMER_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
-  cpAndMode $CI_SYSLOG_SERVICE_SRC $CI_SYSLOG_SERVICE_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
-  cpAndMode $CI_SYSLOG_SCRIPT_SRC $CI_SYSLOG_SCRIPT_DEST 755
+  cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
