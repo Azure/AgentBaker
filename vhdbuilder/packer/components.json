@@ -428,7 +428,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.9.1"
+        "0.9.1",
+        "1.1.1"
       ]
     },
     {
@@ -465,7 +466,8 @@
       "versions": [
         "1.22.0",
         "1.23.0",
-        "1.24.0"
+        "1.24.0",
+        "1.25.0"
       ],
       "targetContainerRuntime": "containerd"
     }
