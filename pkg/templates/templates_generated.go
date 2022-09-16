@@ -393,6 +393,7 @@ var _linuxCloudInitArtifactsCiSyslogWatcherSh = []byte(`#!/usr/bin/env bash
 set -o nounset
 set -o pipefail
 
+[ ! -f "/var/run/mdsd/update.status" ] && exit 0
 status=$(cat /var/run/mdsd/update.status)
 
 if [[ "$status" == "add" ]]; then
