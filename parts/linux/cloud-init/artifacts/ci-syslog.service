@@ -1,9 +1,0 @@
-[Unit]
-Description=CI syslog service
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/ci-syslog.sh
-
-[Install]
-WantedBy=multi-user.target

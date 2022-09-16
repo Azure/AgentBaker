@@ -1,9 +1,9 @@
 [Unit]
-Description=Restarts ci-syslog service
+Description=Update CI syslog config based on status change
 
 [Service]
 Type=oneshot
-ExecStart=/bin/systemctl restart ci-syslog.service
+ExecStart=/usr/local/bin/ci-syslog-watcher.sh
 
 [Install]
 WantedBy=multi-user.target
