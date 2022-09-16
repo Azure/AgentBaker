@@ -1,0 +1,9 @@
+[Unit]
+Description=Restarts ci-syslog service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart ci-syslog.service
+
+[Install]
+WantedBy=multi-user.target
