@@ -26,16 +26,21 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.4"
+    BLOBFUSE_VERSION="1.4.5"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
+    if [[ $(isARM64) != 1 ]]; then
       # no blobfuse package in arm64 ubuntu repo
-      for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
+      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
+      if [[ "${OSVERSION}" == "22.04" ]]; then
+        # blobfuse package is not available on Ubuntu 22.04
+        pkg_list=(blobfuse2)
+      fi
+      for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -49,17 +54,6 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-}
-
-downloadGPUDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
-        # no gpu on arm64 SKU
-        return
-    fi
-
-    mkdir -p ${GPU_DEST}
-    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_APT_INSTALL_TIMEOUT
-    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 }
 
 installSGXDrivers() {
@@ -123,6 +117,10 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+cleanUpGPUDrivers() {
+    rm -Rf $GPU_DEST /opt/gpu
+}
+
 installMoby() {
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
@@ -157,7 +155,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=$1
+    TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
 
@@ -191,92 +189,6 @@ ensureRunc() {
         fi
     fi
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
-}
-
-cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST
-    rm -f /etc/apt/sources.list.d/nvidia-docker.list
-}
-
-blacklistNouveau() {
-    tee /etc/modprobe.d/blacklist-nouveau.conf > /dev/null <<EOF
-blacklist nouveau
-options nouveau modeset=0
-EOF
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-}
-
-addNvidiaAptRepo() {
-    if [ -f "/etc/apt/sources.list.d/nvidia-docker.list" ]; then
-        echo "nvidia-docker.list already exists, no need to update"
-        return
-    fi
-    local release=$(lsb_release -r -s)
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | gpg --dearmor > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 10 cp /tmp/aptnvidia.gpg /etc/apt/trusted.gpg.d || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 cat /tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    apt_get_update
-}
-
-downloadNvidiaContainerRuntime() {
-    mkdir -p $PERMANENT_CACHE_DIR
-    for apt_package in $NVIDIA_PACKAGES; do
-        package_found="$(ls $PERMANENT_CACHE_DIR | grep ${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
-        if [ "$package_found" == "0" ]; then
-            echo "$apt_package not cached, downloading"
-            apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-            cp -al ${APT_CACHE_DIR}${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-        fi
-    done
-    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION} | wc -l)"
-    if [ "$package_found" == "0" ]; then
-        echo "nvidia-container-runtime not cached, downloading"
-        apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
-}
-
-installNvidiaContainerRuntime() {
-    downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    for apt_package in $NVIDIA_PACKAGES; do
-        retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    done
-    retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}nvidia-container-runtime* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-}
-
-installNvidiaDocker() {
-    local target=$1
-    local dst="/usr/local/nvidia/tmp"
-
-    if [ -d "$dst/pkg" ]; then
-        if [ -f "$dst/pkg/DEBIAN/control" ]; then
-            installed="$(cat "$dst/pkg/DEBIAN/control" | grep Version | cut -d' ' -f 2)"
-            if [ "$target" == "$installed" ]; then
-                echo "skip nvidia-docker2 install, current version $installed matches target $target"
-                return
-            else
-                rm -rf "$dst/pkg"
-            fi
-        else
-            rm -rf "$dst/pkg"
-        fi
-    fi
-
-    mkdir -p "$dst"
-    pushd "$dst"
-    if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
-        retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
-    wait_for_apt_locks
-    # nvidia-docker has a hard requirement on docker-ce, we just need the binary from it so we extract it manually.
-    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "$dst/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    cp -r $dst/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    rm ./nvidia-docker2*.deb
-    popd
 }
 
 #EOF

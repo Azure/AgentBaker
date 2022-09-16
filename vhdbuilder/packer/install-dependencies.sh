@@ -102,7 +102,7 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   exit 1
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -148,6 +148,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   1.22.0
   1.23.0
   1.24.0
+  1.25.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -194,28 +195,43 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   done
 fi
 
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+  gpu_action="copy"
+  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-8e58eb"
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    gpu_action="install"
+  fi
+
+  mkdir -p /opt/{actions,gpu}
+  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi
+  else
+    bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi
+  fi
+fi
+
+ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-addNvidiaAptRepo
-installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
-downloadGPUDrivers
-retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
-tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
-mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
-echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
-downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-{
-  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}";
-  echo "  - nvidia-gpu-driver-version=${GPU_DV}";
-  echo "  - nvidia-fabricmanager=${GPU_DV}";
-} >> ${VHD_LOGS_FILEPATH}
-if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
-    ensureGPUDrivers
-fi
-fi
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
+  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
+  - nvidia-gpu-driver-version=${GPU_DV}
+  - nvidia-fabricmanager=${GPU_DV}
+EOF
 
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
@@ -282,7 +298,7 @@ AMD64_ONLY_CNI_VERSIONS="
 #Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.22
-1.4.29
+1.4.32
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -310,7 +326,7 @@ AMD64_ONLY_SWIFT_CNI_VERSIONS="
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.22
-1.4.29
+1.4.32
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -330,7 +346,7 @@ done
 
 OVERLAY_CNI_VERSIONS="
 1.4.27
-1.4.29
+1.4.32
 "
 
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
@@ -353,6 +369,7 @@ fi
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
 0.9.1
+1.1.1
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
@@ -390,10 +407,6 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
-  pushd /opt/azure/fabricmanager-${GPU_DV} || exit
-  /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-  systemctlEnableAndStart nvidia-fabricmanager
-  popd || exit
 fi
 
 installSGX=${SGX_INSTALL:-"False"}
@@ -464,10 +477,6 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
       ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
   fi
   # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then
-  echo "Hyperkube contains nf_tables, exiting..."
-  exit 99
-  fi
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
@@ -484,6 +493,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.8-hotfix.20220620
 1.24.0-hotfix.20220615
 1.24.3
+1.25.0
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
@@ -497,6 +507,11 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove apport
+  apt-get purge --auto-remove apport open-vm-tools -y
+fi
+
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
@@ -505,6 +520,10 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
+
+apt-get autoclean -y
+apt-get autoremove -y
+apt-get clean -y
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}

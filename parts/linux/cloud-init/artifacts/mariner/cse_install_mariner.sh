@@ -63,19 +63,7 @@ installStandaloneContainerd() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST
-}
-
-installNvidiaContainerRuntime() {
-    echo "installNvidiaContainerRuntime not implemented for mariner"
-}
-
-installNvidiaDocker() {
-    echo "installNvidiaDocker not implemented for mariner"
-}
-
-addNvidiaAptRepo() {
-    echo "addNvidiaAptRepo not implemented for mariner"
+    rm -Rf $GPU_DEST /opt/gpu
 }
 
 downloadContainerdFromVersion() {

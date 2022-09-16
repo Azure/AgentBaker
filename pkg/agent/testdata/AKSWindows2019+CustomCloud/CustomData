@@ -180,13 +180,18 @@ $global:TLSBootstrapToken = ""
 
 $global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("false");
 
+# Disable OutBoundNAT in Azure CNI configuration
+$global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("false");
+
 # Base64 representation of ZIP archive
 $zippedFiles = "UEsDBBQACAAIAAAAAAAAAAAAAAAAAAAAAAAcAAAAd2luZG93cy93aW5kb3dzY3NlaGVscGVyLnBzMbRaa2/bPLL+nl8xcI1tgrd2c2nfSwodrCozjja2ZEhy0p420DISbfNUFgWSSmr09L8fkLpYchzVuzjbD64j8ZkZDp8ZPmTyCoIVFSAiTjMJVEAuSAySQUwWNCXwgAWNIJc0gUWeRpKyVBy9AluPfSBSEt4YXQ8BmoJckdKugDyNCQch8ZKmy7eRIG+faBqzJzE8OnoFowKNkwTIdyohYjHRJu6KQWD56Ki/TNgDTi7vbGfk3vmh5aMQeZ7rhXPnxnHvHOMMXsEV45Cn5HtGIkliIJwzDhHOlysJDxsdU4RltIKHhEXflI9v+QPhKZFElCEJIvNsmImzDpcj986ZuOYovLInKLyzg+vQQ4H32TjvANnOrXuDQvQJWfPA/DhBxkXHaG3ZcYMQfbL9wHjXMdS6RtZNaM7s0EfeLfJCy3UcZAX2rR18Nt53IGfm3EehPTXHTV+/dyDGKAj9+UcHBeHMQ1f2J+OPztEO8swAhYF7g5zwyvVC05saf3ZAHBTcud5NaDsB8q5MC/mNyP46AGiOzFmAvAbq7LQDNjUdc4ymyAlCe9YEda2/ZU5sy9Xpti0Umpblzp2gie4iguU6gWk7yBtphO34gTmZoJFx1kWIHZQ3dxzbGRtnXcxwZ8jx/etdN12UqCBXtofuzMlEYy3XubLHc0+Bu9hhO7fmxB6FM9Mzp0itgu2E5n/PPVSaMM666OK44ci1bpAXBm74cW5PRiVD67kbZ13cUeS0zNBCXmBf2ZYZIN846+JMXce7qPMuyqDpLPj8HNJFGOSogg99ZKlcBBPfOO9iyHjqmyH6NDOdUWh61rV9i4zzLnIUgMLJzL1Dnn+NJpNw5tm39gSNkXHeRRON9lEQemhs+4H3OZwhb2r7vu06xnkXW54jb83JXGWjs4kolD2duV4QWtYY3SIn8I3zzk7Shpg3t7PZZD62nQrc2VPcILxy586oXe3GeWc/qUEFE5359CPyjIsuZmwxM8+9tVX+bGcc+pZnzwLfuOiiiB+YnmohIxR6SKW0QIWB6d8YF11s2bLYR+HMtG7MMTIuuuhSI27mH5HnoAD5W2AXU7auHHuL6GJIjbh2/HDqjuZq3+siR6MmdZOtvXTRowZpntSQLlI0smar5fr0eYs7rGdsG3IFfNdFDrWmgTULR58dc2pboeayZzoK10WMgn5lY9zth++6iDGbqx6w3eONd12kKPwE5rgN6VQe2xR8tB3T+1yplfdK12lpuaCJEomcrNkjEZDmSQLRCnMcScIFHH89PYGnFY1WgLkSZ5nMOYmVMkuFWA/JdwIsl1ku4WlFUkjYcqkU6oqzfLmCjD0RLlYkSY5KR5525ORJIuAH9EMYcJIlOCLw+uvp6zfw+jX8PKoGB3RNhMTrDH5Ar388JnIwwpLA4IrxNZbATi6hH/Y0otS2cMepJIMJWx7310QIvCQn8OMIAKC/FkswoHoM/7u1r98XSLeYjRp81LQ7Yk9pwnB8RRPiPhJ+LWVWGp5hjtfH+qv690X/TCThx1OcxlgyvlF+Jc/Jyf0XITlNl/f18P6cJ2/+bfCICElTrEKcYbk62BBNZcMK+k6lxWKin5wc6f9ewRXlQkK0ItE3dYoQhABdAFacIfBE5ao4ROA1gVR9UAE44QTHG4hwtCIxsOKccXs9KlZAIR011IAvtjtUEd9fXo6JvCpfHKtslAH0BcE8WoEBfz8+0U/oAo4DIuRAAaHivaV8jSiv1rmNVX5GlJNIJWDrTBzvwt9sw3ujUb424WYqt/eXl2aSVHYoEUVAP4/quEqPQ4vlqYRBSuC0GVBNS+jNBU2XVYYeCReKXmzRyM4ALJZt1Cid6gVna+hXHr6c3p+o5dhd+l7tS4EHtiRrKBNVA2HQAD2zoOsqIuXM1CdJBGlnNco5mXEmWcQS0Vga/Zqm+wZ88TdCkvXQIXLoq/dUbqoRwSYj95eXxYgRWeA8kW/gEIRILkqeqH8LxgmOVnDcz8pxqkVVdlCar4ulv8VJTsSvQzpprh1US/x8foOUyYilEtNUQO17F7w3d78ZW0Br9M+j59/aAfNHGpEZo6mc4hQvCVcJ2ZmGqvUdl9t09VkSzzhbciLEjJMF4SSNVFX2nz/dgvYiXvs0IalMNhZLJU1z8rrhJi6bpmq0XBVjOY0RxcuUCUkjMfQly57UoV9NQmIuHfLUIJXkm51s9jFfamb9mHNqqIbxAaZErlhs9MZE9j6Am+saN3YJ/rNlxyOSbwYWW69xGkP9pWenj+wbGXhEyMJsDwamclk4HigcJQLeF183I5LgjU8ilsYCzk63q1feZbSj94kcVO0Wtt/6jWecMz4tN6neFaZJseFWyVR9Qc16CHqk3gL3UKadfJ3m40bFaEKXLdDMMjsVdLmSwkooKftXX4mBXSr3yaN6b4BDngbuw/+QSEJvSiPOBFvIoZllCY10wiuLwxGWWJFDaQoxRAofkISsVe56e4wPyx2ip9aw2nb3DpxxlhEuKRFfetUO0rtXNK5a6T7UVK1fJL70RjnXkU5FAWonDCU4EySe0iSholjdtrWXkjcMOI6+6XkeFy5PGsvzi3LaX5n7tpEqMyQudglFiZf3hZ8tMdMk4dHBIsboFg/d2sN4UcI0+a6fFulqTNUnEur6UFOsf1AFS75Tua2FprVi6tVCVSCjLXfq1w2g8TwoffW5RTazOWNCZiwtWgbm0mLrLJeEl5ltTMTiBEtVvzgFBZB0TUBiofUVL9CFYpqWsePCRVFvvpIMeULiAItvZvFmgL6TKJcEeluxrWR50bTytarW3ra7/bNXBjmooix3/X/2So8Zp2lEM5zsczqrXw7mgnA7Bv+zH6ApqPmxVO2dUO5PZhQVUsjL0wl5JAlc0+WKCKndvALJ6XJJOEh1DNE5YBXT+9W7IoJ/sIegfDAwJUB9EDgZmnFcdt7js/cnqtUQVb0wcGtb+vKbvpRFGJR5rDI92E6xkYpBFUAdmlJS+vpcgaqkQlQlFS/UZ8bZI1X6Tq15c109sqRCEr4bjPrU7a9XsmFQWezBwE6zXJY9tzGtvSQj8UEca9K4wA1qsfxvNIZntX2VJ8mvzyVGf4ETsf98U0Uz19uhAb0lSQnHCWQ5z5goa7xoGfpDbWwDh8nWUaGK4+QFTV7MHeLK2xahpOVuGNvNSPGpUNrqU9O/Hgo7vuG/ii216Me72rrZ2Q+LQrUkIUWjv7+ClZSZuHz7VkgcfWOPhC8S9jSM2Potfnvx7v37v96/f/f297/+ODv/fbvwahIBWWeMY77ZOi9PzRnmxY5fibfWwU3h1E+lYqsWEPppecwrQeOcxveXlw55Ut/K0Qdk7/gfjKZlIstItOmTFnXbUu5g3jbOw7c4oTGWxGHSyZPE5Widyc3xPkqWbg4+ar9seoXFSuKHhDSsK6X5/2C6vUWXkvU/Yrelf8ti1P8pyh73KRhw+gE+QLPynov6VzBikDIJCVuCVtuCKkWkv67xBspTFgiSCirpI4EYS9yy0SghHRj0KVxCPyrWq60gOZE5T+Fv9XLC35WresxWR+8T8X3622+tB8XxEAZLUid73yFQrjh7gn7YetE+legj0MBPCMleyu8W1FZ15cGlEASKVodXQoc6q639qoe3LHy5b3N6QoU80MAv1SVNZdt8krAnElcji1uH05M24nk1KGJ2jmmf7Aw4e5HdaumT7dJ/0AR5YatRY8HLU60JGumt0wTD4XBL1r/tHVO/1sSbmH6APtmB5Y6QvpKg6fOs7PKxGVLDQ1EYJIY8FXkUESEWeZJsivu++vf/0PLZe5HBgyp7HVRW/6Ly8mBP/e3sk3BA6M3A95X9syrS//2rJ3P0fYVzoZQWLwmlN+k9q9XWWaYQhMuBOrAivYMfXqZdN8HKntoZD27yv74C3i+lSj8tKfWv5q62AjEjQjd+rWb2HVaV2i//1OS2vC0tpclDTpPYydcP+qigjwVKSJTXAhvoXd9MppdfffcquDM99LW+p/ha/emKE3y1cq5kRWm6dzIsH3xUxrUf8USlvlts+GtOvnf2xx+/X/TgR7Wr9M7+PP2r1+Bw7/z04t2fzRGJFNH56fl5c1R5/3nghdEBv+Vs/mb0hXslyWBB01gfCMq/sAE9TUj1PC9bWd69Z/p59PP/AgAA//9QSwcIqA3icSUMAACjJAAAUEsBAhQAFAAIAAgAAAAAAKgN4nElDAAAoyQAABwAAAAAAAAAAAAAAAAAAAAAAHdpbmRvd3Mvd2luZG93c2NzZWhlbHBlci5wczFQSwUGAAAAAAEAAQBKAAAAbwwAAAAA"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("false")
-$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("false");
+
+# HNS remediator
+$global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("0");
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -200,7 +205,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.12.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.14.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -430,19 +435,18 @@ try
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-    if ($windowsSecureTlsEnabled) {
-        $windowsVersion = Get-WindowsVersion
-        if ($windowsVersion -ne "1809") {
-            Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
-        } else {
-            Write-Log "Enable secure TLS protocols"
-            try {
-                . C:\k\windowssecuretls.ps1
-                Enable-SecureTls
-            }
-            catch {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
-            }
+
+    $windowsVersion = Get-WindowsVersion
+    if ($windowsVersion -ne "1809") {
+        Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+    } else {
+        Write-Log "Enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
         }
     }
 

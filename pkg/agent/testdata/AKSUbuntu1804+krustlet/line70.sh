@@ -14,8 +14,13 @@ ensureRPC() {
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
+
+configureCustomCaCertificate() {
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+}
+
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -121,7 +126,7 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
+    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
         echo "Ingorings systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
@@ -256,5 +261,78 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+configGPUDrivers() {
+    # install gpu driver
+    mkdir -p /opt/{actions,gpu}
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    else
+        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    fi
+
+    # validate on host, already done inside container.
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    
+    # reload containerd/dockerd
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    else
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
+}
+
+validateGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    which nvidia-smi
+    if [[ $? == 0 ]]; then
+        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
+    else
+        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+    fi
+    SMI_STATUS=$?
+    if [[ $SMI_STATUS != 0 ]]; then
+        if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
+            exit $ERR_GPU_INFO_ROM_CORRUPTED
+        else
+            exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+    else
+        echo "gpu driver working fine"
+    fi
+}
+
+ensureGPUDrivers() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
+        return
+    fi
+
+    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
+        configGPUDrivers
+    else
+        validateGPUDrivers
+    fi
+    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+}
 
 #EOF

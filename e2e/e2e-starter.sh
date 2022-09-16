@@ -36,7 +36,7 @@ fi
 if [ "$create_cluster" == "true" ]; then
     log "Creating cluster"
     clusterCreateStartTime=$(date +%s)
-    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys -ojson
+    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
     clusterCreateEndTime=$(date +%s)
     log "Created cluster in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
 fi

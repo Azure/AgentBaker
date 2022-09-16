@@ -279,7 +279,8 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		// ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s version 1.20 or higher
 		// Until Container Insights move to new API adding this feature gate to get the GPU metrics continue to work
 		// Reference - https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") {
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
+			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 		}
 	}
@@ -315,6 +316,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	return template.FuncMap{
 		"Disable1804SystemdResolved": func() bool {
 			return config.Disable1804SystemdResolved
+		},
+		"DisableUnattendedUpgrade": func() bool {
+			return config.DisableUnattendedUpgrades
 		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
@@ -359,10 +363,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return ""
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeletConfigStringForPowershell()
+			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
+		},
+		"Is2204VHD": func() bool {
+			return profile.Is2204VHDDistro()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -419,7 +426,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
-			return strings.Contains(config.OSSKU, "CBLMariner")
+			return strings.Contains(config.OSSKU, "Mariner")
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -807,5 +814,35 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
+		"GPUDriverVersion": func() string {
+			if isStandardNCv1(profile.VMSize) {
+				return "470.57.02"
+			}
+			return "510.47.03"
+		},
+		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
+			if cs.Properties.WindowsProfile != nil {
+				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
+			}
+			return 0
+		},
+		"ShouldConfigureCustomCATrust": func() bool {
+			return areCustomCATrustCertsPopulated(*config)
+		},
+		"GetCustomCATrustConfigCerts": func() []string {
+			if areCustomCATrustCertsPopulated(*config) {
+				return config.CustomCATrustConfig.CustomCATrustCerts
+			}
+			return []string{}
+		},
 	}
+}
+
+func isStandardNCv1(size string) bool {
+	tmp := strings.ToLower(size)
+	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
+	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
 }
