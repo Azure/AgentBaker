@@ -114,3 +114,11 @@ EOF
 # Future base images will already have rsyslog installed with 755 /etc/rsyslog.d
     chmod 755 /etc/rsyslog.d
 }
+
+enableMarinerKata() {
+    # Enable the mshv boot path
+    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+
+    # Start kata VM initrd generation service
+    systemctlEnableAndStart kata-osbuilder-generate
+}

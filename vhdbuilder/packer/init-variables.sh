@@ -181,11 +181,15 @@ else
 fi
 
 # Image import from storage account. Required to build CBLMariner V1 images.
-if [[ "$OS_SKU" == "CBLMariner" && "$OS_VERSION" == "V1" ]]; then
-	if [[ $HYPERV_GENERATION == "V2" ]]; then
-		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
-	elif [[ $HYPERV_GENERATION == "V1" ]]; then
-		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
+if [[ "$OS_SKU" == "CBLMariner" && ("$OS_VERSION" == "V1" || "$OS_VERSION" == "V2kata")]]; then
+	if [[ $OS_VERSION == "V2kata" ]]; then
+		IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_KATA}
+	else
+		if [[ $HYPERV_GENERATION == "V2" ]]; then
+			IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
+		elif [[ $HYPERV_GENERATION == "V1" ]]; then
+			IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
+		fi
 	fi
 
 	expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
