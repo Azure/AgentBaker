@@ -228,7 +228,7 @@ const (
 
 const (
 	// DO NOT MODIFY: used for freezing linux images with docker
-	FrozenLinuxSIGImageVersionForDocker string = "2022.09.13"
+	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
 	// Freezing the version of Mariner 2.0 until fix for cloud-init is published.
 	MarinerV2Gen2SIGImageVersion string = "2022.08.29"
@@ -454,9 +454,9 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 
 func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2019:               SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2019Containerd:     SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022Containerd:     SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
