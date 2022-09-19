@@ -254,4 +254,4 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: 1804-arm64-gen2-containerd
+            artifactName: 2204-arm64-gen2-containerd
