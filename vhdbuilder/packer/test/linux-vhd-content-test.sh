@@ -227,13 +227,13 @@ testKubeBinariesPresent() {
   containerRuntime=$1
   binaryDir=/usr/local/bin
   k8sVersions="
-  1.22.6-hotfix.20220615
   1.22.11-hotfix.20220620
-  1.23.5-hotfix.20220615
+  1.22.14
   1.23.8-hotfix.20220620
-  1.24.0-hotfix.20220615
+  1.23.11
   1.24.3
-  1.25.0
+  1.24.5
+  1.25.1
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
