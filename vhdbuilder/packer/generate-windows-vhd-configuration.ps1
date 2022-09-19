@@ -183,14 +183,17 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220728/windowszip/v1.22.6-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.10/windowszip/v1.22.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.11-hotfix.20220728/windowszip/v1.22.11-hotfix.20220728-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.22.14/windowszip/v1.22.14-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.3-hotfix.20220130/windowszip/v1.23.3-hotfix.20220130-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.4/windowszip/v1.23.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220728/windowszip/v1.23.5-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.7/windowszip/v1.23.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.8-hotfix.20220728/windowszip/v1.23.8-hotfix.20220728-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.11/windowszip/v1.23.11-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/windowszip/v1.24.0-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.3/windowszip/v1.24.3-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.25.0/windowszip/v1.25.0-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.5/windowszip/v1.24.5-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.1/windowszip/v1.25.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.22.zip",
