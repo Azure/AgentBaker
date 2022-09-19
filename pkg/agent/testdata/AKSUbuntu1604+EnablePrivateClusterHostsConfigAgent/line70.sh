@@ -277,7 +277,9 @@ configGPUDrivers() {
     mkdir -p /opt/{actions,gpu}
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
         ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+        echo "Checking if nvidia driver is installed beforehand"
+        nvidia-smi
+        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
         ret=$?
         if [[ "$ret" != "0" ]]; then
             echo "Failed to install GPU driver, exiting..."
@@ -285,6 +287,8 @@ configGPUDrivers() {
         fi
         ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     else
+        echo "Checking if nvidia driver is installed beforehand (DOCKER)"
+        nvidia-smi
         bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
         ret=$?
         if [[ "$ret" != "0" ]]; then
@@ -304,7 +308,7 @@ configGPUDrivers() {
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
         retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
+    fikub
 }
 
 validateGPUDrivers() {

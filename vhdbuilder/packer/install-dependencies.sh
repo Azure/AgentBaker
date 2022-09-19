@@ -197,13 +197,17 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
+  echo "EXPORTING TAG 510.47.03-sha-106e2e"
   export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-106e2e"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
 
+  echo "install-dependencies nvidia-smi"
+  nvidia-smi
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    echo "Pulling image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG for containerd"
     ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
     ret=$?
@@ -212,6 +216,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   else
+  echo "Pulling image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG for docker"
     bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
     ret=$?
     if [[ "$ret" != "0" ]]; then
@@ -220,6 +225,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     fi
   fi
 fi
+echo "POST ID nvidia-smi"
+nvidia-smi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
