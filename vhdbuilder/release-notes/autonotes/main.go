@@ -132,7 +132,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	artifactsDirOut := filepath.Join(fl.path, path)
 	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
 	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", fl.date))
-	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt", fl.date)
+	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt")
 	latestImageListFile := filepath.Join(artifactsDirOut, "latest-image-list.json")
 
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
