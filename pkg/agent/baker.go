@@ -815,10 +815,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 		"GPUDriverVersion": func() string {
-			if isStandardNCv1(profile.VMSize) {
-				return "cuda-470.82.01"
-			}
-			return "cuda-510.47.03"
+			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			if cs.Properties.WindowsProfile != nil {
@@ -838,9 +835,33 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	}
 }
 
+// TODO(ace): consts for versions? annoying...
+func getGPUDriverVersion(size string) string {
+	if useGridDrivers(size) {
+		return "grid-510.73.08"
+	}
+	if isStandardNCv1(size) {
+		return "cuda-470.82.01"
+	}
+	return "cuda-510.47.03"
+}
+
 func isStandardNCv1(size string) bool {
 	tmp := strings.ToLower(size)
 	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+var gridGPUSizes = map[string]bool{
+	"standard_nv6ads_a10_v5":   true,
+	"standard_nv12ads_a10_v5":  true,
+	"standard_nv18ads_a10_v5":  true,
+	"standard_nv36ads_a10_v5":  true,
+	"standard_nv72ads_a10_v5":  true,
+	"standard_nv36adms_a10_v5": true,
+}
+
+func useGridDrivers(size string) bool {
+	return gridGPUSizes[strings.ToLower(size)]
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
