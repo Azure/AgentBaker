@@ -816,9 +816,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GPUDriverVersion": func() string {
 			if isStandardNCv1(profile.VMSize) {
-				return "470.57.02"
+				return "cuda-470.82.01"
 			}
-			return "510.47.03"
+			return "cuda-510.47.03"
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			if cs.Properties.WindowsProfile != nil {
