@@ -3428,13 +3428,12 @@ installDeps() {
     done
 
     # install additional apparmor deps for 2.0
-    if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor; do
-        if ! dnf_install 30 1 600 $dnf_package; then
-          exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-      done
-    fi
+    # Test only: remove OS_VERSION check
+    for dnf_package in apparmor-parser libapparmor; do
+      if ! dnf_install 30 1 600 $dnf_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
 
     # Test only: manually add additional sysctl configs
     SYSCTL_CONFIG_DEST="/etc/sysctl.d/60-CIS.conf"
