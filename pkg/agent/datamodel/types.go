@@ -226,6 +226,7 @@ func (d Distro) Is2204VHDDistro() bool {
 	}
 	return false
 }
+
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
 // for Service Principal's secret
 type KeyvaultSecretRef struct {
@@ -290,18 +291,11 @@ type CustomCloudEnv struct {
 	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
 }
 
-// TelemetryProfile contains settings for collecting telemtry.
-// Note telemtry is currently enabled/disabled with the 'EnableTelemetry' feature flag.
-type TelemetryProfile struct {
-	ApplicationInsightsKey string `json:"applicationInsightsKey,omitempty"`
-}
-
 // FeatureFlags defines feature-flag restricted functionality
 type FeatureFlags struct {
 	EnableCSERunInBackground bool `json:"enableCSERunInBackground,omitempty"`
 	BlockOutboundInternet    bool `json:"blockOutboundInternet,omitempty"`
 	EnableIPv6DualStack      bool `json:"enableIPv6DualStack,omitempty"`
-	EnableTelemetry          bool `json:"enableTelemetry,omitempty"`
 	EnableIPv6Only           bool `json:"enableIPv6Only,omitempty"`
 	EnableWinDSR             bool `json:"enableWinDSR,omitempty"`
 }
@@ -700,7 +694,6 @@ type Properties struct {
 	HostedMasterProfile     *HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
 	AddonProfiles           map[string]AddonProfile  `json:"addonProfiles,omitempty"`
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
-	TelemetryProfile        *TelemetryProfile        `json:"telemetryProfile,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
 }
@@ -1207,8 +1200,6 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 			return f.BlockOutboundInternet
 		case "EnableIPv6DualStack":
 			return f.EnableIPv6DualStack
-		case "EnableTelemetry":
-			return f.EnableTelemetry
 		case "EnableIPv6Only":
 			return f.EnableIPv6Only
 		case "EnableWinDSR":
