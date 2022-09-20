@@ -37,8 +37,8 @@ if [ -n "$out" ]; then
         create_cluster="true"
     else
         # The cluster exists and has an associated MC resource group
-        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq '.provisioningState')
-        if [[ "$provisioning_state" == "\"Failed\"" ]]; then
+        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+        if [[ "$provisioning_state" == "Failed" ]]; then
             # The cluster exists but is in a failed provisioning state
             log "Cluster $CLUSTER_NAME is in a Failed provisioning state"
             deleteCluster $CLUSTER_NAME $RESOURCE_GROUP_NAME
