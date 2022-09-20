@@ -44,23 +44,3 @@ getTenantID() {
     tenantID=$(jq -r '.identity.tenantId' < cluster_info.json)
     addJsonToFile "tenantID" $tenantID
 }
-
-# waitForCluster() {
-#     name=$1; rg=$2
-#     cluster_provisioning_state=$(az aks show -n $name -g $rg | jq '.provisioningState')
-
-#     while [[ "$cluster_provisioning_state" == "\"Creating\"" ]] || [[ "$cluster_provisioning_state" == "\"Stopping\"" ]]; do
-#         log "Cluster $name is currently in provisioning state $cluster_provisioning_state, waiting for \"Succeeded\", \"Failed\", \"Stopped\"states"
-#         sleep 10
-#         cluster_provisioning_state=$(az aks show -n $name -g $rg | jq '.provisioningState')
-#     done
-
-#     if [[ "$cluster_provisioning_state" == "\"Succeeded\"" ]]; then
-#         return 0
-#     elif [[ "$cluster_provisioning_state" == "\"Failed\"" ]]; then
-#         return 1
-#     else
-#         log "Cluster in unrecognized provisioning state: $cluster_provisioning_state"
-#         return 1
-#     fi
-# }
