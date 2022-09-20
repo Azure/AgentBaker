@@ -815,10 +815,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 		"GPUDriverVersion": func() string {
-			if isStandardNCv1(profile.VMSize) {
-				return "cuda-470.82.01"
-			}
-			return "cuda-510.47.03"
+			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			if cs.Properties.WindowsProfile != nil {
@@ -838,9 +835,27 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	}
 }
 
+// NV series GPUs target graphics workloads vs NC which targets compute
+// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
+// NVv1 seems to run with CUDA, NVv5 requires GRID.
+// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?)
+func getGPUDriverVersion(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.Nvidia510GridDriverVersion
+	}
+	if isStandardNCv1(size) {
+		return datamodel.Nvidia470CudaDriverVersion
+	}
+	return datamodel.Nvidia510CudaDriverVersion
+}
+
 func isStandardNCv1(size string) bool {
 	tmp := strings.ToLower(size)
 	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func useGridDrivers(size string) bool {
+	return datamodel.GridGPUSizes[strings.ToLower(size)]
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
