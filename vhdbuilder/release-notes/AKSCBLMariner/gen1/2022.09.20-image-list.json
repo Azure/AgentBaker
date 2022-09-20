@@ -1,33 +1,5 @@
 [
   {
-    "id": "sha256:6735b0c56fb8e69833cff6e56292051e9bd7cff6bbd21456affab220bc6afefb",
-    "repoTags": [
-      "mcr.microsoft.com/aks/acc/sgx-attestation:3.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:83e182c0032c66b353b4a597f1c9a1e5e045c7f97a208ef32f4947e22a9ff373",
-    "repoTags": [
-      "mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:45a0446d3c49da0f85b41cdc7f8f6907396588a18614923625eb88e987b19028",
-    "repoTags": [
-      "mcr.microsoft.com/aks/acc/sgx-plugin:0.5"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:47acec1bd9e176c2c66d719183fcf6ac9417d8d57d0f424c9e2ff6bf406ffa97",
-    "repoTags": [
-      "mcr.microsoft.com/aks/acc/sgx-webhook:1.0"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:47c4e5d76954aeaf03eccba719803a4157d145845a8435a0f8b9f2d871a96fad",
     "repoTags": [
       "mcr.microsoft.com/aks/aks-app-routing-operator:sha-ad307c7"
@@ -638,55 +610,6 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:b93f1c55c5ef44ee6a4e7a3258e32582abb5a8f70f51586f944a733a471305f8",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.11-hotfix.20220728.2"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:8caa076b1bc6ec678d0c2c63fed460da7978d7389c5c89c5d2e820cf3bfcacfe",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.14.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:cc6e0d75035691e94a2fef60c9175845eadffcad1c0d66df75b9adf84f27a789",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.11.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:80fb64c0ba647a44f82fd1c5d1a7812cb89b4b0d81de3a9498c1209a79e9afa6",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.8-hotfix.20220728.3"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:e4f9b938824e9cbd6ddbc15038f1cd17410a7e0cab6954aeba1ada9749ad0172",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.3.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:d3c70dd66ea047b616b2a42749387088537547c20b4c59c165f6a0f5336b9cfe",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.5.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:b64cb365cb5a65e6a2c4ab67e7044790e64a493bd0b54172334162d7a39bf86d",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.1"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:f9aed6605b814b69e92dece6a50ed1e4e730144eb1cc971389dde9cb3820d124",
     "repoTags": [
       "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:v1.10.1"
@@ -746,13 +669,6 @@
     "id": "sha256:ebe2c7c61055cae340273904364fd6c6c0e8bab75ef97777263b248264acf3c8",
     "repoTags": [
       "mcr.microsoft.com/oss/nginx/nginx:1.13.12-alpine"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:96df020f3d684cad767bea459d81e7c0a7acf550f94b4d2d369bb2cfe12892cd",
-    "repoTags": [
-      "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0"
     ],
     "repoDigests": []
   },
