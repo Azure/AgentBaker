@@ -16,48 +16,13 @@ installDeps() {
     done
 
     # install additional apparmor deps for 2.0
-    # Test only: remove OS_VERSION check
-    for dnf_package in apparmor-parser libapparmor; do
-      if ! dnf_install 30 1 600 $dnf_package; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    done
-
-    # Test only: manually add additional sysctl configs
-    SYSCTL_CONFIG_DEST="/etc/sysctl.d/60-CIS.conf"
-    touch "${SYSCTL_CONFIG_DEST}"
-    cat << EOF > "${SYSCTL_CONFIG_DEST}"
-# 3.1.2 Ensure packet redirect sending is disabled
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-# 3.2.1 Ensure source routed packets are not accepted 
-net.ipv4.conf.all.accept_source_route = 0
-net.ipv4.conf.default.accept_source_route = 0
-# 3.2.2 Ensure ICMP redirects are not accepted
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-# 3.2.3 Ensure secure ICMP redirects are not accepted
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-# 3.2.4 Ensure suspicious packets are logged
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.default.log_martians = 1
-# 3.3.1 Ensure IPv6 router advertisements are not accepted
-net.ipv6.conf.all.accept_ra = 0
-net.ipv6.conf.default.accept_ra = 0
-# 3.3.2 Ensure IPv6 redirects are not accepted
-net.ipv6.conf.all.accept_redirects = 0
-net.ipv6.conf.default.accept_redirects = 0
-# refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
-vm.overcommit_memory = 1
-kernel.panic = 10
-kernel.panic_on_oops = 1
-# to ensure node stability, we set this to the PID_MAX_LIMIT on 64-bit systems: refer to https://kubernetes.io/docs/concepts/policy/pid-limiting/
-kernel.pid_max = 4194304
-# https://github.com/Azure/AKS/issues/772
-fs.inotify.max_user_watches = 1048576
-EOF
-    set -x
+    if [[ $OS_VERSION == "2.0" ]]; then
+      for dnf_package in apparmor-parser libapparmor; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
 }
 
 addMarinerNvidiaRepo() {
@@ -78,12 +43,9 @@ EOF
 }
 
 downloadGPUDrivers() {
-    #if ! dnf_install 30 1 600 cuda; then
-    #  exit $ERR_APT_INSTALL_TIMEOUT
-    #fi
-
-    # Test using the preview cuda driver for now
-    tdnf -y install https://packages.microsoft.com/cbl-mariner/2.0/preview/NVIDIA/x86_64/cuda-510.47.03-3_5.15.57.1.cm2.x86_64.rpm
+    if ! dnf_install 30 1 600 cuda; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
 }
 
 installNvidiaContainerRuntime() {

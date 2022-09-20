@@ -75,9 +75,8 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "MicrosoftCBLMariner:cbl-mariner:cbl-mariner-2-gen2:latest" \
+    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
     --upgrade-policy-mode Automatic \
-    --os-disk-size-gb 40 \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
 
@@ -144,7 +143,6 @@ FAILED=0
 if [[ "$retval" -eq 0 ]]; then
     ok "Test succeeded, node joined the cluster"
     kubectl get nodes -o wide | grep $vmInstanceName
-    kubectl describe node $vmInstanceName
 else
     err "Node did not join cluster"
     FAILED=1
