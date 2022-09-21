@@ -308,7 +308,6 @@ configGPUDrivers() {
         addMarinerNvidiaRepo
         downloadGPUDrivers
         installNvidiaContainerRuntime
-        installNvidiaDocker
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1

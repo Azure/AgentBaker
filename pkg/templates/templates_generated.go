@@ -1060,7 +1060,6 @@ configGPUDrivers() {
         addMarinerNvidiaRepo
         downloadGPUDrivers
         installNvidiaContainerRuntime
-        installNvidiaDocker
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -3451,7 +3450,6 @@ enabled=1
 skip_if_unavailable=True
 sslverify=1
 EOF
-    set -x
 }
 
 downloadGPUDrivers() {
@@ -3466,12 +3464,6 @@ installNvidiaContainerRuntime() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-}
-
-installNvidiaDocker() {
-    if ! dnf_install 30 1 600 nvidia-docker2; then
-      exit $ERR_APT_INSTALL_TIMEOUT
-    fi
 }
 
 installSGXDrivers() {
