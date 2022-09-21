@@ -1991,12 +1991,12 @@ wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIME
 source {{GetCSEConfigScriptFilepath}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
+configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
 configureEtcEnvironment
 {{- end}}
 
 {{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate
+configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 {{- end}}
 
 {{GetOutboundCommand}}
