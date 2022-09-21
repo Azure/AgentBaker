@@ -31,8 +31,6 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 nc -vz mcr.microsoft.com 443 >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz mcr.microsoft.com 443 || exit $ERR_OUTBOUND_CONN_FAIL;
-
 for i in $(seq 1 3600); do
     if [ -s /opt/azure/containers/provision_source.sh ]; then
         grep -Fq '#HELPERSEOF' /opt/azure/containers/provision_source.sh && break
@@ -57,6 +55,8 @@ source /opt/azure/containers/provision_installs_distro.sh
 
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
+
+retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 nc -vz mcr.microsoft.com 443 >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz mcr.microsoft.com 443 || exit $ERR_OUTBOUND_CONN_FAIL;
 
 # Bring in OS-related vars
 source /etc/os-release
