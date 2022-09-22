@@ -18,14 +18,16 @@ log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
+    provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
-    if [ $exists = "false" ]; then
-        log "Deleting cluster"
+    if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ]; then
+        # The cluster is in a broken state
+        log "Cluster $CLUSTER_NAME is in an unusable state, deleting..."
         clusterDeleteStartTime=$(date +%s)
         az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
         clusterDeleteEndTime=$(date +%s)
-        log "Deleted cluster in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
+        log "Deleted cluster $CLUSTER_NAME in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
         create_cluster="true"
     fi
 else
@@ -34,11 +36,11 @@ fi
 
 # Create the AKS cluster and get the kubeconfig
 if [ "$create_cluster" == "true" ]; then
-    log "Creating cluster"
+    log "Creating cluster $CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
     az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
     clusterCreateEndTime=$(date +%s)
-    log "Created cluster in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
+    log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
 fi
 
 az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
