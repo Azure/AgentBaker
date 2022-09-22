@@ -867,6 +867,5 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 }
 
 func isMariner(osSku string) bool {
-	// TODO(ace): consts?
-	return osSku == "CBLMariner" || osSku == "Mariner"
+	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }
