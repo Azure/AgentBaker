@@ -202,12 +202,10 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
-  echo "Debug: Before install"
-  nvidia-smi
 
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    echo "DEBUG: Pulling image  $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    echo "DEBUG: Pulling image  $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG and entrypoint action is $gpu_action"
     ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
     ret=$?
@@ -216,7 +214,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   else
-    echo "DEBUG: Pulling image  $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG using docker"
+    echo "DEBUG: Pulling image  $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG using docker and entrypoint action is $gpu_action"
     bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
     ret=$?
     if [[ "$ret" != "0" ]]; then
@@ -226,8 +224,6 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   fi
 fi
 
-echo "Debug: After install"
-nvidia-smi
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
