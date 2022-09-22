@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podname-vzdjm4o
+  labels:
+    env: test
+spec:
+  containers:
+  - name: podname-vzdjm4o
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeSelector:
+    kubernetes.io/hostname: abtesf8f6000000

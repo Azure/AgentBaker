@@ -262,6 +262,8 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
+    echo "Debug: configuring GPU drivers with image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    nvidia-smi
     # install gpu driver
     mkdir -p /opt/{actions,gpu}
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -283,6 +285,7 @@ configGPUDrivers() {
         docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     fi
 
+    echo "Debug: Successfully configured GPU drivers with image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
     # validate on host, already done inside container.
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL

@@ -454,6 +454,7 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     echo "Debug: configuring GPU drivers with image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    nvidia-smi
     # install gpu driver
     mkdir -p /opt/{actions,gpu}
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then

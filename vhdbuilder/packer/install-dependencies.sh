@@ -203,6 +203,9 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     gpu_action="install"
   fi
 
+  echo "DEBUG: nvidia-smi pre copy ID"
+  nvidia-smi
+
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     echo "DEBUG: Pulling image  $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG and entrypoint action is $gpu_action"
@@ -223,6 +226,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     fi
   fi
 fi
+echo "DEBUG: nvidia-smi post copy ID"
+nvidia-smi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
