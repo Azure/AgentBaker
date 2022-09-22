@@ -31,17 +31,6 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
-configureEtcEnvironment
-{{- end}}
-
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate
-{{- end}}
-
-{{GetOutboundCommand}}
-
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
         grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
@@ -66,6 +55,17 @@ source {{GetCSEInstallScriptDistroFilepath}}
 
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+configureEtcEnvironment
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+{{- end}}
+
+{{GetOutboundCommand}}
 
 # Bring in OS-related vars
 source /etc/os-release
