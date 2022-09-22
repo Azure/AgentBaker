@@ -9,7 +9,7 @@ if ($Global:ClusterConfiguration.Cni.Name -eq "kubenet") {
 
 $env:KUBE_NETWORK = $KubeNetwork
 $global:HNSModule = "c:\k\hns.psm1"
-if ($global:ContainerRuntime -eq "containerd") {
+if ($ContainerRuntime -eq "containerd") {
     Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
     $global:HNSModule = "c:\k\hns.v2.psm1"
 }
