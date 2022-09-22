@@ -284,7 +284,6 @@ configGPUDrivers() {
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
     elif [[ $OS == $MARINER_OS_NAME ]]; then
-        addMarinerNvidiaRepo
         downloadGPUDrivers
         installNvidiaContainerRuntime
     else 

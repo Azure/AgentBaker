@@ -25,22 +25,6 @@ installDeps() {
     fi
 }
 
-addMarinerNvidiaRepo() {
-    MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
-    touch "${MARINER_NVIDIA_REPO_FILEPATH}"
-    cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
-[mariner-official-nvidia]
-name=CBL-Mariner Official Nvidia 2.0 x86_64
-baseurl=https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64
-gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
-gpgcheck=1
-repo_gpgcheck=1
-enabled=1
-skip_if_unavailable=True
-sslverify=1
-EOF
-}
-
 downloadGPUDrivers() {
     if ! dnf_install 30 1 600 cuda; then
       exit $ERR_APT_INSTALL_TIMEOUT
@@ -48,7 +32,10 @@ downloadGPUDrivers() {
 }
 
 installNvidiaContainerRuntime() {
-    for nvidia_package in nvidia-container-runtime nvidia-container-toolkit libnvidia-container-tools libnvidia-container1; do
+    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
+    
+    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
