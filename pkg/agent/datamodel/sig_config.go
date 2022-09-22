@@ -227,13 +227,13 @@ const (
 )
 
 const (
+	LinuxSIGImageVersion string = "2022.09.13"
+	
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
 	// Freezing the version of Mariner 2.0 until fix for cloud-init is published.
 	MarinerV2Gen2SIGImageVersion string = "2022.08.29"
-
-	LinuxSIGImageVersion string = "2022.09.13"
 
 	Windows2019SIGImageVersion string = "17763.3406.220913"
 	Windows2022SIGImageVersion string = "20348.1006.220913"
