@@ -10,6 +10,8 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
       "amd64OnlyVersions": [
+        "v2.0.0",
+        "v2.0.0-rc7",
         "v2.0.1"
       ],
       "multiArchVersions": []
@@ -362,7 +364,8 @@
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.4.1"
+        "1.4.1",
+        "1.4.4"
       ]
     },
     {
