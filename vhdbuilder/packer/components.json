@@ -191,24 +191,17 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "1.12.1"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.1"
+        "1.12.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.1.1"
+        "1.12.2"
       ]
     },
     {
