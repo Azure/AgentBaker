@@ -234,9 +234,6 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	// Freezing the version of Mariner 2.0 until fix for cloud-init is published.
-	MarinerV2Gen2SIGImageVersion string = "2022.08.29"
-
 	Windows2019SIGImageVersion string = "17763.3406.220913"
 	Windows2022SIGImageVersion string = "20348.1006.220913"
 
@@ -385,14 +382,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
-		Version:       MarinerV2Gen2SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2", // TODO(ace): change to V2gen2kata or something when mariner is ready
-		Version:       MarinerV2Gen2SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
