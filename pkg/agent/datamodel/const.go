@@ -114,3 +114,23 @@ const (
 	// when KubeletDiskType == TempDisk.
 	TempDiskContainerDataDir = "/mnt/aks/containers"
 )
+
+const (
+	Nvidia470CudaDriverVersion = "cuda-470.82.01"
+	Nvidia510CudaDriverVersion = "cuda-510.47.03"
+	Nvidia510GridDriverVersion = "grid-510.73.08"
+)
+
+var GridGPUSizes = map[string]bool{
+	"standard_nv6ads_a10_v5":   true,
+	"standard_nv12ads_a10_v5":  true,
+	"standard_nv18ads_a10_v5":  true,
+	"standard_nv36ads_a10_v5":  true,
+	"standard_nv72ads_a10_v5":  true,
+	"standard_nv36adms_a10_v5": true,
+}
+
+const (
+	OSSKUCBLMariner = "CBLMariner"
+	OSSKUMariner    = "Mariner"
+)

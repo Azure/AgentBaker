@@ -73,7 +73,7 @@ else
 ifeq (${GEN2_SIG_FOR_PRODUCTION},True)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 else
-	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
+	@echo "${MODE}: Building and save to Shared Image Gallery"
 endif
 endif
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json

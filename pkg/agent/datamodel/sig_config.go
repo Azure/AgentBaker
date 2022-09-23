@@ -92,6 +92,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -124,6 +125,7 @@ var AvailableGen2Distros []Distro = []Distro{
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 }
 
@@ -227,20 +229,17 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.09.13"
-	
+	LinuxSIGImageVersion string = "2022.09.22"
+
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
-
-	// Freezing the version of Mariner 2.0 until fix for cloud-init is published.
-	MarinerV2Gen2SIGImageVersion string = "2022.08.29"
 
 	Windows2019SIGImageVersion string = "17763.3406.220913"
 	Windows2022SIGImageVersion string = "20348.1006.220913"
 
-	Arm64LinuxSIGImageVersion    string = "2022.09.20"
+	Arm64LinuxSIGImageVersion    string = "2022.09.27"
 	Ubuntu2204SIGImageVersion    string = "2022.09.19"
-	Ubuntu2004CVMSIGImageVersion string = "2022.09.13"
+	Ubuntu2004CVMSIGImageVersion string = "2022.09.22"
 )
 
 // SIG config Template
@@ -383,7 +382,14 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
-		Version:       MarinerV2Gen2SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2gen2", // TODO(ace): change to V2gen2kata or something when mariner is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
@@ -448,6 +454,7 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	return map[Distro]SigImageConfig{
 		AKSCBLMarinerV1:          SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:      SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 	}
 }

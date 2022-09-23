@@ -2063,17 +2063,6 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
-configureEtcEnvironment
-{{- end}}
-
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate
-{{- end}}
-
-{{GetOutboundCommand}}
-
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
         grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
@@ -2098,6 +2087,17 @@ source {{GetCSEInstallScriptDistroFilepath}}
 
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
+
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+configureEtcEnvironment
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+{{- end}}
+
+{{GetOutboundCommand}}
 
 # Bring in OS-related vars
 source /etc/os-release
@@ -5659,6 +5659,10 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
+        {{- end}}
+        {{- if IsKata }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
         {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
