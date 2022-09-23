@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: podname-q9ob2la
+  name: podname-wi6nyf5
   labels:
     env: test
 spec:
   containers:
-  - name: podname-q9ob2la
+  - name: podname-wi6nyf5
     image: nginx
     imagePullPolicy: IfNotPresent
   nodeSelector:
-    kubernetes.io/hostname: abtesfb72000001
+    kubernetes.io/hostname: abtesb623000000
