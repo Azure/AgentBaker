@@ -228,12 +228,12 @@ testKubeBinariesPresent() {
   binaryDir=/usr/local/bin
   k8sVersions="
   1.22.11-hotfix.20220620
-  1.22.14
+  1.22.15
   1.23.8-hotfix.20220620
-  1.23.11
+  1.23.12
   1.24.3
-  1.24.5
-  1.25.1
+  1.24.6
+  1.25.2
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs

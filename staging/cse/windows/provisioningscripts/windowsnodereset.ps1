@@ -5,7 +5,6 @@
 #>
 
 $global:LogPath = "c:\k\windowsnodereset.log"
-$global:HNSModule = "c:\k\hns.psm1"
 
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 
@@ -17,6 +16,12 @@ $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 $UseContainerD = ($global:ContainerRuntime -eq "containerd")
 $IsDualStackEnabled = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates -contains "IPv6DualStack=true"
+
+$global:HNSModule = "c:\k\hns.psm1"
+if ($global:ContainerRuntime -eq "containerd") {
+    Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
+    $global:HNSModule = "c:\k\hns.v2.psm1"
+}
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 

@@ -77,6 +77,13 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "v0.0.2"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -184,24 +191,17 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/cilium/operator:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "1.12.1"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.1"
+        "1.12.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.1.1"
+        "1.12.2"
       ]
     },
     {
@@ -395,8 +395,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.8.7",
-        "v1.8.8.8"
+        "v1.8.8.8",
+        "v1.8.12.1"
       ]
     },
     {
