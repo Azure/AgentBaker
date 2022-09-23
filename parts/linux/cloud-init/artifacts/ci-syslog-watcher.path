@@ -2,7 +2,7 @@
 Description=Monitor the CI syslog status file for changes
 
 [Path]
-PathModified=/var/run/mdsd/update.status
+PathModified=/var/run/mdsd-ci/update.status
 Unit=ci-syslog-watcher.service
 
 [Install]
