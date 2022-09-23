@@ -18,10 +18,10 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/certs/00000000000000cert0.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/certs/00000000000000cert1.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/certs/00000000000000cert2.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    wait_for_file 1200 1 /opt/certs/00000000000000cert0.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /opt/certs/00000000000000cert1.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /opt/certs/00000000000000cert2.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
 

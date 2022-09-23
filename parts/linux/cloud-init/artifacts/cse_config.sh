@@ -77,9 +77,9 @@ configureHTTPProxyCA() {
 
 configureCustomCaCertificate() {
     {{- range $i, $cert := GetCustomCATrustConfigCerts}}
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/certs/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /opt/certs/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
     {{- end}}
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
 
