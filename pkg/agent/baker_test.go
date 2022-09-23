@@ -464,6 +464,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}),
 
+		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}),
+
 		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet+FIPSEnabled", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,

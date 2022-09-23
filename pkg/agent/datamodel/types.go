@@ -143,6 +143,7 @@ const (
 	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                    Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2Gen2                Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2Gen2Kata            Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
@@ -190,6 +191,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
@@ -225,6 +227,10 @@ func (d Distro) Is2204VHDDistro() bool {
 		}
 	}
 	return false
+}
+
+func (d Distro) IsKataDistro() bool {
+	return d == AKSCBLMarinerV2Gen2Kata
 }
 
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
