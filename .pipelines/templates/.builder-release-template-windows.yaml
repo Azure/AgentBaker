@@ -15,6 +15,7 @@ steps:
 #               we will hard-code the task variables SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION.
 #               Task variable GEN2_SIG_FOR_PRODUCTION is set to True and passed to the following steps.
 #               Built sig will be deleted because it has been converted to VHD, and thus not needed.
+#               Use the suffix $RANDOM to avoid duplication while running concurrent builds.
   - bash: |
       if [[ $(HYPERV_GENERATION) == "V2" ]]; then \
         m="sigMode"; \
@@ -22,8 +23,8 @@ steps:
           sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}-gen2"; \
           echo "##vso[task.setvariable variable=GEN2_SIG_FOR_PRODUCTION]False"; \
         else
-          sigImageName="windows-${WINDOWS_SKU}"; \
-          sigGalleryName="WS2022Gen2Gallery$(date +"%y%m%d")"; \          
+          sigImageName="windows-${WINDOWS_SKU}-gen2-$RANDOM"; \
+          sigGalleryName="WS2022Gen2Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \          
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
           echo "##vso[task.setvariable variable=GEN2_SIG_FOR_PRODUCTION]True"; \
@@ -135,25 +136,26 @@ steps:
 
 # Moved conversion to VHD before cleanup.
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
+# Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
   - bash: |
         echo MODE=$(MODE) && \
-        create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-        -e CREATE_TIME="${create_time}" \
-        -e LOCATION="${AZURE_LOCATION}" \
+        -e CLIENT_ID=${BUILD_CLIENT_ID} \
+        -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+        -e TENANT_ID=${BUILD_TENANT_ID} \
+        -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${BUILD_AZURE_RESOURCE_GROUP_NAME}" \
+        -e LOCATION="${BUILD_AZURE_LOCATION}" \
         -e OS_TYPE="Windows" \
-        -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
         -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
+        -e CLASSIC_BLOB="$(STORAGE_ACCT_BLOB_URL)" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+        -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
