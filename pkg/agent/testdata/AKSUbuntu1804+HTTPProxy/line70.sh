@@ -26,7 +26,7 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
 
