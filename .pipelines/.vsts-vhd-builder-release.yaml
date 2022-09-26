@@ -80,11 +80,11 @@ parameters:
 - name: build2204containerd
   displayName: Build 2204 Gen1 Containerd
   type: boolean
-  default: false
+  default: true
 - name: build2204gen2containerd
   displayName: Build 2204 Gen2 Containerd
   type: boolean
-  default: false
+  default: true
 - name: build2004cvmgen2containerd
   displayName: Build 2004 CVM Gen2 Containerd
   type: boolean

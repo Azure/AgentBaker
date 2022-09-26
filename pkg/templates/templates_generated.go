@@ -72,6 +72,7 @@
 // windows/kuberneteswindowssetup.ps1
 // windows/sendlogs.ps1
 // windows/windowscsehelper.ps1
+// windows/windowscsehelper.tests.ps1
 package templates
 
 import (
@@ -6220,6 +6221,10 @@ $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 # HNS remediator
 $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRemediatorIntervalInMinutes}}");
 
+if ($useContainerD) {
+    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
+}
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -6232,7 +6237,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.14.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.16.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6664,6 +6669,12 @@ $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
 $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
 $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST=45
 
+# NOTE: KubernetesVersion does not contain "v"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+# The containerd package name may be changed in future
+$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
+
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
 
@@ -6865,7 +6876,43 @@ function Get-WindowsVersion {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
     }
-}`)
+}
+
+function Install-Containerd-Based-On-Kubernetes-Version {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $ContainerdUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubernetesVersion
+  )
+
+  # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+  # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
+  # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
+  #   1. Current behavior to set the full URL
+  #   2. Setting containerd package in toggle for test purpose or hotfix
+  if ($ContainerdUrl.EndsWith("/")) {
+    Write-Log "ContainerdURL is $ContainerdUrl"
+    $containerdPackage=$global:StableContainerdPackage
+    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+      $containerdPackage=$global:LatestContainerdPackage
+      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+    } else {
+      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
+    }
+    $ContainerdUrl = $ContainerdUrl + $containerdPackage
+  }
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
@@ -6878,6 +6925,68 @@ func windowsWindowscsehelperPs1() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "windows/windowscsehelper.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _windowsWindowscsehelperTestsPs1 = []byte(`BeforeAll {
+  . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+  . $PSCommandPath.Replace('.tests.ps1','.ps1')
+}
+
+Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
+  BeforeAll{
+      Mock Install-Containerd -MockWith {
+        Param(
+          [Parameter(Mandatory = $true)][string]
+          $ContainerdUrl,
+          [Parameter(Mandatory = $true)][string]
+          $CNIBinDir,
+          [Parameter(Mandatory = $true)][string]
+          $CNIConfDir,
+          [Parameter(Mandatory = $true)][string]
+          $KubeDir
+        )
+        Write-Host $ContainerdUrl
+    } -Verifiable
+  }
+
+  It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.24.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
+  It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.30.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
+  It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
+    $expectedURL = "https://mirror.azk8s.cn/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://mirror.azk8s.cn/containerd/windows/" -KubernetesVersion "1.30.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
+  It 'full URL is set' {
+    $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.26.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+}`)
+
+func windowsWindowscsehelperTestsPs1Bytes() ([]byte, error) {
+	return _windowsWindowscsehelperTestsPs1, nil
+}
+
+func windowsWindowscsehelperTestsPs1() (*asset, error) {
+	bytes, err := windowsWindowscsehelperTestsPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/windowscsehelper.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7006,6 +7115,7 @@ var _bindata = map[string]func() (*asset, error){
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
+	"windows/windowscsehelper.tests.ps1":                                   windowsWindowscsehelperTestsPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -7132,6 +7242,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"sendlogs.ps1":               &bintree{windowsSendlogsPs1, map[string]*bintree{}},
 		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
+		"windowscsehelper.tests.ps1": &bintree{windowsWindowscsehelperTestsPs1, map[string]*bintree{}},
 	}},
 }}
 
