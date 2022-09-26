@@ -10,6 +10,14 @@
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.16
+- chore: move the installation of containerd from containerdfunc.ps1 to windowscsehelper.ps1 #2199
+
+## v0.0.15
+- feat: Use hns.v2.psm1 for Windows containerd in CSE package #2223
+- fix: Restart Calico services in HNS remediato #2233
+- feat: Copy new Windows debug scripts in node provisioning #2164
+
 ## v0.0.14
 - feat: Windows CSE support disabling OutboundNAT and removing ROUTE if WinDSR is enabled #2144
 
