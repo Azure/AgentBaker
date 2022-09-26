@@ -5562,6 +5562,10 @@ write_files:
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
         {{- end}}
+        {{- if IsKata }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+        {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
         bin_dir = "/opt/cni/bin"
