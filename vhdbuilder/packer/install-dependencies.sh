@@ -114,6 +114,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     setMarinerNetworkdConfig
     enableDNFAutomatic
     fixCBLMarinerPermissions
+    addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
 fi
 
