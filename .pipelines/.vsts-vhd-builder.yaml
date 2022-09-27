@@ -71,13 +71,14 @@ stages:
             make -f packer.mk run-packer
           displayName: Building VHD
         - script: |
-            OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+            export OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
             export MODE=$(MODE) && \
             export OS_TYPE="Linux" && \
             export GIT_VERSION=$(Build.SourceVersion) && \
             export BUILD_ID=$(Build.BuildId) && \
             export BUILD_NUMBER=$(Build.BuildNumber) && \
             export CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"containerd"} && \
+            export VHD_DEBUG && \
             export CLIENT_SECRET="$(CLIENT_SECRET)" && \
             make -f packer.mk test-building-vhd
           displayName: Run VHD Tests
