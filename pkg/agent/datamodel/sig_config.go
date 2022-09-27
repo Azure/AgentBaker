@@ -229,7 +229,7 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.09.22"
+	LinuxSIGImageVersion string = "2022.09.27"
 
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
@@ -239,7 +239,7 @@ const (
 
 	Arm64LinuxSIGImageVersion    string = "2022.09.27"
 	Ubuntu2204SIGImageVersion    string = "2022.09.19"
-	Ubuntu2004CVMSIGImageVersion string = "2022.09.22"
+	Ubuntu2004CVMSIGImageVersion string = "2022.09.27"
 )
 
 // SIG config Template
