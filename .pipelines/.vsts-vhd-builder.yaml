@@ -39,7 +39,7 @@ stages:
       steps:
         - bash: |
             if [[ ${HYPERV_GENERATION} == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-            echo "Set build mode to $m" && \
+            echo "Set build mode to $m" && \Stand
             echo "##vso[task.setvariable variable=MODE]$m"
           displayName: Get Build Mode
         - task: UniversalPackages@0
@@ -66,6 +66,7 @@ stages:
             export BUILD_NUMBER=$(Build.BuildNumber) && \
             export CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"containerd"} && \
             export CLIENT_SECRET="$(CLIENT_SECRET)" && \
+            export AZURE_VM_SIZE="Standard_D4ds_v4" && \
             make -f packer.mk run-packer
           displayName: Building VHD
         - script: |
