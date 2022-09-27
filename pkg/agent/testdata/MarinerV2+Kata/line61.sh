@@ -26,8 +26,20 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    echo "GPU drivers not yet supported for Mariner"
-    exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    if ! dnf_install 30 1 600 cuda; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+}
+
+installNvidiaContainerRuntime() {
+    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
+    
+    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
 }
 
 installSGXDrivers() {
