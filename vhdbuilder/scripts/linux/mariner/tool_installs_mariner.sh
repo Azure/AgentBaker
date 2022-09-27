@@ -119,6 +119,7 @@ enableMarinerKata() {
     # Enable the mshv boot path
     sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 
-    # Start kata VM initrd generation service
+    # kata-osbuilder-generate is responsible for triggering the kata-osbuilder.sh script, which uses
+    # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
     systemctlEnableAndStart kata-osbuilder-generate
 }
