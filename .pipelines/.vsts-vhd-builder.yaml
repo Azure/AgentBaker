@@ -65,7 +65,7 @@ stages:
             export BUILD_ID=$(Build.BuildId) && \
             export BUILD_NUMBER=$(Build.BuildNumber) && \
             export CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"containerd"} && \
-            ${CONTAINER_IMAGE} make -f packer.mk run-packer
+            make -f packer.mk run-packer
           displayName: Building VHD
         - script: |
             OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
