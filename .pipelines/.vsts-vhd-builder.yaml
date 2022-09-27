@@ -61,6 +61,7 @@ stages:
         - bash: |
             echo MODE=$(MODE) && \
             export MODE=$(MODE) && \
+            export OS_TYPE="Linux" && \
             export GIT_VERSION=$(Build.SourceVersion) && \
             export BUILD_ID=$(Build.BuildId) && \
             export BUILD_NUMBER=$(Build.BuildNumber) && \
@@ -72,6 +73,7 @@ stages:
         - script: |
             OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
             export MODE=$(MODE) && \
+            export OS_TYPE="Linux" && \
             export GIT_VERSION=$(Build.SourceVersion) && \
             export BUILD_ID=$(Build.BuildId) && \
             export BUILD_NUMBER=$(Build.BuildNumber) && \
@@ -91,6 +93,7 @@ stages:
           displayName: publish container image list
         - bash: |
             export MODE=$(MODE) && \
+            export OS_TYPE="Linux" && \
             export GIT_VERSION=$(Build.SourceVersion) && \
             export BUILD_ID=$(Build.BuildId) && \
             export BUILD_NUMBER=$(Build.BuildNumber) && \
