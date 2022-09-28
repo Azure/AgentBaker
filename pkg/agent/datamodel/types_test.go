@@ -880,6 +880,67 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 	}
 }
 
+func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "22.04 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204,
+			},
+			expected: true,
+		},
+		{
+			name: "22.04 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "22.04 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuArm64Containerd2204Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu 18.04 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu 18.04 gen2 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804Gen2,
+			},
+			expected: false,
+		},
+		{
+			name: "18.04 Ubuntu VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd1804,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.Is2204VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.Is2204VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2204VHDDistro())
+			}
+		})
+	}
+}
+
 func TestIsCustomVNET(t *testing.T) {
 	cases := []struct {
 		p             Properties
@@ -1578,12 +1639,6 @@ func TestIsFeatureEnabled(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "telemetry",
-			feature:  "EnableTelemetry",
-			flags:    &FeatureFlags{},
-			expected: false,
-		},
-		{
 			name:    "Enabled feature",
 			feature: "CSERunInBackground",
 			flags: &FeatureFlags{
@@ -1648,9 +1703,7 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 		{
 			name: "Non kubeproxy feature",
 			properties: &Properties{
-				FeatureFlags: &FeatureFlags{
-					EnableTelemetry: true,
-				},
+				FeatureFlags: &FeatureFlags{},
 			},
 			expectedFeatureGates: "",
 		},

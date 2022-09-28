@@ -58,6 +58,15 @@ else
 	$(error MarinerV2 gen1 VMs are not supported yet)
 endif
 endif
+else ifeq (${OS_VERSION},V2kata)
+ifeq (${MODE},gen2Mode)
+	@echo "${MODE}: Building with Hyper-v generation 2 VM for kata"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2-kata.json
+else ifeq (${MODE},sigMode)
+	$(error sigMode not supported yet)
+else
+	$(error MarinerV2 gen1 VMs are not supported yet)
+endif
 else
 	$(error OS_VERSION was invalid ${OS_VERSION})
 endif
@@ -73,7 +82,7 @@ else
 ifeq (${GEN2_SIG_FOR_PRODUCTION},True)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 else
-	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
+	@echo "${MODE}: Building and save to Shared Image Gallery"
 endif
 endif
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json

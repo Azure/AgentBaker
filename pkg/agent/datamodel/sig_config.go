@@ -92,6 +92,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -124,6 +125,7 @@ var AvailableGen2Distros []Distro = []Distro{
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 }
 
@@ -227,14 +229,17 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.08.29"
+	LinuxSIGImageVersion string = "2022.09.27"
 
-	Windows2019SIGImageVersion string = "17763.3287.220810"
-	Windows2022SIGImageVersion string = "20348.887.220810"
+	// DO NOT MODIFY: used for freezing linux images with docker
+	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Arm64LinuxSIGImageVersion    string = "2022.09.06"
-	Ubuntu2204SIGImageVersion    string = "2022.07.25"
-	Ubuntu2004CVMSIGImageVersion string = "2022.08.29"
+	Windows2019SIGImageVersion string = "17763.3406.220913"
+	Windows2022SIGImageVersion string = "20348.1006.220913"
+
+	Arm64LinuxSIGImageVersion    string = "2022.09.27"
+	Ubuntu2204SIGImageVersion    string = "2022.09.27"
+	Ubuntu2004CVMSIGImageVersion string = "2022.09.27"
 )
 
 // SIG config Template
@@ -245,31 +250,33 @@ var (
 		Definition:    "1604",
 		Version:       "2021.11.06",
 	}
+
 	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
+
 	SIGUbuntu1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
@@ -378,6 +385,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2gen2kata",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -391,18 +405,21 @@ var (
 		Definition:    "windows-2019",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2022ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd",
 		Version:       Windows2022SIGImageVersion,
 	}
+
 	SIGWindows2022ContainerdGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -437,15 +454,16 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	return map[Distro]SigImageConfig{
 		AKSCBLMarinerV1:          SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:      SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
 func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2019:               SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2019Containerd:     SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022Containerd:     SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }

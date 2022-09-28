@@ -143,6 +143,7 @@ const (
 	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                    Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2Gen2                Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2Gen2Kata            Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
@@ -190,6 +191,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
@@ -216,6 +218,19 @@ func (d Distro) IsVHDDistro() bool {
 		}
 	}
 	return false
+}
+
+func (d Distro) Is2204VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsKataDistro() bool {
+	return d == AKSCBLMarinerV2Gen2Kata
 }
 
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
@@ -282,18 +297,11 @@ type CustomCloudEnv struct {
 	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
 }
 
-// TelemetryProfile contains settings for collecting telemtry.
-// Note telemtry is currently enabled/disabled with the 'EnableTelemetry' feature flag.
-type TelemetryProfile struct {
-	ApplicationInsightsKey string `json:"applicationInsightsKey,omitempty"`
-}
-
 // FeatureFlags defines feature-flag restricted functionality
 type FeatureFlags struct {
 	EnableCSERunInBackground bool `json:"enableCSERunInBackground,omitempty"`
 	BlockOutboundInternet    bool `json:"blockOutboundInternet,omitempty"`
 	EnableIPv6DualStack      bool `json:"enableIPv6DualStack,omitempty"`
-	EnableTelemetry          bool `json:"enableTelemetry,omitempty"`
 	EnableIPv6Only           bool `json:"enableIPv6Only,omitempty"`
 	EnableWinDSR             bool `json:"enableWinDSR,omitempty"`
 }
@@ -692,7 +700,6 @@ type Properties struct {
 	HostedMasterProfile     *HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
 	AddonProfiles           map[string]AddonProfile  `json:"addonProfiles,omitempty"`
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
-	TelemetryProfile        *TelemetryProfile        `json:"telemetryProfile,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
 }
@@ -991,6 +998,11 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
 }
 
+// Is2204VHDDistro returns true if the distro uses 2204 VHD
+func (a *AgentPoolProfile) Is2204VHDDistro() bool {
+	return a.Distro.Is2204VHDDistro()
+}
+
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -1194,8 +1206,6 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 			return f.BlockOutboundInternet
 		case "EnableIPv6DualStack":
 			return f.EnableIPv6DualStack
-		case "EnableTelemetry":
-			return f.EnableTelemetry
 		case "EnableIPv6Only":
 			return f.EnableIPv6Only
 		case "EnableWinDSR":
@@ -1489,6 +1499,8 @@ type NodeBootstrappingConfiguration struct {
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 	IsARM64                        bool
+	CustomCATrustConfig            *CustomCATrustConfig
+	DisableUnattendedUpgrades      bool
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
@@ -1505,6 +1517,10 @@ type HTTPProxyConfig struct {
 	HTTPSProxy *string   `json:"httpsProxy,omitempty"`
 	NoProxy    *[]string `json:"noProxy,omitempty"`
 	TrustedCA  *string   `json:"trustedCa,omitempty"`
+}
+
+type CustomCATrustConfig struct {
+	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set

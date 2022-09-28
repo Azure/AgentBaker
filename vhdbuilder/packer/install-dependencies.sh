@@ -112,9 +112,15 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdIptables
     forceEnableIpForward
     setMarinerNetworkdConfig
-    enableDNFAutomatic
     fixCBLMarinerPermissions
+    addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      enableMarinerKata
+    else
+      # Leave automatic package update disabled for the kata image
+      enableDNFAutomatic
+    fi
 fi
 
 downloadKrustlet
@@ -148,6 +154,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   1.22.0
   1.23.0
   1.24.0
+  1.25.0
   "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
@@ -196,7 +203,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="510.47.03-sha-106e2e"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
@@ -301,10 +308,7 @@ MULTI_ARCH_VNET_CNI_VERSIONS="
 "
 
 if [[ $(isARM64) == 1 ]]; then
-  ARM64_VNET_CNI_VERSIONS_IN_USE="
-  1.4.14
-  "
-  VNET_CNI_VERSIONS="${ARM64_VNET_CNI_VERSIONS_IN_USE} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
+  VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
 else
   VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
 fi
@@ -329,10 +333,7 @@ MULTI_ARCH_SWIFT_CNI_VERSIONS="
 "
 
 if [[ $(isARM64) == 1 ]]; then
-  ARM64_SWIFT_CNI_VERSIONS_IN_USE="
-  1.4.12
-  "
-  SWIFT_CNI_VERSIONS="${ARM64_SWIFT_CNI_VERSIONS_IN_USE} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
+  SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 else
   SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 fi
@@ -368,6 +369,7 @@ fi
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
 0.9.1
+1.1.1
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
@@ -475,10 +477,6 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
       ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
   fi
   # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then
-  echo "Hyperkube contains nf_tables, exiting..."
-  exit 99
-  fi
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
@@ -489,12 +487,13 @@ done
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.22.6-hotfix.20220615
 1.22.11-hotfix.20220620
-1.23.5-hotfix.20220615
+1.22.15
 1.23.8-hotfix.20220620
-1.24.0-hotfix.20220615
+1.23.12
 1.24.3
+1.24.6
+1.25.2
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
