@@ -2,6 +2,8 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FE
 trigger: none
 
 variables:
+- name: CONTAINER_IMAGE
+  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
 - group: nodesig-test
 
 pool:
@@ -30,8 +32,7 @@ pool:
 #    - generate SAS link from azure CLI
 #    - (offline)POST a new SKU to azure marketplace
 
-variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
+
 
 stages:
   - stage: build_vhd
@@ -61,10 +62,10 @@ stages:
             popd
             cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
           displayName: setup cue
-        - displayName: az login
-          bash: |
+        - bash: |
             az login --service-principal -u ${MSI_RESOURCE_ID} --tenant ${AZ_TENANT_ID}
             az account set -s ${AZ_SUBSCRIPTION_ID}
+          displayName: az login
         - bash: |
             echo MODE=$(MODE) && \
             export MODE=$(MODE) && \
