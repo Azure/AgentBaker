@@ -155,7 +155,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   containerd config default > /etc/containerd/config.toml
 
   # remove unpacked layers after pull to optimize final vhd size.
-  sed -i 's|discard_unpacked_layers \= false|discard_unpacked_layers \= true|' /etc/containerd/config.toml
+  # sed -i 's|discard_unpacked_layers \= false|discard_unpacked_layers \= true|' /etc/containerd/config.toml
 
   grep discard_unpacked_layers < /etc/containerd/config.toml
 
@@ -545,20 +545,6 @@ df -h >> ${VHD_LOGS_FILEPATH}
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 99 {print}') ] || exit 1
-
-echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
-tee -a ${VHD_LOGS_FILEPATH} < /proc/version
-{
-  echo "Install completed successfully on " $(date)
-  echo "VSTS Build NUMBER: ${BUILD_NUMBER}"
-  echo "VSTS Build ID: ${BUILD_ID}"
-  echo "Commit: ${COMMIT}"
-  echo "Ubuntu version: ${UBUNTU_RELEASE}"
-  echo "Hyperv generation: ${HYPERV_GENERATION}"
-  echo "Feature flags: ${FEATURE_FLAGS}"
-  echo "Container runtime: ${CONTAINER_RUNTIME}"
-  echo "FIPS enabled: ${ENABLE_FIPS}"
-} >> ${VHD_LOGS_FILEPATH}
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb

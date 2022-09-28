@@ -98,26 +98,26 @@ az-login:
 	az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
 	az account set -s ${SUBSCRIPTION_ID}
 
-run-packer: az-login
+run-packer: 
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
-run-packer-windows: az-login
+run-packer-windows: 
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
-az-copy: az-login
+az-copy: 
 	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
 
-cleanup: az-login
+cleanup: 
 	@./vhdbuilder/packer/cleanup.sh
 
-generate-sas: az-login
+generate-sas: 
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
-convert-sig-to-classic-storage-account-blob: az-login
+convert-sig-to-classic-storage-account-blob: 
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
 windows-vhd-publishing-info: az-login
 	@./vhdbuilder/packer/generate-windows-vhd-publishing-info.sh
 
-test-building-vhd: az-login
+test-building-vhd: 
 	@./vhdbuilder/packer/test/run-test.sh

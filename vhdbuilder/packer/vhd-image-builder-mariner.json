@@ -109,6 +109,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/build-log.sh",
+      "destination": "/home/packer/build-log.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/components.json",
       "destination": "/home/packer/components.json"
     },

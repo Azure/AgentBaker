@@ -1,6 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
 trigger: none
 
+variables:
+- group: nodesig-test
+
 pool:
   name: "nodesigtest-agent-pool"
 
@@ -58,6 +61,10 @@ stages:
             popd
             cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
           displayName: setup cue
+        - displayName: az login
+          bash: |
+            az login --service-principal -u ${MSI_RESOURCE_ID} --tenant ${AZ_TENANT_ID}
+            az account set -s ${AZ_SUBSCRIPTION_ID}
         - bash: |
             echo MODE=$(MODE) && \
             export MODE=$(MODE) && \
