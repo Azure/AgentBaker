@@ -145,6 +145,13 @@
       "multiArchVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
+      "amd64OnlyVersions": [
+        "v2.6.0"
+      ],
+      "multiArchVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
       "amd64OnlyVersions": [
         "v3.8.9.3"
