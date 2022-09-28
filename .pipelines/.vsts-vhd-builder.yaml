@@ -78,7 +78,7 @@ stages:
             export BUILD_ID=$(Build.BuildId) && \
             export BUILD_NUMBER=$(Build.BuildNumber) && \
             export CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"containerd"} && \
-            export VHD_DEBUG && \
+            export VHD_DEBUG=${VHD_DEBUG} && \
             export CLIENT_SECRET="$(CLIENT_SECRET)" && \
             make -f packer.mk test-building-vhd
           displayName: Run VHD Tests
