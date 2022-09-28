@@ -72,6 +72,7 @@ stages:
           displayName: Building VHD
         - script: |
             export OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+            echo MODE=$(MODE) && \
             export MODE=$(MODE) && \
             export OS_TYPE="Linux" && \
             export GIT_VERSION=$(Build.SourceVersion) && \
@@ -94,6 +95,7 @@ stages:
             targetPath: 'image-bom.json'
           displayName: publish container image list
         - bash: |
+            echo MODE=$(MODE) && \
             export MODE=$(MODE) && \
             export OS_TYPE="Linux" && \
             export GIT_VERSION=$(Build.SourceVersion) && \
@@ -114,44 +116,42 @@ stages:
             IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
-            docker run --rm \
-            -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-            -w /go/src/github.com/Azure/AgentBaker \
-            -e CLIENT_ID=${CLIENT_ID} \
-            -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-            -e TENANT_ID=${TENANT_ID} \
-            -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-            -e PKR_RG_NAME=${PKR_RG_NAME} \
-            -e MODE=${MODE} \
-            -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-            -e SA_NAME=${SA_NAME} \
-            -e IMAGE_NAME=${IMAGE_NAME} \
-            -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
-            -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-            -e ARCHITECTURE=${ARCHITECTURE} \
-            -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
-            ${CONTAINER_IMAGE} make -f packer.mk cleanup
+            export MODE=$(MODE) && \
+            export OS_TYPE="Linux" && \
+            export GIT_VERSION=$(Build.SourceVersion) && \
+            export BUILD_ID=$(Build.BuildId) && \
+            export BUILD_NUMBER=$(Build.BuildNumber) && \
+            export CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"containerd"} && \
+            export CLIENT_SECRET="$(CLIENT_SECRET)" && \
+            export CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" && \
+            export PKR_RG_NAME=${PKR_RG_NAME} && \
+            export AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} && \
+            export SA_NAME=${SA_NAME} && \
+            export IMAGE_NAME=${IMAGE_NAME} && \
+            export IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} && \
+            export SIG_GALLERY_NAME=${SIG_GALLERY_NAME} && \
+            export ARCHITECTURE=${ARCHITECTURE} && \
+            export ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} && \
+            make -f packer.mk cleanup
           displayName: Clean Up Packer Generated Resources
           condition: always()
         - bash: |
             echo MODE=$(MODE) && \
             SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-            docker run --rm \
-            -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-            -w /go/src/github.com/Azure/AgentBaker \
-            -e CLIENT_ID=${CLIENT_ID} \
-            -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-            -e TENANT_ID=${TENANT_ID} \
-            -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-            -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-            -e LOCATION="${AZURE_LOCATION}" \
-            -e OS_TYPE="Linux" \
-            -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-            -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-            -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-            -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
-            ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+            export MODE=$(MODE) && \
+            export OS_TYPE="Linux" && \
+            export GIT_VERSION=$(Build.SourceVersion) && \
+            export BUILD_ID=$(Build.BuildId) && \
+            export BUILD_NUMBER=$(Build.BuildNumber) && \
+            export CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"containerd"} && \
+            export CLIENT_SECRET="$(CLIENT_SECRET)" && \
+            export CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" && \
+            export CLASSIC_BLOB=${CLASSIC_BLOB} \
+            export CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+            export SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+            export GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
+            make -f packer.mk convert-sig-to-classic-storage-account-blob
           displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
         - bash: |
@@ -170,20 +170,20 @@ stages:
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
             -w /go/src/github.com/Azure/AgentBaker \
-            -e CLIENT_ID=${CLIENT_ID} \
-            -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-            -e TENANT_ID=${TENANT_ID} \
-            -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-            -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-            -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-            -e VHD_NAME=${VHD_NAME} \
-            -e OS_NAME="Linux" \
-            -e SKU_NAME=${SKU_NAME} \
-            -e OFFER_NAME=${OS_SKU} \
-            -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-            -e ARCHITECTURE=${ARCHITECTURE} \
-            -e IMAGE_VERSION=${IMAGE_VERSION} \
-            ${CONTAINER_IMAGE} make -f packer.mk generate-sas
+            export CLIENT_ID=${CLIENT_ID} \
+            export CLIENT_SECRET="$(CLIENT_SECRET)" \
+            export TENANT_ID=${TENANT_ID} \
+            export SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+            export CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+            export STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
+            export VHD_NAME=${VHD_NAME} \
+            export OS_NAME="Linux" \
+            export SKU_NAME=${SKU_NAME} \
+            export OFFER_NAME=${OS_SKU} \
+            export HYPERV_GENERATION=${HYPERV_GENERATION} \
+            export ARCHITECTURE=${ARCHITECTURE} \
+            export IMAGE_VERSION=${IMAGE_VERSION} \
+            make -f packer.mk generate-sas
           displayName: Getting Shared Access Signature URI
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
         - task: PublishPipelineArtifact@1
