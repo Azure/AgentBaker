@@ -64,7 +64,7 @@ stages:
           displayName: setup cue
         - bash: |
             set -x
-            az login --service-principal -u ${MSI_RESOURCE_ID} --tenant ${AZ_TENANT_ID}
+            az login -i -u ${MSI_RESOURCE_ID} --tenant ${AZ_TENANT_ID}
             az account set -s ${AZ_SUBSCRIPTION_ID}
           displayName: az login
         - bash: |
