@@ -388,7 +388,7 @@ var (
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2gen2", // TODO(ace): change to V2gen2kata or something when mariner is ready
+		Definition:    "V2gen2kata",
 		Version:       LinuxSIGImageVersion,
 	}
 
