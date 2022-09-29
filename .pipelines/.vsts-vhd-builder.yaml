@@ -7,7 +7,7 @@ variables:
 - group: nodesig-test
 
 pool:
-  name: "nodesigtestt-agent-pool"
+  name: "nodesigtest-agent-pool"
 
 # Three modes in prioritized order
 # gen2Mode: Hyper-Generation V2 mode
