@@ -18,10 +18,10 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/00000000000000cert0.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/00000000000000cert1.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/00000000000000cert2.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    wait_for_file 1200 1 /opt/certs/00000000000000cert0.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /opt/certs/00000000000000cert1.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /opt/certs/00000000000000cert2.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
 
@@ -281,29 +281,39 @@ configGPUDrivers() {
     echo "Debug: configuring GPU drivers with image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
     nvidia-smi
     # install gpu driver
-    mkdir -p /opt/{actions,gpu}
-    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-            echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        mkdir -p /opt/{actions,gpu}
+        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        else
+            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-        ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    else
-        bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-            echo "Failed to install GPU driver, exiting..."
-            exit $ERR_GPU_DRIVERS_START_FAIL
-        fi
-        docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        downloadGPUDrivers
+        installNvidiaContainerRuntime
+    else 
+        echo "os $OS not supported at this time. skipping configGPUDrivers"
+        exit 1
     fi
 
     echo "Debug: Successfully configured GPU drivers with image $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
     # validate on host, already done inside container.
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -351,7 +361,9 @@ ensureGPUDrivers() {
     else
         validateGPUDrivers
     fi
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 }
 
 #EOF

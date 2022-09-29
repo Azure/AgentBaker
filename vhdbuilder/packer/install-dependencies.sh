@@ -112,9 +112,15 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdIptables
     forceEnableIpForward
     setMarinerNetworkdConfig
-    enableDNFAutomatic
     fixCBLMarinerPermissions
+    addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      enableMarinerKata
+    else
+      # Leave automatic package update disabled for the kata image
+      enableDNFAutomatic
+    fi
 fi
 
 downloadKrustlet
@@ -490,12 +496,12 @@ done
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.22.11-hotfix.20220620
-1.22.14
+1.22.15
 1.23.8-hotfix.20220620
-1.23.11
+1.23.12
 1.24.3
-1.24.5
-1.25.1
+1.24.6
+1.25.2
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"

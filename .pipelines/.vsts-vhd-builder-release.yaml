@@ -53,6 +53,10 @@ parameters:
   displayName: Build MarinerV2 Gen2
   type: boolean
   default: true
+- name: buildMarinerV2gen2kata
+  displayName: Build MarinerV2 Gen2 Kata
+  type: boolean
+  default: true
 - name: buildMarinerV2ARM64
   displayName: Build MarinerV2 Gen2 - ARM64
   type: boolean
@@ -73,10 +77,6 @@ parameters:
   displayName: Build 1804 FIPS Gen2 GPU+containerd
   type: boolean
   default: true
-- name: build1804arm64gen2containerd
-  displayName: Build 1804 ARM64 Gen2 containerd
-  type: boolean
-  default: false
 - name: build2204arm64gen2containerd
   displayName: Build 2204 ARM64 Gen2 containerd
   type: boolean
@@ -84,11 +84,11 @@ parameters:
 - name: build2204containerd
   displayName: Build 2204 Gen1 Containerd
   type: boolean
-  default: false
+  default: true
 - name: build2204gen2containerd
   displayName: Build 2204 Gen2 Containerd
   type: boolean
-  default: false
+  default: true
 - name: build2004cvmgen2containerd
   displayName: Build 2004 CVM Gen2 Containerd
   type: boolean
@@ -380,7 +380,6 @@ stages:
           echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-arm64'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
           echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4pds_V5'
-          echo '##vso[task.setvariable variable=AZURE_LOCATION]westus2'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
           echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
@@ -389,6 +388,29 @@ stages:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: marinerv2-gen2-arm64
+  - stage: build_vhd_marinerv2_gen2_kata
+    dependsOn: []
+    condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
+            echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: marinerv2-gen2-kata
   - stage: build_vhd_1804_fips_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
@@ -482,32 +504,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: 1804-fips-gen2-gpu-containerd 
-  - stage: build_vhd_1804_arm64_gen2_containerd
-    dependsOn: []
-    condition: eq('${{ parameters.build1804arm64gen2containerd }}', true)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-            echo '##vso[task.setvariable variable=IMG_SKU]18_04-lts-arm64'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_LOCATION]westus2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4pds_V5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 1804-arm64-gen2-containerd
+            artifactName: 1804-fips-gen2-gpu-containerd
   - stage: build_vhd_2204_arm64_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
@@ -523,7 +520,6 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-arm64'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_LOCATION]westus2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4pds_V5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'

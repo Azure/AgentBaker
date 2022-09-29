@@ -18,7 +18,20 @@ do
     fi
 done
 
-sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/${SIG_IMAGE_NAME}/versions/${GEN2_CAPTURED_SIG_VERSION}"
+# Default to this hard-coded value for Linux does not pass this environment variable into here
+if [[ -z "$SIG_GALLERY_NAME" ]]; then
+  SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+fi
+
+echo "SIG_IMAGE_VERSION before checking and assigning is $SIG_IMAGE_VERSION"
+# Windows Gen 2: use the passed environment variable $SIG_IMAGE_VERSION
+# Linux Gen 2: assign $GEN2_CAPTURED_SIG_VERSION to $SIG_IMAGE_VERSION
+if [[ -z "$SIG_IMAGE_VERSION" ]]; then
+  SIG_IMAGE_VERSION=${GEN2_CAPTURED_SIG_VERSION}
+fi
+
+# Use $SIG_IMAGE_VERSION for the sig resource, and $GEN2_CAPTURED_SIG_VERSION (a random number) for the disk resource
+sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${GEN2_CAPTURED_SIG_VERSION}"
 
 az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \

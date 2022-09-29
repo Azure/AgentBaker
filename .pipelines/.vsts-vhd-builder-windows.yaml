@@ -20,7 +20,7 @@ parameters:
 - name: build2022containerdgen2
   displayName: Build 2022 containerd Gen 2
   type: boolean
-  default: False  
+  default: True
 - name: dryrun
   displayName: Dry run
   type: boolean

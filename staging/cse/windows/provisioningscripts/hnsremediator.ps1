@@ -44,4 +44,16 @@ if ($lastId -ne $id) {
 
     Write-Log "Restarting kubeproxy service"
     Restart-Service kubeproxy
+    Write-Log "Restarted kubeproxy service"
+
+    $calicoService = Get-Service -Name CalicoFelix -ErrorAction Ignore
+    if ($calicoService) {
+        Write-Log "Restarting Calico services"
+        # CalicoFelix depends on CalicoNode
+        # https://github.com/projectcalico/calico/blob/master/node/windows-packaging/CalicoWindows/start-calico.ps1#L20
+        # https://github.com/projectcalico/calico/blob/35b0c499dc0b01d228cf70ba942afe4eb1b6a961/node/windows-packaging/CalicoWindows/felix/felix-service.ps1#L21
+        Restart-Service CalicoNode -ErrorAction Ignore
+        Restart-Service CalicoFelix -ErrorAction Ignore
+        Write-Log "Restarted Calico services"
+    }
 }

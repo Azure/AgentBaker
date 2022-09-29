@@ -306,7 +306,7 @@ write_files:
 {{- if ShouldConfigureCustomCATrust}}
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
 {{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
-- path: /usr/local/share/ca-certificates/00000000000000cert{{$i}}.crt
+- path: /opt/certs/00000000000000cert{{$i}}.crt
   permissions: "0644"
   owner: root
   content: |
@@ -497,6 +497,10 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
+        {{- end}}
+        {{- if IsKata }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
         {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]

@@ -89,6 +89,7 @@ stages:
             -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
             -e IMPORT_IMAGE_URL_GEN1=${IMPORT_IMAGE_URL_GEN1} \
             -e IMPORT_IMAGE_URL_GEN2=${IMPORT_IMAGE_URL_GEN2} \
+            -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
             -e ARCHITECTURE=${ARCHITECTURE} \
             ${CONTAINER_IMAGE} make -f packer.mk run-packer
@@ -245,7 +246,6 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-arm64'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_LOCATION]westus2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2pds_V5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
@@ -254,4 +254,4 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: 1804-arm64-gen2-containerd
+            artifactName: 2204-arm64-gen2-containerd
