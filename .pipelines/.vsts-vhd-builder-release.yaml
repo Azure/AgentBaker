@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: "nodesigtest-pool"
+  name: "nodesigtest-agent-pool"
 
 parameters:
 - name: build1604
