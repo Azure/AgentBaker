@@ -48,10 +48,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -73,10 +73,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -99,10 +99,10 @@ switch ($windowsSKU) {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.21.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.20.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -142,7 +142,9 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.12.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.13.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.14.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.14.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.15.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.16.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -197,7 +199,7 @@ $global:map = @{
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.22.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.32/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.32.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.32/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.32.zip"
     );
     "c:\akse-cache\calico\" = @(

@@ -351,23 +351,16 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:efc4b0ba10f1a6ff5f9a7b0559f1b679bc59e27b5523d52ca16b5977f506c0d1",
+    "id": "sha256:a74413bb141b23915690b9ddcdf9f35a21f2667ddaec9461cc73b6da660892ce",
     "repoTags": [
-      "mcr.microsoft.com/oss/cilium/cilium:1.12.1.1"
+      "mcr.microsoft.com/oss/cilium/cilium:1.12.2"
     ],
     "repoDigests": []
   },
   {
-    "id": "sha256:20fafd5b10831d3b08b4dc9ffc81e8e7a3272084d02e5815cb96d9f03ad88308",
+    "id": "sha256:e967733fd6c24a5bf93c4fcbdcbc63e38d4d7ebfafbeec1d4b47644386cb51eb",
     "repoTags": [
-      "mcr.microsoft.com/oss/cilium/operator-generic:1.12.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:4f38d553f1c0d803c3a510ef3049e1962b75589c0e7c0505c2dbb77f43d866ba",
-    "repoTags": [
-      "mcr.microsoft.com/oss/cilium/operator:1.12.1"
+      "mcr.microsoft.com/oss/cilium/operator-generic:1.12.2"
     ],
     "repoDigests": []
   },

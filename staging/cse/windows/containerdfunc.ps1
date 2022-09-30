@@ -2,12 +2,6 @@
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
 
-# NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
-$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
-# The containerd package name may be changed in future
-$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
-
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -123,41 +117,6 @@ function Enable-Logging {
   else {
     Write-Log "Containerd hyperv logging script not avalaible"
   }
-}
-
-function Install-Containerd-Based-On-Kubernetes-Version {
-  Param(
-    [Parameter(Mandatory = $true)][string]
-    $ContainerdUrl,
-    [Parameter(Mandatory = $true)][string]
-    $CNIBinDir,
-    [Parameter(Mandatory = $true)][string]
-    $CNIConfDir,
-    [Parameter(Mandatory = $true)][string]
-    $KubeDir,
-    [Parameter(Mandatory = $true)][string]
-    $KubernetesVersion
-  )
-
-  # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
-  # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
-  # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
-  #   1. Current behavior to set the full URL
-  #   2. Setting containerd package in toggle for test purpose or hotfix
-  if ($ContainerdUrl.EndsWith("/")) {
-    Write-Log "ContainerdURL is $ContainerdUrl"
-    $containerdPackage=$global:StableContainerdPackage
-    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
-      $containerdPackage=$global:LatestContainerdPackage
-      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
-    } else {
-      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
-    }
-    $ContainerdUrl = $ContainerdUrl + $containerdPackage
-  }
-  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
 
 function Install-Containerd {

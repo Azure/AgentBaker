@@ -129,3 +129,8 @@ var GridGPUSizes = map[string]bool{
 	"standard_nv72ads_a10_v5":  true,
 	"standard_nv36adms_a10_v5": true,
 }
+
+const (
+	OSSKUCBLMariner = "CBLMariner"
+	OSSKUMariner    = "Mariner"
+)

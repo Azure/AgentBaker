@@ -12,8 +12,22 @@ installBcc() {
     dnf_install 120 5 25 bcc-tools || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
-configGPUDrivers() {
-    echo "Not installing GPU drivers on Mariner"
+addMarinerNvidiaRepo() {
+    if [[ $OS_VERSION == "2.0" ]]; then 
+        MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
+        touch "${MARINER_NVIDIA_REPO_FILEPATH}"
+        cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
+[mariner-official-nvidia]
+name=CBL-Mariner Official Nvidia 2.0 x86_64
+baseurl=https://packages.microsoft.com/cbl-mariner/2.0/prod/nvidia/x86_64
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+    fi
 }
 
 forceEnableIpForward() {
@@ -99,4 +113,13 @@ EOF
 # This occurs because the umask in Mariner is 0027 and packer_source.sh created the folder
 # Future base images will already have rsyslog installed with 755 /etc/rsyslog.d
     chmod 755 /etc/rsyslog.d
+}
+
+enableMarinerKata() {
+    # Enable the mshv boot path
+    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+
+    # kata-osbuilder-generate is responsible for triggering the kata-osbuilder.sh script, which uses
+    # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
+    systemctlEnableAndStart kata-osbuilder-generate
 }

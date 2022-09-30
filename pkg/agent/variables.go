@@ -56,7 +56,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		if strings.Contains(config.OSSKU, "Mariner") {
+		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
+		if config.AgentPoolProfile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU) {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
 		} else {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)

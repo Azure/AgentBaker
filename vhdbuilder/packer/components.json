@@ -87,7 +87,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.29"
+        "v1.4.29",
+        "v1.4.32"
       ]
     },
     {
@@ -135,6 +136,20 @@
       "multiArchVersions": [
         "ciprod06272022-hotfix",
         "ciprod08102022"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
+      "amd64OnlyVersions": [
+        "5.1.0-main-09-23-2022-df3e2703"
+      ],
+      "multiArchVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "v2.6.0"
       ]
     },
     {
@@ -264,7 +279,8 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.3"
+        "v0.1.3",
+        "v0.1.5"
       ]
     },
     {
@@ -280,9 +296,8 @@
         "v1.2.2.5"
       ],
       "multiArchVersions": [
-        "v1.21.0",
-        "v1.22.0.1",
-        "v1.22.0.2"
+        "v1.22.0.3",
+        "v1.23.0"
       ]
     },
     {
@@ -291,8 +306,8 @@
         "v1.2.2"
       ],
       "multiArchVersions": [
-        "v1.20.0",
-        "v1.21.0"
+        "v1.21.0",
+        "v1.22.0"
       ]
     },
     {
