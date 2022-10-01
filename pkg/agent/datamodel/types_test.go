@@ -984,7 +984,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/agentpool=",
+			expected:      "agentpool=,kubernetes.azure.com/agentpool=",
 		},
 		{
 			name: "with custom labels",
@@ -998,7 +998,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/agentpool=,mycustomlabel1=foo,mycustomlabel2=bar",
+			expected:      "agentpool=,kubernetes.azure.com/agentpool=,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 	}
 

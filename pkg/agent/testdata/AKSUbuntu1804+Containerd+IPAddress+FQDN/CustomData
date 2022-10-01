@@ -220,7 +220,7 @@ write_files:
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
 
-    KUBELET_NODE_LABELS=kubernetes.azure.com/agentpool=agent2
+    KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2
 
     #EOF
 
