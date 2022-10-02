@@ -9,6 +9,7 @@ variables:
 pool:
   name: "nodesigtest-agent-pool"
 
+
 # Three modes in prioritized order
 # gen2Mode: Hyper-Generation V2 mode
 #    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
