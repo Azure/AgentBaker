@@ -67,6 +67,7 @@ stages:
             set -x
             az login -i -u ${MSI_RESOURCE_ID}
             az account set -s ${AZ_SUBSCRIPTION_ID}
+            curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | jq
           displayName: az login
         - bash: |
             echo MODE=$(MODE) && \
