@@ -131,7 +131,8 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [
-        "5.1.0-main-09-23-2022-df3e2703"
+        "5.1.0-main-09-23-2022-df3e2703",
+        "5.2.0-main-09-29-2022-ca064de1"
       ],
       "multiArchVersions": []
     },
