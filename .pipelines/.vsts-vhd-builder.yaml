@@ -7,7 +7,7 @@ variables:
 - group: nodesig-test
 
 pool:
-  name: "nodesigtest-agent-pool"
+  name: "nodesigtest-pool"
 
 
 # Three modes in prioritized order
