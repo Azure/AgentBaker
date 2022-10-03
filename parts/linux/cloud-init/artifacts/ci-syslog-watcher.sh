@@ -23,7 +23,7 @@ else
         exit 1
 fi
 
-echo "Restarting rsyslogd"
-service rsyslog restart
+echo "Restarting rsyslog"
+systemctl restart rsyslog
 
 exit 0
