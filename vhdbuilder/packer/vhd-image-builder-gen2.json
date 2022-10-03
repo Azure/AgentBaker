@@ -46,7 +46,7 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
+        "gallery_name": "PackerSigGalleryEastUSTL",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `gen2_captured_sig_version`}}",
         "replication_regions": [
