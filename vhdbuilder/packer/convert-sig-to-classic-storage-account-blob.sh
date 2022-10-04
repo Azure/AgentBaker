@@ -20,7 +20,7 @@ done
 
 # Default to this hard-coded value for Linux does not pass this environment variable into here
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
-  SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+  SIG_GALLERY_NAME="PackerSigGalleryEastUSTL"
 fi
 
 echo "SIG_IMAGE_VERSION before checking and assigning is $SIG_IMAGE_VERSION"
