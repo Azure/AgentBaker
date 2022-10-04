@@ -88,7 +88,10 @@ else
       --image $IMG_DEF \
       --admin-username $TEST_VM_ADMIN_USERNAME \
       --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --public-ip-address ""
+      --public-ip-address "" \
+      --security-type TrustedLaunch \
+      --enable-secure-boot true \
+      --enable-vtpm true
   fi
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
