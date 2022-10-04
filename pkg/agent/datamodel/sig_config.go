@@ -220,6 +220,7 @@ var AvailableWindowsPIRDistros []Distro = []Distro{
 
 // SIG const
 const (
+	AKSSIGImagePublisher       string = "microsoft-aks"
 	AKSWindowsGalleryName      string = "AKSWindows"
 	AKSWindowsResourceGroup    string = "AKS-Windows"
 	AKSUbuntuGalleryName       string = "AKSUbuntu"
