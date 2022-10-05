@@ -37,7 +37,9 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
   \"properties\": { \
     \"osType\": \"$OS_TYPE\", \
-    \"securityType\": \"TrustedLaunch\", \
+    \"securityProfile\": { \
+      \"securityType\": \"TrustedLaunch\"
+    }, \
     \"creationData\": { \
       \"createOption\": \"FromImage\", \
       \"galleryImageReference\": { \
