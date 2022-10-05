@@ -38,7 +38,7 @@ az resource create --id $disk_resource_id  --is-full-object --location $LOCATION
   \"properties\": { \
     \"osType\": \"$OS_TYPE\", \
     \"securityProfile\": { \
-      \"securityType\": \"TrustedLaunch\"
+      \"securityType\": \"TrustedLaunch\" \
     }, \
     \"creationData\": { \
       \"createOption\": \"FromImage\", \
