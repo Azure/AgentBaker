@@ -494,9 +494,9 @@ write_files:
           runtime_type = "io.containerd.kata.v2"
         {{- end}}
         {{- if IsKrustlet }}
-        [plugins.cri.containerd.runtimes.spin]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
           runtime_type = "io.containerd.spin.v1"
-        [plugins.cri.containerd.runtimes.slight]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
           runtime_type = "io.containerd.slight.v1"
         {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}

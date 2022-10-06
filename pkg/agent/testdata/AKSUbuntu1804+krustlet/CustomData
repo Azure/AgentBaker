@@ -170,9 +170,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
-        [plugins.cri.containerd.runtimes.spin]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
           runtime_type = "io.containerd.spin.v1"
-        [plugins.cri.containerd.runtimes.slight]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
           runtime_type = "io.containerd.slight.v1"
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
         X-Meta-Source-Client = ["azure/aks"]
