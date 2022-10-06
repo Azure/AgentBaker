@@ -142,9 +142,9 @@ installFIPS() {
 
     # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
     echo "purging linux-image-azure..."
-    apt_get_purge 5 10 120 linux-image-azure
-    retrycmd_if_failure 120 5 25 apt-mark hold linux-image-azure
-    retrycmd_if_failure 120 5 25 apt-mark hold linux-image-$(uname -r)
+    apt_get_purge 5 10 120 linux-image-azure || exit 1
+    retrycmd_if_failure 120 5 25 apt-mark hold linux-image-azure || exit 1
+    retrycmd_if_failure 120 5 25 apt-mark hold linux-image-$(uname -r) || exit 1
 
     echo "adding ua repository..."
     retrycmd_if_failure 5 10 120 add-apt-repository -y ppa:ua-client/stable || exit $ERR_ADD_UA_APT_REPO
