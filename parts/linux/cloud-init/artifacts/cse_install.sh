@@ -13,7 +13,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v0.0.1"
+CONTAINERD_WASM_VERSION="cb07e66"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
@@ -88,16 +88,18 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
-    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+downloadContainerdWasmShims() {
+    local containerd_wasm_url="https://kubernetesreleases.blob.core.windows.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
+    local containerd_wasm_filepath="/usr/local/bin"
     if [[ $(isARM64) == 1 ]]; then
-        krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
+        containerd_wasm_url="https://kubernetesreleases.blob.core.windows.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
     fi
 
-    if [ ! -f "$krustlet_filepath" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        chmod 755 "$krustlet_filepath"    
+    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v1" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v1"
     fi
 }
 
