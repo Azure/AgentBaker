@@ -20,7 +20,7 @@ source /home/packer/packer_source.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-COMPONENTS_FILEPATH=/opt/azure/components.json
+
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
@@ -464,7 +464,8 @@ done
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
   KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 else
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
+  echo "Unsupported container runtime"
+  exit 1
 fi
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
