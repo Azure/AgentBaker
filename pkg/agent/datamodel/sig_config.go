@@ -230,6 +230,7 @@ const (
 
 const (
 	LinuxSIGImageVersion string = "2022.10.03"
+	FipsSIGImageVersion  string = "2022.10.06"
 
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
@@ -311,7 +312,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipscontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FipsSIGImageVersion,
 	}
 
 	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version
@@ -319,21 +320,21 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipscontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FipsSIGImageVersion,
 	}
 
 	SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FipsSIGImageVersion,
 	}
 
 	SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FipsSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
