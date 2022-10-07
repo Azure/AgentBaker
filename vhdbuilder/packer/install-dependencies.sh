@@ -464,7 +464,8 @@ done
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
   KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 else
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
+  echo "Unsupported container runtime"
+  exit 1
 fi
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
