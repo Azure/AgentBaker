@@ -13,7 +13,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSION="cb07e66"
+CONTAINERD_WASM_VERSION="v0.3.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
@@ -50,10 +50,10 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
-    local containerd_wasm_url="https://kubernetesreleases.blob.core.windows.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
+    local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
     local containerd_wasm_filepath="/usr/local/bin"
     if [[ $(isARM64) == 1 ]]; then
-        containerd_wasm_url="https://kubernetesreleases.blob.core.windows.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
+        containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
     fi
 
     if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v1" ]; then
