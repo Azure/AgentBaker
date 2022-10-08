@@ -123,7 +123,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     fi
 fi
 
-downloadKrustlet
+downloadContainerdWasmShims
 echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then

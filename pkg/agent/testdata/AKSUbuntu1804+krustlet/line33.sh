@@ -103,7 +103,7 @@ logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadKrustlet
+    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
@@ -131,7 +131,8 @@ fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 logs_to_events "AKS.CSE.ensureJournal" ensureJournal
-logs_to_events "AKS.CSE.krustlet" "systemctlEnableAndStart krustlet"
+
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
