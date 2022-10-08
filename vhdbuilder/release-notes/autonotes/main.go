@@ -228,4 +228,6 @@ var artifactToPath = map[string]string{
 	"marinerv1-gen2":                filepath.Join("AKSCBLMariner", "gen2"),
 	"marinerv2-gen2":                filepath.Join("AKSCBLMarinerV2", "gen2"),
 	"2004-cvm-gen2-containerd":      filepath.Join("AKSUbuntu", "gen2", "2004cvmcontainerd"),
+	"2204-containerd":               filepath.Join("AKSUbuntu", "gen1", "2204containerd"),
+	"2204-gen2-containerd":          filepath.Join("AKSUbuntu", "gen2", "2204containerd"),
 }

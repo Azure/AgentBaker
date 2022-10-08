@@ -112,13 +112,19 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdIptables
     forceEnableIpForward
     setMarinerNetworkdConfig
-    enableDNFAutomatic
     fixCBLMarinerPermissions
+    addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      enableMarinerKata
+    else
+      # Leave automatic package update disabled for the kata image
+      enableDNFAutomatic
+    fi
 fi
 
-downloadKrustlet
-echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
+downloadContainerdWasmShims
+echo "  - krustlet ${CONTAINERD_WASM_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
@@ -458,7 +464,8 @@ done
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
   KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 else
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
+  echo "Unsupported container runtime"
+  exit 1
 fi
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
@@ -482,12 +489,12 @@ done
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
 MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.22.11-hotfix.20220620
-1.22.14
+1.22.15
 1.23.8-hotfix.20220620
-1.23.11
+1.23.12
 1.24.3
-1.24.5
-1.25.1
+1.24.6
+1.25.2
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"

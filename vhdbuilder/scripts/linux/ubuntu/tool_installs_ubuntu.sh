@@ -61,9 +61,8 @@ installBcc() {
     # we explicitly do not remove build-essential or git
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
-    apt list --installed | grep cloud
     if [[ "${VERSION}" == "22.04" ]]; then
-        apt_get_install 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
@@ -140,6 +139,17 @@ EOF
 installFIPS() {
     echo "Installing FIPS..."
     wait_for_apt_locks
+
+    # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
+    echo "purging linux-image-azure..."
+    linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
+    for image in $linuxImages; do
+        echo "Removing non-fips kernel ${image}..."
+        if [[ ${image} != "linux-image-$(uname -r)" ]]; then
+            apt_get_purge 5 10 120 ${image} || exit 1
+        fi
+        retrycmd_if_failure 120 5 25 apt-mark hold ${image} || exit 1
+    done
 
     echo "adding ua repository..."
     retrycmd_if_failure 5 10 120 add-apt-repository -y ppa:ua-client/stable || exit $ERR_ADD_UA_APT_REPO

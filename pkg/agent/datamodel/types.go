@@ -143,6 +143,7 @@ const (
 	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                    Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2Gen2                Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2Gen2Kata            Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
@@ -190,6 +191,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
@@ -225,6 +227,10 @@ func (d Distro) Is2204VHDDistro() bool {
 		}
 	}
 	return false
+}
+
+func (d Distro) IsKataDistro() bool {
+	return d == AKSCBLMarinerV2Gen2Kata
 }
 
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
@@ -1020,34 +1026,9 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
 func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
 	var buf bytes.Buffer
-	buf.WriteString("kubernetes.azure.com/role=agent")
-	if deprecated {
-		buf.WriteString(",node-role.kubernetes.io/agent=")
-		buf.WriteString(",kubernetes.io/role=agent")
-	}
-	// label key agentpool will be depreated soon
-	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
+	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
 
-	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
-		storagetier, _ := GetStorageAccountType(a.VMSize)
-		// label key storageprofile and storagetier will be depreated soon
-		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
-		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=%s", storagetier))
-	}
-	if nvidiaEnabled {
-		accelerator := "nvidia"
-		// label key accelerator will be depreated soon
-		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
-		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/accelerator=%s", accelerator))
-	}
-	if fipsEnabled {
-		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
-	}
-	if osSku != "" {
-		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/os-sku=%s", osSku))
-	}
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
 		keys = append(keys, key)

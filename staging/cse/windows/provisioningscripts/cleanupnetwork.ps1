@@ -4,6 +4,10 @@ $global:NetworkMode = "L2Bridge"
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:HNSModule = "c:\k\hns.psm1"
+if ($global:ContainerRuntime -eq "containerd") {
+    Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
+    $global:HNSModule = "c:\k\hns.v2.psm1"
+}
 
 ipmo $global:HNSModule
 
