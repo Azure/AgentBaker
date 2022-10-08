@@ -123,8 +123,8 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     fi
 fi
 
-downloadKrustlet
-echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
+downloadContainerdWasmShims
+echo "  - krustlet ${CONTAINERD_WASM_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
