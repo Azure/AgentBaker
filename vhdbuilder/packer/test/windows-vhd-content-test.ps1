@@ -54,6 +54,24 @@ function Start-Job-To-Expected-State {
     }
 }
 
+function DownloadFileWithRetry {
+    param (
+        $URL,
+        $Dest,
+        $retryCount = 5,
+        $retryDelay = 0,
+        [Switch]$redactUrl = $false
+    )
+    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+    if ($LASTEXITCODE) {
+        $logURL = $URL
+        if ($redactUrl) {
+            $logURL = $logURL.Split("?")[0]
+        }
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+    }
+}
+
 function Test-FilesToCacheOnVHD
 {
     $invalidFiles = @()
@@ -95,10 +113,14 @@ function Test-FilesToCacheOnVHD
                 continue
             }
 
-            $remoteFileSize = (Invoke-WebRequest $URL -UseBasicParsing -Method Head).Headers.'Content-Length'
-            $localFileSize = (Get-Item $dest).length
-            if ($localFileSize -ne $remoteFileSize) {
-                Write-Error "$dest : Local file size is $localFileSize but remote file size is $remoteFileSize"
+            $fileName = [IO.Path]::GetFileName($URL.Split("?")[0])
+            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+            DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
+            $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
+            $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash
+            Remove-Item -Path $tmpDest
+            if ($localFileHash -ne $remoteFileHash) {
+                Write-Error "$dest : Local file hash is $localFileHash but remote file hash is $remoteFileHash"
                 $invalidFiles = $invalidFiles + $dest
                 continue
             }
@@ -109,8 +131,10 @@ function Test-FilesToCacheOnVHD
                 $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
                 Write-Host "Validating: $mcURL"
                 try {
-                    $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
-                    if ($localFileSize -ne $remoteFileSize) {
+                    DownloadFileWithRetry -URL $mcURL -Dest $tmpDest -redactUrl
+                    $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
+                    Remove-Item -Path $tmpDest
+                    if ($localFileHash -ne $remoteFileHash) {
                         $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64", "azure-vnet-cni-singletenancy-swift-windows-amd64")
 
                         $isIgnore=$False
@@ -121,11 +145,11 @@ function Test-FilesToCacheOnVHD
                             }
                         }
                         if ($isIgnore) {
-                            Write-Output "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size is $remoteFileSize. Ignore it since it is expected"
+                            Write-Output "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash is $remoteFileHash. Ignore it since it is expected"
                             continue
                         }
 
-                        Write-Error "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size is $remoteFileSize"
+                        Write-Error "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash is $remoteFileHash"
                         $invalidFiles = $mcURL
                         continue
                     }
