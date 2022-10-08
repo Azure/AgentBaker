@@ -281,13 +281,10 @@ testKubeProxyImagesPulled() {
   test="testKubeProxyImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  dockerKubeProxyImages=$(jq .dockerKubeProxyImages < ${KUBE_PROXY_IMAGES_FILEPATH})
   containerdKubeProxyImages=$(jq .containerdKubeProxyImages < ${KUBE_PROXY_IMAGES_FILEPATH})
 
   if [ $containerRuntime == 'containerd' ]; then
     testImagesPulled containerd "$containerdKubeProxyImages"
-  elif [ $containerRuntime == 'docker' ]; then
-    testImagesPulled docker "$dockerKubeProxyImages"
   else
     err $test "unsupported container runtime $containerRuntime"
     return

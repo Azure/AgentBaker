@@ -220,6 +220,7 @@ var AvailableWindowsPIRDistros []Distro = []Distro{
 
 // SIG const
 const (
+	AKSSIGImagePublisher       string = "microsoft-aks"
 	AKSWindowsGalleryName      string = "AKSWindows"
 	AKSWindowsResourceGroup    string = "AKS-Windows"
 	AKSUbuntuGalleryName       string = "AKSUbuntu"
@@ -237,7 +238,7 @@ const (
 	Windows2019SIGImageVersion string = "17763.3406.220913"
 	Windows2022SIGImageVersion string = "20348.1006.220913"
 
-	Arm64LinuxSIGImageVersion    string = "2022.09.27"
+	Arm64LinuxSIGImageVersion    string = "2022.10.11"
 	Ubuntu2204SIGImageVersion    string = "2022.09.27"
 	Ubuntu2004CVMSIGImageVersion string = "2022.09.27"
 )
@@ -388,7 +389,7 @@ var (
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2gen2kata",
+		Definition:    "V2katagen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
