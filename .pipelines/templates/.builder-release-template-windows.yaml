@@ -207,7 +207,7 @@ steps:
       echo MODE=$(MODE) && \
       if [[ "${GEN2_SIG_FOR_PRODUCTION}" == "True" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
       [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
-      SKU_NAME="windows-$WINDOWS_SKU-gen2"; \
+      SKU_NAME="windows-$WINDOWS_SKU"; \
       else \
       OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
