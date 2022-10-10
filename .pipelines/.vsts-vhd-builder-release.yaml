@@ -60,7 +60,7 @@ parameters:
 - name: buildMarinerV2ARM64
   displayName: Build MarinerV2 Gen2 - ARM64
   type: boolean
-  default: false
+  default: true
 - name: build1804fipscontainerd
   displayName: Build 1804 FIPS containerd
   type: boolean
