@@ -60,7 +60,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod08102022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10042022-3c05dd1b")
 } elseif ($windowsSku -eq "2019-containerd") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -85,7 +85,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod08102022")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10042022-3c05dd1b")
 } elseif ($windowsSku.Contains("2022-containerd")) {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -110,11 +110,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10042022-3c05dd1b",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
-            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
-        )
+            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29")
 } else {
     throw "No valid windows SKU is specified $windowsSKU"
-} 
+}
 
 $global:map = @{
     "c:\akse-cache\"              = @(
