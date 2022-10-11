@@ -397,7 +397,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "master.220422.1"
+        "master.221011.1"
       ]
     }
   ],
@@ -442,7 +442,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.27",
         "1.4.32"
       ]
     },
