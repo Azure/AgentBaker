@@ -154,7 +154,7 @@ installCNI() {
     fi
 
     # looking for the folder to do a mv and still fall back to tar method if no folder exists
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash building % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
     if [[ -f "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
@@ -171,7 +171,7 @@ installAzureCNI() {
     fi
 
     # looking for the folder to do a mv and still fall back to tar method if no folder exists
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash building % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
     if [[ -f "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
