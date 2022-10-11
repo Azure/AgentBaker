@@ -119,7 +119,7 @@ function Test-FilesToCacheOnVHD
             $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash
             Remove-Item -Path $tmpDest
             if ($localFileHash -ne $remoteFileHash) {
-                Write-Error "$dest : Local file hash is $localFileHash but remote file hash is $remoteFileHash"
+                Write-Error "$dest : Local file hash is $localFileHash but remote file hash in global is $remoteFileHash"
                 $invalidFiles = $invalidFiles + $dest
                 continue
             }
@@ -135,7 +135,8 @@ function Test-FilesToCacheOnVHD
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip"
+                            "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
                         )
 
                         $isIgnore=$False
@@ -149,7 +150,7 @@ function Test-FilesToCacheOnVHD
                             continue
                         }
 
-                        Write-Error "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash is $remoteFileHash"
+                        Write-Error "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash in AzureChinaCloud is $remoteFileHash"
                         $invalidFiles = $mcURL
                         continue
                     }
