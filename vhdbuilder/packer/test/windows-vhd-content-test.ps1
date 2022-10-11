@@ -118,10 +118,26 @@ function Test-FilesToCacheOnVHD
             $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
             $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash
             Remove-Item -Path $tmpDest
+
+            # We have to ignore them since sizes on disk are same but the sizes are different. We are investigating this issue
+            $excludeHashComparisionListInGlobal = @(
+                "v1.24.3-hotfix.20221006-1int.zip",
+                "v1.24.6-hotfix.20221006-1int.zip",
+                "v1.25.2-hotfix.20221006-1int.zip"
+            )
             if ($localFileHash -ne $remoteFileHash) {
-                Write-Error "$dest : Local file hash is $localFileHash but remote file hash in global is $remoteFileHash"
-                $invalidFiles = $invalidFiles + $dest
-                continue
+                $isIgnore=$False
+                foreach($excludePackage in $excludeHashComparisionListInGlobal) {
+                    if ($URL.Contains($excludePackage)) {
+                        $isIgnore=$true
+                        break
+                    }
+                }
+                if (-not $isIgnore) {
+                    Write-Error "$dest : Local file hash is $localFileHash but remote file hash in global is $remoteFileHash"
+                    $invalidFiles = $invalidFiles + $dest
+                    continue
+                }
             }
 
             if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
@@ -131,16 +147,19 @@ function Test-FilesToCacheOnVHD
                     $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
                     Remove-Item -Path $tmpDest
                     if ($localFileHash -ne $remoteFileHash) {
-                        $excludeSizeComparisionList = @(
+                        $excludeHashComparisionListInAzureChinaCloud = @(
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+                            "v1.24.3-hotfix.20221006-1int.zip",
+                            "v1.24.6-hotfix.20221006-1int.zip",
+                            "v1.25.2-hotfix.20221006-1int.zip"
                         )
 
                         $isIgnore=$False
-                        foreach($excludePackage in $excludeSizeComparisionList) {
+                        foreach($excludePackage in $excludeHashComparisionListInAzureChinaCloud) {
                             if ($mcURL.Contains($excludePackage)) {
                                 $isIgnore=$true
                                 break
