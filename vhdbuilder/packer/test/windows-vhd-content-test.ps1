@@ -131,7 +131,12 @@ function Test-FilesToCacheOnVHD
                     $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
                     Remove-Item -Path $tmpDest
                     if ($localFileHash -ne $remoteFileHash) {
-                        $excludeSizeComparisionList = @("calico-windows", "azure-vnet-cni-singletenancy-windows-amd64", "azure-vnet-cni-singletenancy-swift-windows-amd64")
+                        $excludeSizeComparisionList = @(
+                            "calico-windows",
+                            "azure-vnet-cni-singletenancy-windows-amd64",
+                            "azure-vnet-cni-singletenancy-swift-windows-amd64",
+                            "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip"
+                        )
 
                         $isIgnore=$False
                         foreach($excludePackage in $excludeSizeComparisionList) {
