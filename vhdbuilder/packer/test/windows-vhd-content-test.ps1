@@ -136,7 +136,10 @@ function Test-FilesToCacheOnVHD
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+                            "v1.24.3-hotfix.20221006-1int.zip",
+                            "v1.24.6-hotfix.20221006-1int.zip",
+                            "v1.25.2-hotfix.20221006-1int.zip"
                         )
 
                         $isIgnore=$False
