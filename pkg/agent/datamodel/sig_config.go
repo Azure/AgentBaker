@@ -236,7 +236,6 @@ const (
 
 	Windows2019SIGImageVersion string = "17763.3406.220913"
 	Windows2022SIGImageVersion string = "20348.1006.220913"
-	Windows2022Gen2SIGImageVersion string = "20348.1006.220930"
 
 	Arm64LinuxSIGImageVersion    string = "2022.09.27"
 	Ubuntu2204SIGImageVersion    string = "2022.09.27"
@@ -425,7 +424,7 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd-gen2",
-		Version:       Windows2022Gen2SIGImageVersion,
+		Version:       "20348.1006.220930",
 	}
 )
 
