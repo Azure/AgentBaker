@@ -423,7 +423,7 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd-gen2",
-		Version:       Windows2022SIGImageVersion,
+		Version:       "20348.1006.220930",
 	}
 )
 
