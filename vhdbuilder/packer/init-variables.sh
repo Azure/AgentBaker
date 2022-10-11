@@ -280,7 +280,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
 		fi
 		;;
-	"2022-containerd")
+	"2022-containerd" | "2022-containerd-gen2")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
 		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
 		imported_windows_image_name="windows-2022-containerd-imported-${CREATE_TIME}-${RANDOM}"
