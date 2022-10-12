@@ -470,6 +470,7 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
+apt-get autoclean -y
 apt-get autoremove -y
 apt-get clean -y
 
@@ -513,8 +514,6 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
-
-apt-get autoclean -y
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
