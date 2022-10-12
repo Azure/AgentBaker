@@ -64,6 +64,7 @@ steps:
         -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ARCHITECTURE=${ARCHITECTURE} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - script: |
@@ -92,6 +93,7 @@ steps:
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ARCHITECTURE=${ARCHITECTURE} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
