@@ -3,27 +3,29 @@ SHELL=/bin/bash -o pipefail
 build-packer:
 ifeq (${OS_SKU},Ubuntu)
 ifeq (${ARCHITECTURE},ARM64)
-ifeq (${MODE},gen2Mode)
-	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
+ifeq (${HYPERV_GENRATION},V2)
+	@echo "Building with Hyper-v generation 2 ARM64 VM"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
-	@echo "${MODE}: Convert os disk snapshot to SIG"
+	@echo "Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
-else ifeq (${MODE},sigMode)
-	$(error sigMode not supported yet)
-else
-	$(error arm64 generation 1 VM not supported)
 endif
 else
-ifeq (${MODE},gen2Mode)
-	@echo "${MODE}: Building with Hyper-v generation 2 VM"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
-else ifeq (${MODE},sigMode)
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
+ifeq (${HYPERV_GENRATION},V2)
+	@echo "Building the Hyper-v generation 2 VM"
 else
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+	@echo "Building with Hyper-v generation 1 VM"
 endif
+	@packer build --var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+# ifeq (${MODE},gen2Mode)
+# 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
+# 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-gen2.json
+# else ifeq (${MODE},sigMode)
+# 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
+# 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sig.json
+# else
+# 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
+# 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder.json
+# endif
 endif
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${OS_VERSION},V1)
