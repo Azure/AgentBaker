@@ -89,10 +89,10 @@ fi
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # Ensure that the SIG and image definition names are set to their defaults if needed
-if 	[[ -z "$SIG_GALLERY_NAME" ]]; then
+if [[ -z "$SIG_GALLERY_NAME" ]]; then
 	SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 fi
-if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
+if [[ -z "$SIG_IMAGE_NAME" ]]; then
 	if [[ "$OS_SKU" == "Ubuntu" ]]; then
 		if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
 			SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
