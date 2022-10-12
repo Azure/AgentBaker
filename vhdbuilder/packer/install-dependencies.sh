@@ -474,6 +474,9 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
+apt-get autoremove -y
+apt-get clean -y
+
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
@@ -516,8 +519,6 @@ ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
 apt-get autoclean -y
-apt-get autoremove -y
-apt-get clean -y
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
