@@ -4,11 +4,6 @@ parameters:
       default: 1604
 
 steps:
-  - bash: |
-        if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
-        echo "Set build mode to $m" && \
-        echo "##vso[task.setvariable variable=MODE]$m"
-    displayName: Get Build Mode
   - task: UniversalPackages@0
     displayName: Download Asc Baseline
     inputs:
@@ -30,7 +25,6 @@ steps:
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: setup cue
   - bash: |
-        echo MODE=$(MODE) && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
@@ -53,7 +47,6 @@ steps:
         -e IMG_OFFER=${IMG_OFFER} \
         -e IMG_SKU=${IMG_SKU} \
         -e IMG_VERSION=${IMG_VERSION} \
-        -e MODE=$(MODE) \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
@@ -85,7 +78,6 @@ steps:
         -e OS_SKU=${OS_SKU} \
         -e OS_TYPE="Linux" \
         -e IMG_SKU=${IMG_SKU} \
-        -e MODE=$(MODE) \
         -e VHD_DEBUG=${VHD_DEBUG} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
@@ -105,7 +97,6 @@ steps:
         targetPath: 'image-bom.json'
     displayName: publish container image list
   - bash: |
-        echo MODE=$(MODE) && \
         OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -119,15 +110,14 @@ steps:
         -e OS_DISK_SAS=${OS_DISK_SAS} \
         ${CONTAINER_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
-      echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
       gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
+      if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -136,7 +126,6 @@ steps:
       -e TENANT_ID=${TENANT_ID} \
       -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
       -e PKR_RG_NAME=${PKR_RG_NAME} \
-      -e MODE=${MODE} \
       -e DRY_RUN=${DRY_RUN} \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
       -e SA_NAME=${SA_NAME} \
@@ -149,7 +138,6 @@ steps:
     displayName: Clean Up Packer Generated Resources
     condition: always()
   - bash: |
-        echo MODE=$(MODE) && \
         gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         docker run --rm \
@@ -168,10 +156,9 @@ steps:
         -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+    condition: and(eq(variables.DRY_RUN, 'False'))
   - bash: |
-        echo MODE=$(MODE) && \
-        if [[ $(MODE) == "gen2Mode" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
+        if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
         [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
         SKU_NAME="${OS_VERSION}gen2"; \
         else \
@@ -203,12 +190,12 @@ steps:
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))

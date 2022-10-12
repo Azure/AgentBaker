@@ -4,6 +4,7 @@ trigger: none
 pool:
   vmImage: ubuntu-18.04
 
+# ------------------------------------------------------------------------ DEPRECATED ------------------------------------------------------------------------
 # Three modes in prioritized order
 # gen2Mode: Hyper-Generation V2 mode
 #    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
@@ -26,6 +27,8 @@ pool:
 #    - copy from Packer storage account to classic storage account using AzCopy
 #    - generate SAS link from azure CLI
 #    - (offline)POST a new SKU to azure marketplace
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+#                                ALL OF THE ABOVE MODES HAVE BEEN MERGED TOGETHER, NO LONGER REQUIRING "MODE" TO BE SET
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
@@ -128,7 +131,7 @@ stages:
             gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-            if [[ -n "${gen2_captured_sig_version}" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
+            if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
             -w /go/src/github.com/Azure/AgentBaker \
@@ -169,7 +172,7 @@ stages:
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - bash: |
             gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-            if [[ -n "${gen2_captured_sig_version}" ]]; then VHD_NAME="${gen2_captured_sig_version}.vhd"; \
+            if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then VHD_NAME="${gen2_captured_sig_version}.vhd"; \
             SKU_NAME="1804gen2"; else \
             OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
             VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
