@@ -320,12 +320,6 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# merge with above after two more version releases
-#Azure SWIFT CNI has binaries and container images for ARM64 from 1.4.13
-AMD64_ONLY_SWIFT_CNI_VERSIONS="
-1.2.7
-1.4.12
-"
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 MULTI_ARCH_SWIFT_CNI_VERSIONS="
 1.4.22
