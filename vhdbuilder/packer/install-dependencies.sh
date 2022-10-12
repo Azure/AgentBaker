@@ -321,12 +321,10 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
 done
 
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_SWIFT_CNI_VERSIONS="
+SWIFT_CNI_VERSIONS="
 1.4.22
 1.4.32
 "
-
-SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
