@@ -117,6 +117,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -139,6 +140,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -162,6 +164,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -184,6 +187,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -207,6 +211,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -229,6 +234,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -252,6 +258,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -274,6 +281,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -297,6 +305,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -317,6 +326,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -337,6 +347,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -360,6 +371,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -384,6 +396,7 @@ stages:
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
           echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
           echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+          echo '##vso[task.setvariable variable=SGX_INSTALL]False'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
@@ -407,6 +420,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -430,6 +444,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -454,6 +469,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -477,6 +493,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -501,6 +518,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -525,6 +543,7 @@ stages:
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -547,6 +566,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -570,6 +590,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -593,6 +614,7 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
