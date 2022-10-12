@@ -3,7 +3,7 @@ on: pull_request
 
 jobs:
   check-generated:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, 1ES.Pool=abtest-gh]
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
