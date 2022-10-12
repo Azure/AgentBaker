@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -835,6 +836,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return config.CustomCATrustConfig.CustomCATrustCerts
 			}
 			return []string{}
+		},
+		"GetEnableIncreaseDynamicPortRange": func() string {
+			if cs.Properties.WindowsProfile != nil {
+				return strconv.FormatBool(cs.Properties.WindowsProfile.GetEnableIncreaseDynamicPortRange())
+			}
+			return strconv.FormatBool(false)
 		},
 	}
 }

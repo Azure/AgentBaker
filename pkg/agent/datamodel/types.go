@@ -440,6 +440,7 @@ type WindowsProfile struct {
 	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
+	EnableIncreaseDynamicPortRange *bool                      `json:"enableIncreaseDynamicPortRange,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -1164,6 +1165,14 @@ func (w *WindowsProfile) GetHnsRemediatorIntervalInMinutes() uint32 {
 		return *w.HnsRemediatorIntervalInMinutes
 	}
 	return 0
+}
+
+// GetEnableIncreaseDynamicPortRange returns true if it should increase dynamic port range for Windows nodes
+func (w *WindowsProfile) GetEnableIncreaseDynamicPortRange() bool {
+	if w.EnableIncreaseDynamicPortRange != nil {
+		return *w.EnableIncreaseDynamicPortRange
+	}
+	return DefaultEnableIncreaseDynamicPortRange
 }
 
 // IsKubernetes returns true if this template is for Kubernetes orchestrator

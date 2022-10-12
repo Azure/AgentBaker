@@ -9,6 +9,8 @@
 
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+## v0.0.17
+feat: Update dynamic port ranges in Windows nodes #2304
 
 ## v0.0.16
 - chore: move the installation of containerd from containerdfunc.ps1 to windowscsehelper.ps1 #2199

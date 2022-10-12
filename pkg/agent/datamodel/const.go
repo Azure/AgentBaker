@@ -69,6 +69,8 @@ const (
 	DefaultWindowsSSHEnabled = true
 	// DefaultWindowsSecureTlsEnabled is the default windowsProfile.WindowsSecureTlsEnabled value
 	DefaultWindowsSecureTlsEnabled = false
+	// DefaultEnableIncreaseDynamicPortRange is the default windowsProfile.EnableIncreaseDynamicPortRange value
+	DefaultEnableIncreaseDynamicPortRange = false
 )
 
 const (
