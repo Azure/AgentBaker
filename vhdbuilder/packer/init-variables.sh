@@ -1,5 +1,5 @@
 #!/bin/bash -e
-
+set -x
 CDIR=$(dirname "${BASH_SOURCE}")
 
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
