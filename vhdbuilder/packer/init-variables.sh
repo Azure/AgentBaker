@@ -86,39 +86,59 @@ if [ -z "${TENANT_ID}" ]; then
 	exit 1
 fi
 
-echo "storage name: ${STORAGE_ACCOUNT_NAME}"
+echo "storage account name: ${STORAGE_ACCOUNT_NAME}"
+
+# Ensure SIG and image definition names are set to their defaults if needed
+if [[ -z "${SIG_GALLERY_NAME}" ]]; then
+	SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+	echo "No input for SIG_GALLERY_NAME was provided, using auto-generated value: '${SIG_GALLERY_NAME}'"
+else
+	echo "Using provided SIG_GALLERY_NAME: '${SIG_GALLERY_NAME}'"
+fi
+
+if [[ -z "${SIG_IMAGE_NAME}" ]]; then
+	SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}
+	if [[ "${OS_SKU}" == "Ubuntu" ]] && [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+		SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
+	fi
+	if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then
+		SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
+	fi
+	echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: '${SIG_IMAGE_NAME}'"
+else
+	echo "Using provided SIG_IMAGE_NAME: '${SIG_IMAGE_NAME}'"
+fi
 
 # Ensure that the SIG and image definition names are set to their defaults if needed when using hyperv-gen 2
-if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then
-	if [[ -z "$SIG_GALLERY_NAME" ]]; then
-		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
-	fi
-	if [[ -z "$SIG_IMAGE_NAME" ]]; then
-		if [[ "$OS_SKU" == "Ubuntu" ]]; then
-			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
-			else
-				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
-			fi
-		fi
+# if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then
+# 	if [[ -z "$SIG_GALLERY_NAME" ]]; then
+# 		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+# 	fi
+# 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
+# 		if [[ "${OS_SKU}" == "Ubuntu" ]]; then
+# 			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+# 				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
+# 			else
+# 				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+# 			fi
+# 		fi
 
-		if [[ "$OS_SKU" == "CBLMariner" ]]; then
-			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
-		fi
-		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to ${SIG_IMAGE_NAME}"
-	fi
+# 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
+# 			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
+# 		fi
+# 		echo "No input SIG_IMAGE_NAME for Packer build output with hyperv-gen2. Setting to ${SIG_IMAGE_NAME}"
+# 	fi
+# fi
 
-
-	if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-		ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
-		SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
-		# Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
-		azversion=$(az version | jq '."azure-cli"' | tr -d '"')
-		if [[ "${azversion}" < "2.35.0" ]]; then
-			az upgrade -y
-			az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
-			az account set -s ${SUBSCRIPTION_ID}
-		fi
+if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+	ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
+	SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+	# Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
+	azversion=$(az version | jq '."azure-cli"' | tr -d '"')
+	if [[ "${azversion}" < "2.35.0" ]]; then
+		az upgrade -y
+		az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+		az account set -s ${SUBSCRIPTION_ID}
 	fi
 fi
 
@@ -200,7 +220,7 @@ if [[ "$OS_SKU" == "CBLMariner" && ("$OS_VERSION" == "V1" || "$OS_VERSION" == "V
 	echo Importing VHD from $IMPORT_IMAGE_URL
 	azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
 
-# Generation 2 Packer builds require that the imported image is hosted in a SIG
+	# Generation 2 Packer builds require that the imported image is hosted in a SIG
 	if [[ $HYPERV_GENERATION == "V2" ]]; then
 		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
 		az image create \
