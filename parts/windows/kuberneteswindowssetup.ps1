@@ -197,7 +197,7 @@ $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 # HNS remediator
 $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRemediatorIntervalInMinutes}}");
 
-$global:IsIncreaseDynamicPortRange = $false
+$global:EnableIncreaseDynamicPortRange = $false
 
 if ($useContainerD) {
     $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
