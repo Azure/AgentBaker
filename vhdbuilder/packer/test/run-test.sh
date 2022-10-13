@@ -45,7 +45,7 @@ if [ "$MODE" == "default" ]; then
     --os-type $OS_TYPE \
     --public-ip-address ""
 else 
-  if [ "$MODE" == "sigMode" ]; then
+  if [ "$MODE" == "linuxVhdMode" || "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
     if [ -z "$id" ]; then
       echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
@@ -62,10 +62,6 @@ else
     fi
 
     echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
-    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
-    echo "Image definition defined using SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION is ${IMG_DEF}"
-  else 
-    # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
     IMG_DEF=${MANAGED_SIG_ID}
   fi
 

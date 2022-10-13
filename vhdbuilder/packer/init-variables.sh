@@ -88,24 +88,33 @@ fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
-# If SIG_IMAGE_NAME hasnt been provided in Gen2 mode, set it to the default value
-if [[ "$MODE" == "gen2Mode" ]]; then
-	if 	[[ -z "$SIG_GALLERY_NAME" ]]; then
+# If SIG_IMAGE_NAME hasnt been provided in Gen2/linuxVhd mode, set it to the default value
+if [[ "${MODE}" == "linuxVhdMode" ]]; then
+	# Ensure the SIG name
+	if [[ -z "${SIG_GALLERY_NAME}" ]]; then
 		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+		echo "No input for SIG_GALLERY_NAME was provided, using auto-generated value: '${SIG_GALLERY_NAME}'"
+	else
+		echo "Using provided SIG_GALLERY_NAME: '${SIG_GALLERY_NAME}'"
 	fi
-	if 	[[ -z "$SIG_IMAGE_NAME" ]]; then
-		if [[ "$OS_SKU" == "Ubuntu" ]]; then
-			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
-			else
-				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
+	
+	# Ensure the image-definition name
+	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
+		SIG_IMAGE_NAME=${OS_VERSION//./}
+		if [[ "${OS_SKU}" == "Ubuntu" ]]; then
+			if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
+			fi
+			if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then
+				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 			fi
 		fi
-
-		if [[ "$OS_SKU" == "CBLMariner" ]]; then
-			SIG_IMAGE_NAME=${OS_SKU}${OS_VERSION//./}Gen2
+		if [[ "${OS_SKU}" == "CBLMariner" && "${HYPERV_GENERATION,,}" == "v2"]]; then
+			SIG_IMAGE_NAME=${OS_SKU}${SIG_IMAGE_NAME}Gen2
 		fi
-		echo "No input SIG_IMAGE_NAME for Packer build output. Setting to ${SIG_IMAGE_NAME}"
+		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: '${SIG_IMAGE_NAME}'"
+	else
+		echo "Using provided SIG_IMAGE_NAME: '${SIG_IMAGE_NAME}'"
 	fi
 fi
 
@@ -121,7 +130,8 @@ if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   fi
 fi
 
-if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
+# If we're building a Linux VHD, or we're building a windows VHD in sigMode, ensure SIG resources
+if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "sigMode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
 	if [ -z "$id" ]; then
@@ -177,7 +187,7 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
 else
-	echo "Skipping SIG check for $MODE"
+	echo "Skipping SIG check for $MODE, os-type: ${OS_TYPE}"
 fi
 
 # Image import from storage account. Required to build CBLMariner V1 images.
@@ -202,7 +212,7 @@ if [[ "$OS_SKU" == "CBLMariner" && ("$OS_VERSION" == "V1" || "$OS_VERSION" == "V
 	echo Importing VHD from $IMPORT_IMAGE_URL
 	azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
 
-# Generation 2 Packer builds require that the imported image is hosted in a SIG
+	# hyperv-gen2 packer builds require that the imported image is hosted in a SIG
 	if [[ $HYPERV_GENERATION == "V2" ]]; then
 		echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
 		az image create \
