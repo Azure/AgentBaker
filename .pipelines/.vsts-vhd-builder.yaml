@@ -92,7 +92,7 @@ stages:
             -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
             -e ARCHITECTURE=${ARCHITECTURE} \
-            -s SGX_INSTALL=${SGX_INSTALL} \
+            -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk run-packer
           displayName: Building VHD
         - script: |
@@ -119,7 +119,7 @@ stages:
             -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
             -e ARCHITECTURE=${ARCHITECTURE} \
-            -e SGX_INSTALL=${SGX_INSTALL}
+            -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
           displayName: Run VHD Tests
         - task: PublishPipelineArtifact@0
