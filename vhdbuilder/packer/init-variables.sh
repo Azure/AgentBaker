@@ -112,7 +112,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 			fi
 		fi
-		if [[ "${OS_SKU}" == "CBLMariner" && "${HYPERV_GENERATION,,}" == "v2"]]; then
+		if [[ "${OS_SKU}" == "CBLMariner" && "${HYPERV_GENERATION,,}" == "v2" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${SIG_IMAGE_NAME}Gen2
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: '${SIG_IMAGE_NAME}'"
