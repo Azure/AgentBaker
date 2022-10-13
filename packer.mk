@@ -15,6 +15,7 @@ ifeq (${HYPERV_GENRATION},V2)
 else
 	@echo "Building with Hyper-v generation 1 VM"
 endif
+	@echo "Using packer template file: vhd-image-builder-base.json"
 	@packer build --var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 # ifeq (${MODE},gen2Mode)
 # 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
