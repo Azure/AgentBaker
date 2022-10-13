@@ -1,5 +1,5 @@
 #!/bin/bash -e
-
+set -x
 CDIR=$(dirname "${BASH_SOURCE}")
 
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
@@ -97,6 +97,8 @@ if [[ "$MODE" == "gen2Mode" ]]; then
 		if [[ "$OS_SKU" == "Ubuntu" ]]; then
 			if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
 				SIG_IMAGE_NAME=${OS_VERSION//./}CVMGen2
+			elif [[ "$ENABLE_TRUSTED_LAUNCH" == "True" ]]; then
+				SIG_IMAGE_NAME=${OS_VERSION//./}TLGen2
 			else
 				SIG_IMAGE_NAME=${OS_VERSION//./}Gen2
 			fi
@@ -137,42 +139,26 @@ if [[ "$MODE" == "sigMode" || "$MODE" == "gen2Mode" ]]; then
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		TARGET_COMMAND_STRING=""
 		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-			az sig image-definition create \
-				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-				--gallery-name ${SIG_GALLERY_NAME} \
-				--gallery-image-definition ${SIG_IMAGE_NAME} \
-				--publisher microsoft-aks \
-				--offer ${SIG_GALLERY_NAME} \
-				--sku ${SIG_IMAGE_NAME} \
-				--os-type ${OS_TYPE} \
-				--hyper-v-generation ${HYPERV_GENERATION} \
-				--architecture Arm64 \
-				--location ${AZURE_LOCATION}
+			TARGET_COMMAND_STRING+="--architecture Arm64"
 		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-			az sig image-definition create \
-				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-				--gallery-name ${SIG_GALLERY_NAME} \
-				--gallery-image-definition ${SIG_IMAGE_NAME} \
-				--publisher microsoft-aks \
-				--offer ${SIG_GALLERY_NAME} \
-				--sku ${SIG_IMAGE_NAME} \
-				--os-type ${OS_TYPE} \
-				--hyper-v-generation ${HYPERV_GENERATION} \
-				--location ${AZURE_LOCATION} \
-				--features SecurityType=ConfidentialVMSupported
-		else
-			az sig image-definition create \
-				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-				--gallery-name ${SIG_GALLERY_NAME} \
-				--gallery-image-definition ${SIG_IMAGE_NAME} \
-				--publisher microsoft-aks \
-				--offer ${SIG_GALLERY_NAME} \
-				--sku ${SIG_IMAGE_NAME} \
-				--os-type ${OS_TYPE} \
-				--hyper-v-generation ${HYPERV_GENERATION} \
-				--location ${AZURE_LOCATION}
+			TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+		elif [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
 		fi
+
+		az sig image-definition create \
+			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+			--gallery-name ${SIG_GALLERY_NAME} \
+			--gallery-image-definition ${SIG_IMAGE_NAME} \
+			--publisher microsoft-aks \
+			--offer ${SIG_GALLERY_NAME} \
+			--sku ${SIG_IMAGE_NAME} \
+			--os-type ${OS_TYPE} \
+			--hyper-v-generation ${HYPERV_GENERATION} \
+			--location ${AZURE_LOCATION} \
+			${TARGET_COMMAND_STRING}
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
