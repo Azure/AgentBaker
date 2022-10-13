@@ -104,10 +104,10 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		if [[ "${OS_SKU}" == "Ubuntu" ]]; then
 			if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
 				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
-			elif [[ "${ENABLE_TRUSTED_LAUNCH}" == "True "]]; then
+			elif [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
 			fi
-			
+
 			if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then
 				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 			fi
