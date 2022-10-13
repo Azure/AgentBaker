@@ -108,21 +108,6 @@ steps:
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
         targetPath: 'image-bom.json'
     displayName: publish container image list
-  - bash: |
-        echo MODE=$(MODE) && \
-        OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-        -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-        -e OS_DISK_SAS=${OS_DISK_SAS} \
-        ${CONTAINER_IMAGE} make -f packer.mk az-copy
-    displayName: Copying resource to Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'linuxVhdMode'))
   - bash: |
       echo MODE=$(MODE) && \
