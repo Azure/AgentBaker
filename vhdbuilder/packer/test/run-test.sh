@@ -72,24 +72,22 @@ else
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+  TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    az vm create \
-      --resource-group $RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --size Standard_D2pds_V5 \
-      --public-ip-address ""
-  else
-    az vm create \
-      --resource-group $RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --public-ip-address ""
+    TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
+  elif [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
+
+  az vm create \
+      --resource-group $RESOURCE_GROUP_NAME \
+      --name $VM_NAME \
+      --image $IMG_DEF \
+      --admin-username $TEST_VM_ADMIN_USERNAME \
+      --admin-password $TEST_VM_ADMIN_PASSWORD \
+      --public-ip-address "" \
+      ${TARGET_COMMAND_STRING}
+      
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 

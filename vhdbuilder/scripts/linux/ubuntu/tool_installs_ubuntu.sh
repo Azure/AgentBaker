@@ -140,6 +140,20 @@ installFIPS() {
     echo "Installing FIPS..."
     wait_for_apt_locks
 
+    # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
+    echo "purging linux-image-azure..."
+    linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
+    for image in $linuxImages; do
+        echo "Removing non-fips kernel ${image}..."
+        if [[ ${image} != "linux-image-$(uname -r)" ]]; then
+            apt_get_purge 5 10 120 ${image} || exit 1
+        fi
+        retrycmd_if_failure 120 5 25 apt-mark hold ${image} || exit 1
+    done
+
+    echo "purging unattended-upgrades in FIPS VHD..."
+    apt_get_purge 5 10 120 unattended-upgrades || exit 1
+
     echo "adding ua repository..."
     retrycmd_if_failure 5 10 120 add-apt-repository -y ppa:ua-client/stable || exit $ERR_ADD_UA_APT_REPO
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT

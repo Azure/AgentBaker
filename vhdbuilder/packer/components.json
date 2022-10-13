@@ -63,9 +63,9 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.22",
         "v1.4.27",
-        "v1.4.29"
+        "v1.4.29",
+        "v1.4.35"
       ]
     },
     {
@@ -124,15 +124,14 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod06272022-hotfix",
-        "ciprod08102022"
+        "ciprod08102022",
+        "ciprod10042022-3c05dd1b"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [
-        "5.1.0-main-09-23-2022-df3e2703",
-        "5.2.0-main-09-29-2022-ca064de1"
+        "5.3.0-main-10-06-2022-c0c49872"
       ],
       "multiArchVersions": []
     },
@@ -396,7 +395,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "master.220422.1"
+        "master.221011.1"
       ]
     }
   ],
@@ -441,7 +440,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.27",
         "1.4.32"
       ]
     },
