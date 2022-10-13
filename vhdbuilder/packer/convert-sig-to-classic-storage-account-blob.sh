@@ -34,17 +34,34 @@ fi
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${GEN2_CAPTURED_SIG_VERSION}"
 
-az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
-  \"properties\": { \
-    \"osType\": \"$OS_TYPE\", \
-    \"creationData\": { \
-      \"createOption\": \"FromImage\", \
-      \"galleryImageReference\": { \
-        \"id\": \"${sig_resource_id}\" \
+if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+    \"properties\": { \
+      \"osType\": \"$OS_TYPE\", \
+      \"securityProfile\": { \
+        \"securityType\": \"TrustedLaunch\" \
+      }, \
+      \"creationData\": { \
+        \"createOption\": \"FromImage\", \
+        \"galleryImageReference\": { \
+          \"id\": \"${sig_resource_id}\" \
+        } \
       } \
     } \
-  } \
-}"
+  }"
+else
+  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+    \"properties\": { \
+      \"osType\": \"$OS_TYPE\", \
+      \"creationData\": { \
+        \"createOption\": \"FromImage\", \
+        \"galleryImageReference\": { \
+          \"id\": \"${sig_resource_id}\" \
+        } \
+      } \
+    } \
+  }"
+fi
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
