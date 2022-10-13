@@ -116,5 +116,11 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(marinerV2Arm64.Gallery).To(Equal("akscblmariner"))
 		Expect(marinerV2Arm64.Definition).To(Equal("V2gen2arm64"))
 		Expect(marinerV2Arm64.Version).To(Equal(Arm64LinuxSIGImageVersion))
+
+		aksUbuntu2204TLGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204TLGen2]
+		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
+		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2022.10.13"))
 	})
 })
