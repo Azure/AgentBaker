@@ -75,7 +75,7 @@ else
   TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
-  elif [[ "$OS_TYPE" == "Linux" && ${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+  elif [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
 
