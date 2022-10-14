@@ -45,7 +45,7 @@ if [ "$MODE" == "default" ]; then
     --os-type $OS_TYPE \
     --public-ip-address ""
 else 
-  if [ "$MODE" == "linuxVhdMode" ] || [ "$MODE" == "sigMode" ]; then
+  if [ "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
     if [ -z "$id" ]; then
       echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
