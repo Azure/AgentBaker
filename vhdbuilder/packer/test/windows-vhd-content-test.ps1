@@ -16,6 +16,19 @@ $env:WindowsSKU=$windowsSKU
 
 . c:\windows-vhd-configuration.ps1
 
+filter Timestamp { "$(Get-Date -Format o): $_" }
+
+function Write-ErrorWithTimestamp($Message) {
+    $msg = $message | Timestamp
+    Write-Error $msg
+}
+# We do not create static public IP for test VM but we need the public IP
+# when we want to check some issues in infra. Let me use this solution to
+# get it. We can create a static public IP when creating test VM if this
+# does not work
+$testVMPublicIPAddress=$(curl.exe -s -4 icanhazip.com)
+Write-Output "Public IP address of the Test VM is $testVMPublicIPAddress"
+
 function Start-Job-To-Expected-State {
     [CmdletBinding()]
     Param(
@@ -49,7 +62,7 @@ function Start-Job-To-Expected-State {
             $cnt++
         } while ($cnt -lt $MaxRetryCount)
 
-        Write-Error "Cannot start $JobName"
+        Write-ErrorWithTimestamp "Cannot start $JobName"
         exit 1
     }
 }
@@ -82,7 +95,7 @@ function Test-FilesToCacheOnVHD
             $dir = "c:\akse-cache\win-k8s\"
         }
         if(!(Test-Path $dir)) {
-            Write-Error "Directory $dir does not exit"
+            Write-ErrorWithTimestamp "Directory $dir does not exit"
             $missingPaths = $missingPaths + $dir
             continue
         }
@@ -107,7 +120,7 @@ function Test-FilesToCacheOnVHD
             }
 
             if(![System.IO.File]::Exists($dest)) {
-                Write-Error "File $dest does not exist"
+                Write-ErrorWithTimestamp "File $dest does not exist"
                 $invalidFiles = $invalidFiles + $dest
                 continue
             }
@@ -120,11 +133,7 @@ function Test-FilesToCacheOnVHD
             Remove-Item -Path $tmpDest
 
             # We have to ignore them since sizes on disk are same but the sizes are different. We are investigating this issue
-            $excludeHashComparisionListInGlobal = @(
-                "v1.24.3-hotfix.20221006-1int.zip",
-                "v1.24.6-hotfix.20221006-1int.zip",
-                "v1.25.2-hotfix.20221006-1int.zip"
-            )
+            $excludeHashComparisionListInGlobal = @()
             if ($localFileHash -ne $remoteFileHash) {
                 $isIgnore=$False
                 foreach($excludePackage in $excludeHashComparisionListInGlobal) {
@@ -134,7 +143,7 @@ function Test-FilesToCacheOnVHD
                     }
                 }
                 if (-not $isIgnore) {
-                    Write-Error "$dest : Local file hash is $localFileHash but remote file hash in global is $remoteFileHash"
+                    Write-ErrorWithTimestamp "$dest : Local file hash is $localFileHash but remote file hash in global is $remoteFileHash"
                     $invalidFiles = $invalidFiles + $dest
                     continue
                 }
@@ -152,10 +161,7 @@ function Test-FilesToCacheOnVHD
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
-                            "v1.24.3-hotfix.20221006-1int.zip",
-                            "v1.24.6-hotfix.20221006-1int.zip",
-                            "v1.25.2-hotfix.20221006-1int.zip"
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
                         )
 
                         $isIgnore=$False
@@ -169,12 +175,12 @@ function Test-FilesToCacheOnVHD
                             continue
                         }
 
-                        Write-Error "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash in AzureChinaCloud is $remoteFileHash"
+                        Write-ErrorWithTimestamp "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash in AzureChinaCloud is $remoteFileHash"
                         $invalidFiles = $mcURL
                         continue
                     }
                 } catch {
-                    Write-Error "$mcURL is invalid"
+                    Write-ErrorWithTimestamp "$mcURL is invalid"
                     $invalidFiles = $mcURL
                     continue
                 }
@@ -182,7 +188,7 @@ function Test-FilesToCacheOnVHD
         }
     }
     if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0) {
-        Write-Error "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
+        Write-ErrorWithTimestamp "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
         exit 1
     }
 
@@ -197,7 +203,7 @@ function Test-PatchInstalled {
 
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
     if($lostPatched.count -ne 0) {
-        Write-Error "$lostPatched is(are) not installed"
+        Write-ErrorWithTimestamp "$lostPatched is(are) not installed"
         exit 1
     }
 }
@@ -218,11 +224,11 @@ function Test-ImagesPulled {
         $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
     }
     else {
-        Write-Error "unsupported container runtime $containerRuntime"
+        Write-ErrorWithTimestamp "unsupported container runtime $containerRuntime"
     }
 
     if(Compare-Object $imagesToPull $pulledImages) {
-        Write-Error "images to pull do not equal images cached $imagesToPull != $pulledImages"
+        Write-ErrorWithTimestamp "images to pull do not equal images cached $imagesToPull != $pulledImages"
         exit 1
     }
 }
@@ -231,7 +237,7 @@ function Test-RegistryAdded {
     if ($containerRuntime -eq 'containerd') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
         if ($result.EnableCompartmentNamespace -ne 1) {
-            Write-Error "The registry for SMB Resolution Fix for containerD is not added"
+            Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
             exit 1
         }
     }
@@ -240,7 +246,7 @@ function Test-RegistryAdded {
 function Test-DefenderSignature {
     $mpPreference = Get-MpPreference
     if (-not ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources))) {
-        Write-Error "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
+        Write-ErrorWithTimestamp "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
         exit 1
     }
 }
@@ -255,7 +261,7 @@ function Test-AzureExtensions {
     $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
     $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
     if ($compareResult) {
-        Write-Error "Azure extensions are not expected. Details: $($compareResult | Out-String)"
+        Write-ErrorWithTimestamp "Azure extensions are not expected. Details: $($compareResult | Out-String)"
         exit 1
     }
 }
@@ -266,7 +272,7 @@ function Test-DockerCat {
         if ($dockerVersion -eq "20.10.9") {
             $catFilePath = "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
             if (!(Test-Path $catFilePath)) {
-                Write-Error "$catFilePath does not exist"
+                Write-ErrorWithTimestamp "$catFilePath does not exist"
                 exit 1
             }
         }
@@ -277,7 +283,7 @@ function Test-ExcludeUDPSourcePort {
     # Checking whether the UDP source port 65330 is excluded
     $result = $(netsh int ipv4 show excludedportrange udp | findstr.exe 65330)
     if (-not $result) {
-        Write-Error "The UDP source port 65330 is not excluded."
+        Write-ErrorWithTimestamp "The UDP source port 65330 is not excluded."
         exit 1
     }
 }
