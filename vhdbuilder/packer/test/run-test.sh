@@ -60,10 +60,10 @@ else
       echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
       exit 1
     fi
+  fi
 
     echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
     IMG_DEF=${MANAGED_SIG_ID}
-  fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
