@@ -230,17 +230,15 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.09.27"
+	LinuxSIGImageVersion string = "2022.10.12"
 
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Windows2019SIGImageVersion string = "17763.3406.220913"
-	Windows2022SIGImageVersion string = "20348.1006.220913"
+	Windows2019SIGImageVersion string = "17763.3532.221012"
+	Windows2022SIGImageVersion string = "20348.1129.221012"
 
-	Arm64LinuxSIGImageVersion    string = "2022.10.11"
-	Ubuntu2204SIGImageVersion    string = "2022.09.27"
-	Ubuntu2004CVMSIGImageVersion string = "2022.09.27"
+	Arm64LinuxSIGImageVersion string = "2022.10.11"
 )
 
 // SIG config Template
@@ -355,21 +353,21 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204containerd",
-		Version:       Ubuntu2204SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2containerd",
-		Version:       Ubuntu2204SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2CVMcontainerd",
-		Version:       Ubuntu2004CVMSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -425,7 +423,7 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd-gen2",
-		Version:       Windows2022SIGImageVersion,
+		Version:       "20348.1006.220930", // TODO (wanqingfu, ShiqianTao) Workaround. Will improve it.
 	}
 )
 

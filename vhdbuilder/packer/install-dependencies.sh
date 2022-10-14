@@ -123,8 +123,8 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     fi
 fi
 
-downloadKrustlet
-echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
+downloadContainerdWasmShims
+echo "  - krustlet ${CONTAINERD_WASM_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
@@ -320,23 +320,11 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# merge with above after two more version releases
-#Azure SWIFT CNI has binaries and container images for ARM64 from 1.4.13
-AMD64_ONLY_SWIFT_CNI_VERSIONS="
-1.2.7
-1.4.12
-"
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_SWIFT_CNI_VERSIONS="
+SWIFT_CNI_VERSIONS="
 1.4.22
 1.4.32
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  SWIFT_CNI_VERSIONS="${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
-else
-  SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
-fi
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
@@ -345,7 +333,6 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 OVERLAY_CNI_VERSIONS="
-1.4.27
 1.4.32
 "
 
@@ -481,6 +468,10 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
+apt-get autoclean -y
+apt-get autoremove -y
+apt-get clean -y
+
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
@@ -494,7 +485,7 @@ MULTI_ARCH_KUBE_BINARY_VERSIONS="
 1.23.12
 1.24.3
 1.24.6
-1.25.2
+1.25.2-hotfix.20221006
 "
 
 KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
@@ -521,10 +512,6 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
-
-apt-get autoclean -y
-apt-get autoremove -y
-apt-get clean -y
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
