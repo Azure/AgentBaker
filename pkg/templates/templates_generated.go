@@ -6252,6 +6252,8 @@ $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 # HNS remediator
 $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRemediatorIntervalInMinutes}}");
 
+$global:EnableIncreaseDynamicPortRange = $false
+
 if ($useContainerD) {
     $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
 }
@@ -6699,6 +6701,9 @@ $global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER=42
 $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
 $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
 $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST=45
+$global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE=46
+$global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE=47
+$global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE=48
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
