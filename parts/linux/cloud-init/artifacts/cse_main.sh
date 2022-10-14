@@ -124,7 +124,7 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 {{- if IsKrustlet }}
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadKrustlet
+    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
 
 {{- if IsNSeriesSKU}}
@@ -213,15 +213,11 @@ logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 logs_to_events "AKS.CSE.ensureJournal" ensureJournal
-{{- if IsKrustlet}}
-logs_to_events "AKS.CSE.krustlet" "systemctlEnableAndStart krustlet"
-{{- else}}
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
 logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
-{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
