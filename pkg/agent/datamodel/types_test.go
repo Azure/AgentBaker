@@ -908,6 +908,13 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "22.04 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204TLGen2,
+			},
+			expected: true,
+		},
+		{
 			name: "ubuntu 18.04 non-VHD distro",
 			ap: AgentPoolProfile{
 				Distro: Ubuntu1804,
