@@ -121,8 +121,16 @@ function Adjust-DynamicPortRange()
     # Kube-proxy load balancing should be set to DSR mode when it releases with future versions of the OS
     #
     # The fix which reduces dynamic port usage is still needed for DSR mode
-    # Update the range to [33000, 65535] to avoid that it conflicts with NodePort range (30000 - 32767)
-    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
+    # Update the range to avoid that it conflicts with NodePort range (30000 - 32767)
+    if ($global:EnableIncreaseDynamicPortRange) {
+        # UDP port 65330 is excluded in vhdbuilder/packer/configure-windows-vhd.ps1 since it may fail when it is set in provisioning nodes
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "tcp", "30000", "2768") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "udp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "30000", "2768") -ExitCode $global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE
+    } else {
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
+    }
 }
 
 # TODO: should this be in this PR?
