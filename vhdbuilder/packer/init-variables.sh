@@ -93,9 +93,9 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	# Ensure the SIG name
 	if [[ -z "${SIG_GALLERY_NAME}" ]]; then
 		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
-		echo "No input for SIG_GALLERY_NAME was provided, using auto-generated value: '${SIG_GALLERY_NAME}'"
+		echo "No input for SIG_GALLERY_NAME was provided, using auto-generated value: ${SIG_GALLERY_NAME}"
 	else
-		echo "Using provided SIG_GALLERY_NAME: '${SIG_GALLERY_NAME}'"
+		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
 	
 	# Ensure the image-definition name
@@ -115,9 +115,9 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		if [[ "${OS_SKU}" == "CBLMariner" && "${HYPERV_GENERATION,,}" == "v2" ]]; then
 			SIG_IMAGE_NAME=${OS_SKU}${SIG_IMAGE_NAME}Gen2
 		fi
-		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: '${SIG_IMAGE_NAME}'"
+		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"
 	else
-		echo "Using provided SIG_IMAGE_NAME: '${SIG_IMAGE_NAME}'"
+		echo "Using provided SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}"
 	fi
 fi
 
@@ -133,7 +133,9 @@ if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   fi
 fi
 
-# If we're building a Linux VHD, or we're building a windows VHD in sigMode, ensure SIG resources
+echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
+
+# If we're building a Linux VHD or we're building a windows VHD in sigMode, ensure SIG resources
 if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "sigMode" ]]; then
 	echo "SIG existence checking for $MODE"
 	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
