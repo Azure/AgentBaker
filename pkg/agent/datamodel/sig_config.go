@@ -79,6 +79,7 @@ var AvailableUbuntu2204Distros []Distro = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 var AvailableContainerdDistros []Distro = []Distro{
@@ -98,6 +99,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -120,6 +122,7 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
@@ -238,7 +241,8 @@ const (
 	Windows2019SIGImageVersion string = "17763.3532.221012"
 	Windows2022SIGImageVersion string = "20348.1129.221012"
 
-	Arm64LinuxSIGImageVersion string = "2022.10.18"
+	Arm64LinuxSIGImageVersion   string = "2022.10.18"
+	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
 )
 
 // SIG config Template
@@ -363,6 +367,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuContainerd2204TLGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204gen2TLcontainerd",
+		Version:       Ubuntu2204TLSIGImageVersion,
+	}
+
 	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -447,6 +458,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
