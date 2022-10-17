@@ -62,8 +62,13 @@ else
     fi
   fi
 
+  if [ -z "${MANAGED_SIG_ID}" ]; then
+    echo "Managed Sig Id from packer-output is empty, unable to proceed..."
+    exit 1
+  else
     echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
     IMG_DEF=${MANAGED_SIG_ID}
+  fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:

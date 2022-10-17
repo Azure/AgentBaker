@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+set -x
+
 required_env_vars=(
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
