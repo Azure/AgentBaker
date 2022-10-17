@@ -186,8 +186,6 @@ if [[ "$OS_SKU" == "CBLMariner" && ("$OS_VERSION" == "V1" || "$OS_VERSION" == "V
 	else
 		if [[ $HYPERV_GENERATION == "V2" ]]; then
 			IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
-		elif [[ $HYPERV_GENERATION == "V1" ]]; then
-			IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN1}
 		fi
 	fi
 
