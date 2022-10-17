@@ -320,7 +320,7 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} 
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR
-    rm -rf ${CNI_DOWNLOADS_DIR}/${CNI_TGZ_TMP}
+    rm -rf $CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -355,7 +355,7 @@ if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
     downloadCNI
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} 
     tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR
-    rm -rf ${CNI_DOWNLOADS_DIR}/${CNI_TGZ_TMP}
+    rm -rf $CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
 fi
