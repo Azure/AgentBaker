@@ -17,6 +17,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
+const ipv6Family = "IPv6"
+
 // TypeMeta describes an individual API model object
 type TypeMeta struct {
 	// APIVersion is on every object
@@ -523,14 +525,17 @@ type KubernetesConfig struct {
 	KubernetesImageBase               string            `json:"kubernetesImageBase,omitempty"`
 	MCRKubernetesImageBase            string            `json:"mcrKubernetesImageBase,omitempty"`
 	ClusterSubnet                     string            `json:"clusterSubnet,omitempty"`
+	ClusterSubnets                    []string          `json:"clusterSubnets,omitempty"`
 	NetworkPolicy                     string            `json:"networkPolicy,omitempty"`
 	NetworkPlugin                     string            `json:"networkPlugin,omitempty"`
 	NetworkMode                       string            `json:"networkMode,omitempty"`
+	IPFamilies                        []string          `json:"ipFamilies,omitempty"`
 	ContainerRuntime                  string            `json:"containerRuntime,omitempty"`
 	MaxPods                           int               `json:"maxPods,omitempty"`
 	DockerBridgeSubnet                string            `json:"dockerBridgeSubnet,omitempty"`
 	DNSServiceIP                      string            `json:"dnsServiceIP,omitempty"`
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
+	ServiceCIDRs                      []string          `json:"serviceCIDRs,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
 	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //Note: cannot be provided in config. Used *only* for transferring this to azure.json.
@@ -1298,6 +1303,22 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 		return k.AzureCNIURLWindows
 	}
 	return cloudSpecConfig.KubernetesSpecConfig.VnetCNIWindowsPluginsDownloadURL
+}
+
+// IsIPv6 will return true if the supplied KubernetesConfig model
+// is using dual-stack (IPv4/IPv6) or single-stack IPv6, otherwise false.
+func (k *KubernetesConfig) IsIPv6() bool {
+	if k == nil {
+		return false
+	}
+
+	for _, ipFamily := range k.IPFamilies {
+		if strings.EqualFold(ipFamily, ipv6Family) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption

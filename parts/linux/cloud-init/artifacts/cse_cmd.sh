@@ -33,6 +33,7 @@ PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
 SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
 NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
+IS_IPV6={{GetParameter "isIPv6"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
 CNI_PLUGINS_URL={{GetParameter "cniPluginsURL"}}
 CLOUDPROVIDER_BACKOFF={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoff"}}
