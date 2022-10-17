@@ -34,7 +34,7 @@ testFilesDownloaded() {
       file_Name=$(string_replace $fileName $version)
       dest="$downloadLocation/${file_Name}"
       downloadURL=$(string_replace $download_URL $version)/$file_Name
-      if [ ! -s $dest ]; then
+      if [ ! -s $dest ] || [ ! -f $dest ]; then
         err $test "File ${dest} does not exist"
         continue
       fi
