@@ -179,9 +179,9 @@ else
 	echo "Skipping SIG check for $MODE, os-type: ${OS_TYPE}"
 fi
 
-# Image import from storage account. Required to build CBLMariner V1 images.
+# Image import from storage account. Required to build CBLMarinerV1 Gen2 & CBLMarinerV2Kata images.
 if [[ "$OS_SKU" == "CBLMariner" ]]; then
-	if [[ ("$OS_VERSION" == "V1" && "$HYPERV_GENERATION" == "V2") || "$OS_VERSION" == "V2kata"]]; then
+	if [[ ("$OS_VERSION" == "V1" && "$HYPERV_GENERATION" == "V2") || "$OS_VERSION" == "V2kata" ]]; then
 		if [[ $OS_VERSION == "V2kata" ]]; then
 			IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_KATA}
 		else
