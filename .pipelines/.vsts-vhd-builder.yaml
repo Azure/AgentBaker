@@ -91,6 +91,7 @@ stages:
             -e IMPORT_IMAGE_URL_GEN2=${IMPORT_IMAGE_URL_GEN2} \
             -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
+            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk run-packer
@@ -120,6 +121,7 @@ stages:
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
+            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
@@ -180,6 +182,7 @@ stages:
             -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
+            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
           displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
@@ -194,6 +197,7 @@ stages:
             if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
             if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
             if [[ "${FEATURE_FLAGS}" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
+            if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
             -w /go/src/github.com/Azure/AgentBaker \
