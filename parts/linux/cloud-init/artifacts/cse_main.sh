@@ -111,7 +111,8 @@ fi
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else
-    echo "Golden image; skipping dependencies installation"
+    echo "Tyler's image; installing deps anyway"
+    logs_to_events "AKS.CSE.installDeps" installDeps
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
