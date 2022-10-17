@@ -418,7 +418,7 @@
       ]
     },
     {
-      "fileName": "azure-vnet-cni-linux-amd64-v*.tgz",
+      "fileName": "azure-vnet-cni-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
