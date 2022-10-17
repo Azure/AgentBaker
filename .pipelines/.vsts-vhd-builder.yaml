@@ -107,6 +107,7 @@ stages:
             -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
             -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
             -e OS_DISK_URI=${OS_DISK_URI} \
+            -e MANAGED_SIG_ID=${MANAGED_SIG_ID}
             -e AZURE_LOCATION=${AZURE_LOCATION} \
             -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
             -e OS_VERSION=${OS_VERSION} \
@@ -213,7 +214,7 @@ stages:
             -e IMAGE_VERSION=${IMAGE_VERSION} \
             ${CONTAINER_IMAGE} make -f packer.mk generate-sas
           displayName: Getting Shared Access Signature URI
-          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'linuxVhdMode'))
+          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - task: PublishPipelineArtifact@1
           inputs:
             artifactName: 'publishing-info'

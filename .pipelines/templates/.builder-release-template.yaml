@@ -161,13 +161,10 @@ steps:
     condition: eq(variables.DRY_RUN, 'False')
   - bash: |
         echo MODE=$(MODE) && \
-        if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-        [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
-        SKU_NAME="${OS_VERSION}gen2"; \
-        else \
-        OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-        VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-        SKU_NAME=$OS_VERSION; fi && \
+        gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        VHD_NAME="${gen2_captured_sig_version}.vhd" && \
+        SKU_NAME=${OS_VERSION}
+        if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
         if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" && ${OS_SKU} == "CBLMariner" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
         if [[ ${OS_VERSION} == "18.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
         if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
