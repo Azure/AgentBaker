@@ -154,7 +154,7 @@ installCNI() {
     # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
     # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
-    if [[ -f "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
