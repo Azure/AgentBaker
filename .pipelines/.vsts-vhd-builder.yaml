@@ -91,8 +91,8 @@ stages:
             -e IMPORT_IMAGE_URL_GEN2=${IMPORT_IMAGE_URL_GEN2} \
             -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
-            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e ARCHITECTURE=${ARCHITECTURE} \
+            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk run-packer
           displayName: Building VHD
@@ -121,8 +121,8 @@ stages:
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
             -e ENABLE_FIPS=${ENABLE_FIPS} \
-            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e ARCHITECTURE=${ARCHITECTURE} \
+            -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
           displayName: Run VHD Tests

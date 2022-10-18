@@ -107,13 +107,12 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			elif [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
 			fi
-
-			if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then
-				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
-			fi
 		fi
-		if [[ "${OS_SKU}" == "CBLMariner" && "${HYPERV_GENERATION,,}" == "v2" ]]; then
-			SIG_IMAGE_NAME=${OS_SKU}${SIG_IMAGE_NAME}Gen2
+		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
+			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
+		fi
+		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "Ubuntu") ]]; then
+			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"
 	else

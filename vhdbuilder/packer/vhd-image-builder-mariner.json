@@ -16,6 +16,7 @@
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
+    "gen2_captured_sig_version": "{{env `${GEN2_CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
