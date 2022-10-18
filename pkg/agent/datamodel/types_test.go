@@ -2379,3 +2379,66 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 		})
 	}
 }
+
+func TestProperties_IsIPv6(t *testing.T) {
+	testCases := []struct {
+		kubernetesConfig *KubernetesConfig
+		name             string
+		expectedIsIPv6   bool
+	}{
+		{
+			name: "single-stack ipv4",
+			kubernetesConfig: &KubernetesConfig{
+				IPFamilies: []string{"ipv4"},
+			},
+			expectedIsIPv6: false,
+		},
+		{
+			name: "dual-stack order 1",
+			kubernetesConfig: &KubernetesConfig{
+				IPFamilies: []string{"ipv4", "ipv6"},
+			},
+			expectedIsIPv6: true,
+		},
+		{
+			name: "dual-stack order 2",
+			kubernetesConfig: &KubernetesConfig{
+				IPFamilies: []string{"ipv6", "ipv4"},
+			},
+			expectedIsIPv6: true,
+		},
+		{
+			name: "single-stack ipv6",
+			kubernetesConfig: &KubernetesConfig{
+				IPFamilies: []string{"ipv6"},
+			},
+			expectedIsIPv6: true,
+		},
+		{
+			name: "empty value",
+			kubernetesConfig: &KubernetesConfig{
+				IPFamilies: []string{""},
+			},
+			expectedIsIPv6: false,
+		},
+		{
+			name:             "nil",
+			kubernetesConfig: &KubernetesConfig{},
+			expectedIsIPv6:   false,
+		},
+		{
+			name:             "nil config",
+			kubernetesConfig: nil,
+			expectedIsIPv6:   false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := tc.kubernetesConfig.IsIPv6()
+			if actual != tc.expectedIsIPv6 {
+				t.Fatalf("test case %s failed, expected IsIPv6 %t but actual %t", tc.name, tc.expectedIsIPv6, actual)
+			}
+		})
+	}
+}
