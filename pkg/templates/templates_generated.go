@@ -1112,12 +1112,12 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
-        validateGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
 
@@ -3457,7 +3457,12 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    if ! dnf_install 30 1 600 cuda; then
+    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
+    # Need to process the return value of "uname -r" to get the %{version} value
+    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    CUDA_VERSION="*_${KERNEL_VERSION}*"
+
+    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
@@ -3466,7 +3471,7 @@ installNvidiaContainerRuntime() {
     MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
     MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
     
-    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
