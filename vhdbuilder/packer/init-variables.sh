@@ -404,6 +404,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
+  "sig_gallery_Name": "${SIG_GALLERY_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
