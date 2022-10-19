@@ -240,7 +240,6 @@ const (
 
 	Windows2019SIGImageVersion string = "17763.3534.221019"
 	Windows2022SIGImageVersion string = "20348.1131.221019"
-	Windows2022Gen2SIGImageVersion string = "20348.1131.221019" // TODO (wanqingfu, ShiqianTao) Adding one to replace the hard-coded version in #7a81766.
 
 	Arm64LinuxSIGImageVersion   string = "2022.10.18"
 	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
@@ -435,7 +434,7 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd-gen2",
-		Version:       Windows2022Gen2SIGImageVersion, // TODO (wanqingfu, ShiqianTao) Improving on #7a81766 by using the added Gen 2 version instead of hard-coded value.
+		Version:       Windows2022SIGImageVersion,
 	}
 )
 
