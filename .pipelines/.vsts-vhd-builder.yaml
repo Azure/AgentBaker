@@ -4,29 +4,6 @@ trigger: none
 pool:
   vmImage: ubuntu-18.04
 
-# Three modes in prioritized order
-# gen2Mode: Hyper-Generation V2 mode
-#    This mode is activated by setting env var HYPERV_GENERATION to V2 and will generate a 1804 Gen2 Linux image
-#    steps:
-#    - Build VHD to a predefined SIG gallery/image with dynamic version (PackerSigGalleryEastUS/1804Gen2/{{user `gen2_captured_sig_version`}})
-#    - Create a managed disk with dynamic name {{user `gen2_captured_sig_version`}} from the SIG image.
-#    - (offline) Export the managed disk SAS URL, download the VHD to local disk, rename the file to .vhd, upload it to a classic storage account and publish it to PIR.
-#
-# sigMode: Shared Image Gallery mode
-#    This modes is activated when mode 1 is not activated and by setting env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION.
-#    It is similar to mode 1 except it will create a gen1 image and the SIG destination is specified by the provided env var.
-#    This is good for quick testing purpose as you can use the SIG image as soon as the build is completed.
-#    steps:
-#    - Build VHD to a SIG gallery as specified by env var SIG_GALLERY_NAME/SIG_IMAGE_NAME/SIG_IMAGE_VERSION
-#
-# default mode: Gen1+VHD
-#    This default mode generates VHD and store it in a classic storage account. This is mainly for publishing a new VM image to Platform Image Repository(PIR).
-#    steps:
-#    - create an VHD in Packer to normal storage account
-#    - copy from Packer storage account to classic storage account using AzCopy
-#    - generate SAS link from azure CLI
-#    - (offline)POST a new SKU to azure marketplace
-
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
 
@@ -140,10 +117,10 @@ stages:
             echo MODE=$(MODE) && \
             PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
             SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-            gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+            captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-            IMAGE_NAME="${SIG_IMAGE_NAME}-${gen2_captured_sig_version}" && \
+            IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
             -w /go/src/github.com/Azure/AgentBaker \
@@ -166,7 +143,7 @@ stages:
         - bash: |
             echo MODE=$(MODE) && \
             SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-            gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+            captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
             -w /go/src/github.com/Azure/AgentBaker \
@@ -180,15 +157,15 @@ stages:
             -e CLASSIC_BLOB=${CLASSIC_BLOB} \
             -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-            -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
+            -e CAPTURED_SIG_VERSION=${captured_sig_version} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
           displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - bash: |
             echo MODE=$(MODE) && \
-            gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-            VHD_NAME="${gen2_captured_sig_version}.vhd" && \
+            captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+            VHD_NAME="${captured_sig_version}.vhd" && \
             SKU_NAME=${OS_VERSION}
             if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
             if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" && ${OS_SKU} == "CBLMariner" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \

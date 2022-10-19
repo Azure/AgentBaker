@@ -9,7 +9,7 @@ CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 # Before Packer captured Gen2 disk to a managed image using name "1804Gen2-${CREATE_TIME}" then convert the image to a SIG version "1.0.${CREATE_TIME}",
 # CREATE_TIME is in second, so multiple Gen2 builds in a pipleline could affect each other, use 1.${CREATE_TIME}.$RANDOM to reduce conflicts.
-GEN2_CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
+CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
@@ -406,7 +406,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
-  "gen2_captured_sig_version": "${GEN2_CAPTURED_SIG_VERSION}",
+  "captured_sig_version": "${CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
