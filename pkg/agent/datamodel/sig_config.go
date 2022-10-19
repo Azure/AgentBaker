@@ -238,8 +238,8 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Windows2019SIGImageVersion string = "17763.3532.221012"
-	Windows2022SIGImageVersion string = "20348.1129.221012"
+	Windows2019SIGImageVersion string = "17763.3534.221019"
+	Windows2022SIGImageVersion string = "20348.1131.221019"
 
 	Arm64LinuxSIGImageVersion   string = "2022.10.18"
 	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
@@ -434,7 +434,7 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd-gen2",
-		Version:       "20348.1006.220930", // TODO (wanqingfu, ShiqianTao) Workaround. Will improve it.
+		Version:       Windows2022SIGImageVersion,
 	}
 )
 
