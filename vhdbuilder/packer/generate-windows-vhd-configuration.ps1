@@ -128,7 +128,7 @@ $global:map = @{
         "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.ps1",
         "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.ps1",
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/VFP.psm1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/networkhealth.ps1",
+        "https://github.com/microsoft/SDN/blob/master/Kubernetes/windows/debug/networkmonitor/networkhealth.ps1",
         "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
         "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.v2.psm1",
