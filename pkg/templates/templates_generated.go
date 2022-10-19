@@ -5046,7 +5046,6 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
 set -uo pipefail
-set -x
 
 certSource=/opt/certs
 certDestination=/usr/local/share/ca-certificates/certs

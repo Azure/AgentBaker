@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -uo pipefail
-set -x
 
 certSource=/opt/certs
 certDestination=/usr/local/share/ca-certificates/certs
