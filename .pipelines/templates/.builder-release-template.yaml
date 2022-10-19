@@ -115,7 +115,7 @@ steps:
       gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then IMAGE_NAME="${gen2_captured_sig_version}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
+      IMAGE_NAME="${SIG_IMAGE_NAME}-${gen2_captured_sig_version}" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
