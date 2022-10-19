@@ -61,7 +61,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2019.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2019.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2019.Definition).To(Equal("windows-2019"))
-		Expect(windows2019.Version).To(Equal("17763.3532.221012"))
+		Expect(windows2019.Version).To(Equal("17763.3532.221019"))
 
 		windows2019Containerd := sigConfig.SigWindowsImageConfig[AKSWindows2019Containerd]
 		Expect(windows2019Containerd.ResourceGroup).To(Equal("AKS-Windows"))
