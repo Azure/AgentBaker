@@ -61,25 +61,25 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2019.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2019.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2019.Definition).To(Equal("windows-2019"))
-		Expect(windows2019.Version).To(Equal("17763.3532.221012"))
+		Expect(windows2019.Version).To(Equal("17763.3534.221019"))
 
 		windows2019Containerd := sigConfig.SigWindowsImageConfig[AKSWindows2019Containerd]
 		Expect(windows2019Containerd.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2019Containerd.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2019Containerd.Definition).To(Equal("windows-2019-containerd"))
-		Expect(windows2019Containerd.Version).To(Equal("17763.3532.221012"))
+		Expect(windows2019Containerd.Version).To(Equal("17763.3534.221019"))
 
 		windows2022Containerd := sigConfig.SigWindowsImageConfig[AKSWindows2022Containerd]
 		Expect(windows2022Containerd.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2022Containerd.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2022Containerd.Definition).To(Equal("windows-2022-containerd"))
-		Expect(windows2022Containerd.Version).To(Equal("20348.1129.221012"))
+		Expect(windows2022Containerd.Version).To(Equal("20348.1131.221019"))
 
 		windows2022ContainerdGen2 := sigConfig.SigWindowsImageConfig[AKSWindows2022ContainerdGen2]
 		Expect(windows2022ContainerdGen2.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2022ContainerdGen2.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2022ContainerdGen2.Definition).To(Equal("windows-2022-containerd-gen2"))
-		Expect(windows2022ContainerdGen2.Version).To(Equal("20348.1006.220930")) // TODO (wanqingfu, ShiqianTao) Workaround. Will improve it.
+		Expect(windows2022ContainerdGen2.Version).To(Equal("20348.1131.221019"))
 
 		aksUbuntuArm641804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd1804Gen2]
 		Expect(aksUbuntuArm641804Gen2.ResourceGroup).To(Equal("resourcegroup"))
