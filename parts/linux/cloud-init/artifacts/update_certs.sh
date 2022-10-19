@@ -26,4 +26,4 @@ else
   done
 fi
 
-update-ca-certificates -f 1> /dev/null
+update-ca-certificates -f

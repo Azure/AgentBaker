@@ -5072,7 +5072,7 @@ else
   done
 fi
 
-update-ca-certificates -f 1> /dev/null`)
+update-ca-certificates -f`)
 
 func linuxCloudInitArtifactsUpdate_certsShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsUpdate_certsSh, nil
