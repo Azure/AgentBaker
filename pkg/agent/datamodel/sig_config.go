@@ -435,7 +435,7 @@ var (
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd-gen2",
-		Version:       Windows2022Gen2SIGImageVersion, // TODO (wanqingfu, ShiqianTao) Improving over #7a81766 by using the added Gen 2 version instead of hard-coded value.
+		Version:       Windows2022Gen2SIGImageVersion, // TODO (wanqingfu, ShiqianTao) Improving on #7a81766 by using the added Gen 2 version instead of hard-coded value.
 	}
 )
 
