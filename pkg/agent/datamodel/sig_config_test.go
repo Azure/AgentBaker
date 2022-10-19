@@ -79,7 +79,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2022ContainerdGen2.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2022ContainerdGen2.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2022ContainerdGen2.Definition).To(Equal("windows-2022-containerd-gen2"))
-		Expect(windows2022ContainerdGen2.Version).To(Equal("20348.1131.221019")) // TODO (wanqingfu, ShiqianTao) Improving it.
+		Expect(windows2022ContainerdGen2.Version).To(Equal("20348.1131.221019")) // TODO (wanqingfu, ShiqianTao) Improving over #7a81766. Check against latest Gen 2 sig release.
 
 		aksUbuntuArm641804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd1804Gen2]
 		Expect(aksUbuntuArm641804Gen2.ResourceGroup).To(Equal("resourcegroup"))
