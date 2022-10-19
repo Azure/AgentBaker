@@ -9,7 +9,7 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils nftables pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi

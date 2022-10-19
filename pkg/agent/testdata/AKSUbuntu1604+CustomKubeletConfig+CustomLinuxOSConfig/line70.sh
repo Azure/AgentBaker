@@ -245,6 +245,12 @@ configureCNIIPTables() {
 
 configureCNINFTables() {
     if [[ "${IS_IPV6}" = "true" ]]; then
+        # Install nftables if it's not already on the node
+        command -v nft >/dev/null || {
+            apt-get update
+            apt-get install -y nftables
+        }
+
         # Delete the table in a subshell so that we can eat the failed return code
         (nft -na -- list table ip6 azureSLBProbe >/dev/null 2>&1 && nft -- delete table ip6 azureSLBProbe; exit 0)
 
