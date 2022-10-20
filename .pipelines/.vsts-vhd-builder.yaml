@@ -137,7 +137,7 @@ stages:
             -e CAPTURED_SIG_VERSION=${captured_sig_version} \
             -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
             -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-            -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME}
+            -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
             ${CONTAINER_IMAGE} make -f packer.mk cleanup
