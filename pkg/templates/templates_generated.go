@@ -398,13 +398,7 @@ status=$(cat /var/run/mdsd-ci/update.status)
 
 if [[ "$status" == "add" ]]; then
         echo "Status changed to $status."
-        cat >/etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf << 'EOL'
-$ModLoad omuxsock 
-$OMUxSockSocket /var/run/mdsd-ci/default_syslog.socket 
-template(name="MDSD_RSYSLOG_TraditionalForwardFormat" type="string" string="<%PRI%>%TIMESTAMP% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%")
-$OMUxSockDefaultTemplate MDSD_RSYSLOG_TraditionalForwardFormat
-*.* :omuxsock:
-EOL
+        [ -f "/var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf" ] && cp /var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf /etc/rsyslog.d
 elif [[ "$status" == "remove" ]]; then
         echo "Status changed to $status."
         [ -f "/etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf" ] && rm /etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf
