@@ -34,41 +34,22 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local stable_containerd
-    local latest_containerd
+    local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
-        latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
-        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
-    # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
-        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $edge_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi        
-    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-        containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $latest_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    else
-        containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $stable_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_version} ${containerd_patch_version}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi 
+
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
 
 }
 
