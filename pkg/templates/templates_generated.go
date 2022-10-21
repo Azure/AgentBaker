@@ -3435,9 +3435,9 @@ installDeps() {
       fi
     done
 
-    # install additional apparmor deps for 2.0; additionally, install kernel-headers by default for 2.0 and moving forward.
+    # install additional apparmor deps for 2.0; additionally, install kernel-devel by default for 2.0 and moving forward.
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor kernel-headers; do
+      for dnf_package in apparmor-parser libapparmor kernel-devel; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
