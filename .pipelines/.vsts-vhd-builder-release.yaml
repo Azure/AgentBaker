@@ -80,7 +80,7 @@ parameters:
 - name: build2204arm64gen2containerd
   displayName: Build 2204 ARM64 Gen2 containerd
   type: boolean
-  default: false
+  default: true
 - name: build2204containerd
   displayName: Build 2204 Gen1 Containerd
   type: boolean
