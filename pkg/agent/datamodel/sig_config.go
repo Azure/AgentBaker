@@ -241,7 +241,6 @@ const (
 	Windows2019SIGImageVersion string = "17763.3534.221019"
 	Windows2022SIGImageVersion string = "20348.1131.221019"
 
-	Arm64LinuxSIGImageVersion   string = "2022.10.18"
 	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
 )
 
@@ -343,14 +342,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2arm64containerd",
-		Version:       Arm64LinuxSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2arm64containerd",
-		Version:       Arm64LinuxSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
