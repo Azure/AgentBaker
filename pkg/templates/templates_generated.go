@@ -1519,12 +1519,12 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local edge_containerd
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-    else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
-    fi
+    local edge_containerd="1.5.9-2"
+    # if [ -f "$MANIFEST_FILEPATH" ]; then
+    #     edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+    # else
+    #     echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    # fi
 
     containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
     containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
@@ -2066,7 +2066,7 @@ else
     echo "Golden image; skipping dependencies installation"
 fi
 
-# logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 {{- if and NeedsContainerd TeleportEnabled}}
 logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 {{- end}}
@@ -4838,8 +4838,8 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.4"
-        CONTAINERD_PATCH_VERSION="4"
+        CONTAINERD_VERSION="1.5.9"
+        CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"

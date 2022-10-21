@@ -97,7 +97,7 @@ else
     echo "Golden image; skipping dependencies installation"
 fi
 
-# logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 
 setupCNIDirs
 
