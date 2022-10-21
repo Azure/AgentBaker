@@ -2237,7 +2237,15 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        /usr/lib/apt/apt.systemd.daily &
+        {{- if EnableUnattendedUpgrade }}
+        systemctl unmask apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        {{- end }}
+        # this is the DOWNLOAD service
+        # meaning we are wasting IO without even triggering an upgrade 
+        # -________________-
+        systemctl restart apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi
@@ -5334,15 +5342,15 @@ write_files:
 
 
 {{if not IsMariner}}
-{{if DisableUnattendedUpgrade }}
+{{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root
   content: |
-    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Update-Package-Lists "1";
     APT::Periodic::Download-Upgradeable-Packages "0";
     APT::Periodic::AutocleanInterval "0";
-    APT::Periodic::Unattended-Upgrade "0";
+    APT::Periodic::Unattended-Upgrade "1";
 {{end}}
 {{end}}
 
