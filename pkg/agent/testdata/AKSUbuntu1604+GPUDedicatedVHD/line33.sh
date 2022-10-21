@@ -208,7 +208,13 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        /usr/lib/apt/apt.systemd.daily &
+        systemctl unmask apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        # this is the DOWNLOAD service
+        # meaning we are wasting IO without even triggering an upgrade 
+        # -________________-
+        systemctl restart apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi
