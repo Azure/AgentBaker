@@ -1,5 +1,5 @@
 [Unit]
-Description=Monitor the CI syslog status file for changes
+Description=Monitor the ContainerInsights syslog status file for changes
 
 [Path]
 PathModified=/var/run/mdsd-ci/update.status

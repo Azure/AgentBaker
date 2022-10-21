@@ -1,5 +1,5 @@
 [Unit]
-Description=Update CI syslog config based on status change
+Description=Update syslog config based on ContainerInsights syslog status change
 
 [Service]
 Type=oneshot
