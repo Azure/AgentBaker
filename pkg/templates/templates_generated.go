@@ -2489,10 +2489,6 @@ else
     upload_logs &
 fi
 
-# TODO REMOVE ME ONLY TO FORCE CSE LOGS FOR TESTING
-# AGENT RUNS EVERY 5MIN
-sleep 450
-
 exit $EXIT_CODE`)
 
 func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
