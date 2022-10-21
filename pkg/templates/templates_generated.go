@@ -4848,7 +4848,7 @@ installStandaloneContainerd() {
     CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
-    HAS_GREATER_VERSION=="$?"
+    HAS_GREATER_VERSION="$?"
 
     if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
         echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
