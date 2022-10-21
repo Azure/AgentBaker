@@ -34,7 +34,7 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local edge_containerd="1.5.9-2"
+    local edge_containerd="1.4.12-2"
     # if [ -f "$MANIFEST_FILEPATH" ]; then
     #     edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     # else
