@@ -1112,12 +1112,12 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
-        validateGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
 
@@ -1677,19 +1677,41 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadCNI
+        fi
+
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadAzureCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadAzureCNI
+        fi
+        
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+
     chown -R root:root $CNI_BIN_DIR
 }
 
@@ -3435,7 +3457,12 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    if ! dnf_install 30 1 600 cuda; then
+    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
+    # Need to process the return value of "uname -r" to get the %{version} value
+    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    CUDA_VERSION="*_${KERNEL_VERSION}*"
+
+    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
@@ -3444,7 +3471,7 @@ installNvidiaContainerRuntime() {
     MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
     MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
     
-    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -4715,7 +4742,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -5019,7 +5046,6 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
 set -uo pipefail
-set -x
 
 certSource=/opt/certs
 certDestination=/usr/local/share/ca-certificates/certs
@@ -5027,16 +5053,20 @@ certDestination=/usr/local/share/ca-certificates/certs
 cp -a "$certSource"/. "$certDestination"
 
 if [[ -z $(ls -A "$certSource") ]]; then
+  echo "Source dir "$certSource" was empty, attempting to remove cert files"
   ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+    echo "removing "$line" in "$certDestination""
     rm $certDestination/"$line"
   done
 else
+  echo "found cert files in "$certSource""
   certsToCopy=(${certSource}/*)
   currIterationCertFile=${certsToCopy[0]##*/}
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
      if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
+          echo "removing "$file" in "$certDestination""
           rm "${file}"
      fi
   done

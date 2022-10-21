@@ -128,6 +128,9 @@ var GridGPUSizes = map[string]bool{
 	"standard_nv36ads_a10_v5":  true,
 	"standard_nv72ads_a10_v5":  true,
 	"standard_nv36adms_a10_v5": true,
+	"standard_nc8ads_a10_v4":   true,
+	"standard_nc16ads_a10_v4":  true,
+	"standard_nc32ads_a10_v4":  true,
 }
 
 const (
