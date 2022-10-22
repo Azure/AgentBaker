@@ -68,7 +68,7 @@ downloadCNI() {
 }
 
 downloadKubeletExecPlugin() {
-    local kubelet_plugin_url="https://https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-amd64"
+    local kubelet_plugin_url="https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-amd64"
     local kubelet_plugin_filepath="/opt/azure/containers/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
         kubelet_plugin_url="https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-arm64"
