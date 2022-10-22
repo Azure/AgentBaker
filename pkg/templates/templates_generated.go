@@ -339,14 +339,15 @@ func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCiSyslogWatcherPath = []byte(`[Unit]
-Description=Monitor the CI syslog status file for changes
+Description=Monitor the ContainerInsights syslog status file for changes
 
 [Path]
 PathModified=/var/run/mdsd-ci/update.status
 Unit=ci-syslog-watcher.service
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsCiSyslogWatcherPathBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCiSyslogWatcherPath, nil
@@ -364,14 +365,15 @@ func linuxCloudInitArtifactsCiSyslogWatcherPath() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCiSyslogWatcherService = []byte(`[Unit]
-Description=Update CI syslog config based on status change
+Description=Update syslog config based on ContainerInsights syslog status change
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/ci-syslog-watcher.sh
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsCiSyslogWatcherServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCiSyslogWatcherService, nil
@@ -410,7 +412,8 @@ fi
 echo "Restarting rsyslog"
 systemctl restart rsyslog
 
-exit 0`)
+exit 0
+`)
 
 func linuxCloudInitArtifactsCiSyslogWatcherShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCiSyslogWatcherSh, nil
