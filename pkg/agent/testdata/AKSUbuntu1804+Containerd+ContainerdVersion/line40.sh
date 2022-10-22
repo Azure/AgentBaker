@@ -34,12 +34,7 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-    else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
-    fi
+    local containerd_version="1.4.12-2"
 
     containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
     containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"

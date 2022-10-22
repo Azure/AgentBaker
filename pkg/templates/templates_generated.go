@@ -1519,12 +1519,7 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-    else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
-    fi
+    local containerd_version="1.4.12-2"
 
     containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
     containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
@@ -4842,8 +4837,8 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.4"
-        CONTAINERD_PATCH_VERSION="4"
+        CONTAINERD_VERSION="1.4.12"
+        CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
@@ -5996,6 +5991,15 @@ write_files:
 {{- end}}
 {{- end}}
     #EOF
+
+bootcmd:
+- systemctl mask apt-daily.service apt-daily-upgrade.service
+- systemctl disable apt-daily.service apt-daily-upgrade.service
+- systemctl disable apt-daily.timer apt-daily-upgrade.timer
+- echo 'APT::Periodic::Update-Package-Lists "0";'  > /etc/apt/apt.conf.d/99periodic
+- echo 'APT::Periodic::Download-Upgradeable-Packages "0";'  > /etc/apt/apt.conf.d/99periodic
+- echo 'APT::Periodic::AutocleanInterval "0";'  > /etc/apt/apt.conf.d/99periodic
+- echo 'APT::Periodic::Unattended-Upgrade "0";'  > /etc/apt/apt.conf.d/99periodic
 
 runcmd:
 - set -x
