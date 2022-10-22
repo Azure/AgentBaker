@@ -21,15 +21,6 @@ configureCustomCaCertificate() {
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
-
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureK8s() {
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
@@ -98,8 +89,6 @@ EOF
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
-
-    configureKubeletServerCert
 }
 
 configureCNI() {
