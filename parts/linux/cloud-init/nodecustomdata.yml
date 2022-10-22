@@ -686,7 +686,11 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/containers/tls-bootstrap-client
+          interactiveMode: Never
+          provideClusterInfo: true
     contexts:
     - context:
         cluster: localcluster

@@ -1831,6 +1831,21 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadKubeletExecPlugin() {
+    local kubelet_plugin_url="https://https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-amd64"
+    local kubelet_plugin_filepath="/opt/azure/containers/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        kubelet_plugin_url="https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-arm64"
+    fi
+
+    mkdir -p /opt/azure/containers
+
+    if [ ! -f "$kubelet_plugin_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$kubelet_plugin_filepath" "$kubelet_plugin_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$kubelet_plugin_filepath"
+    fi
+}
+
 downloadContainerdWasmShims() {
     local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
     local containerd_wasm_filepath="/usr/local/bin"
@@ -2342,6 +2357,8 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 {{- if IsKrustlet }}
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
+
+downloadKubeletExecPlugin
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
@@ -6260,7 +6277,11 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/containers/tls-bootstrap-client
+          interactiveMode: Never
+          provideClusterInfo: true
     contexts:
     - context:
         cluster: localcluster

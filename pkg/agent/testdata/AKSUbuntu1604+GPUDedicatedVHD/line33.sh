@@ -100,6 +100,8 @@ logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+
+downloadKubeletExecPlugin
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
