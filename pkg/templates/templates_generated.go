@@ -2492,6 +2492,9 @@ else
     upload_logs &
 fi
 
+# REMOVE THIS NEVER MERGE IT
+sleep 500
+
 exit $EXIT_CODE`)
 
 func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
