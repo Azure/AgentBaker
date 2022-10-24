@@ -224,6 +224,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables",
+      "destination": "/home/packer/ipv6_nftables"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables.service",
+      "destination": "/home/packer/ipv6_nftables.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables.sh",
+      "destination": "/home/packer/ipv6_nftables.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },

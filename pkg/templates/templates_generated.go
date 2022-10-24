@@ -33,6 +33,9 @@
 // linux/cloud-init/artifacts/health-monitor.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
+// linux/cloud-init/artifacts/ipv6_nftables
+// linux/cloud-init/artifacts/ipv6_nftables.service
+// linux/cloud-init/artifacts/ipv6_nftables.sh
 // linux/cloud-init/artifacts/kms.service
 // linux/cloud-init/artifacts/krustlet.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
@@ -3127,6 +3130,132 @@ func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIpv6_nftables = []byte(`#!/sbin/nft -f
+
+flush ruleset
+
+table ip6 azureSLBProbe {
+	chain prerouting {
+        type filter hook prerouting priority -300; policy accept;
+        iifname eth0 ip6 saddr fe80::1234:5678:9abc ip6 saddr set 2603:1062:0:1:fe80:1234:5678:9abc counter
+	}
+
+	chain postrouting {
+		type filter hook postrouting priority -300; policy accept;
+		oifname eth0 ip6 daddr 2603:1062:0:1:fe80:1234:5678:9abc ip6 daddr set fe80::1234:5678:9abc counter
+	}
+}`)
+
+func linuxCloudInitArtifactsIpv6_nftablesBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIpv6_nftables, nil
+}
+
+func linuxCloudInitArtifactsIpv6_nftables() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIpv6_nftablesBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ipv6_nftables", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIpv6_nftablesService = []byte(`[Unit]
+Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/opt/scripts/ipv6_nftables.sh
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsIpv6_nftablesServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIpv6_nftablesService, nil
+}
+
+func linuxCloudInitArtifactsIpv6_nftablesService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIpv6_nftablesServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ipv6_nftables.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIpv6_nftablesSh = []byte(`#!/usr/bin/env bash
+set -uo pipefail
+set -x
+
+NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
+
+# query IMDS to check if node has IPv6
+# example interface
+# [
+#   {
+#     "ipv4": {
+#       "ipAddress": [
+#         {
+#           "privateIpAddress": "10.224.0.4",
+#           "publicIpAddress": ""
+#         }
+#       ],
+#       "subnet": [
+#         {
+#           "address": "10.224.0.0",
+#           "prefix": "16"
+#         }
+#       ]
+#     },
+#     "ipv6": {
+#       "ipAddress": [
+#         {
+#           "privateIpAddress": "fd85:534e:4cd6:ab02::5"
+#         }
+#       ]
+#     },
+#     "macAddress": "000D3A98DA20"
+#   }
+# ]
+
+# check the number of IPv6 addresses this instance has from IMDS
+IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
+    jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
+
+if [[ $IPV6_ADDR_COUNT -eq 0 ]]; then
+    echo "instance is not configured with IPv6, skipping nftables rules"
+    exit 0
+fi
+
+# Install nftables if it's not already on the node
+command -v nft >/dev/null || {
+    apt-get update
+    apt-get -o DPkg::Lock::Timeout=300 -y install nftables
+}
+
+echo "writing nftables from $NFTABLES_RULESET_FILE"
+/sbin/nft -f $NFTABLES_RULESET_FILE
+`)
+
+func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIpv6_nftablesSh, nil
+}
+
+func linuxCloudInitArtifactsIpv6_nftablesSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIpv6_nftablesShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ipv6_nftables.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7143,6 +7272,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
+	"linux/cloud-init/artifacts/ipv6_nftables":                             linuxCloudInitArtifactsIpv6_nftables,
+	"linux/cloud-init/artifacts/ipv6_nftables.service":                     linuxCloudInitArtifactsIpv6_nftablesService,
+	"linux/cloud-init/artifacts/ipv6_nftables.sh":                          linuxCloudInitArtifactsIpv6_nftablesSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
 	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
@@ -7262,6 +7394,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
 				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
+				"ipv6_nftables":                             &bintree{linuxCloudInitArtifactsIpv6_nftables, map[string]*bintree{}},
+				"ipv6_nftables.service":                     &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
+				"ipv6_nftables.sh":                          &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
 				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},

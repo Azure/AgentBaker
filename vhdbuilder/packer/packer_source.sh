@@ -43,6 +43,12 @@ copyPackerFiles() {
   CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  IPV6_NFTABLES_RULES_SRC=/home/packer/ipv6_nftables
+  IPV6_NFTABLES_RULES_DEST=/etc/systemd/system/ipv6_nftables
+  IPV6_NFTABLES_SCRIPT_SRC=/home/packer/ipv6_nftables.sh
+  IPV6_NFTABLES_SCRIPT_DEST=/opt/scripts/ipv6_nftables.sh
+  IPV6_NFTABLES_SERVICE_SRC=/home/packer/ipv6_nftables.service
+  IPV6_NFTABLES_SERVICE_DEST=/etc/systemd/system/ipv6_nftables.service
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
@@ -90,6 +96,9 @@ copyPackerFiles() {
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
   cpAndMode $UPDATE_CERTS_TIMER_SRC $UPDATE_CERTS_TIMER_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
+  cpAndMode $IPV6_NFTABLES_RULES_SRC $IPV6_NFTABLES_RULES_DEST 644
+  cpAndMode $IPV6_NFTABLES_SCRIPT_SRC $IPV6_NFTABLES_SCRIPT_DEST 755
+  cpAndMode $IPV6_NFTABLES_SERVICE_SRC $IPV6_NFTABLES_SERVICE_DEST 644
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
