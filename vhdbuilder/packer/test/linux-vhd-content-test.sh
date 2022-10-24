@@ -38,15 +38,17 @@ testFilesDownloaded() {
         err $test "File ${dest} does not exist"
         continue
       fi
-      # -L since some urls are redirects (i.e github)
-      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-      fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
-      if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
-        continue
-      fi
-      # Validate whether package exists in Azure China cloud
-      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+      # no wc -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
+      if [ ! -d $dest ]; then
+        # -L since some urls are redirects (i.e github)
+        fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
+        if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+          err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+          continue
+        fi
+        # Validate whether package exists in Azure China cloud
+        if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
           mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
           echo "Validating: $mcURL"
           isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
@@ -60,6 +62,7 @@ testFilesDownloaded() {
             err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
             continue
           fi
+        fi
       fi
     done
 
@@ -233,7 +236,7 @@ testKubeBinariesPresent() {
   1.23.12
   1.24.3
   1.24.6
-  1.25.2
+  1.25.2-hotfix.20221006
   "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs

@@ -1,8 +1,8 @@
 [
   {
-    "id": "sha256:86b448b7271deabaab488514e48bf9dd60d56f854635b6e48d880f779e7d6fbe",
+    "id": "sha256:afa50b5f5d252c3b77c003e6ddfcddba856c9c955e13052d532149026df1235e",
     "repoTags": [
-      "mcr.microsoft.com/aks/aks-node-ca-watcher:master.220422.1",
+      "mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1",
       "mcr.microsoft.com/aks/aks-node-ca-watcher:static"
     ],
     "repoDigests": []
@@ -57,23 +57,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:4aaa856dd7608709fd4d84c7c5d0660b09db70257bf3d01f95b32b8de7888add",
+    "id": "sha256:b72925b53187b92af49cb8e2ca4098af649c7e8313de031e1db6bee8c8258d4a",
     "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:5.1.0-main-09-23-2022-df3e2703"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:1100f85743cd3bad964b2a9c60b861c2f2c09810794a774ac35884637b08858c",
-    "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:5.2.0-main-09-29-2022-ca064de1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:3bda2961958f22629c6f992609bde23e5b35ce4a78977b16cb7fc84639b83d96",
-    "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod06272022-hotfix"
+      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:5.3.0-main-10-06-2022-c0c49872"
     ],
     "repoDigests": []
   },
@@ -85,9 +71,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:c89757874f6e75ddd29fa0f628b2c1cd4e7080ff0b5ab00f22125f81df70938c",
+    "id": "sha256:581cc0d1b9e240dfcff27178947998825e357306166278ac22b30c1476b7042a",
     "repoTags": [
-      "mcr.microsoft.com/containernetworking/azure-cns:v1.4.22"
+      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod10042022-3c05dd1b"
     ],
     "repoDigests": []
   },
@@ -102,6 +88,13 @@
     "id": "sha256:aa4b7bbae35d373704da9cc1d8be32a0b6a05c063a504b0cbeeab9a7864a739e",
     "repoTags": [
       "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:90f5dd7d04494ea5bd4830b8e0e0b275a699ee23b02c57381bc2a6e5adf178d2",
+    "repoTags": [
+      "mcr.microsoft.com/containernetworking/azure-cns:v1.4.35"
     ],
     "repoDigests": []
   },
@@ -298,6 +291,13 @@
     "id": "sha256:a74413bb141b23915690b9ddcdf9f35a21f2667ddaec9461cc73b6da660892ce",
     "repoTags": [
       "mcr.microsoft.com/oss/cilium/cilium:1.12.2"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:a7d34a329d786559dedb099112c3dce9e1f2a5eba22889bc126f5b4f7df98af3",
+    "repoTags": [
+      "mcr.microsoft.com/oss/cilium/cilium:1.12.2.2"
     ],
     "repoDigests": []
   },
@@ -603,23 +603,16 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:0150e5e410cc1a8716dd42ddedd5721eccadb6cacae2086c31bb6f365401eaaa",
-    "repoTags": [
-      "mcr.microsoft.com/oss/tigera/operator:v1.20.0"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:ca1c2cf0c70036b3f92bae9c2bc8586484231cf33065110ab6421b37abc3f71c",
-    "repoTags": [
-      "mcr.microsoft.com/oss/tigera/operator:v1.23.8"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:fc455428fa1245d3d5f82185b34581e7d21bbce657257cf1e9f3db7138aedcb4",
     "repoTags": [
       "mcr.microsoft.com/oss/tigera/operator:v1.24.2"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:6b2dfd55de2ac929fe80189500271cc2fb1675a357aa00ad3e67e2e2d3dee305",
+    "repoTags": [
+      "mcr.microsoft.com/oss/tigera/operator:v1.27.12"
     ],
     "repoDigests": []
   }

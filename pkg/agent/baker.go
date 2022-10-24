@@ -317,8 +317,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"Disable1804SystemdResolved": func() bool {
 			return config.Disable1804SystemdResolved
 		},
-		"DisableUnattendedUpgrade": func() bool {
-			return config.DisableUnattendedUpgrades
+		// This was DisableUnattendedUpgrade when we had UU enabled by default in image.
+		// Now we don't, so we have to deliberately enable it.
+		// Someone smarter than me can fix the API.
+		"EnableUnattendedUpgrade": func() bool {
+			return !config.DisableUnattendedUpgrades
 		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
