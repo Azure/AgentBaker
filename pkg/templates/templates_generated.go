@@ -3105,14 +3105,12 @@ func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsIpv6_nftables = []byte(`#!/sbin/nft -f
-
-flush ruleset
+var _linuxCloudInitArtifactsIpv6_nftables = []byte(`flush ruleset
 
 table ip6 azureSLBProbe {
 	chain prerouting {
-        type filter hook prerouting priority -300; policy accept;
-        iifname eth0 ip6 saddr fe80::1234:5678:9abc ip6 saddr set 2603:1062:0:1:fe80:1234:5678:9abc counter
+		type filter hook prerouting priority -300; policy accept;
+		iifname eth0 ip6 saddr fe80::1234:5678:9abc ip6 saddr set 2603:1062:0:1:fe80:1234:5678:9abc counter
 	}
 
 	chain postrouting {
