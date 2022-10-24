@@ -28,7 +28,7 @@ endif
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${OS_VERSION},AB)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM - AB Update"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-ab.json
+	@packer build -on-error=ask -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-ab.json
 else ifeq (${OS_VERSION},V1)
 ifeq (${MODE},gen2Mode)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"

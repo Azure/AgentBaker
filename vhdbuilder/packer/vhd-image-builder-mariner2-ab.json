@@ -24,17 +24,19 @@
   "builders": [
     {
       "type": "azure-arm",
+      "build_resource_group_name": "{{user `resource_group_name`}}",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 52,
+      "keep_os_disk": "true",
       "shared_image_gallery": {
         "subscription": "{{user `subscription_id`}}",
-        "resource_group": "sdougherty-ABUpdate",
+        "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "ABGallery",
-        "image_name": "ab-mariner",
+        "image_name": "marinerab",
         "image_version": "latest"
       },
       "azure_tags": {
@@ -43,7 +45,6 @@
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline"
       },
-      "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
