@@ -226,7 +226,6 @@ configureCNI() {
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
-    configureCNINFTables
 }
 
 configureCNIIPTables() {
@@ -239,33 +238,6 @@ configureCNIIPTables() {
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
         fi
         /sbin/ebtables -t nat --list
-    fi
-}
-
-configureCNINFTables() {
-    if [[ "${IS_IPV6}" = "true" ]]; then
-        # Install nftables if it's not already on the node
-        command -v nft >/dev/null || {
-            apt-get update
-            apt-get install -y nftables
-        }
-
-        # Delete the table in a subshell so that we can eat the failed return code
-        (nft -na -- list table ip6 azureSLBProbe >/dev/null 2>&1 && nft -- delete table ip6 azureSLBProbe; exit 0)
-
-        # Create a custom table
-        nft -- add table ip6 azureSLBProbe
-
-        # Map packets from the LB probe LLA to a SLA IP instead
-        nft -- add chain ip6 azureSLBProbe prerouting {type filter hook prerouting priority -300\;}
-        nft -- add rule ip6 azureSLBProbe prerouting iifname eth0 ip6 saddr fe80::1234:5678:9abc ip6 saddr set 2603:1062:0:1:fe80:1234:5678:9abc counter
-
-        # Reverse the modification on the way back out
-        nft -- add chain ip6 azureSLBProbe postrouting {type filter hook postrouting priority -300\;}
-        nft -- add rule ip6 azureSLBProbe postrouting oifname eth0 ip6 daddr 2603:1062:0:1:fe80:1234:5678:9abc ip6 daddr set fe80::1234:5678:9abc counter
-
-        # Display the rules
-        nft -na -- list table ip6 azureSLBProbe
     fi
 }
 
