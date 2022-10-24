@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#! /bin/bash
+
 set -uo pipefail
 set -x
 
@@ -49,4 +50,4 @@ command -v nft >/dev/null || {
 }
 
 echo "writing nftables from $NFTABLES_RULESET_FILE"
-/sbin/nft -f $NFTABLES_RULESET_FILE
+nft -f $NFTABLES_RULESET_FILE
