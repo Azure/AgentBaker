@@ -530,7 +530,6 @@ PRIMARY_SCALE_SET={{GetVariable "primaryScaleSetName"}}
 SERVICE_PRINCIPAL_CLIENT_ID={{GetParameter "servicePrincipalClientId"}}
 NETWORK_PLUGIN={{GetParameter "networkPlugin"}}
 NETWORK_POLICY={{GetParameter "networkPolicy"}}
-IS_IPV6={{GetParameter "isIPv6"}}
 VNET_CNI_PLUGINS_URL={{GetParameter "vnetCniLinuxPluginsURL"}}
 CNI_PLUGINS_URL={{GetParameter "cniPluginsURL"}}
 CLOUDPROVIDER_BACKOFF={{GetParameterProperty "cloudproviderConfig" "cloudProviderBackoff"}}
@@ -3143,7 +3142,9 @@ Description=Configure nftables rules for handling Azure SLB IPv6 health probe pa
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStart=/opt/scripts/ipv6_nftables.sh
+ExecStart=/bin/bash /opt/scripts/ipv6_nftables.sh
+Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target`)
