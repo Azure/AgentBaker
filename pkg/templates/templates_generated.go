@@ -3140,7 +3140,6 @@ var _linuxCloudInitArtifactsIpv6_nftablesService = []byte(`[Unit]
 Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
 
 [Service]
-Type=oneshot
 RemainAfterExit=true
 ExecStart=/bin/bash /opt/scripts/ipv6_nftables.sh
 Restart=on-failure
@@ -3164,7 +3163,8 @@ func linuxCloudInitArtifactsIpv6_nftablesService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsIpv6_nftablesSh = []byte(`#!/usr/bin/env bash
+var _linuxCloudInitArtifactsIpv6_nftablesSh = []byte(`#! /bin/bash
+
 set -uo pipefail
 set -x
 
@@ -3215,7 +3215,7 @@ command -v nft >/dev/null || {
 }
 
 echo "writing nftables from $NFTABLES_RULESET_FILE"
-/sbin/nft -f $NFTABLES_RULESET_FILE
+nft -f $NFTABLES_RULESET_FILE
 `)
 
 func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
