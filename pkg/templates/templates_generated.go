@@ -1614,41 +1614,22 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local stable_containerd
-    local latest_containerd
+    local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
-        latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
-        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
-    # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
-        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $edge_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi        
-    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-        containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $latest_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    else
-        containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $stable_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_version} ${containerd_patch_version}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi 
+
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
 {{else}}
     installMoby
 {{end}}
@@ -1772,19 +1753,41 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadCNI
+        fi
+
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadAzureCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadAzureCNI
+        fi
+        
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+
     chown -R root:root $CNI_BIN_DIR
 }
 
@@ -2329,7 +2332,15 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        /usr/lib/apt/apt.systemd.daily &
+        {{- if EnableUnattendedUpgrade }}
+        systemctl unmask apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        {{- end }}
+        # this is the DOWNLOAD service
+        # meaning we are wasting IO without even triggering an upgrade 
+        # -________________-
+        systemctl restart apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi
@@ -3519,9 +3530,9 @@ installDeps() {
       fi
     done
 
-    # install additional apparmor deps for 2.0; additionally, install kernel-headers by default for 2.0 and moving forward.
+    # install additional apparmor deps for 2.0; additionally, install kernel-devel by default for 2.0 and moving forward.
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor kernel-headers; do
+      for dnf_package in apparmor-parser libapparmor kernel-devel; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -4815,7 +4826,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -4894,7 +4905,13 @@ cleanUpGPUDrivers() {
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    CONTAINERD_VERSION=$1
+    CONTAINERD_VERSION=$1    
+    # we always default to the .1 patch versons
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+
+    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -4903,12 +4920,6 @@ installStandaloneContainerd() {
     if [ -z "$CURRENT_VERSION" ]; then
         CURRENT_VERSION="0.0.0"
     fi
-    
-    # we always default to the .1 patch versons
-    CONTAINERD_PATCH_VERSION="${2:-1}"
-
-    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
@@ -4926,8 +4937,8 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.13"
-        CONTAINERD_PATCH_VERSION="2"
+        CONTAINERD_VERSION="1.6.4"
+        CONTAINERD_PATCH_VERSION="4"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
@@ -4935,7 +4946,8 @@ installStandaloneContainerd() {
 
     CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
+    semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
+    HAS_GREATER_VERSION="$?"
 
     if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
         echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
@@ -5119,7 +5131,6 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
 set -uo pipefail
-set -x
 
 certSource=/opt/certs
 certDestination=/usr/local/share/ca-certificates/certs
@@ -5127,16 +5138,20 @@ certDestination=/usr/local/share/ca-certificates/certs
 cp -a "$certSource"/. "$certDestination"
 
 if [[ -z $(ls -A "$certSource") ]]; then
+  echo "Source dir "$certSource" was empty, attempting to remove cert files"
   ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+    echo "removing "$line" in "$certDestination""
     rm $certDestination/"$line"
   done
 else
+  echo "found cert files in "$certSource""
   certsToCopy=(${certSource}/*)
   currIterationCertFile=${certsToCopy[0]##*/}
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
      if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
+          echo "removing "$file" in "$certDestination""
           rm "${file}"
      fi
   done
@@ -5422,15 +5437,13 @@ write_files:
 
 
 {{if not IsMariner}}
-{{if DisableUnattendedUpgrade }}
+{{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root
   content: |
-    APT::Periodic::Update-Package-Lists "0";
-    APT::Periodic::Download-Upgradeable-Packages "0";
-    APT::Periodic::AutocleanInterval "0";
-    APT::Periodic::Unattended-Upgrade "0";
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
 {{end}}
 {{end}}
 

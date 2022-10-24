@@ -204,16 +204,16 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.2"
+        "1.12.2",
+        "1.12.2.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.20.0",
-        "v1.23.8",
-        "v1.24.2"
+        "v1.24.2",
+        "v1.27.12"
       ]
     },
     {
@@ -401,7 +401,7 @@
   ],
   "DownloadFiles": [
     {
-      "fileName": "cni-plugins-amd64-v*.tgz",
+      "fileName": "cni-plugins-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni",
       "versions": [
@@ -418,7 +418,7 @@
       ]
     },
     {
-      "fileName": "azure-vnet-cni-linux-amd64-v*.tgz",
+      "fileName": "azure-vnet-cni-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
