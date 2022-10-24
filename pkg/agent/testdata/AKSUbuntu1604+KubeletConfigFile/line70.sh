@@ -430,8 +430,6 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
-    else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
