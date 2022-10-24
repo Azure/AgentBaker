@@ -208,6 +208,9 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    echo "Variable gpu_action is $gpu_action"
+    echo "Setting gpu_action to install"
+    gpu_action="install"
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
     ret=$?
     if [[ "$ret" != "0" ]]; then
