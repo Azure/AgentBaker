@@ -295,6 +295,13 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:a7d34a329d786559dedb099112c3dce9e1f2a5eba22889bc126f5b4f7df98af3",
+    "repoTags": [
+      "mcr.microsoft.com/oss/cilium/cilium:1.12.2.2"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:e967733fd6c24a5bf93c4fcbdcbc63e38d4d7ebfafbeec1d4b47644386cb51eb",
     "repoTags": [
       "mcr.microsoft.com/oss/cilium/operator-generic:1.12.2"
@@ -596,23 +603,16 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:0150e5e410cc1a8716dd42ddedd5721eccadb6cacae2086c31bb6f365401eaaa",
-    "repoTags": [
-      "mcr.microsoft.com/oss/tigera/operator:v1.20.0"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:ca1c2cf0c70036b3f92bae9c2bc8586484231cf33065110ab6421b37abc3f71c",
-    "repoTags": [
-      "mcr.microsoft.com/oss/tigera/operator:v1.23.8"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:fc455428fa1245d3d5f82185b34581e7d21bbce657257cf1e9f3db7138aedcb4",
     "repoTags": [
       "mcr.microsoft.com/oss/tigera/operator:v1.24.2"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:6b2dfd55de2ac929fe80189500271cc2fb1675a357aa00ad3e67e2e2d3dee305",
+    "repoTags": [
+      "mcr.microsoft.com/oss/tigera/operator:v1.27.12"
     ],
     "repoDigests": []
   }
