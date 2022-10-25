@@ -42,6 +42,9 @@ chmod 666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
 systemctlEnableAndStart update_certs.timer || exit 1
 
+systemctlEnableAndStart ci-syslog-watcher.path || exit 1
+systemctlEnableAndStart ci-syslog-watcher.service || exit 1
+
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
@@ -137,12 +140,20 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-  CRICTL_VERSIONS="
-  1.22.0
-  1.23.0
-  1.24.0
-  1.25.0
-  "
+  DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+  for componentToDownload in ${DOWNLOAD_FILES[*]}; do
+    fileName=$(echo "${componentToDownload}" | jq .fileName -r)
+    if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
+      CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
+      CRICTL_VERSIONS=""
+      if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
+        CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
+      fi
+      break
+    fi
+  done
+  echo $CRICTL_VERSIONS
+
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -292,6 +303,7 @@ AMD64_ONLY_CNI_VERSIONS="
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.22
 1.4.32
+1.4.35
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -317,6 +329,7 @@ done
 SWIFT_CNI_VERSIONS="
 1.4.22
 1.4.32
+1.4.35
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -327,6 +340,7 @@ done
 
 OVERLAY_CNI_VERSIONS="
 1.4.32
+1.4.35
 "
 
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
