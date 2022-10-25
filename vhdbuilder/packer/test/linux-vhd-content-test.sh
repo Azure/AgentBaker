@@ -246,16 +246,6 @@ testKubeBinariesPresent() {
   done
 
   k8sVersions=$K8S_VERSIONS
-
-  # k8sVersions="
-  # 1.22.11-hotfix.20220620
-  # 1.22.15
-  # 1.23.8-hotfix.20220620
-  # 1.23.12
-  # 1.24.3
-  # 1.24.6
-  # 1.25.2-hotfix.20221006
-  # "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then

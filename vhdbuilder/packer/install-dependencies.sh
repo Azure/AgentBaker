@@ -477,17 +477,7 @@ apt-get clean -y
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
-# MULTI_ARCH_KUBE_BINARY_VERSIONS="
-# 1.22.11-hotfix.20220620
-# 1.22.15
-# 1.23.8-hotfix.20220620
-# 1.23.12
-# 1.24.3
-# 1.24.6
-# 1.25.2-hotfix.20221006
-# "
-
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
   fileName=$(echo "${componentToDownload}" | jq .fileName -r)
