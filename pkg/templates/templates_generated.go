@@ -3138,6 +3138,7 @@ var _linuxCloudInitArtifactsIpv6_nftablesService = []byte(`[Unit]
 Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
 
 [Service]
+Type=notify
 RemainAfterExit=true
 ExecStart=/bin/bash /opt/scripts/ipv6_nftables.sh
 Restart=on-failure
@@ -3201,19 +3202,15 @@ NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
     jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
 
-if [[ $IPV6_ADDR_COUNT -eq 0 ]]; then
+if [[ $IPV6_ADDR_COUNT -eq 0 ]];
+then
     echo "instance is not configured with IPv6, skipping nftables rules"
-    exit 0
+else
+    echo "writing nftables from $NFTABLES_RULESET_FILE"
+    nft -f $NFTABLES_RULESET_FILE
 fi
 
-# Install nftables if it's not already on the node
-command -v nft >/dev/null || {
-    apt-get update
-    apt-get -o DPkg::Lock::Timeout=300 -y install nftables
-}
-
-echo "writing nftables from $NFTABLES_RULESET_FILE"
-nft -f $NFTABLES_RULESET_FILE
+systemd-notify --ready
 `)
 
 func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
