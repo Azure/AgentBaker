@@ -53,7 +53,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(mariner.Gallery).To(Equal("akscblmariner"))
 		Expect(mariner.Definition).To(Equal("V1"))
-		Expect(mariner.Version).To(Equal("2022.10.17"))
+		Expect(mariner.Version).To(Equal("2022.10.24"))
 
 		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(4))
 
@@ -85,31 +85,31 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuArm641804Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuArm641804Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuArm641804Gen2.Definition).To(Equal("1804gen2arm64containerd"))
-		Expect(aksUbuntuArm641804Gen2.Version).To(Equal(Arm64LinuxSIGImageVersion))
+		Expect(aksUbuntuArm641804Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuArm642204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd2204Gen2]
 		Expect(aksUbuntuArm642204Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuArm642204Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuArm642204Gen2.Definition).To(Equal("2204gen2arm64containerd"))
-		Expect(aksUbuntuArm642204Gen2.Version).To(Equal(Arm64LinuxSIGImageVersion))
+		Expect(aksUbuntuArm642204Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntu2204Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204]
 		Expect(aksUbuntu2204Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204Containerd.Definition).To(Equal("2204containerd"))
-		Expect(aksUbuntu2204Containerd.Version).To(Equal("2022.10.17"))
+		Expect(aksUbuntu2204Containerd.Version).To(Equal("2022.10.24"))
 
 		aksUbuntu2204Gen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204Gen2]
 		Expect(aksUbuntu2204Gen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204Gen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204Gen2Containerd.Definition).To(Equal("2204gen2containerd"))
-		Expect(aksUbuntu2204Gen2Containerd.Version).To(Equal("2022.10.17"))
+		Expect(aksUbuntu2204Gen2Containerd.Version).To(Equal("2022.10.24"))
 
 		aksUbuntu2004CVMGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2004CVMGen2]
 		Expect(aksUbuntu2004CVMGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2004CVMGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2004CVMGen2Containerd.Definition).To(Equal("2004gen2CVMcontainerd"))
-		Expect(aksUbuntu2004CVMGen2Containerd.Version).To(Equal("2022.10.17"))
+		Expect(aksUbuntu2004CVMGen2Containerd.Version).To(Equal("2022.10.24"))
 
 		marinerV2Arm64 := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2Arm64Gen2]
 		Expect(marinerV2Arm64.ResourceGroup).To(Equal("resourcegroup"))

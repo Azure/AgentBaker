@@ -204,14 +204,15 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.2"
+        "1.12.2",
+        "1.12.2.2"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.2",
+        "v1.23.8",
         "v1.27.12"
       ]
     },
@@ -422,7 +423,8 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.4.22",
-        "1.4.32"
+        "1.4.32",
+        "1.4.35"
       ]
     },
     {
@@ -431,7 +433,8 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.4.22",
-        "1.4.32"
+        "1.4.32",
+        "1.4.35"
       ]
     },
     {
@@ -439,7 +442,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.32"
+        "1.4.32",
+        "1.4.35"
       ]
     },
     {
