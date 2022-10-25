@@ -38,10 +38,12 @@ NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
     jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
 
-if [[ $IPV6_ADDR_COUNT -eq 0 ]]; then
+if [[ $IPV6_ADDR_COUNT -eq 0 ]];
+then
     echo "instance is not configured with IPv6, skipping nftables rules"
-    exit 0
+else
+    echo "writing nftables from $NFTABLES_RULESET_FILE"
+    nft -f $NFTABLES_RULESET_FILE
 fi
 
-echo "writing nftables from $NFTABLES_RULESET_FILE"
-nft -f $NFTABLES_RULESET_FILE
+systemd-notify --ready
