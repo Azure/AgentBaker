@@ -29,6 +29,9 @@ testFilesDownloaded() {
       err $test "Directory ${downloadLocation} does not exist"
       continue
     fi
+    if [ $fileName == "kubernetes-node-linux-arch.tar.gz" ]; then
+      continue
+    fi
 
     for version in ${versions}; do
       file_Name=$(string_replace $fileName $version)
@@ -229,15 +232,30 @@ testKubeBinariesPresent() {
   echo "$test:Start"
   containerRuntime=$1
   binaryDir=/usr/local/bin
-  k8sVersions="
-  1.22.11-hotfix.20220620
-  1.22.15
-  1.23.8-hotfix.20220620
-  1.23.12
-  1.24.3
-  1.24.6
-  1.25.2-hotfix.20221006
-  "
+  DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+  for componentToDownload in ${DOWNLOAD_FILES[*]}; do
+    fileName=$(echo "${componentToDownload}" | jq .fileName -r)
+    if [ $fileName == "kubernetes-node-linux-arch.tar.gz" ]; then
+      K8S_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
+      K8S_VERSIONS=""
+      if [[ ${K8S_VERSIONS_STR} != null ]]; then
+        K8S_VERSIONS=$(echo "${K8S_VERSIONS_STR}" | jq -r ".[]")
+      fi
+      break
+    fi
+  done
+
+  k8sVersions=$K8S_VERSIONS
+
+  # k8sVersions="
+  # 1.22.11-hotfix.20220620
+  # 1.22.15
+  # 1.23.8-hotfix.20220620
+  # 1.23.12
+  # 1.24.3
+  # 1.24.6
+  # 1.25.2-hotfix.20221006
+  # "
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
