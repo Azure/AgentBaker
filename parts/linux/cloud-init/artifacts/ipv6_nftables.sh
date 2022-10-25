@@ -43,11 +43,5 @@ if [[ $IPV6_ADDR_COUNT -eq 0 ]]; then
     exit 0
 fi
 
-# Install nftables if it's not already on the node
-command -v nft >/dev/null || {
-    apt-get update
-    apt-get -o DPkg::Lock::Timeout=300 -y install nftables
-}
-
 echo "writing nftables from $NFTABLES_RULESET_FILE"
 nft -f $NFTABLES_RULESET_FILE
