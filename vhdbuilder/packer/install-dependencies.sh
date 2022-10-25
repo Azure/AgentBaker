@@ -130,21 +130,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
   updateAptWithMicrosoftPkg
   containerd_manifest="$(jq .containerd manifest.json)" || exit $?
-  containerd_versions="$(echo ${containerd_manifest} | jq -r '.versions[]')" || exit $?
-
-  for version in $containerd_versions; do
-    containerd_version="$(echo "$version" | cut -d- -f1)"
-    containerd_patch_version="$(echo "$version" | cut -d- -f2)"
-    # containerd 1.4 not available in ubuntu 22.04
-    if [[ ${UBUNTU_RELEASE} == "22.04" && ${containerd_version} == "1.4.13" ]]; then
-      continue
-    fi
-
-    downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
-    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-  done
-
-  installed_version="$(echo ${containerd_manifest} | jq -r '.latest')"
+  installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
   containerd_version="$(echo "$installed_version" | cut -d- -f1)"
   containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
@@ -313,6 +299,7 @@ AMD64_ONLY_CNI_VERSIONS="
 MULTI_ARCH_VNET_CNI_VERSIONS="
 1.4.22
 1.4.32
+1.4.35
 "
 
 if [[ $(isARM64) == 1 ]]; then
@@ -325,6 +312,12 @@ fi
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
+
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+    mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" 
+    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+    rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -332,6 +325,7 @@ done
 SWIFT_CNI_VERSIONS="
 1.4.22
 1.4.32
+1.4.35
 "
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -342,6 +336,7 @@ done
 
 OVERLAY_CNI_VERSIONS="
 1.4.32
+1.4.35
 "
 
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
@@ -357,6 +352,11 @@ if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
   for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
+    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/}
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+    mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
+    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+    rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
 fi
@@ -559,4 +559,17 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+
+  # disable and mask all UU timers/services
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+
 fi

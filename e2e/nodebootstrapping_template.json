@@ -133,6 +133,7 @@
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableKubeletConfigFile": false,
     "EnableNvidia": false,
+    "DisableUnattendedUpgrades": true,
     "EnableACRTeleportPlugin": false,
     "TeleportdPluginURL": "",
     "ContainerdVersion": "",
