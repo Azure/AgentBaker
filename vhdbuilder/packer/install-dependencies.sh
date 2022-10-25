@@ -42,6 +42,9 @@ chmod 666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
 systemctlEnableAndStart update_certs.timer || exit 1
 
+systemctlEnableAndStart ci-syslog-watcher.path || exit 1
+systemctlEnableAndStart ci-syslog-watcher.service || exit 1
+
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
@@ -109,7 +112,7 @@ fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
-    disableSystemdIptables
+    disableSystemdIptables || exit 1
     forceEnableIpForward
     setMarinerNetworkdConfig
     fixCBLMarinerPermissions
