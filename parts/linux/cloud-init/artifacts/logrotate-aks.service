@@ -1,0 +1,7 @@
+[Unit]
+Description=runs the logrotate utility for log rotation
+[Service]
+Restart=always
+RestartSec=10
+RemainAfterExit=yes
+ExecStart=/usr/sbin/logrotate /etc/logrotate.conf

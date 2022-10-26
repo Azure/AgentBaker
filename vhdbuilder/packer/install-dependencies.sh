@@ -522,6 +522,52 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
+# remove the pre-generated logrotate conf file for syslogs, if present
+rm -f /etc/logrotate.d/rsyslog
+# populate the customized logrotate conf file for syslogs
+cat << EOF >> /etc/logrotate.d/rsyslog-aks
+/var/log/syslog
+{
+        rotate 4
+        daily
+        size 100M
+        missingok
+        notifempty
+        delaycompress
+        compress
+        postrotate
+                /usr/lib/rsyslog/rsyslog-rotate
+        endscript
+}
+
+/var/log/mail.info
+/var/log/mail.warn
+/var/log/mail.err
+/var/log/mail.log
+/var/log/daemon.log
+/var/log/kern.log
+/var/log/auth.log
+/var/log/user.log
+/var/log/lpr.log
+/var/log/cron.log
+/var/log/debug
+/var/log/messages
+/var/log/warn
+{
+        rotate 4
+        daily
+        size 25M
+        missingok
+        notifempty
+        compress
+        delaycompress
+        sharedscripts
+        postrotate
+                /usr/lib/rsyslog/rsyslog-rotate
+        endscript
+}
+EOF
+
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
