@@ -496,10 +496,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
-# remove the pre-generated logrotate conf file for syslogs, if present
-rm -f /etc/logrotate.d/rsyslog
 # populate the customized logrotate conf file for syslogs
-cat << EOF >> /etc/logrotate.d/rsyslog-aks
+cat << EOF >> /etc/logrotate.d/aks-rsyslog
 /var/log/syslog
 {
   rotate 4
@@ -542,8 +540,6 @@ cat << EOF >> /etc/logrotate.d/rsyslog-aks
 }
 EOF
 
-# remove the daily logrotate cron definition, if present
-rm -f /etc/cron.daily/logrotate
 # populate the logrotate-aks unit and timer definitions
 cat << EOF >> /etc/systemd/system/logrotate-aks.service
 [Unit]
