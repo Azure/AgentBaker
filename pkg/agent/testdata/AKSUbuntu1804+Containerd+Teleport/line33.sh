@@ -180,6 +180,21 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
+# handle starting the logrotate-aks service responsible for log rotation
+if [ -f /etc/systemd/system/logrotate-aks.timer ] && [ -f /etc/systemd/system/logrotate-aks.service ]; then
+    # we're on a VHD that has definitions for the logrotate-aks service
+    logs_to_events "AKS.CSE.logrotate-aks" "systemctlEnableAndStart logrotate-aks.timer"
+    if [ -f /etc/cron.daily/logrotate ]; then
+        rm -f /etc/cron.daily/logrotate
+        echo "Removed /etc/cron.daily/logrotate"
+    fi
+    echo "Enabled and started logrotate-aks.timer, removed"
+else
+    # we're not on a VHD with the logrotate-aks service definition, 
+    # fall back to using the default daily logrotate cron
+    echo "Unable to start logrotate-aks.timer, falling back to default logrotate cron"
+fi
+
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
 REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
