@@ -3233,7 +3233,7 @@ var _linuxCloudInitArtifactsIpv6_nftablesService = []byte(`[Unit]
 Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
 
 [Service]
-Type=notify
+Type=simple
 RemainAfterExit=true
 ExecStart=/bin/bash /opt/scripts/ipv6_nftables.sh
 Restart=on-failure
@@ -3304,8 +3304,6 @@ else
     echo "writing nftables from $NFTABLES_RULESET_FILE"
     nft -f $NFTABLES_RULESET_FILE
 fi
-
-systemd-notify --ready
 `)
 
 func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
