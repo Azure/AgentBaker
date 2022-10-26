@@ -9,6 +9,9 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
+// linux/cloud-init/artifacts/ci-syslog-watcher.path
+// linux/cloud-init/artifacts/ci-syslog-watcher.service
+// linux/cloud-init/artifacts/ci-syslog-watcher.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
@@ -331,6 +334,98 @@ func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCiSyslogWatcherPath = []byte(`[Unit]
+Description=Monitor the ContainerInsights syslog status file for changes
+
+[Path]
+PathModified=/var/run/mdsd-ci/update.status
+Unit=ci-syslog-watcher.service
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsCiSyslogWatcherPathBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCiSyslogWatcherPath, nil
+}
+
+func linuxCloudInitArtifactsCiSyslogWatcherPath() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCiSyslogWatcherPathBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ci-syslog-watcher.path", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCiSyslogWatcherService = []byte(`[Unit]
+Description=Update syslog config based on ContainerInsights syslog status change
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ci-syslog-watcher.sh
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsCiSyslogWatcherServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCiSyslogWatcherService, nil
+}
+
+func linuxCloudInitArtifactsCiSyslogWatcherService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCiSyslogWatcherServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ci-syslog-watcher.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCiSyslogWatcherSh = []byte(`#!/usr/bin/env bash
+
+set -o nounset
+set -o pipefail
+
+[ ! -f "/var/run/mdsd-ci/update.status" ] && exit 0
+status=$(cat /var/run/mdsd-ci/update.status)
+
+if [[ "$status" == "add" ]]; then
+        echo "Status changed to $status."
+        [ -f "/var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf" ] && cp /var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf /etc/rsyslog.d
+elif [[ "$status" == "remove" ]]; then
+        echo "Status changed to $status."
+        [ -f "/etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf" ] && rm /etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf
+else
+        echo "Unexpected status change to $status. Exiting"
+        exit 1
+fi
+
+echo "Restarting rsyslog"
+systemctl restart rsyslog
+
+exit 0
+`)
+
+func linuxCloudInitArtifactsCiSyslogWatcherShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCiSyslogWatcherSh, nil
+}
+
+func linuxCloudInitArtifactsCiSyslogWatcherSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCiSyslogWatcherShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ci-syslog-watcher.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7088,6 +7183,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
@@ -7207,6 +7305,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
+				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
+				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
+				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
