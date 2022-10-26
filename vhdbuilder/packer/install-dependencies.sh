@@ -527,62 +527,6 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
 
-# Taking common cleanup steps from: https://github.com/quarkslab/packer-ubuntu/blob/master/script/cleanup.sh
-
-echo "==> Cleaning up tmp"
-rm -rf /tmp/*
-
-echo "==> Cleaning up udev rules"
-rm -rf /dev/.udev/
-rm /lib/udev/rules.d/75-persistent-net-generator.rules
-
-# Remove Bash history
-unset HISTFILE
-rm -f /root/.bash_history
-
-# Clean up log files
-find /var/log -type f | while read -r f; do echo -ne '' > "${f}"; done;
-
-# Whiteout root
-count=$(df --sync -kP / | tail -n1  | awk -F ' ' '{print $4}')
-count=$count-1
-dd if=/dev/zero of=/tmp/whitespace bs=1024 count=$count
-rm /tmp/whitespace
-
-# Whiteout /boot
-count=$(df --sync -kP /boot | tail -n1 | awk -F ' ' '{print $4}')
-count=$count-1
-dd if=/dev/zero of=/boot/whitespace bs=1024 count=$count
-rm /boot/whitespace
-
-echo '==> Clear out swap and disable until reboot'
-set +e
-swapuuid=$(/sbin/blkid -o value -l -s UUID -t TYPE=swap)
-case "$?" in
-    2|0) ;;
-    *) exit 1 ;;
-esac
-set -e
-if [ "x${swapuuid}" != "x" ]; then
-    # Whiteout the swap partition to reduce box size
-    # Swap is disabled till reboot
-    swappart=$(readlink -f /dev/disk/by-uuid/$swapuuid)
-    /sbin/swapoff "${swappart}"
-    dd if=/dev/zero of="${swappart}" bs=1M || echo "dd exit code $? is suppressed"
-    /sbin/mkswap -U "${swapuuid}" "${swappart}"
-fi
-
-# Zero out the free space to save space in the final image
-dd if=/dev/zero of=/EMPTY bs=1M  || echo "dd exit code $? is suppressed"
-rm -f /EMPTY
-
-# Make sure we wait until all the data is written to disk, otherwise
-# Packer might quit too early before the large files are deleted
-sync
-
-echo "Disk usage after final cleanup:" >> ${VHD_LOGS_FILEPATH}
-df -h >> ${VHD_LOGS_FILEPATH}
-
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken
