@@ -560,7 +560,7 @@ OnCalendar=*-*-* *:00:00
 WantedBy=multi-user.target
 EOF
 
-echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
+{ echo -e "=== Installed Packages Begin\n"; echo -e "$(listInstalledPackages)\n"; echo -e "=== Installed Packages End" } >> ${VHD_LOGS_FILEPATH}
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
