@@ -294,22 +294,12 @@ else
     retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
 fi
 
-#Azure CNI has binaries and container images for ARM64 from 1.4.13
-AMD64_ONLY_CNI_VERSIONS="
-1.2.7
-"
-#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_VNET_CNI_VERSIONS="
-1.4.22
+
+#must be both amd64/arm64 images
+VNET_CNI_VERSIONS="
 1.4.32
 1.4.35
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
-else
-  VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
-fi
 
 
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
@@ -324,9 +314,9 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+#UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.4.22
 1.4.32
 1.4.35
 "
@@ -348,25 +338,9 @@ for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
     echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
-  CNI_PLUGIN_VERSIONS="
-  0.7.6
-  "
-  for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/}
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-    mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
-    rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-0.9.1
 1.1.1
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
@@ -479,9 +453,9 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
-apt-get autoclean -y
-apt-get autoremove -y
-apt-get clean -y
+apt-get -y autoclean
+apt-get -y autoremove --purge
+apt-get -y clean
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
@@ -526,6 +500,7 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
+
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken

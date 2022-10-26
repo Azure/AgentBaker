@@ -401,19 +401,10 @@
   ],
   "DownloadFiles": [
     {
-      "fileName": "cni-plugins-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/cni",
-      "versions": [
-        "0.7.6"
-      ]
-    },
-    {
       "fileName": "cni-plugins-linux-amd64-v*.tgz",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.9.1",
         "1.1.1"
       ]
     },
@@ -422,7 +413,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.22",
         "1.4.32",
         "1.4.35"
       ]
@@ -432,7 +422,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.22",
         "1.4.32",
         "1.4.35"
       ]
