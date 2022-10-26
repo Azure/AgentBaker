@@ -502,16 +502,16 @@ rm -f /etc/logrotate.d/rsyslog
 cat << EOF >> /etc/logrotate.d/rsyslog-aks
 /var/log/syslog
 {
-        rotate 4
-        daily
-        size 100M
-        missingok
-        notifempty
-        delaycompress
-        compress
-        postrotate
-                /usr/lib/rsyslog/rsyslog-rotate
-        endscript
+  rotate 4
+  daily
+  size 100M
+  missingok
+  notifempty
+  delaycompress
+  compress
+  postrotate
+      /usr/lib/rsyslog/rsyslog-rotate
+  endscript
 }
 
 /var/log/mail.info
@@ -528,17 +528,17 @@ cat << EOF >> /etc/logrotate.d/rsyslog-aks
 /var/log/messages
 /var/log/warn
 {
-        rotate 4
-        daily
-        size 25M
-        missingok
-        notifempty
-        compress
-        delaycompress
-        sharedscripts
-        postrotate
-                /usr/lib/rsyslog/rsyslog-rotate
-        endscript
+  rotate 4
+  daily
+  size 25M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+  postrotate
+      /usr/lib/rsyslog/rsyslog-rotate
+  endscript
 }
 EOF
 
