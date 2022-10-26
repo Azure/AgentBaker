@@ -42,9 +42,6 @@ chmod 666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
 systemctlEnableAndStart update_certs.timer || exit 1
 
-systemctlEnableAndStart ci-syslog-watcher.path || exit 1
-systemctlEnableAndStart ci-syslog-watcher.service || exit 1
-
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
@@ -112,7 +109,7 @@ fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
-    disableSystemdIptables || exit 1
+    disableSystemdIptables
     forceEnableIpForward
     setMarinerNetworkdConfig
     fixCBLMarinerPermissions
@@ -139,20 +136,12 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-  DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-  for componentToDownload in ${DOWNLOAD_FILES[*]}; do
-    fileName=$(echo "${componentToDownload}" | jq .fileName -r)
-    if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
-      CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
-      CRICTL_VERSIONS=""
-      if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
-        CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
-      fi
-      break
-    fi
-  done
-  echo $CRICTL_VERSIONS
-
+  CRICTL_VERSIONS="
+  1.22.0
+  1.23.0
+  1.24.0
+  1.25.0
+  "
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -200,7 +189,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="470.82.01"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     gpu_action="install"
   fi
