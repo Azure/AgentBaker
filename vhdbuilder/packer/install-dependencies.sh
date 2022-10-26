@@ -539,7 +539,6 @@ rm /lib/udev/rules.d/75-persistent-net-generator.rules
 # Remove Bash history
 unset HISTFILE
 rm -f /root/.bash_history
-rm -f /home/${SSH_USER}/.bash_history
 
 # Clean up log files
 find /var/log -type f | while read -r f; do echo -ne '' > "${f}"; done;
