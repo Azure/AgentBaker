@@ -65,4 +65,7 @@ EOF
 
 disableSystemdIptables() {
     systemctlDisableAndStop iptables || exit $ERR_DISBALE_IPTABLES
+
+    # Mask the iptables service to prevent it from ever re-enabling and breaking pod networking.
+    systemctl mask iptables || exit $ERR_DISBALE_IPTABLES
 }
