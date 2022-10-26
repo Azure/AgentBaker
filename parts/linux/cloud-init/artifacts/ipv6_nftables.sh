@@ -45,5 +45,3 @@ else
     echo "writing nftables from $NFTABLES_RULESET_FILE"
     nft -f $NFTABLES_RULESET_FILE
 fi
-
-systemd-notify --ready
