@@ -1,6 +1,0 @@
-[Unit]
-Description=a timer that runs the logrotate-aks on the top of every hour of every day
-[Timer]
-OnCalendar=*-*-* *:00:00
-[Install]
-WantedBy=multi-user.target

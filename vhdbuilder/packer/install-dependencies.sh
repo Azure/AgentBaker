@@ -568,6 +568,24 @@ cat << EOF >> /etc/logrotate.d/rsyslog-aks
 }
 EOF
 
+# remove the daily logrotate cron definition, if present
+rm -f /etc/cron.daily/logrotate
+# populate the logrotate-aks unit and timer definitions
+cat << EOF >> /etc/systemd/system/logrotate-aks.service
+[Unit]
+Description=runs the logrotate utility for log rotation
+[Service]
+ExecStart=/usr/sbin/logrotate /etc/logrotate.conf
+EOF
+cat << EOF >> /etc/systemd/system/logrotate-aks.timer
+[Unit]
+Description=a timer that runs the logrotate-aks on the top of every hour of every day
+[Timer]
+OnCalendar=*-*-* *:00:00
+[Install]
+WantedBy=multi-user.target
+EOF
+
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
