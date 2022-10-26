@@ -113,7 +113,7 @@ fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
-    disableSystemdIptables
+    disableSystemdIptables || exit 1
     forceEnableIpForward
     setMarinerNetworkdConfig
     fixCBLMarinerPermissions
