@@ -37,6 +37,12 @@
 	versions: [...#runc_ver]
 }
 
+#kubernetes_ver: =~"[0-9]+.[0-9]+.[0-9]+(-hotfix.[0-9]{8})"
+
+#kubernetes: #dep & {
+	versions: [...#kubernetes_ver]
+}
+
 // root object schema enforced against manifest.json
 #root: {
 	runc:                       #runc
