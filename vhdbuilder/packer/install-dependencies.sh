@@ -478,21 +478,7 @@ apt-get clean -y
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
-DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for componentToDownload in ${DOWNLOAD_FILES[*]}; do
-  fileName=$(echo "${componentToDownload}" | jq .fileName -r)
-  if [ $fileName == "kubernetes-node-linux-arch.tar.gz" ]; then
-    K8S_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
-    K8S_VERSIONS=""
-    if [[ ${K8S_VERSIONS_STR} != null ]]; then
-      K8S_VERSIONS=$(echo "${K8S_VERSIONS_STR}" | jq -r ".[]")
-    fi
-    break
-    fi
-done
-
-# KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
-KUBE_BINARY_VERSIONS=$K8S_VERSIONS
+KUBE_BINARY_VERSIONS="$(jq .kubernetes.versions parts/linux/cloud-init/artifacts/manifest.json | jq -r ".[]")"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
