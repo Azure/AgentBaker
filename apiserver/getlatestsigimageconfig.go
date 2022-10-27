@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -13,24 +12,19 @@ import (
 )
 
 const (
-	// RoutePathNodeBootstrapData the route path to get node bootstrapping data.
-	RoutePathNodeBootstrapData string = "/getnodebootstrapdata"
+	// RoutePathLatestSIGImageConfig the route path to get node bootstrapping data.
+	RoutePathLatestSIGImageConfig string = "/getlatestsigimageconfig"
 )
 
-func handleError(err error) Result {
-	log.Println(err.Error())
-	return Result{"", err}
-}
-
-// GetNodeBootstrapConfig endpoint for getting node bootstrapping data.
-func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Request) {
+// GetLatestSigImageConfig endpoint for getting latest sig image reference.
+func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	processResult := make(chan Result)
 	go func() {
-		var config datamodel.NodeBootstrappingConfiguration
+		var config datamodel.GetLatestSigImageConfigRequest
 
 		err := json.NewDecoder(r.Body).Decode(&config)
 		if err != nil {
@@ -43,12 +37,12 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 			processResult <- handleError(err)
 			return
 		}
-		nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
+		latestSigConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, config.Region, config.Distro)
 		if err != nil {
 			processResult <- handleError(err)
 			return
 		}
-		result, err := json.Marshal(nodeBootStrapping)
+		result, err := json.Marshal(latestSigConfig)
 		if err != nil {
 			processResult <- handleError(err)
 			return
@@ -68,9 +62,4 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 		}
 
 	}
-}
-
-type Result struct {
-	Message string
-	Error   error
 }
