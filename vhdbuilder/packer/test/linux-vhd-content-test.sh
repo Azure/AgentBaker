@@ -4,6 +4,7 @@ source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.s
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
+MANIFEST_FILEPATH=/opt/azure/manifest.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 testFilesDownloaded() {
@@ -229,7 +230,7 @@ testKubeBinariesPresent() {
   echo "$test:Start"
   containerRuntime=$1
   binaryDir=/usr/local/bin
-  k8sVersions="$(jq .kubernetes.versions parts/linux/cloud-init/artifacts/manifest.json | jq -r ".[]")"
+  k8sVersions="$(jq .kubernetes.versions $MANIFEST_FILEPATH | jq -r ".[]")"
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
