@@ -37,6 +37,12 @@
 	versions: [...#runc_ver]
 }
 
+#kubernetes_ver: =~"[0-9]+.[0-9]+.[0-9]+(-hotfix.[0-9]{8})"
+
+#kubernetes: #dep & {
+	versions: [...#kubernetes_ver]
+}
+
 // root object schema enforced against manifest.json
 #root: {
 	runc:                       #runc
@@ -83,9 +89,18 @@
         "versions": [],
     },
     "kubernetes": {
-        "fileName": "",
+        "fileName": "kubernetes-node-linux-arch.tar.gz",
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
+        "versions": [ 
+            "1.22.11-hotfix.20220620",
+            "1.22.15",
+            "1.23.8-hotfix.20220620",
+            "1.23.12",
+            "1.24.3",
+            "1.24.6",
+            "1.25.2-hotfix.20221006"
+        ]
     },
     "_template": {
         "fileName": "",
