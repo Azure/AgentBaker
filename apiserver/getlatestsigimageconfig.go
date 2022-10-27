@@ -37,16 +37,19 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 			processResult <- handleError(err)
 			return
 		}
+
 		latestSigConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, config.Region, config.Distro)
 		if err != nil {
 			processResult <- handleError(err)
 			return
 		}
+
 		result, err := json.Marshal(latestSigConfig)
 		if err != nil {
 			processResult <- handleError(err)
 			return
 		}
+
 		processResult <- Result{string(result), nil}
 	}()
 

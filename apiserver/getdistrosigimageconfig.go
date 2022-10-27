@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	agent "github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -31,23 +32,16 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(config.SIGConfig, config.Region)
+		agentBaker, err := agent.NewAgentBaker()
 		if err != nil {
 			processResult <- handleError(err)
 			return
 		}
 
-		allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
-		for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
-			allDistros[distro] = sigConfig
-		}
-
-		for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
-			allDistros[distro] = sigConfig
-		}
-
-		for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
-			allDistros[distro] = sigConfig
+		allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, config.Region, config.Distro)
+		if err != nil {
+			processResult <- handleError(err)
+			return
 		}
 
 		result, err := json.Marshal(allDistros)
