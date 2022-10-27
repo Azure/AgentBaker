@@ -6,6 +6,9 @@
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
+// linux/cloud-init/artifacts/aks-logrotate.service
+// linux/cloud-init/artifacts/aks-logrotate.timer
+// linux/cloud-init/artifacts/aks-rsyslog
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
@@ -239,6 +242,105 @@ func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-tlsbootstrap.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogrotateService = []byte(`[Unit]
+Description=runs the logrotate utility for log rotation
+[Service]
+ExecStart=/usr/sbin/logrotate /etc/logrotate.conf`)
+
+func linuxCloudInitArtifactsAksLogrotateServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogrotateService, nil
+}
+
+func linuxCloudInitArtifactsAksLogrotateService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogrotateServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-logrotate.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogrotateTimer = []byte(`[Unit]
+Description=a timer that runs the logrotate-aks service randomly on every hour
+[Timer]
+OnCalendar=*-*-* *:00:00
+RandomizedDelaySec=60s
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsAksLogrotateTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogrotateTimer, nil
+}
+
+func linuxCloudInitArtifactsAksLogrotateTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogrotateTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-logrotate.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
+{
+  rotate 4
+  daily
+  size 100M
+  missingok
+  notifempty
+  delaycompress
+  compress
+  postrotate
+      /usr/lib/rsyslog/rsyslog-rotate
+  endscript
+}
+
+/var/log/mail.info
+/var/log/mail.warn
+/var/log/mail.err
+/var/log/mail.log
+/var/log/daemon.log
+/var/log/kern.log
+/var/log/auth.log
+/var/log/user.log
+/var/log/lpr.log
+/var/log/cron.log
+/var/log/debug
+/var/log/messages
+/var/log/warn
+{
+  rotate 4
+  daily
+  size 25M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+  postrotate
+      /usr/lib/rsyslog/rsyslog-rotate
+  endscript
+}`)
+
+func linuxCloudInitArtifactsAksRsyslogBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksRsyslog, nil
+}
+
+func linuxCloudInitArtifactsAksRsyslog() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksRsyslogBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-rsyslog", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2318,21 +2420,6 @@ if [[ ${ID} != "mariner" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
-fi
-
-# handle starting the logrotate-aks service responsible for log rotation
-if [ -f /etc/systemd/system/logrotate-aks.timer ] && [ -f /etc/systemd/system/logrotate-aks.service ]; then
-    # we're on a VHD that has definitions for the logrotate-aks service
-    logs_to_events "AKS.CSE.logrotate-aks" "systemctlEnableAndStart logrotate-aks.timer"
-    if [ -f /etc/cron.daily/logrotate ]; then
-        rm -f /etc/cron.daily/logrotate
-        echo "Removed /etc/cron.daily/logrotate"
-    fi
-    echo "Enabled and started logrotate-aks.timer, removed"
-else
-    # we're not on a VHD with the logrotate-aks service definition, 
-    # fall back to using the default daily logrotate cron
-    echo "Unable to start logrotate-aks.timer, falling back to default logrotate cron"
 fi
 
 # Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
@@ -7179,6 +7266,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
+	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
+	"linux/cloud-init/artifacts/aks-logrotate.timer":                       linuxCloudInitArtifactsAksLogrotateTimer,
+	"linux/cloud-init/artifacts/aks-rsyslog":                               linuxCloudInitArtifactsAksRsyslog,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
@@ -7301,6 +7391,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
+				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
+				"aks-logrotate.timer":                       &bintree{linuxCloudInitArtifactsAksLogrotateTimer, map[string]*bintree{}},
+				"aks-rsyslog":                               &bintree{linuxCloudInitArtifactsAksRsyslog, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
