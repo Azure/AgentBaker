@@ -146,9 +146,8 @@
         "v3.8.9.3"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -157,9 +156,8 @@
         "v3.8.9.5"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -168,9 +166,8 @@
         "v3.8.9"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -179,18 +176,16 @@
         "v3.8.9.1"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -401,19 +396,10 @@
   ],
   "DownloadFiles": [
     {
-      "fileName": "cni-plugins-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/cni",
-      "versions": [
-        "0.7.6"
-      ]
-    },
-    {
       "fileName": "cni-plugins-linux-amd64-v*.tgz",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.9.1",
         "1.1.1"
       ]
     },
@@ -422,7 +408,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.22",
         "1.4.32",
         "1.4.35"
       ]
@@ -432,7 +417,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.22",
         "1.4.32",
         "1.4.35"
       ]
