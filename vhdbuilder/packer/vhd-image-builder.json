@@ -240,6 +240,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.service",
+      "destination": "/home/packer/aks-logrotate.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.timer",
+      "destination": "/home/packer/aks-logrotate.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
+      "destination": "/home/packer/aks-rsyslog"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/apt-preferences",
       "destination": "/home/packer/apt-preferences"
     },

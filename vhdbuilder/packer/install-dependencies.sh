@@ -45,6 +45,8 @@ systemctlEnableAndStart update_certs.timer || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
+systemctlEnableAndStart aks-logrotate.timer || exit 1
+
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
@@ -495,66 +497,6 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
-
-# populate the customized logrotate conf file for syslogs
-cat << EOF >> /etc/logrotate.d/aks-rsyslog
-/var/log/syslog
-{
-  rotate 4
-  daily
-  size 100M
-  missingok
-  notifempty
-  delaycompress
-  compress
-  postrotate
-      /usr/lib/rsyslog/rsyslog-rotate
-  endscript
-}
-
-/var/log/mail.info
-/var/log/mail.warn
-/var/log/mail.err
-/var/log/mail.log
-/var/log/daemon.log
-/var/log/kern.log
-/var/log/auth.log
-/var/log/user.log
-/var/log/lpr.log
-/var/log/cron.log
-/var/log/debug
-/var/log/messages
-/var/log/warn
-{
-  rotate 4
-  daily
-  size 25M
-  missingok
-  notifempty
-  compress
-  delaycompress
-  sharedscripts
-  postrotate
-      /usr/lib/rsyslog/rsyslog-rotate
-  endscript
-}
-EOF
-
-# populate the logrotate-aks unit and timer definitions
-cat << EOF >> /etc/systemd/system/logrotate-aks.service
-[Unit]
-Description=runs the logrotate utility for log rotation
-[Service]
-ExecStart=/usr/sbin/logrotate /etc/logrotate.conf
-EOF
-cat << EOF >> /etc/systemd/system/logrotate-aks.timer
-[Unit]
-Description=a timer that runs the logrotate-aks on the top of every hour of every day
-[Timer]
-OnCalendar=*-*-* *:00:00
-[Install]
-WantedBy=multi-user.target
-EOF
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
