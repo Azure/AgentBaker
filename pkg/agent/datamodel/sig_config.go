@@ -239,7 +239,7 @@ const (
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
 	Windows2019SIGImageVersion string = "17763.3534.221019"
-	Windows2022SIGImageVersion string = "20348.1131.221019"
+	Windows2022SIGImageVersion string = "20348.1194.221026"
 
 	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
 )
