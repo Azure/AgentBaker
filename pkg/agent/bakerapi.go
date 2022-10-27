@@ -13,7 +13,7 @@ import (
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
-	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (map[datamodel.Distro]datamodel.SigImageConfig, error)
+	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
 func NewAgentBaker() (AgentBaker, error) {
@@ -85,7 +85,7 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
 	return sigImageConfig, nil
 }
 
-func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
+func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
 	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sig image config: %v", err)

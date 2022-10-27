@@ -38,7 +38,7 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, config.Region, config.Distro)
+		allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, config.Region)
 		if err != nil {
 			processResult <- handleError(err)
 			return
