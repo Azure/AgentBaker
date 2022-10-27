@@ -35,5 +35,11 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 		Name("GetLatestSigImageConfig").
 		HandlerFunc(api.GetLatestSigImageConfig)
 
+	router.
+		Methods("POST").
+		Path(RoutePathDistroSIGImageConfig).
+		Name("GetDistroSigImageConfig").
+		HandlerFunc(api.GetDistroSigImageConfig)
+
 	return router
 }
