@@ -7,9 +7,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
-      "amd64OnlyVersions": [
-        "v2.0.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": []
     },
     {
