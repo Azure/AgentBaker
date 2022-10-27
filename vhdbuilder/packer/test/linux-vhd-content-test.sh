@@ -230,7 +230,7 @@ testKubeBinariesPresent() {
   echo "$test:Start"
   containerRuntime=$1
   binaryDir=/usr/local/bin
-  k8sVersions="$(jq .kubernetes.versions[] $MANIFEST_FILEPATH)"
+  k8sVersions="$(jq -r .kubernetes.versions[] $MANIFEST_FILEPATH)"
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
