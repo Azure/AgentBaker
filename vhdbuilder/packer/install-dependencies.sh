@@ -463,7 +463,7 @@ apt-get -y clean
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
-KUBE_BINARY_VERSIONS="$(jq .kubernetes.versions parts/linux/cloud-init/artifacts/manifest.json | jq -r ".[]")"
+KUBE_BINARY_VERSIONS="$(jq .kubernetes.versions manifest.json | jq -r ".[]")"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
