@@ -12,9 +12,16 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "enable_fips": "{{env `ENABLE_FIPS`}}"
+    "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
+    "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "img_publisher": "{{env `IMG_PUBLISHER`}}",
+    "img_offer": "{{env `IMG_OFFER`}}",
+    "img_sku": "{{env `IMG_SKU`}}",
+    "img_version": "{{env `IMG_VERSION`}}"
   },
   "builders": [
     {
@@ -23,13 +30,12 @@
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
       "subscription_id": "{{user `subscription_id`}}",
-      "resource_group_name": "{{user `resource_group_name`}}",
-      "storage_account": "{{user `storage_account_name`}}",
-      "capture_container_name": "aks-vhds",
-      "capture_name_prefix": "aks-mariner-{{user `create_time`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_url": "https://{{user `storage_account_name`}}.blob.core.windows.net/system/{{user `imported_image_name`}}.vhd",
+      "image_publisher": "{{user `img_publisher`}}",
+      "image_offer": "{{user `img_offer`}}",
+      "image_sku": "{{user `img_sku`}}",
+      "image_version": "{{user `img_version`}}",
       "azure_tags": {
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
@@ -37,7 +43,19 @@
         "createdBy": "aks-vhd-pipeline"
       },
       "location": "{{user `location`}}",
-      "vm_size": "{{user `vm_size`}}"
+      "vm_size": "{{user `vm_size`}}",
+      "managed_image_resource_group_name": "{{user `resource_group_name`}}",
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
+      "polling_duration_timeout": "1h",
+      "shared_image_gallery_destination": {
+        "resource_group": "{{user `resource_group_name`}}",
+        "gallery_name": "{{user `sig_gallery_name`}}",
+        "image_name": "{{user `sig_image_name`}}",
+        "image_version": "{{user `captured_sig_version`}}",
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
+      }
     }
   ],
   "provisioners": [

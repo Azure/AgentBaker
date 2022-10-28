@@ -17,10 +17,13 @@
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
+    "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
-    "img_sku": "{{env `IMG_SKU`}}"
+    "img_sku": "{{env `IMG_SKU`}}",
+    "img_version": "{{env `IMG_VERSION`}}",
+    "sgx_install": "{{env `SGX_INSTALL`}}"
   },
   "builders": [
     {
@@ -34,7 +37,7 @@
       "image_publisher": "{{user `img_publisher`}}",
       "image_offer": "{{user `img_offer`}}",
       "image_sku": "{{user `img_sku`}}",
-      "image_version": "latest",
+      "image_version": "{{user `img_version`}}",
       "azure_tags": {
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
@@ -44,13 +47,13 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}",
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "polling_duration_timeout": "1h",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `sig_image_version`}}",
+        "image_version": "{{user `captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
@@ -226,13 +229,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
-      "destination": "/home/packer/update_certs.timer"
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/home/packer/update_certs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
-      "destination": "/home/packer/update_certs.sh"
+      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
+      "destination": "/home/packer/update_certs.timer"
     },
     {
       "type": "file",
@@ -347,7 +350,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
