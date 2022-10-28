@@ -301,7 +301,7 @@ var _linuxCloudInitArtifactsAksLogrotateTimer = []byte(`[Unit]
 Description=a timer that runs the logrotate-aks service randomly on every hour
 [Timer]
 OnCalendar=*-*-* *:00:00
-RandomizedDelaySec=60s
+RandomizedDelaySec=3m
 [Install]
 WantedBy=multi-user.target`)
 
