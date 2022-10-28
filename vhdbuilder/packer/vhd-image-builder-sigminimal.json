@@ -248,6 +248,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
+      "destination": "/home/packer/aks-logrotate.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.service",
       "destination": "/home/packer/aks-logrotate.service"
     },

@@ -1,4 +1,4 @@
 [Unit]
 Description=runs the logrotate utility for log rotation
 [Service]
-ExecStart=/usr/sbin/logrotate /etc/logrotate.conf
+ExecStart=/usr/local/bin/aks-logrotate.sh
