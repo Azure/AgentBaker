@@ -1,5 +1,12 @@
 #!/bin/bash -x
 
+# ACS_TEST_RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
+EXPIRATION_IN_HOURS=168
+# convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
+(( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
+# deadline = the "date +%s" representation of the oldest age we're willing to keep
+(( deadline=$(date +%s)-${expirationInSecs%.*} ))
+
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 fi
@@ -129,14 +136,18 @@ if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
   fi
 fi
 
+#clean up managed images created over a week ago in aksvhdtestbuildrg
+if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
+  for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
+    if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]]; then
+      echo "Will delete managed image ${image} from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
+      az image delete -n ${image} -g ${AZURE_RESOURCE_GROUP_NAME} || echo "unable to delete managed image ${image}, will continue..."
+    fi
+  done
+fi
+
 #clean up storage account created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
-  EXPIRATION_IN_HOURS=168
-  # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
-  (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
-  # deadline = the "date +%s" representation of the oldest age we're willing to keep
-  (( deadline=$(date +%s)-${expirationInSecs%.*} ))
-  echo "Current time is $(date)"
   echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
   echo "That is, those created before $(date -d@$deadline) As shown below"
   az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
