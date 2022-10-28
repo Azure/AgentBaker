@@ -766,7 +766,7 @@ configureKubeletServerCert() {
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
 }
 
 configureK8s() {
@@ -3400,10 +3400,18 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": []
     },
     "kubernetes": {
-        "fileName": "",
+        "fileName": "kubernetes-node-linux-arch.tar.gz",
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
-        "versions": []
+        "versions": [
+            "1.22.11-hotfix.20220620",
+            "1.22.15",
+            "1.23.8-hotfix.20220620",
+            "1.23.12",
+            "1.24.3",
+            "1.24.6",
+            "1.25.2-hotfix.20221006"
+        ]
     },
     "_template": {
         "fileName": "",

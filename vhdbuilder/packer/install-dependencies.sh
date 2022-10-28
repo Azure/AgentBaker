@@ -25,6 +25,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
+cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
@@ -112,7 +113,7 @@ fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
-    disableSystemdIptables
+    disableSystemdIptables || exit 1
     forceEnableIpForward
     setMarinerNetworkdConfig
     fixCBLMarinerPermissions
@@ -294,22 +295,12 @@ else
     retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
 fi
 
-#Azure CNI has binaries and container images for ARM64 from 1.4.13
-AMD64_ONLY_CNI_VERSIONS="
-1.2.7
-"
-#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_VNET_CNI_VERSIONS="
-1.4.22
+
+#must be both amd64/arm64 images
+VNET_CNI_VERSIONS="
 1.4.32
 1.4.35
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  VNET_CNI_VERSIONS="${MULTI_ARCH_VNET_CNI_VERSIONS}"
-else
-  VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
-fi
 
 
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
@@ -324,9 +315,9 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
+#UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.4.22
 1.4.32
 1.4.35
 "
@@ -348,25 +339,9 @@ for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
     echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
-  CNI_PLUGIN_VERSIONS="
-  0.7.6
-  "
-  for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/}
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-    mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
-    rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-fi
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-0.9.1
 1.1.1
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
@@ -479,27 +454,17 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
-apt-get autoclean -y
-apt-get autoremove -y
-apt-get clean -y
+apt-get -y autoclean
+apt-get -y autoremove --purge
+apt-get -y clean
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
-MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.22.11-hotfix.20220620
-1.22.15
-1.23.8-hotfix.20220620
-1.23.12
-1.24.3
-1.24.6
-1.25.2-hotfix.20221006
-"
-
-KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
+KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -526,6 +491,7 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
+
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken

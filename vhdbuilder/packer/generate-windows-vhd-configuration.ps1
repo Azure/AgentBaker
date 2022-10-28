@@ -27,8 +27,8 @@ switch -Regex ($windowsSKU) {
         $global:patchIDs = @()
     }
     "2022*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2022/10/windows10.0-kb5018485-x64_13183a9eaf45a33f681d43fa80c1b283f213991c.msu")
+        $global:patchIDs = @("KB5018485")
     }
 }
 
@@ -47,10 +47,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -71,10 +71,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
@@ -96,10 +96,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
