@@ -714,18 +714,36 @@ configureTransparentHugePage() {
 
 {{- if ShouldConfigSwapFile}}
 configureSwapFile() {
+    # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
-    DISK_FREE_KB=$(df /dev/sdb1 | sed 1d | awk '{print $4}')
-    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
-        SWAP_LOCATION=/mnt/swapfile
-        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        chmod 600 ${SWAP_LOCATION}
-        retrycmd_if_failure 24 5 25 mkswap ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        retrycmd_if_failure 24 5 25 swapon ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        retrycmd_if_failure 24 5 25 swapon --show | grep ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
+    symlinks=$(ls -la /dev/disk/azure)
+
+    if [[ -n "$(echo "${symlinks}" | grep "resource-part1")" ]]; then
+        echo "Will use resource disk for swap file"
+        resource_disk_name=$(echo "${symlinks}" | grep "resource-part1" | awk '{print $11}')
+    elif [[ -n "$(echo "${symlinks}" | grep "root-part1" | aws '{print $11}')" ]]; then
+        echo "Resource disk unavailable, will use OS disk for swap file"
+        resource_disk_name=$(echo "${symlinks}" | grep "root-part1" | awk '{print $11}')
     else
-        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
+        echo "Unable to identify a disk for swap file storage, both 'root-part1' and 'resource-part1' disk labels are absent"
+        exit $ERR_SWAP_CREATE_CANT_FIND_AVAILABLE_DISK
+    fi
+    resource_disk_name=${resource_disk_name//./}
+    resource_disk_name=${resource_disk_name//\//}
+
+    disk_free_kb=$(df /dev/${resource_disk_name} | sed 1d | awk '{print $4}')
+    if [[ ${disk_free_kb} -gt ${SWAP_SIZE_KB} ]]; then
+        swap_location=$(df | grep /dev/${resource_disk_name} | awk '{print $6}')
+        echo "Swap file will be saved to: ${swap_location}"
+
+        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
+        chmod 600 ${swap_location}
+        retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
+        echo "${swap_location} none swap sw 0 0" >> /etc/fstab
+    else
+        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${disk_free_kb}"
         exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
     fi
 }
