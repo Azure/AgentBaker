@@ -60,12 +60,13 @@ else
       echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
       exit 1
     fi
+  fi
 
+  if [ -z "${MANAGED_SIG_ID}" ]; then
+    echo "Managed Sig Id from packer-output is empty, unable to proceed..."
+    exit 1
+  else
     echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
-    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
-    echo "Image definition defined using SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION is ${IMG_DEF}"
-  else 
-    # gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
     IMG_DEF=${MANAGED_SIG_ID}
   fi
 
