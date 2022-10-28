@@ -65,6 +65,8 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  AKS_LOGROTATE_SCRIPT_SRC=/home/packer/aks-logrotate.sh
+  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/aks-logrotate.sh
   AKS_LOGROTATE_SERVICE_SRC=/home/packer/aks-logrotate.service
   AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/aks-logrotate.service
   AKS_LOGROTATE_TIMER_SRC=/home/packer/aks-logrotate.timer
@@ -106,6 +108,7 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
+  # cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
   cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
   cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
   cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644

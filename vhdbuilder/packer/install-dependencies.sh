@@ -45,7 +45,9 @@ systemctlEnableAndStart update_certs.timer || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
+# enable the aks-logrotate service and remove the auto-generated logrotate cron job
 systemctlEnableAndStart aks-logrotate.timer || exit 1
+rm -f /etc/cron.daily/logrotate
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
