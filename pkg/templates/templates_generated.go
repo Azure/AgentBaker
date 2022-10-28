@@ -7,6 +7,7 @@
 // linux/cloud-init/artifacts/10-httpproxy.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/aks-logrotate.service
+// linux/cloud-init/artifacts/aks-logrotate.sh
 // linux/cloud-init/artifacts/aks-logrotate.timer
 // linux/cloud-init/artifacts/aks-rsyslog
 // linux/cloud-init/artifacts/apt-preferences
@@ -249,7 +250,7 @@ func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
 var _linuxCloudInitArtifactsAksLogrotateService = []byte(`[Unit]
 Description=runs the logrotate utility for log rotation
 [Service]
-ExecStart=/usr/sbin/logrotate /etc/logrotate.conf`)
+ExecStart=/usr/local/bin/aks-logrotate.sh`)
 
 func linuxCloudInitArtifactsAksLogrotateServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsAksLogrotateService, nil
@@ -262,6 +263,36 @@ func linuxCloudInitArtifactsAksLogrotateService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-logrotate.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogrotateSh = []byte(`#!/bin/sh
+
+# Clean non existent log file entries from status file
+cd /var/lib/logrotate
+test -e status || touch status
+head -1 status > status.clean
+sed 's/"//g' status | while read logfile date
+do
+    [ -e "$logfile" ] && echo "\"$logfile\" $date"
+done >> status.clean
+mv status.clean status
+
+test -x /usr/sbin/logrotate || exit 0
+/usr/sbin/logrotate /etc/logrotate.conf`)
+
+func linuxCloudInitArtifactsAksLogrotateShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogrotateSh, nil
+}
+
+func linuxCloudInitArtifactsAksLogrotateSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogrotateShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-logrotate.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7275,6 +7306,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
+	"linux/cloud-init/artifacts/aks-logrotate.sh":                          linuxCloudInitArtifactsAksLogrotateSh,
 	"linux/cloud-init/artifacts/aks-logrotate.timer":                       linuxCloudInitArtifactsAksLogrotateTimer,
 	"linux/cloud-init/artifacts/aks-rsyslog":                               linuxCloudInitArtifactsAksRsyslog,
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
@@ -7400,6 +7432,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
+				"aks-logrotate.sh":                          &bintree{linuxCloudInitArtifactsAksLogrotateSh, map[string]*bintree{}},
 				"aks-logrotate.timer":                       &bintree{linuxCloudInitArtifactsAksLogrotateTimer, map[string]*bintree{}},
 				"aks-rsyslog":                               &bintree{linuxCloudInitArtifactsAksRsyslog, map[string]*bintree{}},
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
