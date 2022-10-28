@@ -9,6 +9,7 @@ import (
 
 	agent "github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/sanity-io/litter"
 )
 
 const (
@@ -32,6 +33,9 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 			return
 		}
 
+		litter.Dump("request config")
+		litter.Dump(config)
+
 		agentBaker, err := agent.NewAgentBaker()
 		if err != nil {
 			processResult <- handleError(err)
@@ -43,6 +47,9 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 			processResult <- handleError(err)
 			return
 		}
+
+		litter.Dump("latestSigConfig")
+		litter.Dump(latestSigConfig)
 
 		result, err := json.Marshal(latestSigConfig)
 		if err != nil {

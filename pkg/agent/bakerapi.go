@@ -103,5 +103,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SI
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
 		allDistros[distro] = sigConfig
 	}
+
 	return allDistros, nil
 }
