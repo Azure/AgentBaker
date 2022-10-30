@@ -9,7 +9,6 @@ import (
 
 	agent "github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/sanity-io/litter"
 )
 
 const (
@@ -33,9 +32,6 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		litter.Dump("request config")
-		litter.Dump(config)
-
 		agentBaker, err := agent.NewAgentBaker()
 		if err != nil {
 			processResult <- handleError(err)
@@ -47,9 +43,6 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 			processResult <- handleError(err)
 			return
 		}
-
-		litter.Dump("allDistros")
-		litter.Dump(allDistros)
 
 		result, err := json.Marshal(allDistros)
 		if err != nil {
