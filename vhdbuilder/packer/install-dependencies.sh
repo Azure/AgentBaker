@@ -52,7 +52,7 @@ echo "Components downloaded in this VHD build (some of the below components migh
 if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
   wait_for_apt_locks
-  apt_get_install 30 1 600 grub2-efi || exit 1
+  apt_get_install 30 1 600 grub-efi || exit 1
 fi
 
 installDeps
