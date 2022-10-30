@@ -49,11 +49,11 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
-  wait_for_apt_locks
-  apt_get_install 30 1 600 grub-efi || exit 1
-fi
+# fix grub issue with cvm by reinstalling before other deps
+# installed on all vhds anyway so no conditional
+apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+wait_for_apt_locks
+apt_get_install 30 1 600 grub-efi || exit 1
 
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
