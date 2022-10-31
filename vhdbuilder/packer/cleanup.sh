@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 # ACS_TEST_RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
-EXPIRATION_IN_HOURS=168
+EXPIRATION_IN_HOURS=5
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
@@ -138,19 +138,24 @@ fi
 
 #attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
+  sig_version_ids=""
   for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
     if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2004* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]]; then
       echo "Will delete managed image ${image} from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
       az image delete -n ${image} -g ${AZURE_RESOURCE_GROUP_NAME} || echo "unable to delete managed image ${image}, will continue..."
 
-      if [[ -n "${SIG_GALLERY_NAME}" ]]; then
-        sig_definition=${image%-*}
-        sig_version=${image#*-}
-        echo "Used image name ${image} to infer SIG details: ${sig_definition}/${sig_version} in rg/gallery: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}, attempting to delete..."
-        az sig image-version delete -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${sig_definition} -e ${sig_version} || echo "unable to delete inferred SIG version, will continue..."
-      fi
+      sig_definition=${image%-*}
+      sig_version=${image#*-}
+      sig_version_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${sig_definition}/versions/${sig_version}"
+      sig_version_ids="${sig_version_ids} ${sig_version_id}"
+      echo "Used image name ${image} to infer SIG details: ${sig_definition}/${sig_version} in rg/gallery: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}, will attempt to delete"
     fi
   done
+
+  if [[ -n "${SIG_GALLERY_NAME}" ]]; then
+    echo "attempting to delete associated SIG image versions..."
+    az resource delete --ids ${sig_version_ids} 
+  fi
 fi
 
 #clean up storage account created over a week ago
