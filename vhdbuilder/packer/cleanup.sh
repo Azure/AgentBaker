@@ -151,10 +151,10 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   done
 
   echo "attempting to delete managed images..."
-  az resource delete --ids ${managed_image_ids} || exit "managed image deletion was not successful, continuing..."
+  az resource delete --ids ${managed_image_ids} || echo "managed image deletion was not successful, continuing..."
 
   echo "attempting to delete associated SIG image versions..."
-  az resource delete --ids ${sig_version_ids} || exit "SIG image version deletion was not successful, continuing..."
+  az resource delete --ids ${sig_version_ids} || echo "SIG image version deletion was not successful, continuing..."
 fi
 
 #clean up storage account created over a week ago
