@@ -477,9 +477,17 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
-apt-get -y autoclean
-apt-get -y autoremove --purge
-apt-get -y clean
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt-get purge --auto-remove snapd -y
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
@@ -501,14 +509,6 @@ done
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
   apt-get purge --auto-remove apport open-vm-tools -y
-  # remove unused kernel images for space
-  linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
-  for image in $linuxImages; do
-      echo "Removing non-fips kernel ${image}..."
-      if [[ "${image}" != "linux-image-$(uname -r)" ]]; then
-          apt_get_purge 5 10 120 ${image} || exit 1
-      fi
-  done
 fi
 
 # shellcheck disable=SC2129
@@ -554,10 +554,4 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   fi
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  # remove snapd, which is not used by container stack
-  apt-get purge --auto-remove snapd -y
-  # update message-of-the-day to start after multi-user.target
-  # multi-user.target usually start at the end of the boot sequence
-  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-fi
+
