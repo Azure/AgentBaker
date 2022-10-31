@@ -501,6 +501,14 @@ done
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
   apt-get purge --auto-remove apport open-vm-tools -y
+  # remove unused kernel images for space
+  linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
+  for image in $linuxImages; do
+      echo "Removing non-fips kernel ${image}..."
+      if [[ "${image}" != "linux-image-$(uname -r)" ]]; then
+          apt_get_purge 5 10 120 ${image} || exit 1
+      fi
+  done
 fi
 
 # shellcheck disable=SC2129
@@ -514,6 +522,7 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
+
 
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
