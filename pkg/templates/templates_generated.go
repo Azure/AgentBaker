@@ -3200,19 +3200,18 @@ func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsIpv6_nftables = []byte(`flush ruleset
+var _linuxCloudInitArtifactsIpv6_nftables = []byte(`define slb_lla = fe80::1234:5678:9abc
+define slb_gua = 2603:1062:0:1:fe80:1234:5678:9abc
 
-table ip6 azureSLBProbe {
-	chain prerouting {
-		type filter hook prerouting priority -300; policy accept;
-		iifname eth0 ip6 saddr fe80::1234:5678:9abc ip6 saddr set 2603:1062:0:1:fe80:1234:5678:9abc counter
-	}
+add table ip6 azureSLBProbe
 
-	chain postrouting {
-		type filter hook postrouting priority -300; policy accept;
-		oifname eth0 ip6 daddr 2603:1062:0:1:fe80:1234:5678:9abc ip6 daddr set fe80::1234:5678:9abc counter
-	}
-}`)
+flush table ip6 azureSLBProbe
+
+add chain ip6 azureSLBProbe prerouting {type filter hook prerouting priority -300;}
+add rule ip6 azureSLBProbe prerouting iifname eth0 ip6 saddr $slb_lla ip6 saddr set $slb_gua counter
+
+add chain ip6 azureSLBProbe postrouting {type filter hook postrouting priority -300;}
+add rule ip6 azureSLBProbe postrouting oifname eth0 ip6 daddr $slb_gua ip6 daddr set $slb_lla counter`)
 
 func linuxCloudInitArtifactsIpv6_nftablesBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsIpv6_nftables, nil
@@ -3293,17 +3292,26 @@ NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 #   }
 # ]
 
-# check the number of IPv6 addresses this instance has from IMDS
-IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
-    jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
+# every 30 min, query IMDS and update nftables rules
 
-if [[ $IPV6_ADDR_COUNT -eq 0 ]];
-then
-    echo "instance is not configured with IPv6, skipping nftables rules"
-else
-    echo "writing nftables from $NFTABLES_RULESET_FILE"
-    nft -f $NFTABLES_RULESET_FILE
-fi
+while true
+do
+
+    # check the number of IPv6 addresses this instance has from IMDS
+    IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
+        jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
+
+    if [[ $IPV6_ADDR_COUNT -eq 0 ]];
+    then
+        echo "instance is not configured with IPv6, skipping nftables rules"
+    else
+        echo "writing nftables from $NFTABLES_RULESET_FILE"
+        nft -f $NFTABLES_RULESET_FILE
+    fi
+
+    sleep 3600 # sleep for 1 hour
+done
+
 `)
 
 func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
