@@ -46,6 +46,13 @@ systemctlEnableAndStart update_certs.timer || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
+
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
@@ -68,13 +75,6 @@ APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
-fi
-
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
 fi
 
 installDeps
