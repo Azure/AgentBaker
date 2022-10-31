@@ -51,9 +51,11 @@ echo "Components downloaded in this VHD build (some of the below components migh
 
 # fix grub issue with cvm by reinstalling before other deps
 # installed on all vhds anyway so no conditional
-apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
-wait_for_apt_locks
-apt_get_install 30 1 600 grub-efi || exit 1
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  wait_for_apt_locks
+  apt_get_install 30 1 600 grub-efi || exit 1
+fi
 
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
