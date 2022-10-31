@@ -40,22 +40,21 @@ configureSwapFile() {
     swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
     symlinks=$(ls -la /dev/disk/azure)
 
-    if [[ -n "$(echo "${symlinks}" | grep "resource-part1")" ]]; then
+    if [[ -L /dev/disk/azure/resource-part1 ]]; then
         echo "Will use resource disk for swap file"
-        resource_disk_name=$(echo "${symlinks}" | grep "resource-part1" | awk '{print $11}')
-    elif [[ -n "$(echo "${symlinks}" | grep "root-part1" | aws '{print $11}')" ]]; then
-        echo "Resource disk unavailable, will use OS disk for swap file"
-        resource_disk_name=$(echo "${symlinks}" | grep "root-part1" | awk '{print $11}')
+        base_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
+        disk_name=$(echo "${symlinks}" | grep "resource-part1" | awk '{print $11}')
     else
-        echo "Unable to identify a disk for swap file storage, both 'root-part1' and 'resource-part1' disk labels are absent"
-        exit $ERR_SWAP_CREATE_CANT_FIND_AVAILABLE_DISK
+        mkdir -p /swaps
+        base_path=/swaps
+        disk_name=$(echo "${symlinks}" | grep "root-part1" | awk '{print $11}')
     fi
-    resource_disk_name=${resource_disk_name//./}
-    resource_disk_name=${resource_disk_name//\//}
 
+    disk_name=${disk_name//./}
+    disk_name=${disk_name//\//}
     disk_free_kb=$(df /dev/${resource_disk_name} | sed 1d | awk '{print $4}')
     if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
-        swap_location="$(df | grep /dev/${resource_disk_name} | awk '{print $6}')/swapfile"
+        swap_location="${base_path}/swapfile"
         echo "Swap file will be saved to: ${swap_location}"
 
         retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
