@@ -724,8 +724,8 @@ configureSwapFile() {
         disk_name=$(echo "${symlinks}" | grep "resource-part1" | awk '{print $11}')
     else
         echo "Will use OS disk for swap file"
-        mkdir -p /swaps
         base_path=/swaps
+        mkdir -p ${base_path}
         disk_name=$(echo "${symlinks}" | grep "root-part1" | awk '{print $11}')
     fi
 
@@ -743,7 +743,7 @@ configureSwapFile() {
         retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
         echo "${swap_location} none swap sw 0 0" >> /etc/fstab
     else
-        echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device /dev/${resource_disk_name}"
+        echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device /dev/${disk_name}"
         exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
     fi
 }
