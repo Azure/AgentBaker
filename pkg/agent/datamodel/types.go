@@ -1438,6 +1438,14 @@ type K8sComponents struct {
 	WindowsPackageURL string
 }
 
+// GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
+// This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
+type GetLatestSigImageConfigRequest struct {
+	SIGConfig SIGConfig
+	Region    string
+	Distro    Distro
+}
+
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
