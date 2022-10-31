@@ -55,6 +55,26 @@ if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
+  
+  # disable and mask all UU timers/services
+  # save some background io/latency
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+fi
+
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
 fi
 
 installDeps
@@ -105,13 +125,6 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
-fi
-
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
 fi
 
 if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
@@ -536,17 +549,4 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-
-  # disable and mask all UU timers/services
-  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
-
-  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
-APT::Periodic::Update-Package-Lists "0";
-APT::Periodic::Download-Upgradeable-Packages "0";
-APT::Periodic::AutocleanInterval "0";
-APT::Periodic::Unattended-Upgrade "0";
-EOF
-
 fi
