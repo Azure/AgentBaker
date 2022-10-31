@@ -735,15 +735,15 @@ configureSwapFile() {
         swap_location="${base_path}/swapfile"
         echo "Swap file will be saved to: ${swap_location}"
 
-        retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
         chmod 600 ${swap_location}
-        retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
-        retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
-        retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
+        retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+        retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+        retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
         echo "${swap_location} none swap sw 0 0" >> /etc/fstab
     else
         echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device /dev/${resource_disk_name}"
-        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
+        exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
     fi
 }
 {{- end}}
@@ -1324,8 +1324,8 @@ ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azur
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
 
-ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
-ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+ERR_SWAP_CREATE_FAIL=130 {{/* Error allocating swap file */}}
+ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
