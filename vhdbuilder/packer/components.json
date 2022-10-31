@@ -131,7 +131,8 @@
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [
-        "5.3.0-main-10-06-2022-c0c49872"
+        "5.3.0-main-10-06-2022-c0c49872",
+        "5.4.0-main-10-26-2022-16f02b39"
       ],
       "multiArchVersions": []
     },
@@ -146,9 +147,8 @@
         "v3.8.9.3"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -157,9 +157,8 @@
         "v3.8.9.5"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -168,9 +167,8 @@
         "v3.8.9"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -179,18 +177,16 @@
         "v3.8.9.1"
       ],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.21.4",
         "v3.21.6",
-        "v3.23.1"
+        "v3.23.3"
       ]
     },
     {
@@ -204,8 +200,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.2",
-        "1.12.2.2"
+        "1.12.2.2",
+        "1.12.2.3"
       ]
     },
     {
@@ -282,8 +278,8 @@
         "v1.2.2.5"
       ],
       "multiArchVersions": [
-        "v1.22.0.3",
-        "v1.23.0"
+        "v1.23.0",
+        "v1.24.0"
       ]
     },
     {
@@ -292,8 +288,8 @@
         "v1.2.2"
       ],
       "multiArchVersions": [
-        "v1.21.0",
-        "v1.22.0"
+        "v1.22.0",
+        "v1.23.0"
       ]
     },
     {
@@ -381,7 +377,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.12.1"
+        "v1.8.12.1",
+        "v1.8.13"
       ]
     },
     {
@@ -401,19 +398,10 @@
   ],
   "DownloadFiles": [
     {
-      "fileName": "cni-plugins-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/cni",
-      "versions": [
-        "0.7.6"
-      ]
-    },
-    {
       "fileName": "cni-plugins-linux-amd64-v*.tgz",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "0.9.1",
         "1.1.1"
       ]
     },
@@ -422,7 +410,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.22",
         "1.4.32",
         "1.4.35"
       ]
@@ -432,7 +419,6 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.22",
         "1.4.32",
         "1.4.35"
       ]

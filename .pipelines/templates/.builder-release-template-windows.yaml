@@ -140,7 +140,7 @@ steps:
   - bash: |
         echo MODE=$(MODE) && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
@@ -156,7 +156,7 @@ steps:
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-        -e GEN2_CAPTURED_SIG_VERSION=${gen2_captured_sig_version} \
+        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.GEN2_SIG_FOR_PRODUCTION, 'True'))
@@ -205,8 +205,8 @@ steps:
 # Perform this step only if we want to publish the VHD: Default Gen 1 or Gen 2 (sigMode) and the built sig is for production.
   - bash: |
       echo MODE=$(MODE) && \
-      if [[ "${GEN2_SIG_FOR_PRODUCTION}" == "True" ]]; then gen2_captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "gen2_captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-      [ -n "${gen2_captured_sig_version}" ] && VHD_NAME="${gen2_captured_sig_version}.vhd"; \
+      if [[ "${GEN2_SIG_FOR_PRODUCTION}" == "True" ]]; then captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
+      [ -n "${captured_sig_version}" ] && VHD_NAME="${captured_sig_version}.vhd"; \
       SKU_NAME="windows-$WINDOWS_SKU"; \
       else \
       OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \

@@ -14,7 +14,7 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "gen2_captured_sig_version": "{{env `${GEN2_CAPTURED_SIG_VERSION`}}",
+    "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
@@ -46,12 +46,12 @@
       "vm_size": "{{user `vm_size`}}",
       "custom_data_file": "vhdbuilder/packer/sha1rsa_custom_data",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `gen2_captured_sig_version`}}",
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "PackerSigGalleryEastUS",
         "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `gen2_captured_sig_version`}}",
+        "image_version": "{{user `captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
