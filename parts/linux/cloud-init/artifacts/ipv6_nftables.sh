@@ -34,14 +34,23 @@ NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 #   }
 # ]
 
-# check the number of IPv6 addresses this instance has from IMDS
-IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
-    jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
+# every 30 min, query IMDS and update nftables rules
 
-if [[ $IPV6_ADDR_COUNT -eq 0 ]];
-then
-    echo "instance is not configured with IPv6, skipping nftables rules"
-else
-    echo "writing nftables from $NFTABLES_RULESET_FILE"
-    nft -f $NFTABLES_RULESET_FILE
-fi
+while true
+do
+
+    # check the number of IPv6 addresses this instance has from IMDS
+    IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
+        jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
+
+    if [[ $IPV6_ADDR_COUNT -eq 0 ]];
+    then
+        echo "instance is not configured with IPv6, skipping nftables rules"
+    else
+        echo "writing nftables from $NFTABLES_RULESET_FILE"
+        nft -f $NFTABLES_RULESET_FILE
+    fi
+
+    sleep 3600 # sleep for 1 hour
+done
+
