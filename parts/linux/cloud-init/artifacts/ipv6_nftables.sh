@@ -34,7 +34,7 @@ NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 #   }
 # ]
 
-# every 30 min, query IMDS and update nftables rules
+# every 60 min, query IMDS and update nftables rules
 
 while true
 do
