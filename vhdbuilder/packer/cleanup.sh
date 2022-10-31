@@ -136,12 +136,19 @@ if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
   fi
 fi
 
-#clean up managed images created over a week ago in aksvhdtestbuildrg
+#attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
-    if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]]; then
+    if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2004* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]]; then
       echo "Will delete managed image ${image} from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
       az image delete -n ${image} -g ${AZURE_RESOURCE_GROUP_NAME} || echo "unable to delete managed image ${image}, will continue..."
+
+      if [[ -n "${SIG_GALLERY_NAME}" ]]; then
+        sig_definition=${image%-*}
+        sig_version=${image#*-}
+        echo "Used image name ${image} to infer SIG details: ${sig_definition}/${sig_version} in rg/gallery: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}, attempting to delete..."
+        az sig image-version delete -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${sig_definition} -e ${sig_version} || echo "unable to delete inferred SIG version, will continue..."
+      fi
     fi
   done
 fi
