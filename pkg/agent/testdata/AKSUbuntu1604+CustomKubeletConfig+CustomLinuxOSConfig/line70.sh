@@ -34,6 +34,7 @@ configureSwapFile() {
         base_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
         disk_name=$(echo "${symlinks}" | grep "resource-part1" | awk '{print $11}')
     else
+        echo "Will use OS disk for swap file"
         mkdir -p /swaps
         base_path=/swaps
         disk_name=$(echo "${symlinks}" | grep "root-part1" | awk '{print $11}')
