@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 # ACS_TEST_RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
-EXPIRATION_IN_HOURS=72
+EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
@@ -139,7 +139,7 @@ fi
 #attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
-    if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2004* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]] || [[ $image == V1* ]]; then
+    if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2004* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]]; then
       echo "Will delete managed image ${image} from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
       az image delete -n ${image} -g ${AZURE_RESOURCE_GROUP_NAME} || echo "unable to delete managed image ${image}, will continue..."
 
