@@ -55,7 +55,7 @@ configureSwapFile() {
 
     disk_free_kb=$(df /dev/${resource_disk_name} | sed 1d | awk '{print $4}')
     if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
-        swap_location=$(df | grep /dev/${resource_disk_name} | awk '{print $6}')
+        swap_location="$(df | grep /dev/${resource_disk_name} | awk '{print $6}')/swapfile"
         echo "Swap file will be saved to: ${swap_location}"
 
         retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
@@ -65,7 +65,7 @@ configureSwapFile() {
         retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREAT_FAIL
         echo "${swap_location} none swap sw 0 0" >> /etc/fstab
     else
-        echo "Insufficient disk space creating swap file: request ${swap_size_kb} free ${disk_free_kb}"
+        echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device /dev/${resource_disk_name}"
         exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
     fi
 }
