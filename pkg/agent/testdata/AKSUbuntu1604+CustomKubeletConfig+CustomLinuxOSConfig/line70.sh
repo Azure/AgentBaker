@@ -27,32 +27,41 @@ configureTransparentHugePage() {
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr 1500 \* 1000)
-
+    base_path=""
+    
+    # Attempt to use the resource disk
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
-        echo "Will use resource disk for swap file"
         disk_id=$(readlink /dev/disk/azure/resource-part1)
-        base_path=$(findmnt -nr -o target -S ${disk_id})
-    else
-        echo "Will use OS disk for swap file"
+        disk_free_kb=$(df ${disk_id} | sed 1d | awk '{print $4}')
+        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+            echo "Will use resource disk for swap file"
+            base_path=$(findmnt -nr -o target -S ${disk_id})
+        else
+            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, falling back to OS disk..."
+        fi
+    fi
+
+    # If we couldn't use the resource disk, attempt to use the OS disk
+    if [[ -z "${base_path}" ]]; then
         disk_id=$(readlink /dev/disk/azure/root-part1)
-        base_path=/
+        disk_free_kb=$(df ${disk_id} | sed 1d | awk '{print $4}')
+        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+            base_path=/
+            echo "Will use OS disk for swap file"
+        else
+            echo "Insufficient disk space on OS disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
+            exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
+        fi
     fi
 
-    disk_free_kb=$(df ${disk_id} | sed 1d | awk '{print $4}')
-    if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
-        swap_location="${base_path}/swapfile"
-        echo "Swap file will be saved to: ${swap_location}"
-
-        retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-        chmod 600 ${swap_location}
-        retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-        retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-        retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-        echo "${swap_location} none swap sw 0 0" >> /etc/fstab
-    else
-        echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device ${disk_id}"
-        exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
-    fi
+    swap_location="${base_path}/swapfile"
+    echo "Swap file will be saved to: ${swap_location}"
+    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    chmod 600 ${swap_location}
+    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
 
 configureHTTPProxyCA() {
