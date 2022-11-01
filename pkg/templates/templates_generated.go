@@ -322,10 +322,12 @@ func linuxCloudInitArtifactsAksLogrotateTimer() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
+/var/log/messages
+/var/log/kern.log
 {
-  rotate 4
+  rotate 5
   daily
-  size 100M
+  size 300M
   missingok
   notifempty
   delaycompress
@@ -340,18 +342,16 @@ var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
 /var/log/mail.err
 /var/log/mail.log
 /var/log/daemon.log
-/var/log/kern.log
 /var/log/auth.log
 /var/log/user.log
 /var/log/lpr.log
 /var/log/cron.log
 /var/log/debug
-/var/log/messages
 /var/log/warn
 {
-  rotate 4
+  rotate 7
   daily
-  size 25M
+  size 50M
   missingok
   notifempty
   compress
