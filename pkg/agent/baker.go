@@ -42,9 +42,9 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// validate and fix input
 	validateAndSetLinuxNodeBootstrappingConfiguration(config)
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "baker", "1.0")
-	//get variable cloudInit
+	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
 		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
@@ -64,9 +64,9 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "", "")
-	//get variable custom data
+	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
@@ -95,11 +95,11 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootst
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "", "")
-	//get variable
+	// get variable
 	variables := getCSECommandVariables(config)
-	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+	// NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
@@ -116,12 +116,12 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "", "")
-	//get variable
+	// get variable
 	variables := getCSECommandVariables(config)
 
-	//NOTE: that CSE command will be executed by VMSS extension so it doesn't need extra escaping like custom data does
+	// NOTE: that CSE command will be executed by VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesWindowsAgentCSECommandPS1,
 		config.AgentPoolProfile,
@@ -142,7 +142,8 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template
 func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{},
-	funcMap template.FuncMap) (string, error) {
+	funcMap template.FuncMap,
+) (string, error) {
 	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap)
 	if err != nil {
 		return "", err
@@ -155,7 +156,8 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 
 // getSingleLine returns the file as a single line
 func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{},
-	funcMap template.FuncMap) (string, error) {
+	funcMap template.FuncMap,
+) (string, error) {
 	b, err := templates.Asset(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
@@ -191,7 +193,7 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 		return ""
 	}
 
-	//TODO: GetParameterPropertyLower
+	// TODO: GetParameterPropertyLower
 	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
 			if v["value"].(paramsMap)[p] == nil {
@@ -456,7 +458,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
-			var parts = []string{
+			parts := []string{
 				kubernetesWindowsCSEHelperPS1,
 			}
 
@@ -544,6 +546,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
+		},
+		"IsAzureCNIOverlayFeatureEnabled": func() bool {
+			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableAzureCNIOverlay")
 		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)

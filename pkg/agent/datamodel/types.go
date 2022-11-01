@@ -306,6 +306,7 @@ type FeatureFlags struct {
 	EnableIPv6DualStack      bool `json:"enableIPv6DualStack,omitempty"`
 	EnableIPv6Only           bool `json:"enableIPv6Only,omitempty"`
 	EnableWinDSR             bool `json:"enableWinDSR,omitempty"`
+	EnableAzureCNIOverlay    bool `json:"enableAzureCNIOverlay,omitempty"`
 }
 
 // AddonProfile represents an addon for managed cluster
@@ -533,7 +534,7 @@ type KubernetesConfig struct {
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
-	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //Note: cannot be provided in config. Used *only* for transferring this to azure.json.
+	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
@@ -778,7 +779,7 @@ func (p *Properties) IsIPMasqAgentEnabled() bool {
 
 // GetClusterID creates a unique 8 string cluster ID.
 func (p *Properties) GetClusterID() string {
-	var mutex = &sync.Mutex{}
+	mutex := &sync.Mutex{}
 	if p.ClusterID == "" {
 		uniqueNameSuffixSize := 8
 		// the name suffix uniquely identifies the cluster and is generated off a hash
@@ -1187,6 +1188,8 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 			return f.EnableIPv6Only
 		case "EnableWinDSR":
 			return f.EnableWinDSR
+		case "EnableAzureCNIOverlay":
+			return f.EnableAzureCNIOverlay
 		default:
 			return false
 		}
