@@ -471,12 +471,13 @@ ensureGPUDrivers() {
     fi
 
     export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
+    logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         existing_version="$(nvidia-smi | grep "Driver Version" | cut -d' ' -f3)"
         export NVIDIA_DRIVER_IMAGE_TAG="cuda-470.82.01-${NVIDIA_DRIVER_IMAGE_SHA}"
 
-        if [[ "$existing_version" == $NVIDIA_DRIVER_IMAGE_TAG ]]; then
+        if [[ "*$existing_version*" == $NVIDIA_DRIVER_IMAGE_TAG ]]; then
             echo "Existing version matches, validating..."
             logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
         else
