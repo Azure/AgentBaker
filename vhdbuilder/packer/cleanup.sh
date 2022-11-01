@@ -144,7 +144,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   managed_image_ids=""
   sig_version_ids=""
   for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
-    if [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]] || [[ $image = Ubuntu1804* ]] || [[ $image = Ubuntu2004* ]] || [[ $image = Ubuntu2204* ]] || [[ $image = CBLMariner* ]]; then
+    if [[ $image = Ubuntu* ]] || [[ $image = CBLMariner* ]] || [[ $image = 1804* ]] || [[ $image = 2004* ]] || [[ $image = 2204* ]]; then
       managed_image_ids="${managed_image_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${image}"
       sig_version_ids="${sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image%-*}/versions/${image#*-}"
       echo "Will delete managed image ${image} and associated SIG version from resource group ${AZURE_RESOURCE_GROUP_NAME}"
