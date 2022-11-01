@@ -716,22 +716,18 @@ configureTransparentHugePage() {
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
-    symlinks=$(ls -la /dev/disk/azure)
 
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
         echo "Will use resource disk for swap file"
-        base_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
-        disk_name=$(echo "${symlinks}" | grep "resource-part1" | awk '{print $11}')
+        disk_id=$(readlink /dev/disk/azure/resource-part1)
+        base_path=$(findmnt -nr -o target -S ${disk_id})
     else
         echo "Will use OS disk for swap file"
-        base_path=/swaps
-        mkdir -p ${base_path}
-        disk_name=$(echo "${symlinks}" | grep "root-part1" | awk '{print $11}')
+        disk_id=$(readlink /dev/disk/azure/root-part1)
+        base_path=/
     fi
 
-    disk_name=${disk_name//./}
-    disk_name=${disk_name//\//}
-    disk_free_kb=$(df /dev/${resource_disk_name} | sed 1d | awk '{print $4}')
+    disk_free_kb=$(df ${disk_id} | sed 1d | awk '{print $4}')
     if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
         swap_location="${base_path}/swapfile"
         echo "Swap file will be saved to: ${swap_location}"
@@ -743,7 +739,7 @@ configureSwapFile() {
         retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
         echo "${swap_location} none swap sw 0 0" >> /etc/fstab
     else
-        echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device /dev/${disk_name}"
+        echo "Insufficient disk space for creating swap file: request ${swap_size_kb} free ${disk_free_kb} on device ${disk_id}"
         exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
     fi
 }
