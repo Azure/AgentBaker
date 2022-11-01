@@ -3223,11 +3223,19 @@ add table ip6 azureSLBProbe
 
 flush table ip6 azureSLBProbe
 
+# Add a rule that accepts router discovery packets without mangling or ipv6 breaks after 9000 seconds when the default route times out
+add rule ip6 slbProbeFix prerouting iifname eth0 icmpv6 type { nd-neighbor-solicit, nd-router-advert, nd-neighbor-advert } counter accept
+
+# Map packets from the LB probe LLA to a SLA IP instead
 add chain ip6 azureSLBProbe prerouting {type filter hook prerouting priority -300;}
 add rule ip6 azureSLBProbe prerouting iifname eth0 ip6 saddr $slb_lla ip6 saddr set $slb_gua counter
 
+# Reverse the modification on the way back out
 add chain ip6 azureSLBProbe postrouting {type filter hook postrouting priority -300;}
-add rule ip6 azureSLBProbe postrouting oifname eth0 ip6 daddr $slb_gua ip6 daddr set $slb_lla counter`)
+add rule ip6 azureSLBProbe postrouting oifname eth0 ip6 daddr $slb_gua ip6 daddr set $slb_lla counter
+
+# show rules
+list table ip6 azureSLBProbe`)
 
 func linuxCloudInitArtifactsIpv6_nftablesBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsIpv6_nftables, nil
@@ -3308,26 +3316,17 @@ NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 #   }
 # ]
 
-# every 60 min, query IMDS and update nftables rules
+# check the number of IPv6 addresses this instance has from IMDS
+IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
+    jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
 
-while true
-do
-
-    # check the number of IPv6 addresses this instance has from IMDS
-    IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
-        jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
-
-    if [[ $IPV6_ADDR_COUNT -eq 0 ]];
-    then
-        echo "instance is not configured with IPv6, skipping nftables rules"
-    else
-        echo "writing nftables from $NFTABLES_RULESET_FILE"
-        nft -f $NFTABLES_RULESET_FILE
-    fi
-
-    sleep 3600 # sleep for 1 hour
-done
-
+if [[ $IPV6_ADDR_COUNT -eq 0 ]];
+then
+    echo "instance is not configured with IPv6, skipping nftables rules"
+else
+    echo "writing nftables from $NFTABLES_RULESET_FILE"
+    nft -f $NFTABLES_RULESET_FILE
+fi
 `)
 
 func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
