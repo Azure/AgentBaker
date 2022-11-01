@@ -50,8 +50,38 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 systemctlEnableAndStart aks-logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
+
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
+
+# fix grub issue with cvm by reinstalling before other deps
+# other VHDs use grub-pc, not grub-efi
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  wait_for_apt_locks
+  apt_get_install 30 1 600 grub-efi || exit 1
+fi
+
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+  # disable and mask all UU timers/services
+  # save some background io/latency
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+fi
 
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
@@ -101,13 +131,6 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
-fi
-
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
 fi
 
 if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
@@ -458,9 +481,17 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
-apt-get -y autoclean
-apt-get -y autoremove --purge
-apt-get -y clean
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt-get purge --auto-remove snapd -y
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
@@ -496,6 +527,7 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
 
+
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
 # error at 99% space taken
@@ -526,23 +558,8 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   fi
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  # remove snapd, which is not used by container stack
-  apt-get purge --auto-remove snapd -y
-  # update message-of-the-day to start after multi-user.target
-  # multi-user.target usually start at the end of the boot sequence
-  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 
-  # disable and mask all UU timers/services
-  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
-
-  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
-APT::Periodic::Update-Package-Lists "0";
-APT::Periodic::Download-Upgradeable-Packages "0";
-APT::Periodic::AutocleanInterval "0";
-APT::Periodic::Unattended-Upgrade "0";
-EOF
-
+<<<<<<< HEAD
 fi
+=======
+>>>>>>> c297f716528a8f617b259bdfad9a56fb54ed4bb9
