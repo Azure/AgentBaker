@@ -287,7 +287,6 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            export NVIDIA_DRIVER_IMAGE="docker.io/pablotrivino/aks-gpu-branches"
             ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
             ret=$?
@@ -317,7 +316,6 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    dkms status
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -360,13 +358,19 @@ ensureGPUDrivers() {
         return
     fi
 
+    export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
+
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        export NVIDIA_DRIVER_IMAGE_TAG="510.47.03"
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
         existing_version="$(nvidia-smi | grep "Driver Version" | cut -d' ' -f3)"
-        echo "Found existing version $existing_version"
-        export NVIDIA_DRIVER_IMAGE_TAG="470.82.01"
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+        export NVIDIA_DRIVER_IMAGE_TAG="cuda-470.82.01-${NVIDIA_DRIVER_IMAGE_SHA}"
+
+        if [[ "$existing_version" == $NVIDIA_DRIVER_IMAGE_TAG ]]; then
+            echo "Existing version matches, validating..."
+            logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+        else
+            echo "Existing version $existing_version does not match $NVIDIA_DRIVER_IMAGE_TAG"
+            logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+        fi
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
