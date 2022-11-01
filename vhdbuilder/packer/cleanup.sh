@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 # ACS_TEST_RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
-EXPIRATION_IN_HOURS=168
+EXPIRATION_IN_HOURS=36
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
@@ -138,6 +138,7 @@ fi
 
 #attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
+  set +x
   echo "Looking for managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
   managed_image_ids=""
@@ -153,7 +154,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   echo "attempting to delete managed images..."
   az resource delete --ids ${managed_image_ids} || echo "managed image deletion was not successful, continuing..."
 
-  echo "attempting to delete associated SIG image versions..."
+  echo "attempting to delete SIG image versions associated with old managed images..."
   az resource delete --ids ${sig_version_ids} || echo "SIG image version deletion was not successful, continuing..."
 
   old_sig_version_ids=""
@@ -163,9 +164,9 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
     done
   done
 
-  echo "attempting to delete old SIG image versions: ${old_sig_version_ids}"
+  echo "attempting to delete SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
   az resource delete --ids ${old_sig_version_ids} || echo "SIG image version deletion was not successful, continuing..."
-
+  set -x
 fi
 
 
