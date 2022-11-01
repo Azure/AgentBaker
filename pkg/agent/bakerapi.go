@@ -13,6 +13,7 @@ import (
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
+	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
 func NewAgentBaker() (AgentBaker, error) {
@@ -82,4 +83,26 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
 		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, region)
 	}
 	return sigImageConfig, nil
+}
+
+func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
+	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sig image config: %v", err)
+	}
+
+	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
+	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	return allDistros, nil
 }

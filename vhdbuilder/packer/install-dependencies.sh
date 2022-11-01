@@ -25,6 +25,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
+cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
@@ -45,8 +46,38 @@ systemctlEnableAndStart update_certs.timer || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
+
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
+
+# fix grub issue with cvm by reinstalling before other deps
+# other VHDs use grub-pc, not grub-efi
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  wait_for_apt_locks
+  apt_get_install 30 1 600 grub-efi || exit 1
+fi
+
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+  # disable and mask all UU timers/services
+  # save some background io/latency
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+fi
 
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
@@ -96,13 +127,6 @@ if [[ $(isARM64) == 1 ]]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
-fi
-
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
 fi
 
 if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
@@ -450,27 +474,25 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
-apt-get -y autoclean
-apt-get -y autoremove --purge
-apt-get -y clean
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt-get purge --auto-remove snapd -y
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
-MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.22.11-hotfix.20220620
-1.22.15
-1.23.8-hotfix.20220620
-1.23.12
-1.24.3
-1.24.6
-1.25.2-hotfix.20221006
-"
-
-KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
+KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -497,6 +519,7 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
+
 
 # warn at 75% space taken
 [ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
@@ -528,23 +551,4 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   fi
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  # remove snapd, which is not used by container stack
-  apt-get purge --auto-remove snapd -y
-  # update message-of-the-day to start after multi-user.target
-  # multi-user.target usually start at the end of the boot sequence
-  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 
-  # disable and mask all UU timers/services
-  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
-
-  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
-APT::Periodic::Update-Package-Lists "0";
-APT::Periodic::Download-Upgradeable-Packages "0";
-APT::Periodic::AutocleanInterval "0";
-APT::Periodic::Unattended-Upgrade "0";
-EOF
-
-fi
