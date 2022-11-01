@@ -157,7 +157,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   az resource delete --ids ${sig_version_ids} || echo "SIG image version deletion was not successful, continuing..."
 
   old_sig_version_ids=""
-  for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|1804*|2004*|2204*") | .name' || ""); do
+  for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|1804*|2004*|2204*").name' || ""); do
     for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
       old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
     done
