@@ -74,7 +74,7 @@ copyPackerFiles() {
   AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/logrotate.timer.d
   AKS_LOGROTATE_TIMER_DROPIN_DEST=/usr/lib/systemd/system/logrotate.timer.d
   AKS_LOGROTATE_CONF_SRC=/home/packer/aks-rsyslog
-  AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/aks-rsyslog
+  AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
 
   if [[ $OS == $MARINER_OS_NAME ]]; then
     cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
