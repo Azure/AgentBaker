@@ -16,6 +16,10 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 				GalleryName:   "aksubuntu",
 				ResourceGroup: "resourcegroup",
 			},
+			"AKSUbuntu_edgezone": SIGGalleryConfig{
+				GalleryName:   "aksubuntu_edgezone",
+				ResourceGroup: "AKS-Ubuntu-edgezone",
+			},
 			"AKSCBLMariner": SIGGalleryConfig{
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
@@ -88,8 +92,8 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuArm641804Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuEdgeZoneContainerd1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuEdgeZoneContainerd1804Gen2]
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.ResourceGroup).To(Equal("AKS-Ubuntu-edgezone"))
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Gallery).To(Equal("aksubuntu_edgezone"))
 		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Definition).To(Equal("1804gen2containerd"))
 		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
