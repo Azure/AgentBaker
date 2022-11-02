@@ -87,6 +87,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuArm641804Gen2.Definition).To(Equal("1804gen2arm64containerd"))
 		Expect(aksUbuntuArm641804Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
+		aksUbuntuEdgeZoneContainerd1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuEdgeZoneContainerd1804Gen2]
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Definition).To(Equal("1804gen2containerd"))
+		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Version).To(Equal(LinuxSIGImageVersion))
+
 		aksUbuntuArm642204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd2204Gen2]
 		Expect(aksUbuntuArm642204Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuArm642204Gen2.Gallery).To(Equal("aksubuntu"))
