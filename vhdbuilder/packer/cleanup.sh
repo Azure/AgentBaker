@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 # ACS_TEST_RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
-EXPIRATION_IN_HOURS=8
+EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
