@@ -235,8 +235,8 @@ const (
 	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
 	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
 	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
-	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntu_edgezone"
-	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-edgezone"
+	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
+	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
 )
 
 const (
@@ -352,6 +352,7 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	// This image is using a specific resource group and gallery name for edge zone scenario.
 	SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
@@ -359,6 +360,7 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	// This image is using a specific resource group and gallery name for edge zone scenario.
 	SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
@@ -474,8 +476,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsGPUContainerd1804:      SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsGPUContainerd1804Gen2:  SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd1804Gen2:    SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(),     // Not a typo, prevents the image config value overrided with options.
+		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(), // Not a typo, prevents the image config value overrided with options.
 		AKSUbuntuContainerd2204:             SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204Gen2:         SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:      SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
