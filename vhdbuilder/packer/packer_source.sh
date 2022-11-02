@@ -71,8 +71,14 @@ copyPackerFiles() {
   AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/aks-logrotate.service
   AKS_LOGROTATE_TIMER_SRC=/home/packer/aks-logrotate.timer
   AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/aks-logrotate.timer
+  AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/logrotate.timer.d
+  AKS_LOGROTATE_TIMER_DROPIN_DEST=/usr/lib/systemd/system/logrotate.timer.d
   AKS_LOGROTATE_CONF_SRC=/home/packer/aks-rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/aks-rsyslog
+
+  if [[ $OS == $MARINER_OS_NAME ]]; then
+    cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
+  fi
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt

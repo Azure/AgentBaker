@@ -254,6 +254,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artfiacts/logrotate.timer.d",
+      "destination": "/home/packer/logrotate.timer.d"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
       "destination": "/home/packer/aks-rsyslog"
     },

@@ -12,4 +12,4 @@ done >> status.clean
 mv status.clean status
 
 test -x /usr/sbin/logrotate || exit 0
-/usr/sbin/logrotate /etc/logrotate.conf
+/usr/sbin/logrotate --verbose /etc/logrotate.conf
