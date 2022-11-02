@@ -716,7 +716,7 @@ configureTransparentHugePage() {
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
-    base_path=""
+    swap_location=""
     
     # Attempt to use the resource disk
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
@@ -724,26 +724,25 @@ configureSwapFile() {
         disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
             echo "Will use resource disk for swap file"
-            base_path=${resource_disk_path}
+            swap_location=${resource_disk_path}/swapfile
         else
             echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
         fi
     fi
 
     # If we couldn't use the resource disk, attempt to use the OS disk
-    if [[ -z "${base_path}" ]]; then
+    if [[ -z "${swap_location}" ]]; then
         os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
         disk_free_kb=$(df ${os_disk_path} | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
-            base_path=${os_disk_path}
             echo "Will use OS disk for swap file"
+            swap_location=/swapfile
         else
             echo "Insufficient disk space on OS disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
             exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
         fi
     fi
 
-    swap_location="${base_path}/swapfile"
     echo "Swap file will be saved to: ${swap_location}"
     retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     chmod 600 ${swap_location}
