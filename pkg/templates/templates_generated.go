@@ -45,6 +45,7 @@
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
+// linux/cloud-init/artifacts/logrotate.timer.d
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
@@ -281,7 +282,7 @@ done >> status.clean
 mv status.clean status
 
 test -x /usr/sbin/logrotate || exit 0
-/usr/sbin/logrotate /etc/logrotate.conf`)
+/usr/sbin/logrotate --verbose /etc/logrotate.conf`)
 
 func linuxCloudInitArtifactsAksLogrotateShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsAksLogrotateSh, nil
@@ -330,10 +331,11 @@ var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
   size 300M
   missingok
   notifempty
-  delaycompress
   compress
+  delaycompress
+  sharedscripts
   postrotate
-      /usr/lib/rsyslog/rsyslog-rotate
+      systemctl kill -s HUP rsyslog.service
   endscript
 }
 
@@ -358,7 +360,7 @@ var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
   delaycompress
   sharedscripts
   postrotate
-      /usr/lib/rsyslog/rsyslog-rotate
+      systemctl kill -s HUP rsyslog.service
   endscript
 }`)
 
@@ -3508,6 +3510,26 @@ func linuxCloudInitArtifactsKubeletService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsLogrotateTimerD = []byte(`[Timer]
+# Used to override the existing timer on mariner distros such that we run logrotate every hour
+OnCalendar=
+OnCalendar=*-*-* *:00:00`)
+
+func linuxCloudInitArtifactsLogrotateTimerDBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsLogrotateTimerD, nil
+}
+
+func linuxCloudInitArtifactsLogrotateTimerD() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsLogrotateTimerDBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/logrotate.timer.d", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7361,6 +7383,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
+	"linux/cloud-init/artifacts/logrotate.timer.d":                         linuxCloudInitArtifactsLogrotateTimerD,
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
@@ -7487,6 +7510,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
+				"logrotate.timer.d":                         &bintree{linuxCloudInitArtifactsLogrotateTimerD, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
