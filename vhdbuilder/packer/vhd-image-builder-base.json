@@ -255,22 +255,22 @@
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
-      "destination": "/home/packer/aks-logrotate.sh"
+      "destination": "/home/packer/logrotate.sh"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.service",
-      "destination": "/home/packer/aks-logrotate.service"
+      "destination": "/home/packer/logrotate.service"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.timer",
-      "destination": "/home/packer/aks-logrotate.timer"
+      "destination": "/home/packer/logrotate.timer"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
-      "destination": "/home/packer/aks-rsyslog"
+      "destination": "/home/packer/rsyslog"
     },
     {
       "type": "file",

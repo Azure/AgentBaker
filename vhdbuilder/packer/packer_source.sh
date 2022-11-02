@@ -65,19 +65,19 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
-  AKS_LOGROTATE_SCRIPT_SRC=/home/packer/aks-logrotate.sh
-  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/aks-logrotate.sh
-  AKS_LOGROTATE_SERVICE_SRC=/home/packer/aks-logrotate.service
-  AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/aks-logrotate.service
-  AKS_LOGROTATE_TIMER_SRC=/home/packer/aks-logrotate.timer
-  AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/aks-logrotate.timer
-  AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/logrotate.timer.d
-  AKS_LOGROTATE_TIMER_DROPIN_DEST=/usr/lib/systemd/system/logrotate.timer.d
-  AKS_LOGROTATE_CONF_SRC=/home/packer/aks-rsyslog
+  AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
+  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
+  AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
+  AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/logrotate.service
+  AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
+  AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/logrotate.timer
+  AKS_LOGROTATE_TIMER_MARINER_DROPIN_SRC=/home/packer/override.conf
+  AKS_LOGROTATE_TIMER_MARINER_DROPIN_DEST=/usr/lib/systemd/system/logrotate.timer.d/override.conf
+  AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
 
   if [[ $OS == $MARINER_OS_NAME ]]; then
-    cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
+    cpAndMode $AKS_LOGROTATE_TIMER_MARINER_DROPIN_SRC $AKS_LOGROTATE_TIMER_MARINER_DROPIN_DEST 644
   fi
 
   NOTICE_SRC=/home/packer/NOTICE.txt
@@ -114,11 +114,11 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
-  cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
-  cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
-  cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
   cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
   if [[ $OS != $MARINER_OS_NAME ]]; then
+    cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
+    cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
+    cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
