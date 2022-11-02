@@ -2476,7 +2476,7 @@ else
         # this is the DOWNLOAD service
         # meaning we are wasting IO without even triggering an upgrade 
         # -________________-
-        systemctl restart apt-daily.service
+        systemctl restart --no-block apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi
