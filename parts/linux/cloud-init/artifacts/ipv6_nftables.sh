@@ -2,6 +2,7 @@
 
 set -uo pipefail
 set -x
+set -e
 
 NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
 
