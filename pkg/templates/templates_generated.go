@@ -328,7 +328,7 @@ var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
 {
   rotate 5
   daily
-  size 300M
+  maxsize 300M
   missingok
   notifempty
   compress
@@ -353,7 +353,7 @@ var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
 {
   rotate 7
   daily
-  size 50M
+  maxsize 50M
   missingok
   notifempty
   compress
