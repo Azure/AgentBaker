@@ -247,7 +247,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artfiacts/logrotate.timer.d",
+      "source": "parts/linux/cloud-init/artifacts/logrotate.timer.d",
       "destination": "/home/packer/logrotate.timer.d"
     },
     {
