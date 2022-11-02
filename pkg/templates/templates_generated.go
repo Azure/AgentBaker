@@ -1,6 +1,7 @@
 // Code generated for package templates by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // linux/cloud-init/artifacts/10-bindmount.conf
+// linux/cloud-init/artifacts/10-cgroupv2.conf
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
@@ -8,6 +9,9 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
+// linux/cloud-init/artifacts/ci-syslog-watcher.path
+// linux/cloud-init/artifacts/ci-syslog-watcher.service
+// linux/cloud-init/artifacts/ci-syslog-watcher.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
@@ -71,6 +75,7 @@
 // windows/kuberneteswindowssetup.ps1
 // windows/sendlogs.ps1
 // windows/windowscsehelper.ps1
+// windows/windowscsehelper.tests.ps1
 package templates
 
 import (
@@ -139,6 +144,25 @@ func linuxCloudInitArtifacts10BindmountConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-bindmount.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10Cgroupv2Conf = []byte(`[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
+`)
+
+func linuxCloudInitArtifacts10Cgroupv2ConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10Cgroupv2Conf, nil
+}
+
+func linuxCloudInitArtifacts10Cgroupv2Conf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10Cgroupv2ConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-cgroupv2.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -310,6 +334,98 @@ func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCiSyslogWatcherPath = []byte(`[Unit]
+Description=Monitor the ContainerInsights syslog status file for changes
+
+[Path]
+PathModified=/var/run/mdsd-ci/update.status
+Unit=ci-syslog-watcher.service
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsCiSyslogWatcherPathBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCiSyslogWatcherPath, nil
+}
+
+func linuxCloudInitArtifactsCiSyslogWatcherPath() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCiSyslogWatcherPathBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ci-syslog-watcher.path", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCiSyslogWatcherService = []byte(`[Unit]
+Description=Update syslog config based on ContainerInsights syslog status change
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ci-syslog-watcher.sh
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsCiSyslogWatcherServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCiSyslogWatcherService, nil
+}
+
+func linuxCloudInitArtifactsCiSyslogWatcherService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCiSyslogWatcherServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ci-syslog-watcher.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCiSyslogWatcherSh = []byte(`#!/usr/bin/env bash
+
+set -o nounset
+set -o pipefail
+
+[ ! -f "/var/run/mdsd-ci/update.status" ] && exit 0
+status=$(cat /var/run/mdsd-ci/update.status)
+
+if [[ "$status" == "add" ]]; then
+        echo "Status changed to $status."
+        [ -f "/var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf" ] && cp /var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf /etc/rsyslog.d
+elif [[ "$status" == "remove" ]]; then
+        echo "Status changed to $status."
+        [ -f "/etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf" ] && rm /etc/rsyslog.d/70-rsyslog-forward-mdsd-ci.conf
+else
+        echo "Unexpected status change to $status. Exiting"
+        exit 1
+fi
+
+echo "Restarting rsyslog"
+systemctl restart rsyslog
+
+exit 0
+`)
+
+func linuxCloudInitArtifactsCiSyslogWatcherShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCiSyslogWatcherSh, nil
+}
+
+func linuxCloudInitArtifactsCiSyslogWatcherSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCiSyslogWatcherShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ci-syslog-watcher.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -634,15 +750,23 @@ configureEtcEnvironment() {
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_HTTP_PROXY_CA_UPDATE
+    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
+
+configureCustomCaCertificate() {
+    {{- range $i, $cert := GetCustomCATrustConfigCerts}}
+    wait_for_file 1200 1 /opt/certs/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    {{- end}}
+    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+}
+
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
 }
 
 configureK8s() {
@@ -799,7 +923,7 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
+    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
         echo "Ingorings systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
@@ -1006,67 +1130,49 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
-{{if IsNSeriesSKU}}
-installGPUDriversRun() {
-    {{- /* there is no file under the module folder, the installation failed, so clean up the dirty directory
-    when you upgrade the GPU driver version, please help check whether the retry installation issue is gone,
-    if yes please help remove the clean up logic here too */}}
-    set -x
-    MODULE_NAME="nvidia"
-    NVIDIA_DKMS_DIR="/var/lib/dkms/${MODULE_NAME}/${GPU_DV}"
-    KERNEL_NAME=$(uname -r)
-    if [ -d "${NVIDIA_DKMS_DIR}" ]; then
-        if [ -x "$(command -v dkms)" ]; then
-          dkms remove -m ${MODULE_NAME} -v ${GPU_DV} -k ${KERNEL_NAME}
-        else
-          rm -rf "${NVIDIA_DKMS_DIR}"
-        fi
-    fi
-    {{- /* we need to append the date to the end of the file because the retry will override the log file */}}
-    local log_file_name="/var/log/nvidia-installer-$(date +%s).log"
-    if [ ! -f "${GPU_DEST}/nvidia-drivers-${GPU_DV}" ]; then
-        downloadGPUDrivers
-    fi
-    sh $GPU_DEST/nvidia-drivers-$GPU_DV -s \
-        -k=$KERNEL_NAME \
-        --log-file-name=${log_file_name} \
-        -a --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}"
-    exit $?
-}
-
 configGPUDrivers() {
-    blacklistNouveau
-    addNvidiaAptRepo
-    installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
-    installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
-
-    # tidy
-    rm -rf $GPU_DEST/tmp
-
-    # reload containerd/dockerd
-    {{if NeedsContainerd}}
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    {{else}}
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    {{end}}
-
     # install gpu driver
-    setupGpuRunfileInstall
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        mkdir -p /opt/{actions,gpu}
+        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        else
+            bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+                echo "Failed to install GPU driver, exiting..."
+                exit $ERR_GPU_DRIVERS_START_FAIL
+            fi
+            docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        fi
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        downloadGPUDrivers
+        installNvidiaContainerRuntime
+    else 
+        echo "os $OS not supported at this time. skipping configGPUDrivers"
+        exit 1
+    fi
 
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    # validate on host, already done inside container.
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-}
-
-setupGpuRunfileInstall() {
-    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
-    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    export -f installGPUDriversRun
-    retrycmd_if_failure 3 1 600 bash -c installGPUDriversRun || exit $ERR_GPU_DRIVERS_START_FAIL
-    mv ${GPU_DEST}/bin/* /usr/bin
-    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-    umount -l /usr/lib/x86_64-linux-gnu
+    
+    # reload containerd/dockerd
+    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    else
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    fi
 }
 
 validateGPUDrivers() {
@@ -1101,18 +1207,15 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        configGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
-        # needs to happen even on gpu vhd because newer containerd/runc broke old 
-        # nvidia-container-runtime. containerd [1.5.9, 1.4.12] + runc 1.0.2 don't work with 
-        # old nvidia-container-runtime like 2.0.0, only new like 3.6.0
-        installNvidiaContainerRuntime "${NVIDIA_CONTAINER_RUNTIME_VERSION}"
-        installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
-        validateGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 }
-{{end}}
+
 #EOF
 `)
 
@@ -1211,26 +1314,33 @@ ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
 
 ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
-ERR_HTTP_PROXY_CA_UPDATE=161 {{/* Error updating ca certs to include http proxy ca */}}
+ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided certificates */}}
 
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+
+ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
+ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV=470.57.02
+export GPU_DV="{{GPUDriverVersion}}"
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION=3.6.0
-NVIDIA_CONTAINER_TOOLKIT_VER=1.6.0
-NVIDIA_PACKAGES="libnvidia-container1 libnvidia-container-tools nvidia-container-toolkit"
+NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-118f86"
+export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
+export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
+export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1418,6 +1528,38 @@ isARM64() {
         echo 0
     fi
 }
+
+logs_to_events() {
+    # local vars here allow for nested function tracking
+    # installContainerRuntime for example
+    local task=$1; shift
+    local eventsFileName=$(date +%s%3N)
+
+    local startTime=$(date +"%F %T.%3N")
+    ${@}
+    ret=$?
+    local endTime=$(date +"%F %T.%3N")
+
+    # arg names are defined by GA and all these are required to be correctly read by GA
+    # EventPid, EventTid are required to be int. No use case for them at this point.
+    json_string=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "Completed: ${@}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+    # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+}
 #HELPERSEOF
 `)
 
@@ -1451,7 +1593,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-KRUSTLET_VERSION="v0.0.1"
+CONTAINERD_WASM_VERSION="v0.3.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
@@ -1472,41 +1614,22 @@ installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local stable_containerd
-    local latest_containerd
+    local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
-        latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
-        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
-    # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
-        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $edge_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi        
-    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-        containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $latest_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    else
-        containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $stable_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    fi
-    installStandaloneContainerd "${containerd_version}" "${containerd_patch_version}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi 
+
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
 {{else}}
     installMoby
 {{end}}
@@ -1526,16 +1649,18 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-downloadKrustlet() {
-    local krustlet_url="https://acs-mirror.azureedge.net/krustlet-wagi/${KRUSTLET_VERSION}/linux/amd64/krustlet-wagi"
-    local krustlet_filepath="/usr/local/bin/krustlet-wagi"
+downloadContainerdWasmShims() {
+    local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
+    local containerd_wasm_filepath="/usr/local/bin"
     if [[ $(isARM64) == 1 ]]; then
-        krustlet_url="https://kubernetesreleases.blob.core.windows.net/krustlet-wagi/arm64/linux/arm64/krustlet-wagi"
+        containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
     fi
 
-    if [ ! -f "$krustlet_filepath" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$krustlet_filepath" "$krustlet_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        chmod 755 "$krustlet_filepath"    
+    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v1" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v1"
     fi
 }
 
@@ -1628,19 +1753,41 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadCNI
+        fi
+
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadAzureCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadAzureCNI
+        fi
+        
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+
     chown -R root:root $CNI_BIN_DIR
 }
 
@@ -1692,18 +1839,18 @@ installKubeletKubectlAndKubeProxy() {
         # NOTE(mainred): we expect kubelet binary to be under `+"`"+`kubernetes/node/bin`+"`"+`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
-        extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
 
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
             else
                 if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                    extractHyperkube "ctr"
+                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube ctr
                 else
-                    extractHyperkube "docker"
+                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube docker
                 fi
             fi
         fi
@@ -1725,11 +1872,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
     else
-        retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
     fi
 }
 
@@ -1931,13 +2078,6 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA
-configureEtcEnvironment
-{{- end}}
-
-{{GetOutboundCommand}}
-
 for i in $(seq 1 3600); do
     if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
         grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
@@ -1963,38 +2103,49 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+{{- if ShouldConfigureHTTPProxyCA}}
+configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+configureEtcEnvironment
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+{{- end}}
+
+{{GetOutboundCommand}}
+
 # Bring in OS-related vars
 source /etc/os-release
 
 # Mandb is not currently available on MarinerV1
 if [[ ${ID} != "mariner" ]]; then
     echo "Removing man-db auto-update flag file..."
-    removeManDbAutoUpdateFlagFile
+    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
 {{- if not NeedsContainerd}}
-cleanUpContainerd
+logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 {{- end}}
 
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
 
-disableSystemdResolved
+logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
-configureAdminUser
+logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 {{- if NeedsContainerd}}
 # If crictl gets installed then use it as the cri cli instead of ctr
 # crictl is not a critical component so continue with boostrapping if the install fails
 # CLI_TOOL is by default set to "ctr"
-installCrictl && CLI_TOOL="crictl"
+logs_to_events "AKS.CSE.installCrictl" 'installCrictl && CLI_TOOL="crictl"'
 {{- end}}
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -2005,57 +2156,42 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    installDeps
+    logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-installContainerRuntime
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 {{- if and NeedsContainerd TeleportEnabled}}
-installTeleportdPlugin
+logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 {{- end}}
 
 setupCNIDirs
 
-installNetworkPlugin
+logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 {{- if IsKrustlet }}
-    downloadKrustlet
+    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        downloadGPUDrivers
-    fi
-    ensureGPUDrivers
+    logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
+            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
         fi
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
-        systemctlDisableAndStop nvidia-device-plugin
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
 if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    STATUS=`+"`"+`systemctl is-active nvidia-fabricmanager`+"`"+`
-    if [ ${STATUS} = 'active' ]; then
-        echo "Fabric Manager service is running, no need to install."
-    else
-        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
-            pushd /opt/azure/fabricmanager-${GPU_DV}
-            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-            systemctlEnableAndStart nvidia-fabricmanager
-            popd
-        else
-            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
-        fi
-    fi
-    ensureMigPartition
+    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
@@ -2067,15 +2203,15 @@ docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET
 set -x
 {{end}}
 
-installKubeletKubectlAndKubeProxy
+logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
-ensureRPC
+logs_to_events "AKS.CSE.ensureRPC" ensureRPC
 
 createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
 if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    installSGXDrivers
+    logs_to_events "AKS.CSE.installSGXDrivers" installSGXDrivers
 fi
 {{end}}
 
@@ -2084,25 +2220,25 @@ wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FI
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 {{end}}
 
-configureK8s
+logs_to_events "AKS.CSE.configureK8s" configureK8s
 
-configureCNI
+logs_to_events "AKS.CSE.configureCNI" configureCNI
 
 {{/* configure and enable dhcpv6 for dual stack feature */}}
 {{- if IsIPv6DualStackFeatureEnabled}}
-ensureDHCPv6
+logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 {{- end}}
 
 {{- if NeedsContainerd}}
-ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
+logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
 {{- else}}
-ensureDocker
+logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 {{- end}}
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-systemctlEnableAndStart sync-tunnel-logs
+logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
 
-ensureMonitorService
+logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
@@ -2111,27 +2247,24 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
 fi
 
 {{- if EnableHostsConfigAgent}}
-configPrivateClusterHosts
+logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 {{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
-configureTransparentHugePage
+logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
 {{- if ShouldConfigSwapFile}}
-configureSwapFile
+logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 {{- end}}
 
-ensureSysctl
-ensureJournal
-{{- if IsKrustlet}}
-systemctlEnableAndStart krustlet
-{{- else}}
-ensureKubelet
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+logs_to_events "AKS.CSE.ensureJournal" ensureJournal
+
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-ensureNoDupOnPromiscuBridge
+logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 {{- end}} {{- end}}
-{{- end}}
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -2141,10 +2274,8 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
-{{- /* re-enable unattended upgrades */}}
-rm -f /etc/apt/apt.conf.d/99periodic
-
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    # logs_to_events should not be run on & commands
     apt_get_purge 20 30 120 apache2-utils &
 fi
 
@@ -2177,10 +2308,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if [[ ${ID} != "mariner" ]]; then
@@ -2195,11 +2326,21 @@ if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        /usr/lib/apt/apt.systemd.daily &
+        # logs_to_events should not be run on & commands
+        {{- if EnableUnattendedUpgrade }}
+        systemctl unmask apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        {{- end }}
+        # this is the DOWNLOAD service
+        # meaning we are wasting IO without even triggering an upgrade 
+        # -________________-
+        systemctl restart apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi
@@ -2375,14 +2516,29 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
+CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+KERNEL_STARTTIME_FORMATTED=$(date -d "${KERNEL_STARTTIME}" +"%F %T.%3N" )
+CLOUDINITLOCAL_STARTTIME=$(systemctl show cloud-init-local -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+CLOUDINITLOCAL_STARTTIME_FORMATTED=$(date -d "${CLOUDINITLOCAL_STARTTIME}" +"%F %T.%3N" )
+CLOUDINIT_STARTTIME=$(systemctl show cloud-init -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+CLOUDINIT_STARTTIME_FORMATTED=$(date -d "${CLOUDINIT_STARTTIME}" +"%F %T.%3N" )
+CLOUDINITFINAL_STARTTIME=$(systemctl show cloud-final -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+CLOUDINITFINAL_STARTTIME_FORMATTED=$(date -d "${CLOUDINITFINAL_STARTTIME}" +"%F %T.%3N" )
+NETWORKD_STARTTIME=$(systemctl show systemd-networkd -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+NETWORKD_STARTTIME_FORMATTED=$(date -d "${NETWORKD_STARTTIME}" +"%F %T.%3N" )
 GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME_FORMATTED=$(date -d "${GUEST_AGENT_STARTTIME}" +"%F %T.%3N" )
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
+CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
 JSON_STRING=$( jq -n \
@@ -2391,13 +2547,49 @@ JSON_STRING=$( jq -n \
                   --arg er "" \
                   --arg ed "$EXECUTION_DURATION" \
                   --arg ks "$KERNEL_STARTTIME" \
+                  --arg cinitl "$CLOUDINITLOCAL_STARTTIME" \
+                  --arg cinit "$CLOUDINIT_STARTTIME" \
+                  --arg cf "$CLOUDINITFINAL_STARTTIME" \
+                  --arg ns "$NETWORKD_STARTTIME" \
                   --arg cse "$CSE_STARTTIME" \
                   --arg ga "$GUEST_AGENT_STARTTIME" \
                   --arg ss "$SYSTEMD_SUMMARY" \
                   --arg kubelet "$KUBELET_START_TIME" \
-                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
+
+# messsage_string is here because GA only accepts strings in Message.
+message_string=$( jq -n \
+--arg EXECUTION_DURATION                  "${EXECUTION_DURATION}" \
+--arg EXIT_CODE                           "${EXIT_CODE}" \
+--arg KERNEL_STARTTIME_FORMATTED          "${KERNEL_STARTTIME_FORMATTED}" \
+--arg CLOUDINITLOCAL_STARTTIME_FORMATTED  "${CLOUDINITLOCAL_STARTTIME_FORMATTED}" \
+--arg CLOUDINIT_STARTTIME_FORMATTED       "${CLOUDINIT_STARTTIME_FORMATTED}" \
+--arg CLOUDINITFINAL_STARTTIME_FORMATTED  "${CLOUDINITFINAL_STARTTIME_FORMATTED}" \
+--arg NETWORKD_STARTTIME_FORMATTED        "${NETWORKD_STARTTIME_FORMATTED}" \
+--arg GUEST_AGENT_STARTTIME_FORMATTED     "${GUEST_AGENT_STARTTIME_FORMATTED}" \
+--arg KUBELET_START_TIME_FORMATTED        "${KUBELET_START_TIME_FORMATTED}" \
+'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED } | tostring'
+)
+# this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
+# allows parsing to happening without additional manipulation
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+# arg names are defined by GA and all these are required to be correctly read by GA
+# EventPid, EventTid are required to be int. No use case for them at this point.
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${CSE_STARTTIME_FORMATTED}" \
+    --arg OperationId   "${CSE_ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "AKS.CSE.cse_start" \
+    --arg EventLevel    "${eventlevel}" \
+    --arg Message       "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
@@ -3164,6 +3356,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
 [Install]
@@ -3223,10 +3416,18 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": []
     },
     "kubernetes": {
-        "fileName": "",
+        "fileName": "kubernetes-node-linux-arch.tar.gz",
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
-        "versions": []
+        "versions": [
+            "1.22.11-hotfix.20220620",
+            "1.22.15",
+            "1.23.8-hotfix.20220620",
+            "1.23.12",
+            "1.24.3",
+            "1.24.6",
+            "1.25.2-hotfix.20221006"
+        ]
     },
     "_template": {
         "fileName": "",
@@ -3353,9 +3554,9 @@ installDeps() {
       fi
     done
 
-    # install additional apparmor deps for 2.0
+    # install additional apparmor deps for 2.0; additionally, install kernel-devel by default for 2.0 and moving forward.
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor; do
+      for dnf_package in apparmor-parser libapparmor kernel-devel; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -3364,8 +3565,25 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    echo "GPU drivers not yet supported for Mariner"
-    exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
+    # Need to process the return value of "uname -r" to get the %{version} value
+    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    CUDA_VERSION="*_${KERNEL_VERSION}*"
+
+    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+}
+
+installNvidiaContainerRuntime() {
+    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
+    
+    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
 }
 
 installSGXDrivers() {
@@ -3401,19 +3619,7 @@ installStandaloneContainerd() {
 }
 
 cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST
-}
-
-installNvidiaContainerRuntime() {
-    echo "installNvidiaContainerRuntime not implemented for mariner"
-}
-
-installNvidiaDocker() {
-    echo "installNvidiaDocker not implemented for mariner"
-}
-
-addNvidiaAptRepo() {
-    echo "addNvidiaAptRepo not implemented for mariner"
+    rm -Rf $GPU_DEST /opt/gpu
 }
 
 downloadContainerdFromVersion() {
@@ -4452,6 +4658,8 @@ net.ipv6.conf.default.accept_redirects = 0
 vm.overcommit_memory = 1
 kernel.panic = 10
 kernel.panic_on_oops = 1
+# to ensure node stability, we set this to the PID_MAX_LIMIT on 64-bit systems: refer to https://kubernetes.io/docs/concepts/policy/pid-limiting/
+kernel.pid_max = 4194304
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
 `)
@@ -4620,16 +4828,21 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.4"
+    BLOBFUSE_VERSION="1.4.5"
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
-    if [[ $(isARM64) != 1 && "${OSVERSION}" != "22.04" ]]; then
+    if [[ $(isARM64) != 1 ]]; then
       # no blobfuse package in arm64 ubuntu repo
-      for apt_package in blobfuse=${BLOBFUSE_VERSION}; do
+      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
+      if [[ "${OSVERSION}" == "22.04" ]]; then
+        # blobfuse package is not available on Ubuntu 22.04
+        pkg_list=(blobfuse2)
+      fi
+      for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -4637,23 +4850,12 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools; do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-}
-
-downloadGPUDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
-        # no gpu on arm64 SKU
-        return
-    fi
-
-    mkdir -p ${GPU_DEST}
-    retrycmd_if_failure 30 5 3600 apt-get install -y linux-headers-$(uname -r) gcc make dkms || exit $ERR_APT_INSTALL_TIMEOUT
-    retrycmd_if_failure 30 5 60 curl -fLS https://us.download.nvidia.com/tesla/$GPU_DV/NVIDIA-Linux-x86_64-${GPU_DV}.run -o ${GPU_DEST}/nvidia-drivers-${GPU_DV} || exit $ERR_GPU_DOWNLOAD_TIMEOUT
 }
 
 installSGXDrivers() {
@@ -4717,13 +4919,23 @@ updateAptWithMicrosoftPkg() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
+cleanUpGPUDrivers() {
+    rm -Rf $GPU_DEST /opt/gpu
+}
+
 {{- if NeedsContainerd}}
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    CONTAINERD_VERSION=$1
+    CONTAINERD_VERSION=$1    
+    # we always default to the .1 patch versons
+    CONTAINERD_PATCH_VERSION="${2:-1}"
+
+    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -4732,12 +4944,6 @@ installStandaloneContainerd() {
     if [ -z "$CURRENT_VERSION" ]; then
         CURRENT_VERSION="0.0.0"
     fi
-    
-    # we always default to the .1 patch versons
-    CONTAINERD_PATCH_VERSION="${2:-1}"
-
-    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
@@ -4745,18 +4951,18 @@ installStandaloneContainerd() {
         echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
-        removeMoby
-        removeContainerd
-        downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
-        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         return 0
     fi
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.4.13"
-        CONTAINERD_PATCH_VERSION="2"
+        CONTAINERD_VERSION="1.6.4"
+        CONTAINERD_PATCH_VERSION="4"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
@@ -4764,28 +4970,29 @@ installStandaloneContainerd() {
 
     CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
     DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    HAS_GREATER_VERSION="$(semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION")"
+    semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
+    HAS_GREATER_VERSION="$?"
 
     if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
         echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${CONTAINERD_VERSION}"
-        removeMoby
-        removeContainerd
+        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
-        downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
         CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
-        installDebPackageFromFile ${CONTAINERD_DEB_FILE} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
@@ -4844,7 +5051,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=$1
+    TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.0.3"
 
@@ -4880,93 +5087,8 @@ ensureRunc() {
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
-cleanUpGPUDrivers() {
-    rm -Rf $GPU_DEST
-    rm -f /etc/apt/sources.list.d/nvidia-docker.list
-}
-
-blacklistNouveau() {
-    tee /etc/modprobe.d/blacklist-nouveau.conf > /dev/null <<EOF
-blacklist nouveau
-options nouveau modeset=0
-EOF
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-}
-
-addNvidiaAptRepo() {
-    if [ -f "/etc/apt/sources.list.d/nvidia-docker.list" ]; then
-        echo "nvidia-docker.list already exists, no need to update"
-        return
-    fi
-    local release=$(lsb_release -r -s)
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | gpg --dearmor > /tmp/aptnvidia.gpg || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 10 5 10 cp /tmp/aptnvidia.gpg /etc/apt/trusted.gpg.d || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://nvidia.github.io/nvidia-docker/ubuntu${release}/nvidia-docker.list > /tmp/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 cat /tmp/nvidia-docker.list > /etc/apt/sources.list.d/nvidia-docker.list || exit  $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    apt_get_update
-}
-
-downloadNvidiaContainerRuntime() {
-    mkdir -p $PERMANENT_CACHE_DIR
-    for apt_package in $NVIDIA_PACKAGES; do
-        package_found="$(ls $PERMANENT_CACHE_DIR | grep ${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER} | wc -l)"
-        if [ "$package_found" == "0" ]; then
-            echo "$apt_package not cached, downloading"
-            apt_get_download 20 30 "${apt_package}=${NVIDIA_CONTAINER_TOOLKIT_VER}*" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-            cp -al ${APT_CACHE_DIR}${apt_package}_${NVIDIA_CONTAINER_TOOLKIT_VER}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-        fi
-    done
-    package_found="$(ls $PERMANENT_CACHE_DIR | grep nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION} | wc -l)"
-    if [ "$package_found" == "0" ]; then
-        echo "nvidia-container-runtime not cached, downloading"
-        apt_get_download 20 30 nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-        cp -al ${APT_CACHE_DIR}nvidia-container-runtime_${NVIDIA_CONTAINER_RUNTIME_VERSION}* $PERMANENT_CACHE_DIR || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
-}
-
-installNvidiaContainerRuntime() {
-    downloadNvidiaContainerRuntime || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    for apt_package in $NVIDIA_PACKAGES; do
-        retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}${apt_package}* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    done
-    retrycmd_if_failure 100 1 600 dpkg -i ${PERMANENT_CACHE_DIR}nvidia-container-runtime* || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-}
-
-installNvidiaDocker() {
-    local target=$1
-    local dst="/usr/local/nvidia/tmp"
-
-    if [ -d "$dst/pkg" ]; then
-        if [ -f "$dst/pkg/DEBIAN/control" ]; then
-            installed="$(cat "$dst/pkg/DEBIAN/control" | grep Version | cut -d' ' -f 2)"
-            if [ "$target" == "$installed" ]; then
-                echo "skip nvidia-docker2 install, current version $installed matches target $target"
-                return
-            else
-                rm -rf "$dst/pkg"
-            fi
-        else
-            rm -rf "$dst/pkg"
-        fi
-    fi
-
-    mkdir -p "$dst"
-    pushd "$dst"
-    if [ ! -f "./nvidia-docker2_${target}_all.deb" ]; then
-        retrycmd_if_failure 30 5 3600 apt-get download nvidia-docker2="${target}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    fi
-    wait_for_apt_locks
-    # nvidia-docker has a hard requirement on docker-ce, we just need the binary from it so we extract it manually.
-    dpkg-deb -R ./nvidia-docker2_${target}_all.deb "$dst/pkg" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    cp -r $dst/pkg/usr/* /usr/ || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    rm ./nvidia-docker2*.deb
-    popd
-}
-
-#EOF`)
+#EOF
+`)
 
 func linuxCloudInitArtifactsUbuntuCse_install_ubuntuShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, nil
@@ -5033,7 +5155,6 @@ func linuxCloudInitArtifactsUpdate_certsService() (*asset, error) {
 
 var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
 set -uo pipefail
-set -x
 
 certSource=/opt/certs
 certDestination=/usr/local/share/ca-certificates/certs
@@ -5041,16 +5162,20 @@ certDestination=/usr/local/share/ca-certificates/certs
 cp -a "$certSource"/. "$certDestination"
 
 if [[ -z $(ls -A "$certSource") ]]; then
+  echo "Source dir "$certSource" was empty, attempting to remove cert files"
   ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+    echo "removing "$line" in "$certDestination""
     rm $certDestination/"$line"
   done
 else
+  echo "found cert files in "$certSource""
   certsToCopy=(${certSource}/*)
   currIterationCertFile=${certsToCopy[0]##*/}
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination"/*.crt; do
       currFile=${file##*/}
      if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
+          echo "removing "$file" in "$certDestination""
           rm "${file}"
      fi
   done
@@ -5225,21 +5350,12 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
- {{- if IsKrustlet}}
-- path: /etc/systemd/system/krustlet.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
-{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
-{{- end}}
 
 {{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
@@ -5343,15 +5459,16 @@ write_files:
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
+
 {{if not IsMariner}}
+{{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root
   content: |
-    APT::Periodic::Update-Package-Lists "0";
-    APT::Periodic::Download-Upgradeable-Packages "0";
-    APT::Periodic::AutocleanInterval "0";
-    APT::Periodic::Unattended-Upgrade "0";
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+{{end}}
 {{end}}
 
 {{- if ShouldConfigureHTTPProxy}}
@@ -5399,6 +5516,18 @@ write_files:
   content: |
 {{GetHTTPProxyCA}}
     #EOF
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
+- path: /opt/certs/00000000000000cert{{$i}}.crt
+  permissions: "0644"
+  owner: root
+  content: |
+    {{$cert}}
+    #EOF
+{{end}}
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
@@ -5533,7 +5662,16 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-{{if UseRuncShimV2}}
+
+{{- if Is2204VHD}}
+- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
+{{- end}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -5554,6 +5692,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
           BinaryName = "/usr/bin/nvidia-container-runtime"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
@@ -5564,10 +5705,23 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
+        {{- end}}
+        {{- if IsKata }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+        {{- end}}
+        {{- if IsKrustlet }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+          runtime_type = "io.containerd.spin.v1"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+          runtime_type = "io.containerd.slight.v1"
         {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
@@ -5590,58 +5744,7 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     {{- end}}
     #EOF
-{{else}}
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    subreaper = false
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{ if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{ end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{ end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{ if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{ end}}
-    #EOF
-{{end}}
+
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -5822,11 +5925,7 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
-        {{ if IsKrustlet -}}
-        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
-        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap
@@ -6261,13 +6360,24 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 $global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
 
+# Disable OutBoundNAT in Azure CNI configuration
+$global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
-$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
+
+# HNS remediator
+$global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRemediatorIntervalInMinutes}}");
+
+$global:EnableIncreaseDynamicPortRange = $false
+
+if ($useContainerD) {
+    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
+}
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -6281,7 +6391,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.12.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.16.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6511,19 +6621,18 @@ try
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-    if ($windowsSecureTlsEnabled) {
-        $windowsVersion = Get-WindowsVersion
-        if ($windowsVersion -ne "1809") {
-            Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
-        } else {
-            Write-Log "Enable secure TLS protocols"
-            try {
-                . C:\k\windowssecuretls.ps1
-                Enable-SecureTls
-            }
-            catch {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
-            }
+
+    $windowsVersion = Get-WindowsVersion
+    if ($windowsVersion -ne "1809") {
+        Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+    } else {
+        Write-Log "Enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
         }
     }
 
@@ -6713,6 +6822,15 @@ $global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER=42
 $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
 $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
 $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST=45
+$global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE=46
+$global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE=47
+$global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE=48
+
+# NOTE: KubernetesVersion does not contain "v"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+# The containerd package name may be changed in future
+$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -6915,7 +7033,43 @@ function Get-WindowsVersion {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
     }
-}`)
+}
+
+function Install-Containerd-Based-On-Kubernetes-Version {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $ContainerdUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubernetesVersion
+  )
+
+  # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+  # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
+  # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
+  #   1. Current behavior to set the full URL
+  #   2. Setting containerd package in toggle for test purpose or hotfix
+  if ($ContainerdUrl.EndsWith("/")) {
+    Write-Log "ContainerdURL is $ContainerdUrl"
+    $containerdPackage=$global:StableContainerdPackage
+    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+      $containerdPackage=$global:LatestContainerdPackage
+      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+    } else {
+      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
+    }
+    $ContainerdUrl = $ContainerdUrl + $containerdPackage
+  }
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
@@ -6928,6 +7082,68 @@ func windowsWindowscsehelperPs1() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "windows/windowscsehelper.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _windowsWindowscsehelperTestsPs1 = []byte(`BeforeAll {
+  . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+  . $PSCommandPath.Replace('.tests.ps1','.ps1')
+}
+
+Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
+  BeforeAll{
+      Mock Install-Containerd -MockWith {
+        Param(
+          [Parameter(Mandatory = $true)][string]
+          $ContainerdUrl,
+          [Parameter(Mandatory = $true)][string]
+          $CNIBinDir,
+          [Parameter(Mandatory = $true)][string]
+          $CNIConfDir,
+          [Parameter(Mandatory = $true)][string]
+          $KubeDir
+        )
+        Write-Host $ContainerdUrl
+    } -Verifiable
+  }
+
+  It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.24.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
+  It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.30.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
+  It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
+    $expectedURL = "https://mirror.azk8s.cn/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://mirror.azk8s.cn/containerd/windows/" -KubernetesVersion "1.30.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
+  It 'full URL is set' {
+    $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.26.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+}`)
+
+func windowsWindowscsehelperTestsPs1Bytes() ([]byte, error) {
+	return _windowsWindowscsehelperTestsPs1, nil
+}
+
+func windowsWindowscsehelperTestsPs1() (*asset, error) {
+	bytes, err := windowsWindowscsehelperTestsPs1Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "windows/windowscsehelper.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6985,6 +7201,7 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-cgroupv2.conf":                          linuxCloudInitArtifacts10Cgroupv2Conf,
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
@@ -6992,6 +7209,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
@@ -7055,6 +7275,7 @@ var _bindata = map[string]func() (*asset, error){
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
+	"windows/windowscsehelper.tests.ps1":                                   windowsWindowscsehelperTestsPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -7102,6 +7323,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
 				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-cgroupv2.conf":                          &bintree{linuxCloudInitArtifacts10Cgroupv2Conf, map[string]*bintree{}},
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
@@ -7109,6 +7331,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
+				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
+				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
+				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
@@ -7180,6 +7405,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"sendlogs.ps1":               &bintree{windowsSendlogsPs1, map[string]*bintree{}},
 		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
+		"windowscsehelper.tests.ps1": &bintree{windowsWindowscsehelperTestsPs1, map[string]*bintree{}},
 	}},
 }}
 

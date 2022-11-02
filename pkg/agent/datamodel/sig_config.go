@@ -79,6 +79,7 @@ var AvailableUbuntu2204Distros []Distro = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 var AvailableContainerdDistros []Distro = []Distro{
@@ -92,11 +93,13 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -119,11 +122,13 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 }
 
@@ -208,6 +213,7 @@ var AvailableWindowsSIGDistros []Distro = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
+	AKSWindows2022ContainerdGen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -217,6 +223,7 @@ var AvailableWindowsPIRDistros []Distro = []Distro{
 
 // SIG const
 const (
+	AKSSIGImagePublisher       string = "microsoft-aks"
 	AKSWindowsGalleryName      string = "AKSWindows"
 	AKSWindowsResourceGroup    string = "AKS-Windows"
 	AKSUbuntuGalleryName       string = "AKSUbuntu"
@@ -226,14 +233,15 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.08.02"
+	LinuxSIGImageVersion string = "2022.10.24"
 
-	Windows2019SIGImageVersion string = "17763.3287.220810"
-	Windows2022SIGImageVersion string = "20348.887.220810"
+	// DO NOT MODIFY: used for freezing linux images with docker
+	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Arm64LinuxSIGImageVersion    string = "2022.08.09"
-	Ubuntu2204SIGImageVersion    string = "2022.07.25"
-	Ubuntu2004CVMSIGImageVersion string = "2022.08.02"
+	Windows2019SIGImageVersion string = "17763.3534.221019"
+	Windows2022SIGImageVersion string = "20348.1194.221026"
+
+	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
 )
 
 // SIG config Template
@@ -244,31 +252,33 @@ var (
 		Definition:    "1604",
 		Version:       "2021.11.06",
 	}
+
 	SIGUbuntu1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
+
 	SIGUbuntu1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuGPU1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2gpu",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSIGImageVersionForDocker,
 	}
 
 	SIGUbuntuContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
@@ -332,35 +342,42 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2arm64containerd",
-		Version:       Arm64LinuxSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2arm64containerd",
-		Version:       Arm64LinuxSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204containerd",
-		Version:       Ubuntu2204SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2containerd",
-		Version:       Ubuntu2204SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuContainerd2204TLGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204gen2TLcontainerd",
+		Version:       Ubuntu2204TLSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2CVMcontainerd",
-		Version:       Ubuntu2004CVMSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -377,11 +394,18 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2katagen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2arm64",
-		Version:       Arm64LinuxSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
@@ -390,16 +414,25 @@ var (
 		Definition:    "windows-2019",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2019ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2019-containerd",
 		Version:       Windows2019SIGImageVersion,
 	}
+
 	SIGWindows2022ContainerdImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
 		Definition:    "windows-2022-containerd",
+		Version:       Windows2022SIGImageVersion,
+	}
+
+	SIGWindows2022ContainerdGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2022-containerd-gen2",
 		Version:       Windows2022SIGImageVersion,
 	}
 )
@@ -424,21 +457,24 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSCBLMarinerV1:          SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:      SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
 func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSWindows2019:           SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2019Containerd: SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
-		AKSWindows2022Containerd: SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2019:               SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2019Containerd:     SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022Containerd:     SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

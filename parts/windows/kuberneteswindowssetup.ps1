@@ -184,13 +184,24 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 $global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
 
+# Disable OutBoundNAT in Azure CNI configuration
+$global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
+
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
-$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("{{GetVariable "windowsSecureTlsEnabled" }}");
+
+# HNS remediator
+$global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRemediatorIntervalInMinutes}}");
+
+$global:EnableIncreaseDynamicPortRange = $false
+
+if ($useContainerD) {
+    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
+}
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -204,7 +215,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.12.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.16.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -434,19 +445,18 @@ try
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-    if ($windowsSecureTlsEnabled) {
-        $windowsVersion = Get-WindowsVersion
-        if ($windowsVersion -ne "1809") {
-            Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
-        } else {
-            Write-Log "Enable secure TLS protocols"
-            try {
-                . C:\k\windowssecuretls.ps1
-                Enable-SecureTls
-            }
-            catch {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
-            }
+
+    $windowsVersion = Get-WindowsVersion
+    if ($windowsVersion -ne "1809") {
+        Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+    } else {
+        Write-Log "Enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
         }
     }
 

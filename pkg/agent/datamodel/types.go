@@ -118,6 +118,12 @@ const (
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
+// These are the flags set by RP that should NOT be included
+// within the set of command line flags when configuring kubelet
+var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
+	"--node-status-report-frequency": true,
+}
+
 // Distro represents Linux distro to use for Linux VMs
 type Distro string
 
@@ -137,6 +143,7 @@ const (
 	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                    Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2Gen2                Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2Gen2Kata            Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
@@ -147,6 +154,7 @@ const (
 	AKSUbuntuContainerd2004CVMGen2     Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2   Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2           Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSUbuntuContainerd2204TLGen2      Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	RHEL                               Distro = "rhel"
 	CoreOS                             Distro = "coreos"
 	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
@@ -159,6 +167,8 @@ const (
 	AKSWindows2019Containerd Distro = "aks-windows-2019-containerd"
 	// AKSWindows2022Containerd stands for distro for windows server 2022 SIG image with containerd
 	AKSWindows2022Containerd Distro = "aks-windows-2022-containerd"
+	// AKSWindows2022ContainerdGen2 stands for distro for windows server 2022 Gen 2 SIG image with containerd
+	AKSWindows2022ContainerdGen2 Distro = "aks-windows-2022-containerd-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
@@ -182,6 +192,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2Kata,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
@@ -192,6 +203,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
+	AKSUbuntuContainerd2204TLGen2,
 }
 
 type CustomConfigurationComponent string
@@ -208,6 +220,19 @@ func (d Distro) IsVHDDistro() bool {
 		}
 	}
 	return false
+}
+
+func (d Distro) Is2204VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsKataDistro() bool {
+	return d == AKSCBLMarinerV2Gen2Kata
 }
 
 // KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version
@@ -274,18 +299,11 @@ type CustomCloudEnv struct {
 	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
 }
 
-// TelemetryProfile contains settings for collecting telemtry.
-// Note telemtry is currently enabled/disabled with the 'EnableTelemetry' feature flag.
-type TelemetryProfile struct {
-	ApplicationInsightsKey string `json:"applicationInsightsKey,omitempty"`
-}
-
 // FeatureFlags defines feature-flag restricted functionality
 type FeatureFlags struct {
 	EnableCSERunInBackground bool `json:"enableCSERunInBackground,omitempty"`
 	BlockOutboundInternet    bool `json:"blockOutboundInternet,omitempty"`
 	EnableIPv6DualStack      bool `json:"enableIPv6DualStack,omitempty"`
-	EnableTelemetry          bool `json:"enableTelemetry,omitempty"`
 	EnableIPv6Only           bool `json:"enableIPv6Only,omitempty"`
 	EnableWinDSR             bool `json:"enableWinDSR,omitempty"`
 }
@@ -399,30 +417,31 @@ type ResourcePurchasePlan struct {
 
 // WindowsProfile represents the windows parameters passed to the cluster
 type WindowsProfile struct {
-	AdminUsername                 string                     `json:"adminUsername"`
-	AdminPassword                 string                     `json:"adminPassword" conform:"redact"`
-	CSIProxyURL                   string                     `json:"csiProxyURL,omitempty"`
-	EnableCSIProxy                *bool                      `json:"enableCSIProxy,omitempty"`
-	ImageRef                      *ImageReference            `json:"imageReference,omitempty"`
-	ImageVersion                  string                     `json:"imageVersion"`
-	ProvisioningScriptsPackageURL string                     `json:"provisioningScriptsPackageURL,omitempty"`
-	WindowsImageSourceURL         string                     `json:"windowsImageSourceURL"`
-	WindowsPublisher              string                     `json:"windowsPublisher"`
-	WindowsOffer                  string                     `json:"windowsOffer"`
-	WindowsSku                    string                     `json:"windowsSku"`
-	WindowsDockerVersion          string                     `json:"windowsDockerVersion"`
-	Secrets                       []KeyVaultSecrets          `json:"secrets,omitempty"`
-	SSHEnabled                    *bool                      `json:"sshEnabled,omitempty"`
-	EnableAutomaticUpdates        *bool                      `json:"enableAutomaticUpdates,omitempty"`
-	IsCredentialAutoGenerated     *bool                      `json:"isCredentialAutoGenerated,omitempty"`
-	EnableAHUB                    *bool                      `json:"enableAHUB,omitempty"`
-	WindowsPauseImageURL          string                     `json:"windowsPauseImageURL"`
-	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
-	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
-	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
-	WindowsSecureTlsEnabled       *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
-	WindowsGmsaPackageUrl         string                     `json:"windowsGmsaPackageUrl,omitempty"`
-	CseScriptsPackageURL          string                     `json:"cseScriptsPackageURL,omitempty"`
+	AdminUsername                  string                     `json:"adminUsername"`
+	AdminPassword                  string                     `json:"adminPassword" conform:"redact"`
+	CSIProxyURL                    string                     `json:"csiProxyURL,omitempty"`
+	EnableCSIProxy                 *bool                      `json:"enableCSIProxy,omitempty"`
+	ImageRef                       *ImageReference            `json:"imageReference,omitempty"`
+	ImageVersion                   string                     `json:"imageVersion"`
+	ProvisioningScriptsPackageURL  string                     `json:"provisioningScriptsPackageURL,omitempty"`
+	WindowsImageSourceURL          string                     `json:"windowsImageSourceURL"`
+	WindowsPublisher               string                     `json:"windowsPublisher"`
+	WindowsOffer                   string                     `json:"windowsOffer"`
+	WindowsSku                     string                     `json:"windowsSku"`
+	WindowsDockerVersion           string                     `json:"windowsDockerVersion"`
+	Secrets                        []KeyVaultSecrets          `json:"secrets,omitempty"`
+	SSHEnabled                     *bool                      `json:"sshEnabled,omitempty"`
+	EnableAutomaticUpdates         *bool                      `json:"enableAutomaticUpdates,omitempty"`
+	IsCredentialAutoGenerated      *bool                      `json:"isCredentialAutoGenerated,omitempty"`
+	EnableAHUB                     *bool                      `json:"enableAHUB,omitempty"`
+	WindowsPauseImageURL           string                     `json:"windowsPauseImageURL"`
+	AlwaysPullWindowsPauseImage    *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
+	ContainerdWindowsRuntimes      *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
+	WindowsCalicoPackageURL        string                     `json:"windowsCalicoPackageURL,omitempty"`
+	WindowsSecureTlsEnabled        *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
+	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
+	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
+	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -662,7 +681,8 @@ type AgentPoolProfile struct {
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
 	// This is a new property and all old agent pools do no have this field. We need to keep the default
 	// behavior to reboot Windows node when it is nil
-	NotRebootWindowsNode *bool `json:"notRebootWindowsNode,omitempty"`
+	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
+	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
 }
 
 // Properties represents the AKS cluster definition
@@ -682,7 +702,6 @@ type Properties struct {
 	HostedMasterProfile     *HostedMasterProfile     `json:"hostedMasterProfile,omitempty"`
 	AddonProfiles           map[string]AddonProfile  `json:"addonProfiles,omitempty"`
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
-	TelemetryProfile        *TelemetryProfile        `json:"telemetryProfile,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
 }
@@ -981,6 +1000,11 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 	return a.Distro.IsVHDDistro()
 }
 
+// Is2204VHDDistro returns true if the distro uses 2204 VHD
+func (a *AgentPoolProfile) Is2204VHDDistro() bool {
+	return a.Distro.Is2204VHDDistro()
+}
+
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -1004,34 +1028,9 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
 func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
 	var buf bytes.Buffer
-	buf.WriteString("kubernetes.azure.com/role=agent")
-	if deprecated {
-		buf.WriteString(",node-role.kubernetes.io/agent=")
-		buf.WriteString(",kubernetes.io/role=agent")
-	}
-	// label key agentpool will be depreated soon
-	buf.WriteString(fmt.Sprintf(",agentpool=%s", a.Name))
+	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
 
-	if strings.EqualFold(a.StorageProfile, ManagedDisks) {
-		storagetier, _ := GetStorageAccountType(a.VMSize)
-		// label key storageprofile and storagetier will be depreated soon
-		buf.WriteString(fmt.Sprintf(",storageprofile=managed,storagetier=%s", storagetier))
-		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=%s", storagetier))
-	}
-	if nvidiaEnabled {
-		accelerator := "nvidia"
-		// label key accelerator will be depreated soon
-		buf.WriteString(fmt.Sprintf(",accelerator=%s", accelerator))
-		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/accelerator=%s", accelerator))
-	}
-	if fipsEnabled {
-		buf.WriteString(",kubernetes.azure.com/fips_enabled=true")
-	}
-	if osSku != "" {
-		buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/os-sku=%s", osSku))
-	}
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/cluster=%s", rg))
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
 		keys = append(keys, key)
@@ -1161,6 +1160,14 @@ func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 	return DefaultWindowsSecureTlsEnabled
 }
 
+// GetHnsRemediatorIntervalInMinutes gets HnsRemediatorIntervalInMinutes specified or returns default value
+func (w *WindowsProfile) GetHnsRemediatorIntervalInMinutes() uint32 {
+	if w.HnsRemediatorIntervalInMinutes != nil {
+		return *w.HnsRemediatorIntervalInMinutes
+	}
+	return 0
+}
+
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
 	return strings.EqualFold(o.OrchestratorType, Kubernetes)
@@ -1176,8 +1183,6 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 			return f.BlockOutboundInternet
 		case "EnableIPv6DualStack":
 			return f.EnableIPv6DualStack
-		case "EnableTelemetry":
-			return f.EnableTelemetry
 		case "EnableIPv6Only":
 			return f.EnableIPv6Only
 		case "EnableWinDSR":
@@ -1296,7 +1301,7 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell() string {
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1313,14 +1318,33 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		}
 	}
 
+	// Settings from customKubeletConfig, only take if it's set
+	if customKc != nil {
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
+		}
+	}
+
 	if len(kubeletConfig) == 0 {
 		return ""
 	}
 
 	keys := []string{}
 	for key := range kubeletConfig {
-		keys = append(keys, key)
+		if !CommandLineOmittedKubeletConfigFlags[key] {
+			keys = append(keys, key)
+		}
 	}
+
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
@@ -1414,6 +1438,14 @@ type K8sComponents struct {
 	WindowsPackageURL string
 }
 
+// GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
+// This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
+type GetLatestSigImageConfigRequest struct {
+	SIGConfig SIGConfig
+	Region    string
+	Distro    Distro
+}
+
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
@@ -1452,6 +1484,8 @@ type NodeBootstrappingConfiguration struct {
 	PrimaryScaleSetName            string
 	SIGConfig                      SIGConfig
 	IsARM64                        bool
+	CustomCATrustConfig            *CustomCATrustConfig
+	DisableUnattendedUpgrades      bool
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
@@ -1468,6 +1502,10 @@ type HTTPProxyConfig struct {
 	HTTPSProxy *string   `json:"httpsProxy,omitempty"`
 	NoProxy    *[]string `json:"noProxy,omitempty"`
 	TrustedCA  *string   `json:"trustedCa,omitempty"`
+}
+
+type CustomCATrustConfig struct {
+	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set
@@ -1608,6 +1646,16 @@ type AKSKubeletConfiguration struct {
 	// Default: "10s"
 	// +optional
 	NodeStatusUpdateFrequency Duration `json:"nodeStatusUpdateFrequency,omitempty"`
+	// nodeStatusReportFrequency is the frequency that kubelet posts node
+	// status to master if node status does not change. Kubelet will ignore this
+	// frequency and post node status immediately if any change is detected. It is
+	// only used when node lease feature is enabled. nodeStatusReportFrequency's
+	// default value is 5m. But if nodeStatusUpdateFrequency is set explicitly,
+	// nodeStatusReportFrequency's default value will be set to
+	// nodeStatusUpdateFrequency for backward compatibility.
+	// Default: "5m"
+	// +optional
+	NodeStatusReportFrequency Duration `json:"nodeStatusReportFrequency,omitempty"`
 	// imageGCHighThresholdPercent is the percent of disk usage after which
 	// image garbage collection is always run. The percent is calculated as
 	// this field value out of 100.
@@ -1844,6 +1892,7 @@ type KubeletWebhookAuthorization struct {
 	// +optional
 	CacheUnauthorizedTTL Duration `json:"cacheUnauthorizedTTL,omitempty"`
 }
+
 type CSEStatus struct {
 	// ExitCode stores the exitCode from CSE output.
 	ExitCode string `json:"exitCode,omitempty"`
@@ -1887,4 +1936,15 @@ func NewError(code CSEStatusParsingErrorCode, message string) *CSEStatusParsingE
 
 func (err *CSEStatusParsingError) Error() string {
 	return fmt.Sprintf("CSE has invalid message=%q, InstanceErrorCode=%s", err.Message, err.Code)
+}
+
+type AgentPoolWindowsProfile struct {
+	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
+}
+
+// IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT
+func (ap *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
+	return ap.AgentPoolWindowsProfile != nil &&
+		ap.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
+		*ap.AgentPoolWindowsProfile.DisableOutboundNat
 }

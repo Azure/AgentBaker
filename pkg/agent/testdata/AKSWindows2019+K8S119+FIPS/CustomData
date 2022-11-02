@@ -118,7 +118,7 @@ $global:KubeClusterCIDR = "10.240.0.0/16"
 $global:KubeServiceCIDR = "10.0.0.0/16"
 $global:VNetCIDR = "10.0.0.0/8"
 
-$global:KubeletNodeLabels = "kubernetes.azure.com/role=agent,agentpool=wpool2,kubernetes.azure.com/agentpool=wpool2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=Premium_LRS,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=resourceGroupName,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111"
+$global:KubeletNodeLabels = "agentpool=wpool2,kubernetes.azure.com/agentpool=wpool2,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111"
 
 $global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=", "--event-qps=0", "--eviction-hard=", "--feature-gates=DynamicKubeletConfig=false,RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843Mi", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--pod-infra-container-image=kubletwin/pause", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
 $global:KubeproxyConfigArgs = @( "--metrics-bind-address=0.0.0.0:10249" )
@@ -180,13 +180,24 @@ $global:TLSBootstrapToken = ""
 
 $global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("false");
 
+# Disable OutBoundNAT in Azure CNI configuration
+$global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("false");
+
 # Base64 representation of ZIP archive
-$zippedFiles = "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"
+$zippedFiles = "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"
 
 $useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("true")
-$windowsSecureTlsEnabled = [System.Convert]::ToBoolean("false");
+
+# HNS remediator
+$global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("0");
+
+$global:EnableIncreaseDynamicPortRange = $false
+
+if ($useContainerD) {
+    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
+}
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -200,7 +211,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.12.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.16.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -424,19 +435,18 @@ try
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-    if ($windowsSecureTlsEnabled) {
-        $windowsVersion = Get-WindowsVersion
-        if ($windowsVersion -ne "1809") {
-            Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
-        } else {
-            Write-Log "Enable secure TLS protocols"
-            try {
-                . C:\k\windowssecuretls.ps1
-                Enable-SecureTls
-            }
-            catch {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
-            }
+
+    $windowsVersion = Get-WindowsVersion
+    if ($windowsVersion -ne "1809") {
+        Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+    } else {
+        Write-Log "Enable secure TLS protocols"
+        try {
+            . C:\k\windowssecuretls.ps1
+            Enable-SecureTls
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS -ErrorMessage $_
         }
     }
 

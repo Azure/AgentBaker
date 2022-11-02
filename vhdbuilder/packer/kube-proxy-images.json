@@ -1,42 +1,23 @@
 {
-  "dockerKubeProxyImages": {
-    "ContainerImages": [
-      {
-        "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "amd64OnlyVersions": [],
-        "multiArchVersions": [
-          "1.22.6-hotfix.20220615.2",
-          "1.22.6-hotfix.20220728.1",
-          "1.22.11-hotfix.20220620.2",
-          "1.22.11-hotfix.20220728.1",
-          "1.23.5-hotfix.20220615.2",
-          "1.23.5-hotfix.20220728.1",
-          "1.23.8-hotfix.20220620.2",
-          "1.23.8-hotfix.20220728.1",
-          "1.24.0-hotfix.20220615.1",
-          "1.24.0-hotfix.20220615.2",
-          "1.24.3.1"
-        ]
-      }
-    ]
-  },
+  "dockerKubeProxyImages": null,
   "containerdKubeProxyImages": {
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
         "amd64OnlyVersions": [],
         "multiArchVersions": [
-          "1.22.6-hotfix.20220615.2",
-          "1.22.6-hotfix.20220728.1",
-          "1.22.11-hotfix.20220620.2",
-          "1.22.11-hotfix.20220728.1",
-          "1.23.5-hotfix.20220615.2",
-          "1.23.5-hotfix.20220728.1",
-          "1.23.8-hotfix.20220620.2",
-          "1.23.8-hotfix.20220728.1",
-          "1.24.0-hotfix.20220615.1",
-          "1.24.0-hotfix.20220615.2",
-          "1.24.3.1"
+          "1.22.11-hotfix.20220919.1",
+          "1.22.11-hotfix.20221016.2",
+          "1.22.15-hotfix.20221014.2",
+          "1.22.15.1",
+          "1.23.12-hotfix.20220922.1",
+          "1.23.8-hotfix.20220728.4",
+          "1.23.8-hotfix.20220919.1",
+          "1.24.3-hotfix.20220919.1",
+          "1.24.3-hotfix.20221006.1",
+          "1.24.6-hotfix.20221006.1",
+          "1.24.6.1",
+          "1.25.2-hotfix.20221006"
         ]
       }
     ]

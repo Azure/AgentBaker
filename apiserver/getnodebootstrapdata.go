@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	// RoutePathNodeBootstrapping the route path to get node bootstrapping data.
+	// RoutePathNodeBootstrapData the route path to get node bootstrapping data.
 	RoutePathNodeBootstrapData string = "/getnodebootstrapdata"
 )
 

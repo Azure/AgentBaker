@@ -124,21 +124,12 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
- {{- if IsKrustlet}}
-- path: /etc/systemd/system/krustlet.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
-{{ else }}
 - path: /etc/systemd/system/kubelet.service
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
-{{- end}}
 
 {{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
@@ -242,15 +233,16 @@ write_files:
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
+
 {{if not IsMariner}}
+{{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root
   content: |
-    APT::Periodic::Update-Package-Lists "0";
-    APT::Periodic::Download-Upgradeable-Packages "0";
-    APT::Periodic::AutocleanInterval "0";
-    APT::Periodic::Unattended-Upgrade "0";
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+{{end}}
 {{end}}
 
 {{- if ShouldConfigureHTTPProxy}}
@@ -298,6 +290,18 @@ write_files:
   content: |
 {{GetHTTPProxyCA}}
     #EOF
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
+- path: /opt/certs/00000000000000cert{{$i}}.crt
+  permissions: "0644"
+  owner: root
+  content: |
+    {{$cert}}
+    #EOF
+{{end}}
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
@@ -432,7 +436,16 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-{{if UseRuncShimV2}}
+
+{{- if Is2204VHD}}
+- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
+{{- end}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -453,6 +466,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
           BinaryName = "/usr/bin/nvidia-container-runtime"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
@@ -463,10 +479,23 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
+        {{- end}}
+        {{- if IsKata }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+        {{- end}}
+        {{- if IsKrustlet }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+          runtime_type = "io.containerd.spin.v1"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+          runtime_type = "io.containerd.slight.v1"
         {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
@@ -489,58 +518,7 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     {{- end}}
     #EOF
-{{else}}
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    subreaper = false
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{ if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{ end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{ end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{ if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{ end}}
-    #EOF
-{{end}}
+
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -721,11 +699,7 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
-        {{ if IsKrustlet -}}
-        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
-        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap

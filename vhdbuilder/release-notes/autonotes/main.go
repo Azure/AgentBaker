@@ -132,6 +132,8 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	artifactsDirOut := filepath.Join(fl.path, path)
 	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
 	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", fl.date))
+	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt")
+	latestImageListFile := filepath.Join(artifactsDirOut, "latest-image-list.json")
 
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
 		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
@@ -153,6 +155,16 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 		return
 	}
 
+	data, err := os.ReadFile(releaseNotesFileOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", releaseNotesFileOut, err)
+	}
+
+	err = os.WriteFile(latestReleaseNotesFile, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", releaseNotesFileOut, err)
+	}
+
 	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", imageListName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		if err != nil {
@@ -164,6 +176,16 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	if err := os.Rename(imageListFileIn, imageListFileOut); err != nil {
 		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
 		return
+	}
+
+	data, err = os.ReadFile(imageListFileOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", releaseNotesFileOut, err)
+	}
+
+	err = os.WriteFile(latestImageListFile, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", releaseNotesFileOut, err)
 	}
 }
 
@@ -206,4 +228,6 @@ var artifactToPath = map[string]string{
 	"marinerv1-gen2":                filepath.Join("AKSCBLMariner", "gen2"),
 	"marinerv2-gen2":                filepath.Join("AKSCBLMarinerV2", "gen2"),
 	"2004-cvm-gen2-containerd":      filepath.Join("AKSUbuntu", "gen2", "2004cvmcontainerd"),
+	"2204-containerd":               filepath.Join("AKSUbuntu", "gen1", "2204containerd"),
+	"2204-gen2-containerd":          filepath.Join("AKSUbuntu", "gen2", "2204containerd"),
 }

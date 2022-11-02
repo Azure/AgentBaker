@@ -54,8 +54,10 @@ function Get-LogCollectionScripts {
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.cmd'
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'stoppacketcapture.cmd'
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'VFP.psm1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'networkhealth.ps1'
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'helper.psm1'
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'hns.psm1'
+    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'hns.v2.psm1'
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.ps1'
     CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.ps1'
 }
@@ -108,6 +110,12 @@ function Write-KubeClusterConfig {
 
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Csi -Value @{
         EnableProxy = $global:EnableCsiProxy
+    }
+
+    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Services -Value @{
+        HNSRemediator       = @{
+            IntervalInMinutes = $Global:HNSRemediatorIntervalInMinutes;
+        };
     }
 
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Kubernetes -Value @{

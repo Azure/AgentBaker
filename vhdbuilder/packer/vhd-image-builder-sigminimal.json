@@ -118,7 +118,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.0.0-35.amd64.deb",
+      "source": "vhdbuilder/packer/asc-baseline-1.1.0-268.amd64.deb",
       "destination": "/home/packer/asc-baseline.deb"
     },
     {
@@ -230,6 +230,21 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
       "destination": "/home/packer/update_certs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.path",
+      "destination": "/home/packer/ci-syslog-watcher.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.service",
+      "destination": "/home/packer/ci-syslog-watcher.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh",
+      "destination": "/home/packer/ci-syslog-watcher.sh"
     },
     {
       "type": "file",
