@@ -31,22 +31,22 @@ configureSwapFile() {
     
     # Attempt to use the resource disk
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
-        disk_id=$(readlink /dev/disk/azure/resource-part1)
-        disk_free_kb=$(df ${disk_id} | sed 1d | awk '{print $4}')
+        resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
+        disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
             echo "Will use resource disk for swap file"
-            base_path=$(findmnt -nr -o target -S ${disk_id})
+            base_path=${resource_disk_path}
         else
-            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, falling back to OS disk..."
+            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
         fi
     fi
 
     # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${base_path}" ]]; then
-        disk_id=$(readlink /dev/disk/azure/root-part1)
-        disk_free_kb=$(df ${disk_id} | sed 1d | awk '{print $4}')
+        os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
+        disk_free_kb=$(df ${os_disk_path} | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
-            base_path=/
+            base_path=${os_disk_path}
             echo "Will use OS disk for swap file"
         else
             echo "Insufficient disk space on OS disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
