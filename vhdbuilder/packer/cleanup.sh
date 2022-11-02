@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 # ACS_TEST_RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
-EXPIRATION_IN_HOURS=36
+EXPIRATION_IN_HOURS=8
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
@@ -151,11 +151,19 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
     fi
   done
 
-  echo "attempting to delete managed images..."
-  az resource delete --ids ${managed_image_ids} || echo "managed image deletion was not successful, continuing..."
+  if [[ -n "${managed_image_ids}" ]]; then
+    echo "Attempting to delete managed images..."
+    az resource delete --ids ${managed_image_ids} --verbose || echo "managed image deletion was not successful, continuing..."
+  else
+    echo "Did not find any managed images eligible for deletion"
+  fi
 
-  echo "attempting to delete SIG image versions associated with old managed images..."
-  az resource delete --ids ${sig_version_ids} || echo "SIG image version deletion was not successful, continuing..."
+  if [[ -n "${sig_version_ids}" ]]; then
+    echo "Attempting to delete SIG image versions associated with old managed images..."
+    az resource delete --ids ${sig_version_ids} --verbose || echo "SIG image version deletion was not successful, continuing..."
+  else
+    echo "Did not find any SIG versions associated with old managed images eligible for deletion"
+  fi
 
   old_sig_version_ids=""
   for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|1804*|2004*|2204*")).name' | tr -d '\"' || ""); do
@@ -164,11 +172,15 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
     done
   done
 
-  echo "attempting to delete SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
-  az resource delete --ids ${old_sig_version_ids} || echo "SIG image version deletion was not successful, continuing..."
+  if [[ -n "${old_sig_version_ids}" ]]; then
+    echo "Attempting to delete SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
+    az resource delete --ids ${old_sig_version_ids} --verbose || echo "SIG image version deletion was not successful, continuing..."
+  else
+    echo "Did not find any old SIG versions eligible for deletion"
+  fi
+  
   set -x
 fi
-
 
 #clean up storage account created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
