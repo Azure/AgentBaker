@@ -257,6 +257,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate-override.conf",
+      "destination": "/home/packer/override.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
       "destination": "/home/packer/rsyslog"
     },
