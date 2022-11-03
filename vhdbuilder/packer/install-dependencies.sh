@@ -46,7 +46,7 @@ systemctlEnableAndStart update_certs.timer || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
-# enable the modified logrotate service and remove the auto-generated default logrotate cron job
+# enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 

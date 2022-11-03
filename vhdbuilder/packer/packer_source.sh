@@ -77,14 +77,11 @@ copyPackerFiles() {
   AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/logrotate.service
   AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
   AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/logrotate.timer
-  AKS_LOGROTATE_TIMER_MARINER_DROPIN_SRC=/home/packer/override.conf
-  AKS_LOGROTATE_TIMER_MARINER_DROPIN_DEST=/usr/lib/systemd/system/logrotate.timer.d/override.conf
+  AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/override.conf
+  AKS_LOGROTATE_TIMER_DROPIN_DEST_UBUNTU=/etc/systemd/system/logrotate.timer.d/override.conf
+  AKS_LOGROTATE_TIMER_DROPIN_DEST_MARINER=/usr/lib/systemd/system/logrotate.timer.d/override.conf
   AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
-
-  if [[ $OS == $MARINER_OS_NAME ]]; then
-    cpAndMode $AKS_LOGROTATE_TIMER_MARINER_DROPIN_SRC $AKS_LOGROTATE_TIMER_MARINER_DROPIN_DEST 644
-  fi
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -92,6 +89,20 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
+  fi
+
+  cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
+  # If a logrotation timer does not exist on the base image
+  if [ ! -f /etc/systemd/system/logrotate.timer ] && [ ! -f /usr/lib/systemd/system/logrotate.timer ]; then
+    cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
+    cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
+    cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
+  else
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+      cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST_MARINER 644
+    else
+      cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST_UBUTNU 644
+    fi
   fi
 
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
@@ -123,11 +134,7 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
-  cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
   if [[ $OS != $MARINER_OS_NAME ]]; then
-    cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
-    cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
-    cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
