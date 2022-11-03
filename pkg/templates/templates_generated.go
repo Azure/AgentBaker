@@ -36,6 +36,9 @@
 // linux/cloud-init/artifacts/health-monitor.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
+// linux/cloud-init/artifacts/ipv6_nftables
+// linux/cloud-init/artifacts/ipv6_nftables.service
+// linux/cloud-init/artifacts/ipv6_nftables.sh
 // linux/cloud-init/artifacts/kms.service
 // linux/cloud-init/artifacts/krustlet.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
@@ -714,20 +717,42 @@ configureTransparentHugePage() {
 
 {{- if ShouldConfigSwapFile}}
 configureSwapFile() {
-    SWAP_SIZE_KB=$(expr {{GetSwapFileSizeMB}} \* 1000)
-    DISK_FREE_KB=$(df /dev/sdb1 | sed 1d | awk '{print $4}')
-    if [[ ${DISK_FREE_KB} -gt ${SWAP_SIZE_KB} ]]; then
-        SWAP_LOCATION=/mnt/swapfile
-        retrycmd_if_failure 24 5 25 fallocate -l ${SWAP_SIZE_KB}K ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        chmod 600 ${SWAP_LOCATION}
-        retrycmd_if_failure 24 5 25 mkswap ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        retrycmd_if_failure 24 5 25 swapon ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        retrycmd_if_failure 24 5 25 swapon --show | grep ${SWAP_LOCATION} || exit $ERR_SWAP_CREAT_FAIL
-        echo "${SWAP_LOCATION} none swap sw 0 0" >> /etc/fstab
-    else
-        echo "Insufficient disk space creating swap file: request ${SWAP_SIZE_KB} free ${DISK_FREE_KB}"
-        exit $ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE
+    # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
+    swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    swap_location=""
+    
+    # Attempt to use the resource disk
+    if [[ -L /dev/disk/azure/resource-part1 ]]; then
+        resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
+        disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
+        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+            echo "Will use resource disk for swap file"
+            swap_location=${resource_disk_path}/swapfile
+        else
+            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+        fi
     fi
+
+    # If we couldn't use the resource disk, attempt to use the OS disk
+    if [[ -z "${swap_location}" ]]; then
+        os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
+        disk_free_kb=$(df ${os_disk_path} | sed 1d | awk '{print $4}')
+        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+            echo "Will use OS disk for swap file"
+            swap_location=/swapfile
+        else
+            echo "Insufficient disk space on OS disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
+            exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
+        fi
+    fi
+
+    echo "Swap file will be saved to: ${swap_location}"
+    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    chmod 600 ${swap_location}
+    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
 {{- end}}
 
@@ -1307,8 +1332,8 @@ ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azur
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
 
-ERR_SWAP_CREAT_FAIL=130 {{/* Error allocating swap file */}}
-ERR_SWAP_CREAT_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+ERR_SWAP_CREATE_FAIL=130 {{/* Error allocating swap file */}}
+ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
 ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
@@ -1860,11 +1885,6 @@ installKubeletKubectlAndKubeProxy() {
 
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
-
-    if [ -n "${KUBEPROXY_URL}" ]; then
-        #kubeproxy is a system addon that is dictated by control plane so it shouldn't block node provisioning
-        pullContainerImage ${CLI_TOOL} ${KUBEPROXY_URL} &
-    fi
 }
 
 pullContainerImage() {
@@ -3209,6 +3229,140 @@ func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/init-aks-custom-cloud.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIpv6_nftables = []byte(`define slb_lla = fe80::1234:5678:9abc
+define slb_gua = 2603:1062:0:1:fe80:1234:5678:9abc
+
+table ip6 azureSLBProbe
+flush table ip6 azureSLBProbe
+
+table ip6 azureSLBProbe {
+    chain prerouting {
+        type filter hook prerouting priority -300;
+
+        # Add a rule that accepts router discovery packets without mangling or ipv6 breaks after
+        # 9000 seconds when the default route times out
+        iifname eth0 icmpv6 type { nd-neighbor-solicit, nd-router-advert, nd-neighbor-advert } counter accept
+
+        # Map packets from the LB probe LLA to a SLA IP instead
+        iifname eth0 ip6 saddr $slb_lla ip6 saddr set $slb_gua counter
+    }
+    chain postrouting {
+        type filter hook postrouting priority -300;
+
+        # Reverse the modification on the way back out
+        oifname eth0 ip6 daddr $slb_gua ip6 daddr set $slb_lla counter
+    }
+}
+`)
+
+func linuxCloudInitArtifactsIpv6_nftablesBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIpv6_nftables, nil
+}
+
+func linuxCloudInitArtifactsIpv6_nftables() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIpv6_nftablesBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ipv6_nftables", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIpv6_nftablesService = []byte(`[Unit]
+Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
+
+[Service]
+Type=simple
+RemainAfterExit=true
+ExecStart=/bin/bash /opt/scripts/ipv6_nftables.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsIpv6_nftablesServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIpv6_nftablesService, nil
+}
+
+func linuxCloudInitArtifactsIpv6_nftablesService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIpv6_nftablesServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ipv6_nftables.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIpv6_nftablesSh = []byte(`#! /bin/bash
+
+set -uo pipefail
+set -x
+set -e
+
+NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
+
+# query IMDS to check if node has IPv6
+# example interface
+# [
+#   {
+#     "ipv4": {
+#       "ipAddress": [
+#         {
+#           "privateIpAddress": "10.224.0.4",
+#           "publicIpAddress": ""
+#         }
+#       ],
+#       "subnet": [
+#         {
+#           "address": "10.224.0.0",
+#           "prefix": "16"
+#         }
+#       ]
+#     },
+#     "ipv6": {
+#       "ipAddress": [
+#         {
+#           "privateIpAddress": "fd85:534e:4cd6:ab02::5"
+#         }
+#       ]
+#     },
+#     "macAddress": "000D3A98DA20"
+#   }
+# ]
+
+# check the number of IPv6 addresses this instance has from IMDS
+IPV6_ADDR_COUNT=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | \
+    jq '[.[].ipv6.ipAddress[] | select(.privateIpAddress != "")] | length')
+
+if [[ $IPV6_ADDR_COUNT -eq 0 ]];
+then
+    echo "instance is not configured with IPv6, skipping nftables rules"
+else
+    echo "writing nftables from $NFTABLES_RULESET_FILE"
+    nft -f $NFTABLES_RULESET_FILE
+fi
+`)
+
+func linuxCloudInitArtifactsIpv6_nftablesShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIpv6_nftablesSh, nil
+}
+
+func linuxCloudInitArtifactsIpv6_nftablesSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIpv6_nftablesShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ipv6_nftables.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4850,7 +5004,7 @@ installDeps() {
       done
     fi
 
-    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
+    for apt_package in apache2-utils apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -7236,6 +7390,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
+	"linux/cloud-init/artifacts/ipv6_nftables":                             linuxCloudInitArtifactsIpv6_nftables,
+	"linux/cloud-init/artifacts/ipv6_nftables.service":                     linuxCloudInitArtifactsIpv6_nftablesService,
+	"linux/cloud-init/artifacts/ipv6_nftables.sh":                          linuxCloudInitArtifactsIpv6_nftablesSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
 	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
@@ -7358,6 +7515,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
 				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
+				"ipv6_nftables":                             &bintree{linuxCloudInitArtifactsIpv6_nftables, map[string]*bintree{}},
+				"ipv6_nftables.service":                     &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
+				"ipv6_nftables.sh":                          &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
 				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
