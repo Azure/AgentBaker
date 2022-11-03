@@ -104,6 +104,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libpwquality-tools
   - mount
   - nfs-common
+  - nftables
   - pigz socat
   - traceroute
   - util-linux
@@ -371,6 +372,11 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+
+# IPv6 nftables, only Ubuntu for now
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  systemctlEnableAndStart ipv6_nftables || exit 1
+fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
