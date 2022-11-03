@@ -306,7 +306,6 @@ type FeatureFlags struct {
 	EnableIPv6DualStack      bool `json:"enableIPv6DualStack,omitempty"`
 	EnableIPv6Only           bool `json:"enableIPv6Only,omitempty"`
 	EnableWinDSR             bool `json:"enableWinDSR,omitempty"`
-	EnableAzureCNIOverlay    bool `json:"enableAzureCNIOverlay,omitempty"`
 }
 
 // AddonProfile represents an addon for managed cluster
@@ -574,6 +573,7 @@ type KubernetesConfig struct {
 	AzureCNIURLWindows                string            `json:"azureCNIURLWindows,omitempty"`
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
+	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
 }
 
 // CustomFile has source as the full absolute source path to a file and dest
@@ -1188,8 +1188,6 @@ func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 			return f.EnableIPv6Only
 		case "EnableWinDSR":
 			return f.EnableWinDSR
-		case "EnableAzureCNIOverlay":
-			return f.EnableAzureCNIOverlay
 		default:
 			return false
 		}
@@ -1301,6 +1299,10 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 		return k.AzureCNIURLWindows
 	}
 	return cloudSpecConfig.KubernetesSpecConfig.VnetCNIWindowsPluginsDownloadURL
+}
+
+func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
+	return strings.EqualFold(k.NetworkPluginMode, mode)
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
