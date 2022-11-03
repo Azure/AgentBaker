@@ -1,0 +1,24 @@
+define slb_lla = fe80::1234:5678:9abc
+define slb_gua = 2603:1062:0:1:fe80:1234:5678:9abc
+
+table ip6 azureSLBProbe
+flush table ip6 azureSLBProbe
+
+table ip6 azureSLBProbe {
+    chain prerouting {
+        type filter hook prerouting priority -300;
+
+        # Add a rule that accepts router discovery packets without mangling or ipv6 breaks after
+        # 9000 seconds when the default route times out
+        iifname eth0 icmpv6 type { nd-neighbor-solicit, nd-router-advert, nd-neighbor-advert } counter accept
+
+        # Map packets from the LB probe LLA to a SLA IP instead
+        iifname eth0 ip6 saddr $slb_lla ip6 saddr set $slb_gua counter
+    }
+    chain postrouting {
+        type filter hook postrouting priority -300;
+
+        # Reverse the modification on the way back out
+        oifname eth0 ip6 daddr $slb_gua ip6 daddr set $slb_lla counter
+    }
+}
