@@ -153,14 +153,14 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   done
 
   if [[ -n "${managed_image_ids}" ]]; then
-    echo "Attempting to delete managed images..."
+    echo "Attempting to delete $(echo ${managed_image_ids} | wc -w) managed images..."
     az resource delete --ids ${managed_image_ids} --verbose || echo "managed image deletion was not successful, continuing..."
   else
     echo "Did not find any managed images eligible for deletion"
   fi
 
   if [[ -n "${sig_version_ids}" ]]; then
-    echo "Attempting to delete SIG image versions associated with old managed images..."
+    echo "Attempting to delete $(echo ${sig_version_ids} | wc -w) SIG image versions associated with old managed images..."
     az resource delete --ids ${sig_version_ids} --verbose || echo "SIG image version deletion was not successful, continuing..."
   else
     echo "Did not find any SIG versions associated with old managed images eligible for deletion"
@@ -174,7 +174,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   done
 
   if [[ -n "${old_sig_version_ids}" ]]; then
-    echo "Attempting to delete SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
+    echo "Attempting to delete $(echo ${old_sig_version_ids} | wc -w) SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
     az resource delete --ids ${old_sig_version_ids} --verbose || echo "SIG image version deletion was not successful, continuing..."
   else
     echo "Did not find any old SIG versions eligible for deletion"
