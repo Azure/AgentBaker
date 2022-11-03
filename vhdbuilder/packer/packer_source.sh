@@ -78,8 +78,7 @@ copyPackerFiles() {
   AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
   AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/logrotate.timer
   AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/override.conf
-  AKS_LOGROTATE_TIMER_DROPIN_DEST_UBUNTU=/etc/systemd/system/logrotate.timer.d/override.conf
-  AKS_LOGROTATE_TIMER_DROPIN_DEST_MARINER=/usr/lib/systemd/system/logrotate.timer.d/override.conf
+  AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
   AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
 
@@ -98,11 +97,7 @@ copyPackerFiles() {
     cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
     cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
   else
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-      cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST_MARINER 644
-    else
-      cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST_UBUNTU 644
-    fi
+    cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
   fi
 
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
