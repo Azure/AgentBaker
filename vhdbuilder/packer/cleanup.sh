@@ -136,9 +136,9 @@ if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
   fi
 fi
 
-#attempt to clean up managed images and associated SIG versions created over a week ago
+# attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
-  set +x
+  set +x # to avoid blowing up logs
   echo "Looking for managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
   managed_image_ids=""
