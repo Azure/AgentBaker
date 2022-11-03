@@ -1,3 +1,42 @@
 {
-    
+    "ContainerService": {
+        "properties": {
+          "agentPoolProfiles": [
+            {
+              "name": "nodepool1",
+              "vmSize": "Standard_D2s_v3",
+              "osType": "Windows",
+              "availabilityProfile":  "VirtualMachineScaleSets",
+              "storageProfile": "ManagedDisks",
+              "distro": "aks-windows-2019-containerd",
+              "customNodeLabels": {
+                "kubernetes.azure.com/mode": "system",
+                "kubernetes.azure.com/node-image-version":  "AKSWindows-2019-containerd-20348.1194.221026"
+              },
+              "preProvisionExtension":  null,
+              "kubernetesConfig": {
+                "containerRuntime": "containerd",
+                "cloudProviderBackoffMode": ""
+              }
+            }
+          ]
+        }
+    },
+    "AgentPoolProfile": {
+      "name": "npwin1",
+      "vmSize": "Standard_D2s_v3",
+      "osType": "Windows",
+      "availabilityProfile":  "VirtualMachineScaleSets",
+      "storageProfile": "ManagedDisks",
+      "distro": "aks-windows-2019-containerd",
+      "customNodeLabels": {
+        "kubernetes.azure.com/mode":"system",
+        "kubernetes.azure.com/node-image-version":"AKSWindows-2019-containerd-20348.1194.221026",
+      },
+      "preProvisionExtension":  null,
+      "kubernetesConfig": {
+        "containerRuntime": "containerd",
+        "cloudProviderBackoffMode": ""
+      }
+    }
 }
