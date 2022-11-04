@@ -148,7 +148,6 @@ installFIPS() {
         if [[ ${image} != "linux-image-$(uname -r)" ]]; then
             apt_get_purge 5 10 120 ${image} || exit 1
         fi
-        retrycmd_if_failure 120 5 25 apt-mark hold ${image} || exit 1
     done
 
     echo "auto attaching ua..."
