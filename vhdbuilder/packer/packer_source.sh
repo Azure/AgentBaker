@@ -71,6 +71,16 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
+  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
+  AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
+  AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/logrotate.service
+  AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
+  AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/logrotate.timer
+  AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/override.conf
+  AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
+  AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
+  AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -78,6 +88,16 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
+  fi
+
+  cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
+  # If a logrotation timer does not exist on the base image
+  if [ ! -f /etc/systemd/system/logrotate.timer ] && [ ! -f /usr/lib/systemd/system/logrotate.timer ]; then
+    cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
+    cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
+    cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
+  else
+    cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
   fi
 
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
