@@ -10,7 +10,7 @@
               "storageProfile": "ManagedDisks",
               "distro": "aks-windows-2019-containerd",
               "customNodeLabels": {
-                "kubernetes.azure.com/mode": "system",
+                "kubernetes.azure.com/mode": "user",
                 "kubernetes.azure.com/node-image-version":  "AKSWindows-2019-containerd-20348.1194.221026"
               },
               "preProvisionExtension":  null,
