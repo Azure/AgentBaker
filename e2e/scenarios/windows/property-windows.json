@@ -1,17 +1,44 @@
 {
     "ContainerService": {
         "properties": {
+          "orchestratorProfile": {
+            "orchestratorType": "Kubernetes",
+            "orchestratorVersion":  "1.24.0",
+            "kubernetesConfig": {
+              "networkPlugin":  "azure",
+              "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/binaries/kubernetes-node-linux-amd64.tar.gz",
+              "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.12-hotfix.20220922.1",
+              "loadBalancerSku":  "Standard",
+              "azureCNIURLARM64Linux": "https://acs-mirror.azureedge.net/azure-cni/v1.4.32/binaries/azure-vnet-cni-linux-arm64-v1.4.32.tgz",
+              "azureCNIURLLinux": "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-linux-amd64-v1.4.22.tgz",
+              "azureCNIURLWindows": "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+              "cloudProviderBackoff": true,
+              "cloudProviderBackoffDuration": 5,
+              "cloudProviderBackoffMode": "v2",
+              "cloudProviderBackoffRetries": 6,
+              "cloudProviderDisableOutboundSNAT": false,
+              "cloudProviderRateLimit": true,
+              "cloudProviderRateLimitBucket": 100,
+              "cloudProviderRateLimitBucketWrite": 100,
+              "cloudProviderRateLimitQPS": 10,
+              "cloudProviderRateLimitQPSWrite": 10,
+              "useCloudControllerManager": true,
+              "useInstanceMetadata": true,
+              "useManagedIdentity": true,
+              "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/"
+            }
+          },
           "agentPoolProfiles": [
             {
-              "name": "npwin1",
-              "vmSize": "Standard_D2s_v3",
-              "osType": "Windows",
+              "name": "nodepool1",
+              "vmSize": "Standard_DS2_V2",
+              "osType": "Linux",
               "availabilityProfile":  "VirtualMachineScaleSets",
               "storageProfile": "ManagedDisks",
-              "distro": "aks-windows-2019-containerd",
+              "distro": "aks-ubuntu-containerd-18.04-gen2",
               "customNodeLabels": {
-                "kubernetes.azure.com/mode": "user",
-                "kubernetes.azure.com/node-image-version":  "AKSWindows-2019-containerd-20348.1194.221026"
+                "kubernetes.azure.com/mode": "system",
+                "kubernetes.azure.com/node-image-version":  "AKSUbuntu-1804gen2containerd-2022.10.03"
               },
               "preProvisionExtension":  null,
               "kubernetesConfig": {
@@ -30,8 +57,8 @@
       "storageProfile": "ManagedDisks",
       "distro": "aks-windows-2019-containerd",
       "customNodeLabels": {
-        "kubernetes.azure.com/mode":  "system",
-        "kubernetes.azure.com/node-image-version":  "AKSWindows-2019-containerd-20348.1194.221026",
+        "kubernetes.azure.com/mode":  "user",
+        "kubernetes.azure.com/node-image-version":  "AKSWindows-2019-containerd-17763.3534.221019"
       },
       "preProvisionExtension":  null,
       "kubernetesConfig": {
