@@ -87,6 +87,23 @@ Describe 'Set-AzureCNIConfig' {
             $diffence | Should -Be $null
         }
     }
+
+    Context 'AzureCNIOverlay is enabled' {
+        It "Should not include Cluster CIDR when AzureCNIOverlay is enabled" {
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $kubeClusterCIDR `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $vNetCIDR `
+                -IsDualStackEnabled $isDualStackEnabled `
+                -IsAzureCNIOverlayEnabled $true
+
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Overlay.conflist"))
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
+        }
+    }
 }
 
 Describe 'Get-HnsPsm1' {
