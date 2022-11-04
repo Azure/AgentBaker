@@ -1708,9 +1708,8 @@ downloadCrictl() {
 installCrictl() {
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
-    local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
-    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
-        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
+    if [[ "${currentVersion}" != "" ]]; then
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
     else
         # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
         # if the vhd does not have crictl pre-baked, return early
@@ -1885,11 +1884,6 @@ installKubeletKubectlAndKubeProxy() {
 
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
-
-    if [ -n "${KUBEPROXY_URL}" ]; then
-        #kubeproxy is a system addon that is dictated by control plane so it shouldn't block node provisioning
-        pullContainerImage ${CLI_TOOL} ${KUBEPROXY_URL} &
-    fi
 }
 
 pullContainerImage() {
@@ -2159,13 +2153,6 @@ fi
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
-
-{{- if NeedsContainerd}}
-# If crictl gets installed then use it as the cri cli instead of ctr
-# crictl is not a critical component so continue with boostrapping if the install fails
-# CLI_TOOL is by default set to "ctr"
-logs_to_events "AKS.CSE.installCrictl" 'installCrictl && CLI_TOOL="crictl"'
-{{- end}}
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
