@@ -168,7 +168,7 @@ $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
 $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConfigAgent }}");
 
 # These scripts are used by cse
-$global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
+$global:CSEScriptsPackageUrl = "https://agentbaker.blob.core.windows.net/cse/aks-windows-cse-scripts-v0.0.20.zip";
 
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
@@ -407,7 +407,7 @@ try
         -KubeClusterCIDR $global:KubeClusterCIDR `
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
-        -IsDualStackEnabled $global:IsDualStackEnabled
+        -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
