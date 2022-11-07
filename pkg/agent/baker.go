@@ -30,7 +30,9 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
+		fmt.Println("222")
 		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+		fmt.Println("333")
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}

@@ -62,13 +62,9 @@ func TestE2EBasic(t *testing.T) {
 	baker := agent.InitializeTemplateGenerator()
 	fmt.Println("111")
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
-	fmt.Println("222")
 	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
-	fmt.Println("333")
 	customData := string(customDataBytes)
-	fmt.Println("444")
 	err := ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
-	fmt.Println("555")
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
