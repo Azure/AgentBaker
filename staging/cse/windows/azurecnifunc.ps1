@@ -66,12 +66,13 @@ function Set-AzureCNIConfig
         $configJson.plugins[0].AdditionalArgs[0] = $jsonContent
     } else {
         # Fill in DNS information for kubernetes.
+        $exceptionAddresses = @()
         if (!$IsAzureCNIOverlayEnabled) {
             if ($IsDualStackEnabled){
                 $subnetToPass = $KubeClusterCIDR -split ","
-                $exceptionAddresses = @($subnetToPass[0])
+                $exceptionAddresses += $subnetToPass[0]
             } else {
-                $exceptionAddresses = @($KubeClusterCIDR)
+                $exceptionAddresses += $KubeClusterCIDR
             }
         }
         $vnetCIDRs = $VNetCIDR -split ","
