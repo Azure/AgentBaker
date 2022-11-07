@@ -287,7 +287,6 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
-	fmt.Println("222")
 	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
 		if config.KubeletConfig == nil {
@@ -297,16 +296,21 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
-	fmt.Println("333")
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
+		fmt.Println("222")
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+			fmt.Println("333")
 			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+			fmt.Println("444")
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+			fmt.Println("555")
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+			fmt.Println("666")
 		}
 	}
+
 }
 
 // getContainerServiceFuncMap returns all functions used in template generation
