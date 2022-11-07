@@ -61,7 +61,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// validtae and fix input
 	validateAndSetWindowsNodeBootstrappingConfiguration(config)
-
+	fmt.Println("222")
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
@@ -70,7 +70,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
-
+	fmt.Println("333")
 	if e != nil {
 		panic(e)
 	}
@@ -80,7 +80,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	if profile.PreprovisionExtension != nil {
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
-
+	fmt.Println("444")
 	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
@@ -292,22 +292,16 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		if config.KubeletConfig == nil {
 			config.KubeletConfig = make(map[string]string)
 		}
-
 		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
-		fmt.Println("222")
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-			fmt.Println("333")
 			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-			fmt.Println("444")
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-			fmt.Println("555")
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
-			fmt.Println("666")
 		}
 	}
 
