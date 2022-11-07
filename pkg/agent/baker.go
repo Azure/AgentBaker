@@ -30,9 +30,7 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
-		fmt.Println("222")
 		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
-		fmt.Println("333")
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
@@ -289,6 +287,7 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+	fmt.Println("222")
 	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
 		if config.KubeletConfig == nil {
@@ -298,6 +297,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
+	fmt.Println("333")
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
