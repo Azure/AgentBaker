@@ -64,6 +64,19 @@ function Set-AzureCNIConfig
 
         # $configJson.plugins[0].AdditionalArgs[0] is OutboundNAT. Replace OutBoundNAT with LoopbackDSR for IMDS.
         $configJson.plugins[0].AdditionalArgs[0] = $jsonContent
+
+        # TODO: Remove it after Windows OS fixes the issue.
+        Write-Log "Update RegKey to disable the incompatible HNSControlFlag (0x10) for feature DisableWindowsOutboundNat"
+        $hnsControlFlag=0x10
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSControlFlag is $currentValue"
+            # -band (-bnot $hnsControlFlag) set the bit to 0 if the bit is 1
+            $hnsControlFlag=([int]$currentValue.HNSControlFlag -band (-bnot $hnsControlFlag))
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
+        } else {
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value 0
+        }
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
