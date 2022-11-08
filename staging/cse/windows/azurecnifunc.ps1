@@ -39,7 +39,9 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$true)][string]
         $VNetCIDR,
         [Parameter(Mandatory=$true)][bool]
-        $IsDualStackEnabled
+        $IsDualStackEnabled,
+        [Parameter(Mandatory=$false)][bool]
+        $IsAzureCNIOverlayEnabled
     )
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
@@ -64,12 +66,14 @@ function Set-AzureCNIConfig
         $configJson.plugins[0].AdditionalArgs[0] = $jsonContent
     } else {
         # Fill in DNS information for kubernetes.
-        if ($IsDualStackEnabled){
-            $subnetToPass = $KubeClusterCIDR -split ","
-            $exceptionAddresses = @($subnetToPass[0])
-        }
-        else {
-            $exceptionAddresses = @($KubeClusterCIDR)
+        $exceptionAddresses = @()
+        if (!$IsAzureCNIOverlayEnabled) {
+            if ($IsDualStackEnabled){
+                $subnetToPass = $KubeClusterCIDR -split ","
+                $exceptionAddresses += $subnetToPass[0]
+            } else {
+                $exceptionAddresses += $KubeClusterCIDR
+            }
         }
         $vnetCIDRs = $VNetCIDR -split ","
         foreach ($cidr in $vnetCIDRs) {
