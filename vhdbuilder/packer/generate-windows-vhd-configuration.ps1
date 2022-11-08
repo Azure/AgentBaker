@@ -27,8 +27,8 @@ switch -Regex ($windowsSKU) {
         $global:patchIDs = @()
     }
     "2022*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2022/10/windows10.0-kb5018485-x64_13183a9eaf45a33f681d43fa80c1b283f213991c.msu")
-        $global:patchIDs = @("KB5018485")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
     }
 }
 
