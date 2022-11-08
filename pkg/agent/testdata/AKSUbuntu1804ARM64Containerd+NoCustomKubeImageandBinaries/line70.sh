@@ -337,19 +337,19 @@ ensureGPUDrivers() {
         return
     fi
 
+    #export NVIDIA_DRIVER_IMAGE_TAG="470.82.01.grid"
+    #export NVIDIA_DRIVER_IMAGE="docker.io/pablotrivino/aks-gpu-branches"
+
+     logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+    
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         existing_version="$(nvidia-smi | grep "Driver Version" | cut -d' ' -f3)"
-
-        if [[ "*$existing_version*" == $NVIDIA_DRIVER_IMAGE_TAG ]]; then
-            echo "Existing version matches, validating..."
-            logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
-        else
-            echo "Existing version $existing_version does not match $NVIDIA_DRIVER_IMAGE_TAG"
+        if [[ "*$existing_version*" != $NVIDIA_DRIVER_IMAGE_TAG ]] || [[ ! -f /usr/bin/nvidia-gridd && grep -qi "grid" <<< $NVIDIA_DRIVER_IMAGE_TAG ]]; then
             logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
         fi
-    else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
+    logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+    
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
