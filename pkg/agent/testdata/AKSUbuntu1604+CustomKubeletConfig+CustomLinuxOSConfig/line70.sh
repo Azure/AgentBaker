@@ -491,15 +491,11 @@ ensureGPUDrivers() {
         # no GPU on ARM64
         return
     fi
-
-    #export NVIDIA_DRIVER_IMAGE_TAG="470.82.01.grid"
-    #export NVIDIA_DRIVER_IMAGE="docker.io/pablotrivino/aks-gpu-branches"
-
-     logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         existing_version="$(nvidia-smi | grep "Driver Version" | cut -d' ' -f3)"
-        if [[ "*$existing_version*" != $NVIDIA_DRIVER_IMAGE_TAG ]] || [[ ! -f /usr/bin/nvidia-gridd && grep -qi "grid" <<< $NVIDIA_DRIVER_IMAGE_TAG ]]; then
+        expects_grid="$(grep -i grid <<< $NVIDIA_DRIVER_IMAGE_TAG)"
+        if [[ ( "*$existing_version*" != "$NVIDIA_DRIVER_IMAGE_TAG" ) || ( -f /usr/bin/nvidia-gridd && -z $expects_grid ) || ( ! -f /usr/bin/nvidia-gridd && -n $expects_grid ) ]]; then
             logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
         fi
     fi
