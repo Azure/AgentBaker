@@ -16,7 +16,7 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM"
 endif
 	@echo "Using packer template file: vhd-image-builder-base.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+	@packer build -debug -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 endif
 else ifeq (${OS_SKU},CBLMariner)
 ifeq (${OS_VERSION},V1)
