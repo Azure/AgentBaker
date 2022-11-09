@@ -684,6 +684,7 @@ type AgentPoolProfile struct {
 	// behavior to reboot Windows node when it is nil
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+	PodCidr                 string                   `json:"podCidr,omitempty"`
 }
 
 // Properties represents the AKS cluster definition

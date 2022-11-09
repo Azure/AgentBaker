@@ -117,6 +117,7 @@ $global:PrimaryScaleSetName = "akswpool2"
 $global:KubeClusterCIDR = "172.17.0.0/24"
 $global:KubeServiceCIDR = "172.17.255.0/24"
 $global:VNetCIDR = "172.17.0.0/16"
+$global:PodCIDR = ""
 
 $global:KubeletNodeLabels = "agentpool=wpool2,kubernetes.azure.com/agentpool=wpool2,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111"
 
@@ -398,7 +399,8 @@ try
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
-        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled `
+        -PodCIDR $global:PodCIDR
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `

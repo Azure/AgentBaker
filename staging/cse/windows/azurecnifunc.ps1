@@ -42,6 +42,8 @@ function Set-AzureCNIConfig
         $IsDualStackEnabled,
         [Parameter(Mandatory=$false)][bool]
         $IsAzureCNIOverlayEnabled
+        [Parameter(Mandatory=$false)][string]
+        $PodCIDR
     )
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
@@ -67,17 +69,20 @@ function Set-AzureCNIConfig
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if (!$IsAzureCNIOverlayEnabled) {
+        if ($IsAzureCNIOverlayEnabled) {
+            $exceptionAddresses += $PodCIDR
+        } else {
             if ($IsDualStackEnabled){
                 $subnetToPass = $KubeClusterCIDR -split ","
                 $exceptionAddresses += $subnetToPass[0]
             } else {
                 $exceptionAddresses += $KubeClusterCIDR
             }
-        }
-        $vnetCIDRs = $VNetCIDR -split ","
-        foreach ($cidr in $vnetCIDRs) {
-            $exceptionAddresses += $cidr
+
+            $vnetCIDRs = $VNetCIDR -split ","
+            foreach ($cidr in $vnetCIDRs) {
+                $exceptionAddresses += $cidr
+            }
         }
 
         $osBuildNumber = (get-wmiobject win32_operatingsystem).BuildNumber

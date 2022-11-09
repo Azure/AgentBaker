@@ -35,7 +35,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 			// should not happen but just in case, we fill in value "localcluster" just like linux
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", "localcluster")
 		}
-
 	}
 	if properties.HostedMasterProfile != nil {
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
@@ -51,6 +50,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Agent parameters
 	isSetVnetCidrs := false
+	isSetPodCidr := false
 	for _, agentProfile := range properties.AgentPoolProfiles {
 		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {
 			// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
@@ -59,6 +59,11 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 			// All agent pools in the same cluster share a same VnetCidrs so we only need to set the first non-empty VnetCidrs.
 			addValue(parametersMap, "vnetCidr", strings.Join(agentProfile.VnetCidrs, ","))
 			isSetVnetCidrs = true
+		}
+
+		if !isSetPodCidr && len(agentProfile.PodCidr) != 0 {
+			addValue(parametersMap, "podCidr", agentProfile.PodCidr)
+			isSetPodCidr = true
 		}
 	}
 
@@ -79,7 +84,8 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration,
+) {
 	if config.RuncVersion != "" {
 		addValue(parametersMap, "runcVersion", config.RuncVersion)
 	}
@@ -107,7 +113,8 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
 	generatorCode string,
-	config *datamodel.NodeBootstrappingConfiguration) {
+	config *datamodel.NodeBootstrappingConfiguration,
+) {
 	orchestratorProfile := properties.OrchestratorProfile
 
 	if orchestratorProfile.IsKubernetes() {

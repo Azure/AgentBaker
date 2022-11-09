@@ -119,6 +119,7 @@ $global:PrimaryScaleSetName = "{{GetVariable "primaryScaleSetName"}}"
 $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
 $global:VNetCIDR = "{{GetParameter "vnetCidr"}}"
+$global:PodCIDR = "{{GetParameter "podCidr"}}"
 {{if IsKubernetesVersionGe "1.16.0"}}
 $global:KubeletNodeLabels = "{{GetAgentKubernetesLabels . }}"
 {{else}}
@@ -408,7 +409,8 @@ try
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
-        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled `
+        -PodCIDR $global:PodCIDR
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
