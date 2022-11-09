@@ -31,7 +31,7 @@
   "builders": [
     {
       "type": "azure-arm",
-      "virutal_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
+      "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "client_id": "{{user `client_id`}}",
