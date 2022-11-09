@@ -396,6 +396,17 @@ function Update-Registry {
         Write-Log "Apply SMB Resolution Fix for containerD"
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
     }
+
+    if ($env:WindowsSKU -Like '2019*') {
+        Write-Log "Enable a HNS fix in 2022-11B"
+        $hnsControlFlag=0x40
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSControlFlag is $currentValue"
+            $hnsControlFlag=([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value $hnsControlFlag -Type DWORD
+    }
 }
 
 function Get-SystemDriveDiskInfo {

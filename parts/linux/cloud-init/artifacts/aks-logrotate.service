@@ -1,0 +1,4 @@
+[Unit]
+Description=runs the logrotate utility for log rotation with a custom configuration
+[Service]
+ExecStart=/usr/local/bin/logrotate.sh

@@ -46,6 +46,10 @@ systemctlEnableAndStart update_certs.timer || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
+# enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
+systemctlEnableAndStart logrotate.timer || exit 1
+rm -f /etc/cron.daily/logrotate
+
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
 elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
@@ -104,6 +108,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libpwquality-tools
   - mount
   - nfs-common
+  - nftables
   - pigz socat
   - traceroute
   - util-linux
@@ -171,6 +176,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
       CRICTL_VERSIONS=""
       if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
         CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
+        CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
       fi
       break
     fi
@@ -182,7 +188,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
   
-  KUBERNETES_VERSION=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ') installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+  KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
   # k8s will use images in the k8s.io namespaces - create it
   ctr namespace create k8s.io
@@ -374,6 +380,11 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+
+# IPv6 nftables, only Ubuntu for now
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  systemctlEnableAndStart ipv6_nftables || exit 1
+fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="

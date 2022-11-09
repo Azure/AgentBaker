@@ -74,10 +74,6 @@ fi
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
-# If crictl gets installed then use it as the cri cli instead of ctr
-# crictl is not a critical component so continue with boostrapping if the install fails
-# CLI_TOOL is by default set to "ctr"
-logs_to_events "AKS.CSE.installCrictl" 'installCrictl && CLI_TOOL="crictl"'
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
@@ -196,7 +192,7 @@ else
         # this is the DOWNLOAD service
         # meaning we are wasting IO without even triggering an upgrade 
         # -________________-
-        systemctl restart apt-daily.service
+        systemctl restart --no-block apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi

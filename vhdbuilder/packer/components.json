@@ -63,9 +63,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.27",
-        "v1.4.29",
-        "v1.4.35"
+        "v1.4.35",
+        "v1.4.37"
       ]
     },
     {
@@ -279,6 +278,7 @@
       ],
       "multiArchVersions": [
         "v1.23.0",
+        "v1.23.0.1",
         "v1.24.0"
       ]
     },
@@ -437,9 +437,6 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.22.0",
-        "1.23.0",
-        "1.24.0",
         "1.25.0"
       ],
       "targetContainerRuntime": "containerd"
