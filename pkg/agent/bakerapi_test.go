@@ -117,6 +117,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				GalleryName:   "akswindows",
 				ResourceGroup: "resourcegroup",
 			},
+			"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+				GalleryName:   "AKSUbuntuEdgeZone",
+				ResourceGroup: "AKS-Ubuntu-EdgeZone",
+			},
 		}
 		sigConfig = &datamodel.SIGConfig{
 			TenantID:       "sometenantid",
