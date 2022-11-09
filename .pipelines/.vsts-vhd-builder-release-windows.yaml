@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  vmImage: ubuntu-18.04
+  name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
 
 parameters:
 - name: build2019
