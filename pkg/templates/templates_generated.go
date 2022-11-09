@@ -52,6 +52,7 @@
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mariner/update_certs_mariner.sh
 // linux/cloud-init/artifacts/mig-partition.service
 // linux/cloud-init/artifacts/mig-partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
@@ -3950,6 +3951,51 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsMarinerUpdate_certs_marinerSh = []byte(`#!/usr/bin/env bash
+set -uo pipefail
+
+certSource=/opt/certs
+certDestination=/usr/share/pki/ca-trust-source/anchors
+
+cp -a "$certSource"/. "$certDestination"
+
+if [[ -z $(ls -A "$certSource") ]]; then
+  echo "Source dir "$certSource" was empty, attempting to remove cert files"
+  ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+    echo "removing "$line" in "$certDestination""
+    rm $certDestination/"$line"
+  done
+else
+  echo "found cert files in "$certSource""
+  certsToCopy=(${certSource}/*)
+  currIterationCertFile=${certsToCopy[0]##*/}
+  currIterationTag=${currIterationCertFile:0:14}
+  for file in "$certDestination"/*.crt; do
+      currFile=${file##*/}
+     if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
+          echo "removing "$file" in "$certDestination""
+          rm "${file}"
+     fi
+  done
+fi
+
+update-ca-trust`)
+
+func linuxCloudInitArtifactsMarinerUpdate_certs_marinerShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerUpdate_certs_marinerSh, nil
+}
+
+func linuxCloudInitArtifactsMarinerUpdate_certs_marinerSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerUpdate_certs_marinerShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/update_certs_mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
 
@@ -7536,6 +7582,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mariner/update_certs_mariner.sh":           linuxCloudInitArtifactsMarinerUpdate_certs_marinerSh,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
 	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
@@ -7665,8 +7712,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
-					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
-					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"cse_helpers_mariner.sh":  &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
+					"cse_install_mariner.sh":  &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"update_certs_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerUpdate_certs_marinerSh, map[string]*bintree{}},
 				}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
 				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
