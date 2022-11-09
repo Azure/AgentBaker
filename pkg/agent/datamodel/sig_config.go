@@ -238,8 +238,8 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Windows2019SIGImageVersion string = "17763.3534.221019"
-	Windows2022SIGImageVersion string = "20348.1194.221026"
+	Windows2019SIGImageVersion string = "17763.3650.221109"
+	Windows2022SIGImageVersion string = "20348.1249.221109"
 
 	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
 )
