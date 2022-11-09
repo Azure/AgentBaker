@@ -61,18 +61,14 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// validtae and fix input
 	validateAndSetWindowsNodeBootstrappingConfiguration(config)
-	fmt.Println("222")
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	//get parameters
 	parameters := getParameters(config, "", "")
-	fmt.Println("333")
 	//get variable custom data
 	variables := getWindowsCustomDataVariables(config)
-	fmt.Println("444")
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
-	fmt.Println("555")
 	if e != nil {
 		panic(e)
 	}

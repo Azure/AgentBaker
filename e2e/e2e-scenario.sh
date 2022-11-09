@@ -75,7 +75,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026" \
+    --image "/subscriptions/a15c116e-99e3-4c59-aebc-8f864929b4a0/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/windowsabgallery/images/windows-2019-containerd/versions/2022.11.08" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson

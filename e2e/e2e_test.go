@@ -60,7 +60,6 @@ func TestE2EBasic(t *testing.T) {
 	fmt.Println("start get customData")
 	// customData
 	baker := agent.InitializeTemplateGenerator()
-	fmt.Println("111")
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
 	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
 	customData := string(customDataBytes)
