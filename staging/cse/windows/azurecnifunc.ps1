@@ -71,10 +71,13 @@ function Set-AzureCNIConfig
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HNSControlFlag is $currentValue"
-            # -band (-bnot $hnsControlFlag) set the bit to 0 if the bit is 1
-            $hnsControlFlag=([int]$currentValue.HNSControlFlag -band (-bnot $hnsControlFlag))
-            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
+            # Set the bit to 0 if the bit is 1
+            if ([int]$currentValue.HNSControlFlag -band $hnsControlFlag) {
+                $hnsControlFlag=([int]$currentValue.HNSControlFlag -bxor $hnsControlFlag)
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
+            }
         } else {
+            # Set 0 to disable all features under HNSControlFlag (0x10 defaults enable)
             Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value 0
         }
     } else {
