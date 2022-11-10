@@ -113,6 +113,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"isNotRebootWindowsNode":               strconv.FormatBool(config.AgentPoolProfile.IsNotRebootWindowsNode()),
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
 		"hnsRemediatorIntervalInMinutes":       cs.Properties.WindowsProfile.HnsRemediatorIntervalInMinutes,
+		"logGeneratorIntervalInMinutes":        cs.Properties.WindowsProfile.LogGeneratorIntervalInMinutes,
 	}
 
 	return customData

@@ -194,6 +194,9 @@ $fipsEnabled = [System.Convert]::ToBoolean("true")
 # HNS remediator
 $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("0");
 
+# Log generator
+$global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("0");
+
 $global:EnableIncreaseDynamicPortRange = $false
 
 if ($useContainerD) {
@@ -477,6 +480,8 @@ try
         Remove-Item $kubeConfigFile
     }
 
+    Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
+
     if ($global:IsNotRebootWindowsNode) {
         Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
         Start-ScheduledTask -TaskName "k8s-restart-job"
@@ -519,4 +524,6 @@ finally
 
     # Flush stdout to C:\AzureData\CustomDataSetupScript.log
     [Console]::Out.Flush()
+
+    Upload-GuestVMLogs -ExitCode $global:ExitCode
 }
