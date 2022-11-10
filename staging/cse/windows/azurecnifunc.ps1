@@ -83,17 +83,18 @@ function Set-AzureCNIConfig
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if (!$IsAzureCNIOverlayEnabled) {
-            if ($IsDualStackEnabled){
-                $subnetToPass = $KubeClusterCIDR -split ","
-                $exceptionAddresses += $subnetToPass[0]
-            } else {
-                $exceptionAddresses += $KubeClusterCIDR
-            }
+        if ($IsDualStackEnabled){
+            $subnetToPass = $KubeClusterCIDR -split ","
+            $exceptionAddresses += $subnetToPass[0]
+        } else {
+            $exceptionAddresses += $KubeClusterCIDR
         }
-        $vnetCIDRs = $VNetCIDR -split ","
-        foreach ($cidr in $vnetCIDRs) {
-            $exceptionAddresses += $cidr
+
+        if (!$IsAzureCNIOverlayEnabled) {
+            $vnetCIDRs = $VNetCIDR -split ","
+            foreach ($cidr in $vnetCIDRs) {
+                $exceptionAddresses += $cidr
+            }
         }
 
         $osBuildNumber = (get-wmiobject win32_operatingsystem).BuildNumber
