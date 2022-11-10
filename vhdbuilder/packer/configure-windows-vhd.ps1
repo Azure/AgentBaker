@@ -398,8 +398,8 @@ function Update-Registry {
     }
 
     if ($env:WindowsSKU -Like '2019*') {
-        Write-Log "Enable a HNS fix in 2022-11B"
-        $hnsControlFlag=0x40
+        Write-Log "Enable a HNS fix (0x40) in 2022-11B and another HNS fix (0x10)"
+        $hnsControlFlag=0x50
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HNSControlFlag is $currentValue"
