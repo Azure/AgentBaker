@@ -243,8 +243,8 @@ function Test-RegistryAdded {
     }
     if ($env:WindowsSKU -Like '2019*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
-        if (($result.HNSControlFlag -band 0x40) -ne 0x40) {
-            Write-ErrorWithTimestamp "The registry for the HNS fix in 2022-11B is not added"
+        if (($result.HNSControlFlag -band 0x50) -ne 0x50) {
+            Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
         }
     }
