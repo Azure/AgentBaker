@@ -29,7 +29,7 @@
                     "Value": {
                         "Type": "OutBoundNAT",
                         "ExceptionList": [
-                            "10.224.1.0/12"
+                            "10.224.0.0/12"
                         ]
                     }
                 },
