@@ -59,6 +59,7 @@
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
 // linux/cloud-init/artifacts/nvidia-modprobe.service
 // linux/cloud-init/artifacts/pam-d-common-auth
+// linux/cloud-init/artifacts/pam-d-common-auth-2204
 // linux/cloud-init/artifacts/pam-d-common-password
 // linux/cloud-init/artifacts/pam-d-su
 // linux/cloud-init/artifacts/profile-d-cis.sh
@@ -4178,6 +4179,51 @@ func linuxCloudInitArtifactsPamDCommonAuth() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsPamDCommonAuth2204 = []byte(`#
+# /etc/pam.d/common-auth - authentication settings common to all services
+#
+# This file is included from other service-specific PAM config files,
+# and should contain a list of the authentication modules that define
+# the central authentication scheme for use on the system
+# (e.g., /etc/shadow, LDAP, Kerberos, etc.).  The default is to use the
+# traditional Unix authentication mechanisms.
+#
+# As of pam 1.0.1-6, this file is managed by pam-auth-update by default.
+# To take advantage of this, it is recommended that you configure any
+# local modules either before or after the default block, and use
+# pam-auth-update to manage selection of other modules.  See
+# pam-auth-update(8) for details.
+
+# here are the per-package modules (the "Primary" block)
+auth	[success=1 default=ignore]	pam_unix.so nullok_secure
+# here's the fallback if no module succeeds
+auth	requisite			pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+auth	required			pam_permit.so
+# and here are more per-package modules (the "Additional" block)
+# end of pam-auth-update config
+
+# 5.3.2 Ensure lockout for failed password attempts is configured
+auth required pam_faillock.so preauth silent audit deny=5 unlock_time=900
+`)
+
+func linuxCloudInitArtifactsPamDCommonAuth2204Bytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsPamDCommonAuth2204, nil
+}
+
+func linuxCloudInitArtifactsPamDCommonAuth2204() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsPamDCommonAuth2204Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/pam-d-common-auth-2204", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsPamDCommonPassword = []byte(`#
 # /etc/pam.d/common-password - password-related modules common to all services
 #
@@ -7549,6 +7595,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
 	"linux/cloud-init/artifacts/nvidia-modprobe.service":                   linuxCloudInitArtifactsNvidiaModprobeService,
 	"linux/cloud-init/artifacts/pam-d-common-auth":                         linuxCloudInitArtifactsPamDCommonAuth,
+	"linux/cloud-init/artifacts/pam-d-common-auth-2204":                    linuxCloudInitArtifactsPamDCommonAuth2204,
 	"linux/cloud-init/artifacts/pam-d-common-password":                     linuxCloudInitArtifactsPamDCommonPassword,
 	"linux/cloud-init/artifacts/pam-d-su":                                  linuxCloudInitArtifactsPamDSu,
 	"linux/cloud-init/artifacts/profile-d-cis.sh":                          linuxCloudInitArtifactsProfileDCisSh,
@@ -7681,6 +7728,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"nvidia-docker-daemon.json":       &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
 				"nvidia-modprobe.service":         &bintree{linuxCloudInitArtifactsNvidiaModprobeService, map[string]*bintree{}},
 				"pam-d-common-auth":               &bintree{linuxCloudInitArtifactsPamDCommonAuth, map[string]*bintree{}},
+				"pam-d-common-auth-2204":          &bintree{linuxCloudInitArtifactsPamDCommonAuth2204, map[string]*bintree{}},
 				"pam-d-common-password":           &bintree{linuxCloudInitArtifactsPamDCommonPassword, map[string]*bintree{}},
 				"pam-d-su":                        &bintree{linuxCloudInitArtifactsPamDSu, map[string]*bintree{}},
 				"profile-d-cis.sh":                &bintree{linuxCloudInitArtifactsProfileDCisSh, map[string]*bintree{}},

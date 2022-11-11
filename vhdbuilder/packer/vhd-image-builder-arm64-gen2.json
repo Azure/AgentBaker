@@ -192,6 +192,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth-2204",
+      "destination": "/home/packer/pam-d-common-auth-2204"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-password",
       "destination": "/home/packer/pam-d-common-password"
     },
