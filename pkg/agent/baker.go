@@ -458,6 +458,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			// Collect all the parts into a zip
 			var parts = []string{
 				kubernetesWindowsCSEHelperPS1,
+				kubernetesWindowsSendLogsPS1,
 			}
 
 			// Create a buffer, new zip
