@@ -154,6 +154,7 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 $global:NetworkPlugin = "azure"
 $global:VNetCNIPluginsURL = "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip"
 $global:IsDualStackEnabled = $false
+$global:IsAzureCNIOverlayEnabled = $false
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("true");
@@ -211,7 +212,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.16.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.19.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -396,7 +397,8 @@ try
         -KubeClusterCIDR $global:KubeClusterCIDR `
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
-        -IsDualStackEnabled $global:IsDualStackEnabled
+        -IsDualStackEnabled $global:IsDualStackEnabled `
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
