@@ -100,15 +100,19 @@ jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd >
 log "Applying extensions to VMSS"
 vmssExtStartTime=$(date +%s)
 set +e
-Set-AzVMExtension -ResourceGroupName $MC_RESOURCE_GROUP_NAME \
-    -Location "eastus" \
-    -VMName ${VMSS_NAME} \
-    -Name "test" \
-    -Publisher "Microsoft.Compute" \
-    -ExtensionType "CustomScriptExtension" \
-    -TypeHandlerVersion "2.0" \
-    -ProtectedSettings scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json \
-    -ojson
+az vm run-command create \
+    --name "myRunCommand" \
+    --vm-name ${VMSS_NAME} \
+    --resource-group $MC_RESOURCE_GROUP_NAME \
+    --script "Set-AzVMExtension -ResourceGroupName $MC_RESOURCE_GROUP_NAME \
+                -Location 'eastus' \
+                -VMName ${VMSS_NAME} \
+                -Name 'test' \
+                -Publisher 'Microsoft.Compute \
+                -ExtensionType 'CustomScriptExtension' \
+                -TypeHandlerVersion '2.0' \
+                -ProtectedSettings scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json \
+                -ojson"
 retval=$?
 set -e
 
