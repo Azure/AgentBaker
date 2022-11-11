@@ -11,9 +11,12 @@
 [CmdletBinding()]
 param(
     [string]
-    [ValidateScript({Test-Path $_})]
     $Path
 )
+
+if (!(Test-Path $Path)) {
+    return
+}
 
 $GoalStateArgs = @{
     "Method"="Get";
