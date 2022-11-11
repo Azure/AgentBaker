@@ -102,7 +102,7 @@ vmssExtStartTime=$(date +%s)
 set +e
 az vm run-command create \
     --name "myRunCommand" \
-    --vm-name ${VMSS_NAME} \
+    --vm-name ${vmInstanceName} \
     --resource-group $MC_RESOURCE_GROUP_NAME \
     --script "Set-AzVMExtension -ResourceGroupName $MC_RESOURCE_GROUP_NAME \
                 -Location 'eastus' \
