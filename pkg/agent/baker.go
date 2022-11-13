@@ -265,6 +265,9 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	profile := config.AgentPoolProfile
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
+		// Kubelet never needs these and generates a self-signed cert identical to what we do anyway
+		delete(kubeletFlags, "--tls-cert-file")
+		delete(kubeletFlags, "--tls-private-key-file")
 		delete(kubeletFlags, "--dynamic-config-dir")
 		delete(kubeletFlags, "--non-masquerade-cidr")
 		if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" && profile.KubernetesConfig.ContainerRuntime == "containerd" {

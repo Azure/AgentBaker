@@ -101,8 +101,6 @@ EOF
     "staticPodPath": "/etc/kubernetes/manifests",
     "address": "0.0.0.0",
     "readOnlyPort": 10255,
-    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
-    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
     "tlsCipherSuites": [
         "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
         "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
