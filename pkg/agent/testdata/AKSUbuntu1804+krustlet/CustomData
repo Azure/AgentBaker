@@ -280,11 +280,7 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
-        exec:
-          apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/containers/tls-bootstrap-client
-          interactiveMode: Never
-          provideClusterInfo: true
+        token: "07401b.f395accd246ae52d"
     contexts:
     - context:
         cluster: localcluster
