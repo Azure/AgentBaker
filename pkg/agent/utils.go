@@ -46,6 +46,7 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--enforce-node-allocatable":          true,
 	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
+	"--rotate-server-certificates":        true,
 	"--read-only-port":                    true,
 	"--feature-gates":                     true,
 	"--protect-kernel-defaults":           true,

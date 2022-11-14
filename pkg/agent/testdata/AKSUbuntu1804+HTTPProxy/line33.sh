@@ -103,6 +103,8 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
+downloadKubeletExecPlugin
+
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 logs_to_events "AKS.CSE.ensureRPC" ensureRPC

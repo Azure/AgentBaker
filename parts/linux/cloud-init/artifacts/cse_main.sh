@@ -120,6 +120,8 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
 
+downloadKubeletExecPlugin
+
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then

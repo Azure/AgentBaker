@@ -942,15 +942,6 @@ configureCustomCaCertificate() {
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
-
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureK8s() {
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
@@ -1024,7 +1015,6 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
 {{- if IsAKSCustomCloud}}
     set +x
     AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/{{GetTargetEnvironment}}.json"
@@ -1831,6 +1821,21 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadKubeletExecPlugin() {
+    local kubelet_plugin_url="https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-amd64"
+    local kubelet_plugin_filepath="/opt/azure/containers/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        kubelet_plugin_url="https://github.com/alexeldeib/supreme-goggles/releases/download/v0.0.1/tls-bootstrap-client-arm64"
+    fi
+
+    mkdir -p /opt/azure/containers
+
+    if [ ! -f "$kubelet_plugin_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$kubelet_plugin_filepath" "$kubelet_plugin_url" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        chmod 755 "$kubelet_plugin_filepath"
+    fi
+}
+
 downloadContainerdWasmShims() {
     local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
     local containerd_wasm_filepath="/usr/local/bin"
@@ -2342,6 +2347,8 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 {{- if IsKrustlet }}
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
+
+downloadKubeletExecPlugin
 
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
@@ -3656,6 +3663,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        --rotate-server-certificates \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
@@ -6260,7 +6268,15 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/containers/tls-bootstrap-client
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
     contexts:
     - context:
         cluster: localcluster
