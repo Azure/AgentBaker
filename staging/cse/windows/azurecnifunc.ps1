@@ -64,20 +64,37 @@ function Set-AzureCNIConfig
 
         # $configJson.plugins[0].AdditionalArgs[0] is OutboundNAT. Replace OutBoundNAT with LoopbackDSR for IMDS.
         $configJson.plugins[0].AdditionalArgs[0] = $jsonContent
+
+        # TODO: Remove it after Windows OS fixes the issue.
+        Write-Log "Update RegKey to disable the incompatible HNSControlFlag (0x10) for feature DisableWindowsOutboundNat"
+        $hnsControlFlag=0x10
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSControlFlag is $currentValue"
+            # Set the bit to 0 if the bit is 1
+            if ([int]$currentValue.HNSControlFlag -band $hnsControlFlag) {
+                $hnsControlFlag=([int]$currentValue.HNSControlFlag -bxor $hnsControlFlag)
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
+            }
+        } else {
+            # Set 0 to disable all features under HNSControlFlag (0x10 defaults enable)
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value 0
+        }
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if (!$IsAzureCNIOverlayEnabled) {
-            if ($IsDualStackEnabled){
-                $subnetToPass = $KubeClusterCIDR -split ","
-                $exceptionAddresses += $subnetToPass[0]
-            } else {
-                $exceptionAddresses += $KubeClusterCIDR
-            }
+        if ($IsDualStackEnabled){
+            $subnetToPass = $KubeClusterCIDR -split ","
+            $exceptionAddresses += $subnetToPass[0]
+        } else {
+            $exceptionAddresses += $KubeClusterCIDR
         }
-        $vnetCIDRs = $VNetCIDR -split ","
-        foreach ($cidr in $vnetCIDRs) {
-            $exceptionAddresses += $cidr
+
+        if (!$IsAzureCNIOverlayEnabled) {
+            $vnetCIDRs = $VNetCIDR -split ","
+            foreach ($cidr in $vnetCIDRs) {
+                $exceptionAddresses += $cidr
+            }
         }
 
         $osBuildNumber = (get-wmiobject win32_operatingsystem).BuildNumber

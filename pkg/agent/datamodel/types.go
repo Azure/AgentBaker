@@ -442,6 +442,7 @@ type WindowsProfile struct {
 	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
+	LogGeneratorIntervalInMinutes  *uint32                    `json:"logGeneratorIntervalInMinutes,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -533,7 +534,7 @@ type KubernetesConfig struct {
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
-	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //Note: cannot be provided in config. Used *only* for transferring this to azure.json.
+	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
@@ -573,6 +574,7 @@ type KubernetesConfig struct {
 	AzureCNIURLWindows                string            `json:"azureCNIURLWindows,omitempty"`
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
+	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
 }
 
 // CustomFile has source as the full absolute source path to a file and dest
@@ -778,7 +780,7 @@ func (p *Properties) IsIPMasqAgentEnabled() bool {
 
 // GetClusterID creates a unique 8 string cluster ID.
 func (p *Properties) GetClusterID() string {
-	var mutex = &sync.Mutex{}
+	mutex := &sync.Mutex{}
 	if p.ClusterID == "" {
 		uniqueNameSuffixSize := 8
 		// the name suffix uniquely identifies the cluster and is generated off a hash
@@ -1168,6 +1170,14 @@ func (w *WindowsProfile) GetHnsRemediatorIntervalInMinutes() uint32 {
 	return 0
 }
 
+// GetLogGeneratorIntervalInMinutes gets LogGeneratorIntervalInMinutes specified or returns default value
+func (w *WindowsProfile) GetLogGeneratorIntervalInMinutes() uint32 {
+	if w.LogGeneratorIntervalInMinutes != nil {
+		return *w.LogGeneratorIntervalInMinutes
+	}
+	return 0
+}
+
 // IsKubernetes returns true if this template is for Kubernetes orchestrator
 func (o *OrchestratorProfile) IsKubernetes() bool {
 	return strings.EqualFold(o.OrchestratorType, Kubernetes)
@@ -1298,6 +1308,11 @@ func (k *KubernetesConfig) GetAzureCNIURLWindows(cloudSpecConfig *AzureEnvironme
 		return k.AzureCNIURLWindows
 	}
 	return cloudSpecConfig.KubernetesSpecConfig.VnetCNIWindowsPluginsDownloadURL
+}
+
+// IsUsingNetworkPluginMode returns true of NetworkPluginMode matches mode param
+func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
+	return strings.EqualFold(k.NetworkPluginMode, mode)
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
