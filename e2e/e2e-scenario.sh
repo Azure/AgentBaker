@@ -93,6 +93,14 @@ vmInstanceName=$(az vmss list-instances \
             )
 export vmInstanceName
 
+vmInstanceId=$(az vmss list-instances \
+                -n ${VMSS_NAME} \
+                -g $MC_RESOURCE_GROUP_NAME \
+                -ojson | \
+                jq -r '.[].instanceId'
+            )
+export vmInstanceId
+
 # Generate the extension from csecmd
 jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd > scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json
 
@@ -100,14 +108,18 @@ jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd >
 log "Applying extensions to VMSS"
 vmssExtStartTime=$(date +%s)
 set +e
-# az vm run-command invoke --command-id RunPowerShellScript --name 
-az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
-    --name CustomScript \
-    --vmss-name ${VMSS_NAME} \
-    --publisher Microsoft.Azure.Extensions \
-    --protected-settings scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json \
-    --version 2.0 \
-    -ojson
+az vmss run-command invoke --command-id RunPowerShellScript \
+    -g $MC_RESOURCE_GROUP_NAME \
+    -n $VMSS_NAME \
+    --instance-id $vmInstanceId \
+    --scripts @scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd
+# az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
+#     --name CustomScript \
+#     --vmss-name ${VMSS_NAME} \
+#     --publisher Microsoft.Azure.Extensions \
+#     --protected-settings scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json \
+#     --version 2.0 \
+#     -ojson
 retval=$?
 set -e
 
