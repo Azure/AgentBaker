@@ -246,12 +246,13 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Windows2019SIGImageVersion string = "17763.3534.221019"
-	Windows2022SIGImageVersion string = "20348.1194.221026"
-
 	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
 
-	// Used for edge zone scenario
+	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
+	Windows2019SIGImageVersion string = "17763.2019.221114"
+	Windows2022SIGImageVersion string = "20348.2022.221114"
+  
+  // Used for edge zone scenario
 	EdgeZoneSIGImageVersion string = "2022.10.24"
 )
 

@@ -220,11 +220,6 @@ if $FULL_INSTALL_REQUIRED; then
     fi
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    # logs_to_events should not be run on & commands
-    apt_get_purge 20 30 120 apache2-utils &
-fi
-
 VALIDATION_ERR=0
 
 {{- /* Edge case scenarios: */}}
