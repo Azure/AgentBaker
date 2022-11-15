@@ -442,6 +442,7 @@ type WindowsProfile struct {
 	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
+	LogGeneratorIntervalInMinutes  *uint32                    `json:"logGeneratorIntervalInMinutes,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes
@@ -1165,6 +1166,14 @@ func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 func (w *WindowsProfile) GetHnsRemediatorIntervalInMinutes() uint32 {
 	if w.HnsRemediatorIntervalInMinutes != nil {
 		return *w.HnsRemediatorIntervalInMinutes
+	}
+	return 0
+}
+
+// GetLogGeneratorIntervalInMinutes gets LogGeneratorIntervalInMinutes specified or returns default value
+func (w *WindowsProfile) GetLogGeneratorIntervalInMinutes() uint32 {
+	if w.LogGeneratorIntervalInMinutes != nil {
+		return *w.LogGeneratorIntervalInMinutes
 	}
 	return 0
 }
