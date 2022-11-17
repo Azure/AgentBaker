@@ -18,7 +18,9 @@
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
-    "img_sku": "{{env `IMG_SKU`}}"
+    "img_sku": "{{env `IMG_SKU`}}",
+    "vnet_name": "{{env `VNET_NAME`}}",
+    "subnet_name": "{{env `SUBNET_NAME`}}"
   },
   "builders": [
     {
