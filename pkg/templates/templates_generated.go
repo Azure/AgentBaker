@@ -5533,12 +5533,14 @@ certDestination="${1:-/usr/local/share/ca-certificates/certs}"
 updateCmd="${2:-update-ca-certificates -f}"
 destPrefix="aks-custom-"
 
-for f in "$certSource"/.; do cp -a -- "$f" "$certDestination/$destPrefix#$f"; done
-
+for file in "$certSource"/*; do
+  [ -f "$file" ] || continue
+  cp -a -- "$file" "$certDestination/$destPrefix${file##*/}"
+done
 
 if [[ -z $(ls -A "$certSource") ]]; then
   echo "Source dir "$certSource" was empty, attempting to remove cert files"
-  ls "$certDestination" | grep -E '^$destPrefix[0-9]{14}' | while read -r line; do
+  ls "$certDestination" | grep -E '^'$destPrefix'[0-9]{14}' | while read -r line; do
     echo "removing "$line" in "$certDestination""
     rm $certDestination/"$line"
   done
@@ -5556,7 +5558,7 @@ else
   done
 fi
 
-update-ca-certificates -f`)
+$updateCmd`)
 
 func linuxCloudInitArtifactsUpdate_certsShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsUpdate_certsSh, nil
