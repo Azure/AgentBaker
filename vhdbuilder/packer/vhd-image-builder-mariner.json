@@ -22,14 +22,12 @@
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
     "img_version": "{{env `IMG_VERSION`}}",
-    "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}"
   },
   "builders": [
     {
       "type": "azure-arm",
-      "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "client_id": "{{user `client_id`}}",
