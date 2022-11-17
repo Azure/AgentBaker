@@ -41,7 +41,7 @@ if ($windowsSku -eq "2019") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
@@ -65,7 +65,7 @@ if ($windowsSku -eq "2019") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
@@ -90,7 +90,7 @@ if ($windowsSku -eq "2019") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
-            "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
