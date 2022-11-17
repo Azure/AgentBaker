@@ -1341,7 +1341,7 @@ configGPUDrivers() {
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
-    
+
     # validate on host, already done inside container.
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1387,14 +1387,10 @@ ensureGPUDrivers() {
         # no GPU on ARM64
         return
     fi
-
-    #export NVIDIA_DRIVER_IMAGE="docker.io/alexeldeib/aks-gpu"
-    #export NVIDIA_DRIVER_IMAGE_TAG="510.73.08-grid"
-
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         existing_version="$(nvidia-smi | grep "Driver Version" | cut -d' ' -f3)"
-        expects_grid="$(grep -i grid <<< $NVIDIA_DRIVER_IMAGE_TAG)"
-        if [[ ( grep -q $existing_version <<< $NVIDIA_DRIVER_IMAGE_TAG ) || ( -f ${GPU_DEST}/bin/nvidia-gridd && -z $expects_grid ) || ( ! -f ${GPU_DEST}/bin/nvidia-gridd && -n $expects_grid ) ]]; then
+        expects_grid="$(grep -i "grid" <<< $NVIDIA_DRIVER_IMAGE_TAG)"
+        if [[ -z $existing_version ]] || [[ $NVIDIA_DRIVER_IMAGE_TAG != *$existing_version* ]] || [[ -f ${GPU_DEST}/bin/nvidia-gridd && -z $expects_grid ]] || [[ ! -f ${GPU_DEST}/bin/nvidia-gridd && -n $expects_grid ]]; then
             logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
         fi
     fi
@@ -1522,7 +1518,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-9564c5"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-118f86"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
