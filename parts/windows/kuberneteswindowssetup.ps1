@@ -158,6 +158,7 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
+$global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
@@ -197,6 +198,9 @@ $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 # HNS remediator
 $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRemediatorIntervalInMinutes}}");
 
+# Log generator
+$global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGeneratorIntervalInMinutes}}");
+
 $global:EnableIncreaseDynamicPortRange = $false
 
 if ($useContainerD) {
@@ -215,7 +219,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.16.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.19.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -406,7 +410,8 @@ try
         -KubeClusterCIDR $global:KubeClusterCIDR `
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
-        -IsDualStackEnabled $global:IsDualStackEnabled
+        -IsDualStackEnabled $global:IsDualStackEnabled `
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
@@ -485,6 +490,8 @@ try
         Remove-Item $kubeConfigFile
     }
 
+    Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
+
     if ($global:IsNotRebootWindowsNode) {
         Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
         Start-ScheduledTask -TaskName "k8s-restart-job"
@@ -524,5 +531,9 @@ finally
     # $JsonString = "ExitCode: `"{0}`", Output: `"{1}`", Error: `"{2}`", ExecDuration: `"{3}`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
     Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
     echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
-}
 
+    # Flush stdout to C:\AzureData\CustomDataSetupScript.log
+    [Console]::Out.Flush()
+
+    Upload-GuestVMLogs -ExitCode $global:ExitCode
+}

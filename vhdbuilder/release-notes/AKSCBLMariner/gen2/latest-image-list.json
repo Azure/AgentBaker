@@ -85,23 +85,16 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:58ecb51bf8df347875b75043c0a028e4a1b1856259ae64d213a7524f48af602b",
-    "repoTags": [
-      "mcr.microsoft.com/containernetworking/azure-cns:v1.4.27"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:aa4b7bbae35d373704da9cc1d8be32a0b6a05c063a504b0cbeeab9a7864a739e",
-    "repoTags": [
-      "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:90f5dd7d04494ea5bd4830b8e0e0b275a699ee23b02c57381bc2a6e5adf178d2",
     "repoTags": [
       "mcr.microsoft.com/containernetworking/azure-cns:v1.4.35"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:4e44aba685a505ac1c452998153dd4ad02398f1f95dde353b08c72f3ac9d68f3",
+    "repoTags": [
+      "mcr.microsoft.com/containernetworking/azure-cns:v1.4.37"
     ],
     "repoDigests": []
   },
@@ -305,6 +298,13 @@
     "id": "sha256:65e6e9b30fb1bfa8973ed0e7eb17248f9c8ae3b81f6eb7bde148c7191c6978dc",
     "repoTags": [
       "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:90805b51cc614babd339a3d3fc9887d10a49d01909a124076bb5f68d9937d6f0",
+    "repoTags": [
+      "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0.1"
     ],
     "repoDigests": []
   },
