@@ -1,12 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
-pool:
-  ${{ if eq(System.DefinitionId, '165322') }}:
-    name: nodesigprod-pool
-  ${{ if eq(System.DefinitionId, '172842') }}:
-    name: nodesigtest-pool
-
 parameters:
 - name: build1604
   displayName: Build 1604
@@ -106,7 +100,17 @@ parameters:
   default: False
 
 variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
+- name: CONTAINER_IMAGE
+  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
+- ${{ if eq(System.DefinitionId, '165322') }}:
+  name: poolName
+  value: nodesigprod-pool
+- ${{ if eq(System.DefinitionId, '172842') }}:
+  name: poolName
+  value: nodesigtest-pool
+  
+pool:
+  name: $(poolName)
 
 stages:
   - stage: build_vhd
