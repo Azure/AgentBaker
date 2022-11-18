@@ -2,7 +2,10 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: "nodesigtest-pool"
+  ${{ if eq(System.DefinitionId, '165322') }}:
+    name: nodesigprod-pool
+  ${{ if eq(System.DefinitionId, '172842') }}:
+    name: nodesigtest-pool
 
 parameters:
 - name: build1604
