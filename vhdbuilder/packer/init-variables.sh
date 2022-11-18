@@ -420,7 +420,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
   "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
   "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
-  "vnet_name": "nodesigtest-pool-vnet",
+  "vnet_name": "nodesig-pool-vnet",
   "subnet_name": "packer"
 }
 EOF
