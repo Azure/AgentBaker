@@ -110,7 +110,7 @@ variables:
     value: nodesigtest-pool
   
 pool:
-  name: nodesigtest-pool
+  name: $(poolName)
 
 stages:
   - stage: build_vhd
