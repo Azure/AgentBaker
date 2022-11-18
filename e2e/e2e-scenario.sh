@@ -76,6 +76,7 @@ az vmss create -n ${VMSS_NAME} \
     --instance-count 1 \
     --assign-identity $msiResourceID \
     --image "/subscriptions/a15c116e-99e3-4c59-aebc-8f864929b4a0/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/windowsabgallery/images/windows-2019-containerd/versions/2022.11.08" \
+    --upgrade-policy-mode Automatic \
     --admin-username azureuser \
     --admin-password A23deSK09LwHswA234 \
     -ojson
@@ -113,11 +114,10 @@ set +e
 #     --instance-id $vmInstanceId \
 #     --scripts @scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
-    --name CustomScript \
+    --name CustomScriptExtension \
     --vmss-name ${VMSS_NAME} \
-    --publisher Microsoft.Azure.Extensions \
+    --publisher Microsoft.Compute \
     --protected-settings scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json \
-    --version 2.0 \
     -ojson
 retval=$?
 set -e
