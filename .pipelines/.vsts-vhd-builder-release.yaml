@@ -110,7 +110,7 @@ variables:
 #     value: nodesigtest-pool
   
 pool:
-  name: ${{ variables['POOL_NAME'] }}
+  name: $(POOL_NAME)
 
 stages:
   - stage: build_vhd
