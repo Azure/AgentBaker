@@ -24,7 +24,7 @@ jobs:
   - bash: |
       go version
       cd e2e
-      bash ./e2e-starter.sh $(AZURE_CLIENT_ID)
+      bash ./e2e-starter.sh
     displayName: Setup Test Cluster
   - publish: $(System.DefaultWorkingDirectory)/e2e
     artifact: clusterConfig

@@ -72,12 +72,9 @@ exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 clusterInfoEndTime=$(date +%s)
 log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
 
-AZURE_CLIENT_SECRET=$1
-log "client cert: $(AZURE_CLIENT_SECRET)"
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
 addJsonToFile "caCrt" "$(cat ca.crt)"
-addJsonToFile "clientCert" "$(AZURE_CLIENT_SECRET)"
 addJsonToFile "clientKey" "$(cat client.key)"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
