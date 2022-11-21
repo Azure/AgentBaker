@@ -447,6 +447,19 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt_get_purge 20 30 120 snapd || exit 1
+  apt_get_purge 20 30 120 apache2-utils || exit 1
+
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
