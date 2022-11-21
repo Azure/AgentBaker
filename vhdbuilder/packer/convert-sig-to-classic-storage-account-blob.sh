@@ -34,21 +34,23 @@ fi
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
 
-if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
-    \"properties\": { \
-      \"osType\": \"$OS_TYPE\", \
-      \"securityProfile\": { \
-        \"securityType\": \"TrustedLaunch\" \
-      }, \
-      \"creationData\": { \
-        \"createOption\": \"FromImage\", \
-        \"galleryImageReference\": { \
-          \"id\": \"${sig_resource_id}\" \
+if [[ "$OS_TYPE" == "Linux" || "$OS_SKU" == "CBLMariner" ]]; then
+  if [[ "$ENABLE_TRUSTED_LAUNCH" == "True" ]]; then
+    az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+      \"properties\": { \
+        \"osType\": \"$OS_TYPE\", \
+        \"securityProfile\": { \
+          \"securityType\": \"TrustedLaunch\" \
+        }, \
+        \"creationData\": { \
+          \"createOption\": \"FromImage\", \
+          \"galleryImageReference\": { \
+            \"id\": \"${sig_resource_id}\" \
+          } \
         } \
       } \
-    } \
-  }"
+    }"
+  fi
 else
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
