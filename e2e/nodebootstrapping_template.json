@@ -148,6 +148,7 @@
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableKubeletConfigFile": false,
     "EnableNvidia": false,
+    "dnsServiceIP": "10.0.0.10",
     "DisableUnattendedUpgrades": true,
     "EnableACRTeleportPlugin": false,
     "TeleportdPluginURL": "",
