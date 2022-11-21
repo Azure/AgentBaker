@@ -61,7 +61,7 @@ parameters:
   displayName: Build MarinerV2 Gen2 - ARM64
   type: boolean
   default: true
-- name: buildMarinerV2TrustedLaunch
+- name: buildMarinerV2gen2TrustedLaunch
   displayName: Build MarinerV2 Gen2 - Trusted Launch
   type: boolean
   default: false
