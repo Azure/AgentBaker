@@ -90,6 +90,18 @@ write_files:
 
 
 
+
+- path: /etc/apt/apt.conf.d/99periodic
+  permissions: "0644"
+  owner: root
+  content: |
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::Unattended-Upgrade "0";
+
+
+
+
 - path: /opt/certs/00000000000000cert0.crt
   permissions: "0644"
   owner: root

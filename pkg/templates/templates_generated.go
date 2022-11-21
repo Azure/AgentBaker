@@ -5802,6 +5802,18 @@ write_files:
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
+{{if not IsMariner}}
+{{if EnableUnattendedUpgrade }}
+- path: /etc/apt/apt.conf.d/99periodic
+  permissions: "0644"
+  owner: root
+  content: |
+    APT::Periodic::Update-Package-Lists "0";
+    APT::Periodic::Download-Upgradeable-Packages "0";
+    APT::Periodic::Unattended-Upgrade "0";
+{{end}}
+{{end}}
+
 {{- if ShouldConfigureHTTPProxy}}
 - path: /etc/apt/apt.conf.d/95proxy
   permissions: "0644"
