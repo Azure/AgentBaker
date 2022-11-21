@@ -30,15 +30,15 @@
           },
           "agentPoolProfiles": [
             {
-              "name": "nodepool1",
-              "vmSize": "Standard_DS2_V2",
-              "osType": "Linux",
+              "name": "npwin19",
+              "vmSize": "Standard_D2s_v3",
+              "osType": "Windows",
               "availabilityProfile":  "VirtualMachineScaleSets",
               "storageProfile": "ManagedDisks",
-              "distro": "aks-ubuntu-containerd-18.04-gen2",
+              "distro": "aks-windows-2019-containerd",
               "customNodeLabels": {
-                "kubernetes.azure.com/mode": "system",
-                "kubernetes.azure.com/node-image-version":  "AKSUbuntu-1804gen2containerd-2022.10.03"
+                "kubernetes.azure.com/mode":  "user",
+                "kubernetes.azure.com/node-image-version":  "AKSWindows-2019-containerd-17763.3534.221019"
               },
               "preProvisionExtension":  null,
               "kubernetesConfig": {

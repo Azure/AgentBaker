@@ -139,6 +139,7 @@ waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
     kubectl get nodes | grep $vmInstanceName
+    retval=$?
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
     if [ -z "$(kubectl get nodes | grep $vmInstanceName | grep -v "NotReady")" ]; then
