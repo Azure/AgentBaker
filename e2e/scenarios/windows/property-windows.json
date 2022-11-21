@@ -25,7 +25,8 @@
               "useCloudControllerManager": true,
               "useInstanceMetadata": true,
               "useManagedIdentity": true,
-              "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/"
+              "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
+              "dnsServiceIP": "10.0.0.10"
             }
           },
           "agentPoolProfiles": [
@@ -46,7 +47,11 @@
                 "cloudProviderBackoffMode": ""
               }
             }
-          ]
+          ],
+          "hostedMasterProfile": {
+            "dnsPrefix": "",
+            "fqdnSubdomain": ""
+          }
         }
     },
     "AgentPoolProfile": {
