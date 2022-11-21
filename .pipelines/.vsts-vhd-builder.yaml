@@ -7,7 +7,6 @@ pool:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
-- group: nodesig-test
 
 stages:
   - stage: build_vhd
