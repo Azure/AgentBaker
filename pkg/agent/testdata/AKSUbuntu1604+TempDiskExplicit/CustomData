@@ -109,18 +109,6 @@ write_files:
 
 
 
-
-
-
-
-- path: /etc/apt/apt.conf.d/99periodic
-  permissions: "0644"
-  owner: root
-  content: |
-    APT::Periodic::Update-Package-Lists "1";
-    APT::Periodic::Unattended-Upgrade "1";
-
-
 - path: /etc/kubernetes/sp.txt
   permissions: "0600"
   encoding: base64
