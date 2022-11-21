@@ -9,7 +9,7 @@ source /etc/os-release
 # Install inotify-tools if they're missing from the image
 if [[ ${ID} == "mariner" ]]; then
   command -v inotifywait >/dev/null 2>&1 || dnf install -y inotify-tools
-else
+else 
   command -v inotifywait >/dev/null 2>&1 || apt-get -o DPkg::Lock::Timeout=300 -y install inotify-tools
 fi
 
