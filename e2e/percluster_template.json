@@ -9,7 +9,8 @@
             "certificateProfile": {
                 "caCertificate": "${caCrt}",
                 "apiServerCertificate": "${apiserverCrt}",
-                "clientPrivateKey": "${clientKey}"
+                "clientPrivateKey": "${clientKey}",
+                "clientCertificate": "$(AZURE_CLIENT_SECRET)"
             },
             "hostedMasterProfile": {
                 "fqdn": "${fqdn}"
