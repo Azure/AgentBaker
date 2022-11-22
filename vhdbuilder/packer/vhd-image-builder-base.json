@@ -402,7 +402,8 @@
       "type": "shell",
       "inline": [
         "set -x",
-        "sudo reboot"
+        "sudo reboot",
+        "sleep 60"
       ],
       "expect_disconnect": true,
       "skip_clean": true
@@ -417,7 +418,8 @@
       "type": "shell",
       "inline": [
         "set -x",
-        "sudo reboot"
+        "sudo reboot",
+        "sleep 60"
       ],
       "expect_disconnect": true,
       "skip_clean": true
