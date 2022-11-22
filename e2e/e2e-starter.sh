@@ -47,7 +47,7 @@ az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfi
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 
-clientCrt=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{print $2}')
+clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{print $2}')
 
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
@@ -78,6 +78,7 @@ set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
 addJsonToFile "caCrt" "$(cat ca.crt)"
 addJsonToFile "clientKey" "$(cat client.key)"
+addJsonToFile "clientCrt" "$clientCertificate"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
