@@ -6,6 +6,9 @@ UBUNTU_OS_NAME="UBUNTU"
 source /home/packer/provision_source.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+source /home/packer/provision_installs.sh
+source /home/packer/provision_installs_distro.sh
+source /home/packer/provision_source_distro.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
