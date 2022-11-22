@@ -9,7 +9,8 @@
             "certificateProfile": {
                 "caCertificate": "${caCrt}",
                 "apiServerCertificate": "${apiserverCrt}",
-                "clientPrivateKey": "${clientKey}"
+                "clientPrivateKey": "${clientKey}",
+                "clientCertificate": "${clientCrt}"
             },
             "hostedMasterProfile": {
                 "fqdn": "${fqdn}"
