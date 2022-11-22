@@ -53,3 +53,5 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
   exit 1
 fi
+
+echo "pre-install-dependencies step finished successfully"

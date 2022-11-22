@@ -60,3 +60,5 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
     relinkResolvConf
   fi
 fi
+
+echo "post-install-dependencies step completed successfully"
