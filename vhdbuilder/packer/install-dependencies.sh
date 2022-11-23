@@ -30,11 +30,7 @@ fi
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   # disable and mask all UU timers/services
   # save some background io/latency
-  systemctl mask apt-daily.service apt-daily-upgrade.service
-  if [ $? -ne 0 ]; then
-    echo "something went wrong when running systemctl mask..."
-    exit 1
-  fi
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
   systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
   systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
 
