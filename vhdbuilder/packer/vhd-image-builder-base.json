@@ -405,6 +405,7 @@
       "inline": [
         "set -x",
         "sudo reboot",
+        "ifconfig",
         "sleep 60"
       ],
       "expect_disconnect": true,
@@ -423,6 +424,7 @@
       "inline": [
         "set -x",
         "sudo reboot",
+        "ifconfig",
         "sleep 60"
       ],
       "expect_disconnect": true,
