@@ -6,7 +6,7 @@ certDestination="${1:-/usr/local/share/ca-certificates/certs}"
 updateCmd="${2:-update-ca-certificates -f}"
 destPrefix="aks-custom-"
 
-mkdir $certDestination
+[ ! -d "$certDestination" ] && mkdir "$certDestination"
 for file in "$certSource"/*; do
   [ -f "$file" ] || continue
   cp -a -- "$file" "$certDestination/$destPrefix${file##*/}"
