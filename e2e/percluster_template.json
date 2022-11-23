@@ -13,7 +13,8 @@
                 "clientCertificate": "${clientCrt}"
             },
             "hostedMasterProfile": {
-                "fqdn": "${fqdn}"
+                "fqdn": "${fqdn}",
+                "dnsPrefix": "${dnsPrefix}"
             }
         }
     },

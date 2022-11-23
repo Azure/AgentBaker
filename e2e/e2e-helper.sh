@@ -35,6 +35,11 @@ getFQDN() {
     addJsonToFile "fqdn" $fqdn
 }
 
+getDNSPrefix() {
+    dnsPrefix=$(jq -r '.dnsPrefix' < cluster_info.json)
+    addJsonToFile "dnsPrefix" $dnsPrefix
+}
+
 getMSIResourceID() {
     msiResourceID=$(jq -r '.identityProfile.kubeletidentity.resourceId' < cluster_info.json)
     addJsonToFile "msiResourceID" $msiResourceID
