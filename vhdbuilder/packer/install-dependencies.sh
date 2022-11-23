@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "ifconfig within install dependencies:\n$(ifconfig)"
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
