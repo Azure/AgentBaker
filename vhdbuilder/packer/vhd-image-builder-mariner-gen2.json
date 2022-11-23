@@ -122,8 +122,18 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/pre-install-dependencies.sh",
+      "destination": "/home/packer/pre-install-dependencies.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/post-install-dependencies.sh",
+      "destination": "/home/packer/post-install-dependencies.sh"
     },
     {
       "type": "file",
