@@ -359,7 +359,7 @@
       ],
       "expect_disconnect": true,
       "skip_clean": true,
-      "pause_after": "300s"
+      "pause_after": "600s"
     },
     {
       "type": "shell",
