@@ -25,9 +25,10 @@ jobs:
         ./codeql github upload-results --repository=Azure/AgentBaker --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=go-results.sarif
         cd ..
         find -type f -name "go-results.sarif"
+        pwd
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/upload-artifact@v3
       with:
         name: go-results.sarif
-        path: $GITHUB_WORKSPACE/go-results.sarif
+        path: ./codeql/go-results.sarif
