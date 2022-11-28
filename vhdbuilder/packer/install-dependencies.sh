@@ -105,12 +105,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
-    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-      enableMarinerKata
-    else
-      # Leave automatic package update disabled for the kata image
-      enableDNFAutomatic
-    fi
 fi
 
 downloadContainerdWasmShims
