@@ -13,7 +13,7 @@ jobs:
         fetch-depth: 0
     - run: |
         set -euxo pipefail
-        wget https://github.com/github/codeql-action/releases/download/latest/codeql-bundle-linux64.tar.gz
+        wget https://github.com/github/codeql-action/releases/download/codeql-bundle-20221123/codeql-bundle-linux64.tar.gz
         tar -xvzf codeql-bundle-linux64.tar.gz
         workdir=$(mktemp -d -t codeql-XXXXXXXXXX)
         cd codeql
