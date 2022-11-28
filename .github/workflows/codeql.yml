@@ -21,7 +21,7 @@ jobs:
         workdir=$(mktemp -d -t codeql-XXXXXXXXXX)
         cd codeql
         ./codeql database create $workdir/databases --language=go --source-root $GITHUB_WORKSPACE
-        ./codeql database analyze $workdir/databases codeql/go-queries codeql/go-all --format=sarif-latest --sarif-category=go --output=go-results.sarif
+        ./codeql database analyze $workdir/databases codeql/go-queries:. --format=sarif-latest --sarif-category=go --output=go-results.sarif
         ./codeql github upload-results --repository=Azure/AgentBaker --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=go-results.sarif
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
