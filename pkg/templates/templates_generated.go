@@ -52,6 +52,7 @@
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mariner/update_certs_mariner.service
 // linux/cloud-init/artifacts/mig-partition.service
 // linux/cloud-init/artifacts/mig-partition.sh
 // linux/cloud-init/artifacts/modprobe-CIS.conf
@@ -3949,6 +3950,29 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsMarinerUpdate_certs_marinerService = []byte(`[Unit]
+Description=Updates certificates copied from AKS DS
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/update_certs.sh /usr/share/pki/ca-trust-source/anchors update-ca-trust
+RestartSec=5`)
+
+func linuxCloudInitArtifactsMarinerUpdate_certs_marinerServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerUpdate_certs_marinerService, nil
+}
+
+func linuxCloudInitArtifactsMarinerUpdate_certs_marinerService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerUpdate_certs_marinerServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/update_certs_mariner.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsMigPartitionService = []byte(`[Unit]
 Description=Apply MIG configuration on Nvidia A100 GPU
 
@@ -5503,13 +5527,19 @@ var _linuxCloudInitArtifactsUpdate_certsSh = []byte(`#!/usr/bin/env bash
 set -uo pipefail
 
 certSource=/opt/certs
-certDestination=/usr/local/share/ca-certificates/certs
+certDestination="${1:-/usr/local/share/ca-certificates/certs}"
+updateCmd="${2:-update-ca-certificates -f}"
+destPrefix="aks-custom-"
 
-cp -a "$certSource"/. "$certDestination"
+[ ! -d "$certDestination" ] && mkdir "$certDestination"
+for file in "$certSource"/*; do
+  [ -f "$file" ] || continue
+  cp -a -- "$file" "$certDestination/$destPrefix${file##*/}"
+done
 
 if [[ -z $(ls -A "$certSource") ]]; then
   echo "Source dir "$certSource" was empty, attempting to remove cert files"
-  ls "$certDestination" | grep -E '^[0-9]{14}' | while read -r line; do
+  ls "$certDestination" | grep -E '^'$destPrefix'[0-9]{14}' | while read -r line; do
     echo "removing "$line" in "$certDestination""
     rm $certDestination/"$line"
   done
@@ -5518,16 +5548,16 @@ else
   certsToCopy=(${certSource}/*)
   currIterationCertFile=${certsToCopy[0]##*/}
   currIterationTag=${currIterationCertFile:0:14}
-  for file in "$certDestination"/*.crt; do
-      currFile=${file##*/}
-     if [[ "${currFile:0:14}" != "${currIterationTag}" && -f "${file}" ]]; then
+  for file in "$certDestination/$destPrefix"*.crt; do
+     currFile=${file##*/}
+     if [[ "${currFile:${#destPrefix}:14}" != "${currIterationTag}" && -f "${file}" ]]; then
           echo "removing "$file" in "$certDestination""
           rm "${file}"
      fi
   done
 fi
 
-update-ca-certificates -f`)
+$updateCmd`)
 
 func linuxCloudInitArtifactsUpdate_certsShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsUpdate_certsSh, nil
@@ -7597,6 +7627,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mariner/update_certs_mariner.service":      linuxCloudInitArtifactsMarinerUpdate_certs_marinerService,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
 	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
 	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
@@ -7727,8 +7758,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
-					"cse_helpers_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
-					"cse_install_mariner.sh": &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"cse_helpers_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
+					"cse_install_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"update_certs_mariner.service": &bintree{linuxCloudInitArtifactsMarinerUpdate_certs_marinerService, map[string]*bintree{}},
 				}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
 				"mig-partition.sh":                &bintree{linuxCloudInitArtifactsMigPartitionSh, map[string]*bintree{}},
