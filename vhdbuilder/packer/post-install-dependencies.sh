@@ -12,6 +12,15 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
+if [[ $OS == $MARINER_OS_NAME ]]; then
+  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    enableMarinerKata
+  else
+    # Leave automatic package update disabled for the kata image
+    enableDNFAutomatic
+  fi
+fi
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # strip old kernels/packages
   apt-get -y autoclean || exit 1
