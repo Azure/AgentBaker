@@ -12,7 +12,7 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
-if [[ $OS == $UBUNTU_US_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # strip old kernels/packages
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
