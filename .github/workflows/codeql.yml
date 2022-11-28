@@ -17,8 +17,8 @@ jobs:
         tar -xvzf codeql-bundle-linux64.tar.gz
         workdir=$(mktemp -d -t codeql-XXXXXXXXXX)
         cd codeql
-        codeql database create $workdir/databases --language=go --source-root $GITHUB_WORKSPACE
-        codeql database analyze $workdir/databases --format=sarif-latest --sarif-category=go --output=go-results.sarif
-        codeql github upload-results --repository=my-org/example-repo --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=java-results.sarif
+        ./codeql database create $workdir/databases --language=go --source-root $GITHUB_WORKSPACE
+        ./codeql database analyze $workdir/databases --format=sarif-latest --sarif-category=go --output=go-results.sarif
+        ./codeql github upload-results --repository=my-org/example-repo --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=java-results.sarif
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
