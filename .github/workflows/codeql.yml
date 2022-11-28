@@ -1,0 +1,24 @@
+name: codeql
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - run: |
+        set -euxo pipefail
+        wget https://github.com/github/codeql-action/releases/download/latest/codeql-bundle-linux64.tar.gz
+        tar -xvzf codeql-bundle-linux64.tar.gz
+        workdir=$(mktemp -d -t codeql-XXXXXXXXXX)
+        cd codeql
+        codeql database create $workdir/databases --language=go --source-root $GITHUB_WORKSPACE
+        codeql database analyze $workdir/databases --format=sarif-latest --sarif-category=go --output=go-results.sarif
+        codeql github upload-results --repository=my-org/example-repo --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=java-results.sarif
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
