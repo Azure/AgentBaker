@@ -12,6 +12,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
+# strip old kernels/packages
+apt-get -y autoclean || exit 1
+apt-get -y autoremove || exit 1
+apt-get -y clean || exit 1
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
   apt-get purge --auto-remove apport open-vm-tools -y
