@@ -106,10 +106,8 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
 		SIG_IMAGE_NAME=${OS_VERSION//./}
-		if [[ "${OS_SKU}" == "Ubuntu" ]]; then
-			if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
-			fi
+		if [[ "${OS_SKU}" == "Ubuntu" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
 		fi
 
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
