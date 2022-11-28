@@ -23,9 +23,10 @@ jobs:
         ./codeql database create $workdir/databases --language=go --source-root $GITHUB_WORKSPACE
         ./codeql database analyze $workdir/databases codeql/go-queries:codeql-suites/go-code-scanning.qls codeql/go-queries:codeql-suites/go-developer-happiness.qls codeql/go-queries:codeql-suites/go-lgtm-full.qls codeql/go-queries:codeql-suites/go-security-and-quality.qls codeql/go-queries:codeql-suites/go-security-extended.qls --format=sarif-latest --sarif-category=go --output=go-results.sarif
         ./codeql github upload-results --repository=Azure/AgentBaker --ref=$GITHUB_REF --commit=$GITHUB_SHA --sarif=go-results.sarif
+        find -type f -name "go-results.sarif" $GITHUB_WORKSPACE
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/upload-artifact@v3
       with:
         name: go-results.sarif
-        path: $GITHUB_WORKSPACE/codeql/go-results.sarif
+        path: $GITHUB_WORKSPACE/go-results.sarif
