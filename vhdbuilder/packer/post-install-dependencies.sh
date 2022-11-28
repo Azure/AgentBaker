@@ -17,9 +17,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
   apt-get -y clean || exit 1
-fi
-
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove apport
   apt-get purge --auto-remove apport open-vm-tools -y
 fi
