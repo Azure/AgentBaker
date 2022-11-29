@@ -106,16 +106,18 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
 		SIG_IMAGE_NAME=${OS_VERSION//./}
-		if [[ "${OS_SKU}" == "Ubuntu" ]]; then
-			if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
-			elif [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-				SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
-			fi
+		if [[ "${OS_SKU}" == "Ubuntu" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
 		fi
+
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
+
+		if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
+		fi
+
 		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "Ubuntu") ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 		fi
@@ -216,6 +218,10 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 				--os-type Linux
 
 			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
+			if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+				TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
+			fi
+
 			az sig image-definition create \
 				--resource-group $AZURE_RESOURCE_GROUP_NAME \
 				--gallery-name $SIG_GALLERY_NAME \
@@ -227,7 +233,8 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 				--sku $OS_SKU \
 				--hyper-v-generation V2 \
 				--os-state generalized \
-				--description "Imported image for AKS Packer build"
+				--description "Imported image for AKS Packer build" \
+				${TARGET_COMMAND_STRING}
 
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 			az sig image-version create \

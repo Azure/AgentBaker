@@ -247,6 +247,18 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled)
+        if ($result.WcifsSOPCountDisabled -ne 0) {
+            Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
+            exit 1
+        }
+    }
+    if ($env:WindowsSKU -Like '2022*') {
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
+        if ($result.2629306509 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
+            exit 1
+        }
     }
 }
 
