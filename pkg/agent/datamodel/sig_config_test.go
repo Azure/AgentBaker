@@ -39,7 +39,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(19))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(20))
 
 		aksUbuntuGPU1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuGPU1804Gen2]
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
@@ -122,5 +122,11 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
 		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2022.10.13"))
+
+		marinerV2Gen2TL := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2Gen2TL]
+		Expect(marinerV2Gen2TL.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(marinerV2Gen2TL.Gallery).To(Equal("akscblmariner"))
+		Expect(marinerV2Gen2TL.Definition).To(Equal("V2gen2TL"))
+		Expect(marinerV2Gen2TL.Version).To(Equal(CBLMarinerV2Gen2TLSIGImageVersion))
 	})
 })
