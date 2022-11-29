@@ -240,7 +240,7 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
+	Ubuntu2204TLSIGImageVersion       string = "2022.10.13"
 	CBLMarinerV2Gen2TLSIGImageVersion string = "2022.11.29"
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -476,7 +476,7 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV2Gen2:      SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
-		AKSCBLMarinerV2Gen2TL:	  SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2TL:    SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
