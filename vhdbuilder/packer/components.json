@@ -39,7 +39,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.4.5",
         "v0.5.2",
         "v0.6.1"
       ]
@@ -79,7 +78,6 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.29",
         "v1.4.32"
       ]
     },
@@ -222,7 +220,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.0.18",
         "v1.1.14",
         "v1.23.11",
         "v1.24.3"
@@ -262,7 +259,6 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.3",
         "v0.1.5"
       ]
     },
@@ -300,7 +296,6 @@
         "v2.2.0"
       ],
       "multiArchVersions": [
-        "v2.5.0",
         "v2.6.0"
       ]
     },
@@ -308,7 +303,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.4.0",
         "v2.5.0"
       ]
     },
@@ -321,11 +315,8 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
-      "amd64OnlyVersions": [
-        "v0.8.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.11.1",
         "v0.10.2"
       ]
     },
@@ -338,11 +329,8 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
-      "amd64OnlyVersions": [
-        "0.19.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "0.49.3",
         "v1.2.1"
       ]
     },
@@ -379,9 +367,7 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.12.1",
-        "v1.8.13",
-        "v1.8.13.1"
+        "v1.8.13.1" 
       ]
     },
     {
