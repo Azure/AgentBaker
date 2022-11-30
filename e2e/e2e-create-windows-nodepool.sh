@@ -10,7 +10,10 @@ windowsNodepool="win19"
 export windowsNodepool
 
 out=$(az aks nodepool list --cluster-name $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | grep "$windowsNodepool")
+echo $out
+
 if [ -n "$out"]; then
+    echo "1111"
     log "Already create windows nodepool"
 else
     log "Creating windows nodepool"
