@@ -80,8 +80,7 @@ init-packer:
 	@./vhdbuilder/packer/init-variables.sh
 
 az-login:
-	# az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
-	az login --identity
+	az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
 	az account set -s ${SUBSCRIPTION_ID}
 
 run-packer: az-login
