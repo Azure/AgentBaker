@@ -546,7 +546,6 @@ validateGPUDrivers() {
 
 ensureGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 
