@@ -64,7 +64,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.35",
-        "v1.4.37"
+        "v1.4.39"
       ]
     },
     {
@@ -95,7 +95,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v0.0.30",
-        "v0.0.32"
+        "v0.0.33-hotfix.20221110"
       ]
     },
     {

@@ -10,16 +10,15 @@ const (
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
 )
 
-// SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
+//SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 // TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once it's moved into AKS RP
 type SIGAzureEnvironmentSpecConfig struct {
-	CloudName                    string                    `json:"cloudName,omitempty"`
-	SigTenantID                  string                    `json:"sigTenantID,omitempty"`
-	SubscriptionID               string                    `json:"subscriptionID,omitempty"`
-	SigUbuntuImageConfig         map[Distro]SigImageConfig `json:"sigUbuntuImageConfig,omitempty"`
-	SigCBLMarinerImageConfig     map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
-	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
-	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
+	CloudName                string                    `json:"cloudName,omitempty"`
+	SigTenantID              string                    `json:"sigTenantID,omitempty"`
+	SubscriptionID           string                    `json:"subscriptionID,omitempty"`
+	SigUbuntuImageConfig     map[Distro]SigImageConfig `json:"sigUbuntuImageConfig,omitempty"`
+	SigCBLMarinerImageConfig map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
+	SigWindowsImageConfig    map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	//TODO(adadilli) add PIR constants as well
 }
 
@@ -55,7 +54,7 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-// TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a cleanup to remove these after 20.04 work.
+//TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a cleanup to remove these after 20.04 work.
 var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -70,8 +69,6 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 }
 
 var AvailableUbuntu2004Distros []Distro = []Distro{
@@ -94,11 +91,10 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
+	AKSCBLMarinerV2Gen2TL,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -123,7 +119,6 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204Gen2,
@@ -136,6 +131,7 @@ var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
+	AKSCBLMarinerV2Gen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled
@@ -229,15 +225,13 @@ var AvailableWindowsPIRDistros []Distro = []Distro{
 
 // SIG const
 const (
-	AKSSIGImagePublisher           string = "microsoft-aks"
-	AKSWindowsGalleryName          string = "AKSWindows"
-	AKSWindowsResourceGroup        string = "AKS-Windows"
-	AKSUbuntuGalleryName           string = "AKSUbuntu"
-	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
-	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
-	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
-	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
-	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
+	AKSSIGImagePublisher       string = "microsoft-aks"
+	AKSWindowsGalleryName      string = "AKSWindows"
+	AKSWindowsResourceGroup    string = "AKS-Windows"
+	AKSUbuntuGalleryName       string = "AKSUbuntu"
+	AKSUbuntuResourceGroup     string = "AKS-Ubuntu"
+	AKSCBLMarinerGalleryName   string = "AKSCBLMariner"
+	AKSCBLMarinerResourceGroup string = "AKS-CBLMariner"
 )
 
 const (
@@ -246,14 +240,11 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Ubuntu2204TLSIGImageVersion string = "2022.10.13"
-
+	Ubuntu2204TLSIGImageVersion       string = "2022.10.13"
+	CBLMarinerV2Gen2TLSIGImageVersion string = "2022.11.29"
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
-  
-  // Used for edge zone scenario
-	EdgeZoneSIGImageVersion string = "2022.10.24"
 )
 
 // SIG config Template
@@ -357,22 +348,6 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804containerd",
-		Version:       EdgeZoneSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804gen2containerd",
-		Version:       EdgeZoneSIGImageVersion,
-	}
-
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -436,6 +411,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2gen2TL",
+		Version:       CBLMarinerV2Gen2TLSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -494,6 +476,7 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV2Gen2:      SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2TL:    SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -503,13 +486,6 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2019Containerd:     SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022Containerd:     SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
-	}
-}
-
-func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
-	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -541,25 +517,18 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %s", err)
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
-
-	fromACSUbuntuEdgeZone, err := withACSSIGConfig(sigConfig, "AKSUbuntuEdgeZone")
-	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntuEdgeZone: %s", err)
-	}
-	c.SigUbuntuEdgeZoneImageConfig = getSigUbuntuEdgeZoneImageConfigMapWithOpts(fromACSUbuntuEdgeZone)
 	return *c, nil
 }
 
 // GetAzurePublicSIGConfigForTest returns a statically defined sigconfig. This should only be used for unit tests and e2es.
 func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 	return SIGAzureEnvironmentSpecConfig{
-		CloudName:                    AzurePublicCloud,
-		SigTenantID:                  AzurePublicCloudSigTenantID,
-		SubscriptionID:               AzurePublicCloudSigSubscription,
-		SigUbuntuImageConfig:         getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigCBLMarinerImageConfig:     getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		CloudName:                AzurePublicCloud,
+		SigTenantID:              AzurePublicCloudSigTenantID,
+		SubscriptionID:           AzurePublicCloudSigSubscription,
+		SigUbuntuImageConfig:     getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigCBLMarinerImageConfig: getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigWindowsImageConfig:    getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
 }
 func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, error) {
