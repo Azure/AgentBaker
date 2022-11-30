@@ -148,6 +148,8 @@ else
     FAILED=1
 fi
 
+kubectl describe node $vmInstanceName
+
 debug
 tail -n 50 $SCENARIO_NAME-logs/cluster-provision.log || true
 
@@ -180,8 +182,6 @@ for i in $(seq 1 10); do
     fi
     break;
 done
-
-kubectl describe pod $podName 
 
 waitForPodEndTime=$(date +%s)
 log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
