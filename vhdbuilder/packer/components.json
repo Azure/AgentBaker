@@ -79,7 +79,6 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.29",
         "v1.4.32"
       ]
     },
@@ -124,7 +123,6 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod08102022",
         "ciprod10042022-3c05dd1b"
       ]
     },
@@ -300,7 +298,6 @@
         "v2.2.0"
       ],
       "multiArchVersions": [
-        "v2.5.0",
         "v2.6.0"
       ]
     },
@@ -379,9 +376,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.12.1",
         "v1.8.13",
-        "v1.8.13.1"
+        "v1.8.13.1" 
       ]
     },
     {
