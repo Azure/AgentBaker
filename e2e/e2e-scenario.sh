@@ -180,6 +180,9 @@ for i in $(seq 1 10); do
     fi
     break;
 done
+
+kubectl describe pod $podName 
+
 waitForPodEndTime=$(date +%s)
 log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
 
