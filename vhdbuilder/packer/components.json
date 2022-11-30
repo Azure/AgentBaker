@@ -122,22 +122,24 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod08102022",
-        "ciprod10042022-3c05dd1b"
+        "ciprod11292022-6a507f9a"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [
-        "5.3.0-main-10-06-2022-c0c49872",
         "5.4.0-main-10-26-2022-16f02b39"
       ],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "6.0.1-main-11-29-2022-97e2122e"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "v2.6.0"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
