@@ -25,6 +25,7 @@ jobs:
       go version
       cd e2e
       bash ./e2e-starter.sh
+      bash e2e-create-windows-nodepool.sh
     displayName: Setup Test Cluster
   - publish: $(System.DefaultWorkingDirectory)/e2e
     artifact: clusterConfig
@@ -57,7 +58,6 @@ jobs:
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
       cd e2e
       bash e2e-scenario.sh
-      bash e2e-create-windows-nodepool.sh
   - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
     artifact: $(SCENARIO_NAME)-logs
     condition: always()
