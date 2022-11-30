@@ -21,6 +21,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
   fi
 fi
 
+current_kernel="$(uname -r | cut -d- -f-2)" # probably drop the pipe to cut for azure, i'm on hetzner which uses -generic and the packages don't have the suffix. but works either way I bet
+dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # strip old kernels/packages
   apt-get -y autoclean || exit 1
