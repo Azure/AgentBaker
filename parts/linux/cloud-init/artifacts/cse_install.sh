@@ -337,9 +337,10 @@ retagMCRImagesForChina() {
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [[ ${CLI_TOOL} == "docker" ]]; then
+    if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
     else
+        # crictl should always be present
         crictl rm $CONTAINER_IMAGE_URL
     fi
 }
