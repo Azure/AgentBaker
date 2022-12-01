@@ -1,4 +1,4 @@
-Starting build on  Thu Dec 1 18:50:19 UTC 2022
+Starting build on  Thu Dec 1 01:00:05 UTC 2022
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -108,7 +108,9 @@ containerd images pre-pulled:
   - Azure Overlay CNI version 1.4.35
   - CNI plugin version 1.1.1
   - docker.io/library/nginx:1.13.12-alpine
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.11-hotfix.20221016.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.11-hotfix.20221109.1
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.15-hotfix.20221014.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.15-hotfix.20221109.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.12-hotfix.20221109.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.12-hotfix.20221109.2
@@ -120,7 +122,6 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.6-hotfix.20221109.2
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.2-hotfix.20221006
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.2-hotfix.20221109
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.4
 kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    112187592 Jun 21 17:42 /usr/local/bin/kubelet-1.22.11
 -rwxr-xr-x 1 root root     43450368 Jun 21 17:42 /usr/local/bin/kubectl-1.22.11
@@ -137,13 +138,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root     46202880 Sep 21 22:12 /usr/local/bin/kubectl-1.23.12
 -rwxr-xr-x 1 root root    109816120 Oct  6 23:35 /usr/local/bin/kubelet-1.25.2
 -rwxr-xr-x 1 root root     43581440 Oct  6 23:35 /usr/local/bin/kubectl-1.25.2
--rwxr-xr-x 1 root root    109824344 Nov 10 22:26 /usr/local/bin/kubelet-1.25.4
--rwxr-xr-x 1 root root     43581440 Nov 10 22:26 /usr/local/bin/kubectl-1.25.4
--r-xr--r-- 1 root root         2462 Dec  1 18:50 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root          705 Dec  1 18:50 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root     33595200 Dec  1 18:57 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root     44976688 Dec  1 18:57 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root     35384960 Dec  1 18:58 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root         2462 Dec  1 01:00 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root          705 Dec  1 01:00 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root     33595200 Dec  1 01:08 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root     44976688 Dec  1 01:08 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root     35384960 Dec  1 01:08 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 adduser/jammy,now 3.118ubuntu5 all [installed,automatic]
@@ -229,7 +228,7 @@ fdisk/jammy,now 2.37.2-4ubuntu3 arm64 [installed,automatic]
 file/jammy,now 1:5.41-3 arm64 [installed,automatic]
 finalrd/jammy,now 9build1 all [installed,automatic]
 findutils/jammy,now 4.8.0-1ubuntu3 arm64 [installed]
-flash-kernel/now 3.104ubuntu14 arm64 [installed,upgradable to: 3.104ubuntu15]
+flash-kernel/jammy-updates,now 3.104ubuntu14 arm64 [installed]
 fonts-ubuntu-console/jammy,now 0.83-6ubuntu1 all [installed]
 friendly-recovery/jammy,now 0.2.42 all [installed,automatic]
 ftp/jammy,now 20210827-4build1 all [installed,automatic]
@@ -629,20 +628,20 @@ linux-base/jammy,now 4.5ubuntu9 all [installed,automatic]
 linux-cloud-tools-5.15.0-1023-azure/jammy-updates,jammy-security,now 5.15.0-1023.29 arm64 [installed]
 linux-cloud-tools-5.15.0-1024-azure/jammy-updates,jammy-security,now 5.15.0-1024.30 arm64 [installed,automatic]
 linux-cloud-tools-azure/jammy-updates,jammy-security,now 5.15.0.1024.23 arm64 [installed]
-linux-cloud-tools-common/jammy-updates,jammy-security,now 5.15.0-56.62 all [installed]
+linux-cloud-tools-common/jammy-updates,jammy-security,now 5.15.0-53.59 all [installed]
 linux-headers-5.15.0-1023-azure/jammy-updates,jammy-security,now 5.15.0-1023.29 arm64 [installed]
 linux-headers-5.15.0-1024-azure/jammy-updates,jammy-security,now 5.15.0-1024.30 arm64 [installed,automatic]
 linux-headers-azure/jammy-updates,jammy-security,now 5.15.0.1024.23 arm64 [installed]
 linux-image-5.15.0-1023-azure/jammy-updates,jammy-security,now 5.15.0-1023.29 arm64 [installed]
 linux-image-5.15.0-1024-azure/jammy-updates,jammy-security,now 5.15.0-1024.30 arm64 [installed,automatic]
 linux-image-azure/jammy-updates,jammy-security,now 5.15.0.1024.23 arm64 [installed]
-linux-libc-dev/jammy-updates,jammy-security,now 5.15.0-56.62 arm64 [installed,automatic]
+linux-libc-dev/jammy-updates,jammy-security,now 5.15.0-53.59 arm64 [installed,automatic]
 linux-modules-5.15.0-1023-azure/jammy-updates,jammy-security,now 5.15.0-1023.29 arm64 [installed]
 linux-modules-5.15.0-1024-azure/jammy-updates,jammy-security,now 5.15.0-1024.30 arm64 [installed,automatic]
 linux-tools-5.15.0-1023-azure/jammy-updates,jammy-security,now 5.15.0-1023.29 arm64 [installed]
 linux-tools-5.15.0-1024-azure/jammy-updates,jammy-security,now 5.15.0-1024.30 arm64 [installed,automatic]
 linux-tools-azure/jammy-updates,jammy-security,now 5.15.0.1024.23 arm64 [installed]
-linux-tools-common/jammy-updates,jammy-security,now 5.15.0-56.62 all [installed]
+linux-tools-common/jammy-updates,jammy-security,now 5.15.0-53.59 all [installed]
 locales/jammy-updates,now 2.35-0ubuntu3.1 all [installed,automatic]
 login/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.1 arm64 [installed]
 logrotate/jammy-updates,jammy-security,now 3.19.0-1ubuntu1.1 arm64 [installed,automatic]
@@ -836,8 +835,8 @@ tnftp/jammy,now 20210827-4build1 arm64 [installed,automatic]
 tpm-udev/jammy,now 0.6 all [installed,automatic]
 traceroute/jammy,now 1:2.1.0-2 arm64 [installed]
 tzdata/jammy-updates,jammy-security,now 2022f-0ubuntu0.22.04.1 all [installed,automatic]
-u-boot-tools/jammy,now 2022.01+dfsg-2ubuntu2 arm64 [installed,upgradable to: 2022.01+dfsg-2ubuntu2.1]
-ubuntu-advantage-tools/now 27.11.3~22.04.1 arm64 [installed,upgradable to: 27.12~22.04.1]
+u-boot-tools/jammy,now 2022.01+dfsg-2ubuntu2 arm64 [installed,automatic]
+ubuntu-advantage-tools/jammy-updates,now 27.11.3~22.04.1 arm64 [installed,automatic]
 ubuntu-keyring/jammy,now 2021.03.26 all [installed,automatic]
 ubuntu-minimal/jammy,now 1.481 arm64 [installed]
 ubuntu-release-upgrader-core/jammy-updates,now 1:22.04.14 all [installed,automatic]
@@ -884,10 +883,10 @@ tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs           1.6G  4.0K  1.6G   1% /run/user/1000
 Using kernel:
 Linux version 5.15.0-1023-azure (buildd@bos02-arm64-031) (gcc (Ubuntu 11.2.0-19ubuntu1) 11.2.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #29-Ubuntu SMP Wed Oct 19 22:38:01 UTC 2022
-Install completed successfully on  Thu Dec 1 19:14:01 UTC 2022
-VSTS Build NUMBER: 20221201.2_master_65195662
-VSTS Build ID: 65195662
-Commit: 4fec5a8b70a289f1d078ff481e0598c16d4f1417
+Install completed successfully on  Thu Dec 1 01:24:50 UTC 2022
+VSTS Build NUMBER: 20221201.1_master_65145048
+VSTS Build ID: 65145048
+Commit: f9c64a268a08b559c2e1456281391b8b5774d31f
 Ubuntu version: 22.04
 Hyperv generation: V2
 Feature flags: None
