@@ -247,19 +247,10 @@ retagMCRImagesForChina() {
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        IFS=':'
-        read -ra urlParts <<< "${CONTAINER_IMAGE_URL}"
-        url="${urlParts[0]}"
-        tag="${urlParts[1]}"
-
-        sha=$(crictl images --digests | grep "${url}" | grep "${tag}" | tr -s ' ' | cut -d' ' -f 3)
-        ctr -n k8s.io image rm --sync $CONTAINER_IMAGE_URL
-        ctr -n k8s.io image rm $sha
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl rmi $CONTAINER_IMAGE_URL
-    else
+    if [[ ${CLI_TOOL} == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
+    else
+        crictl rm $CONTAINER_IMAGE_URL
     fi
 }
 
