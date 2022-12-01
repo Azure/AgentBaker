@@ -108,7 +108,7 @@ variables:
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
   
 pool:
-  name: nodesigprod-pool
+  name: $(POOL_NAME)
 
 stages:
   - stage: build_vhd
