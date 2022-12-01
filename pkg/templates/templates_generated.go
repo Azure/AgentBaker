@@ -3725,7 +3725,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.23.12",
             "1.24.3",
             "1.24.6",
-            "1.25.2-hotfix.20221006"
+            "1.25.2-hotfix.20221006",
+            "1.25.4"
         ]
     },
     "_template": {
@@ -5029,6 +5030,8 @@ kernel.panic_on_oops = 1
 kernel.pid_max = 4194304
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+fs.inotify.max_user_instances = 1024
 `)
 
 func linuxCloudInitArtifactsSysctlD60CisConfBytes() ([]byte, error) {
