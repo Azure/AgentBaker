@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FE
 trigger: none
 
 pool:
-  name: $(POOL_NAME)
+  name: nodesigprod-pool
 
 variables:
 - name: CONTAINER_IMAGE
