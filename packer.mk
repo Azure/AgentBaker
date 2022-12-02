@@ -5,6 +5,7 @@ ifeq (${OS_SKU},Ubuntu)
 ifeq (${ARCHITECTURE},ARM64)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
+	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
 	@echo "${MODE}: Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
@@ -22,15 +23,18 @@ else ifeq (${OS_SKU},CBLMariner)
 ifeq (${OS_VERSION},V1)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
+	@echo "Using packer template file vhd-image-builder-mariner-gen2.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-gen2.json
 else
 	@echo "${MODE}: Building with Hyper-v generation 1 VM"
+	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else ifeq (${OS_VERSION},V2)
 ifeq (${ARCHITECTURE}, ARM64)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
+	@echo "Using packer template file vhd-image-builder-mariner2-arm64.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-arm64.json
 	@echo "${MODE}: Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
@@ -38,12 +42,14 @@ endif
 else
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
+	@echo "Using packer template file vhd-image-builder-mariner2-gen2.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
 endif
 endif
 else ifeq (${OS_VERSION},V2kata)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM for kata"
+	@echo "Using packer template file vhd-image-builder-mariner2-gen2-kata.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2-kata.json
 endif
 else
