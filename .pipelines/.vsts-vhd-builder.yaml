@@ -2,12 +2,11 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FE
 trigger: none
 
 pool:
-  name: "nodesigtest-pool"
+  name: $(POOL_NAME)
 
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
-- group: nodesig-test
 
 stages:
   - stage: build_vhd

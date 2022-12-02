@@ -106,12 +106,6 @@ parameters:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
-# - ${{ if eq(variables['System.DefinitionId'], '165322') }}:
-#   - name: poolName
-#     value: nodesigprod-pool
-# - ${{ if eq(variables['System.DefinitionId'], '172842') }}:
-#   - name: poolName
-#     value: nodesigtest-pool
   
 pool:
   name: $(POOL_NAME)
