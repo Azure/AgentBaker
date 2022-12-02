@@ -23,11 +23,16 @@
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
     "img_version": "{{env `IMG_VERSION`}}",
-    "sgx_install": "{{env `SGX_INSTALL`}}"
+    "sgx_install": "{{env `SGX_INSTALL`}}",
+    "vnet_name": "{{env `VNET_NAME`}}",
+    "subnet_name": "{{env `SUBNET_NAME`}}"
   },
   "builders": [
     {
       "type": "azure-arm",
+      "virtual_network_name": "{{user `vnet_name`}}",
+      "virtual_network_subnet_name": "{{user `subnet_name`}}",
+      "ssh_timeout": "3h",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
