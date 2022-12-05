@@ -6,8 +6,8 @@ source e2e-helper.sh
 
 log "Starting to create windows nodepool"
 
-windowsNodepool="win19"
-export windowsNodepool
+# windowsNodepool="win19"
+# export windowsNodepool
 
 # az aks nodepool add --resource-group $RESOURCE_GROUP_NAME --cluster-name $CLUSTER_NAME --name $windowsNodepool --os-type Windows --node-count 1
 
@@ -16,7 +16,7 @@ out=$(az aks nodepool list --cluster-name $CLUSTER_NAME -g $RESOURCE_GROUP_NAME 
 
 if [ "$out" == null ]; then
     log "Creating windows nodepool"
-    az aks nodepool add --resource-group $RESOURCE_GROUP_NAME --cluster-name $CLUSTER_NAME --name $windowsNodepool --os-type Windows --node-count 1
+    az aks nodepool add --resource-group $RESOURCE_GROUP_NAME --cluster-name $CLUSTER_NAME --name $WINDOWS_NODEPOOL --os-type Windows --node-count 1
     log "Created windows nodepool"
 else
     log "Already create windows nodepool"
