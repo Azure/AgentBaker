@@ -29,10 +29,11 @@ jq . template.json | jq --argjson JsonForVnet $WINDOWS_VNET \
     --argjson JsonForLB $WINDOWS_LOADBALANCER \
     --argjson JsonForIdentity $WINDOWS_IDENTITy \
     --argjson JsonForNetwork $NETWORK_PROPERTIES \
-    --arg ValueForAdminPassword $WINDOWS_PASSWORD \
-    --arg ValueForCustomData $CUSTOM_DATA \
-    --arg ValueForCSECmd $CSE_CMD \
-    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd'
+    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork'
+    # --arg ValueForAdminPassword $WINDOWS_PASSWORD \
+    # --arg ValueForCustomData $CUSTOM_DATA \
+    # --arg ValueForCSECmd $CSE_CMD \
+    # '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd'
 
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
