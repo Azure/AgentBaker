@@ -344,10 +344,7 @@
     },
     {
       "type": "shell",
-      "inline": [
-        "set -x",
-        "sudo reboot"
-      ],
+      "inline": "sudo reboot",
       "expect_disconnect": true,
       "skip_clean": true,
       "pause_after": "60s"
