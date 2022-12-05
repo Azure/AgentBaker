@@ -25,15 +25,14 @@ NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.netwo
 CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cloud-init.txt)
 CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd)
 
-(jq . template.json | jq --argjson JsonForVnet $WINDOWS_VNET \
+jq . template.json | jq --argjson JsonForVnet $WINDOWS_VNET \
     --argjson JsonForLB $WINDOWS_LOADBALANCER \
     --argjson JsonForIdentity $WINDOWS_IDENTITy \
     --argjson JsonForNetwork $NETWORK_PROPERTIES \
     --arg ValueForAdminPassword $WINDOWS_PASSWORD \
     --arg ValueForCustomData $CUSTOM_DATA \
     --arg ValueForCSECmd $CSE_CMD \
-    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd') \
-    > deployment-vmss.json
+    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd'
 
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
