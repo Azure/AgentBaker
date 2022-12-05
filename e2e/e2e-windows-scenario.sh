@@ -20,20 +20,19 @@ VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_RESOURCE_GROUP_NAME --n
 az group export --resource-group $MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id > test.json
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
-WINDOWS_IDENTITy=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
-NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] | with_entries( select(.key|contains("properties")))' test.json)
+WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
+jq -c '.resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] | with_entries( select(.key|contains("properties")))' test.json > network_properties.json
 CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cloud-init.txt)
 CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd)
 
-jq . template.json | jq --argjson JsonForVnet $WINDOWS_VNET \
+jq --argjson JsonForVnet $WINDOWS_VNET \
     --argjson JsonForLB $WINDOWS_LOADBALANCER \
-    --argjson JsonForIdentity $WINDOWS_IDENTITy \
-    --argjson JsonForNetwork $NETWORK_PROPERTIES \
-    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork'
-    # --arg ValueForAdminPassword $WINDOWS_PASSWORD \
-    # --arg ValueForCustomData $CUSTOM_DATA \
-    # --arg ValueForCSECmd $CSE_CMD \
-    # '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd'
+    --argjson JsonForIdentity $WINDOWS_IDENTITY \
+    --arg ValueForAdminPassword $WINDOWS_PASSWORD \
+    --arg ValueForCustomData $CUSTOM_DATA \
+    --arg ValueForCSECmd $CSE_CMD \
+    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].properties += [input]' template.json network_properties.json \
+    > deployment.json
 
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
