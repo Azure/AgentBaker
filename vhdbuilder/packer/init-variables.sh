@@ -218,9 +218,9 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 				--os-type Linux
 
 			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-			# if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-			# 	TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
-			# fi
+			if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+				TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
+			fi
 
 			az sig image-definition create \
 				--resource-group $AZURE_RESOURCE_GROUP_NAME \
