@@ -83,7 +83,7 @@
       },
       "notRebootWindowsNode": true
     },
-    "PrimaryScaleSetName": "akswin-vmss",
+    "PrimaryScaleSetName": "akswin30",
     "KubeletConfig": {
       "--azure-container-registry-config": "c:\\k\\azure.json",
       "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",
