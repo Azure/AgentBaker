@@ -230,7 +230,6 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 				--hyper-v-generation V2 \
 				--os-state generalized \
 				--description "Imported image for AKS Packer build" \
-				${TARGET_COMMAND_STRING}
 
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 			az sig image-version create \
