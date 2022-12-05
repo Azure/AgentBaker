@@ -22,8 +22,8 @@ WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
 WINDOWS_IDENTITy=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
 NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] | with_entries( select(.key|contains("properties")))' test.json)
-CUSTOM_DATA=$(cat xxx)
-CSE_CMD=$(cat xxx)
+CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cloud-int.txt)
+CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd)
 
 (jq . template.json | jq --argjson JsonForVnet $WINDOWS_VNET \
     --argjson JsonForLB $WINDOWS_LOADBALANCER \
