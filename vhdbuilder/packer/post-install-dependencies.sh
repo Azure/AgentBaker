@@ -21,11 +21,11 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
   fi
 fi
 
-# shellcheck disable=SC2021
-current_kernel="$(uname -r | cut -d- -f-2)"
-dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
-
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # shellcheck disable=SC2021
+  current_kernel="$(uname -r | cut -d- -f-2)"
+  dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
+
   # strip old kernels/packages
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
