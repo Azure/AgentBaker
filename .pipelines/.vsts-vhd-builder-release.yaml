@@ -62,6 +62,10 @@ parameters:
   displayName: Build MarinerV2 Gen2 - Trusted Launch
   type: boolean
   default: false
+- name: buildMarinerV2gen2kataTrustedLaunch
+  displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
+  type: boolean
+  default: false
 - name: build1804fipscontainerd
   displayName: Build 1804 FIPS containerd
   type: boolean
