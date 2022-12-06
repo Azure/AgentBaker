@@ -88,8 +88,8 @@ func TestE2EWindows(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
-	// var scenario string = os.Getenv("SCENARIO_NAME")
-	var scenario string = "windows"
+	var scenario string = os.Getenv("SCENARIO_NAME")
+	// var scenario string = "windows"
 	fmt.Printf("Running for %s", scenario)
 
 	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
