@@ -218,10 +218,6 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 				--os-type Linux
 
 			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-			if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-				TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
-			fi
-
 			az sig image-definition create \
 				--resource-group $AZURE_RESOURCE_GROUP_NAME \
 				--gallery-name $SIG_GALLERY_NAME \
@@ -234,7 +230,6 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 				--hyper-v-generation V2 \
 				--os-state generalized \
 				--description "Imported image for AKS Packer build" \
-				${TARGET_COMMAND_STRING}
 
 			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 			az sig image-version create \
