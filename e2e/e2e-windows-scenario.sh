@@ -43,12 +43,24 @@ retval=$?
 set -e
 
 DEPLOYMENT_VMSS_NAME="akswin30"
+
+tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
+{
+    "group": "${MC_RESOURCE_GROUP_NAME}",
+    "vmss": "${DEPLOYMET_VMSS_NAME}"
+}
+EOF
+
+cat $SCENARIO_NAME-vmss.json
+
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
                     -g $MC_RESOURCE_GROUP_NAME \
                     -ojson | \
                     jq -r '.[].osProfile.computerName')
 export DEPLOYMENT_VMSS_NAME
+
+
 
 # FAILED=0
 # # Check if the node joined the cluster
@@ -81,8 +93,49 @@ FAILED=0
 # Check if the node joined the cluster
 if [[ "$retval" -eq 0 ]]; then
     ok "Test succeeded, node joined the cluster"
-    kubectl get nodes -o wide | grep $vmInstanceName
+    kubectl get nodes -o wide | grep $VMSS_INSTANCE_NAME
 else
     err "Node did not join cluster"
     FAILED=1
 fi
+
+# Run a windows servercore pod on the node to check if pod runs
+POD_NAME=$(mktemp -u podName-XXXXXXX | tr '[:upper:]' '[:lower:]')
+export POD_NAME
+envsubst < pod-windows-template.yaml > pod-windows.yaml
+sleep 5
+kubectl apply -f pod-windows.yaml
+
+# Sleep to let Pod Status=Running
+waitForPodStartTime=$(date +%s)
+for i in $(seq 1 10); do
+    set +e
+    kubectl get pods -o wide | grep $POD_NAME
+    kubectl get pods -o wide | grep $POD_NAME | grep 'Running'
+    retval=$?
+    set -e
+    if [ "$retval" -ne 0 ]; then
+        log "retrying attempt $i"
+        sleep 10
+        continue
+    fi
+    break;
+done
+waitForPodEndTime=$(date +%s)
+log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come up"
+
+if [[ "$retval" -eq 0 ]]; then
+    ok "Pod ran successfully"
+else
+    err "Pod pending/not running"
+    kubectl get pods -o wide | grep $POD_NAME
+    kubectl describe pod $POD_NAME
+    exit 1
+fi
+
+waitForDeleteStartTime=$(date +%s)
+
+kubectl delete node $VMSS_INSTANCE_NAME
+
+waitForDeleteEndTime=$(date +%s)
+log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
