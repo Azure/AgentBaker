@@ -47,7 +47,7 @@ DEPLOYMENT_VMSS_NAME="akswin30"
 tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
     "group": "${MC_RESOURCE_GROUP_NAME}",
-    "vmss": "${DEPLOYMET_VMSS_NAME}"
+    "vmss": "${DEPLOYMENT_VMSS_NAME}"
 }
 EOF
 
