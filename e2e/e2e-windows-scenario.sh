@@ -59,7 +59,7 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -ojson | \
                     jq -r '.[].osProfile.computerName')
 export DEPLOYMENT_VMSS_NAME
-
+export VMSS_INSTANCE_NAME
 
 
 # FAILED=0
