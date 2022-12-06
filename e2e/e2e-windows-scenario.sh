@@ -48,14 +48,7 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -g $MC_RESOURCE_GROUP_NAME \
                     -ojson | \
                     jq -r '.[].osProfile.computerName')
-VMSS_INSTANCE_ID=$(az vmss list-instances \ 
-                    -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $MC_RESOURCE_GROUP_NAME \
-                    -OJSON | \
-                    JQ -R '.[].instanceId'
-                )
 export DEPLOYMENT_VMSS_NAME
-export DEPLOYMENT_VMSS_INSTANCE_ID
 
 # FAILED=0
 # # Check if the node joined the cluster
