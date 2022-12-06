@@ -108,7 +108,7 @@ kubectl apply -f pod-windows.yaml
 
 # Sleep to let Pod Status=Running
 waitForPodStartTime=$(date +%s)
-for i in $(seq 1 10); do
+for i in $(seq 1 20); do
     set +e
     kubectl get pods -o wide | grep $POD_NAME
     kubectl get pods -o wide | grep $POD_NAME | grep 'Running'
@@ -116,7 +116,7 @@ for i in $(seq 1 10); do
     set -e
     if [ "$retval" -ne 0 ]; then
         log "retrying attempt $i"
-        sleep 10
+        sleep 15
         continue
     fi
     break;
