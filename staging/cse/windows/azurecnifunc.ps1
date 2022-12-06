@@ -408,8 +408,6 @@ function New-ExternalHnsNetwork
 function Get-HnsPsm1
 {
     Param(
-        [string]
-        $HnsUrl = "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/",
         [Parameter(Mandatory=$true)][string]
         $HNSModule
     )
@@ -417,6 +415,11 @@ function Get-HnsPsm1
     # HNSModule is C:\k\hns.psm1 when container runtime is Docker
     # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
     $fileName = [IO.Path]::GetFileName($HNSModule)
-    $HnsUrl = [IO.Path]::Combine($HnsUrl, $fileName)
-    DownloadFileOverHttp -Url $HnsUrl -DestinationPath "$HNSModule" -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE
+    # Get-LogCollectionScripts will copy hns module file to C:\k\debug
+    $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
+    try {
+        Copy-Item -Path $sourceFile -Destination "$HNSModule"
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy C:\AzureData\windows\debug to $HNSModule. Error: $_"
+    }
 }

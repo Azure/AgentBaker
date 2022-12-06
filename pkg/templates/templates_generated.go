@@ -6813,6 +6813,7 @@ try
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
     Get-ProvisioningScripts
+    Get-LogCollectionScripts
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
@@ -6965,8 +6966,6 @@ try
     Install-KubernetesServices `+"`"+`
         -KubeDir $global:KubeDir `+"`"+`
         -ContainerRuntime $global:ContainerRuntime
-
-    Get-LogCollectionScripts
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
