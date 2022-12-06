@@ -2100,12 +2100,11 @@ retagMCRImagesForChina() {
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl rmi $CONTAINER_IMAGE_URL
-    else
+    if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
+    else
+        # crictl should always be present
+        crictl rm $CONTAINER_IMAGE_URL
     fi
 }
 
@@ -3725,7 +3724,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.23.12",
             "1.24.3",
             "1.24.6",
-            "1.25.2-hotfix.20221006"
+            "1.25.2-hotfix.20221006",
+            "1.25.4"
         ]
     },
     "_template": {
