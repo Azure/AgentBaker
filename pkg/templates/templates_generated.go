@@ -6813,6 +6813,7 @@ try
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
     Get-ProvisioningScripts
+    Get-LogCollectionScripts
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
@@ -6965,8 +6966,6 @@ try
     Install-KubernetesServices `+"`"+`
         -KubeDir $global:KubeDir `+"`"+`
         -ContainerRuntime $global:ContainerRuntime
-
-    Get-LogCollectionScripts
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
@@ -7199,6 +7198,7 @@ $global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE=47
 $global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE=48
 $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csecmd.ps1 when C:\AzureData\CustomData.bin does not exist
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
+$global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
