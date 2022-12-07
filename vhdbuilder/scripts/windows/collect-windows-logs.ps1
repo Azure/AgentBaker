@@ -1,3 +1,4 @@
+# NOTE: Please also update vhdbuilder/scripts/windows/collect-windows-logs.ps1 before we remove this script.
 $ProgressPreference = "SilentlyContinue"
 
 $lockedFiles = @(
@@ -113,12 +114,8 @@ else {
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
-mkdir 'c:\k\debug' -ErrorAction Ignore | Out-Null
 
 Write-Host "Collecting networking related logs"
-if (-not (Test-Path 'c:\k\debug\collectlogs.ps1')) {
-  curl.exe --retry 5 --retry-delay 0 -L https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1 -o 'c:\k\debug\collectlogs.ps1'
-}
 & 'c:\k\debug\collectlogs.ps1' | write-Host
 $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName | Select-Object -ExpandProperty FullName
 $paths += $netLogs
