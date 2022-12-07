@@ -10,9 +10,9 @@ STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
 # Names of networking reosurces used for VHD builds
 LINUX_BUILD_VNET_NAME="nodesig-pool-vnet"
-WINDOWS_BUILD_VNET_NAME="<TBD WINDOWS VNET NAME>"
+WINDOWS_BUILD_VNET_NAME="nodesig-pool-vnet"
 LINUX_BUILD_SUBNET_NAME="packer"
-WINDOWS_BUILD_SUBNET_NAME="<TBD WINDOWS SUBNET NAME>"
+WINDOWS_BUILD_SUBNET_NAME="packer-windows"
 
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
