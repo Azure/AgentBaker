@@ -445,28 +445,6 @@ function New-HostsConfigService {
     & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
 }
 
-function CopyFileFromCache {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $DestinationFolder,
-        [Parameter(Mandatory = $true)][string]
-        $FileName
-    )
-    $search = @()
-    if (Test-Path $global:CacheDir) {
-        $search = [IO.Directory]::GetFiles($global:CacheDir, $FileName, [IO.SearchOption]::AllDirectories)
-    }
-
-    if ($search.Count -ne 0) {
-        $DestinationPath=[io.path]::Combine($DestinationFolder, $FileName)
-        Write-Log "Using cached version of $FileName - Copying file from $($search[0]) to $DestinationPath"
-        Copy-Item -Path $search[0] -Destination $DestinationPath -Force
-    }
-    else {
-        Write-Log "WARNING: $FileName is missed in cached folder $global:CacheDir"
-    }
-}
-
 function Register-LogCollectorScriptTask {
     Param(
         [Parameter(Mandatory = $true)][int]

@@ -108,18 +108,18 @@ Describe 'Set-AzureCNIConfig' {
 
 Describe 'Get-HnsPsm1' {
     Context 'Docker' {
-        It "Should download hns.psm1 with the correct URL" {
-            Mock DownloadFileOverHttp
+        It "Should copy hns.psm1 with the correct source file" {
+            Mock Copy-Item {}
             Get-HnsPsm1 -HNSModule "C:\k\hns.psm1"
-            Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly -Times 1 -ParameterFilter { $Url -eq "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1" -and $DestinationPath -eq "C:\k\hns.psm1" -and $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE }
+            Assert-MockCalled -CommandName "Copy-Item" -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\k\debug\hns.psm1' -and $Destination -eq "C:\k\hns.psm1" }
         }
     }
 
     Context 'Containerd' {
-        It "Should download hns.v2.psm1 with the correct URL" {
-            Mock DownloadFileOverHttp
+        It "Should copy hns.v2.psm1 with the correct source file" {
+            Mock Copy-Item {}
             Get-HnsPsm1 -HNSModule "C:\k\hns.v2.psm1"
-            Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly -Times 1 -ParameterFilter { $Url -eq "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.v2.psm1" -and $DestinationPath -eq "C:\k\hns.v2.psm1" -and $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE }
+            Assert-MockCalled -CommandName "Copy-Item" -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\k\debug\hns.v2.psm1' -and $Destination -eq "C:\k\hns.v2.psm1" }
         }
     }
 }

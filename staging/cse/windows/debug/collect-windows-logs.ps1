@@ -1,4 +1,3 @@
-# NOTE: Please also update vhdbuilder/scripts/windows/collect-windows-logs.ps1 before we remove this script.
 $ProgressPreference = "SilentlyContinue"
 
 $lockedFiles = @(
