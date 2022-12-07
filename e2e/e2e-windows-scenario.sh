@@ -154,8 +154,8 @@ fi
 # debug
 retval=0
 mkdir -p $SCENARIO_NAME-logs
-kubectl cp -r $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
-kubectl cp -r $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
+kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
+kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
 
 waitForDeleteStartTime=$(date +%s)
 
