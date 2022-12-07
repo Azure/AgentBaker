@@ -4,6 +4,21 @@ set -euxo pipefail
 
 source e2e-helper.sh
 
+choose() {
+    echo ${1:RANDOM%${#1}:1} $RANDOM;
+}
+
+WINDOWS_PASSWORD=$({
+  choose '#*-+.;'
+  choose '0123456789'
+  choose 'abcdefghijklmnopqrstuvwxyz'
+  choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  for i in $(seq 1 16)
+  do
+    choose '#*-+.;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  done
+} | sort -R | awk '{printf "%s", $1}')
+
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 kubectl rollout status deploy/debug
@@ -116,7 +131,7 @@ for i in $(seq 1 20); do
     set -e
     if [ "$retval" -ne 0 ]; then
         log "retrying attempt $i"
-        sleep 15
+        sleep 30
         continue
     fi
     break;
