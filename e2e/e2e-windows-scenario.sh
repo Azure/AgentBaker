@@ -133,9 +133,15 @@ else
     exit 1
 fi
 
+# debug
+retval=0
+mkdir -p $SCENARIO_NAME-logs
+kubectl cp -r $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
+kubectl cp -r $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
+
 waitForDeleteStartTime=$(date +%s)
 
 kubectl delete node $VMSS_INSTANCE_NAME
 
 waitForDeleteEndTime=$(date +%s)
-log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"
+log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   

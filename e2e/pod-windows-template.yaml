@@ -11,7 +11,14 @@ spec:
     command:
       - "powershell.exe"
       - "-command"
-      - "Start-Sleep -s 36000"
+      - "$t=Get-Content C:\\AzureData\\CSEResult.log; Write-Host $t; Sleep 1840000"
     imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - name: kube-path
+        mountPath: C:\AzureData
+  volumes:
+  - name: kube-path
+    hostpath:
+      path: C:\AzureData
   nodeSelector:
     kubernetes.io/hostname: ${VMSS_INSTANCE_NAME}
