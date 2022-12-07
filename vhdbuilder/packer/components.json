@@ -122,7 +122,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod11292022-6a507f9a"
+        "ciprod12032022-c9f3dc30"
       ]
     },
     {
