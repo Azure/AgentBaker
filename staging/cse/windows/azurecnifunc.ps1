@@ -418,8 +418,9 @@ function Get-HnsPsm1
     # Get-LogCollectionScripts will copy hns module file to C:\k\debug
     $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
     try {
+        Write-Log "Copying $sourceFile to $HNSModule."
         Copy-Item -Path $sourceFile -Destination "$HNSModule"
     } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy C:\AzureData\windows\debug to $HNSModule. Error: $_"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy $sourceFile to $HNSModule. Error: $_"
     }
 }
