@@ -8,16 +8,19 @@ choose() {
     echo ${1:RANDOM%${#1}:1} $RANDOM;
 }
 
+set +x
 WINDOWS_PASSWORD=$({
-  choose '#*-+.;'
-  choose '0123456789'
-  choose 'abcdefghijklmnopqrstuvwxyz'
-  choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  for i in $(seq 1 16)
-  do
-    choose '#*-+.;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  done
+    choose '#*-+.;'
+    choose '0123456789'
+    choose 'abcdefghijklmnopqrstuvwxyz'
+    choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    for i in $(seq 1 16)
+    do
+        choose '#*-+.;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    done
 } | sort -R | awk '{printf "%s", $1}')
+set -x
+echo $WINDOWS_PASSWORD
 
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
@@ -131,7 +134,7 @@ for i in $(seq 1 20); do
     set -e
     if [ "$retval" -ne 0 ]; then
         log "retrying attempt $i"
-        sleep 30
+        sleep 15
         continue
     fi
     break;

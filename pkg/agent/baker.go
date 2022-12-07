@@ -78,7 +78,6 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	if profile.PreprovisionExtension != nil {
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
-	fmt.Println("444")
 	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }

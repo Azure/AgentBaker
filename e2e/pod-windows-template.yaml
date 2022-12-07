@@ -18,7 +18,7 @@ spec:
         mountPath: C:\AzureData
   volumes:
   - name: kube-path
-    hostpath:
+    hostPath:
       path: C:\AzureData
   nodeSelector:
     kubernetes.io/hostname: ${VMSS_INSTANCE_NAME}
