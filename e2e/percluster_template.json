@@ -22,4 +22,4 @@
     "ResourceGroupName": "${resourceGroup}",
     "UserAssignedIdentityClientID": "${userAssignedIdentityID}",
     "KubeletClientTLSBootstrapToken": "${tlsbootstraptoken}"
-} 
+}

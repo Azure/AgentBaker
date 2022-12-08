@@ -76,7 +76,6 @@ set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
 addJsonToFile "caCrt" "$(cat ca.crt)"
 addJsonToFile "clientKey" "$(cat client.key)"
-addJsonToFile "clientCrt" "$clientCertificate"
 if [ -f "bootstrap-kubeconfig" ] && [ -n "$(cat bootstrap-kubeconfig)" ]; then
     tlsToken="$(grep "token" < bootstrap-kubeconfig | cut -f2 -d ":" | tr -d '"')"
     addJsonToFile "tlsbootstraptoken" "$tlsToken"
