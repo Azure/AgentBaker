@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "virtualMachineScaleSets_akswin30_name": {
-            "defaultValue": "akswin30",
+            "defaultValue": "",
             "type": "string"
         },
         "galleries_windowsabgallery_externalid": {

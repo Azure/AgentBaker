@@ -28,8 +28,17 @@ export KUBECONFIG
 clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{print $2}')
 kubectl rollout status deploy/debug
 
+DEPLOYMENT_VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
+
+tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
+{
+    "group": "${MC_RESOURCE_GROUP_NAME}",
+    "vmss": "${DEPLOYMENT_VMSS_NAME}"
+}
+EOF
+
 echo "Scenario is $SCENARIO_NAME"
-jq --arg clientCrt "$clientCertificate" 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt}' nodebootstrapping_config.json > nodebootstrapping_config_for_windows.json
+jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > nodebootstrapping_config_for_windows.json
 jq -s '.[0] * .[1]' nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/nbc-$SCENARIO_NAME.json
 
 go test -run TestE2EWindows
@@ -53,7 +62,8 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --arg ValueForAdminPassword "$WINDOWS_PASSWORD" \
     --arg ValueForCustomData "$CUSTOM_DATA" \
     --arg ValueForCSECmd "$CSE_CMD" \
-    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd' \
+    --arg ValueForVMSS "$DEPLOYMENT_VMSS_NAME" \
+    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | .parameters.virtualMachineScaleSets_akswin30_name.defaultValue=$ValueForVMSS' \
     template.json > deployment.json
 
 set +e
@@ -61,15 +71,6 @@ az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
          --template-file deployment.json
 retval=$?
 set -e
-
-DEPLOYMENT_VMSS_NAME="akswin30"
-
-tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
-{
-    "group": "${MC_RESOURCE_GROUP_NAME}",
-    "vmss": "${DEPLOYMENT_VMSS_NAME}"
-}
-EOF
 
 cat $SCENARIO_NAME-vmss.json
 
