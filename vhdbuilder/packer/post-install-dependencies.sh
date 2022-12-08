@@ -12,7 +12,7 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
-# Hardcode the desired size the OS disk so we don't accidently rely on extra disk size
+# Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -43,11 +43,11 @@ df -h >> ${VHD_LOGS_FILEPATH}
 
 # check the size of the OS disk after installing all dependencies: warn at 75% space taken, error at 99% space taken
 os_disk=$(readlink -f /dev/disk/azure/root-part1)
-used_blocks=$(df -P | grep -w "${os_disk}" | awk '{print $3}')
-usage=$(echo "scale = 2; (${used_blocks} / ${MAX_BLOCK_COUNT}) * 100" | bc)
+used_blocks=$(df -P ${os_disk} | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v max=${MAX_BLOCK_COUNT} 'BEGIN{print (used/max) * 100}')
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: OS disk (${os_disk}) is already 99% used!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: OS disk (${os_disk}) is already 75% used!" >> ${VHD_LOGS_FILEPATH}
+[ ${usage} -ge 75 ] && echo "WARNING: OS disk (${os_disk}) is already 75% used!"
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
