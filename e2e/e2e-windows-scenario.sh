@@ -29,8 +29,7 @@ clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{pri
 kubectl rollout status deploy/debug
 
 echo "Scenario is $SCENARIO_NAME"
-jq --arg clientCrt "$clientCertificate" 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt}' nodebootstrapping_config.json > nodebootstrapping_config_for_windows.json
-cat nodebootstrapping_config_for_windows.json
+jq --arg clientCrt "$clientCertificate" 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": "$clientCrt"}' nodebootstrapping_config.json > nodebootstrapping_config_for_windows.json
 jq -s '.[0] * .[1]' nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/nbc-$SCENARIO_NAME.json
 
 go test -run TestE2EWindows
@@ -147,6 +146,10 @@ log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come u
 
 if [[ "$retval" -eq 0 ]]; then
     ok "Pod ran successfully"
+    # debug
+    mkdir -p $SCENARIO_NAME-logs
+    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1  
 else
     err "Pod pending/not running"
     kubectl get pods -o wide | grep $POD_NAME
@@ -154,15 +157,14 @@ else
     exit 1
 fi
 
-# debug
-retval=0
-mkdir -p $SCENARIO_NAME-logs
-kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
-kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
+if [ "$FAILED" == "1" || "$retval" -eq 1]; then
+    log "Reserve vmss and node for failed pipeline"
+else
+    waitForDeleteStartTime=$(date +%s)
 
-waitForDeleteStartTime=$(date +%s)
+    kubectl delete node $VMSS_INSTANCE_NAME
+    az vmss delete -g $(jq -r .group e2e/$(SCENARIO_NAME)-vmss.json) -n $(jq -r .vmss e2e/$(SCENARIO_NAME)-vmss.json)
 
-kubectl delete node $VMSS_INSTANCE_NAME
-
-waitForDeleteEndTime=$(date +%s)
-log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   
+    waitForDeleteEndTime=$(date +%s)
+    log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   
+fi
