@@ -38,11 +38,11 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
 
-
-# warn at 75% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
-# error at 99% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 99 {print}') ] || exit 1
+# check the size of the OS disk after installing all dependencies:
+# warn at 75% space taken, error at 99% space taken
+os_disk=$(readlink -f /dev/disk/azure/root-part1)
+[ -s $(df -P | grep "${os_disk}" | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
+[ -s $(df -P | grep "${os_disk}" | awk '0+$5 >= 99 {print}') ] || exit 1
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
