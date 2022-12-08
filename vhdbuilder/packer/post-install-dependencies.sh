@@ -44,7 +44,7 @@ df -h >> ${VHD_LOGS_FILEPATH}
 # check the size of the OS disk after installing all dependencies: warn at 75% space taken, error at 99% space taken
 os_disk=$(readlink -f /dev/disk/azure/root-part1)
 used_blocks=$(df -P ${os_disk} | awk '{print $3}')
-usage=$(awk -v used=${used_blocks} -v max=${MAX_BLOCK_COUNT} 'BEGIN{print (used/max) * 100}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: OS disk (${os_disk}) is already 99% used!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: OS disk (${os_disk}) is already 75% used!"
