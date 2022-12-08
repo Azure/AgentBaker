@@ -47,8 +47,6 @@ az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfi
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 
-clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{print $2}')
-
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
 
