@@ -47,7 +47,7 @@ used_blocks=$(df -P | grep -w "${os_disk}" | awk '{print $3}')
 usage=$(echo "scale = 2; (${used_blocks} / ${MAX_BLOCK_COUNT}) * 100" | bc)
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: OS disk (${os_disk}) is already 99% used!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: OS disk (${os_disk}) is already used 75% used!" >> ${VHD_LOGS_FILEPATH}
+[ ${usage} -ge 75 ] && echo "WARNING: OS disk (${os_disk}) is already 75% used!" >> ${VHD_LOGS_FILEPATH}
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
