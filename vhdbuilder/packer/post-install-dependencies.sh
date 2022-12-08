@@ -12,7 +12,7 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
-# Hardcode the desired size the OS disk so we don't accidently rely on extra space temporarily added during builds
+# Hardcode the desired size the OS disk so we don't accidently rely on extra disk size
 MAX_BLOCK_COUNT=30298176 # 30 GB
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
