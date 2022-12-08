@@ -25,7 +25,7 @@ steps:
       GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
       export PATH="$PATH:$GOPATH/bin"
       pushd /tmp
-      GO111MODULE=on go get cuelang.org/go/cmd/cue
+      GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: setup cue
