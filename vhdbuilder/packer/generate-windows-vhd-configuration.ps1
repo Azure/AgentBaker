@@ -120,8 +120,7 @@ if ($windowsSku -eq "2019") {
 
 $global:map = @{
     "c:\akse-cache\"              = @(
-        "https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
-        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/flannel/l2bridge/cni/win-bridge.exe",
+        "https://github.com/Azure/AgentBaker/raw/master/staging/cse/windows/debug/collect-windows-logs.ps1",
         # Please also update staging/cse/windows/debug/update-debug-scripts.ps1 before we remove below scripts from SDN repo
         "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/collectlogs.ps1",
         "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/dumpVfpPolicies.ps1",

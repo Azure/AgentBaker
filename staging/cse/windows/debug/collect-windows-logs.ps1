@@ -1,3 +1,4 @@
+# NOTE: Please also update staging/cse/windows/provisioningscripts/loggenerator.ps1 when collecting new logs.
 $ProgressPreference = "SilentlyContinue"
 
 $lockedFiles = @(
