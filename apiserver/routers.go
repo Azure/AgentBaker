@@ -42,7 +42,7 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 		Name("GetDistroSigImageConfig").
 		HandlerFunc(api.GetDistroSigImageConfig)
 
-	recoveryHandler := handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(router)
+	router.Use(handlers.RecoveryHandler(handlers.PrintRecoveryStack(true)))
 
-	return recoveryHandler(router)
+	return router
 }
