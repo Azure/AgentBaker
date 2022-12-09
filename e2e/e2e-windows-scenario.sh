@@ -22,6 +22,8 @@ WINDOWS_PASSWORD=$({
 set -x
 echo $WINDOWS_PASSWORD
 
+MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
+
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 
@@ -43,7 +45,6 @@ jq -s '.[0] * .[1]' nodebootstrapping_config_for_windows.json scenarios/$SCENARI
 
 go test -run TestE2EWindows
 
-MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
 MC_WIN_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, '$WINDOWS_NODEPOOL')]" -ojson | jq -r '.[0].name')
 VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
