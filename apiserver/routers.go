@@ -3,6 +3,7 @@ package apiserver
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -23,7 +24,6 @@ type Routes []Route
 func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
-	// healthz should not require authentication
 	router.
 		Methods("POST").
 		Path(RoutePathNodeBootstrapData).
@@ -42,12 +42,10 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 		Name("GetDistroSigImageConfig").
 		HandlerFunc(api.GetDistroSigImageConfig)
 
-	router.Methods("GET").Path("/panic").Name("PanicTester").HandlerFunc(func(w http.ResponseWriter, r *http.Request) { panic("fudge") })
-	router.Methods("GET").Path("/panic2").Name("PanicTester2").HandlerFunc(handlePanic)
+	router.Methods("GET").Path("/healthz").Name("healthz").HandlerFunc(healthz)
 
-	router.HandleFunc("/healthz", healthz)
-
-	router.Use(handlers.RecoveryHandler(handlers.PrintRecoveryStack(true)))
+	// global timeout and panic handlers.
+	router.Use(timeoutHandler(), recoveryHandler())
 
 	return router
 }
@@ -66,8 +64,12 @@ func handleOK(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func handlePanic(w http.ResponseWriter, r *http.Request) {
-	setHeaders(w)
-	w.WriteHeader(http.StatusOK)
-	panic("fudge")
+func recoveryHandler() mux.MiddlewareFunc {
+	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))
+}
+
+func timeoutHandler() mux.MiddlewareFunc {
+	return func(h http.Handler) http.Handler {
+		return http.TimeoutHandler(h, time.Second*30, "")
+	}
 }
