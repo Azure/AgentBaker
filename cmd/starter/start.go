@@ -18,7 +18,7 @@ import (
 func Execute() {
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
-	startCmd.Flags().DurationVar(&options.Addr, "timeout", time.Second*30, "per request timeout duration")
+	startCmd.Flags().DurationVar(&options.Timeout, "timeout", time.Second*30, "per request timeout duration")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
