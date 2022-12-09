@@ -54,13 +54,8 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	handleOK(w, r)
 }
 
-func setHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-}
-
 func handleOK(w http.ResponseWriter, r *http.Request) {
-	setHeaders(w)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }
 
