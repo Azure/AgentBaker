@@ -30,7 +30,7 @@ export KUBECONFIG
 clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{print $2}')
 kubectl rollout status deploy/debug
 
-DEPLOYMENT_VMSS_NAME="$(mktemp -u abtest-XXXXXXX | tr '[:upper:]' '[:lower:]')"
+DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 
 tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
