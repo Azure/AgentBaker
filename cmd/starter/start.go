@@ -1,4 +1,4 @@
-//This has been generated using akservice version: v0.0.1
+// This has been generated using akservice version: v0.0.1
 package starter
 
 import (
@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Azure/agentbaker/apiserver"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ import (
 func Execute() {
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
+	startCmd.Flags().DurationVar(&options.Addr, "timeout", time.Second*30, "per request timeout duration")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

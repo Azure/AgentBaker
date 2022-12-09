@@ -5,11 +5,13 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 )
 
 // Options holds the options for the api server
 type Options struct {
-	Addr string
+	Addr    string
+	Timeout time.Duration
 }
 
 func (o *Options) validate() error {
