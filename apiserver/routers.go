@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -41,5 +42,7 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 		Name("GetDistroSigImageConfig").
 		HandlerFunc(api.GetDistroSigImageConfig)
 
-	return router
+	recoveryHandler := handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(router)
+
+	return recoveryHandler(router)
 }
