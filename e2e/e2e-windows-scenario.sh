@@ -165,7 +165,7 @@ else
     waitForDeleteStartTime=$(date +%s)
 
     kubectl delete node $VMSS_INSTANCE_NAME
-    az vmss delete -g $(jq -r .group e2e/$(SCENARIO_NAME)-vmss.json) -n $(jq -r .vmss e2e/$(SCENARIO_NAME)-vmss.json)
+    az vmss delete -g $(jq -r .group $SCENARIO_NAME-vmss.json) -n $(jq -r .vmss $SCENARIO_NAME-vmss.json)
 
     waitForDeleteEndTime=$(date +%s)
     log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   
