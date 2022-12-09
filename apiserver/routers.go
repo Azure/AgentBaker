@@ -42,7 +42,32 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 		Name("GetDistroSigImageConfig").
 		HandlerFunc(api.GetDistroSigImageConfig)
 
+	router.Methods("GET").Path("/panic").Name("PanicTester").HandlerFunc(func(w http.ResponseWriter, r *http.Request) { panic("fudge") })
+	router.Methods("GET").Path("/panic2").Name("PanicTester2").HandlerFunc(handlePanic)
+
+	router.HandleFunc("/healthz", healthz)
+
 	router.Use(handlers.RecoveryHandler(handlers.PrintRecoveryStack(true)))
 
 	return router
+}
+
+func healthz(w http.ResponseWriter, r *http.Request) {
+	handleOK(w, r)
+}
+
+func setHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+}
+
+func handleOK(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	w.WriteHeader(http.StatusOK)
+}
+
+func handlePanic(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	w.WriteHeader(http.StatusOK)
+	panic("fudge")
 }
