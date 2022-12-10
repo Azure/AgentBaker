@@ -13,7 +13,7 @@ CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-MAX_BLOCK_COUNT=29296875 # 3e10 bytes / 1024 = # of kibibyte blocks
+MAX_BLOCK_COUNT=30298176 # 30 GB
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
@@ -44,11 +44,12 @@ df -h >> ${VHD_LOGS_FILEPATH}
 # check the size of the OS disk after installing all dependencies: warn at 75% space taken, error at 99% space taken
 os_device=$(readlink -f /dev/disk/azure/root)
 # used_blocks=$(lsblk -b ${os_device} --output FSUSED | awk '{SUM += $1} END {print SUM/1024}')
-used_blocks=$(df -P | grep "${os_device}" | awk '{SUM += $3} END {print SUM}')
+# used_blocks=$(df -P | grep "${os_device}" | awk '{SUM += $3} END {print SUM}')
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: OS device (${os_device}) is already 99% used!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: OS device (${os_device}) is already 75% used!"
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
