@@ -12,6 +12,9 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
+# Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
+MAX_BLOCK_COUNT=30298176 # 30 GB
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
   current_kernel="$(uname -r | cut -d- -f-2)"
@@ -38,11 +41,13 @@ echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed P
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
 
-
-# warn at 75% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
-# error at 99% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 99 {print}') ] || exit 1
+# check the size of the OS disk after installing all dependencies: warn at 75% space taken, error at 99% space taken
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
