@@ -43,8 +43,6 @@ df -h >> ${VHD_LOGS_FILEPATH}
 
 # check the size of the OS disk after installing all dependencies: warn at 75% space taken, error at 99% space taken
 os_device=$(readlink -f /dev/disk/azure/root)
-# used_blocks=$(lsblk -b ${os_device} --output FSUSED | awk '{SUM += $1} END {print SUM/1024}')
-# used_blocks=$(df -P | grep "${os_device}" | awk '{SUM += $3} END {print SUM}')
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
