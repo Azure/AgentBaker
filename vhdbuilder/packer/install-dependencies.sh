@@ -241,7 +241,6 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       echo "Failed to install GPU driver, exiting..."
       exit $ret
     fi
-    echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" > ${GPU_DEST}/driver-ver.txt
   else
     bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
     ret=$?
@@ -250,6 +249,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   fi
+  echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" > ${GPU_DEST}/driver-ver.txt
+  nvidia-smi
 fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
