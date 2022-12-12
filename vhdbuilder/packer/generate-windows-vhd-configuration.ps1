@@ -61,7 +61,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod11292022-6a507f9a")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod12032022-c9f3dc30")
 } elseif ($windowsSku -eq "2019-containerd") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -87,7 +87,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod11292022-6a507f9a")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod12032022-c9f3dc30")
 } elseif ($windowsSku -eq "2022-containerd" -or $windowsSku -eq "2022-containerd-gen2") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -110,7 +110,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod11292022-6a507f9a",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod12032022-c9f3dc30",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29")
@@ -120,21 +120,21 @@ if ($windowsSku -eq "2019") {
 
 $global:map = @{
     "c:\akse-cache\"              = @(
-        "https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/win-bridge.exe",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/portReservationTest.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.cmd",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.cmd",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/stoppacketcapture.cmd",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.ps1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/VFP.psm1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/networkmonitor/networkhealth.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.v2.psm1",
+        "https://github.com/Azure/AgentBaker/raw/master/staging/cse/windows/debug/collect-windows-logs.ps1",
+        # Please also update staging/cse/windows/debug/update-debug-scripts.ps1 before we remove below scripts from SDN repo
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/collectlogs.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/dumpVfpPolicies.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/portReservationTest.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/starthnstrace.cmd",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/startpacketcapture.cmd",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/stoppacketcapture.cmd",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/starthnstrace.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/startpacketcapture.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/VFP.psm1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/networkmonitor/networkhealth.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/helper.psm1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.psm1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.v2.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.12.zip",
