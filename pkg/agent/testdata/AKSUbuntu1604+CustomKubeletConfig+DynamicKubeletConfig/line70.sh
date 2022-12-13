@@ -441,8 +441,8 @@ ensureGPUDrivers() {
         return
     fi
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        DRIVER_FILE="usr/local/nvidia/bin/driver-ver.txt"
-        if [ ! -e $DRIVER_FILE ] || [ grep -vq "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" $DRIVER_FILE ]; then
+        DRIVER_VER="$(grep $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $VHD_LOGS_FILEPATH)"
+        if [ -z $DRIVER_VER ]; then
             logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
         fi
     fi

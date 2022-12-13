@@ -248,7 +248,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   fi
-  echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" > usr/local/nvidia/bin/driver-ver.txt
+  DRIVER_VERSION="$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  echo " - nvidia driver version ${DRIVER_VERSION}" >> ${VHD_LOGS_FILEPATH}
   nvidia-smi
 fi
 
