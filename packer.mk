@@ -82,7 +82,7 @@ ifeq (${OS_TYPE},Windows)
 else
 	@az login --identity
 endif
-az account set -s ${SUBSCRIPTION_ID}
+	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
