@@ -85,7 +85,6 @@ set -x
 # # Add other relevant information needed by AgentBaker for bootstrapping later
 getAgentPoolProfileValues
 getFQDN
-getDNSPrefix
 getMSIResourceID
 
 addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
