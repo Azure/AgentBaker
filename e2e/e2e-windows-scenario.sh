@@ -166,16 +166,6 @@ else
     exit 1
 fi
 
-log "Start to execute widnows script"
-
-az vmss run-command invoke --command-id RunPowerShellScript \
-        --name $DEPLOYMENT_VMSS_NAME \
-        -g $MC_RESOURCE_GROUP_NAME \
-        --scripts "$WINDOWS_SCRIPT" \
-        --instance-id $VMSS_INSTANCE_ID
-retval=$?
-log "Finish executing windows script"
-
 if [ "$FAILED" == "1"] || [ "$retval" -eq 1 ]; then
     log "Reserve vmss and node for failed pipeline"
 else
