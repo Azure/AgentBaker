@@ -75,10 +75,9 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "/subscriptions/a15c116e-99e3-4c59-aebc-8f864929b4a0/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/windowsabgallery/images/windows-2019-containerd/versions/2022.11.08" \
+    --image "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026" \
     --upgrade-policy-mode Automatic \
-    --admin-username azureuser \
-    --admin-password A23deSK09LwHswA234 \
+    --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
 
 vmssEndTime=$(date +%s)
@@ -93,14 +92,6 @@ vmInstanceName=$(az vmss list-instances \
             )
 export vmInstanceName
 
-vmInstanceId=$(az vmss list-instances \
-                -n ${VMSS_NAME} \
-                -g $MC_RESOURCE_GROUP_NAME \
-                -ojson | \
-                jq -r '.[].instanceId'
-            )
-export vmInstanceId
-
 # Generate the extension from csecmd
 jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd > scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json
 
@@ -108,16 +99,12 @@ jq -Rs '{commandToExecute: . }' scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd >
 log "Applying extensions to VMSS"
 vmssExtStartTime=$(date +%s)
 set +e
-# az vmss run-command invoke --command-id RunPowerShellScript \
-#     -g $MC_RESOURCE_GROUP_NAME \
-#     -n $VMSS_NAME \
-#     --instance-id $vmInstanceId \
-#     --scripts @scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd
 az vmss extension set --resource-group $MC_RESOURCE_GROUP_NAME \
-    --name CustomScriptExtension \
+    --name CustomScript \
     --vmss-name ${VMSS_NAME} \
-    --publisher Microsoft.Compute \
+    --publisher Microsoft.Azure.Extensions \
     --protected-settings scenarios/$SCENARIO_NAME/$SCENARIO_NAME-settings.json \
+    --version 2.0 \
     -ojson
 retval=$?
 set -e
@@ -139,7 +126,6 @@ waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
     kubectl get nodes | grep $vmInstanceName
-    retval=$?
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
     if [ -z "$(kubectl get nodes | grep $vmInstanceName | grep -v "NotReady")" ]; then

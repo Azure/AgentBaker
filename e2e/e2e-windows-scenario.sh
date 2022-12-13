@@ -171,7 +171,7 @@ log "Start to execute widnows script"
 az vmss run-command invoke --command-id RunPowerShellScript \
         --name $DEPLOYMENT_VMSS_NAME \
         -g $MC_RESOURCE_GROUP_NAME \
-        --scripts '$WINDOWS_SCRIPT' \
+        --scripts "$WINDOWS_SCRIPT" \
         --instance-id $VMSS_INSTANCE_ID \
 retval=$?
 log "Finish executing windows script"
