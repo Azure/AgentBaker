@@ -12,8 +12,7 @@
                 "clientPrivateKey": "${clientKey}"
             },
             "hostedMasterProfile": {
-                "fqdn": "${fqdn}",
-                "dnsPrefix": "${dnsPrefix}"
+                "fqdn": "${fqdn}"
             }
         }
     },

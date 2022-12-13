@@ -57,6 +57,18 @@
         "enableWinDSR": true
       },
       "windowsProfile": {
+        "cseScriptsPackageURL": "https://acs-mirror.azureedge.net/aks/windows/cse/",
+        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+        "enableAutomaticUpdates": false,
+        "enableCSIProxy": true,
+        "hnsRemediatorIntervalInMinutes": 1,
+        "imageVersion": "",
+        "sshEnabled": true,
+        "windowsDockerVersion": "",
+        "windowsImageSourceURL": "",
+        "windowsOffer": "aks-windows",
+        "windowsPublisher": "microsoft-aks",
+        "windowsSku": "",
         "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
         "alwaysPullWindowsPauseImage": "false"
       }
