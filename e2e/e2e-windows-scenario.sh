@@ -83,6 +83,13 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
 export DEPLOYMENT_VMSS_NAME
 export VMSS_INSTANCE_NAME
 
+VMSS_INSTANCE_ID=$(az vmss list-instances \
+                    -n ${DEPLOYMENT_VMSS_NAME} \
+                    -g $MC_RESOURCE_GROUP_NAME \
+                    -ojson | \
+                    jq -r '.[].instanceId'
+                )
+export VMSS_INSTANCE_ID
 
 # FAILED=0
 # # Check if the node joined the cluster
@@ -170,3 +177,13 @@ else
     waitForDeleteEndTime=$(date +%s)
     log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   
 fi
+
+log "Start to execute widnows script"
+
+az vmss run-command invoke --command-id RunPowerShellScript \
+        --name $DEPLOYMENT_VMSS_NAME \
+        -g $MC_RESOURCE_GROUP_NAME \
+        --scripts \'$WINDOWS_SCRIPT\' \
+        --instance-id $VMSS_INSTANCE_ID \
+
+log "Finish executing windows script"
