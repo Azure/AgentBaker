@@ -42,7 +42,6 @@ func TestE2EBasic(t *testing.T) {
 	fmt.Println(entry)
 
 	var scenario string = os.Getenv("SCENARIO_NAME")
-	// var scenario string = "windows"
 	fmt.Printf("Running for %s", scenario)
 
 	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
@@ -52,26 +51,20 @@ func TestE2EBasic(t *testing.T) {
 	config := &datamodel.NodeBootstrappingConfiguration{}
 	json.Unmarshal([]byte(nbc), config)
 
-	fmt.Println("start decoding")
-
 	config.ContainerService.Properties.CertificateProfile.CaCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
 	config.ContainerService.Properties.CertificateProfile.APIServerCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
 	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
-	config.ContainerService.Properties.CertificateProfile.ClientCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientCertificate)
 
-	fmt.Println("start get customData")
 	// customData
 	baker := agent.InitializeTemplateGenerator()
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
-	// customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
-	// customData := string(customDataBytes)
-	customData := string(base64EncodedCustomData)
+	customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
+	customData := string(customDataBytes)
 	err := ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
 
-	fmt.Println("start get cseCmd")
 	// cseCmd
 	cseCommand := baker.GetNodeBootstrappingCmd(config)
 	err = ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cseCmd", []byte(cseCommand), 0644)
@@ -89,7 +82,6 @@ func TestE2EWindows(t *testing.T) {
 	fmt.Println(entry)
 
 	var scenario string = os.Getenv("SCENARIO_NAME")
-	// var scenario string = "windows"
 	fmt.Printf("Running for %s", scenario)
 
 	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
@@ -110,8 +102,6 @@ func TestE2EWindows(t *testing.T) {
 	// customData
 	baker := agent.InitializeTemplateGenerator()
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
-	// customDataBytes, _ := base64.StdEncoding.DecodeString(base64EncodedCustomData)
-	// customData := string(customDataBytes)
 	customData := string(base64EncodedCustomData)
 	err := ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
 	if err != nil {
