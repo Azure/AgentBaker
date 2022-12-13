@@ -80,10 +80,9 @@ apt_get_dist_upgrade() {
     wait_for_apt_locks
     export DEBIAN_FRONTEND=noninteractive
     dpkg --configure -a --force-confdef
-    dpkg --configure -a --force-confold
     apt-get -f -y install
     apt-mark showhold
-    ! (apt-get dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then
