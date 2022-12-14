@@ -49,6 +49,10 @@ installDeps() {
     fi
 
     for apt_package in apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
+      if [[ "${apt_package}" == "fuse" && "${OSVERSION}" == "22.04" ]]; then
+        apt_package=fuse3
+      fi
+
       if ! apt_get_install 30 1 600 $apt_package; then
         journalctl --no-pager -u $apt_package
         exit $ERR_APT_INSTALL_TIMEOUT
