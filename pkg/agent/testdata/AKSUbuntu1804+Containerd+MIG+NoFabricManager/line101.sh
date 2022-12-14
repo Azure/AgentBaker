@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #NOTE: Currently, Nvidia library mig-parted (https://github.com/NVIDIA/mig-parted) cannot work properly because of the outdated GPU driver version
-#TODO: Use mig-parted library to do the partition after the above issue is fixed
+#TODO: Use mig-parted library to do the partition after the above issue is fixed 
 MIG_PROFILE=${1}
-case ${MIG_PROFILE} in
+case ${MIG_PROFILE} in 
     "MIG1g")
         nvidia-smi mig -cgi 19,19,19,19,19,19,19
         ;;
@@ -18,7 +18,7 @@ case ${MIG_PROFILE} in
         ;;
     "MIG7g")
         nvidia-smi mig -cgi 0
-        ;;
+        ;;  
     *)
         echo "not a valid GPU instance profile"
         exit 1
