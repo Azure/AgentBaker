@@ -166,7 +166,7 @@ else
     exit 1
 fi
 
-if [ "$FAILED" == "1"] || [ "$retval" -eq 1 ]; then
+if [ "$FAILED" == "1" ] || [ "$retval" -eq 1 ]; then
     log "Reserve vmss and node for failed pipeline"
 else
     waitForDeleteStartTime=$(date +%s)
