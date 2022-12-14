@@ -64,9 +64,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:67e1b7a0efb9928f7225e03d332e73daaf65b87ea3a76d0d1d3922a610e3d4f4",
+    "id": "sha256:edcd375e5ca374f09852bcf306008729a893075a6cd82ce700820be012facbe7",
     "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod11292022-6a507f9a"
+      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod12032022-c9f3dc30"
     ],
     "repoDigests": []
   },

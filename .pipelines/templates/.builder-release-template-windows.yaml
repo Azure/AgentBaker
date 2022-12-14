@@ -130,6 +130,7 @@ steps:
       -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
       -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
       -e OS_DISK_SAS=${OS_DISK_SAS} \
+      -e OS_TYPE="Windows" \
       ${CONTAINER_IMAGE} make -f packer.mk az-copy
     displayName: Copying resource to Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
@@ -196,6 +197,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e GEN2_SIG_FOR_PRODUCTION=${GEN2_SIG_FOR_PRODUCTION} \
+      -e OS_TYPE="Windows" \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
@@ -229,6 +231,7 @@ steps:
       -e OFFER_NAME="Windows" \
       -e IMAGE_VERSION=${IMAGE_VERSION} \
       -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+      -e OS_TYPE="Windows" \
       ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
