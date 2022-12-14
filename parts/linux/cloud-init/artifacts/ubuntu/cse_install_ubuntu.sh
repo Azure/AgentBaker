@@ -58,17 +58,6 @@ installDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-
-    # fuse_pkg=fuse   
-    # if [[ "${OSVERSION}" == "22.04" ]]; then
-    #     fuse_pkg=fuse3
-    # fi
-
-    # if ! apt_get_install 30 1 600 $fuse_pkg; then
-    #     journalctl --no-pager -u $fuse_pkg
-    #     exit $ERR_APT_INSTALL_TIMEOUT
-    # fi
-
 }
 
 installSGXDrivers() {
