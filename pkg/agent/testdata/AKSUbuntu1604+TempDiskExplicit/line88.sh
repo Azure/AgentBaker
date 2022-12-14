@@ -1,12 +1,14 @@
 [Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-Wants=network-online.target
-After=network-online.target
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
 [Service]
 Restart=always
+RestartSec=2
 EnvironmentFile=/etc/default/kubelet
+# Graceful termination (SIGTERM)
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
