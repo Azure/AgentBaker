@@ -3630,7 +3630,7 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-Wants=network-online.target
+Wants=network-online.target containerd.service
 After=network-online.target containerd.service
 
 [Service]
