@@ -133,6 +133,18 @@ var GridGPUSizes = map[string]bool{
 	"standard_nc32ads_a10_v4":  true,
 }
 
+var FabricManagerGPUSizes = map[string]bool{
+	"standard_nd96asr_v4":        true,
+	"standard_nd112asr_a100_v4":  true,
+	"standard_nd120asr_a100_v4":  true,
+	"standard_nd96amsr_a100_v4":  true,
+	"standard_nd112amsr_a100_v4": true,
+	"standard_nd120amsr_a100_v4": true,
+	"standard_nc24ads_a100_v4":   false, // NCads_v4 will fail to start fabricmanager
+	"standard_nc48ads_a100_v4":   false,
+	"standard_nc96ads_a100_v4":   false,
+}
+
 const (
 	OSSKUCBLMariner = "CBLMariner"
 	OSSKUMariner    = "Mariner"
