@@ -164,7 +164,7 @@ else
 fi
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+echo "  - [test] runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -199,7 +199,6 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       echo "Failed to install GPU driver, exiting..."
       exit $ret
     fi
-    echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" > ${GPU_DEST}/driver-ver.txt
   else
     bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
     ret=$?
@@ -208,6 +207,9 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   fi
+  DRIVER_VERSION="$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  echo " - nvidia driver version ${DRIVER_VERSION}" >> ${VHD_LOGS_FILEPATH}
+  nvidia-smi
 fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
@@ -218,7 +220,7 @@ echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
   - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
-  - nvidia-gpu-driver-version=${GPU_DV}
+  - nvidia-gpu-driver-version=none
   - nvidia-fabricmanager=${GPU_DV}
 EOF
 
