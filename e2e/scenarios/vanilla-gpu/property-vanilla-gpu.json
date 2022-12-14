@@ -10,7 +10,7 @@
                     "storageProfile": "ManagedDisks",
                     "distro": "aks-ubuntu-containerd-18.04-gen2",
                     "customNodeLabels": {
-                        "kubernetes.azure.com/mode": "system",
+                        "kubernetes.azure.com/mode": "user",
                         "kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19"
                     },
                     "preProvisionExtension": null,
@@ -30,7 +30,7 @@
         "storageProfile": "ManagedDisks",
         "distro": "aks-ubuntu-containerd-18.04-gen2",
         "customNodeLabels": {
-            "kubernetes.azure.com/mode": "system",
+            "kubernetes.azure.com/mode": "user",
             "kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19"
         },
         "preProvisionExtension": null,
@@ -42,5 +42,5 @@
     "ConfigGPUDriverIfNeeded": true,
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableNvidia": true,
-    "GPUInstanceProfile": ""
+    "GPUInstanceProfile": "MIG7g"
 }

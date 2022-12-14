@@ -1,7 +1,7 @@
 {
     "scenario_gpu": {
         "SCENARIO_NAME": "vanilla-gpu",
-        "VM_SKU": "Standard_NC6s_v3"
+        "VM_SKU": "Standard_NC24ads_A100_v4"
     },
     "scenario_vanilla": {
         "SCENARIO_NAME": "vanilla-aks",
