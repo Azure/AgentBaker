@@ -2,10 +2,11 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FE
 trigger: none
 
 pool:
-  vmImage: ubuntu-18.04
+  name: $(POOL_NAME)
 
 variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
+- name: CONTAINER_IMAGE
+  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
 
 stages:
   - stage: build_vhd
@@ -31,7 +32,7 @@ stages:
             GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
             export PATH="$PATH:$GOPATH/bin"
             pushd /tmp
-            GO111MODULE=on go get cuelang.org/go/cmd/cue
+            GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
             popd
             cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
           displayName: setup cue
@@ -132,6 +133,7 @@ stages:
             -e PKR_RG_NAME=${PKR_RG_NAME} \
             -e MODE=${MODE} \
             -e DRY_RUN=${DRY_RUN} \
+            -e OS_TYPE="Linux" \
             -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
             -e SA_NAME=${SA_NAME} \
             -e IMAGE_NAME=${IMAGE_NAME} \
@@ -191,6 +193,7 @@ stages:
             -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
             -e VHD_NAME=${VHD_NAME} \
             -e OS_NAME="Linux" \
+            -e OS_TYPE="Linux" \
             -e SKU_NAME=${SKU_NAME} \
             -e OFFER_NAME=${OS_SKU} \
             -e HYPERV_GENERATION=${HYPERV_GENERATION} \

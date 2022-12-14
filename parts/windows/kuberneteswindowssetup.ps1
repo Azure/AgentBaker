@@ -219,7 +219,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.19.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.20.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -279,6 +279,7 @@ try
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
     Get-ProvisioningScripts
+    Get-LogCollectionScripts
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
@@ -431,8 +432,6 @@ try
     Install-KubernetesServices `
         -KubeDir $global:KubeDir `
         -ContainerRuntime $global:ContainerRuntime
-
-    Get-LogCollectionScripts
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
