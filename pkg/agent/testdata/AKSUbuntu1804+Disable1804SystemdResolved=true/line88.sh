@@ -8,6 +8,7 @@ After=network-online.target containerd.service
 Restart=always
 RestartSec=2
 EnvironmentFile=/etc/default/kubelet
+# Graceful termination (SIGTERM)
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
