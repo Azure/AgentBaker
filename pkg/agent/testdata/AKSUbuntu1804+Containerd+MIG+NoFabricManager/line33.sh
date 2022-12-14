@@ -1,5 +1,5 @@
 #!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 
+ERR_FILE_WATCH_TIMEOUT=6
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -114,14 +114,13 @@ fi
 # If it is a MIG Node, enable mig-partition systemd service to create MIG instances
 if [[ "${MIG_NODE}" == "true" ]]; then
     REBOOTREQUIRED=true
-    if [[ "true" == "true" ]]; then
+    if [[ "false" == "true" ]]; then
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
     logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
-
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
@@ -133,8 +132,7 @@ logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
-
-logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
@@ -154,7 +152,7 @@ logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        
+
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
@@ -208,7 +206,7 @@ else
         systemctl enable apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.timer apt-daily-upgrade.timer
         # this is the DOWNLOAD service
-        # meaning we are wasting IO without even triggering an upgrade 
+        # meaning we are wasting IO without even triggering an upgrade
         # -________________-
         systemctl restart --no-block apt-daily.service
         aptmarkWALinuxAgent unhold &

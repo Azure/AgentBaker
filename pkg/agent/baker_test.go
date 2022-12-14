@@ -535,7 +535,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.GPUInstanceProfile = "mig-3g"
 		}),
 
-		Entry("AKSUbuntu1804 containerd with multi-instance GPU", "AKSUbuntu1804+Containerd+MIG", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1804 containerd with multi-instance non-fabricmanager GPU", "AKSUbuntu1804+Containerd+MIG+NoFabricManager", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
