@@ -164,7 +164,7 @@ else
 fi
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - [test] runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 ## for ubuntu-based images, cache multiple versions of runc
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -220,7 +220,7 @@ echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
   - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
-  - nvidia-gpu-driver-version=none
+  - nvidia-gpu-driver-version=${GPU_DV}
   - nvidia-fabricmanager=${GPU_DV}
 EOF
 
