@@ -883,7 +883,7 @@ func isStandardNCv1(size string) bool {
 }
 
 func useGridDrivers(size string) bool {
-	return datamodel.GridGPUSizes[strings.ToLower(size)]
+	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
 }
 
 func gpuNeedsFabricManager(size string) bool {
