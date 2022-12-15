@@ -133,6 +133,7 @@ stages:
             -e PKR_RG_NAME=${PKR_RG_NAME} \
             -e MODE=${MODE} \
             -e DRY_RUN=${DRY_RUN} \
+            -e OS_TYPE="Linux" \
             -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
             -e SA_NAME=${SA_NAME} \
             -e IMAGE_NAME=${IMAGE_NAME} \
@@ -192,6 +193,7 @@ stages:
             -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
             -e VHD_NAME=${VHD_NAME} \
             -e OS_NAME="Linux" \
+            -e OS_TYPE="Linux" \
             -e SKU_NAME=${SKU_NAME} \
             -e OFFER_NAME=${OS_SKU} \
             -e HYPERV_GENERATION=${HYPERV_GENERATION} \

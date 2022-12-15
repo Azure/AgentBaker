@@ -76,12 +76,18 @@ else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
 endif
 
+az-login:
+ifeq (${OS_TYPE},Windows)
+	@echo "Logging into Azure with service principal..."
+	@az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+else
+	@echo "Logging into Azure with agent VM MSI..."
+	@az login --identity
+endif
+	@az account set -s ${SUBSCRIPTION_ID}
+
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
-
-az-login:
-	az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
-	az account set -s ${SUBSCRIPTION_ID}
 
 run-packer: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)

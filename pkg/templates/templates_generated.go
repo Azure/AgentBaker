@@ -2343,6 +2343,9 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
 
+# By default, never reboot new nodes.
+REBOOTREQUIRED=false
+
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -2356,10 +2359,32 @@ if [[ "${GPU_NODE}" = true ]]; then
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 fi
-# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
-if [[ "${MIG_NODE}" == "true" ]]; then
-    REBOOTREQUIRED=true
+
+if [[ "{{GPUNeedsFabricManager}}" == "true" ]]; then
+    # fabric manager trains nvlink connections between multi instance gpus.
+    # it appears this is only necessary for systems with *multiple cards*.
+    # i.e., an A100 can be partitioned a maximum of 7 ways.
+    # An NC24ads_A100_v4 has one A100.
+    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+    # ND96 seems to require fabric manager *even when not using mig partitions*
+    # while it fails to install on NC24.
     logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+fi
+
+# This will only be true for multi-instance capable VM sizes
+# for which the user has specified a partitioning profile.
+# it is valid to use mig-capable gpus without a partitioning profile.
+if [[ "${MIG_NODE}" == "true" ]]; then
+    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+    # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
+    # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
+    # this will not be required per nvidia for next gen H100.
+    REBOOTREQUIRED=true
+    
+    # this service applies the partitioning scheme with nvidia-smi.
+    # we should consider moving to mig-parted which is simpler/newer.
+    # we couldn't because of old drivers but that has long been fixed.
     logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
@@ -2484,8 +2509,6 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
-# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
-REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -2500,6 +2523,8 @@ else
         systemctl unmask apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
+
         {{- end }}
         # this is the DOWNLOAD service
         # meaning we are wasting IO without even triggering an upgrade 
@@ -3630,12 +3655,14 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-Wants=network-online.target
-After=network-online.target
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
 [Service]
 Restart=always
+RestartSec=2
 EnvironmentFile=/etc/default/kubelet
+# Graceful termination (SIGTERM)
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -5132,7 +5159,7 @@ apt_get_dist_upgrade() {
     dpkg --configure -a --force-confdef
     apt-get -f -y install
     apt-mark showhold
-    ! (apt-get dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then
@@ -5197,33 +5224,35 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.5"
+
+    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    BLOBFUSE_VERSION="1.4.5"
+
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
     if [[ $(isARM64) != 1 ]]; then
-      # no blobfuse package in arm64 ubuntu repo
-      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
-      if [[ "${OSVERSION}" == "22.04" ]]; then
-        # blobfuse package is not available on Ubuntu 22.04
-        pkg_list=(blobfuse2)
-      fi
-      for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
-          exit $ERR_APT_INSTALL_TIMEOUT
+        # blobfuse is not present in ARM64
+        # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
+        # for 22.04, fuse3 is installed. for all others, fuse is installed
+        # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
+        pkg_list+=(blobfuse2)
+        if [[ "${OSVERSION}" == "22.04" ]]; then
+            pkg_list+=(fuse3)
+        else
+            pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
         fi
-      done
     fi
 
-    for apt_package in apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
-      if ! apt_get_install 30 1 600 $apt_package; then
-        journalctl --no-pager -u $apt_package
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
+    for apt_package in ${pkg_list[*]}; do
+        if ! apt_get_install 30 1 600 $apt_package; then
+            journalctl --no-pager -u $apt_package
+            exit $ERR_APT_INSTALL_TIMEOUT
+        fi
     done
 }
 
