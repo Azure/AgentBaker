@@ -99,6 +99,9 @@ logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+
+# By default, never reboot new nodes.
+REBOOTREQUIRED=false
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
@@ -111,10 +114,32 @@ if [[ "${GPU_NODE}" = true ]]; then
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 fi
-# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
-if [[ "${MIG_NODE}" == "true" ]]; then
-    REBOOTREQUIRED=true
+
+if [[ "true" == "true" ]]; then
+    # fabric manager trains nvlink connections between multi instance gpus.
+    # it appears this is only necessary for systems with *multiple cards*.
+    # i.e., an A100 can be partitioned a maximum of 7 ways.
+    # An NC24ads_A100_v4 has one A100.
+    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+    # ND96 seems to require fabric manager *even when not using mig partitions*
+    # while it fails to install on NC24.
     logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+fi
+
+# This will only be true for multi-instance capable VM sizes
+# for which the user has specified a partitioning profile.
+# it is valid to use mig-capable gpus without a partitioning profile.
+if [[ "${MIG_NODE}" == "true" ]]; then
+    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+    # Commands such as `nvidia-smi --gpu-reset` may succeed,
+    # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
+    # this will not be required per nvidia for next gen H100.
+    REBOOTREQUIRED=true
+    
+    # this service applies the partitioning scheme with nvidia-smi.
+    # we should consider moving to mig-parted which is simpler/newer.
+    # we couldn't because of old drivers but that has long been fixed.
     logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
@@ -190,8 +215,6 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
-# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
-REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"

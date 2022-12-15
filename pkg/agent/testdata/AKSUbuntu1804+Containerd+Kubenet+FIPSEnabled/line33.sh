@@ -100,6 +100,9 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
+# By default, never reboot new nodes.
+REBOOTREQUIRED=false
+
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 logs_to_events "AKS.CSE.ensureRPC" ensureRPC
@@ -170,8 +173,6 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
-# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
-REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
