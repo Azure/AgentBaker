@@ -26,33 +26,35 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.5"
+
+    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    BLOBFUSE_VERSION="1.4.5"
+
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
     if [[ $(isARM64) != 1 ]]; then
-      # no blobfuse package in arm64 ubuntu repo
-      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
-      if [[ "${OSVERSION}" == "22.04" ]]; then
-        # blobfuse package is not available on Ubuntu 22.04
-        pkg_list=(blobfuse2)
-      fi
-      for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
-          exit $ERR_APT_INSTALL_TIMEOUT
+        # blobfuse is not present in ARM64
+        # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
+        # for 22.04, fuse3 is installed. for all others, fuse is installed
+        # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
+        pkg_list+=(blobfuse2)
+        if [[ "${OSVERSION}" == "22.04" ]]; then
+            pkg_list+=(fuse3)
+        else
+            pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
         fi
-      done
     fi
 
-    for apt_package in apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
-      if ! apt_get_install 30 1 600 $apt_package; then
-        journalctl --no-pager -u $apt_package
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
+    for apt_package in ${pkg_list[*]}; do
+        if ! apt_get_install 30 1 600 $apt_package; then
+            journalctl --no-pager -u $apt_package
+            exit $ERR_APT_INSTALL_TIMEOUT
+        fi
     done
 }
 
