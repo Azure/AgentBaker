@@ -1,4 +1,4 @@
-Starting build on  Tue Dec 13 22:48:55 UTC 2022
+Starting build on  Thu Dec 15 19:02:22 UTC 2022
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -131,20 +131,20 @@ containerd images pre-pulled:
   - /var/lib/kubelet/device-plugins
   - extracted nvidia-device-plugin...
 total 17232
--rwxr-xr-x 1 root root   351248 Dec 13 22:58 nvidia-installer
--rwxr-xr-x 1 root root    36977 Dec 13 22:58 nvidia-bug-report.sh
--rwxr-xr-x 1 root root      900 Dec 13 22:58 nvidia-sleep.sh
--rwxr-xr-x 1 root root   690808 Dec 13 22:58 nvidia-smi
--rwxr-xr-x 1 root root   260912 Dec 13 22:58 nvidia-debugdump
--rwxr-xr-x 1 root root    14488 Dec 13 22:58 nvidia-cuda-mps-server
--rwxr-xr-x 1 root root    49920 Dec 13 22:58 nvidia-cuda-mps-control
--rwxr-xr-x 1 root root   204224 Dec 13 22:58 nvidia-persistenced
--rwxr-xr-x 1 root root   978560 Dec 13 22:58 nvidia-powerd
--rwxr-xr-x 1 root root   207424 Dec 13 22:58 nvidia-xconfig
--rwxr-xr-x 1 root root   302248 Dec 13 22:58 nvidia-settings
--rwxr-xr-x 1 root root  3896400 Dec 13 22:58 nvidia-ngx-updater
-lrwxrwxrwx 1 root root       16 Dec 13 22:58 nvidia-uninstall -> nvidia-installer
--rwxr-xr-x 1 root root 10625472 Dec 13 23:14 nvidia-device-plugin
+-rwxr-xr-x 1 root root      900 Dec 15 19:11 nvidia-sleep.sh
+-rwxr-xr-x 1 root root   351248 Dec 15 19:11 nvidia-installer
+-rwxr-xr-x 1 root root    36977 Dec 15 19:11 nvidia-bug-report.sh
+-rwxr-xr-x 1 root root   690808 Dec 15 19:11 nvidia-smi
+-rwxr-xr-x 1 root root   260912 Dec 15 19:11 nvidia-debugdump
+-rwxr-xr-x 1 root root    14488 Dec 15 19:11 nvidia-cuda-mps-server
+-rwxr-xr-x 1 root root    49920 Dec 15 19:11 nvidia-cuda-mps-control
+-rwxr-xr-x 1 root root   204224 Dec 15 19:11 nvidia-persistenced
+-rwxr-xr-x 1 root root   978560 Dec 15 19:11 nvidia-powerd
+-rwxr-xr-x 1 root root   207424 Dec 15 19:11 nvidia-xconfig
+-rwxr-xr-x 1 root root   302248 Dec 15 19:11 nvidia-settings
+-rwxr-xr-x 1 root root  3896400 Dec 15 19:11 nvidia-ngx-updater
+lrwxrwxrwx 1 root root       16 Dec 15 19:11 nvidia-uninstall -> nvidia-installer
+-rwxr-xr-x 1 root root 10625472 Dec 15 19:26 nvidia-device-plugin
   - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
   - mcr.microsoft.com/aks/acc/sgx-plugin:0.5
   - mcr.microsoft.com/aks/acc/sgx-webhook:1.0
@@ -181,12 +181,12 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  45015040 Oct  6 23:34 /usr/local/bin/kubectl-1.25.2
 -rwxr-xr-x 1 root root 114237304 Nov 10 22:25 /usr/local/bin/kubelet-1.25.4
 -rwxr-xr-x 1 root root  45015040 Nov 10 22:25 /usr/local/bin/kubectl-1.25.4
--r-xr--r-- 1 root root       593 Dec 13 22:48 /usr/local/bin/logrotate.sh
--r-xr--r-- 1 root root      2462 Dec 13 22:48 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Dec 13 22:48 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Dec 13 22:56 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root  47622592 Dec 13 22:56 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root  35384960 Dec 13 22:59 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root       593 Dec 15 19:02 /usr/local/bin/logrotate.sh
+-r-xr--r-- 1 root root      2462 Dec 15 19:02 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Dec 15 19:02 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Dec 15 19:09 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root  47622592 Dec 15 19:09 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root  35384960 Dec 15 19:12 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/bionic-updates,bionic-security,now 0.6.45-1ubuntu1.3 amd64 [installed,automatic]
@@ -876,10 +876,10 @@ tmpfs            56G     0   56G   0% /sys/fs/cgroup
 tmpfs            12G     0   12G   0% /run/user/1000
 Using kernel:
 Linux version 4.15.0-2062-azure-fips (buildd@lcy02-amd64-006) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #68-Ubuntu SMP Wed Oct 5 17:05:15 UTC 2022
-Install completed successfully on  Tue Dec 13 23:19:07 UTC 2022
-VSTS Build NUMBER: 20221213.1_master_65880277
-VSTS Build ID: 65880277
-Commit: c7bbde45c6918e5a00dd8dead5ee4aabef3a7745
+Install completed successfully on  Thu Dec 15 19:31:58 UTC 2022
+VSTS Build NUMBER: 20221215.1_master_65977479
+VSTS Build ID: 65977479
+Commit: 2d3f99c6b25172df894e287ec69ba3b62c90217f
 Ubuntu version: 18.04
 Hyperv generation: V2
 Feature flags: fullgpudaemon

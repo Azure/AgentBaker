@@ -1,4 +1,4 @@
-Starting build on  Tue Dec 13 22:48:57 UTC 2022
+Starting build on  Thu Dec 15 18:43:37 UTC 2022
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -143,11 +143,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    45015040 Oct  6 23:34 /usr/local/bin/kubectl-1.25.2
 -rwxr-xr-x 1 root root   114237304 Nov 10 22:25 /usr/local/bin/kubelet-1.25.4
 -rwxr-xr-x 1 root root    45015040 Nov 10 22:25 /usr/local/bin/kubectl-1.25.4
--r-xr--r-- 1 root root        2462 Dec 13 22:48 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root         705 Dec 13 22:48 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Dec 13 22:50 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root    47622592 Dec 13 22:50 /usr/local/bin/containerd-shim-slight-v1
--rwxr-x--- 1 root root    35384960 Dec 13 22:50 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root        2462 Dec 15 18:43 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root         705 Dec 15 18:43 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    36014944 Dec 15 18:44 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root    47622592 Dec 15 18:44 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-x--- 1 root root    35384960 Dec 15 18:45 /usr/local/bin/bpftrace
 === Installed Packages Begin
 ipset-7.1-2.cm1.x86_64
 filesystem-1.1-7.cm1.x86_64
@@ -440,17 +440,17 @@ devtmpfs        3.4G     0  3.4G   0% /dev
 tmpfs           3.4G     0  3.4G   0% /dev/shm
 tmpfs           3.4G  632K  3.4G   1% /run
 tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
-/dev/sdb3        30G   18G   11G  64% /
+/dev/sda3        30G   18G   11G  64% /
 tmpfs           3.4G  4.0K  3.4G   1% /tmp
-/dev/sdb2       459M   31M  399M   8% /boot
-/dev/sda1        14G   24K   13G   1% /mnt
+/dev/sda2       459M   31M  399M   8% /boot
+/dev/sdb1        14G   24K   13G   1% /mnt
 tmpfs           683M     0  683M   0% /run/user/1000
 Using kernel:
 Linux version 5.10.155.1-1.cm1 (root@CBL-Mariner) (gcc (GCC) 9.1.0, GNU ld (GNU Binutils) 2.36.1) #1 SMP Fri Dec 2 07:19:43 UTC 2022
-Install completed successfully on  Tue Dec 13 23:02:49 UTC 2022
-VSTS Build NUMBER: 20221213.1_master_65880277
-VSTS Build ID: 65880277
-Commit: c7bbde45c6918e5a00dd8dead5ee4aabef3a7745
+Install completed successfully on  Thu Dec 15 18:57:01 UTC 2022
+VSTS Build NUMBER: 20221215.1_master_65977479
+VSTS Build ID: 65977479
+Commit: 2d3f99c6b25172df894e287ec69ba3b62c90217f
 Ubuntu version: 
 Hyperv generation: V1
 Feature flags: None
