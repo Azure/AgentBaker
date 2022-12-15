@@ -5198,7 +5198,7 @@ installDeps() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
-    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) blobfuse2)
+    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -5213,6 +5213,7 @@ installDeps() {
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
+        pkg_list+=(blobfuse2)
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
