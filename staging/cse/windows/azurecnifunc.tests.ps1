@@ -90,6 +90,8 @@ Describe 'Set-AzureCNIConfig' {
 
     Context 'AzureCNIOverlay is enabled' {
         It "Should not include Cluster CIDR when AzureCNIOverlay is enabled" {
+            $global:KubeproxyFeatureGates = @("WinDSR=true") # WinDSR is enabled by default
+
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
                 -KubeClusterCIDR $kubeClusterCIDR `

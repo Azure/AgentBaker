@@ -1,18 +1,19 @@
 {
     "cniVersion": "0.3.0",
     "name": "azure",
-    "adapterName" : "",
+    "adapterName": "",
     "plugins": [
         {
             "type": "azure-vnet",
             "mode": "bridge",
             "bridge": "azure0",
+            "executionMode": "v4swift",
             "capabilities": {
                 "portMappings": true,
                 "dns": true
             },
             "ipam": {
-                "type": "azure-vnet-ipam"
+                "type": "azure-cns"
             },
             "dns": {
                 "Nameservers": [
@@ -42,7 +43,10 @@
                         "NeedEncap": true
                     }
                 }
-            ]
+            ],
+            "windowsSettings": {
+                "hnsTimeoutDurationInSeconds": 120
+            }
         }
     ]
 }
