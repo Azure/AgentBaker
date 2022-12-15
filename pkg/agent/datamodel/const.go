@@ -140,8 +140,7 @@ var ConvergedGPUDriverSizes = map[string]bool{
 
 // this list should be updated as needed if AKS supports
 // new MIG-capable skus which require fabricmanager for nvlink training.
-// not really sure what the reasoning is...
-// ND are *multiple* A100s, maybe? vs Single?
+// Specifically, the 8-board VM sizes (ND96 and larger)
 // Check with HPC or SKU API folks if we can improve this...
 var FabricManagerGPUSizes = map[string]bool{
 	"standard_nd96asr_v4":        true,
