@@ -7,7 +7,7 @@ pr:
     - 'official/*'
 
 variables:
-- group: ab-test-windows
+- group: ab-e2e-windows
 
 pool:
   name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
