@@ -124,7 +124,8 @@ const (
 // these sizes use a "converged" driver to support both cuda/grid workloads.
 // how do you figure this out? ask HPC or find out by trial and error.
 // installing vanilla cuda drivers will fail to install with opaque errors.
-// nvidia-bug-report.sh will list an error with the card id.
+// nvidia-bug-report.sh will is helpful, but usually it tells you
+// the pci card id is incompatible. That sends me to HPC folks.
 // see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json
 var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nv6ads_a10_v5":   true,
