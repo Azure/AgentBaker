@@ -532,8 +532,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.KubeletConfig = map[string]string{}
 			config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
 			config.EnableNvidia = true
-			config.GPUInstanceProfile = "mig-3g"
+			config.GPUInstanceProfile = "MIG7g"
 		}),
+
+		Entry("AKSUbuntu1804 containerd with multi-instance non-fabricmanager GPU", "AKSUbuntu1804+Containerd+MIG+NoFabricManager", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.KubeletConfig = map[string]string{}
+			config.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+			config.EnableNvidia = true
+			config.GPUInstanceProfile = "MIG7g"
+		}),
+
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
