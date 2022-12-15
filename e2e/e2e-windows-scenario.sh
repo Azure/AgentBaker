@@ -73,6 +73,11 @@ az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
 retval=$?
 set -e
 
+if [[ "$retval" != "0" ]]; then
+    err "failed to deploy windows vmss"
+    exit 1
+fi
+
 cat $SCENARIO_NAME-vmss.json
 
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
@@ -90,15 +95,6 @@ VMSS_INSTANCE_ID=$(az vmss list-instances \
                     jq -r '.[].instanceId'
                 )
 export VMSS_INSTANCE_ID
-
-# FAILED=0
-# # Check if the node joined the cluster
-# if [[ "$retval" != "0" ]]; then
-#     err "cse failed to apply"
-#     debug
-#     tail -n 50 $SCENARIO_NAME-logs/cluster-provision.log || true
-#     exit 1
-# fi
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
@@ -171,6 +167,7 @@ if [ "$FAILED" == "1" ] || [ "$retval" -eq 1 ]; then
 else
     waitForDeleteStartTime=$(date +%s)
 
+    # Only delete node and vmss since we reuse the resource group and cluster now
     kubectl delete node $VMSS_INSTANCE_NAME
     az vmss delete -g $(jq -r .group $SCENARIO_NAME-vmss.json) -n $(jq -r .vmss $SCENARIO_NAME-vmss.json)
 

@@ -1,5 +1,12 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 
+pr:
+  paths:
+    include:
+    - '.pipelines/*'
+    - 'e2e/*'
+    - 'staging/cse/windows/*'
+
 variables:
 - group: ab-e2e-windows
 
