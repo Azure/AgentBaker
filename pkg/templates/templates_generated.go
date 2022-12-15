@@ -1326,7 +1326,6 @@ configGPUDrivers() {
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
             ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-            echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" > driver-ver.txt
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
@@ -1389,6 +1388,7 @@ ensureGPUDrivers() {
         # no GPU on ARM64
         return
     fi
+    
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         DRIVER_VER="$(grep $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $VHD_LOGS_FILEPATH)"
         if [ -z $DRIVER_VER ]; then
