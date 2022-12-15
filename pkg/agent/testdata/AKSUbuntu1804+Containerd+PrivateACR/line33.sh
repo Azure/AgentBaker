@@ -185,6 +185,7 @@ else
         systemctl unmask apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
         # this is the DOWNLOAD service
         # meaning we are wasting IO without even triggering an upgrade 
         # -________________-
