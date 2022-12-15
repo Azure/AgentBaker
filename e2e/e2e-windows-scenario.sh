@@ -65,11 +65,11 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --arg ValueForCSECmd "$CSE_CMD" \
     --arg ValueForVMSS "$DEPLOYMENT_VMSS_NAME" \
     '.parameters += $JsonForVnet | .parameters += $JsonForLB | .resources[0] += $JsonForIdentity | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | .parameters.virtualMachineScaleSets_akswin30_name.defaultValue=$ValueForVMSS' \
-    windows_vmss_template.json > deployment.json
+    windows_vmss_template.json > $DEPLOYMENT_VMSS_NAME-deployment.json
 
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
-         --template-file deployment.json
+         --template-file $DEPLOYMENT_VMSS_NAME-deployment.json
 retval=$?
 set -e
 
