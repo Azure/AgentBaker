@@ -13,6 +13,11 @@ az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTIO
 rgEndTime=$(date +%s)
 log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 
+if [ "$RESOURCE_GROUP_NAME" == "agentbaker-e2e-test-windows" ]; then
+    echo "yes, pass"
+else
+    echo "no, fail"
+fi
 # Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
 # MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
 out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
