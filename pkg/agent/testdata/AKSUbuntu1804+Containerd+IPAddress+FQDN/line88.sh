@@ -28,6 +28,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
         $KUBELET_CGROUP_FLAGS \
+        $KUBELET_QPS_FLAGS \
         $KUBELET_FLAGS
 
 [Install]
