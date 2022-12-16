@@ -316,6 +316,14 @@ testCustomCAScriptExecutable() {
   echo "$test:Finish"
 }
 
+testCustomCATimerNotStarted() {
+  isUnitThere=$(systemctl list-units --type=timer | grep update_certs.timer)
+  if [[ -n "$isUnitThere" ]]; then
+    err $test "Custom CA timer was loaded, but shouldn't be"
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
