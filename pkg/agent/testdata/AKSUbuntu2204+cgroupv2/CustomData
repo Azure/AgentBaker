@@ -81,7 +81,7 @@ write_files:
 
 
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -135,13 +135,13 @@ write_files:
 
 
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/2yPwcrCMBCE732K0nsa/sN/EXKoGkUsFWw9iRRJFwmaTd1sir69iCgVvM0M3zDMvgYarIFDonGw5NEBssrWu6kuddPONlVTrCq9nbeLsljWSgjjkY8WgQRFZOtAETjPkIp3IAiuEQKLp/GR1d+/S38UBWDXe4usItrbREpJEeUH60YyD96cRwvmRD72QclwDwwuDxdr4It/3cqSRwAAAP//1Kx0RuEAAAA=
 - path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |

@@ -81,7 +81,7 @@ write_files:
 
 
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -101,7 +101,7 @@ write_files:
     H4sIAAAAAAAA/xzNMW7CQBCF4X5O4QuYPYGLoFCkBUUpLBdj+xFGWc+i2bcR5PQRrv9f+sZPN07yjrqE3WnFh6P52m2lObufNiOD3apUGS+IX1swyRmVGhyK91e13AJyxqbmb1ciTg/j8ESV0wPLZR/TbJ5mrbculTuT/rVAWopTzRH1ldd+Jw/1JjJ+eKXmPMmXOrEen8PWMq1vFXGgxjco/wEAAP//HvlBProAAAA=
 
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |

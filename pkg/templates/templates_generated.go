@@ -1068,7 +1068,7 @@ EOF
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
+    chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
 {{GetKubeletConfigFileContent}}
@@ -5737,7 +5737,7 @@ write_files:
 {{- end}}
 
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -5785,7 +5785,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -5888,7 +5888,7 @@ write_files:
     {{- end}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6025,7 +6025,7 @@ write_files:
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6033,7 +6033,7 @@ write_files:
 
 {{- if Is2204VHD}}
 - path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6276,7 +6276,7 @@ write_files:
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6307,7 +6307,7 @@ write_files:
     current-context: bootstrap-context
     #EOF
 - path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |

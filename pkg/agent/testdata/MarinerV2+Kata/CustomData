@@ -79,7 +79,7 @@ write_files:
 
 
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -124,7 +124,7 @@ write_files:
 
 
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
