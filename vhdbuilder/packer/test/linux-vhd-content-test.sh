@@ -342,3 +342,4 @@ testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
 testImagesRetagged $1
 testCustomCAScriptExecutable
+testCustomCATimerNotStarted
