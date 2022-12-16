@@ -852,11 +852,6 @@ configPrivateClusterHosts() {
 }
 {{- end}}
 
-ensureRPC() {
-    systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -2398,8 +2393,6 @@ set -x
 {{end}}
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
-
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
 
 createKubeManifestDir
 
