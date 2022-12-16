@@ -38,11 +38,7 @@ fi
 if [ "$create_cluster" == "true" ]; then
     log "Creating cluster $CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
-    if [ "$SCENARIO_NAME" == "windows"]; then 
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
-    else
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
-    fi
+    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
     clusterCreateEndTime=$(date +%s)
     log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
 fi
