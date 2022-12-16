@@ -142,7 +142,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7FV8g51cvVxDYkPDAiOd/NxdA+21dXNLk1K1U0syNRNKi0qLrE1NDBQQBIsLCi21TVU4gIEAAD//7iglSBRAAAA
+    H4sIAAAAAAAA/4oOTi0qy0xOjeVyzSvLLMrPy03NK7FV8g51cvVxDYkPDAiOd/NxdA+21dXNLk1K1U0syNRNKi0qLrE1NDBQQBIsLCgGCSlxAQIAAP//32weqFIAAAA=
 
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"

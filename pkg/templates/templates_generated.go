@@ -236,7 +236,7 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifacts10KubeApiConf = []byte(`[Service]
-Environment="KUBELET_QPS_FLAGS=--kube-api-burst=100 --kube-api-qps=-1"
+Environment="KUBELET_QPS_FLAGS=--kube-api-burst=100 --kube-api-qps=100"
 `)
 
 func linuxCloudInitArtifacts10KubeApiConfBytes() ([]byte, error) {
