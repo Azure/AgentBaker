@@ -6023,6 +6023,13 @@ write_files:
     }
 {{end}}
 
+- path: /etc/systemd/system/kubelet.service.d/10-kube-api.conf
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeApiDropin"}}
+
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"
   owner: root
@@ -6061,13 +6068,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
 {{- end}}
-
-- path: /etc/systemd/system/kubelet.service.d/10-kube-api.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeApiDropin"}}
 
 - path: /etc/containerd/config.toml
   permissions: "0644"

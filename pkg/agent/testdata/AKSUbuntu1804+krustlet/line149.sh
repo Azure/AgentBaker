@@ -1,2 +1,2 @@
 [Service]
-Environment="KUBELET_QPS_FLAGS=--kube-api-burst=100 --kube-api-qps=-1"
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
