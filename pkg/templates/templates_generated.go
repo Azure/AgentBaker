@@ -2706,7 +2706,7 @@ GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTime
 GUEST_AGENT_STARTTIME_FORMATTED=$(date -d "${GUEST_AGENT_STARTTIME}" +"%F %T.%3N" )
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
-KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep Ready | cut -d' ' -f1-3)" +"%F %T.%3N")"
+KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
