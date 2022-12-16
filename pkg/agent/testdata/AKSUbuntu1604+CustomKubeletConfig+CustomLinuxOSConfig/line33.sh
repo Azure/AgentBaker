@@ -106,8 +106,6 @@ REBOOTREQUIRED=false
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
-
 createKubeManifestDir
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
@@ -131,7 +129,6 @@ logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePa
 logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 

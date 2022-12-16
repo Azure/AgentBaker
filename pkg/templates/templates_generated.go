@@ -851,11 +851,6 @@ configPrivateClusterHosts() {
 }
 {{- end}}
 
-ensureRPC() {
-    systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -1224,16 +1219,6 @@ ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
-}
-
-ensureJournal() {
-    {
-        echo "Storage=persistent"
-        echo "SystemMaxUse=1G"
-        echo "RuntimeMaxUse=1G"
-        echo "ForwardToSyslog=yes"
-    } >> /etc/systemd/journald.conf
-    systemctlEnableAndStart systemd-journald || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureK8sControlPlane() {
@@ -2398,8 +2383,6 @@ set -x
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
-
 createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
@@ -2452,7 +2435,6 @@ logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 {{- end}}
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}

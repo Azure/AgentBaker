@@ -114,10 +114,15 @@ function Set-AzureCNIConfig
 
     if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"
-        $jsonContent = [PSCustomObject]@{
-            'enableLoopbackDSR' = $True
+        # Add {enableLoopbackDSR:true} if windowsSettings exists, otherwise, add {windowsSettings:{enableLoopbackDSR:true}}
+        if (Get-Member -InputObject $configJson.plugins[0] -name "windowsSettings" -Membertype Properties) {
+            $configJson.plugins[0].windowsSettings | Add-Member -Name "enableLoopbackDSR" -Value $True -MemberType NoteProperty
+        } else {
+            $jsonContent = [PSCustomObject]@{
+                'enableLoopbackDSR' = $True
+            }
+            $configJson.plugins[0] | Add-Member -Name "windowsSettings" -Value $jsonContent -MemberType NoteProperty
         }
-        $configJson.plugins[0]|Add-Member -Name "windowsSettings" -Value $jsonContent -MemberType NoteProperty
 
         # $configJson.plugins[0].AdditionalArgs[1] is ROUTE. Remove ROUTE if WinDSR is enabled.
         $configJson.plugins[0].AdditionalArgs = @($configJson.plugins[0].AdditionalArgs | Where-Object { $_ -ne $configJson.plugins[0].AdditionalArgs[1] })
