@@ -128,7 +128,6 @@ fi
 logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
