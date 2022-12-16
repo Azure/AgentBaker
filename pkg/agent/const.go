@@ -90,7 +90,6 @@ const (
 	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
-	kubeApiDropin           = "linux/cloud-init/artifacts/10-kube-api.conf"
 	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
 )
 
