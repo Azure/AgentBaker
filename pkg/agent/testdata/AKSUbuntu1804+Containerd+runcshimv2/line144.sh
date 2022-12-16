@@ -1,2 +1,2 @@
 [Service]
-Environment="KUBELET_QPS_FLAGS=--kube-api-burst=250"
+Environment="KUBELET_QPS_FLAGS=--kube-api-burst=50"
