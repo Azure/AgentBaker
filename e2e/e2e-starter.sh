@@ -38,7 +38,11 @@ fi
 if [ "$create_cluster" == "true" ]; then
     log "Creating cluster $CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
-    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
+    if [ "$RESOURCE_GROUP_NAME" == "agentbaker-e2e-test-windows" ]; then
+        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
+    else
+        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
+    fi
     clusterCreateEndTime=$(date +%s)
     log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
 fi

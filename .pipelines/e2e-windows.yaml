@@ -1,6 +1,10 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 
 pr:
+  branches:
+    include:
+    - main
+    - 'official/*'
   paths:
     include:
     - '.pipelines/*'
