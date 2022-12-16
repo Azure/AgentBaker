@@ -5,6 +5,7 @@
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
+// linux/cloud-init/artifacts/10-kube-api.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/aks-logrotate-override.conf
 // linux/cloud-init/artifacts/aks-logrotate.service
@@ -230,6 +231,25 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-httpproxy.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10KubeApiConf = []byte(`[Service]
+Environment="KUBELET_QPS_FLAGS=--kube-api-burst=100 --kube-api-qps=-1"
+`)
+
+func linuxCloudInitArtifacts10KubeApiConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10KubeApiConf, nil
+}
+
+func linuxCloudInitArtifacts10KubeApiConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10KubeApiConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-kube-api.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6042,6 +6062,13 @@ write_files:
     {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
 {{- end}}
 
+- path: /etc/systemd/system/kubelet.service.d/10-kube-api.conf
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeApiDropin"}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -7592,6 +7619,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
+	"linux/cloud-init/artifacts/10-kube-api.conf":                          linuxCloudInitArtifacts10KubeApiConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/aks-logrotate-override.conf":               linuxCloudInitArtifactsAksLogrotateOverrideConf,
 	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
@@ -7724,6 +7752,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
+				"10-kube-api.conf":                          &bintree{linuxCloudInitArtifacts10KubeApiConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"aks-logrotate-override.conf":               &bintree{linuxCloudInitArtifactsAksLogrotateOverrideConf, map[string]*bintree{}},
 				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
