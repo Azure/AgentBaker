@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${POD_NAME}
+  labels:
+    env: test
+spec:
+  containers:
+  - name: ${POD_NAME}
+    image: mcr.microsoft.com/windows/servercore:ltsc2019
+    command:
+      - "powershell.exe"
+      - "-command"
+      - "$t=Get-Content C:\\AzureData\\CSEResult.log; Write-Host $t; Sleep 1840000"
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - name: kube-path
+        mountPath: C:\AzureData
+  volumes:
+  - name: kube-path
+    hostPath:
+      path: C:\AzureData
+  nodeSelector:
+    kubernetes.io/hostname: ${VMSS_INSTANCE_NAME}

@@ -1,0 +1,105 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "virtualMachineScaleSets_akswin30_name": {
+            "defaultValue": "",
+            "type": "string"
+        },
+        "galleries_windowsabgallery_externalid": {
+            "defaultValue": "/subscriptions/a15c116e-99e3-4c59-aebc-8f864929b4a0/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/AKSWindows",
+            "type": "string"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('virtualMachineScaleSets_akswin30_name')]",
+            "location": "eastus",
+            "sku": {
+                "name": "Standard_D2s_v3",
+                "tier": "Standard",
+                "capacity": 1
+            },
+            "properties": {
+                "singlePlacementGroup": false,
+                "orchestrationMode": "Uniform",
+                "upgradePolicy": {
+                    "mode": "Automatic",
+                    "rollingUpgradePolicy": {
+                        "maxBatchInstancePercent": 20,
+                        "maxUnhealthyInstancePercent": 20,
+                        "maxUnhealthyUpgradedInstancePercent": 20,
+                        "pauseTimeBetweenBatches": "PT0S"
+                    }
+                },
+                "virtualMachineProfile": {
+                    "osProfile": {
+                        "computerNamePrefix": "[parameters('virtualMachineScaleSets_akswin30_name')]",
+                        "adminUsername": "azureuser",
+                        "adminPassword": "",
+                        "windowsConfiguration": {
+                            "provisionVMAgent": true,
+                            "enableAutomaticUpdates": true
+                        },
+                        "secrets": [],
+                        "allowExtensionOperations": true,
+                        "customData": ""
+                    },
+                    "storageProfile": {
+                        "osDisk": {
+                            "osType": "Windows",
+                            "createOption": "FromImage",
+                            "caching": "ReadWrite",
+                            "managedDisk": {
+                                "storageAccountType": "Premium_LRS"
+                            },
+                            "diskSizeGB": 128
+                        },
+                        "imageReference": {
+                            "id": "[concat(parameters('galleries_windowsabgallery_externalid'), '/images/windows-2019-containerd/versions/2022.11.03')]"
+                        }
+                    },
+                    "networkProfile": {
+                        "networkInterfaceConfigurations": [
+                            {
+                                "name": "[parameters('virtualMachineScaleSets_akswin30_name')]"
+                            }
+                        ]
+                    },
+                    "extensionProfile": {
+                        "extensions": [ 
+                            {
+                                "name": "vmssCSE",
+                                "properties": {
+                                    "autoUpgradeMinorVersion": true,
+                                    "publisher": "Microsoft.Compute",
+                                    "type": "CustomScriptExtension",
+                                    "typeHandlerVersion": "1.10",
+                                    "settings": {
+                                        "commandToExecute": ""                                    
+                                    }
+                                }
+                            },
+                            {
+                                "name": "[concat(parameters('virtualMachineScaleSets_akswin30_name'), '-AKSWindowsBilling')]",
+                                "properties": {
+                                    "autoUpgradeMinorVersion": true,
+                                    "publisher": "Microsoft.AKS",
+                                    "type": "Compute.AKS.Windows.Billing",
+                                    "typeHandlerVersion": "1.0",
+                                    "settings": {}
+                                }
+                            }
+                        ],
+                        "extensionsTimeBudget": "PT16M"
+                    }
+                },
+                "overprovision": true,
+                "donotRunExtensionsOnOverprovisionedVMs": false,
+                "platformFaultDomainCount": 1
+            }
+        }
+    ]
+}
