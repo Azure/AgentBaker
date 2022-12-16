@@ -33,7 +33,7 @@
       },
       "agentPoolProfiles": [
         {
-          "name": "win20",
+          "name": "win19",
           "vmSize": "Standard_D2s_v3",
           "osType": "Windows",
           "availabilityProfile": "VirtualMachineScaleSets",
@@ -78,7 +78,7 @@
     "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/windowszip/v1.23.12-1int.zip"
   },
   "AgentPoolProfile": {
-    "name": "win20",
+    "name": "win19",
     "vmSize": "Standard_D2s_v3",
     "osType": "Windows",
     "availabilityProfile": "VirtualMachineScaleSets",
