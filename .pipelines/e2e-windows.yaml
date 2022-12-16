@@ -9,7 +9,7 @@ pr:
     include:
     - '.pipelines/*'
     - 'e2e/*'
-    - 'staging/cse/windows/*'
+    - 'parts/windows/*'
 
 variables:
 - group: ab-e2e-windows
