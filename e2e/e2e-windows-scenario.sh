@@ -27,7 +27,7 @@ MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 
-clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{print $2}')
+clientCertificate=$(grep "client-certificate-data" $KUBECONFIG | awk '{print $2}')
 kubectl rollout status deploy/debug
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
