@@ -90,8 +90,6 @@ Describe 'Set-AzureCNIConfig' {
 
     Context 'AzureCNIOverlay is enabled' {
         It "Should not include Cluster CIDR when AzureCNIOverlay is enabled" {
-            $global:KubeproxyFeatureGates = @("WinDSR=true") # WinDSR is enabled by default
-
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
                 -KubeClusterCIDR $kubeClusterCIDR `
@@ -102,6 +100,28 @@ Describe 'Set-AzureCNIConfig' {
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Overlay.conflist"))
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
+        }
+    }
+
+    Context 'SwiftCNI' {
+        It "Should has hnsTimeoutDurationInSeconds and enableLoopbackDSR" {
+            $global:KubeproxyFeatureGates = @("WinDSR=true")
+            # AzureCNIConfig uses the default one
+            $defaultFile = [Io.path]::Combine($azureCNIConfDir, "AzureCNI.Default.Swift.conflist")
+            $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
+            Copy-Item -Path $defaultFile -Destination $azureCNIConfigFile
+
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $kubeClusterCIDR `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $vNetCIDR `
+                -IsDualStackEnabled $isDualStackEnabled
+
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.Swift.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
             $diffence | Should -Be $null
         }

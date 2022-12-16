@@ -1,19 +1,18 @@
 {
     "cniVersion": "0.3.0",
     "name": "azure",
-    "adapterName": "",
+    "adapterName" : "",
     "plugins": [
         {
             "type": "azure-vnet",
             "mode": "bridge",
             "bridge": "azure0",
-            "executionMode": "v4swift",
             "capabilities": {
                 "portMappings": true,
                 "dns": true
             },
             "ipam": {
-                "type": "azure-cns"
+                "type": "azure-vnet-ipam"
             },
             "dns": {
                 "Nameservers": [
@@ -32,6 +31,14 @@
                         "ExceptionList": [
                             "10.224.0.0/12"
                         ]
+                    }
+                },
+                {
+                    "Name": "EndpointPolicy",
+                    "Value": {
+                        "Type": "ROUTE",
+                        "DestinationPrefix": "10.0.0.0/16",
+                        "NeedEncap": true
                     }
                 },
                 {
@@ -65,11 +72,7 @@
                         "Priority": 65500
                     }
                 }
-            ],
-            "windowsSettings": {
-                "hnsTimeoutDurationInSeconds": 120,
-                "enableLoopbackDSR": true
-            }
+            ]
         }
     ]
 }
