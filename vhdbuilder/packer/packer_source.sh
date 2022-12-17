@@ -61,8 +61,6 @@ copyPackerFiles() {
   UPDATE_CERTS_SERVICE_DEST=/etc/systemd/system/update_certs.service
   UPDATE_CERTS_PATH_SRC=/home/packer/update_certs.path
   UPDATE_CERTS_PATH_DEST=/etc/systemd/system/update_certs.path
-  UPDATE_CERTS_TIMER_SRC=/home/packer/update_certs.timer
-  UPDATE_CERTS_TIMER_DEST=/etc/systemd/system/update_certs.timer
   UPDATE_CERTS_SCRIPT_SRC=/home/packer/update_certs.sh
   UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
   CI_SYSLOG_WATCHER_PATH_SRC=/home/packer/ci-syslog-watcher.path
@@ -125,7 +123,6 @@ copyPackerFiles() {
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
-  cpAndMode $UPDATE_CERTS_TIMER_SRC $UPDATE_CERTS_TIMER_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
   cpAndMode $IPV6_NFTABLES_RULES_SRC $IPV6_NFTABLES_RULES_DEST 644
   cpAndMode $IPV6_NFTABLES_SCRIPT_SRC $IPV6_NFTABLES_SCRIPT_DEST 755

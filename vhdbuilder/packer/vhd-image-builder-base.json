@@ -254,11 +254,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
-      "destination": "/home/packer/update_certs.timer"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.path",
       "destination": "/home/packer/ci-syslog-watcher.path"
     },
