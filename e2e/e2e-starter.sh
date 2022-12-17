@@ -42,15 +42,39 @@ if [ "$create_cluster" == "true" ]; then
         az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
     else
         az extension add -n aks-preview
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure --network-plugin-mode overlay --enable-cilium-dataplane -ojson
+        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin none --pod-cidr 10.244.0.0/16 -ojson
+        az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
+        KUBECONFIG=$(pwd)/kubeconfig
+        export KUBECONFIG
+        kubectl create -f - <<EOF
+kind: Installation
+apiVersion: operator.tigera.io/v1
+metadata:
+  name: default
+spec:
+  kubernetesProvider: AKS
+  cni:
+    type: Calico
+  calicoNetwork:
+    bgp: Disabled
+    ipPools:
+     - cidr: 10.244.0.0/16
+       encapsulation: VXLAN
+---
+apiVersion: operator.tigera.io/v1
+kind: APIServer
+metadata:
+   name: default
+spec: {}
+EOF
     fi
     clusterCreateEndTime=$(date +%s)
     log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
+else
+    az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
+    KUBECONFIG=$(pwd)/kubeconfig
+    export KUBECONFIG
 fi
-
-az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
-KUBECONFIG=$(pwd)/kubeconfig
-export KUBECONFIG
 
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
