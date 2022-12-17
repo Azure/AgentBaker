@@ -238,7 +238,7 @@ echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
-timeout 60s grep -q 'NodeReady' <(journalctl -u kubelet -f) || exit 1  
+timeout 60s grep -q 'NodeReady' <(journalctl -u kubelet -f --no-tail) || exit 1  
 
 exit $VALIDATION_ERR
 
