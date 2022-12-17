@@ -41,6 +41,7 @@ if [ "$create_cluster" == "true" ]; then
     if [ "$RESOURCE_GROUP_NAME" == "agentbaker-e2e-test-windows" ]; then
         az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
     else
+        az extension add -n aks-preview
         az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure --network-plugin-mode overlay -ojson
     fi
     clusterCreateEndTime=$(date +%s)
