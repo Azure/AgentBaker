@@ -42,7 +42,7 @@ if [ "$create_cluster" == "true" ]; then
         az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
     else
         az extension add -n aks-preview
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure --network-plugin-mode overlay -ojson
+        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure --network-plugin-mode overlay --enable-cilium-dataplane -ojson
     fi
     clusterCreateEndTime=$(date +%s)
     log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
