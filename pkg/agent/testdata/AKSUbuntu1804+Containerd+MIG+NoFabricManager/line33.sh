@@ -238,6 +238,8 @@ echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
+timeout 60s grep -q 'Nodeready' <(journalctl -u kubelet -f) || exit 1  
+
 exit $VALIDATION_ERR
 
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
