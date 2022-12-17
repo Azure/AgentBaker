@@ -46,7 +46,7 @@ if [ "$create_cluster" == "true" ]; then
         az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
         KUBECONFIG=$(pwd)/kubeconfig
         export KUBECONFIG
-        kubectl create -f - <<EOF
+        kubectl apply -f - <<EOF
 kind: Installation
 apiVersion: operator.tigera.io/v1
 metadata:
