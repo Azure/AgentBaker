@@ -46,6 +46,7 @@ if [ "$create_cluster" == "true" ]; then
         az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
         KUBECONFIG=$(pwd)/kubeconfig
         export KUBECONFIG
+        kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.24.5/manifests/tigera-operator.yaml
         kubectl apply -f - <<EOF
 kind: Installation
 apiVersion: operator.tigera.io/v1
