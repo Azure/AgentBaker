@@ -128,4 +128,21 @@ function Start-InstallCalico {
     pushd $CalicoDir
     .\install-calico.ps1
     popd
+
+    if ($calicoPackage -ge "calico-windows-v3.23.3.zip") {
+        Write-Log "Starting Calico..."
+        Write-Log "This may take several seconds if the vSwitch needs to be created."
+
+        Start-Service CalicoNode
+        Wait-ForCalicoInit
+        Start-Service CalicoFelix
+
+        while ((Get-Service | where Name -Like 'Calico*' | where Status -NE Running) -NE $null) {
+            Write-Log "Waiting for the Calico services to be running..."
+            Start-Sleep 1
+        }
+
+        Write-Log "Done, the Calico services are running:"
+        Get-Service | where Name -Like 'Calico*'
+    }
 }
