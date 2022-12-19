@@ -114,7 +114,12 @@ configureCNI() {
 
 configureCNIIPTables() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
-        mv $CNI_BIN_DIR/10-azure.conflist $CNI_CONFIG_DIR/
+        # writing the cni config to disk will make the node think it's ready.
+        # for overlay mode, this is wrong -- CNS isn't ready yet.
+        # avoid doing this so overlay cni can take responsibility
+        if [[ "false" == "false" ]]; then
+            mv $CNI_BIN_DIR/10-azure.conflist $CNI_CONFIG_DIR/
+        fi
         chmod 600 $CNI_CONFIG_DIR/10-azure.conflist
         if [[ "${NETWORK_POLICY}" == "calico" ]]; then
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
