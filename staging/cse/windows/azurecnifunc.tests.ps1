@@ -65,7 +65,26 @@ Describe 'Set-AzureCNIConfig' {
                 -IsDualStackEnabled $isDualStackEnabled
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
-            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.WinDSR.conflist"))
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.EnableWinDSR.conflist"))
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
+        }
+    }
+
+    Context 'WinDSR is disabled' {
+        It "Should reserve ROUTE and no WinDSR setting" {
+            $global:KubeproxyFeatureGates = @("")
+            Set-Default-AzureCNI "AzureCNI.Default.conflist"
+
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $kubeClusterCIDR `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $vNetCIDR `
+                -IsDualStackEnabled $isDualStackEnabled
+
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableWinDSR.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
             $diffence | Should -Be $null
         }
