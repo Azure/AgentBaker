@@ -1,5 +1,6 @@
 BeforeAll {
-  . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+  . $PSScriptRoot\windowscsehelper.ps1
+  . $PSScriptRoot\..\..\staging\cse\windows\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1','.ps1')
 }
 

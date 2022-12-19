@@ -84,7 +84,6 @@
 // windows/kuberneteswindowssetup.ps1
 // windows/sendlogs.ps1
 // windows/windowscsehelper.ps1
-// windows/windowscsehelper.tests.ps1
 package templates
 
 import (
@@ -7446,68 +7445,6 @@ func windowsWindowscsehelperPs1() (*asset, error) {
 	return a, nil
 }
 
-var _windowsWindowscsehelperTestsPs1 = []byte(`BeforeAll {
-  . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
-  . $PSCommandPath.Replace('.tests.ps1','.ps1')
-}
-
-Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
-  BeforeAll{
-      Mock Install-Containerd -MockWith {
-        Param(
-          [Parameter(Mandatory = $true)][string]
-          $ContainerdUrl,
-          [Parameter(Mandatory = $true)][string]
-          $CNIBinDir,
-          [Parameter(Mandatory = $true)][string]
-          $CNIConfDir,
-          [Parameter(Mandatory = $true)][string]
-          $KubeDir
-        )
-        Write-Host $ContainerdUrl
-    } -Verifiable
-  }
-
-  It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.24.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-
-  It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.30.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-
-  It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://mirror.azk8s.cn/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://mirror.azk8s.cn/containerd/windows/" -KubernetesVersion "1.30.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-
-  It 'full URL is set' {
-    $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.26.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-}`)
-
-func windowsWindowscsehelperTestsPs1Bytes() ([]byte, error) {
-	return _windowsWindowscsehelperTestsPs1, nil
-}
-
-func windowsWindowscsehelperTestsPs1() (*asset, error) {
-	bytes, err := windowsWindowscsehelperTestsPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowscsehelper.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -7644,7 +7581,6 @@ var _bindata = map[string]func() (*asset, error){
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
-	"windows/windowscsehelper.tests.ps1":                                   windowsWindowscsehelperTestsPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -7783,7 +7719,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"sendlogs.ps1":               &bintree{windowsSendlogsPs1, map[string]*bintree{}},
 		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
-		"windowscsehelper.tests.ps1": &bintree{windowsWindowscsehelperTestsPs1, map[string]*bintree{}},
 	}},
 }}
 
