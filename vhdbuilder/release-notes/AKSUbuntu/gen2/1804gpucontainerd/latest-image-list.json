@@ -71,9 +71,23 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:b7ded2f4cfd621c569a07b23863dc7e38654937d8d28a89ef2d81e46961cb7ba",
+    "repoTags": [
+      "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20221215.1"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:3dc4b173e8e0be16357d12538068c2e0a82ecc8d8909e23670d4dd3402a644ae",
     "repoTags": [
       "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20220512.2"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:47723bc5290c71975d5955d1051a775d9951274ac77ed9a4f67ba602d7a2838c",
+    "repoTags": [
+      "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20221215.1"
     ],
     "repoDigests": []
   },
@@ -634,6 +648,13 @@
     "id": "sha256:96df020f3d684cad767bea459d81e7c0a7acf550f94b4d2d369bb2cfe12892cd",
     "repoTags": [
       "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:9f12d04a32d2ee2b22271d64ef4525cce50a5292752f55a55c378b36758deb51",
+    "repoTags": [
+      "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.10.0"
     ],
     "repoDigests": []
   },
