@@ -196,6 +196,9 @@ configureCNI() {
 
 configureCNIIPTables() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
+        # writing the cni config to disk will make the node think it's ready.
+        # for overlay mode, this is wrong -- CNS isn't ready yet.
+        # avoid doing this so overlay cni can take responsibility
         if [[ "false" == "false" ]]; then
             mv $CNI_BIN_DIR/10-azure.conflist $CNI_CONFIG_DIR/
         fi
