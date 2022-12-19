@@ -595,7 +595,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
-		}))
+		}),
+		Entry("AKSUbuntu2204 with azure cni overla", "AKSUbuntu2204+azurecni+overlay", "1.25.4", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = datamodel.NetworkPluginAzure
+			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPluginMode = "overlay"
+		}),
+	)
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {

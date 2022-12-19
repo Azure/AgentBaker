@@ -196,7 +196,9 @@ configureCNI() {
 
 configureCNIIPTables() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
-        mv $CNI_BIN_DIR/10-azure.conflist $CNI_CONFIG_DIR/
+        if [[ "false" == "false" ]]; then
+            mv $CNI_BIN_DIR/10-azure.conflist $CNI_CONFIG_DIR/
+        fi
         chmod 600 $CNI_CONFIG_DIR/10-azure.conflist
         if [[ "${NETWORK_POLICY}" == "calico" ]]; then
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
