@@ -6,11 +6,6 @@ configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
 }
-
-ensureRPC() {
-    systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
-}
 configureEtcEnvironment() {
     echo 'HTTP_PROXY="http://myproxy.server.com:8080/"' >> /etc/environment
     echo 'http_proxy="http://myproxy.server.com:8080/"' >> /etc/environment
@@ -194,16 +189,6 @@ ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
-}
-
-ensureJournal() {
-    {
-        echo "Storage=persistent"
-        echo "SystemMaxUse=1G"
-        echo "RuntimeMaxUse=1G"
-        echo "ForwardToSyslog=yes"
-    } >> /etc/systemd/journald.conf
-    systemctlEnableAndStart systemd-journald || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureK8sControlPlane() {

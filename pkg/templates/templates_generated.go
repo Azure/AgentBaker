@@ -79,7 +79,6 @@
 // linux/cloud-init/artifacts/update_certs.path
 // linux/cloud-init/artifacts/update_certs.service
 // linux/cloud-init/artifacts/update_certs.sh
-// linux/cloud-init/artifacts/update_certs.timer
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
@@ -852,11 +851,6 @@ configPrivateClusterHosts() {
 }
 {{- end}}
 
-ensureRPC() {
-    systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -1073,7 +1067,7 @@ EOF
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
+    chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
 {{GetKubeletConfigFileContent}}
@@ -1225,16 +1219,6 @@ ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
-}
-
-ensureJournal() {
-    {
-        echo "Storage=persistent"
-        echo "SystemMaxUse=1G"
-        echo "RuntimeMaxUse=1G"
-        echo "ForwardToSyslog=yes"
-    } >> /etc/systemd/journald.conf
-    systemctlEnableAndStart systemd-journald || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureK8sControlPlane() {
@@ -2399,8 +2383,6 @@ set -x
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
-
 createKubeManifestDir
 
 {{- if HasDCSeriesSKU}}
@@ -2453,7 +2435,6 @@ logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 {{- end}}
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
@@ -2724,6 +2705,7 @@ GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTime
 GUEST_AGENT_STARTTIME_FORMATTED=$(date -d "${GUEST_AGENT_STARTTIME}" +"%F %T.%3N" )
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
+KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
@@ -2759,7 +2741,8 @@ message_string=$( jq -n \
 --arg NETWORKD_STARTTIME_FORMATTED        "${NETWORKD_STARTTIME_FORMATTED}" \
 --arg GUEST_AGENT_STARTTIME_FORMATTED     "${GUEST_AGENT_STARTTIME_FORMATTED}" \
 --arg KUBELET_START_TIME_FORMATTED        "${KUBELET_START_TIME_FORMATTED}" \
-'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED } | tostring'
+--arg KUBELET_READY_TIME_FORMATTED       "${KUBELET_READY_TIME_FORMATTED}" \
+'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED, KubeletReadyTime: $KUBELET_READY_TIME_FORMATTED } | tostring'
 )
 # this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
 # allows parsing to happening without additional manipulation
@@ -5602,32 +5585,6 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsUpdate_certsTimer = []byte(`[Unit]
-Description=Update certificates on a 5 minute timer
-
-[Timer]
-OnBootSec=0min
-OnCalendar=*:0/5
-Unit=update_certs.service
-
-[Install]
-WantedBy=multi-user.target`)
-
-func linuxCloudInitArtifactsUpdate_certsTimerBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdate_certsTimer, nil
-}
-
-func linuxCloudInitArtifactsUpdate_certsTimer() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdate_certsTimerBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -5755,7 +5712,7 @@ write_files:
 {{- end}}
 
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -5803,7 +5760,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -5906,7 +5863,7 @@ write_files:
     {{- end}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6043,7 +6000,7 @@ write_files:
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6051,7 +6008,7 @@ write_files:
 
 {{- if Is2204VHD}}
 - path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6294,7 +6251,7 @@ write_files:
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6325,7 +6282,7 @@ write_files:
     current-context: bootstrap-context
     #EOF
 - path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -7682,7 +7639,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
 	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
 	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
-	"linux/cloud-init/artifacts/update_certs.timer":                        linuxCloudInitArtifactsUpdate_certsTimer,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
@@ -7818,7 +7774,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
 				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
 				"update_certs.sh":      &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
-				"update_certs.timer":   &bintree{linuxCloudInitArtifactsUpdate_certsTimer, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},

@@ -106,8 +106,6 @@ REBOOTREQUIRED=false
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
-
 createKubeManifestDir
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
@@ -129,7 +127,6 @@ if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
