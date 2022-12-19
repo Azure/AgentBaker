@@ -156,9 +156,9 @@ log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come u
 if [ "$retval" -eq 0 ]; then
     ok "Pod ran successfully"
     # debug
-    mkdir -p $SCENARIO_NAME-logs
-    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
-    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1  
+    # mkdir -p $SCENARIO_NAME-logs
+    # kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    # kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1  
 else
     err "Pod pending/not running"
     kubectl get pods -o wide | grep $POD_NAME
