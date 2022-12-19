@@ -239,6 +239,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kubelet-ready.service",
+      "destination": "/home/packer/kubelet-ready.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/update_certs.service",
       "destination": "/home/packer/update_certs.service"
     },

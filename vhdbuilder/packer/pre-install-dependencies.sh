@@ -33,6 +33,7 @@ fi
 
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
+systemctlEnableAndStart kubelet-ready || exit 1
 
 mkdir /opt/certs
 chmod 666 /opt/certs

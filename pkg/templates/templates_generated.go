@@ -79,6 +79,7 @@
 // linux/cloud-init/artifacts/update_certs.path
 // linux/cloud-init/artifacts/update_certs.service
 // linux/cloud-init/artifacts/update_certs.sh
+// linux/cloud-init/kubelet-ready.service
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
@@ -5584,6 +5585,38 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitKubeletReadyService = []byte(`[Unit]
+Description=A service to start during node join and wait until kubelet reports ready.
+Requires=kubelet.service
+After=kubelet.service
+BindsTo=kubelet.service
+ConditionPathExists=!/opt/azure/kubelet-first-ready
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "timeout 600s grep -q 'NodeReady' <(journalctl -u kubelet -f --no-tail)"
+ExecStartPost=/usr/bin/touch /opt/azure/kubelet-first-ready
+RemainAfterExit=yes
+
+[Install]
+WantedBy=kubelet.service
+`)
+
+func linuxCloudInitKubeletReadyServiceBytes() ([]byte, error) {
+	return _linuxCloudInitKubeletReadyService, nil
+}
+
+func linuxCloudInitKubeletReadyService() (*asset, error) {
+	bytes, err := linuxCloudInitKubeletReadyServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/kubelet-ready.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -7576,6 +7609,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
 	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
 	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
+	"linux/cloud-init/kubelet-ready.service":                               linuxCloudInitKubeletReadyService,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
@@ -7711,7 +7745,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
 				"update_certs.sh":      &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
 			}},
-			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
+			"kubelet-ready.service": &bintree{linuxCloudInitKubeletReadyService, map[string]*bintree{}},
+			"nodecustomdata.yml":    &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
 	}},
 	"windows": &bintree{nil, map[string]*bintree{
