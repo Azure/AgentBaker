@@ -187,11 +187,6 @@ ensureK8sControlPlane() {
     retrycmd_if_failure 120 5 25 $KUBECTL 2>/dev/null cluster-info || exit $ERR_K8S_RUNNING_TIMEOUT
 }
 
-createKubeManifestDir() {
-    KUBEMANIFESTDIR=/etc/kubernetes/manifests
-    mkdir -p $KUBEMANIFESTDIR
-}
-
 writeKubeConfig() {
     KUBECONFIGDIR=/home/$ADMINUSER/.kube
     KUBECONFIGFILE=$KUBECONFIGDIR/config

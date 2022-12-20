@@ -97,16 +97,12 @@ fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 
-setupCNIDirs
-
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
-
-createKubeManifestDir
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 

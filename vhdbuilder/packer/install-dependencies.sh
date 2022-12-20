@@ -12,7 +12,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
-CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+CPU_ARCH=$(getCPUArch)  # amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 
@@ -173,7 +173,7 @@ fi
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
-## for ubuntu-based images, cache multiple versions of runc
+# for ubuntu-based images, cache multiple versions of runc
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   RUNC_VERSIONS="
   1.0.0-rc92
@@ -289,14 +289,26 @@ else
     retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
 fi
 
+# create kube manifest dir
+KUBEMANIFESTDIR=/etc/kubernetes/manifests
+mkdir -p $KUBEMANIFESTDIR
 
-#must be both amd64/arm64 images
+# setup CNI dirs
+CNI_BIN_DIR="/opt/cni/bin"
+CNI_CONFIG_DIR="/etc/cni/net.d"
+mkdir -p $CNI_BIN_DIR
+chown -R root:root $CNI_BIN_DIR
+chmod -R 755 $CNI_BIN_DIR
+
+mkdir -p $CNI_CONFIG_DIR
+chown -R root:root $CNI_CONFIG_DIR
+chmod 755 $CNI_CONFIG_DIR
+
+# must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
 1.4.32
 1.4.35
 "
-
-
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
@@ -309,8 +321,8 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-#UNITE swift and overlay versions?
-#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
+# UNITE swift and overlay versions?
+# Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
 1.4.32
 1.4.35
