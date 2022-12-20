@@ -200,7 +200,8 @@ $global:map = @{
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
-        "https://acs-mirror.azureedge.net/calico-node/v3.23.3/binaries/calico-windows-v3.23.3.zip"
+        "https://acs-mirror.azureedge.net/calico-node/v3.23.3/binaries/calico-windows-v3.23.3.zip",
+        "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
     )
 }
 '@
