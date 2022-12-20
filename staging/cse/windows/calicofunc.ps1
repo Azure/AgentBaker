@@ -111,8 +111,15 @@ function Start-InstallCalico {
     SetConfigParameters -RootDir $CalicoDir -OldString "<your etcd ca cert>" -NewString ""
     SetConfigParameters -RootDir $CalicoDir -OldString "<your service cidr>" -NewString $KubeServiceCIDR
     SetConfigParameters -RootDir $CalicoDir -OldString "<your dns server ips>" -NewString $KubeDnsServiceIp
-    SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`"vxlan`"" -NewString "CALICO_NETWORKING_BACKEND=`"none`""
-    SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `"Calico.*`"" -NewString "KUBE_NETWORK = `"azure.*`""
+
+    $calicoPackage=[IO.Path]::GetFileName($global:WindowsCalicoPackageURL)
+    if ($calicoPackage -lt "calico-windows-v3.23.3.zip") {
+        SetConfigParameters -RootDir $CalicoDir -OldString "CALICO_NETWORKING_BACKEND=`"vxlan`"" -NewString "CALICO_NETWORKING_BACKEND=`"none`""
+        SetConfigParameters -RootDir $CalicoDir -OldString "KUBE_NETWORK = `"Calico.*`"" -NewString "KUBE_NETWORK = `"azure.*`""
+    } else {
+        SetConfigParameters -RootDir $CalicoDir -OldString "Set-EnvVarIfNotSet -var `"CALICO_NETWORKING_BACKEND`" -defaultValue `"vxlan`"" -NewString "Set-EnvVarIfNotSet -var `"CALICO_NETWORKING_BACKEND`" -defaultValue `"none`""
+        SetConfigParameters -RootDir $CalicoDir -OldString "Set-EnvVarIfNotSet -var `"KUBE_NETWORK`" -defaultValue `"Calico.*`"" -NewString "Set-EnvVarIfNotSet -var `"KUBE_NETWORK`" -defaultValue `"azure.*`""
+    }
 
     GetCalicoKubeConfig -RootDir $CalicoDir -CalicoNamespace $CalicoNs
 
@@ -121,4 +128,21 @@ function Start-InstallCalico {
     pushd $CalicoDir
     .\install-calico.ps1
     popd
+
+    if ($calicoPackage -ge "calico-windows-v3.23.3.zip") {
+        Write-Log "Starting Calico..."
+        Write-Log "This may take several seconds if the vSwitch needs to be created."
+
+        Start-Service CalicoNode
+        Wait-ForCalicoInit
+        Start-Service CalicoFelix
+
+        while ((Get-Service | where Name -Like 'Calico*' | where Status -NE Running) -NE $null) {
+            Write-Log "Waiting for the Calico services to be running..."
+            Start-Sleep 1
+        }
+
+        Write-Log "Done, the Calico services are running:"
+        Get-Service | where Name -Like 'Calico*'
+    }
 }

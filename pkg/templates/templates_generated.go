@@ -79,13 +79,11 @@
 // linux/cloud-init/artifacts/update_certs.path
 // linux/cloud-init/artifacts/update_certs.service
 // linux/cloud-init/artifacts/update_certs.sh
-// linux/cloud-init/artifacts/update_certs.timer
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
 // windows/sendlogs.ps1
 // windows/windowscsehelper.ps1
-// windows/windowscsehelper.tests.ps1
 package templates
 
 import (
@@ -852,11 +850,6 @@ configPrivateClusterHosts() {
 }
 {{- end}}
 
-ensureRPC() {
-    systemctlEnableAndStart rpcbind || exit $ERR_SYSTEMCTL_START_FAIL
-    systemctlEnableAndStart rpc-statd || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -1073,7 +1066,7 @@ EOF
     set +x
     KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
     touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0644 "${KUBELET_CONFIG_JSON_PATH}"
+    chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
     chown root:root "${KUBELET_CONFIG_JSON_PATH}"
     cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
 {{GetKubeletConfigFileContent}}
@@ -1225,16 +1218,6 @@ ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
-}
-
-ensureJournal() {
-    {
-        echo "Storage=persistent"
-        echo "SystemMaxUse=1G"
-        echo "RuntimeMaxUse=1G"
-        echo "ForwardToSyslog=yes"
-    } >> /etc/systemd/journald.conf
-    systemctlEnableAndStart systemd-journald || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureK8sControlPlane() {
@@ -1518,7 +1501,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-118f86"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-5262fa"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -2345,6 +2328,9 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 {{- end }}
 
+# By default, never reboot new nodes.
+REBOOTREQUIRED=false
+
 {{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
@@ -2358,10 +2344,32 @@ if [[ "${GPU_NODE}" = true ]]; then
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 fi
-# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
-if [[ "${MIG_NODE}" == "true" ]]; then
-    REBOOTREQUIRED=true
+
+if [[ "{{GPUNeedsFabricManager}}" == "true" ]]; then
+    # fabric manager trains nvlink connections between multi instance gpus.
+    # it appears this is only necessary for systems with *multiple cards*.
+    # i.e., an A100 can be partitioned a maximum of 7 ways.
+    # An NC24ads_A100_v4 has one A100.
+    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+    # ND96 seems to require fabric manager *even when not using mig partitions*
+    # while it fails to install on NC24.
     logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+fi
+
+# This will only be true for multi-instance capable VM sizes
+# for which the user has specified a partitioning profile.
+# it is valid to use mig-capable gpus without a partitioning profile.
+if [[ "${MIG_NODE}" == "true" ]]; then
+    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+    # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
+    # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
+    # this will not be required per nvidia for next gen H100.
+    REBOOTREQUIRED=true
+    
+    # this service applies the partitioning scheme with nvidia-smi.
+    # we should consider moving to mig-parted which is simpler/newer.
+    # we couldn't because of old drivers but that has long been fixed.
     logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
@@ -2375,8 +2383,6 @@ set -x
 {{end}}
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
-
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
 
 createKubeManifestDir
 
@@ -2430,7 +2436,6 @@ logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 {{- end}}
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 {{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
@@ -2486,8 +2491,6 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
-# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
-REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -2502,6 +2505,8 @@ else
         systemctl unmask apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
+
         {{- end }}
         # this is the DOWNLOAD service
         # meaning we are wasting IO without even triggering an upgrade 
@@ -2701,6 +2706,7 @@ GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTime
 GUEST_AGENT_STARTTIME_FORMATTED=$(date -d "${GUEST_AGENT_STARTTIME}" +"%F %T.%3N" )
 KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
 KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
+KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
@@ -2736,7 +2742,8 @@ message_string=$( jq -n \
 --arg NETWORKD_STARTTIME_FORMATTED        "${NETWORKD_STARTTIME_FORMATTED}" \
 --arg GUEST_AGENT_STARTTIME_FORMATTED     "${GUEST_AGENT_STARTTIME_FORMATTED}" \
 --arg KUBELET_START_TIME_FORMATTED        "${KUBELET_START_TIME_FORMATTED}" \
-'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED } | tostring'
+--arg KUBELET_READY_TIME_FORMATTED       "${KUBELET_READY_TIME_FORMATTED}" \
+'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED, KubeletReadyTime: $KUBELET_READY_TIME_FORMATTED } | tostring'
 )
 # this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
 # allows parsing to happening without additional manipulation
@@ -3632,12 +3639,14 @@ func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-Wants=network-online.target
-After=network-online.target
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
 [Service]
 Restart=always
+RestartSec=2
 EnvironmentFile=/etc/default/kubelet
+# Graceful termination (SIGTERM)
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
@@ -3727,7 +3736,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.24.3",
             "1.24.6",
             "1.25.2-hotfix.20221006",
-            "1.25.4"
+            "1.25.4",
+            "1.26.0"
         ]
     },
     "_template": {
@@ -5134,7 +5144,7 @@ apt_get_dist_upgrade() {
     dpkg --configure -a --force-confdef
     apt-get -f -y install
     apt-mark showhold
-    ! (apt-get dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then
@@ -5199,33 +5209,35 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    BLOBFUSE_VERSION="1.4.5"
+
+    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    BLOBFUSE_VERSION="1.4.5"
+
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
     if [[ $(isARM64) != 1 ]]; then
-      # no blobfuse package in arm64 ubuntu repo
-      pkg_list=(blobfuse=${BLOBFUSE_VERSION} blobfuse2)
-      if [[ "${OSVERSION}" == "22.04" ]]; then
-        # blobfuse package is not available on Ubuntu 22.04
-        pkg_list=(blobfuse2)
-      fi
-      for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
-          exit $ERR_APT_INSTALL_TIMEOUT
+        # blobfuse is not present in ARM64
+        # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
+        # for 22.04, fuse3 is installed. for all others, fuse is installed
+        # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
+        pkg_list+=(blobfuse2)
+        if [[ "${OSVERSION}" == "22.04" ]]; then
+            pkg_list+=(fuse3)
+        else
+            pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
         fi
-      done
     fi
 
-    for apt_package in apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool fuse git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r); do
-      if ! apt_get_install 30 1 600 $apt_package; then
-        journalctl --no-pager -u $apt_package
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
+    for apt_package in ${pkg_list[*]}; do
+        if ! apt_get_install 30 1 600 $apt_package; then
+            journalctl --no-pager -u $apt_package
+            exit $ERR_APT_INSTALL_TIMEOUT
+        fi
     done
 }
 
@@ -5575,32 +5587,6 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsUpdate_certsTimer = []byte(`[Unit]
-Description=Update certificates on a 5 minute timer
-
-[Timer]
-OnBootSec=0min
-OnCalendar=*:0/5
-Unit=update_certs.service
-
-[Install]
-WantedBy=multi-user.target`)
-
-func linuxCloudInitArtifactsUpdate_certsTimerBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsUpdate_certsTimer, nil
-}
-
-func linuxCloudInitArtifactsUpdate_certsTimer() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsUpdate_certsTimerBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
@@ -5728,7 +5714,7 @@ write_files:
 {{- end}}
 
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -5776,7 +5762,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -5879,7 +5865,7 @@ write_files:
     {{- end}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6016,7 +6002,7 @@ write_files:
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6024,7 +6010,7 @@ write_files:
 
 {{- if Is2204VHD}}
 - path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6267,7 +6253,7 @@ write_files:
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -6298,7 +6284,7 @@ write_files:
     current-context: bootstrap-context
     #EOF
 - path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -7462,68 +7448,6 @@ func windowsWindowscsehelperPs1() (*asset, error) {
 	return a, nil
 }
 
-var _windowsWindowscsehelperTestsPs1 = []byte(`BeforeAll {
-  . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
-  . $PSCommandPath.Replace('.tests.ps1','.ps1')
-}
-
-Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
-  BeforeAll{
-      Mock Install-Containerd -MockWith {
-        Param(
-          [Parameter(Mandatory = $true)][string]
-          $ContainerdUrl,
-          [Parameter(Mandatory = $true)][string]
-          $CNIBinDir,
-          [Parameter(Mandatory = $true)][string]
-          $CNIConfDir,
-          [Parameter(Mandatory = $true)][string]
-          $KubeDir
-        )
-        Write-Host $ContainerdUrl
-    } -Verifiable
-  }
-
-  It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.24.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-
-  It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.30.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-
-  It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://mirror.azk8s.cn/containerd/windows/v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://mirror.azk8s.cn/containerd/windows/" -KubernetesVersion "1.30.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-
-  It 'full URL is set' {
-    $expectedURL = "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecotnainer.com/windows-containerd-v1.2.3.tar.gz" -KubernetesVersion "1.26.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
-    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
-  }
-}`)
-
-func windowsWindowscsehelperTestsPs1Bytes() ([]byte, error) {
-	return _windowsWindowscsehelperTestsPs1, nil
-}
-
-func windowsWindowscsehelperTestsPs1() (*asset, error) {
-	bytes, err := windowsWindowscsehelperTestsPs1Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "windows/windowscsehelper.tests.ps1", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -7655,13 +7579,11 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
 	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
 	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
-	"linux/cloud-init/artifacts/update_certs.timer":                        linuxCloudInitArtifactsUpdate_certsTimer,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
 	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
 	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
-	"windows/windowscsehelper.tests.ps1":                                   windowsWindowscsehelperTestsPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -7791,7 +7713,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
 				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
 				"update_certs.sh":      &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
-				"update_certs.timer":   &bintree{linuxCloudInitArtifactsUpdate_certsTimer, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
@@ -7801,7 +7722,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kuberneteswindowssetup.ps1": &bintree{windowsKuberneteswindowssetupPs1, map[string]*bintree{}},
 		"sendlogs.ps1":               &bintree{windowsSendlogsPs1, map[string]*bintree{}},
 		"windowscsehelper.ps1":       &bintree{windowsWindowscsehelperPs1, map[string]*bintree{}},
-		"windowscsehelper.tests.ps1": &bintree{windowsWindowscsehelperTestsPs1, map[string]*bintree{}},
 	}},
 }}
 

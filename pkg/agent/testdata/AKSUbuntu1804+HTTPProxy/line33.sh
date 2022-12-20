@@ -103,9 +103,10 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+# By default, never reboot new nodes.
+REBOOTREQUIRED=false
 
-logs_to_events "AKS.CSE.ensureRPC" ensureRPC
+logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
 
@@ -128,7 +129,6 @@ if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
-logs_to_events "AKS.CSE.ensureJournal" ensureJournal
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
@@ -172,8 +172,6 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
-# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
-REBOOTREQUIRED=false
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
@@ -187,6 +185,7 @@ else
         systemctl unmask apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.service apt-daily-upgrade.service
         systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
         # this is the DOWNLOAD service
         # meaning we are wasting IO without even triggering an upgrade 
         # -________________-

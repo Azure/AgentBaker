@@ -1,0 +1,120 @@
+{
+  "ContainerService": {
+    "properties": {
+      "orchestratorProfile": {
+        "orchestratorType": "Kubernetes",
+        "orchestratorVersion": "1.23.12",
+        "kubernetesConfig": {
+          "networkPlugin": "azure",
+          "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/binaries/kubernetes-node-linux-amd64.tar.gz",
+          "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.12-hotfix.20220922.1",
+          "loadBalancerSku": "Standard",
+          "azureCNIURLARM64Linux": "https://acs-mirror.azureedge.net/azure-cni/v1.4.32/binaries/azure-vnet-cni-linux-arm64-v1.4.32.tgz",
+          "azureCNIURLLinux": "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-linux-amd64-v1.4.22.tgz",
+          "azureCNIURLWindows": "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+          "cloudProviderBackoff": true,
+          "cloudProviderBackoffDuration": 5,
+          "cloudProviderBackoffMode": "v2",
+          "cloudProviderBackoffRetries": 6,
+          "cloudProviderDisableOutboundSNAT": false,
+          "cloudProviderRateLimit": true,
+          "cloudProviderRateLimitBucket": 100,
+          "cloudProviderRateLimitBucketWrite": 100,
+          "cloudProviderRateLimitQPS": 10,
+          "cloudProviderRateLimitQPSWrite": 10,
+          "useCloudControllerManager": true,
+          "useInstanceMetadata": true,
+          "useManagedIdentity": true,
+          "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
+          "dnsServiceIP": "10.0.0.10",
+          "clusterSubnet": "10.224.0.0/16",
+          "serviceCidr": "10.0.0.0/16"
+        }
+      },
+      "agentPoolProfiles": [
+        {
+          "name": "win19",
+          "vmSize": "Standard_D2s_v3",
+          "osType": "Windows",
+          "availabilityProfile": "VirtualMachineScaleSets",
+          "storageProfile": "ManagedDisks",
+          "distro": "aks-windows-2019-containerd",
+          "customNodeLabels": {
+            "kubernetes.azure.com/mode": "user",
+            "kubernetes.azure.com/node-image-version": "windowsabgallery-windows-2019-containerd-2022.11.08"
+          },
+          "preProvisionExtension": null,
+          "kubernetesConfig": {
+            "containerRuntime": "containerd",
+            "cloudProviderBackoffMode": ""
+          },
+          "vnetCidrs": [
+            "10.224.0.0/12"
+          ]
+        }
+      ],
+      "featureFlags": {
+        "enableWinDSR": true
+      },
+      "windowsProfile": {
+        "cseScriptsPackageURL": "https://acs-mirror.azureedge.net/aks/windows/cse/",
+        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+        "enableAutomaticUpdates": false,
+        "enableCSIProxy": true,
+        "hnsRemediatorIntervalInMinutes": 1,
+        "imageVersion": "",
+        "sshEnabled": true,
+        "windowsDockerVersion": "",
+        "windowsImageSourceURL": "",
+        "windowsOffer": "aks-windows",
+        "windowsPublisher": "microsoft-aks",
+        "windowsSku": "",
+        "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+        "alwaysPullWindowsPauseImage": "false"
+      }
+    }
+  },
+  "K8sComponents": {
+    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/windowszip/v1.23.12-1int.zip"
+  },
+  "AgentPoolProfile": {
+    "name": "win19",
+    "vmSize": "Standard_D2s_v3",
+    "osType": "Windows",
+    "availabilityProfile": "VirtualMachineScaleSets",
+    "storageProfile": "ManagedDisks",
+    "distro": "aks-windows-2019-containerd",
+    "customNodeLabels": {
+      "kubernetes.azure.com/mode": "user",
+      "kubernetes.azure.com/node-image-version": "windowsabgallery-windows-2019-containerd-2022.11.08"
+    },
+    "preProvisionExtension": null,
+    "kubernetesConfig": {
+      "containerRuntime": "containerd",
+      "cloudProviderBackoffMode": ""
+    },
+    "notRebootWindowsNode": true
+  },
+  "PrimaryScaleSetName": "akswin30",
+  "KubeletConfig": {
+    "--azure-container-registry-config": "c:\\k\\azure.json",
+    "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",
+    "--cert-dir": "c:\\k\\pki",
+    "--cgroups-per-qos": "false",
+    "--client-ca-file": "c:\\k\\ca.crt",
+    "--cloud-config": "c:\\k\\azure.json",
+    "--cloud-provider": "external",
+    "--enforce-node-allocatable": "\"\"\"\"",
+    "--eviction-hard": "\"\"\"\"",
+    "--feature-gates": "CSIMigration=true,CSIMigrationAzureDisk=true,CSIMigrationAzureFile=true,DelegateFSGroupToCSIDriver=true,DynamicKubeletConfig=false",
+    "--hairpin-mode": "promiscuous-bridge",
+    "--kube-reserved": "cpu=100m,memory=3891Mi",
+    "--kubeconfig": "c:\\k\\config",
+    "--max-pods": "30",
+    "--network-plugin": "azure",
+    "--pod-infra-container-image": "kubletwin/pause",
+    "--resolv-conf": "\"\"\"\"",
+    "--rotate-certificates": "true",
+    "--tls-cipher-suites": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256"
+  }
+}

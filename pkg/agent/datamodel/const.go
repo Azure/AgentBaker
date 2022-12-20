@@ -121,7 +121,13 @@ const (
 	Nvidia510GridDriverVersion = "grid-510.73.08"
 )
 
-var GridGPUSizes = map[string]bool{
+// these sizes use a "converged" driver to support both cuda/grid workloads.
+// how do you figure this out? ask HPC or find out by trial and error.
+// installing vanilla cuda drivers will fail to install with opaque errors.
+// nvidia-bug-report.sh will is helpful, but usually it tells you
+// the pci card id is incompatible. That sends me to HPC folks.
+// see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json
+var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nv6ads_a10_v5":   true,
 	"standard_nv12ads_a10_v5":  true,
 	"standard_nv18ads_a10_v5":  true,
@@ -131,6 +137,22 @@ var GridGPUSizes = map[string]bool{
 	"standard_nc8ads_a10_v4":   true,
 	"standard_nc16ads_a10_v4":  true,
 	"standard_nc32ads_a10_v4":  true,
+}
+
+// this list should be updated as needed if AKS supports
+// new MIG-capable skus which require fabricmanager for nvlink training.
+// Specifically, the 8-board VM sizes (ND96 and larger)
+// Check with HPC or SKU API folks if we can improve this...
+var FabricManagerGPUSizes = map[string]bool{
+	"standard_nd96asr_v4":        true,
+	"standard_nd112asr_a100_v4":  true,
+	"standard_nd120asr_a100_v4":  true,
+	"standard_nd96amsr_a100_v4":  true,
+	"standard_nd112amsr_a100_v4": true,
+	"standard_nd120amsr_a100_v4": true,
+	"standard_nc24ads_a100_v4":   false, // NCads_v4 will fail to start fabricmanager
+	"standard_nc48ads_a100_v4":   false,
+	"standard_nc96ads_a100_v4":   false,
 }
 
 const (

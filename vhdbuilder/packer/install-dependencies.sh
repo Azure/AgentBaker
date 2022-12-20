@@ -76,6 +76,13 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - zip
 EOF
 
+tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
+Storage=persistent
+SystemMaxUse=1G
+RuntimeMaxUse=1G
+ForwardToSyslog=yes
+EOF
+
 if [[ $(isARM64) == 1 ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     echo "No FIPS support on arm64, exiting..."

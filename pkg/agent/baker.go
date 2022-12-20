@@ -231,11 +231,17 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 // similar to what the ARM template used to do.
 //
 // When ARM template was used, the following is used:
-//   variables('labelResourceGroup')
+//
+//	variables('labelResourceGroup')
+//
 // which is defined as:
-//   [if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+//
+//	[if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+//
 // the "truncatedResourceGroup" is defined as:
-//   [take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+//
+//	[take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+//
 // This function does the same processing.
 func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	truncated := resourceGroupName
@@ -827,6 +833,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
+		"GPUNeedsFabricManager": func() bool {
+			return gpuNeedsFabricManager(profile.VMSize)
+		},
 		"GPUDriverVersion": func() string {
 			return getGPUDriverVersion(profile.VMSize)
 		},
@@ -874,7 +883,11 @@ func isStandardNCv1(size string) bool {
 }
 
 func useGridDrivers(size string) bool {
-	return datamodel.GridGPUSizes[strings.ToLower(size)]
+	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
+}
+
+func gpuNeedsFabricManager(size string) bool {
+	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
