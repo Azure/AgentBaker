@@ -75,7 +75,7 @@ if [ -z "$SIG_VERSION_ID" ]; then
     echo "SIG_VERSION_ID was not provided via matrix or command line, using default: $SIG_VERSION_ID"
 else
     # Verify that the specified SIG version ID actually exists before attempting to use it, fail hard if it doesn't
-    id=$(az resource show --ids "$SIG_VERISON_ID")
+    id=$(az resource show --ids "$SIG_VERSION_ID")
     if [ -z "$id" ]; then
         echo "unable to find SIG_VERSION_ID $SIG_VERSION_ID for use in e2e test"
         exit 1
