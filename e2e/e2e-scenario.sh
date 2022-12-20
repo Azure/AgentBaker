@@ -70,6 +70,13 @@ cat $SCENARIO_NAME-vmss.json
 # TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
 #       However, how to incorporate chaning quarters?
 log "Creating VMSS"
+
+# If a custom VM image ID was not provided via the scenario matrix or via the command line, default to a locked 1804Gen2 image for now
+if [ -z "$VM_IMAGE_ID" ]; then
+    VM_IMAGE_ID="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026"
+    echo "VM_IMAGE_ID was not provided via matrix or command line, using default: $VM_IMAGE_ID"
+fi
+
 vmssStartTime=$(date +%s)
 az vmss create -n ${VMSS_NAME} \
     -g $MC_RESOURCE_GROUP_NAME \
@@ -79,7 +86,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026" \
+    --image $VM_IMAGE_ID \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson

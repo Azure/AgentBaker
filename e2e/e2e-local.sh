@@ -9,6 +9,7 @@ set -euxo pipefail
 
 SCENARIO_NAME=$1
 VM_SKU=$2
+VM_IMAGE_ID=$3
 
 export SUBSCRIPTION_ID
 export RESOURCE_GROUP_NAME
@@ -16,6 +17,7 @@ export LOCATION
 export CLUSTER_NAME
 export SCENARIO_NAME
 export VM_SKU
+export VM_IMAGE_ID
 
 bash ./e2e-starter.sh
 
