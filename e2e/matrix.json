@@ -1,12 +1,10 @@
 {
     "scenario_gpu": {
         "SCENARIO_NAME": "vanilla-gpu",
-        "VM_SKU": "Standard_NC6s_v3",
-        "SIG_VERSION_ID": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026"
+        "VM_SKU": "Standard_NC6s_v3"
     },
     "scenario_vanilla": {
         "SCENARIO_NAME": "vanilla-aks",
-        "VM_SKU": "Standard_DS2_v2",
-        "SIG_VERSION_ID": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026"
+        "VM_SKU": "Standard_DS2_v2"
     }
 }
