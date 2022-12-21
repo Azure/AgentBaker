@@ -293,17 +293,6 @@ fi
 KUBEMANIFESTDIR=/etc/kubernetes/manifests
 mkdir -p $KUBEMANIFESTDIR
 
-# setup CNI dirs
-CNI_BIN_DIR="/opt/cni/bin"
-CNI_CONFIG_DIR="/etc/cni/net.d"
-mkdir -p $CNI_BIN_DIR
-chown -R root:root $CNI_BIN_DIR
-chmod -R 755 $CNI_BIN_DIR
-
-mkdir -p $CNI_CONFIG_DIR
-chown -R root:root $CNI_CONFIG_DIR
-chmod 755 $CNI_CONFIG_DIR
-
 # must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
 1.4.32
