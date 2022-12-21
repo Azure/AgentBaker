@@ -112,6 +112,8 @@ logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 {{- end}}
 
+setupCNIDirs
+
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 {{- if IsKrustlet }}
