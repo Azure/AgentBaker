@@ -9,7 +9,10 @@ set -euxo pipefail
 
 SCENARIO_NAME=$1
 VM_SKU=$2
-SIG_VERSION_ID=$3
+
+SIG_VERSION_ID=""
+[ $# -eq 3 ] && SIG_VERSION_ID=$3
+
 
 export SUBSCRIPTION_ID
 export RESOURCE_GROUP_NAME
