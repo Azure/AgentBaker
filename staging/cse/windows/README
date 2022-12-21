@@ -10,6 +10,14 @@
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.21
+- feat: Support Windows calico v3.23.3 in AKS Windows CSE scripts #2515
+- fix: Enable WinDSR with the new Azure CNI config #2516
+- fix: Start Windows calico services for v3.23.3 #2525
+
+## v0.0.20
+- feat: Cache log collect scripts in Windows CSE script package #2481
+
 ## v0.0.19
 - feat: Add AKS logs in Windows GuestVMLogs #2426
 - Don't add VnetCidrs to exceptionlist when network plugin mode is overlay #2428
