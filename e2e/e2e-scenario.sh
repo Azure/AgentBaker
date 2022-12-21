@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -exo pipefail
+set -euxo pipefail
 
 source e2e-helper.sh
 
