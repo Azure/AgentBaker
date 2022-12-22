@@ -479,17 +479,16 @@ ensureGPUDrivers() {
     
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         DRIVER_VER="$(grep nvidia-gpu-driver-version ${VHD_LOGS_FILEPATH} | cut -d '=' -f 2)"
-        if [ -z ${DRIVER_VER} ] || [ "${GPU_DV}" != "${DRIVER_VER}"]; then
+        if [ -z "${DRIVER_VER}" ] || [ "${GPU_DV}" != "${DRIVER_VER}" ]; then
+            echo "Entered here with GPU_DV $GPU_DV"
             logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
-            sed -i 's/${DRIVER_VER}/${GPU_DV}/g' ${VHD_LOGS_FILEPATH}
+            sed -i "s/${DRIVER_VER}/${GPU_DV}/g" ${VHD_LOGS_FILEPATH}
         fi
     fi
     logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-
-    grep 'gpu-driver-version' $VHD_LOGS_FILEPATH
 }
 
 #EOF
