@@ -4,8 +4,6 @@ set -euxo pipefail
 
 source e2e-helper.sh
 
-kubectl apply -f aks-ssh.yaml
-
 log "Starting to create windows nodepool"
 
 # windowsNodepool="win19"
