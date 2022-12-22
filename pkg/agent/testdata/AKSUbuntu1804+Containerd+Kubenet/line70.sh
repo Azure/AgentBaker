@@ -329,7 +329,7 @@ ensureGPUDrivers() {
     
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
         DRIVER_VER="$(grep nvidia-gpu-driver-version ${VHD_LOGS_FILEPATH} | cut -d '=' -f 2)"
-        if [[ -z ${DRIVER_VER} || "${GPU_DV}" != "${DRIVER_VER}"]]; then
+        if [ -z ${DRIVER_VER} ] || [ "${GPU_DV}" != "${DRIVER_VER}"]; then
             logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
             sed -i 's/${DRIVER_VER}/${GPU_DV}/g' ${VHD_LOGS_FILEPATH}
         fi
