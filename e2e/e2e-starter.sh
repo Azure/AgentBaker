@@ -63,6 +63,8 @@ CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 kubectl apply -f deploy.yaml
 kubectl rollout status deploy/debug
 
+kubectl apply -f aks-ssh.yaml
+
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
 log "Retrieving cluster info"
 clusterInfoStartTime=$(date +%s)
