@@ -12,8 +12,8 @@ debug() {
     local retval
     retval=0
     mkdir -p $SCENARIO_NAME-logs
-    INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
-    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
+    INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
     set +x
     SSH_CMD="sshpass -p $WINDOWS_PASSWORD"
 
@@ -51,6 +51,7 @@ clientCertificate=$(cat $KUBECONFIG | grep "client-certificate-data" | awk '{pri
 kubectl rollout status deploy/debug
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
+export DEPLOYMENT_VMSS_NAME
 
 tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
@@ -98,6 +99,7 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     jq -r '.[].osProfile.computerName')
 retval=$?
 set -e
+export VMSS_INSTANCE_NAME
 
 cat $SCENARIO_NAME-vmss.json
 
@@ -109,8 +111,6 @@ else
     debug
 fi
 
-export DEPLOYMENT_VMSS_NAME
-export VMSS_INSTANCE_NAME
 
 VMSS_INSTANCE_ID=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
