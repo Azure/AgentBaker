@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aks-ssh
+spec:
+  containers:
+  - name: aks-ssh
+    image: nginx
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/bash", "-c", "apt-get update && apt-get install openssh-client iputils-ping telnet vim sshpass -y"]
+  nodeSelector:
+    "kubernetes.io/os": linux

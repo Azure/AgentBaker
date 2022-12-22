@@ -8,6 +8,26 @@ choose() {
     echo ${1:RANDOM%${#1}:1} $RANDOM;
 }
 
+debug() {
+    local retval
+    retval=0
+    mkdir -p $SCENARIO_NAME-logs
+    INSTANCE_ID="$(az vmss list-instances --name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
+    set +x
+    SSH_CMD="sshpass -p $WINDOWS_PASSWORD"
+
+    kubectl exec aks-ssh -- bash -c "bash -c \"$SSH_CMD scp azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.log CustomDataSetupScript.log\""
+    kubectl exec aks-ssh -- bash -c "bash -c \"$SSH_CMD scp azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.ps1 CustomDataSetupScript.ps1\""
+
+
+    kubectl cp aks-ssh:CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    kubectl cp aks-ssh:CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
+    
+    set -x
+    echo "debug done"
+}
+
 set +x
 WINDOWS_PASSWORD=$({
     choose '#*-+.;'
@@ -70,16 +90,25 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
          --template-file deployment.json
-retval=$?
-set -e
-
-cat $SCENARIO_NAME-vmss.json
 
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
                     -g $MC_RESOURCE_GROUP_NAME \
                     -ojson | \
                     jq -r '.[].osProfile.computerName')
+retval=$?
+set -e
+
+cat $SCENARIO_NAME-vmss.json
+
+if [[ "$retval" -ne 0 ]]; then
+    err "Fail to deploy vmss"
+    exit 1
+else
+    log "Collect cse log"
+    debug
+fi
+
 export DEPLOYMENT_VMSS_NAME
 export VMSS_INSTANCE_NAME
 

@@ -61,6 +61,7 @@ CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
 # privileged ds with nsenter for host file exfiltration
 kubectl apply -f deploy.yaml
+kubectl apply -f aks-ssh.yaml
 kubectl rollout status deploy/debug
 
 # Retrieve the etc/kubernetes/azure.json file for cluster related info
