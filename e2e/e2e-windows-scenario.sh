@@ -29,13 +29,12 @@ debug() {
 
 set +x
 WINDOWS_PASSWORD=$({
-    choose '#*-+.;'
     choose '0123456789'
     choose 'abcdefghijklmnopqrstuvwxyz'
     choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     for i in $(seq 1 16)
     do
-        choose '#*-+.;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        choose '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     done
 } | sort -R | awk '{printf "%s", $1}')
 set -x
