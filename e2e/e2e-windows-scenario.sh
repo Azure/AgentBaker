@@ -15,10 +15,9 @@ debug() {
     INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
     set +x
-    SSH_CMD="sshpass -p $WINDOWS_PASSWORD"
 
-    kubectl exec aks-ssh -- bash -c "bash -c \"$SSH_CMD scp azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.log CustomDataSetupScript.log\""
-    kubectl exec aks-ssh -- bash -c "bash -c \"$SSH_CMD scp azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.ps1 CustomDataSetupScript.ps1\""
+    kubectl exec aks-ssh -- bash -c "bash -c \"sshpass -p $WINDOWS_PASSWORD scp azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.log CustomDataSetupScript.log\""
+    kubectl exec aks-ssh -- bash -c "bash -c \"sshpass -p $WINDOWS_PASSWORD scp azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.ps1 CustomDataSetupScript.ps1\""
 
 
     kubectl cp aks-ssh:CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
