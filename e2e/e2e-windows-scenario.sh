@@ -29,7 +29,7 @@ debug() {
 
 set +x
 WINDOWS_PASSWORD=$({
-    choose '#*-+.'
+    choose '#*-+.;'
     choose '0123456789'
     choose 'abcdefghijklmnopqrstuvwxyz'
     choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
