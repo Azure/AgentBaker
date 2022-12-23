@@ -12,6 +12,27 @@ debug() {
     local retval
     retval=0
     kubectl apply -f aks-ssh.yaml
+    for i in $(seq 1 10); do
+        set +e
+        kubectl get pods -o wide | grep "aks-ssh" | grep "running"
+        retval=$?
+        set -e
+        if [ "$retval" -ne 0 ]; then
+            log "retrying attempt $i"
+            sleep 10
+            continue
+        fi
+        break;
+    done
+
+    if [ "$retval" -eq 0 ]; then
+        ok "JumpBox ran successfully"
+    else
+        err "JumpBox pending/not running"
+        kubectl get pods -o wide | grep "aks-ssh"
+        kubectl describe pod aks-ssh
+        exit 1
+    fi
 
     mkdir -p $SCENARIO_NAME-logs
     INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
