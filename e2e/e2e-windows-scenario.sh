@@ -14,8 +14,7 @@ debug() {
     kubectl apply -f aks-ssh.yaml
     for i in $(seq 1 10); do
         set +e
-        kubectl get pods -o wide | grep "aks-ssh"
-        kubectl get pods -o wide | grep "aks-ssh" | grep "running"
+        kubectl get pods -o wide | grep "aks-ssh" | grep "Running"
         retval=$?
         set -e
         if [ "$retval" -ne 0 ]; then
