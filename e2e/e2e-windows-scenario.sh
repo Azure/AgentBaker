@@ -8,15 +8,57 @@ choose() {
     echo ${1:RANDOM%${#1}:1} $RANDOM;
 }
 
+collect-logs() {
+    local retval
+    retval=0
+    kubectl apply -f jumpbox.yaml
+    for i in $(seq 1 10); do
+        set +e
+        kubectl get pods -o wide | grep "jumpbox" | grep "Running"
+        retval=$?
+        set -e
+        if [ "$retval" -ne 0 ]; then
+            log "retrying attempt $i"
+            sleep 10
+            continue
+        fi
+        break;
+    done
+
+    if [ "$retval" -eq 0 ]; then
+        ok "JumpBox ran successfully"
+    else
+        err "JumpBox pending/not running"
+        kubectl get pods -o wide | grep "jumpbox"
+        kubectl describe pod jumpbox
+        exit 1
+    fi
+
+    mkdir -p $SCENARIO_NAME-logs
+    INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
+    
+    SSH_OPTS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
+
+    set +x
+    kubectl exec jumpbox -- bash -c "bash -c \"sshpass -p $WINDOWS_PASSWORD scp $SSH_OPTS azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.log CustomDataSetupScript.log\""
+    kubectl exec jumpbox -- bash -c "bash -c \"sshpass -p $WINDOWS_PASSWORD scp $SSH_OPTS azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.ps1 CustomDataSetupScript.ps1\""
+
+    kubectl cp jumpbox:CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    kubectl cp jumpbox:CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
+    set -x
+
+    echo "collect cse logs done"
+}
+
 set +x
 WINDOWS_PASSWORD=$({
-    choose '#*-+.;'
     choose '0123456789'
     choose 'abcdefghijklmnopqrstuvwxyz'
     choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     for i in $(seq 1 16)
     do
-        choose '#*-+.;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        choose '#*0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     done
 } | sort -R | awk '{printf "%s", $1}')
 set -x
@@ -88,14 +130,6 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
 export DEPLOYMENT_VMSS_NAME
 export VMSS_INSTANCE_NAME
 
-VMSS_INSTANCE_ID=$(az vmss list-instances \
-                    -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $MC_RESOURCE_GROUP_NAME \
-                    -ojson | \
-                    jq -r '.[].instanceId'
-                )
-export VMSS_INSTANCE_ID
-
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
@@ -151,10 +185,6 @@ log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come u
 
 if [ "$retval" -eq 0 ]; then
     ok "Pod ran successfully"
-    # debug
-    mkdir -p $SCENARIO_NAME-logs
-    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
-    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1  
 else
     err "Pod pending/not running"
     kubectl get pods -o wide | grep $POD_NAME
