@@ -115,6 +115,9 @@ az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
 retval=$?
 set -e
 
+log "Collect cse log"
+collect-logs
+
 if [[ "$retval" != "0" ]]; then
     err "failed to deploy windows vmss"
     exit 1
