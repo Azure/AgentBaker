@@ -21,6 +21,9 @@ WINDOWS_PASSWORD=$({
 set -x
 echo $WINDOWS_PASSWORD
 
+echo $test1
+echo $test2
+
 MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
 token=$(az storage container generate-sas --account-name abe2ecselog --account-key $STORAGE_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only --output tsv)
 
