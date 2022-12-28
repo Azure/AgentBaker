@@ -95,6 +95,7 @@ if [[ "$retval" -ne 0 ]]; then
     exit 1
 else
     log "Collect cse log"
+    mkdir -p $SCENARIO_NAME-logs
     # set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
     token=$(az storage container generate-sas --account-name abe2ecselog --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only)
@@ -105,7 +106,10 @@ else
         --scripts 'param([string]$arg1,[string]$arg2)' \
         'Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip;expand-archive azcopy.zip;cd .\azcopy\*;.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "https://abe2ecselog.blob.core.windows.net/cselogs/$arg1-cse.log?$arg2"' \
         --parameters arg1=$DEPLOYMENT_VMSS_NAME arg2=$token
-
+    
+    wget https://aka.ms/downloadazcopy-v10-linux
+    tar -xvf downloadazcopy-v10-linux
+    azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$token" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     # set -x
     echo "debug done"
 fi
