@@ -9,11 +9,9 @@ choose() {
 }
 
 debug() {
-    local retval
-    retval=0
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name abe2ecselog --account-key $(STORAGE_ACCOUNT_KEY) --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only --output tsv)
+    token=$(az storage container generate-sas --account-name abe2ecselog --account-key $STORAGE_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only --output tsv)
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
