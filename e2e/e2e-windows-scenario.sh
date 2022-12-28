@@ -80,6 +80,14 @@ retval=$?
 set -e
 export VMSS_INSTANCE_NAME
 
+VMSS_INSTANCE_ID=$(az vmss list-instances \
+                    -n ${DEPLOYMENT_VMSS_NAME} \
+                    -g $MC_RESOURCE_GROUP_NAME \
+                    -ojson | \
+                    jq -r '.[].instanceId'
+                )
+export VMSS_INSTANCE_ID
+
 cat $SCENARIO_NAME-vmss.json
 
 if [[ "$retval" -ne 0 ]]; then
@@ -101,14 +109,6 @@ og.blob.core.windows.net/cselogs/$DEPLOYMENT_VMSS_NAME?$token"'
     echo "debug done"
 fi
 
-
-VMSS_INSTANCE_ID=$(az vmss list-instances \
-                    -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $MC_RESOURCE_GROUP_NAME \
-                    -ojson | \
-                    jq -r '.[].instanceId'
-                )
-export VMSS_INSTANCE_ID
 
 # FAILED=0
 # # Check if the node joined the cluster
