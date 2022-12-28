@@ -82,8 +82,6 @@ export VMSS_INSTANCE_NAME
 
 cat $SCENARIO_NAME-vmss.json
 
-echo $STORAGE_ACCOUNT_KEY
-
 if [[ "$retval" -ne 0 ]]; then
     err "Fail to deploy vmss"
     exit 1
