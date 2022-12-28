@@ -8,6 +8,7 @@ pr:
 
 variables:
 - group: ab-e2e-windows
+  MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
 
 pool:
   name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
