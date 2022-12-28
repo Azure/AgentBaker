@@ -22,7 +22,6 @@ set -x
 echo $WINDOWS_PASSWORD
 
 echo $RESOURCE_GROUP_NAME
-echo $test1
 echo $test2
 
 MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
