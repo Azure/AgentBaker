@@ -8,7 +8,6 @@ pr:
 
 variables:
 - group: ab-e2e-windows
-  MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
 
 pool:
   name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
@@ -59,6 +58,8 @@ jobs:
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
       cd e2e
       bash e2e-windows-scenario.sh
+    env:
+      MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
   - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
     artifact: $(SCENARIO_NAME)-logs
     condition: always()
