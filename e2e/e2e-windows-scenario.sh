@@ -21,6 +21,7 @@ WINDOWS_PASSWORD=$({
 set -x
 echo $WINDOWS_PASSWORD
 
+echo $RESOURCE_GROUP_NAME
 echo $test1
 echo $test2
 
