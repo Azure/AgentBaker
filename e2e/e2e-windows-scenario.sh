@@ -111,6 +111,7 @@ else
     tar -xvf downloadazcopy-v10-linux
     tokenWithoutQuote=$(echo $token | sed 's/\"//g')
     azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$tokenWithoutQuote" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    azcopy_*/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$tokenWithoutQuote"
     # set -x
     echo "debug done"
 fi
