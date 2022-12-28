@@ -11,7 +11,7 @@ choose() {
 debug() {
     local retval
     retval=0
-    set +x
+    # set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
     token=$(az storage container generate-sas --account-name abe2ecselog --account-key $STORAGE_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only --output tsv)
     az vmss run-command invoke --command-id RunPowerShellScript \
@@ -21,7 +21,7 @@ debug() {
         --scripts 'Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip;expand-archive azcopy.zip;cd .\azcopy\*;.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "https://abe2ecsel
 og.blob.core.windows.net/cselogs/$DEPLOYMENT_VMSS_NAME?$token"'
 
-    set -x
+    # set -x
     echo "debug done"
 }
 
@@ -96,8 +96,6 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
 retval=$?
 set -e
 export VMSS_INSTANCE_NAME
-
-export STORAGE_ACCOUNT_KEY
 
 cat $SCENARIO_NAME-vmss.json
 
