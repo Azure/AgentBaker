@@ -16,24 +16,24 @@ collect-logs() {
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
     token=$(az storage container generate-sas --account-name abe2ecselog --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only)
+    # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
-        --scripts 'param([string]$arg1,[string]$arg2)' \
-        'Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip;expand-archive azcopy.zip;cd .\azcopy\*;.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "https://abe2ecselog.blob.core.windows.net/cselogs/$arg1-cse.log?$arg2"' \
+        --scripts @upload-cse-logs.ps1 \
         --parameters arg1=$DEPLOYMENT_VMSS_NAME arg2=$token
     if [ "$retval" != "0" ]; then
         echo "failed upload cse logs"
     fi
     wget https://aka.ms/downloadazcopy-v10-linux
     tar -xvf downloadazcopy-v10-linux
-    tokenWithoutQuote=$(echo $token | sed 's/\"//g')
-    azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$tokenWithoutQuote" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    tokenWithoutQuote=$(echo ${token//\"})
+    azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     if [ "$retval" != "0" ]; then
         echo "failed download cse logs"
     fi 
-    azcopy_*/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$tokenWithoutQuote"
+    azcopy_*/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
     if [ "$retval" != "0" ]; then
         echo "failed delete cse logs in remote storage"
     fi
