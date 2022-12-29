@@ -12,6 +12,7 @@ collect-logs() {
     local retval
     retval=0
     mkdir -p $SCENARIO_NAME-logs
+    VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
     token=$(az storage container generate-sas --account-name abe2ecselog --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only)
