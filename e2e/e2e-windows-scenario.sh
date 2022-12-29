@@ -22,7 +22,7 @@ collect-logs() {
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts @upload-cse-logs.ps1 \
-        --parameters arg1=$DEPLOYMENT_VMSS_NAME arg2=$token
+        --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_CONTAINER_NAME arg3=$DEPLOYMENT_VMSS_NAME arg4=$token
     if [ "$retval" != "0" ]; then
         echo "failed in uploading cse logs"
     fi
@@ -31,11 +31,11 @@ collect-logs() {
     tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
     array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_CONTAINER_NAME}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     if [ "$retval" != "0" ]; then
         echo "failed in downloading cse logs"
     else
-        ${array[0]}/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
+        ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_CONTAINER_NAME}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
         if [ "$retval" != "0" ]; then
             echo "failed in deleting cse logs in remote storage"
         fi
