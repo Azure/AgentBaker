@@ -29,11 +29,13 @@ collect-logs() {
     wget https://aka.ms/downloadazcopy-v10-linux
     tar -xvf downloadazcopy-v10-linux
     tokenWithoutQuote=${token//\"}
-    azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    # use array to pass shellcheck
+    array=(azcopy_*)
+    ${array[0]}/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     if [ "$retval" != "0" ]; then
         echo "failed download cse logs"
     fi 
-    azcopy_*/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
+    ${array[0]}/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
     if [ "$retval" != "0" ]; then
         echo "failed delete cse logs in remote storage"
     fi
