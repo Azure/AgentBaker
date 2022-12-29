@@ -15,7 +15,7 @@ collect-logs() {
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name abe2ecselog --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only)
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_CONTAINER_NAME --https-only)
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
@@ -24,7 +24,7 @@ collect-logs() {
         --scripts @upload-cse-logs.ps1 \
         --parameters arg1=$DEPLOYMENT_VMSS_NAME arg2=$token
     if [ "$retval" != "0" ]; then
-        echo "failed upload cse logs"
+        echo "failed in uploading cse logs"
     fi
     wget https://aka.ms/downloadazcopy-v10-linux
     tar -xvf downloadazcopy-v10-linux
@@ -33,11 +33,12 @@ collect-logs() {
     array=(azcopy_*)
     ${array[0]}/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     if [ "$retval" != "0" ]; then
-        echo "failed download cse logs"
-    fi 
-    ${array[0]}/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
-    if [ "$retval" != "0" ]; then
-        echo "failed delete cse logs in remote storage"
+        echo "failed in downloading cse logs"
+    else
+        ${array[0]}/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
+        if [ "$retval" != "0" ]; then
+            echo "failed in deleting cse logs in remote storage"
+        fi
     fi
     set -x
 
