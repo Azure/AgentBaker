@@ -28,7 +28,7 @@ collect-logs() {
     fi
     wget https://aka.ms/downloadazcopy-v10-linux
     tar -xvf downloadazcopy-v10-linux
-    tokenWithoutQuote=$(echo ${token//\"})
+    tokenWithoutQuote=${token//\"}
     azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     if [ "$retval" != "0" ]; then
         echo "failed download cse logs"
