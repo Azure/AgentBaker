@@ -11,41 +11,31 @@ choose() {
 collect-logs() {
     local retval
     retval=0
-    kubectl apply -f jumpbox.yaml
-    for i in $(seq 1 10); do
-        set +e
-        kubectl get pods -o wide | grep "jumpbox" | grep "Running"
-        retval=$?
-        set -e
-        if [ "$retval" -ne 0 ]; then
-            log "retrying attempt $i"
-            sleep 10
-            continue
-        fi
-        break;
-    done
-
-    if [ "$retval" -eq 0 ]; then
-        ok "JumpBox ran successfully"
-    else
-        err "JumpBox pending/not running"
-        kubectl get pods -o wide | grep "jumpbox"
-        kubectl describe pod jumpbox
-        exit 1
-    fi
-
     mkdir -p $SCENARIO_NAME-logs
-    INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
-    PRIVATE_IP="$(az vmss nic list-vm-nics --vmss-name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME --instance-id $INSTANCE_ID | jq -r .[0].ipConfigurations[0].privateIpAddress)"
-    
-    SSH_OPTS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5"
-
     set +x
-    kubectl exec jumpbox -- bash -c "bash -c \"sshpass -p $WINDOWS_PASSWORD scp $SSH_OPTS azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.log CustomDataSetupScript.log\""
-    kubectl exec jumpbox -- bash -c "bash -c \"sshpass -p $WINDOWS_PASSWORD scp $SSH_OPTS azureuser@$PRIVATE_IP:c:/AzureData/CustomDataSetupScript.ps1 CustomDataSetupScript.ps1\""
-
-    kubectl cp jumpbox:CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
-    kubectl cp jumpbox:CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1
+    expiryTime=$(date --date="2 day" +%Y-%m-%d)
+    token=$(az storage container generate-sas --account-name abe2ecselog --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name cselogs --https-only)
+    az vmss run-command invoke --command-id RunPowerShellScript \
+        --resource-group $MC_RESOURCE_GROUP_NAME \
+        --name $DEPLOYMENT_VMSS_NAME \
+        --instance-id $VMSS_INSTANCE_ID \
+        --scripts 'param([string]$arg1,[string]$arg2)' \
+        'Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip;expand-archive azcopy.zip;cd .\azcopy\*;.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "https://abe2ecselog.blob.core.windows.net/cselogs/$arg1-cse.log?$arg2"' \
+        --parameters arg1=$DEPLOYMENT_VMSS_NAME arg2=$token
+    if [ "$retval" != "0" ]; then
+        echo "failed upload cse logs"
+    fi
+    wget https://aka.ms/downloadazcopy-v10-linux
+    tar -xvf downloadazcopy-v10-linux
+    tokenWithoutQuote=$(echo $token | sed 's/\"//g')
+    azcopy_*/azcopy copy "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$tokenWithoutQuote" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    if [ "$retval" != "0" ]; then
+        echo "failed download cse logs"
+    fi 
+    azcopy_*/azcopy rm "https://abe2ecselog.blob.core.windows.net/cselogs/${DEPLOYMENT_VMSS_NAME}-cse.log?$tokenWithoutQuote"
+    if [ "$retval" != "0" ]; then
+        echo "failed delete cse logs in remote storage"
+    fi
     set -x
 
     echo "collect cse logs done"
