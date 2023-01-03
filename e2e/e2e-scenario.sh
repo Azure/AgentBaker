@@ -30,6 +30,10 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed journalctl -u kubelet"
     fi
+    exec_on_host "$SSH_CMD cat /var/log/syslog" $SCENARIO_NAME-logs/syslog || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat syslog"
+    fi
     set -x
     echo "debug done"
 }

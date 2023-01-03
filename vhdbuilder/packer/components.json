@@ -107,15 +107,16 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.2.2.3",
-        "v1.2.2.4"
+        "v1.2.2.4",
+        "v1.3.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.2.0"
+        "v1.2.0",
+        "v1.4.0"
       ]
     },
     {
@@ -148,7 +149,8 @@
       ],
       "multiArchVersions": [
         "v3.21.6",
-        "v3.23.3"
+        "v3.23.3",
+        "v3.24.0"
       ]
     },
     {
@@ -158,7 +160,8 @@
       ],
       "multiArchVersions": [
         "v3.21.6",
-        "v3.23.3"
+        "v3.23.3",
+        "v3.24.0"
       ]
     },
     {
@@ -168,7 +171,8 @@
       ],
       "multiArchVersions": [
         "v3.21.6",
-        "v3.23.3"
+        "v3.23.3",
+        "v3.24.0"
       ]
     },
     {
@@ -178,7 +182,8 @@
       ],
       "multiArchVersions": [
         "v3.21.6",
-        "v3.23.3"
+        "v3.23.3",
+        "v3.24.0"
       ]
     },
     {
@@ -186,7 +191,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.21.6",
-        "v3.23.3"
+        "v3.23.3",
+        "v3.24.0"
       ]
     },
     {
@@ -210,7 +216,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.23.8",
-        "v1.27.12"
+        "v1.27.12",
+        "v1.28.0"
       ]
     },
     {
@@ -223,8 +230,10 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.1.14",
-        "v1.23.11",
-        "v1.24.3"
+        "v1.23.24",
+        "v1.24.11",
+        "v1.25.5",
+        "v1.26.0"
       ]
     },
     {
@@ -372,7 +381,7 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.13.1" 
+        "v1.8.13.1"
       ]
     },
     {

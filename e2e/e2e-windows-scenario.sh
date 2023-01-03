@@ -8,15 +8,51 @@ choose() {
     echo ${1:RANDOM%${#1}:1} $RANDOM;
 }
 
+collect-logs() {
+    local retval
+    retval=0
+    mkdir -p $SCENARIO_NAME-logs
+    VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    set +x
+    expiryTime=$(date --date="2 day" +%Y-%m-%d)
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_CONTAINER_NAME --https-only)
+    # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
+    az vmss run-command invoke --command-id RunPowerShellScript \
+        --resource-group $MC_RESOURCE_GROUP_NAME \
+        --name $DEPLOYMENT_VMSS_NAME \
+        --instance-id $VMSS_INSTANCE_ID \
+        --scripts @upload-cse-logs.ps1 \
+        --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_CONTAINER_NAME arg3=$DEPLOYMENT_VMSS_NAME arg4=$token
+    if [ "$retval" != "0" ]; then
+        echo "failed in uploading cse logs"
+    fi
+    wget https://aka.ms/downloadazcopy-v10-linux
+    tar -xvf downloadazcopy-v10-linux
+    tokenWithoutQuote=${token//\"}
+    # use array to pass shellcheck
+    array=(azcopy_*)
+    ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_CONTAINER_NAME}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    if [ "$retval" != "0" ]; then
+        echo "failed in downloading cse logs"
+    else
+        ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_CONTAINER_NAME}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
+        if [ "$retval" != "0" ]; then
+            echo "failed in deleting cse logs in remote storage"
+        fi
+    fi
+    set -x
+
+    echo "collect cse logs done"
+}
+
 set +x
 WINDOWS_PASSWORD=$({
-    choose '#*-+.;'
     choose '0123456789'
     choose 'abcdefghijklmnopqrstuvwxyz'
     choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     for i in $(seq 1 16)
     do
-        choose '#*-+.;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        choose '#*0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     done
 } | sort -R | awk '{printf "%s", $1}')
 set -x
@@ -73,6 +109,9 @@ az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
 retval=$?
 set -e
 
+log "Collect cse log"
+collect-logs
+
 if [[ "$retval" != "0" ]]; then
     err "failed to deploy windows vmss"
     exit 1
@@ -87,14 +126,6 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     jq -r '.[].osProfile.computerName')
 export DEPLOYMENT_VMSS_NAME
 export VMSS_INSTANCE_NAME
-
-VMSS_INSTANCE_ID=$(az vmss list-instances \
-                    -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $MC_RESOURCE_GROUP_NAME \
-                    -ojson | \
-                    jq -r '.[].instanceId'
-                )
-export VMSS_INSTANCE_ID
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
@@ -151,10 +182,6 @@ log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come u
 
 if [ "$retval" -eq 0 ]; then
     ok "Pod ran successfully"
-    # debug
-    mkdir -p $SCENARIO_NAME-logs
-    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.log $SCENARIO_NAME-logs/CustomDataSetupScript.log
-    kubectl cp $POD_NAME:AzureData/CustomDataSetupScript.ps1 $SCENARIO_NAME-logs/CustomDataSetupScript.ps1  
 else
     err "Pod pending/not running"
     kubectl get pods -o wide | grep $POD_NAME
