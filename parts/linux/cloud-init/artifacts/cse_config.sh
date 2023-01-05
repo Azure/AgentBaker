@@ -49,7 +49,11 @@ configureSwapFile() {
 
     # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${swap_location}" ]]; then
-        os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
+        if [[ $OS == $MARINER_OS_NAME ]]; then
+            os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part3))
+        else 
+            os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
+        fi
         disk_free_kb=$(df ${os_disk_path} | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
             echo "Will use OS disk for swap file"
