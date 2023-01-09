@@ -6225,7 +6225,7 @@ write_files:
 {{end}}
 
 - path: /etc/kubernetes/certs/ca.crt
-  permissions: "0644"
+  permissions: "0600"
   encoding: base64
   owner: root
   content: |
