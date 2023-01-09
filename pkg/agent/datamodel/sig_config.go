@@ -10,7 +10,7 @@ const (
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
 )
 
-// SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
+//SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 // TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once it's moved into AKS RP
 type SIGAzureEnvironmentSpecConfig struct {
 	CloudName                string                    `json:"cloudName,omitempty"`
@@ -54,7 +54,7 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-// TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a cleanup to remove these after 20.04 work.
+//TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a cleanup to remove these after 20.04 work.
 var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -240,9 +240,6 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	// pinned due to app armor issue
-	CBLMarinerV1Gen1SIGImageVersion string = "2022.11.12"
-
 	Ubuntu2204TLSIGImageVersion       string = "2022.10.13"
 	CBLMarinerV2Gen2TLSIGImageVersion string = "2022.11.29"
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
@@ -390,7 +387,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
-		Version:       CBLMarinerV1Gen1SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{
