@@ -555,7 +555,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
-	fromACSUbuntuEdgeZone, err := withACSSIGConfig(sigConfig, "AKSUbuntuEdgeZone")
+	fromACSUbuntuEdgeZone, err := withEdgeZoneConfig(sigConfig)
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntuEdgeZone: %s", err)
 	}
@@ -575,6 +575,7 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
 }
+
 func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, error) {
 	gallery, k := acsSigConfig.Galleries[osSKU]
 	if !k {
@@ -584,6 +585,15 @@ func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, 
 		c.Gallery = gallery.GalleryName
 		c.SubscriptionID = acsSigConfig.SubscriptionID
 		c.ResourceGroup = gallery.ResourceGroup
+	}, nil
+}
+
+// TODO - refactor to not overwrite edge zones when not needed (or remove ACS config altogether and map based on AB?)
+func withEdgeZoneConfig(acsSigConfig SIGConfig) (SigImageConfigOpt, error) {
+	return func(c *SigImageConfig) {
+		c.Gallery = AKSUbuntuEdgeZoneGalleryName
+		c.SubscriptionID = acsSigConfig.SubscriptionID
+		c.ResourceGroup = AKSUbuntuEdgeZoneResourceGroup
 	}, nil
 }
 
