@@ -1,4 +1,4 @@
-Starting build on  Tue Jan 10 00:53:16 UTC 2023
+Starting build on  Tue Jan 10 01:00:49 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -168,20 +168,18 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    45015040 Oct  6 23:34 /usr/local/bin/kubectl-1.25.2
 -rwxr-xr-x 1 root root   114237304 Nov 10 22:25 /usr/local/bin/kubelet-1.25.4
 -rwxr-xr-x 1 root root    45015040 Nov 10 22:25 /usr/local/bin/kubectl-1.25.4
+lrwxrwxrwx 1 root root          21 Dec 22 09:58 /usr/local/bin/kata-runtime -> /usr/bin/kata-runtime
+lrwxrwxrwx 1 root root          21 Dec 22 09:58 /usr/local/bin/kata-monitor -> /usr/bin/kata-monitor
+lrwxrwxrwx 1 root root          32 Dec 22 09:58 /usr/local/bin/containerd-shim-kata-v2 -> /usr/bin/containerd-shim-kata-v2
 -rwxr-xr-x 1 root root   121251736 Jan  3 21:00 /usr/local/bin/kubelet-1.26.0
 -rwxr-xr-x 1 root root    48021504 Jan  3 21:00 /usr/local/bin/kubectl-1.26.0
--r-xr--r-- 1 root root        2462 Jan 10 00:53 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root         705 Jan 10 00:53 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Jan 10 00:54 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root    47622592 Jan 10 00:54 /usr/local/bin/containerd-shim-slight-v1
--rwxr-x--- 1 root root    35384960 Jan 10 00:55 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root        2462 Jan 10 01:00 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root         705 Jan 10 01:00 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    36014944 Jan 10 01:02 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root    47622592 Jan 10 01:02 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-x--- 1 root root    35384960 Jan 10 01:03 /usr/local/bin/bpftrace
 === Installed Packages Begin
-mariner-release-2.0-30.cm2.noarch
-filesystem-1.1-12.cm2.x86_64
-glibc-2.35-3.cm2.x86_64
-libgcc-11.2.0-4.cm2.x86_64
 pcre-libs-8.45-2.cm2.x86_64
-libstdc++-11.2.0-4.cm2.x86_64
 zlib-1.2.12-2.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
 ncurses-libs-6.3-2.cm2.x86_64
@@ -191,33 +189,27 @@ bzip2-libs-1.0.8-1.cm2.x86_64
 pcre-8.45-2.cm2.x86_64
 gmp-6.2.1-2.cm2.x86_64
 libselinux-3.2-1.cm2.x86_64
-coreutils-8.32-6.cm2.x86_64
 grep-3.7-2.cm2.x86_64
 bash-5.1.8-1.cm2.x86_64
 libsepol-3.2-2.cm2.x86_64
 xz-5.2.5-1.cm2.x86_64
 kmod-29-1.cm2.x86_64
-kernel-5.15.82.1-2.cm2.x86_64
+kernel-5.15.67.1-2.cm2.x86_64
 shim-15.4-2.cm2.x86_64
 grub2-efi-binary-2.06-7.cm2.x86_64
 popt-1.18-1.cm2.x86_64
 slang-2.3.2-4.cm2.x86_64
 newt-0.52.21-4.cm2.x86_64
 chkconfig-1.20-3.cm2.x86_64
-ca-certificates-shared-2.0.0-9.cm2.noarch
 libffi-3.4.2-2.cm2.x86_64
 p11-kit-0.24.1-1.cm2.x86_64
-libtasn1-4.19.0-1.cm2.x86_64
 p11-kit-trust-0.24.1-1.cm2.x86_64
-ca-certificates-tools-2.0.0-9.cm2.noarch
-ca-certificates-2.0.0-9.cm2.noarch
 util-linux-libs-2.37.4-4.cm2.x86_64
 libgpg-error-1.43-2.cm2.x86_64
 openssl-libs-1.1.1k-20.cm2.x86_64
 libgcrypt-1.9.4-1.cm2.x86_64
 glib-2.71.0-1.cm2.x86_64
 lz4-1.9.3-1.cm2.x86_64
-systemd-rpm-macros-250.3-12.cm2.noarch
 libcap-ng-0.8.2-2.cm2.x86_64
 audit-libs-3.0.6-7.cm2.x86_64
 json-c-0.15-1.cm2.x86_64
@@ -225,24 +217,16 @@ cracklib-2.9.7-5.cm2.x86_64
 cracklib-dicts-2.9.7-5.cm2.x86_64
 pam-1.5.1-5.cm2.x86_64
 cryptsetup-libs-2.4.3-1.cm2.x86_64
-systemd-250.3-12.cm2.x86_64
 device-mapper-libs-2.03.15-2.cm2.x86_64
 cronie-1.5.7-2.cm2.x86_64
 cronie-anacron-1.5.7-2.cm2.x86_64
 logrotate-3.20.1-1.cm2.x86_64
 openssl-1.1.1k-20.cm2.x86_64
-expat-libs-2.5.0-1.cm2.x86_64
-sqlite-libs-3.39.2-2.cm2.x86_64
 zstd-libs-1.5.0-1.cm2.x86_64
 elfutils-libelf-0.186-1.cm2.x86_64
 e2fsprogs-libs-1.46.5-3.cm2.x86_64
-krb5-1.19.3-2.cm2.x86_64
 libassuan-2.5.5-2.cm2.x86_64
-expat-2.5.0-1.cm2.x86_64
 libssh2-1.9.0-2.cm2.x86_64
-curl-libs-7.86.0-2.cm2.x86_64
-curl-7.86.0-2.cm2.x86_64
-iana-etc-20211115-2.cm2.noarch
 libpwquality-1.4.4-1.cm2.x86_64
 file-libs-5.40-2.cm2.x86_64
 device-mapper-2.03.15-2.cm2.x86_64
@@ -250,7 +234,6 @@ device-mapper-event-libs-2.03.15-2.cm2.x86_64
 ncurses-6.3-2.cm2.x86_64
 lmdb-libs-0.9.29-1.cm2.x86_64
 lua-libs-5.4.3-4.cm2.x86_64
-rpm-libs-4.18.0-2.cm2.x86_64
 libsolv-0.7.20-1.cm2.x86_64
 libedit-3.1.20210910-1.cm2.x86_64
 procps-ng-3.3.17-1.cm2.x86_64
@@ -259,12 +242,9 @@ util-linux-2.37.4-4.cm2.x86_64
 file-5.40-2.cm2.x86_64
 cryptsetup-2.4.3-1.cm2.x86_64
 iptables-1.8.7-1.cm2.x86_64
-dbus-1.15.2-2.cm2.x86_64
 pinentry-1.2.0-1.cm2.x86_64
 openssh-clients-8.8p1-7.cm2.x86_64
 e2fsprogs-1.46.5-3.cm2.x86_64
-libarchive-3.6.1-2.cm2.x86_64
-rpm-4.18.0-2.cm2.x86_64
 libmetalink-0.1.3-1.cm2.x86_64
 bc-1.07.1-4.cm2.x86_64
 bridge-utils-1.7.1-1.cm2.x86_64
@@ -273,16 +253,12 @@ gdbm-1.21-1.cm2.x86_64
 iputils-20211215-1.cm2.x86_64
 irqbalance-1.8.0-2.cm2.x86_64
 libtool-2.4.6-8.cm2.x86_64
-mariner-rpm-macros-2.0-20.cm2.noarch
 net-tools-2.10-2.cm2.x86_64
 tar-1.34-1.cm2.x86_64
-tzdata-2022g-1.cm2.noarch
 which-2.21-8.cm2.x86_64
 libseccomp-2.5.3-1.cm2.x86_64
 nettle-3.7.3-2.cm2.x86_64
 bzip2-1.0.8-1.cm2.x86_64
-ca-certificates-base-2.0.0-9.cm2.noarch
-findutils-4.8.0-4.cm2.x86_64
 gzip-1.12-1.cm2.x86_64
 sed-4.8-2.cm2.x86_64
 libmnl-1.0.4-6.cm2.x86_64
@@ -292,17 +268,12 @@ lvm2-2.03.15-2.cm2.x86_64
 pkgconf-m4-1.8.0-2.cm2.noarch
 libsemanage-3.2-2.cm2.x86_64
 shadow-utils-4.9-11.cm2.x86_64
-sudo-1.9.12p1-1.cm2.x86_64
 tdnf-cli-libs-3.2.2-4.cm2.x86_64
 tdnf-3.2.2-4.cm2.x86_64
 libpkgconf-1.8.0-2.cm2.x86_64
 pkgconf-1.8.0-2.cm2.x86_64
 pkgconf-pkg-config-1.8.0-2.cm2.x86_64
-bind-license-9.16.33-1.cm2.noarch
 libuv-1.43.0-1.cm2.x86_64
-libxml2-2.10.3-1.cm2.x86_64
-bind-libs-9.16.33-1.cm2.x86_64
-bind-utils-9.16.33-1.cm2.x86_64
 chrony-4.1-1.cm2.x86_64
 libksba-1.6.0-1.cm2.x86_64
 npth-1.6-4.cm2.x86_64
@@ -315,20 +286,50 @@ mariner-repos-2.0-8.cm2.noarch
 tdnf-plugin-repogpgcheck-3.2.2-4.cm2.x86_64
 core-packages-container-2.0-7.cm2.x86_64
 core-packages-base-image-2.0-7.cm2.x86_64
-dracut-055-3.cm2.x86_64
-initramfs-2.0-9.cm2.x86_64
-python3-3.9.14-5.cm2.x86_64
-python3-libs-3.9.14-5.cm2.x86_64
+mshv-bootloader-0.1.0-4.cm2.x86_64
+mshv-linuxloader-0.1.0-9.cm2.x86_64
+mshv-25136.1000.220607-1700.cm2.x86_64
+kernel-mshv-5.15.34.1-2.cm2.x86_64
+kernel-uvm-5.15.48.1-8.cm2.x86_64
+libnl3-3.5.0-3.cm2.x86_64
+gc-8.0.0-4.cm2.x86_64
+libnuma-2.0.14-1.cm2.x86_64
+numactl-2.0.14-1.cm2.x86_64
+dtc-1.6.1-1.cm2.x86_64
+busybox-1.35.0-3.cm2.x86_64
+daxctl-65-3.cm2.x86_64
+fuse3-libs-3.10.5-2.cm2.x86_64
+libjpeg-turbo-2.1.4-1.cm2.x86_64
+libpmem-1.8-4.cm2.x86_64
+libpng-1.6.37-6.cm2.x86_64
+libslirp-4.6.1-3.cm2.x86_64
+liburing-2.0-3.cm2.x86_64
+lzo-2.10-4.cm2.x86_64
+seabios-bin-1.14.0-7.cm2.noarch
+seavgabios-bin-1.14.0-7.cm2.noarch
+sgabios-bin-0.20180715git-8.cm2.noarch
+snappy-1.1.9-2.cm2.x86_64
+libdb-5.3.28-7.cm2.x86_64
+cyrus-sasl-lib-2.1.28-1.cm2.x86_64
+autogen-libopts-5.18.16-8.cm2.x86_64
+ipxe-1.21.1-1.cm2.x86_64
+libltdl-2.4.6-8.cm2.x86_64
+libunistring-0.9.10-5.cm2.x86_64
+guile-2.0.14-4.cm2.x86_64
+gnutls-3.7.7-1.cm2.x86_64
+pciutils-libs-3.7.0-3.cm2.x86_64
+pciutils-3.7.0-3.cm2.x86_64
+rdma-core-39.0-1.cm2.x86_64
+libibverbs-39.0-1.cm2.x86_64
+librdmacm-39.0-1.cm2.x86_64
 zchunk-libs-1.1.16-2.cm2.x86_64
 zchunk-1.1.16-2.cm2.x86_64
 librepo-1.14.2-2.cm2.x86_64
-python3-curses-3.9.14-5.cm2.x86_64
-python3-gpg-1.16.0-1.cm2.x86_64
 dnf-data-4.8.0-2.cm2.noarch
+python3-gpg-1.16.0-1.cm2.x86_64
 libcomps-0.1.18-1.cm2.x86_64
 python3-libcomps-0.1.18-1.cm2.x86_64
 elfutils-default-yama-scope-0.186-1.cm2.noarch
-libgomp-11.2.0-4.cm2.x86_64
 popt-devel-1.18-1.cm2.x86_64
 libyaml-0.2.5-3.cm2.x86_64
 libmodulemd-2.13.0-2.cm2.x86_64
@@ -342,9 +343,6 @@ zstd-1.5.0-1.cm2.x86_64
 zstd-devel-1.5.0-1.cm2.x86_64
 elfutils-0.186-1.cm2.x86_64
 elfutils-devel-0.186-1.cm2.x86_64
-rpm-build-libs-4.18.0-2.cm2.x86_64
-rpm-devel-4.18.0-2.cm2.x86_64
-python3-rpm-4.18.0-2.cm2.x86_64
 python3-dnf-4.8.0-2.cm2.noarch
 dnf-4.8.0-2.cm2.noarch
 wget-1.21.2-1.cm2.x86_64
@@ -357,71 +355,39 @@ PyYAML-3.13-8.cm2.x86_64
 python3-jsonschema-2.6.0-6.cm2.noarch
 python3-netifaces-0.11.0-1.cm2.x86_64
 python3-oauthlib-2.1.0-7.cm2.noarch
-python3-setuptools-3.9.14-5.cm2.noarch
 dhcp-libs-4.4.2-4.cm2.x86_64
 dhcp-client-4.4.2-4.cm2.x86_64
 python3-jsonpointer-2.2-1.cm2.noarch
 python3-jsonpatch-1.32-1.cm2.noarch
 python3-wcwidth-0.2.5-1.cm2.noarch
-python3-prettytable-3.2.0-2.cm2.noarch
 python3-certifi-2021.10.08-2.cm2.noarch
 python3-charset-normalizer-2.0.11-2.cm2.noarch
 python3-urllib3-1.26.9-1.cm2.noarch
 python3-asn1crypto-1.5.1-1.cm2.noarch
 python3-pyasn1-0.4.8-1.cm2.noarch
 python3-pycparser-2.21-1.cm2.noarch
-python3-cffi-1.15.0-2.cm2.x86_64
 python3-pyparsing-3.0.7-1.cm2.noarch
 python3-packaging-21.3-1.cm2.noarch
 python3-cryptography-3.3.2-3.cm2.x86_64
 python3-pyOpenSSL-18.0.0-8.cm2.noarch
-python3-requests-2.27.1-5.cm2.noarch
-cloud-init-22.2-9.cm2.noarch
-cloud-init-azure-kvp-22.2-9.cm2.noarch
 gptfdisk-1.0.8-1.cm2.x86_64
 mpfr-4.1.0-1.cm2.x86_64
 gawk-5.1.0-2.cm2.x86_64
 cloud-utils-growpart-0.32-3.cm2.noarch
-hyperv-daemons-license-5.15.82.1-1.cm2.noarch
-hypervvssd-5.15.82.1-1.cm2.x86_64
-hypervkvpd-5.15.82.1-1.cm2.x86_64
-hypervfcopyd-5.15.82.1-1.cm2.x86_64
-hyperv-daemons-5.15.82.1-1.cm2.x86_64
-lzo-2.10-4.cm2.x86_64
-squashfs-tools-4.5.1-1.cm2.x86_64
-ethtool-5.16-1.cm2.x86_64
-snappy-1.1.9-2.cm2.x86_64
-kexec-tools-2.0.23-1.cm2.x86_64
-libnl3-3.5.0-3.cm2.x86_64
 wpa_supplicant-2.10-1.cm2.x86_64
 netplan-0.95-1.cm2.x86_64
 ncurses-term-6.3-2.cm2.x86_64
 openssh-server-8.8p1-7.cm2.x86_64
 libestr-0.1.11-1.cm2.x86_64
 libfastjson-0.99.9-1.cm2.x86_64
-gc-8.0.0-4.cm2.x86_64
 openldap-2.4.57-7.cm2.x86_64
-libdb-5.3.28-7.cm2.x86_64
-cyrus-sasl-lib-2.1.28-1.cm2.x86_64
 libmpc-1.2.1-1.cm2.x86_64
-libstdc++-devel-11.2.0-4.cm2.x86_64
 cyrus-sasl-2.1.28-1.cm2.x86_64
 librdkafka1-1.8.2-1.cm2.x86_64
 postgresql-libs-14.5-1.cm2.x86_64
 liblognorm-2.0.6-2.cm2.x86_64
-autogen-libopts-5.18.16-8.cm2.x86_64
-glibc-iconv-2.35-3.cm2.x86_64
-libltdl-2.4.6-8.cm2.x86_64
-libunistring-0.9.10-5.cm2.x86_64
-guile-2.0.14-4.cm2.x86_64
-gnutls-3.7.7-1.cm2.x86_64
 librelp-1.10.0-1.cm2.x86_64
 make-4.3-2.cm2.x86_64
-libgcc-atomic-11.2.0-4.cm2.x86_64
-libgcc-devel-11.2.0-4.cm2.x86_64
-libgomp-devel-11.2.0-4.cm2.x86_64
-gcc-c++-11.2.0-4.cm2.x86_64
-gcc-11.2.0-4.cm2.x86_64
 perl-vmsish-1.04-488.cm2.noarch
 perl-version-0.99.28-488.cm2.noarch
 perl-subs-1.04-488.cm2.noarch
@@ -610,15 +576,80 @@ perl-doc-5.34.1-488.cm2.noarch
 perl-macros-5.34.1-488.cm2.noarch
 perl-interpreter-5.34.1-488.cm2.x86_64
 net-snmp-libs-5.9.1-2.cm2.x86_64
-rsyslog-8.2204.1-3.cm2.x86_64
-sgx-backwards-compatability-1.0.0-1.cm2.x86_64
 openssh-8.8p1-7.cm2.x86_64
 python3-distro-1.6.0-2.cm2.noarch
-WALinuxAgent-2.3.1.1-3.cm2.noarch
-iw-5.9-1.cm2.x86_64
-wireless-regdb-2022.08.12-1.cm2.noarch
 gpg-pubkey-3135ce90-5e6fda74
 gpg-pubkey-be1229cf-5631588c
+hyperv-daemons-license-5.15.82.1-1.cm2.noarch
+filesystem-1.1-12.cm2.x86_64
+glibc-2.35-3.cm2.x86_64
+libgcc-11.2.0-4.cm2.x86_64
+coreutils-8.32-6.cm2.x86_64
+sqlite-libs-3.39.2-2.cm2.x86_64
+krb5-1.19.3-2.cm2.x86_64
+rpm-libs-4.18.0-2.cm2.x86_64
+expat-libs-2.5.0-1.cm2.x86_64
+libstdc++-11.2.0-4.cm2.x86_64
+libstdc++-devel-11.2.0-4.cm2.x86_64
+expat-2.5.0-1.cm2.x86_64
+python3-3.9.14-5.cm2.x86_64
+python3-libs-3.9.14-5.cm2.x86_64
+curl-libs-7.86.0-2.cm2.x86_64
+libgomp-11.2.0-4.cm2.x86_64
+ca-certificates-tools-2.0.0-9.cm2.noarch
+ca-certificates-shared-2.0.0-9.cm2.noarch
+libgomp-devel-11.2.0-4.cm2.x86_64
+rpm-build-libs-4.18.0-2.cm2.x86_64
+python3-requests-2.27.1-5.cm2.noarch
+python3-prettytable-3.2.0-2.cm2.noarch
+python3-setuptools-3.9.14-5.cm2.noarch
+libgcc-devel-11.2.0-4.cm2.x86_64
+libarchive-3.6.1-2.cm2.x86_64
+rpm-4.18.0-2.cm2.x86_64
+rpm-devel-4.18.0-2.cm2.x86_64
+kernel-5.15.82.1-2.cm2.x86_64
+libgcc-atomic-11.2.0-4.cm2.x86_64
+gcc-11.2.0-4.cm2.x86_64
+gcc-c++-11.2.0-4.cm2.x86_64
+qemu-virtiofsd-6.2.0-12.cm2.x86_64
+findutils-4.8.0-4.cm2.x86_64
+libbpf-1.0.1-1.cm2.x86_64
+libxml2-2.10.3-1.cm2.x86_64
+pixman-0.42.2-1.cm2.x86_64
+sudo-1.9.12p1-1.cm2.x86_64
+systemd-rpm-macros-250.3-12.cm2.noarch
+systemd-250.3-12.cm2.x86_64
+dracut-055-3.cm2.x86_64
+cloud-init-22.2-9.cm2.noarch
+hypervfcopyd-5.15.82.1-1.cm2.x86_64
+hypervkvpd-5.15.82.1-1.cm2.x86_64
+hypervvssd-5.15.82.1-1.cm2.x86_64
+qemu-common-6.2.0-12.cm2.x86_64
+qemu-system-x86-core-6.2.0-12.cm2.x86_64
+qemu-kvm-core-6.2.0-12.cm2.x86_64
+bind-license-9.16.33-1.cm2.noarch
+bind-libs-9.16.33-1.cm2.x86_64
+bind-utils-9.16.33-1.cm2.x86_64
+kata-containers-3.0.0-2.cm2.x86_64
+hyperv-daemons-5.15.82.1-1.cm2.x86_64
+cloud-init-azure-kvp-22.2-9.cm2.noarch
+initramfs-2.0-9.cm2.x86_64
+WALinuxAgent-2.3.1.1-3.cm2.noarch
+dbus-1.15.2-2.cm2.x86_64
+rsyslog-8.2204.1-3.cm2.x86_64
+python3-rpm-4.18.0-2.cm2.x86_64
+ca-certificates-2.0.0-9.cm2.noarch
+ca-certificates-base-2.0.0-9.cm2.noarch
+curl-7.86.0-2.cm2.x86_64
+python3-cffi-1.15.0-2.cm2.x86_64
+python3-curses-3.9.14-5.cm2.x86_64
+mariner-rpm-macros-2.0-20.cm2.noarch
+cloud-hypervisor-28.0-1.cm2.x86_64
+glibc-iconv-2.35-3.cm2.x86_64
+libtasn1-4.19.0-1.cm2.x86_64
+tzdata-2022g-1.cm2.noarch
+mariner-release-2.0-30.cm2.noarch
+iana-etc-20211115-2.cm2.noarch
 fuse-2.9.7-10.cm2.x86_64
 boost-1.76.0-2.cm2.x86_64
 blobfuse-1.4.5-3.cm2.x86_64
@@ -638,6 +669,7 @@ libnetfilter_cthelper-1.0.0-5.cm2.x86_64
 conntrack-tools-1.4.5-7.cm2.x86_64
 dnf-automatic-4.8.0-2.cm2.noarch
 ebtables-legacy-2.0.11-6.cm2.x86_64
+ethtool-5.16-1.cm2.x86_64
 apr-1.7.0-1.cm2.x86_64
 apr-util-1.6.1-6.cm2.x86_64
 utf8proc-2.6.1-2.cm2.x86_64
@@ -671,7 +703,6 @@ traceroute-2.1.0-6.cm2.x86_64
 zip-3.0-5.cm2.x86_64
 libapparmor-3.0.4-1.cm2.x86_64
 apparmor-parser-3.0.4-1.cm2.x86_64
-fuse3-libs-3.10.5-2.cm2.x86_64
 fuse-common-3.10.5-2.cm2.x86_64
 fuse3-3.10.5-2.cm2.x86_64
 blobfuse2-2.0.1-2.cm2.x86_64
@@ -686,24 +717,24 @@ bcc-tools-0.24.0-1.cm2.x86_64
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-devtmpfs        4.0M     0  4.0M   0% /dev
-tmpfs           3.3G     0  3.3G   0% /dev/shm
-tmpfs           1.4G  9.4M  1.3G   1% /run
+/dev/root        29G   22G  5.9G  80% /
+devtmpfs        7.7G     0  7.7G   0% /dev
+tmpfs           7.7G     0  7.7G   0% /dev/shm
+tmpfs           3.1G  584K  3.1G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   22G  6.3G  78% /
-tmpfs           3.3G  4.0K  3.3G   1% /tmp
-/dev/sda2       459M   31M  400M   8% /boot
-/dev/sda1       8.0M  2.3M  5.7M  29% /boot/efi
-/dev/sdb1        14G   28K   13G   1% /mnt
-tmpfs           669M     0  669M   0% /run/user/1000
+tmpfs           7.7G  4.0K  7.7G   1% /tmp
+/dev/sda2       477M  113M  335M  26% /boot
+/dev/sda1        64M   23M   41M  36% /boot/efi
+/dev/sdb1       147G   36K  140G   1% /mnt
+tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
-Linux version 5.15.82.1-2.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Thu Dec 22 07:27:17 UTC 2022
-Install completed successfully on  Tue Jan 10 01:16:30 UTC 2023
+Linux version 5.15.34.1-hvl1.m2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Fri Sep 23 05:45:11 UTC 2022
+Install completed successfully on  Tue Jan 10 01:11:43 UTC 2023
 VSTS Build NUMBER: 20230110.1_master_66910241
 VSTS Build ID: 66910241
 Commit: fdca7c562b04ee09e8e846cfdaad813cfa8f9af6
 Ubuntu version: 
 Hyperv generation: V2
-Feature flags: None
+Feature flags: kata
 Container runtime: containerd
 FIPS enabled: false
