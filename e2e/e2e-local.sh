@@ -7,11 +7,11 @@ set -euxo pipefail
 : "${LOCATION:=eastus}"
 : "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
 
-# Error out if SCENARIO_NAME, VM_SKU, or SCENARIO_NAME are unbound
+# This will error out if SCENARIO_NAME or VM_SKU are unbound
 SCENARIO_NAME=$1
 VM_SKU=$2
 
-# Fall back to defaulting logic in e2e-scenario.sh when SIG_VERSION_ID isn't specified
+# Fall back to defaulting logic in e2e-scenario.sh when SIG_VERSION_ID is not bound
 SIG_VERSION_ID=""
 [ $# -eq 3 ] && SIG_VERSION_ID=$3
 
