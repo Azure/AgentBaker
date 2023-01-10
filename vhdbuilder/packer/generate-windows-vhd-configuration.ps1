@@ -33,7 +33,7 @@ switch -Regex ($windowsSKU) {
 }
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
 
 $global:defaultDockerVersion = "20.10.9"
 
@@ -200,7 +200,7 @@ $global:map = @{
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
-        "https://acs-mirror.azureedge.net/calico-node/v3.23.3/binaries/calico-windows-v3.23.3.zip"
+        "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
     )
 }
 '@

@@ -55,8 +55,8 @@ $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecm
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
-$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.40.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
 # The containerd package name may be changed in future
 $global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
 
