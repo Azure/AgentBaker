@@ -194,10 +194,13 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.7/windowszip/v1.23.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.8-hotfix.20220728/windowszip/v1.23.8-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.12-hotfix.20220922/windowszip/v1.23.12-hotfix.20220922-1int.zip", 
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.15/windowszip/v1.23.15-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.3-hotfix.20221006/windowszip/v1.24.3-hotfix.20221006-1int.zip", 
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.6-hotfix.20221006/windowszip/v1.24.6-hotfix.20221006-1int.zip", 
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/windowszip/v1.24.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.2-hotfix.20221006/windowszip/v1.25.2-hotfix.20221006-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.4/windowszip/v1.25.4-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.5/windowszip/v1.25.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/windowszip/v1.26.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
