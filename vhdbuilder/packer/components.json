@@ -232,7 +232,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.1.14",
-        "v1.23.11",
         "v1.23.24",
         "v1.24.11",
         "v1.25.5",
