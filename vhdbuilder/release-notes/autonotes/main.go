@@ -125,29 +125,67 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 	defer os.RemoveAll(tmpdir)
 
-	artifactName := fmt.Sprintf("vhd-release-notes-%s", sku)
-	artifactFileIn := filepath.Join(tmpdir, "release-notes.txt")
-	artifactDirOut := filepath.Join(fl.path, path)
-	artifactFileOut := filepath.Join(artifactDirOut, fmt.Sprintf("%s.txt", fl.date))
+	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
+	releaseNotesFileIn := filepath.Join(tmpdir, "release-notes.txt")
+	imageListName := fmt.Sprintf("vhd-image-bom-%s", sku)
+	imageListFileIn := filepath.Join(tmpdir, "image-bom.json")
+	artifactsDirOut := filepath.Join(fl.path, path)
+	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
+	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", fl.date))
+	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt")
+	latestImageListFile := filepath.Join(artifactsDirOut, "latest-image-list.json")
 
-	if err := os.MkdirAll(artifactDirOut, 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactDirOut, err)
+	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 		return
 	}
 
-	fmt.Printf("downloading artifact '%s' from build '%s'\n", artifactName, fl.build)
+	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
 
-	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", artifactName)
+	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", releaseNotesName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops artifact for sku %s, err: %s, output: %s", sku, err, string(stdout))
+			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
 		}
 		return
 	}
 
-	if err := os.Rename(artifactFileIn, artifactFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", artifactFileIn, artifactFileOut, err)
+	if err := os.Rename(releaseNotesFileIn, releaseNotesFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", releaseNotesFileIn, releaseNotesFileOut, err)
 		return
+	}
+
+	data, err := os.ReadFile(releaseNotesFileOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", releaseNotesFileOut, err)
+	}
+
+	err = os.WriteFile(latestReleaseNotesFile, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", releaseNotesFileOut, err)
+	}
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", imageListName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(imageListFileIn, imageListFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
+		return
+	}
+
+	data, err = os.ReadFile(imageListFileOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", releaseNotesFileOut, err)
+	}
+
+	err = os.WriteFile(latestImageListFile, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", releaseNotesFileOut, err)
 	}
 }
 
@@ -174,18 +212,24 @@ var defaultPath = filepath.Join("vhdbuilder", "release-notes")
 var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
 
 var artifactToPath = map[string]string{
-	"1804":                          filepath.Join("AKSUbuntu", "gen1", "1804"),
-	"1804-gen2":                     filepath.Join("AKSUbuntu", "gen2", "1804"),
-	"1804-gpu":                      filepath.Join("AKSUbuntu", "gen1", "1804gpu"),
-	"1804-gen2-gpu":                 filepath.Join("AKSUbuntu", "gen2", "1804gpu"),
-	"1804-containerd":               filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
-	"1804-gen2-containerd":          filepath.Join("AKSUbuntu", "gen2", "1804containerd"),
-	"1804-gpu-containerd":           filepath.Join("AKSUbuntu", "gen1", "1804gpucontainerd"),
-	"1804-gen2-gpu-containerd":      filepath.Join("AKSUbuntu", "gen2", "1804gpucontainerd"),
-	"1804-fips-containerd":          filepath.Join("AKSUbuntu", "gen1", "1804fipscontainerd"),
-	"1804-fips-gen2-containerd":     filepath.Join("AKSUbuntu", "gen2", "1804fipscontainerd"),
-	"1804-fips-gpu-containerd":      filepath.Join("AKSUbuntu", "gen1", "1804fipsgpucontainerd"),
-	"1804-fips-gen2-gpu-containerd": filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
-	"marinerv1":                     filepath.Join("AKSCBLMariner", "gen1"),
-	"marinerv1-gen2":                filepath.Join("AKSCBLMariner", "gen2"),
+	"1804-containerd":                   filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
+	"1804-gen2-containerd":              filepath.Join("AKSUbuntu", "gen2", "1804containerd"),
+	"1804-gpu-containerd":               filepath.Join("AKSUbuntu", "gen1", "1804gpucontainerd"),
+	"1804-gen2-gpu-containerd":          filepath.Join("AKSUbuntu", "gen2", "1804gpucontainerd"),
+	"1804-fips-containerd":              filepath.Join("AKSUbuntu", "gen1", "1804fipscontainerd"),
+	"1804-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "1804fipscontainerd"),
+	"1804-fips-gpu-containerd":          filepath.Join("AKSUbuntu", "gen1", "1804fipsgpucontainerd"),
+	"1804-fips-gen2-gpu-containerd":     filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
+	"marinerv1":                         filepath.Join("AKSCBLMariner", "gen1"),
+	"marinerv1-gen2":                    filepath.Join("AKSCBLMariner", "gen2"),
+	"marinerv2-gen2":                    filepath.Join("AKSCBLMarinerV2", "gen2"),
+	"marinerv2-gen2-kata":               filepath.Join("AKSCBLMarinerV2", "gen2kata"),
+	"marinerv2-gen2-arm64":              filepath.Join("AKSCBLMarinerV2", "gen2arm64"),
+	"marinerv2-gen2-trustedlaunch":      filepath.Join("AKSCBLMarinerV2", "gen2tl"),
+	"marinerv2-gen2-kata-trustedlaunch": filepath.Join("AKSCBLMarinerV2", "gen2katatl"),
+	"2004-cvm-gen2-containerd":          filepath.Join("AKSUbuntu", "gen2", "2004cvmcontainerd"),
+	"2204-containerd":                   filepath.Join("AKSUbuntu", "gen1", "2204containerd"),
+	"2204-gen2-containerd":              filepath.Join("AKSUbuntu", "gen2", "2204containerd"),
+	"2204-arm64-gen2-containerd":        filepath.Join("AKSUbuntu", "gen2", "2204arm64containerd"),
+	"2204-tl-gen2-containerd":           filepath.Join("AKSUbuntu", "gen2", "2204tlcontainerd"),
 }

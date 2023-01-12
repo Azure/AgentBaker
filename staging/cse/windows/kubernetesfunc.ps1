@@ -1,18 +1,10 @@
 function Get-ProvisioningScripts {
-    # Plan to move provisioning scripts from ProvisioningScriptsPackage to CSEScriptsPackage.
-    if ($global:ProvisioningScriptsPackageUrl) {
-        Write-Log "Getting provisioning scripts"
-        DownloadFileOverHttp -Url $global:ProvisioningScriptsPackageUrl -DestinationPath 'c:\k\provisioningscripts.zip'
-        Expand-Archive -Path 'c:\k\provisioningscripts.zip' -DestinationPath 'c:\k' -Force
-        Remove-Item -Path 'c:\k\provisioningscripts.zip' -Force
-    } else {
-        if (!(Test-Path 'c:\AzureData\windows\provisioningscripts')) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS -ErrorMessage "Failed to found provisioning scripts"
-        }
-        Write-Log "Copying provisioning scripts"
-        Move-Item 'c:\AzureData\windows\provisioningscripts\*' 'c:\k'
-        Remove-Item -Path 'c:\AzureData\windows\provisioningscripts' -Force
+    if (!(Test-Path 'c:\AzureData\windows\provisioningscripts')) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS -ErrorMessage "Failed to found provisioning scripts"
     }
+    Write-Log "Copying provisioning scripts"
+    Move-Item 'c:\AzureData\windows\provisioningscripts\*' 'c:\k'
+    Remove-Item -Path 'c:\AzureData\windows\provisioningscripts' -Force
 }
 
 function Get-InstanceMetadataServiceTelemetry {
@@ -45,27 +37,12 @@ function Initialize-DataDirectories {
 }
 
 function Get-LogCollectionScripts {
-    # github.com is not in the required endpoints https://docs.microsoft.com/en-us/azure/aks/limit-egress-traffic
-    # We only can copy below scripts from cache folder in the VHD
-    # To add a new script, you need
-    #  1. Add the script in vhdbuilder/packer/generate-windows-vhd-configuration.ps1
-    #  2. Build a new AKS Windows VHD and update the VHD version in AKS RP
-    #  3. Update this function to add the script
-    Write-Log "Copying various log collect scripts and depencencies"
-    $destinationFolder='c:\k\debug'
-    Create-Directory -FullPath $destinationFolder -DirectoryUsage "storing debug scripts"
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'collect-windows-logs.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'collectlogs.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'dumpVfpPolicies.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'portReservationTest.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.cmd'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.cmd'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'stoppacketcapture.cmd'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'VFP.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'helper.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'hns.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.ps1'
+    Write-Log "Moving various log collect scripts and depencencies"
+    try {
+        Move-Item -Path 'C:\AzureData\windows\debug' -Destination 'c:\k\'
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS -ErrorMessage "Failed to move log collect scripts and depencencies from C:\AzureData\windows\debug to C:\k. Error: $_"
+    }
 }
 
 function Register-LogsCleanupScriptTask {
@@ -116,6 +93,12 @@ function Write-KubeClusterConfig {
 
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Csi -Value @{
         EnableProxy = $global:EnableCsiProxy
+    }
+
+    $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Services -Value @{
+        HNSRemediator       = @{
+            IntervalInMinutes = $Global:HNSRemediatorIntervalInMinutes;
+        };
     }
 
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Kubernetes -Value @{

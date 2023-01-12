@@ -30,6 +30,10 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed journalctl -u kubelet"
     fi
+    exec_on_host "$SSH_CMD cat /var/log/syslog" $SCENARIO_NAME-logs/syslog || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat syslog"
+    fi
     set -x
     echo "debug done"
 }
@@ -75,7 +79,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
+    --image "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson

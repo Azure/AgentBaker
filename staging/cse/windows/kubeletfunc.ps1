@@ -208,7 +208,7 @@ function Build-PauseContainer {
     "FROM $($WindowsBase)" | Out-File -encoding ascii -FilePath Dockerfile
     "CMD cmd /c ping -t localhost" | Out-File -encoding ascii -FilePath Dockerfile -Append
     if ($ContainerRuntime -eq "docker") {
-        Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".")
+        Invoke-Executable -Executable "docker" -ArgList @("build", "-t", "$DestinationTag", ".") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER
     }
     else {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER -ErrorMessage "Cannot build pause container without Docker"
@@ -234,16 +234,16 @@ function New-InfraContainer {
 
     if ($ContainerRuntime -eq "docker") {
         if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-            Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
+            Invoke-Executable -Executable "docker" -ArgList @("pull", "$defaultPauseImage") -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE -Retries 5 -RetryDelaySeconds 30
         }
-        Invoke-Executable -Executable "docker" -ArgList @("tag", "$defaultPauseImage", "$DestinationTag")
+        Invoke-Executable -Executable "docker" -ArgList @("tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
     }
     else {
         # containerd
         if (-not (Test-ContainerImageExists -Image $defaultPauseImage -ContainerRuntime $ContainerRuntime) -or $global:AlwaysPullWindowsPauseImage) {
-            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -Retries 5 -RetryDelaySeconds 30
+            Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE -Retries 5 -RetryDelaySeconds 30
         }
-        Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag")
+        Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
     }
 }
 
@@ -257,7 +257,7 @@ function Get-KubePackage {
 
     $zipfile = "c:\k.zip"
     for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile
+        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
         if ($?) {
             break
         }
@@ -267,37 +267,6 @@ function Get-KubePackage {
     }
     Expand-Archive -path $zipfile -DestinationPath C:\
     Remove-Item $zipfile
-}
-
-function Get-KubeBinaries {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $KubeBinariesURL
-    )
-
-    $tempdir = New-TemporaryDirectory
-    $binaryPackage = "$tempdir\k.tar.gz"
-    for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesURL -DestinationPath $binaryPackage
-        if ($?) {
-            break
-        }
-        else {
-            Write-Log $Error[0].Exception.Message
-        }
-    }
-
-    # using tar to minimize dependencies
-    # tar should be avalible on 1803+
-    tar -xzf $binaryPackage -C $tempdir
-
-    # copy binaries over to kube folder
-    $windowsbinariespath = "c:\k\"
-    Create-Directory -FullPath $windowsbinariespath
-    cp $tempdir\kubernetes\node\bin\* $windowsbinariespath -Recurse
-
-    #remove temp folder created when unzipping
-    del $tempdir -Recurse
 }
 
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration

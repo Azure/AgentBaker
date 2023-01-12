@@ -5,7 +5,7 @@ parameters:
 
 steps:
   - bash: |
-        if [[ $(HYPERV_GENERATION) == "V2" ]]; then m="gen2Mode"; elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME} && -n ${SIG_IMAGE_VERSION} ]]; then m="sigMode"; else m="default"; fi && \
+        m="linuxVhdMode" && \
         echo "Set build mode to $m" && \
         echo "##vso[task.setvariable variable=MODE]$m"
     displayName: Get Build Mode
@@ -15,7 +15,7 @@ steps:
       command: download
       vstsFeed: ASMPackages
       vstsFeedPackage: asc-baseline
-      vstsPackageVersion: '1.0.0-35'
+      vstsPackageVersion: '1.1.0-268'
       downloadDirectory: vhdbuilder/packer
   - bash: |
       pwd
@@ -25,7 +25,7 @@ steps:
       GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
       export PATH="$PATH:$GOPATH/bin"
       pushd /tmp
-      GO111MODULE=on go get cuelang.org/go/cmd/cue
+      GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: setup cue
@@ -52,16 +52,19 @@ steps:
         -e IMG_PUBLISHER=${IMG_PUBLISHER} \
         -e IMG_OFFER=${IMG_OFFER} \
         -e IMG_SKU=${IMG_SKU} \
+        -e IMG_VERSION=${IMG_VERSION} \
         -e MODE=$(MODE) \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME} \
         -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
-        -e IMPORT_IMAGE_URL_GEN1=${IMPORT_IMAGE_URL_GEN1} \
         -e IMPORT_IMAGE_URL_GEN2=${IMPORT_IMAGE_URL_GEN2} \
+        -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ARCHITECTURE=${ARCHITECTURE} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        -e SGX_INSTALL=${SGX_INSTALL} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - script: |
@@ -82,6 +85,7 @@ steps:
         -e OS_VERSION=${OS_VERSION} \
         -e OS_SKU=${OS_SKU} \
         -e OS_TYPE="Linux" \
+        -e IMG_SKU=${IMG_SKU} \
         -e MODE=$(MODE) \
         -e VHD_DEBUG=${VHD_DEBUG} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
@@ -89,36 +93,30 @@ steps:
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ARCHITECTURE=${ARCHITECTURE} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        -e SGX_INSTALL=${SGX_INSTALL} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
-  - bash: |
-        echo MODE=$(MODE) && \
-        OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-        -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
-        -e OS_DISK_SAS=${OS_DISK_SAS} \
-        ${CONTAINER_IMAGE} make -f packer.mk az-copy
-    displayName: Copying resource to Classic Storage Account
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
+    displayName: publish release notes
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+        targetPath: 'image-bom.json'
+    displayName: publish container image list
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
-      create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      if [[ $(MODE) == "gen2Mode" ]]; then IMAGE_NAME="1.0.${create_time}"; else IMAGE_NAME=$SIG_IMAGE_NAME; fi && \
+      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -129,11 +127,14 @@ steps:
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
       -e DRY_RUN=${DRY_RUN} \
+      -e OS_TYPE="Linux" \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
       -e SA_NAME=${SA_NAME} \
       -e IMAGE_NAME=${IMAGE_NAME} \
+      -e CAPTURED_SIG_VERSION=${captured_sig_version} \
       -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
@@ -141,7 +142,8 @@ steps:
     condition: always()
   - bash: |
         echo MODE=$(MODE) && \
-        create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -151,27 +153,30 @@ steps:
         -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-        -e CREATE_TIME="${create_time}" \
         -e LOCATION="${AZURE_LOCATION}" \
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
         -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'gen2Mode'))
+    condition: eq(variables.DRY_RUN, 'False')
   - bash: |
         echo MODE=$(MODE) && \
-        if [[ $(MODE) == "gen2Mode" ]]; then create_time="$(cat vhdbuilder/packer/settings.json | grep "create_time" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-        [ -n "${create_time}" ] && VHD_NAME="1.0.${create_time}.vhd"; \
-        SKU_NAME="${OS_VERSION}gen2"; \
-        else \
-        OS_DISK_SAS="$(cat packer-output | grep "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-        VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-        SKU_NAME=$OS_VERSION; fi && \
+        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        VHD_NAME="${captured_sig_version}.vhd" && \
+        SKU_NAME=${OS_VERSION}
+        if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
+        if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" && ${OS_SKU} == "CBLMariner" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
         if [[ ${OS_VERSION} == "18.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+        if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
         if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
         if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
+        if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+        if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
         if [[ ${OS_SKU} != "CBLMariner" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -184,6 +189,7 @@ steps:
         -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
         -e VHD_NAME=${VHD_NAME} \
         -e OS_NAME="Linux" \
+        -e OS_TYPE="Linux" \
         -e SKU_NAME=${SKU_NAME} \
         -e OFFER_NAME=${OS_SKU} \
         -e HYPERV_GENERATION=${HYPERV_GENERATION} \
@@ -191,12 +197,12 @@ steps:
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), or(eq(variables['MODE'], 'gen2Mode'), eq(variables['MODE'], 'default')))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables['MODE'], 'sigMode'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))

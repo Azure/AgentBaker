@@ -26,7 +26,7 @@ ifeq ($(GITTAG),)
 GITTAG := $(VERSION_SHORT)
 endif
 
-DEV_ENV_IMAGE := mcr.microsoft.com/oss/azcu/go-dev:v1.34.0
+DEV_ENV_IMAGE := mcr.microsoft.com/oss/azcu/go-dev:v1.34.7
 DEV_ENV_WORK_DIR := /baker
 DEV_ENV_OPTS := --rm -v $(GOPATH)/pkg/mod:/go/pkg/mod -v $(CURDIR):$(DEV_ENV_WORK_DIR) -w $(DEV_ENV_WORK_DIR) $(DEV_ENV_VARS)
 DEV_ENV_CMD := docker run $(DEV_ENV_OPTS) $(DEV_ENV_IMAGE)
@@ -88,7 +88,7 @@ generate: bootstrap
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 	(pushd parts && \
-	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -o ../pkg/templates/templates_generated.go ./... && \
+	../hack/tools/bin/go-bindata --nometadata --nocompress -pkg templates -ignore "[a-zA-Z0-9-_].tests.ps1" -o ../pkg/templates/templates_generated.go ./... && \
 	popd \
 	)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...

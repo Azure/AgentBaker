@@ -20,9 +20,9 @@ echo "Sourcing tool_installs_ubuntu.sh"
 
 installAscBaseline() {
    echo "Installing ASC Baseline tools..."
-   ASC_BASELINE_TMP=asc-baseline.deb
+   ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
    retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   sudo cp /opt/microsoft/asc-baseline/baselines/oms_audits.xml /opt/microsoft/asc-baseline/oms_audits.xml
+   sudo cp /opt/microsoft/asc-baseline/baselines/*.xml /opt/microsoft/asc-baseline/
    cd /opt/microsoft/asc-baseline
    sudo ./ascbaseline -d .
    sudo ./ascremediate -d . -m all
@@ -38,7 +38,12 @@ installBcc() {
     wait_for_apt_locks
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    apt_get_install 120 5 300 build-essential git bison cmake flex  libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    if [[ "${VERSION}" == "22.04" ]]; then
+        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    else
+        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
+
     mkdir -p /tmp/bcc
     pushd /tmp/bcc
     git clone https://github.com/iovisor/bcc.git
@@ -56,31 +61,11 @@ installBcc() {
     # we explicitly do not remove build-essential or git
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
-    apt list --installed | grep cloud
-    apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
-}
-
-configGPUDrivers() {
-    rmmod nouveau
-    echo blacklist nouveau >> /etc/modprobe.d/blacklist.conf
-    retrycmd_if_failure_no_stats 120 5 25 update-initramfs -u || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    if [[ "${CONTAINER_RUNTIME}" == "docker" ]]; then
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    if [[ "${VERSION}" == "22.04" ]]; then
+        apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
-    mkdir -p $GPU_DEST/lib64 $GPU_DEST/overlay-workdir
-    retrycmd_if_failure 120 5 25 mount -t overlay -o lowerdir=/usr/lib/x86_64-linux-gnu,upperdir=${GPU_DEST}/lib64,workdir=${GPU_DEST}/overlay-workdir none /usr/lib/x86_64-linux-gnu || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 1 600 sh $GPU_DEST/nvidia-drivers-$GPU_DV --silent --accept-license --no-drm --dkms --utility-prefix="${GPU_DEST}" --opengl-prefix="${GPU_DEST}" || exit $ERR_GPU_DRIVERS_START_FAIL
-    mv ${GPU_DEST}/bin/* /usr/bin
-    echo "${GPU_DEST}/lib64" > /etc/ld.so.conf.d/nvidia.conf
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
-    umount -l /usr/lib/x86_64-linux-gnu
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
 disableNtpAndTimesyncdInstallChrony() {
@@ -155,12 +140,15 @@ installFIPS() {
     echo "Installing FIPS..."
     wait_for_apt_locks
 
-    echo "adding ua repository..."
-    retrycmd_if_failure 5 10 120 add-apt-repository -y ppa:ua-client/stable || exit $ERR_ADD_UA_APT_REPO
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-
-    echo "installing ua tools..."
-    apt_get_install 5 10 120 ubuntu-advantage-tools || exit $ERR_UA_TOOLS_INSTALL_TIMEOUT
+    # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
+    echo "purging linux-image-azure..."
+    linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
+    for image in $linuxImages; do
+        echo "Removing non-fips kernel ${image}..."
+        if [[ ${image} != "linux-image-$(uname -r)" ]]; then
+            apt_get_purge 5 10 120 ${image} || exit 1
+        fi
+    done
 
     echo "auto attaching ua..."
     retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
@@ -173,25 +161,19 @@ installFIPS() {
 
     # 'ua status' for logging
     ua status
-    # new 'ua detach' removes fips-updates kernel entry from grub.cfg, backup it
-    cp -f /boot/grub/grub.cfg /tmp/
+
+    echo "detaching ua..."
+    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 ua detach --assume-yes || $ERR_UA_DETACH
-    mv -f /tmp/grub.cfg /boot/grub/
-    echo "removing ua tools..."
-    apt_get_purge 5 10 120 ubuntu-advantage-tools
-    rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
-    rm -f /etc/apt/sources.list.d/ua-client-ubuntu-stable-bionic.list
     rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
     rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
-    rm -f /etc/apt/sources.list.d/ubuntu-fips.list
-    rm -f /etc/apt/auth.conf.d/80ubuntu-advantage
+    rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
+    rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 

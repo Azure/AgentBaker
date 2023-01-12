@@ -120,9 +120,17 @@ function Adjust-DynamicPortRange()
     # https://docs.microsoft.com/en-us/virtualization/windowscontainers/kubernetes/common-problems#load-balancers-are-plumbed-inconsistently-across-the-cluster-nodes
     # Kube-proxy load balancing should be set to DSR mode when it releases with future versions of the OS
     #
-    # The fix which reduces dynamic port usage for non-DSR load balancers is shiped with KB4550969 in April 2020
-    # Update the range to [33000, 65535] to avoid that it conflicts with NodePort range (30000 - 32767)
-    Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536")
+    # The fix which reduces dynamic port usage is still needed for DSR mode
+    # Update the range to avoid that it conflicts with NodePort range (30000 - 32767)
+    if ($global:EnableIncreaseDynamicPortRange) {
+        # UDP port 65330 is excluded in vhdbuilder/packer/configure-windows-vhd.ps1 since it may fail when it is set in provisioning nodes
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "tcp", "30000", "2768") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "udp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "30000", "2768") -ExitCode $global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE
+    } else {
+        Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
+    }
 }
 
 # TODO: should this be in this PR?
@@ -232,7 +240,7 @@ function Install-GmsaPlugin {
     $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
 
     Write-Log "Getting the GMSA plugin package"
-    DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile
+    DownloadFileOverHttp -Url $GmsaPackageUrl -DestinationPath $tempPluginZipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE
     Expand-Archive -Path $tempPluginZipFile -DestinationPath $tempInstallPackageFoler -Force
     if ($LASTEXITCODE) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE -ErrorMessage "Failed to extract the '$tempPluginZipFile' archive."
@@ -390,7 +398,7 @@ function New-CsiProxyService {
     $tempdir = New-TemporaryDirectory
     $binaryPackage = "$tempdir\csiproxy.tar"
 
-    DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage
+    DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE
 
     tar -xzf $binaryPackage -C $tempdir
     cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
@@ -437,24 +445,76 @@ function New-HostsConfigService {
     & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
 }
 
-function CopyFileFromCache {
+function Register-LogCollectorScriptTask {
     Param(
-        [Parameter(Mandatory = $true)][string]
-        $DestinationFolder,
-        [Parameter(Mandatory = $true)][string]
-        $FileName
+        [Parameter(Mandatory = $true)][int]
+        $IntervalInMinutes
     )
-    $search = @()
-    if (Test-Path $global:CacheDir) {
-        $search = [IO.Directory]::GetFiles($global:CacheDir, $FileName, [IO.SearchOption]::AllDirectories)
+    Write-Log "Creating a scheduled task to run loggenerator.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\loggenerator.ps1`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -Once -At (Get-Date).Date -RepeatIndefinitely -RepetitionInterval (New-TimeSpan -Minutes $IntervalInMinutes)
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-log-generator-task"
+    Register-ScheduledTask -TaskName "aks-log-generator-task" -InputObject $definition
+}
+
+function Enable-GuestVMLogs {
+    Param(
+        [Parameter(Mandatory = $true)][int]
+        $IntervalInMinutes
+    )
+    if ($IntervalInMinutes -le 0) {
+        Write-Log "Do not add AKS logs in GuestVMLogs"
+        return
     }
 
-    if ($search.Count -ne 0) {
-        $DestinationPath=[io.path]::Combine($DestinationFolder, $FileName)
-        Write-Log "Using cached version of $FileName - Copying file from $($search[0]) to $DestinationPath"
-        Copy-Item -Path $search[0] -Destination $DestinationPath -Force
-    }
-    else {
-        Write-Log "WARNING: $FileName is missed in cached folder $global:CacheDir"
+    Register-LogCollectorScriptTask -IntervalInMinutes $IntervalInMinutes
+}
+
+function Upload-GuestVMLogs {
+    Param(
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
+    )
+
+    try {
+        if ($ExitCode -ne 0) {
+            # We do not reuse aks-log-generator-task or loggenerator.ps1 since neither may exist
+            Write-Log "Start to upload guestvmlogs when failing in node provisioning"
+
+            $aksLogFolder="C:\WindowsAzure\Logs\aks"
+            $tempWorkFoler = [Io.path]::Combine($env:TEMP, "guestvmlogs")
+
+            Write-Log "Creating $aksLogFolder"
+            # The folder "C:\WindowsAzure\Logs" may not exist
+            New-Item -ItemType Directory -Force -Path $aksLogFolder > $null
+
+            Write-Log "Creating SymbolicLink for C:\AzureData\CustomDataSetupScript.log in $aksLogFolder"
+            New-Item -ItemType SymbolicLink -Path (Join-Path $aksLogFolder "CustomDataSetupScript.log") -Target "C:\AzureData\CustomDataSetupScript.log" > $null
+
+            # Create a work folder
+            Write-Log "Creating $tempWorkFoler"
+            Create-Directory -FullPath $tempWorkFoler
+            cd $tempWorkFoler
+
+            # Generate logs
+            Write-Log "Generating guestvmlogs"
+            Invoke-Expression(Get-Childitem -Path "C:\WindowsAzure\" -Filter "CollectGuestLogs.exe" -Recurse | sort LastAccessTime -desc | select -first 1).FullName
+
+            # Get the output
+            $logFile=(Get-Childitem -Path $tempWorkFoler  -Filter "*.zip").FullName
+
+            # Upload logs
+            Write-Log "Start to uploading $logFile"
+            C:\AzureData\windows\sendlogs.ps1 -Path $logFile
+        } elseif (Get-ScheduledTask -TaskName 'aks-log-generator-task' -ErrorAction Ignore) {
+            Write-Log "Start the scheduled task aks-log-generator-task to upload the CSE log immediately"
+            # Upload the full node logs if it succeeds and it is enabled
+            Start-ScheduledTask -TaskName 'aks-log-generator-task'
+        }
+    } catch {
+        # This should not impact the node provisioning result
+        Write-Log "Failed to upload CustomDataSetupScript.log. $_"
     }
 }

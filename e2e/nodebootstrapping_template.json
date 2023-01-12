@@ -8,11 +8,11 @@
         "properties": {
             "orchestratorProfile": {
                 "orchestratorType": "Kubernetes",
-                "orchestratorVersion": "1.19.9",
+                "orchestratorVersion": "1.24.0",
                 "kubernetesConfig": {
                     "networkPlugin": "kubenet",
-                    "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.19.9-hotfix.20210322.1",
-                    "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.19.9-hotfix.20210322/binaries/kubernetes-node-linux-amd64.tar.gz",
+                    "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
+                    "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
                     "useInstanceMetadata": true,
                     "cloudProviderBackoffMode": "v2",
                     "cloudProviderBackoff": true,
@@ -133,6 +133,7 @@
     "EnableGPUDevicePluginIfNeeded": false,
     "EnableKubeletConfigFile": false,
     "EnableNvidia": false,
+    "DisableUnattendedUpgrades": true,
     "EnableACRTeleportPlugin": false,
     "TeleportdPluginURL": "",
     "ContainerdVersion": "",
@@ -166,7 +167,6 @@
         "--max-pods": "110",
         "--network-plugin": "kubenet",
         "--node-status-update-frequency": "10s",
-        "--non-masquerade-cidr": "0.0.0.0/0",
         "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
         "--pod-manifest-path": "/etc/kubernetes/manifests",
         "--pod-max-pids": "-1",

@@ -880,6 +880,74 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 	}
 }
 
+func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "22.04 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204,
+			},
+			expected: true,
+		},
+		{
+			name: "22.04 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "22.04 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuArm64Containerd2204Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "22.04 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204TLGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu 18.04 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu 18.04 gen2 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804Gen2,
+			},
+			expected: false,
+		},
+		{
+			name: "18.04 Ubuntu VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd1804,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.Is2204VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.Is2204VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2204VHDDistro())
+			}
+		})
+	}
+}
+
 func TestIsCustomVNET(t *testing.T) {
 	cases := []struct {
 		p             Properties
@@ -923,38 +991,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group",
-		},
-		{
-			name:          "vanilla pool profile, no deprecated labels",
-			ap:            AgentPoolProfile{},
-			rg:            "my-resource-group",
-			deprecated:    false,
-			nvidiaEnabled: false,
-			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group",
-		},
-		{
-			name: "with managed disk",
-			ap: AgentPoolProfile{
-				StorageProfile: ManagedDisks,
-			},
-			rg:            "my-resource-group",
-			deprecated:    true,
-			nvidiaEnabled: false,
-			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,storageprofile=managed,storagetier=,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=,kubernetes.azure.com/cluster=my-resource-group",
-		},
-		{
-			name: "N series",
-			ap: AgentPoolProfile{
-				VMSize: "Standard_NC6",
-			},
-			rg:            "my-resource-group",
-			deprecated:    true,
-			nvidiaEnabled: true,
-			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,accelerator=nvidia,kubernetes.azure.com/accelerator=nvidia,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "agentpool=,kubernetes.azure.com/agentpool=",
 		},
 		{
 			name: "with custom labels",
@@ -968,61 +1005,7 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			deprecated:    true,
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
-		},
-		{
-			name: "with custom labels, no deprecated labels",
-			ap: AgentPoolProfile{
-				CustomNodeLabels: map[string]string{
-					"mycustomlabel1": "foo",
-					"mycustomlabel2": "bar",
-				},
-			},
-			rg:            "my-resource-group",
-			deprecated:    false,
-			nvidiaEnabled: false,
-			fipsEnabled:   false,
-			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
-		},
-		{
-			name: "with custom labels and FIPS enabled",
-			ap: AgentPoolProfile{
-				CustomNodeLabels: map[string]string{
-					"mycustomlabel1": "foo",
-					"mycustomlabel2": "bar",
-				},
-			},
-			rg:            "my-resource-group",
-			deprecated:    false,
-			nvidiaEnabled: false,
-			fipsEnabled:   true,
-			expected:      "kubernetes.azure.com/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
-		},
-		{
-			name: "N series and managed disk with custom labels and FIPS enabled",
-			ap: AgentPoolProfile{
-				StorageProfile: ManagedDisks,
-				VMSize:         "Standard_NC6",
-				CustomNodeLabels: map[string]string{
-					"mycustomlabel1": "foo",
-					"mycustomlabel2": "bar",
-				},
-			},
-			rg:            "my-resource-group",
-			deprecated:    true,
-			nvidiaEnabled: true,
-			fipsEnabled:   true,
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,storageprofile=managed,storagetier=Standard_LRS,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=Standard_LRS,accelerator=nvidia,kubernetes.azure.com/accelerator=nvidia,kubernetes.azure.com/fips_enabled=true,kubernetes.azure.com/cluster=my-resource-group,mycustomlabel1=foo,mycustomlabel2=bar",
-		},
-		{
-			name:          "with osSKU set",
-			ap:            AgentPoolProfile{},
-			rg:            "my-resource-group",
-			deprecated:    true,
-			nvidiaEnabled: false,
-			fipsEnabled:   false,
-			osSku:         "CBLMariner",
-			expected:      "kubernetes.azure.com/role=agent,node-role.kubernetes.io/agent=,kubernetes.io/role=agent,agentpool=,kubernetes.azure.com/agentpool=,kubernetes.azure.com/os-sku=CBLMariner,kubernetes.azure.com/cluster=my-resource-group",
+			expected:      "agentpool=,kubernetes.azure.com/agentpool=,mycustomlabel1=foo,mycustomlabel2=bar",
 		},
 	}
 
@@ -1578,12 +1561,6 @@ func TestIsFeatureEnabled(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "telemetry",
-			feature:  "EnableTelemetry",
-			flags:    &FeatureFlags{},
-			expected: false,
-		},
-		{
 			name:    "Enabled feature",
 			feature: "CSERunInBackground",
 			flags: &FeatureFlags{
@@ -1648,9 +1625,7 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 		{
 			name: "Non kubeproxy feature",
 			properties: &Properties{
-				FeatureFlags: &FeatureFlags{
-					EnableTelemetry: true,
-				},
+				FeatureFlags: &FeatureFlags{},
 			},
 			expectedFeatureGates: "",
 		},
@@ -2030,18 +2005,17 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedString := "--address=0.0.0.0 --allow-privileged=true --anonymous-auth=false --authorization-mode=Webhook --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --keep-terminated-pod-volumes=false --kubeconfig=/var/lib/kubelet/kubeconfig --pod-manifest-path=/etc/kubernetes/manifests "
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
-		expected              string
+		CustomKubeletConfig   *CustomKubeletConfig
 		expectedForPowershell string
 	}{
 		{
 			name:                  "zero value kubernetesConfig",
 			config:                &NodeBootstrappingConfiguration{},
-			expected:              "",
+			CustomKubeletConfig:   nil,
 			expectedForPowershell: "",
 		},
 		// Some values
@@ -2049,18 +2023,26 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 			name: "expected values",
 			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
-					"--address":                     "0.0.0.0",
-					"--allow-privileged":            "true",
-					"--anonymous-auth":              "false",
-					"--authorization-mode":          "Webhook",
-					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
-					"--pod-manifest-path":           "/etc/kubernetes/manifests",
-					"--cgroups-per-qos":             "true",
-					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes": "false",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--anonymous-auth":               "false",
+					"--authorization-mode":           "Webhook",
+					"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+					"--pod-manifest-path":            "/etc/kubernetes/manifests",
+					"--node-status-report-frequency": "5m0s",
+					"--cgroups-per-qos":              "true",
+					"--image-gc-high-threshold":      "80",
+					"--image-gc-low-threshold":       "60",
+					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
+					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
-			expected:              alphabetizedString,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcHighThreshold:  to.Int32Ptr(80),
+				ImageGcLowThreshold:   to.Int32Ptr(60),
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
 			expectedForPowershell: alphabetizedStringForPowershell,
 		},
 		// Switch the "order" in the map, validate the same return string
@@ -2068,18 +2050,26 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 			name: "expected values re-ordered",
 			config: &NodeBootstrappingConfiguration{
 				KubeletConfig: map[string]string{
-					"--address":                     "0.0.0.0",
-					"--allow-privileged":            "true",
-					"--anonymous-auth":              "false",
-					"--authorization-mode":          "Webhook",
-					"--client-ca-file":              "/etc/kubernetes/certs/ca.crt",
-					"--pod-manifest-path":           "/etc/kubernetes/manifests",
-					"--cgroups-per-qos":             "true",
-					"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes": "false",
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--anonymous-auth":               "false",
+					"--authorization-mode":           "Webhook",
+					"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+					"--container-log-max-files":      "20",
+					"--container-log-max-size":       "1024Mi",
+					"--pod-manifest-path":            "/etc/kubernetes/manifests",
+					"--node-status-report-frequency": "1m0s",
+					"--cgroups-per-qos":              "true",
+					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
+					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
-			expected:              alphabetizedString,
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcHighThreshold:  to.Int32Ptr(80),
+				ImageGcLowThreshold:   to.Int32Ptr(60),
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
 			expectedForPowershell: alphabetizedStringForPowershell,
 		},
 	}
@@ -2088,8 +2078,8 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell() {
-				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell())
+			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig) {
+				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig))
 			}
 		})
 	}
@@ -2184,5 +2174,208 @@ func TestKubernetesConfig_UserAssignedIDEnabled(t *testing.T) {
 
 	if k.UserAssignedIDEnabled() {
 		t.Errorf("expected userAssignedIDEnabled to be false when useManagedIdentity is set to false")
+	}
+}
+
+func TestGetOrderedKubeproxyConfigStringForPowershell(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *NodeBootstrappingConfiguration
+		expected string
+	}{
+		{
+			name: "KubeproxyConfig is empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+			},
+			expected: `"--metrics-bind-address=0.0.0.0:10249"`,
+		},
+		{
+			name: "default metrics bind address is used",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+				KubeproxyConfig: map[string]string{
+					"--metrics-bind-address": "0.0.0.0:10250",
+				},
+			},
+			expected: `"--metrics-bind-address=0.0.0.0:10250"`,
+		},
+		{
+			name: "KubeproxyConfig is not empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+				KubeproxyConfig: map[string]string{
+					"--hostname-override": "fakehost",
+				},
+			},
+			expected: `"--hostname-override=fakehost", "--metrics-bind-address=0.0.0.0:10249"`,
+		},
+		{
+			name: "custom configuration overrides default kubeproxyconfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(ComponentkubeProxy): {
+									Config: map[string]string{"--hostname-override": "override"},
+								},
+							},
+						},
+					},
+				},
+				KubeproxyConfig: map[string]string{
+					"--hostname-override": "fakehost",
+				},
+			},
+			expected: `"--hostname-override=override", "--metrics-bind-address=0.0.0.0:10249"`,
+		},
+		{
+			name: "custom configuration does not override default kubeproxyconfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(ComponentkubeProxy): {
+									Config: map[string]string{"--kube-api-qps": "10"},
+								},
+							},
+						},
+					},
+				},
+				KubeproxyConfig: map[string]string{
+					"--hostname-override": "fakehost",
+				},
+			},
+			expected: `"--hostname-override=fakehost", "--kube-api-qps=10", "--metrics-bind-address=0.0.0.0:10249"`,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.config.GetOrderedKubeproxyConfigStringForPowershell()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
+	cases := []struct {
+		name                string
+		config              *NodeBootstrappingConfiguration
+		CustomKubeletConfig *CustomKubeletConfig
+		expected            string
+	}{
+		{
+			name: "KubeletConfig is empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+			},
+			CustomKubeletConfig: nil,
+			expected:            "",
+		},
+		{
+			name: "KubeletConfig is not empty",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{},
+				},
+				KubeletConfig: map[string]string{
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--cloud-config":                 "c:\\k\\azure.json",
+					"--node-status-report-frequency": "5m0s",
+				},
+			},
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcLowThreshold:  to.Int32Ptr(60),
+				ImageGcHighThreshold: to.Int32Ptr(80),
+			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
+		},
+		{
+			name: "custom configuration overrides default KubeletConfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(Componentkubelet): {
+									Config: map[string]string{"--address": "127.0.0.1"},
+								},
+							},
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--cloud-config":                 "c:\\k\\azure.json",
+					"--node-status-report-frequency": "5m0s",
+				},
+			},
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
+		},
+		{
+			name: "custom configuration does not override default KubeletConfig",
+			config: &NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						CustomConfiguration: &CustomConfiguration{
+							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
+								string(Componentkubelet): {
+									Config: map[string]string{"--event-qps": "100"},
+								},
+							},
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--address":                      "0.0.0.0",
+					"--allow-privileged":             "true",
+					"--cloud-config":                 "c:\\k\\azure.json",
+					"--node-status-report-frequency": "5m0s",
+					"--container-log-max-files":      "10",
+					"--container-log-max-size":       "512Mi",
+					"--image-gc-high-threshold":      "30",
+					"--image-gc-low-threshold":       "10",
+				},
+			},
+			CustomKubeletConfig: &CustomKubeletConfig{
+				ImageGcHighThreshold:  to.Int32Ptr(80),
+				ImageGcLowThreshold:   to.Int32Ptr(60),
+				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
+				ContainerLogMaxFiles:  to.Int32Ptr(20),
+			},
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig)
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
 	}
 }

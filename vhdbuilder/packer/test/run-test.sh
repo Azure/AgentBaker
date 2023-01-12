@@ -11,13 +11,13 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ]; then
-    echo "Skipping tests for Mariner, Ubuntu 16.04"
+  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$IMG_SKU" == "20_04-lts-cvm" ] || [[ "$OS_VERSION" == "22.04"  &&  "${ARCHITECTURE,,}" != "arm64" ]]; then
+    echo "Skipping tests for Mariner, Ubuntu 16.04, CVM 20.04 and AMD64 22.04"
     exit 0
   fi
 fi
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)"
+RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled
@@ -60,34 +60,35 @@ else
       echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
       exit 1
     fi
+  fi
 
-    IMG_DEF="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
-  else 
-    #gen2Mode check, set the IMG_DEF to the MANAGED_SIG_ID retrieved from packer-output after VHD Build
+  if [ -z "${MANAGED_SIG_ID}" ]; then
+    echo "Managed Sig Id from packer-output is empty, unable to proceed..."
+    exit 1
+  else
+    echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
     IMG_DEF=${MANAGED_SIG_ID}
   fi
 
   # In SIG mode, Windows VM requires admin-username and admin-password to be set,
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  if [ ${ARCHITECTURE,,} == "arm64" ]; then
-    az vm create \
-      --resource-group $RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --size Standard_D2pds_V5 \
-      --public-ip-address ""
-  else
-    az vm create \
-      --resource-group $RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --public-ip-address ""
+  TARGET_COMMAND_STRING=""
+  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+    TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
+  elif [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
+
+  az vm create \
+      --resource-group $RESOURCE_GROUP_NAME \
+      --name $VM_NAME \
+      --image $IMG_DEF \
+      --admin-username $TEST_VM_ADMIN_USERNAME \
+      --admin-password $TEST_VM_ADMIN_PASSWORD \
+      --public-ip-address "" \
+      ${TARGET_COMMAND_STRING}
+      
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
@@ -143,7 +144,7 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}" "windowsPatchId=${WINDOWS_PATCH_ID}")
+    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
   # An example of failed run-command output:
   # {
   #   "value": [

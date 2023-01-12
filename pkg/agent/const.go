@@ -31,8 +31,10 @@ const (
 	kubernetesWindowsAgentCSECommandPS1 = "windows/csecmd.ps1"
 	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
 	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
-	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
+	// Windows CSE helper scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
 	kubernetesWindowsCSEHelperPS1 = "windows/windowscsehelper.ps1"
+	// Windows script to upload CSE logs. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
+	kubernetesWindowsSendLogsPS1 = "windows/sendlogs.ps1"
 )
 
 // cloud-init (i.e. ARM customData) source file references
@@ -48,6 +50,8 @@ const (
 	kubernetesCSEInstallUbuntu        = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 	kubernetesCSEInstallMariner       = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
 	kubernetesCSEConfig               = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCSESendLogs             = "linux/cloud-init/artifacts/cse_send_logs.py"
+	kubernetesCSERedactCloudConfig    = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
 	kubernetesCISScript               = "linux/cloud-init/artifacts/cis.sh"
 	kubernetesHealthMonitorScript     = "linux/cloud-init/artifacts/health-monitor.sh"
 	// kubernetesKubeletMonitorSystemdTimer     = "linux/cloud-init/artifacts/kubelet-monitor.timer" // TODO enable
@@ -57,6 +61,7 @@ const (
 	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
 	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
+	syncTunnelLogsScript                      = "linux/cloud-init/artifacts/sync-tunnel-logs.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
 	krustletSystemdService                    = "linux/cloud-init/artifacts/krustlet.service"
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
@@ -80,6 +85,7 @@ const (
 
 	// drop ins
 	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
+	cgroupv2KubeletDropin   = "linux/cloud-init/artifacts/10-cgroupv2.conf"
 	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
 	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"

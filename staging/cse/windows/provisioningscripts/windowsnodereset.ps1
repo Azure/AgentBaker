@@ -5,10 +5,10 @@
 #>
 
 $global:LogPath = "c:\k\windowsnodereset.log"
-$global:HNSModule = "c:\k\hns.psm1"
 
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 
+$global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32($Global:ClusterConfiguration.Services.HNSRemediator.IntervalInMinutes)
 $global:CsiProxyEnabled = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Csi.EnableProxy)
 $global:MasterSubnet = $Global:ClusterConfiguration.Kubernetes.ControlPlane.MasterSubnet
 $global:NetworkMode = "L2Bridge"
@@ -17,15 +17,66 @@ $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 $UseContainerD = ($global:ContainerRuntime -eq "containerd")
 $IsDualStackEnabled = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates -contains "IPv6DualStack=true"
 
+$global:HNSModule = "c:\k\hns.psm1"
+if ($global:ContainerRuntime -eq "containerd") {
+    Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
+    $global:HNSModule = "c:\k\hns.v2.psm1"
+}
+
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log ($message) {
     $message | Timestamp | Tee-Object -FilePath $global:LogPath -Append
 }
 
+function Register-HNSRemediatorScriptTask {
+    if ($global:HNSRemediatorIntervalInMinutes -ne 0) {
+        Write-Log "Creating a scheduled task to run hnsremediator.ps1"
+
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\hnsremediator.ps1`""
+        $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+        $trigger = New-JobTrigger -Once -At (Get-Date).Date -RepeatIndefinitely -RepetitionInterval (New-TimeSpan -Minutes $global:HNSRemediatorIntervalInMinutes)
+        $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "hns-remediator-task"
+        Register-ScheduledTask -TaskName "hns-remediator-task" -InputObject $definition
+    }
+}
+
+function Unregister-HNSRemediatorScriptTask {
+    # We do not check whether $global:HNSRemediatorIntervalInMinutes is not 0 sicne we may need to set it to 0 in the node for test purpose
+    if (Get-ScheduledTask -TaskName "hns-remediator-task" -ErrorAction Ignore) {
+        Write-Log "Deleting the scheduled task hns-remediator-task"
+        Unregister-ScheduledTask -TaskName "hns-remediator-task" -Confirm:$false
+    }
+
+    $hnsPIDFile="C:\k\hns.pid"
+    if (Test-Path $hnsPIDFile) {
+        # Remove this file since PID of HNS service may have been changed after node crashes or is rebooted
+        # It should not always fail since hns-remediator-task is unregistered.
+        # We set the max retry count to 20 to avoid dead loop for unknown issues.
+        $maxRetries=20
+        $retryCount=0
+        while ($retryCount -lt $maxRetries) {
+            Write-Log "Deleting $hnsPIDFile"
+            Remove-Item -Path $hnsPIDFile -Force -Confirm:$false -ErrorAction Ignore
+
+            # The file may not be deleted successfully because hnsremediator.ps1 is still writing the logs
+            if (Test-Path $hnsPIDFile) {
+                # Do not log the failure to reduce log
+                Start-Sleep -Milliseconds 500
+                $retryCount=$retryCount+1
+            } else {
+                Write-Log "$hnsPIDFile is deleted"
+                break
+            }
+        }
+    }
+}
+
 Write-Log "Entering windowsnodereset.ps1"
 
 Import-Module $global:HNSModule
+
+Unregister-HNSRemediatorScriptTask
 
 #
 # Stop services
@@ -108,5 +159,7 @@ Write-Log "Starting kubelet service"
 Start-Service kubelet
 
 Write-Log "Do not start kubeproxy service since kubelet will restart kubeproxy"
+
+Register-HNSRemediatorScriptTask
 
 Write-Log "Exiting windowsnodereset.ps1"

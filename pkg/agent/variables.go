@@ -4,12 +4,15 @@
 package agent
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/blang/semver"
 )
+
+var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
 
 // getCustomDataVariables returns cloudinit data used by Linux
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
@@ -25,6 +28,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionInstallsUbuntu":      getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
 			"provisionInstallsMariner":     getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
 			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"provisionSendLogs":            getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
+			"provisionRedactCloudConfig":   getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
 			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
 			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
@@ -39,17 +44,20 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
 			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
+			"cgroupv2KubeletDropin":        getBase64EncodedGzippedCustomScript(cgroupv2KubeletDropin, config),
 			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
 			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
 			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
 			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
+			"syncTunnelLogsScript":         getBase64EncodedGzippedCustomScript(syncTunnelLogsScript, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		if strings.EqualFold(string(config.OSSKU), string("CBLMariner")) {
+		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
+		if config.AgentPoolProfile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU) {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
 		} else {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
@@ -93,7 +101,6 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
 		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
 		"excludeMasterFromStandardLB":          true,
-		"enableTelemetry":                      false,
 		"windowsEnableCSIProxy":                cs.Properties.WindowsProfile.IsCSIProxyEnabled(),
 		"windowsCSIProxyURL":                   cs.Properties.WindowsProfile.CSIProxyURL,
 		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
@@ -104,6 +111,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
 		"isNotRebootWindowsNode":               strconv.FormatBool(config.AgentPoolProfile.IsNotRebootWindowsNode()),
+		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
 	}
 
 	return customData
@@ -166,7 +174,8 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+	cs := nbc.ContainerService
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}
@@ -194,5 +203,27 @@ func getOutBoundCmd(cs *datamodel.ContainerService, cloudSpecConfig *datamodel.A
 	if registry == "" {
 		return ""
 	}
-	return `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
+
+	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy
+	proxyVars := ""
+	if nbc.HTTPProxyConfig != nil {
+		if nbc.HTTPProxyConfig.HTTPProxy != nil {
+			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
+			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
+		}
+		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
+			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
+		}
+		if nbc.HTTPProxyConfig.NoProxy != nil {
+			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
+		}
+	}
+
+	cmd := `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 50 1 5 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
+
+	if proxyVars != "" {
+		cmd = fmt.Sprintf("%s %s", proxyVars, cmd)
+	}
+
+	return cmd
 }

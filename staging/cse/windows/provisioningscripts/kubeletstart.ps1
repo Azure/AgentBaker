@@ -11,7 +11,6 @@ $global:KubeDir = $Global:ClusterConfiguration.Install.Destination
 $global:NetworkMode = "L2Bridge"
 $global:ExternalNetwork = "ext"
 $global:CNIConfig = "$CNIConfig"
-$global:HNSModule = "c:\k\hns.psm1"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
@@ -23,6 +22,12 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 $global:CNIPath = [Io.path]::Combine("$global:KubeDir", "cni")
 $global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "$global:NetworkMode.conf")
 $global:CNIConfigPath = [Io.path]::Combine("$global:CNIPath", "config")
+
+$global:HNSModule = "c:\k\hns.psm1"
+if ($global:ContainerRuntime -eq "containerd") {
+    Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
+    $global:HNSModule = "c:\k\hns.v2.psm1"
+}
 
 ipmo $global:HNSModule
 

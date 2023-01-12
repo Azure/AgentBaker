@@ -1,46 +1,29 @@
 {
-  "dockerKubeProxyImages": {
-    "ContainerImages": [
-      {
-        "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
-        "amd64OnlyVersions": [],
-        "multiArchVersions": [
-          "1.21.7-hotfix.20220330.2",
-          "1.21.7-hotfix.20220420.1",
-          "1.21.9-hotfix.20220330.2",
-          "1.21.9-hotfix.20220420.1",
-          "1.22.4-hotfix.20220330.2",
-          "1.22.4-hotfix.20220330.3",
-          "1.22.6-hotfix.20220330.2",
-          "1.22.6-hotfix.20220330.3",
-          "1.23.3-hotfix.20220401.1",
-          "1.23.3-hotfix.20220401.2",
-          "1.23.5-hotfix.20220331.1",
-          "1.23.5-hotfix.20220331.2",
-          "1.24.0.1"
-        ]
-      }
-    ]
-  },
+  "dockerKubeProxyImages": null,
   "containerdKubeProxyImages": {
     "ContainerImages": [
       {
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
         "amd64OnlyVersions": [],
         "multiArchVersions": [
-          "1.21.7-hotfix.20220330.2",
-          "1.21.7-hotfix.20220420.1",
-          "1.21.9-hotfix.20220330.2",
-          "1.21.9-hotfix.20220420.1",
-          "1.22.4-hotfix.20220330.2",
-          "1.22.4-hotfix.20220330.3",
-          "1.22.6-hotfix.20220330.2",
-          "1.22.6-hotfix.20220330.3",
-          "1.23.3-hotfix.20220401.1",
-          "1.23.3-hotfix.20220401.2",
-          "1.23.5-hotfix.20220331.1",
-          "1.23.5-hotfix.20220331.2",
-          "1.24.0.1"
+          "1.22.11-hotfix.20221109.1",
+          "1.22.15-hotfix.20221109.1",
+          "1.23.12-hotfix.20221109.2",
+          "1.23.12-hotfix.20221109.3",
+          "1.23.15",
+          "1.23.8-hotfix.20221109.2",
+          "1.23.8-hotfix.20221109.3",
+          "1.24.3-hotfix.20221109.2",
+          "1.24.3-hotfix.20221216.1",
+          "1.24.6-hotfix.20221109.2",
+          "1.24.6-hotfix.20221216.1",
+          "1.24.9",
+          "1.25.2-hotfix.20221109",
+          "1.25.2-hotfix.20221216",
+          "1.25.4",
+          "1.25.4-hotfix.20221216",
+          "1.25.5",
+          "1.26.0"
         ]
       }
     ]

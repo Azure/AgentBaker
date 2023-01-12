@@ -43,6 +43,12 @@ copyPackerFiles() {
   CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+  IPV6_NFTABLES_RULES_SRC=/home/packer/ipv6_nftables
+  IPV6_NFTABLES_RULES_DEST=/etc/systemd/system/ipv6_nftables
+  IPV6_NFTABLES_SCRIPT_SRC=/home/packer/ipv6_nftables.sh
+  IPV6_NFTABLES_SCRIPT_DEST=/opt/scripts/ipv6_nftables.sh
+  IPV6_NFTABLES_SERVICE_SRC=/home/packer/ipv6_nftables.service
+  IPV6_NFTABLES_SERVICE_DEST=/etc/systemd/system/ipv6_nftables.service
   NVIDIA_MODPROBE_SERVICE_SRC=/home/packer/nvidia-modprobe.service
   NVIDIA_MODPROBE_SERVICE_DEST=/etc/systemd/system/nvidia-modprobe.service
   NVIDIA_DOCKER_DAEMON_SRC=/home/packer/nvidia-docker-daemon.json
@@ -55,10 +61,25 @@ copyPackerFiles() {
   UPDATE_CERTS_SERVICE_DEST=/etc/systemd/system/update_certs.service
   UPDATE_CERTS_PATH_SRC=/home/packer/update_certs.path
   UPDATE_CERTS_PATH_DEST=/etc/systemd/system/update_certs.path
-  UPDATE_CERTS_TIMER_SRC=/home/packer/update_certs.timer
-  UPDATE_CERTS_TIMER_DEST=/etc/systemd/system/update_certs.timer
   UPDATE_CERTS_SCRIPT_SRC=/home/packer/update_certs.sh
   UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
+  CI_SYSLOG_WATCHER_PATH_SRC=/home/packer/ci-syslog-watcher.path
+  CI_SYSLOG_WATCHER_PATH_DEST=/etc/systemd/system/ci-syslog-watcher.path
+  CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog-watcher.service
+  CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
+  CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
+  CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
+  AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
+  AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
+  AKS_LOGROTATE_SERVICE_DEST=/etc/systemd/system/logrotate.service
+  AKS_LOGROTATE_TIMER_SRC=/home/packer/logrotate.timer
+  AKS_LOGROTATE_TIMER_DEST=/etc/systemd/system/logrotate.timer
+  AKS_LOGROTATE_TIMER_DROPIN_SRC=/home/packer/override.conf
+  AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
+  AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
+  AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
@@ -67,6 +88,20 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
   fi
 
+  cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
+  # If a logrotation timer does not exist on the base image
+  if [ ! -f /etc/systemd/system/logrotate.timer ] && [ ! -f /usr/lib/systemd/system/logrotate.timer ]; then
+    cpAndMode $AKS_LOGROTATE_SCRIPT_SRC $AKS_LOGROTATE_SCRIPT_DEST 544
+    cpAndMode $AKS_LOGROTATE_SERVICE_SRC $AKS_LOGROTATE_SERVICE_DEST 644
+    cpAndMode $AKS_LOGROTATE_TIMER_SRC $AKS_LOGROTATE_TIMER_DEST 644
+  else
+    cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
+  fi
+
+  if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
+    PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
+  fi
+  
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
@@ -88,8 +123,13 @@ copyPackerFiles() {
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
-  cpAndMode $UPDATE_CERTS_TIMER_SRC $UPDATE_CERTS_TIMER_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
+  cpAndMode $IPV6_NFTABLES_RULES_SRC $IPV6_NFTABLES_RULES_DEST 644
+  cpAndMode $IPV6_NFTABLES_SCRIPT_SRC $IPV6_NFTABLES_SCRIPT_DEST 755
+  cpAndMode $IPV6_NFTABLES_SERVICE_SRC $IPV6_NFTABLES_SERVICE_DEST 644
+  cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
+  cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
+  cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644

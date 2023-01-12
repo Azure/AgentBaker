@@ -6,6 +6,22 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+# Setup logs for upload to host
+LOG_DIR=/var/log/azure/aks
+mkdir -p ${LOG_DIR}
+ln -s /var/log/azure/cluster-provision.log \
+      /var/log/azure/cluster-provision-cse-output.log \
+      /opt/azure/*.json \
+      /opt/azure/cloud-init-files.paved \
+      /opt/azure/vhd-install.complete \
+      ${LOG_DIR}/
+
+# Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
+# when cloud-config.txt gets included within log bundles
+python3 /opt/azure/containers/provision_redact_cloud_config.py \
+    --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
+    --output-path ${LOG_DIR}/cloud-config.txt
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -14,8 +30,6 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
 fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
-
-retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 100 1 10 nc -vz mcr.microsoft.com 443 >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz mcr.microsoft.com 443 || exit $ERR_OUTBOUND_CONN_FAIL;
 
 for i in $(seq 1 3600); do
     if [ -s /opt/azure/containers/provision_source.sh ]; then
@@ -42,22 +56,29 @@ source /opt/azure/containers/provision_installs_distro.sh
 wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
 source /opt/azure/containers/provision_configs.sh
 
+retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 50 1 5 nc -vz mcr.microsoft.com 443 >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz mcr.microsoft.com 443 || exit $ERR_OUTBOUND_CONN_FAIL;
+
+# Bring in OS-related vars
+source /etc/os-release
+
+# Mandb is not currently available on MarinerV1
+if [[ ${ID} != "mariner" ]]; then
+    echo "Removing man-db auto-update flag file..."
+    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+fi
+
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
 
-disableSystemdResolved
+logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
-configureAdminUser
-# If crictl gets installed then use it as the cri cli instead of ctr
-# crictl is not a critical component so continue with boostrapping if the install fails
-# CLI_TOOL is by default set to "ctr"
-installCrictl && CLI_TOOL="crictl"
+logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
-    cleanUpContainerImages
+    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
     if [[ "${IS_VHD}" = true ]]; then
@@ -68,67 +89,78 @@ else
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    installDeps
+    logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-installContainerRuntime
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 
 setupCNIDirs
 
-installNetworkPlugin
+logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+
+# By default, never reboot new nodes.
+REBOOTREQUIRED=false
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
-    if $FULL_INSTALL_REQUIRED; then
-        downloadGPUDrivers
-    fi
-    ensureGPUDrivers
+    logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf || exit $ERR_FILE_WATCH_TIMEOUT
+            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
         fi
-        systemctlEnableAndStart nvidia-device-plugin || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
-        systemctlDisableAndStop nvidia-device-plugin
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 fi
-# If it is a MIG Node, enable mig-partition systemd service to create MIG instances
+
+if [[ "false" == "true" ]]; then
+    # fabric manager trains nvlink connections between multi instance gpus.
+    # it appears this is only necessary for systems with *multiple cards*.
+    # i.e., an A100 can be partitioned a maximum of 7 ways.
+    # An NC24ads_A100_v4 has one A100.
+    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+    # ND96 seems to require fabric manager *even when not using mig partitions*
+    # while it fails to install on NC24.
+    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+fi
+
+# This will only be true for multi-instance capable VM sizes
+# for which the user has specified a partitioning profile.
+# it is valid to use mig-capable gpus without a partitioning profile.
 if [[ "${MIG_NODE}" == "true" ]]; then
+    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+    # Commands such as `nvidia-smi --gpu-reset` may succeed,
+    # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
+    # this will not be required per nvidia for next gen H100.
     REBOOTREQUIRED=true
-    STATUS=`systemctl is-active nvidia-fabricmanager`
-    if [ ${STATUS} = 'active' ]; then
-        echo "Fabric Manager service is running, no need to install."
-    else
-        if [ -d "/opt/azure/fabricmanager-${GPU_DV}" ] && [ -f "/opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh" ]; then
-            pushd /opt/azure/fabricmanager-${GPU_DV}
-            /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-            systemctlEnableAndStart nvidia-fabricmanager
-            popd
-        else
-            echo "Need to install nvidia-fabricmanager, but failed to find on disk. Will not pull (breaks AKS egress contract)."
-        fi
-    fi
-    ensureMigPartition
+    
+    # this service applies the partitioning scheme with nvidia-smi.
+    # we should consider moving to mig-parted which is simpler/newer.
+    # we couldn't because of old drivers but that has long been fixed.
+    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 
 
-installKubeletKubectlAndKubeProxy
-
-ensureRPC
+logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
 
-configureK8s
+logs_to_events "AKS.CSE.configureK8s" configureK8s
 
-configureCNI
+logs_to_events "AKS.CSE.configureCNI" configureCNI
 
 
-ensureContainerd 
+logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
 
-ensureMonitorService
+# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
+logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
+
+logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
@@ -136,9 +168,9 @@ if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-ensureSysctl
-ensureJournal
-ensureKubelet
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -146,11 +178,6 @@ if $FULL_INSTALL_REQUIRED; then
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
-fi
-rm -f /etc/apt/apt.conf.d/99periodic
-
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-    apt_get_purge 20 30 120 apache2-utils &
 fi
 
 VALIDATION_ERR=0
@@ -173,23 +200,36 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443 || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-# Ace: Basically the hypervisor blocks gpu reset which is required after enabling mig mode for the gpus to be usable
-REBOOTREQUIRED=false
+if [[ ${ID} != "mariner" ]]; then
+    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+    createManDbAutoUpdateFlagFile
+    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+fi
+
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        /usr/lib/apt/apt.systemd.daily &
+        # logs_to_events should not be run on & commands
+        systemctl unmask apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.service apt-daily-upgrade.service
+        systemctl enable apt-daily.timer apt-daily-upgrade.timer
+        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
+        # this is the DOWNLOAD service
+        # meaning we are wasting IO without even triggering an upgrade 
+        # -________________-
+        systemctl restart --no-block apt-daily.service
         aptmarkWALinuxAgent unhold &
     fi
 fi

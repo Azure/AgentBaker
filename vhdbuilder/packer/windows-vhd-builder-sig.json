@@ -13,7 +13,6 @@
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
         "location": "{{env `AZURE_LOCATION`}}",
         "vm_size": "{{env `AZURE_VM_SIZE`}}",
-        "os_disk_size_gb": "{{env `OS_DISK_SIZE_GB`}}",
         "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
         "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
@@ -33,12 +32,20 @@
             "vm_size": "{{user `vm_size`}}",
             "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
-            "image_publisher": "MicrosoftWindowsServer",
-            "image_offer": "WindowsServer",
+            "image_publisher": "{{user `windows_image_publisher`}}",
+            "image_offer": "{{user `windows_image_offer`}}",
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
+            "image_url": "{{user `windows_image_url`}}",
             "managed_image_resource_group_name": "{{user `resource_group_name`}}",
             "managed_image_name": "{{user `sig_image_name`}}",
+            "shared_image_gallery": {
+              "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
+              "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
+              "gallery_name": "{{user `windows_sigmode_source_gallery_name`}}",
+              "image_name": "{{user `windows_sigmode_source_image_name`}}",
+              "image_version": "{{user `windows_sigmode_source_image_version`}}"
+            },
             "shared_image_gallery_destination": {
                 "resource_group": "{{user `resource_group_name`}}",
                 "gallery_name": "{{user `sig_gallery_name`}}",
@@ -74,8 +81,7 @@
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
-                "WindowsPatchUrl={{user `windows_patch_url`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -94,7 +100,9 @@
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "WindowsNanoServerImageURL={{user `nano_image_url`}}",
+                "WindowsServerCoreImageURL={{user `core_image_url`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -132,21 +140,10 @@
             "destination": "release-notes.txt"
         },
         {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
             "type": "powershell",
-            "inline": [
-                "& $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit",
-                "Stop-Service WindowsAzureGuestAgent",
-                "Stop-Service WindowsAzureNetAgentSvc",
-                "Stop-Service RdAgent",
-                "Stop-Service WindowsAzureTelemetryService",
-                "& sc.exe delete WindowsAzureGuestAgent",
-                "& sc.exe delete WindowsAzureNetAgentSvc",
-                "& sc.exe delete RdAgent",
-                "& sc.exe delete WindowsAzureTelemetryService",
-                "Get-ChildItem c:\\WindowsAzure -Force | Sort-Object -Property FullName -Descending | ForEach-Object { try { Remove-Item -Path $_.FullName -Force -Recurse -ErrorAction SilentlyContinue; } catch { } }",
-                "while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Output $imageState.ImageState; Start-Sleep -s 10  } else { break } }",
-                "Remove-Item -Path WSMan:\\Localhost\\listener\\listener* -Recurse"
-            ]
+            "script": "vhdbuilder/packer/sysprep.ps1"
         }
     ]
 }

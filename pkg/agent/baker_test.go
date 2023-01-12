@@ -134,6 +134,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			KubeletConfig:                 kubeletConfig,
 			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
 			IsARM64:                       false,
+			DisableUnattendedUpgrades:     false,
 		}
 
 		if configUpdator != nil {
@@ -463,6 +464,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}),
 
+		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}),
+
 		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet+FIPSEnabled", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -481,6 +490,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					"127.0.0.1",
 				}),
 				TrustedCA: to.StringPtr(EncodedTestCert),
+			}
+		}),
+
+		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+				CustomCATrustCerts: []string{EncodedTestCert, EncodedTestCert, EncodedTestCert},
 			}
 		}),
 
@@ -517,8 +532,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.KubeletConfig = map[string]string{}
 			config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
 			config.EnableNvidia = true
-			config.GPUInstanceProfile = "mig-3g"
+			config.GPUInstanceProfile = "MIG7g"
 		}),
+
+		Entry("AKSUbuntu1804 containerd with multi-instance non-fabricmanager GPU", "AKSUbuntu1804+Containerd+MIG+NoFabricManager", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.KubeletConfig = map[string]string{}
+			config.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+			config.EnableNvidia = true
+			config.GPUInstanceProfile = "MIG7g"
+		}),
+
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -563,6 +589,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1804 with IPAddress and FQDN", "AKSUbuntu1804+Containerd+IPAddress+FQDN", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.HostedMasterProfile.FQDN = "a.hcp.eastus.azmk8s.io"
 			config.ContainerService.Properties.HostedMasterProfile.IPAddress = "1.2.3.4"
+		}),
+		Entry("AKSUbuntu2204 VHD, cgroupv2", "AKSUbuntu2204+cgroupv2", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}))
 })
 
@@ -691,7 +723,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--max-pods":                          "30",
 			"--network-plugin":                    "cni",
 			"--node-status-update-frequency":      "10s",
-			"--non-masquerade-cidr":               "0.0.0.0/0",
 			"--pod-infra-container-image":         "kubletwin/pause",
 			"--pod-max-pids":                      "-1",
 			"--read-only-port":                    "0",
@@ -872,6 +903,22 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
+	})
+})
+
+var _ = Describe("getGPUDriverVersion", func() {
+	It("should use 470 with nc v1", func() {
+		Expect(getGPUDriverVersion("standard_nc6")).To(Equal("cuda-470.82.01"))
+	})
+	It("should use 510 cuda with nc v3", func() {
+		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal("cuda-510.47.03"))
+	})
+	It("should use 510 grid with nv v5", func() {
+		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal("grid-510.73.08"))
+		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal("grid-510.73.08"))
+	})
+	It("should use 510 cuda with nv v1 (although we don't know if that works)", func() {
+		Expect(getGPUDriverVersion("standard_nv6")).To(Equal("cuda-510.47.03"))
 	})
 })
 

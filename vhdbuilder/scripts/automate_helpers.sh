@@ -43,7 +43,7 @@ create_pull_request() {
         git commit -m "Bumping image version to $1"
     fi
 
-    git push -u origin $3
+    git push -u origin $3 -f
 
     set +x  # To avoid logging PAT during curl
     curl \

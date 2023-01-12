@@ -13,7 +13,6 @@
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
         "location": "{{env `AZURE_LOCATION`}}",
         "vm_size": "{{env `AZURE_VM_SIZE`}}",
-        "os_disk_size_gb": "{{env `OS_DISK_SIZE_GB`}}",
         "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
         "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
@@ -30,10 +29,11 @@
             "vm_size": "{{user `vm_size`}}",
             "os_disk_size_gb": "{{user `os_disk_size_gb`}}",
             "os_type": "Windows",
-            "image_publisher": "MicrosoftWindowsServer",
-            "image_offer": "WindowsServer",
+            "image_publisher": "{{user `windows_image_publisher`}}",
+            "image_offer": "{{user `windows_image_offer`}}",
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
+            "image_url": "{{user `windows_image_url`}}",
             "resource_group_name": "{{user `resource_group_name`}}",
             "capture_container_name": "aks-vhds-windows-ws2019",
             "capture_name_prefix": "aks-{{user `create_time`}}",
@@ -63,8 +63,7 @@
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
-                "WindowsPatchUrl={{user `windows_patch_url`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -83,7 +82,9 @@
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "WindowsNanoServerImageURL={{user `nano_image_url`}}",
+                "WindowsServerCoreImageURL={{user `core_image_url`}}"
             ],
             "type": "powershell",
             "scripts": [

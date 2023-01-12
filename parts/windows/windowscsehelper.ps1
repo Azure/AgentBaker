@@ -34,6 +34,31 @@ $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP=29
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER=30
 $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS=31
 $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK=32
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE=33
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE=34
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE=35
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE=36
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE=37
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE=38
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE=39
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE=40
+$global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE=41
+$global:WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER=42
+$global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE=43
+$global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE=44
+$global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST=45
+$global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE=46
+$global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE=47
+$global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE=48
+$global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csecmd.ps1 when C:\AzureData\CustomData.bin does not exist
+$global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
+$global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
+
+# NOTE: KubernetesVersion does not contain "v"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.40.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
+# The containerd package name may be changed in future
+$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -50,7 +75,9 @@ function DownloadFileOverHttp {
         [Parameter(Mandatory = $true)][string]
         $Url,
         [Parameter(Mandatory = $true)][string]
-        $DestinationPath
+        $DestinationPath,
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
     )
 
     # First check to see if a file with the same name is already cached on the VHD
@@ -84,7 +111,7 @@ function DownloadFileOverHttp {
             $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
             Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY -ErrorMessage "Failed in downloading $Url. Error: $_"
+            Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $Url. Error: $_"
         }
         $downloadTimer.Stop()
 
@@ -181,20 +208,22 @@ function Retry-Command {
 
 function Invoke-Executable {
     Param(
-        [string]
+        [Parameter(Mandatory=$true)][string]
         $Executable,
-        [string[]]
+        [Parameter(Mandatory=$true)][string[]]
         $ArgList,
+        [Parameter(Mandatory=$true)][int]
+        $ExitCode,
         [int[]]
         $AllowedExitCodes = @(0),
         [int]
-        $Retries = 1,
+        $Retries = 0,
         [int]
         $RetryDelaySeconds = 1
     )
 
-    for ($i = 0; $i -lt $Retries; $i++) {
-        Write-Log "Running $Executable $ArgList ..."
+    for ($i = 0; $i -le $Retries; $i++) {
+        Write-Log "$i - Running $Executable $ArgList ..."
         & $Executable $ArgList
         if ($LASTEXITCODE -notin $AllowedExitCodes) {
             Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
@@ -207,17 +236,19 @@ function Invoke-Executable {
         }
     }
 
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE -ErrorMessage "Exhausted retries for $Executable $ArgList"
+    Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Exhausted retries for $Executable $ArgList"
 }
 
 function Assert-FileExists {
     Param(
-        [Parameter(Mandatory = $true, Position = 0)][string]
-        $Filename
+        [Parameter(Mandatory = $true)][string]
+        $Filename,
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
     )
 
     if (-Not (Test-Path $Filename)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_FILE_NOT_EXIST -ErrorMessage "$Filename does not exist"
+        Set-ExitCode -ExitCode $ExitCode -ErrorMessage "$Filename does not exist"
     }
 }
 
@@ -230,4 +261,39 @@ function Get-WindowsVersion {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
     }
+}
+
+function Install-Containerd-Based-On-Kubernetes-Version {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $ContainerdUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubernetesVersion
+  )
+
+  # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+  # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
+  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
+  # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
+  #   1. Current behavior to set the full URL
+  #   2. Setting containerd package in toggle for test purpose or hotfix
+  if ($ContainerdUrl.EndsWith("/")) {
+    Write-Log "ContainerdURL is $ContainerdUrl"
+    $containerdPackage=$global:StableContainerdPackage
+    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
+      $containerdPackage=$global:LatestContainerdPackage
+      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+    } else {
+      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
+    }
+    $ContainerdUrl = $ContainerdUrl + $containerdPackage
+  }
+  Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }

@@ -245,7 +245,7 @@ write_files:
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
 
-    KUBELET_NODE_LABELS=kubernetes.azure.com/role=agent,agentpool=agent2,kubernetes.azure.com/agentpool=agent2,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=Premium_LRS,kubernetes.azure.com/cluster=resourceGroupName
+    KUBELET_NODE_LABELS=kubernetes.azure.com/agentpool=agent2
 
     #EOF
 

@@ -42,9 +42,9 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// validate and fix input
 	validateAndSetLinuxNodeBootstrappingConfiguration(config)
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "baker", "1.0")
-	//get variable cloudInit
+	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
 		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
@@ -64,9 +64,9 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "", "")
-	//get variable custom data
+	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
 		profile, t.getBakerFuncMap(config, parameters, variables))
@@ -95,11 +95,11 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootst
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "", "")
-	//get variable
+	// get variable
 	variables := getCSECommandVariables(config)
-	//NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
+	// NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
@@ -116,12 +116,12 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	//get parameters
+	// get parameters
 	parameters := getParameters(config, "", "")
-	//get variable
+	// get variable
 	variables := getCSECommandVariables(config)
 
-	//NOTE: that CSE command will be executed by VMSS extension so it doesn't need extra escaping like custom data does
+	// NOTE: that CSE command will be executed by VMSS extension so it doesn't need extra escaping like custom data does
 	str, e := t.getSingleLine(
 		kubernetesWindowsAgentCSECommandPS1,
 		config.AgentPoolProfile,
@@ -142,7 +142,8 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template
 func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{},
-	funcMap template.FuncMap) (string, error) {
+	funcMap template.FuncMap,
+) (string, error) {
 	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap)
 	if err != nil {
 		return "", err
@@ -155,7 +156,8 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 
 // getSingleLine returns the file as a single line
 func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{},
-	funcMap template.FuncMap) (string, error) {
+	funcMap template.FuncMap,
+) (string, error) {
 	b, err := templates.Asset(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
@@ -191,7 +193,7 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 		return ""
 	}
 
-	//TODO: GetParameterPropertyLower
+	// TODO: GetParameterPropertyLower
 	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
 			if v["value"].(paramsMap)[p] == nil {
@@ -229,11 +231,17 @@ func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingC
 // similar to what the ARM template used to do.
 //
 // When ARM template was used, the following is used:
-//   variables('labelResourceGroup')
+//
+//	variables('labelResourceGroup')
+//
 // which is defined as:
-//   [if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+//
+//	[if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+//
 // the "truncatedResourceGroup" is defined as:
-//   [take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+//
+//	[take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
+//
 // This function does the same processing.
 func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	truncated := resourceGroupName
@@ -260,14 +268,28 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
+	profile := config.AgentPoolProfile
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
-		delete(kubeletFlags, "--image-pull-progress-deadline")
+		delete(kubeletFlags, "--non-masquerade-cidr")
+		if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+			for _, flag := range dockerShimFlags {
+				delete(kubeletFlags, flag)
+			}
+		}
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
 			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
+
+		// ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s version 1.20 or higher
+		// Until Container Insights move to new API adding this feature gate to get the GPU metrics continue to work
+		// Reference - https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
+			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 		}
 	}
 }
@@ -302,6 +324,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	return template.FuncMap{
 		"Disable1804SystemdResolved": func() bool {
 			return config.Disable1804SystemdResolved
+		},
+		// This was DisableUnattendedUpgrade when we had UU enabled by default in image.
+		// Now we don't, so we have to deliberately enable it.
+		// Someone smarter than me can fix the API.
+		"EnableUnattendedUpgrade": func() bool {
+			return !config.DisableUnattendedUpgrades
 		},
 		"IsIPMasqAgentEnabled": func() bool {
 			return cs.Properties.IsIPMasqAgentEnabled()
@@ -346,10 +374,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return ""
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeletConfigStringForPowershell()
+			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
+		},
+		"Is2204VHD": func() bool {
+			return profile.Is2204VHDDistro()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -406,7 +437,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
 		"IsMariner": func() bool {
-			return strings.EqualFold(string(config.OSSKU), string("CBLMariner"))
+			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
+			return profile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU)
+		},
+		"IsKata": func() bool {
+			return profile.Distro.IsKataDistro()
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -429,8 +464,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
-			var parts = []string{
+			parts := []string{
 				kubernetesWindowsCSEHelperPS1,
+				kubernetesWindowsSendLogsPS1,
 			}
 
 			// Create a buffer, new zip
@@ -517,6 +553,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
 			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
+		},
+		"IsAzureCNIOverlayFeatureEnabled": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay")
 		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
@@ -792,7 +831,69 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.MessageOfTheDay != ""
 		},
 		"GetOutboundCommand": func() string {
-			return getOutBoundCmd(cs, config.CloudSpecConfig)
+			return getOutBoundCmd(config, config.CloudSpecConfig)
+		},
+		"GPUNeedsFabricManager": func() bool {
+			return gpuNeedsFabricManager(profile.VMSize)
+		},
+		"GPUDriverVersion": func() string {
+			return getGPUDriverVersion(profile.VMSize)
+		},
+		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
+			if cs.Properties.WindowsProfile != nil {
+				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
+			}
+			return 0
+		},
+		"ShouldConfigureCustomCATrust": func() bool {
+			return areCustomCATrustCertsPopulated(*config)
+		},
+		"GetCustomCATrustConfigCerts": func() []string {
+			if areCustomCATrustCertsPopulated(*config) {
+				return config.CustomCATrustConfig.CustomCATrustCerts
+			}
+			return []string{}
+		},
+		"GetLogGeneratorIntervalInMinutes": func() uint32 {
+			if cs.Properties.WindowsProfile != nil {
+				return cs.Properties.WindowsProfile.GetLogGeneratorIntervalInMinutes()
+			}
+			return 0
 		},
 	}
+}
+
+// NV series GPUs target graphics workloads vs NC which targets compute
+// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
+// NVv1 seems to run with CUDA, NVv5 requires GRID.
+// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?)
+func getGPUDriverVersion(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.Nvidia510GridDriverVersion
+	}
+	if isStandardNCv1(size) {
+		return datamodel.Nvidia470CudaDriverVersion
+	}
+	return datamodel.Nvidia510CudaDriverVersion
+}
+
+func isStandardNCv1(size string) bool {
+	tmp := strings.ToLower(size)
+	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func useGridDrivers(size string) bool {
+	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
+}
+
+func gpuNeedsFabricManager(size string) bool {
+	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
+}
+
+func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
+	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
+}
+
+func isMariner(osSku string) bool {
+	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }

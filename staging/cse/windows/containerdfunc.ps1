@@ -8,7 +8,7 @@ function RegisterContainerDService {
     $kubedir
   )
 
-  Assert-FileExists $global:Containerdbinary
+  Assert-FileExists -Filename $global:Containerdbinary -ExitCode $global:WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST
 
   # in the past service was not installed via nssm so remove it in case
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
@@ -140,23 +140,15 @@ function Install-Containerd {
   # TODO: check if containerd is already installed and is the same version before this.
   
   # Extract the package
-  if ($ContainerdUrl.endswith(".zip")) {
-    $zipfile = [Io.path]::Combine($ENV:TEMP, "containerd.zip")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $zipfile
-    Expand-Archive -path $zipfile -DestinationPath $global:ContainerdInstallLocation -Force
-    Remove-Item -Path $zipfile -Force
-  }
-  elseif ($ContainerdUrl.endswith(".tar.gz")) {
-    # upstream containerd package is a tar 
-    $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
-    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile
-    Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
-    tar -xzf $tarfile -C $global:ContainerdInstallLocation
+  # upstream containerd package is a tar 
+  $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
+  DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+  Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
+  tar -xzf $tarfile -C $global:ContainerdInstallLocation
 
-    mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
-    Remove-Item -Path $tarfile -Force
-    Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
-  }
+  mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
+  Remove-Item -Path $tarfile -Force
+  Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation

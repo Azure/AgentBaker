@@ -46,6 +46,20 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
+- path: /opt/azure/containers/provision_redact_cloud_config.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
+
+- path: /opt/azure/containers/provision_send_logs.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
+
 {{if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
@@ -110,21 +124,12 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 {{- end}}
 
- {{- if IsKrustlet}}
-- path: /etc/systemd/system/krustlet.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "krustletSystemdService"}}
-{{ else }}
 - path: /etc/systemd/system/kubelet.service
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
-{{- end}}
 
 {{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
@@ -168,7 +173,7 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -228,15 +233,16 @@ write_files:
     {{GetVariableProperty "cloudInitData" "aptPreferences"}}
 {{end}}
 
+
 {{if not IsMariner}}
+{{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
   permissions: "0644"
   owner: root
   content: |
-    APT::Periodic::Update-Package-Lists "0";
-    APT::Periodic::Download-Upgradeable-Packages "0";
-    APT::Periodic::AutocleanInterval "0";
-    APT::Periodic::Unattended-Upgrade "0";
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+{{end}}
 {{end}}
 
 {{- if ShouldConfigureHTTPProxy}}
@@ -270,7 +276,7 @@ write_files:
     {{- end}}
 
 - path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -278,11 +284,24 @@ write_files:
 {{- end}}
 
 {{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.pem
+- path: /usr/local/share/ca-certificates/proxyCA.crt
   permissions: "0644"
   owner: root
   content: |
 {{GetHTTPProxyCA}}
+    #EOF
+{{- end}}
+
+{{- if ShouldConfigureCustomCATrust}}
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
+- path: /opt/certs/00000000000000cert{{$i}}.crt
+  permissions: "0644"
+  owner: root
+  content: |
+    {{$cert}}
+    #EOF
+{{end}}
 {{- end}}
 
 {{- if HasMessageOfTheDay}}
@@ -293,24 +312,6 @@ write_files:
   content: |
     {{GetMessageOfTheDay}}
 {{- end}}
-
-- path: /etc/logrotate.d/rsyslog-warn
-  permissions: "0644"
-  owner: root
-  content: |
-    /var/log/warn
-    {
-            rotate 4
-            weekly
-            missingok
-            notifempty
-            compress
-            delaycompress
-            sharedscripts
-            postrotate
-                    /usr/lib/rsyslog/rsyslog-rotate
-            endscript
-    }
 
 {{- if HasServicePrincipalSecret}}
 - path: /etc/kubernetes/sp.txt
@@ -388,14 +389,45 @@ write_files:
     }
 {{end}}
 
+- path: /etc/systemd/system/sync-tunnel-logs.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+    After=containerd.service
+
+    [Service]
+    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+
+- path: /opt/azure/containers/sync-tunnel-logs.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
+
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-{{if UseRuncShimV2}}
+
+{{- if Is2204VHD}}
+- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
+{{- end}}
+
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -416,6 +448,9 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
           BinaryName = "/usr/bin/nvidia-container-runtime"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
@@ -426,10 +461,23 @@ write_files:
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
           BinaryName = "/usr/bin/runc"
+          {{- if Is2204VHD }}
+          SystemdCgroup = true
+          {{- end}}
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
           runtime_type = "io.containerd.runc.v2"
         [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
           BinaryName = "/usr/bin/runc"
+        {{- end}}
+        {{- if IsKata }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+        {{- end}}
+        {{- if IsKrustlet }}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+          runtime_type = "io.containerd.spin.v1"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+          runtime_type = "io.containerd.slight.v1"
         {{- end}}
       {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
       [plugins."io.containerd.grpc.v1.cri".cni]
@@ -452,58 +500,7 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     {{- end}}
     #EOF
-{{else}}
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    subreaper = false
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{ if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{ end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.untrusted_workload_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.default_runtime]
-          runtime_type = "io.containerd.runtime.v1.linux"
-          {{- if IsNSeriesSKU}}
-          runtime_engine = "/usr/bin/nvidia-container-runtime"
-          {{- else}}
-          runtime_engine = "/usr/bin/runc"
-          {{- end}}
-      {{ if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{ end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{ if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{ end}}
-    #EOF
-{{end}}
+
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -517,11 +514,7 @@ write_files:
             "mtu": 1500,
             "addIf": "eth0",
             "isGateway": true,
-            {{- if IsIPMasqAgentEnabled}}
             "ipMasq": false,
-            {{- else}}
-            "ipMasq": true,
-            {{- end}}
             "promiscMode": true,
             "hairpinMode": false,
             "ipam": {
@@ -645,7 +638,7 @@ write_files:
 {{end}}
 
 - path: /etc/kubernetes/certs/ca.crt
-  permissions: "0644"
+  permissions: "0600"
   encoding: base64
   owner: root
   content: |
@@ -671,7 +664,7 @@ write_files:
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -688,11 +681,7 @@ write_files:
     clusters:
     - name: localcluster
       cluster:
-        {{ if IsKrustlet -}}
-        certificate-authority-data: "{{GetBase64CertificateAuthorityData}}"
-        {{- else -}}
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        {{- end }}
         server: https://{{GetKubernetesEndpoint}}:443
     users:
     - name: kubelet-bootstrap
@@ -706,7 +695,7 @@ write_files:
     current-context: bootstrap-context
     #EOF
 - path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0644"
+  permissions: "0600"
   encoding: gzip
   owner: root
   content: !!binary |
@@ -762,12 +751,6 @@ write_files:
   owner: root
   content: |
     #!/bin/bash
-{{if not IsIPMasqAgentEnabled}}
-    {{if IsAzureCNI}}
-    iptables -t nat -A POSTROUTING -m iprange ! --dst-range 168.63.129.16 -m addrtype ! --dst-type local ! -d {{GetParameter "vnetCidr"}} -j MASQUERADE
-    {{end}}
-{{end}}
-
     # Disallow container from reaching out to the special IP address 168.63.129.16
     # for TCP protocol (which http uses)
     #

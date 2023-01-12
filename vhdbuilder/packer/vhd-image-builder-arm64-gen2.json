@@ -15,14 +15,20 @@
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "arm64_os_disk_snapshot_name": "{{env `${ARM64_OS_DISK_SNAPSHOT_NAME`}}",
+    "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
-    "img_sku": "{{env `IMG_SKU`}}"
+    "img_sku": "{{env `IMG_SKU`}}",
+    "vnet_name": "{{env `VNET_NAME`}}",
+    "subnet_name": "{{env `SUBNET_NAME`}}"
   },
   "builders": [
     {
       "type": "azure-arm",
+      "virtual_network_name": "{{user `vnet_name`}}",
+      "virtual_network_subnet_name": "{{user `subnet_name`}}",
+      "ssh_read_write_timeout": "5m",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
@@ -42,17 +48,9 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
+      "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `create_time`}}",
-      "shared_image_gallery_destination": {
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "PackerSigGalleryEastUS",
-        "image_name": "{{user `sig_image_name`}}",
-        "image_version": "1.0.{{user `create_time`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
-      }
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}"
     }
   ],
   "provisioners": [
@@ -119,13 +117,23 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.0.0-35.amd64.deb",
+      "source": "vhdbuilder/packer/asc-baseline-1.1.0-268.amd64.deb",
       "destination": "/home/packer/asc-baseline.deb"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/pre-install-dependencies.sh",
+      "destination": "/home/packer/pre-install-dependencies.sh"
     },
     {
       "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/post-install-dependencies.sh",
+      "destination": "/home/packer/post-install-dependencies.sh"
     },
     {
       "type": "file",
@@ -199,6 +207,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth-2204",
+      "destination": "/home/packer/pam-d-common-auth-2204"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-password",
       "destination": "/home/packer/pam-d-common-password"
     },
@@ -224,13 +237,63 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update_certs.timer",
-      "destination": "/home/packer/update_certs.timer"
+      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
+      "destination": "/home/packer/update_certs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/update_certs.sh",
-      "destination": "/home/packer/update_certs.sh"
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.path",
+      "destination": "/home/packer/ci-syslog-watcher.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.service",
+      "destination": "/home/packer/ci-syslog-watcher.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.sh",
+      "destination": "/home/packer/ci-syslog-watcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
+      "destination": "/home/packer/logrotate.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.service",
+      "destination": "/home/packer/logrotate.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate.timer",
+      "destination": "/home/packer/logrotate.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate-override.conf",
+      "destination": "/home/packer/override.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
+      "destination": "/home/packer/rsyslog"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables",
+      "destination": "/home/packer/ipv6_nftables"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables.service",
+      "destination": "/home/packer/ipv6_nftables.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ipv6_nftables.sh",
+      "destination": "/home/packer/ipv6_nftables.sh"
     },
     {
       "type": "file",
@@ -315,8 +378,51 @@
     {
       "type": "shell",
       "inline": [
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": "sudo reboot",
+      "expect_disconnect": true,
+      "skip_clean": true,
+      "pause_after": "60s"
+    },
+    {
+      "type": "shell",
+      "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
+    },
+    {
+      "type": "shell",
+      "inline": "sudo reboot",
+      "expect_disconnect": true,
+      "skip_clean": true,
+      "pause_after": "60s"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/list-images.sh",
+      "destination": "/home/packer/list-images.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/image-bom.json",
+      "destination": "image-bom.json"
     },
     {
       "type": "file",

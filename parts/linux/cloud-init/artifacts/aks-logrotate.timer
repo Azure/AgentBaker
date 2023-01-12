@@ -1,0 +1,7 @@
+[Unit]
+Description=a timer that runs the logrotate-aks service on the top of every hour with a random delay
+[Timer]
+OnCalendar=*-*-* *:00:00
+RandomizedDelaySec=3m
+[Install]
+WantedBy=multi-user.target

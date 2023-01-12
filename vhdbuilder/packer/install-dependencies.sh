@@ -1,13 +1,9 @@
 #!/bin/bash
-
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-
-#the following sed removes all comments of the format {{/* */}}
-sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
-sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
@@ -15,40 +11,41 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-source /home/packer/packer_source.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
-#this is used by post build test to check whether the compoenents do indeed exist
-cat components.json > ${COMPONENTS_FILEPATH}
-cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
-echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-
-if [[ $OS == $MARINER_OS_NAME ]]; then
-  chmod 755 /opt
-  chmod 755 /opt/azure
-  chmod 644 ${VHD_LOGS_FILEPATH}
-fi
-
-copyPackerFiles
-systemctlEnableAndStart disk_queue || exit 1
-
-mkdir /opt/certs
-chmod 666 /opt/certs
-systemctlEnableAndStart update_certs.path || exit 1
-systemctlEnableAndStart update_certs.timer || exit 1
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
+# fix grub issue with cvm by reinstalling before other deps
+# other VHDs use grub-pc, not grub-efi
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  wait_for_apt_locks
+  apt_get_install 30 1 600 grub-efi || exit 1
+fi
+
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+  # disable and mask all UU timers/services
+  # save some background io/latency
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+fi
+
 installDeps
 cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - apache2-utils
   - apt-transport-https
-  - blobfuse=1.3.7
+  - blobfuse=1.4.4
   - ca-certificates
   - ceph-common
   - cgroup-lite
@@ -69,6 +66,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libpwquality-tools
   - mount
   - nfs-common
+  - nftables
   - pigz socat
   - traceroute
   - util-linux
@@ -78,13 +76,16 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - zip
 EOF
 
+tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
+Storage=persistent
+SystemMaxUse=1G
+RuntimeMaxUse=1G
+ForwardToSyslog=yes
+EOF
+
 if [[ $(isARM64) == 1 ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     echo "No FIPS support on arm64, exiting..."
-    exit 1
-  fi
-  if [[ $OS == $MARINER_OS_NAME ]]; then
-    echo "No arm64 support for Mariner OS, exiting..."
     exit 1
   fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
@@ -98,60 +99,62 @@ if [[ $(isARM64) == 1 ]]; then
   fi
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-  exit 1
-fi
-
-if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
-    disableSystemdIptables
+    disableSystemdIptables || exit 1
     forceEnableIpForward
-    networkdWorkaround
-    enableDNFAutomatic
+    setMarinerNetworkdConfig
     fixCBLMarinerPermissions
+    addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      enableMarinerKata
+    else
+      # Leave automatic package update disabled for the kata image
+      enableDNFAutomatic
+    fi
 fi
 
-downloadKrustlet
-echo "  - krustlet ${KRUSTLET_VERSION}" >> ${VHD_LOGS_FILEPATH}
+downloadContainerdWasmShims
+echo "  - krustlet ${CONTAINERD_WASM_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
+  updateAptWithMicrosoftPkg
   containerd_manifest="$(jq .containerd manifest.json)" || exit $?
-  containerd_versions="$(echo ${containerd_manifest} | jq -r '.versions[]')" || exit $?
-
-  for version in $containerd_versions; do
-    containerd_version="$(echo "$version" | cut -d- -f1)"
-    containerd_patch_version="$(echo "$version" | cut -d- -f2)"
-    downloadContainerdFromVersion ${containerd_version} ${containerd_patch_version}
-    echo "  - [cached] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-  done
-
-  installed_version="$(echo ${containerd_manifest} | jq -r '.latest')"
+  installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
   containerd_version="$(echo "$installed_version" | cut -d- -f1)"
   containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-  CRICTL_VERSIONS="
-  1.19.0
-  1.20.0
-  1.21.0
-  1.22.0
-  1.23.0
-  "
+  DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+  for componentToDownload in ${DOWNLOAD_FILES[*]}; do
+    fileName=$(echo "${componentToDownload}" | jq .fileName -r)
+    if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
+      CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
+      CRICTL_VERSIONS=""
+      if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
+        CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
+        CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
+      fi
+      break
+    fi
+  done
+  echo $CRICTL_VERSIONS
+
   for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
     downloadCrictl ${CRICTL_VERSION}
     echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
   done
+  
+  KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+
   # k8s will use images in the k8s.io namespaces - create it
   ctr namespace create k8s.io
   cliTool="ctr"
@@ -190,28 +193,43 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   done
 fi
 
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+  gpu_action="copy"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    gpu_action="install"
+  fi
+
+  mkdir -p /opt/{actions,gpu}
+  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi
+  else
+    bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi
+  fi
+fi
+
+ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+
 installBpftrace
 echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-addNvidiaAptRepo
-installNvidiaDocker "${NVIDIA_DOCKER_VERSION}"
-downloadGPUDrivers
-retrycmd_if_failure 30 5 3600 wget "https://developer.download.nvidia.com/compute/cuda/redist/fabricmanager/linux-x86_64/fabricmanager-linux-x86_64-${GPU_DV}.tar.gz"
-tar -xvzf fabricmanager-linux-x86_64-${GPU_DV}.tar.gz -C /opt/azure
-mv /opt/azure/fabricmanager /opt/azure/fabricmanager-${GPU_DV}
-echo "  - nvidia-docker2 nvidia-container-runtime" >> ${VHD_LOGS_FILEPATH}
-retrycmd_if_failure 30 5 3600 apt-get -o Dpkg::Options::="--force-confold" install -y nvidia-container-runtime="${NVIDIA_CONTAINER_RUNTIME_VERSION}" --download-only || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-{
-  echo "  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}";
-  echo "  - nvidia-gpu-driver-version=${GPU_DV}";
-  echo "  - nvidia-fabricmanager=${GPU_DV}";
-} >> ${VHD_LOGS_FILEPATH}
-if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    echo "  - ensureGPUDrivers" >> ${VHD_LOGS_FILEPATH}
-    ensureGPUDrivers
-fi
-fi
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
+  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
+  - nvidia-gpu-driver-version=${GPU_DV}
+  - nvidia-fabricmanager=${GPU_DV}
+EOF
 
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
@@ -271,53 +289,32 @@ else
     retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
 fi
 
-#Azure CNI has binaries and container images for ARM64 from 1.4.13
-AMD64_ONLY_CNI_VERSIONS="
-1.2.7
-"
-#Please add new version (>=1.4.12) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_VNET_CNI_VERSIONS="
-1.4.14
-1.4.21
-1.4.22
-"
 
-if [[ $(isARM64) == 1 ]]; then
-  ARM64_VNET_CNI_VERSIONS_IN_USE="
-  1.4.14
-  "
-  VNET_CNI_VERSIONS="${ARM64_VNET_CNI_VERSIONS_IN_USE} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
-else
-  VNET_CNI_VERSIONS="${AMD64_ONLY_CNI_VERSIONS} ${MULTI_ARCH_VNET_CNI_VERSIONS}"
-fi
+#must be both amd64/arm64 images
+VNET_CNI_VERSIONS="
+1.4.32
+1.4.35
+"
 
 
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
+
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+    mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" 
+    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+    rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# merge with above after two more version releases
-#Azure SWIFT CNI has binaries and container images for ARM64 from 1.4.13
-AMD64_ONLY_SWIFT_CNI_VERSIONS="
-1.2.7
-1.4.12
-"
+#UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-MULTI_ARCH_SWIFT_CNI_VERSIONS="
-1.4.21
-1.4.22
+SWIFT_CNI_VERSIONS="
+1.4.32
+1.4.35
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  ARM64_SWIFT_CNI_VERSIONS_IN_USE="
-  1.4.12
-  "
-  SWIFT_CNI_VERSIONS="${ARM64_SWIFT_CNI_VERSIONS_IN_USE} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
-else
-  SWIFT_CNI_VERSIONS="${AMD64_ONLY_SWIFT_CNI_VERSIONS} ${MULTI_ARCH_SWIFT_CNI_VERSIONS}"
-fi
 
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
@@ -325,36 +322,34 @@ for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-if [[ $(isARM64) != 1 ]]; then  #v0.7.6 has no ARM64 binaries
-  CNI_PLUGIN_VERSIONS="
-  0.7.6
-  "
-  for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-fi
+OVERLAY_CNI_VERSIONS="
+1.4.32
+1.4.35
+"
+
+for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-0.9.1
+1.1.1
 "
-
-if [[ $(isARM64) == 1 ]]; then
-  ARM64_CNI_PLUGIN_VERSIONS_IN_USE="
-  0.8.7
-  "
-  CNI_PLUGIN_VERSIONS="${ARM64_CNI_PLUGIN_VERSIONS_IN_USE} ${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-else
-  CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-fi
+CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+
+# IPv6 nftables, only Ubuntu for now
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  systemctlEnableAndStart ipv6_nftables || exit 1
+fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -384,10 +379,6 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
-  pushd /opt/azure/fabricmanager-${GPU_DV} || exit
-  /opt/azure/fabricmanager-${GPU_DV}/fm_run_package_installer.sh
-  systemctlEnableAndStart nvidia-fabricmanager
-  popd || exit
 fi
 
 installSGX=${SGX_INSTALL:-"False"}
@@ -400,8 +391,7 @@ if [[ ${installSGX} == "True" ]]; then
     done
 
     SGX_PLUGIN_VERSIONS="
-    0.2
-    0.4
+    0.5
     "
     for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
@@ -410,8 +400,7 @@ if [[ ${installSGX} == "True" ]]; then
     done
 
     SGX_WEBHOOK_VERSIONS="
-    0.6
-    0.9
+    1.0
     "
     for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
@@ -419,7 +408,7 @@ if [[ ${installSGX} == "True" ]]; then
         echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     done
 
-    SGX_QUOTE_HELPER_VERSIONS="2.0"
+    SGX_QUOTE_HELPER_VERSIONS="3.1"
     for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
         pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
@@ -447,7 +436,8 @@ done
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
   KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 else
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.dockerKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
+  echo "Unsupported container runtime"
+  exit 1
 fi
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
@@ -460,31 +450,29 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
       ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
   fi
   # shellcheck disable=SC2181
-  if [[ $? != 0 ]]; then
-  echo "Hyperkube contains nf_tables, exiting..."
-  exit 99
-  fi
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove snapd, which is not used by container stack
+  apt_get_purge 20 30 120 snapd || exit 1
+  apt_get_purge 20 30 120 apache2-utils || exit 1
+
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. For versions with arm64, please add it blow
-MULTI_ARCH_KUBE_BINARY_VERSIONS="
-1.21.7-hotfix.20220204
-1.21.9-hotfix.20220204
-1.22.4-hotfix.20220201
-1.22.6-hotfix.20220130
-1.23.3-hotfix.20220401
-1.23.4-hotfix.20220331
-1.23.5-hotfix.20220331
-1.24.0
-"
-
-KUBE_BINARY_VERSIONS="${MULTI_ARCH_KUBE_BINARY_VERSIONS}"
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
+KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
@@ -495,51 +483,4 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
-# shellcheck disable=SC2129
-echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
-ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
-
-# shellcheck disable=SC2010
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
-
-echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
-
-echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
-df -h >> ${VHD_LOGS_FILEPATH}
-# warn at 75% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 75 {print}') ] || echo "WARNING: 75% of /dev/sda1 is used" >> ${VHD_LOGS_FILEPATH}
-# error at 99% space taken
-[ -s $(df -P | grep '/dev/sda1' | awk '0+$5 >= 99 {print}') ] || exit 1
-
-echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
-tee -a ${VHD_LOGS_FILEPATH} < /proc/version
-{
-  echo "Install completed successfully on " $(date)
-  echo "VSTS Build NUMBER: ${BUILD_NUMBER}"
-  echo "VSTS Build ID: ${BUILD_ID}"
-  echo "Commit: ${COMMIT}"
-  echo "Ubuntu version: ${UBUNTU_RELEASE}"
-  echo "Hyperv generation: ${HYPERV_GENERATION}"
-  echo "Feature flags: ${FEATURE_FLAGS}"
-  echo "Container runtime: ${CONTAINER_RUNTIME}"
-  echo "FIPS enabled: ${ENABLE_FIPS}"
-} >> ${VHD_LOGS_FILEPATH}
-
-if [[ $(isARM64) != 1 ]]; then
-  # no asc-baseline-1.0.0-35.arm64.deb
-  installAscBaseline
-fi
-
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
-    relinkResolvConf
-  fi
-fi
-
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  # remove snapd, which is not used by container stack
-  apt-get purge --auto-remove snapd -y
-  # update message-of-the-day to start after multi-user.target
-  # multi-user.target usually start at the end of the boot sequence
-  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
-fi
+echo "install-dependencies step completed successfully"

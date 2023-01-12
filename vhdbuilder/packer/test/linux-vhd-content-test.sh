@@ -4,6 +4,7 @@ source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.s
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
+MANIFEST_FILEPATH=/opt/azure/manifest.json
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 testFilesDownloaded() {
@@ -38,15 +39,17 @@ testFilesDownloaded() {
         err $test "File ${dest} does not exist"
         continue
       fi
-      # -L since some urls are redirects (i.e github)
-      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-      fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
-      if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
-        continue
-      fi
-      # Validate whether package exists in Azure China cloud
-      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+      # no wc -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
+      if [ ! -d $dest ]; then
+        # -L since some urls are redirects (i.e github)
+        fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
+        if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+          err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+          continue
+        fi
+        # Validate whether package exists in Azure China cloud
+        if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
           mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
           echo "Validating: $mcURL"
           isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
@@ -60,6 +63,7 @@ testFilesDownloaded() {
             err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
             continue
           fi
+        fi
       fi
     done
 
@@ -226,16 +230,7 @@ testKubeBinariesPresent() {
   echo "$test:Start"
   containerRuntime=$1
   binaryDir=/usr/local/bin
-  k8sVersions="
-  1.21.7-hotfix.20220204
-  1.21.9-hotfix.20220204
-  1.22.4-hotfix.20220201
-  1.22.6-hotfix.20220130
-  1.23.3-hotfix.20220401
-  1.23.4-hotfix.20220331
-  1.23.5-hotfix.20220331
-  1.24.0
-  "
+  k8sVersions="$(jq -r .kubernetes.versions[] < /opt/azure/manifest.json)"
   for patchedK8sVersion in ${k8sVersions}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
@@ -282,13 +277,10 @@ testKubeProxyImagesPulled() {
   test="testKubeProxyImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
-  dockerKubeProxyImages=$(jq .dockerKubeProxyImages < ${KUBE_PROXY_IMAGES_FILEPATH})
   containerdKubeProxyImages=$(jq .containerdKubeProxyImages < ${KUBE_PROXY_IMAGES_FILEPATH})
 
   if [ $containerRuntime == 'containerd' ]; then
     testImagesPulled containerd "$containerdKubeProxyImages"
-  elif [ $containerRuntime == 'docker' ]; then
-    testImagesPulled docker "$dockerKubeProxyImages"
   else
     err $test "unsupported container runtime $containerRuntime"
     return
@@ -324,6 +316,14 @@ testCustomCAScriptExecutable() {
   echo "$test:Finish"
 }
 
+testCustomCATimerNotStarted() {
+  isUnitThere=$(systemctl list-units --type=timer | grep update_certs.timer)
+  if [[ -n "$isUnitThere" ]]; then
+    err $test "Custom CA timer was loaded, but shouldn't be"
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -342,3 +342,4 @@ testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
 testImagesRetagged $1
 testCustomCAScriptExecutable
+testCustomCATimerNotStarted

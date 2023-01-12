@@ -38,6 +38,7 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--max-pods":                          true,
 	"--eviction-hard":                     true,
 	"--node-status-update-frequency":      true,
+	"--node-status-report-frequency":      true,
 	"--image-gc-high-threshold":           true,
 	"--image-gc-low-threshold":            true,
 	"--event-qps":                         true,
@@ -276,7 +277,9 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	keys := []string{}
 	for key := range k {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
-			keys = append(keys, key)
+			if !datamodel.CommandLineOmittedKubeletConfigFlags[key] {
+				keys = append(keys, key)
+			}
 		}
 	}
 	sort.Strings(keys)
@@ -299,7 +302,9 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 
 	keys := []string{}
 	for key := range config {
-		keys = append(keys, key)
+		if !datamodel.CommandLineOmittedKubeletConfigFlags[key] {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 	var buf bytes.Buffer
@@ -310,7 +315,6 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 }
 
 func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
-
 	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
 		return nil
 	}
@@ -377,6 +381,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ClusterDomain:                  kc["--cluster-domain"],
 		MaxPods:                        strToInt32(kc["--max-pods"]),
 		NodeStatusUpdateFrequency:      datamodel.Duration(kc["--node-status-update-frequency"]),
+		NodeStatusReportFrequency:      datamodel.Duration(kc["--node-status-report-frequency"]),
 		ImageGCHighThresholdPercent:    strToInt32Ptr(kc["--image-gc-high-threshold"]),
 		ImageGCLowThresholdPercent:     strToInt32Ptr(kc["--image-gc-low-threshold"]),
 		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
@@ -423,7 +428,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
 	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
 
-	// settings from customKubeletConfig, only take if it's set
+	// Settings from customKubeletConfig, only take if it's set
 	if customKc != nil {
 		if customKc.CPUManagerPolicy != "" {
 			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
