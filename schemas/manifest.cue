@@ -58,9 +58,9 @@
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
             "1.4.13-3",
-            "1.6.4-4"
+            "1.6.15-1"
         ],
-        "edge": "1.6.4-4",
+        "edge": "1.6.15-1",
         "latest": "1.5.11-2", // latest is default in vhd.
         "stable": "1.4.13-3", // we use latest vs stable at runtime depending on k8s version.
     },
@@ -97,10 +97,13 @@
             "1.22.15",
             "1.23.8-hotfix.20220620",
             "1.23.12",
+            "1.23.15",
             "1.24.3",
             "1.24.6",
+            "1.24.9",
             "1.25.2-hotfix.20221006",
             "1.25.4",
+            "1.25.5",
             "1.26.0"
         ]
     },

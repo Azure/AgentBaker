@@ -49,13 +49,14 @@ configureSwapFile() {
 
     # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${swap_location}" ]]; then
-        os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
-        disk_free_kb=$(df ${os_disk_path} | sed 1d | awk '{print $4}')
+        # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
+        os_device=$(readlink -f /dev/disk/azure/root)
+        disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
             echo "Will use OS disk for swap file"
             swap_location=/swapfile
         else
-            echo "Insufficient disk space on OS disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
+            echo "Insufficient disk space on OS device ${os_device} to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
             exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
         fi
     fi
