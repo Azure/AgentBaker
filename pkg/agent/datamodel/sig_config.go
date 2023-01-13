@@ -258,7 +258,7 @@ const (
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 
 	// Used for edge zone scenario
-	EdgeZoneSIGImageVersion string = "2023.01.10"
+	EdgeZoneSIGImageVersion string = "2023.01.09"
 )
 
 // SIG config Template
