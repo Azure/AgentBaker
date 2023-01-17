@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
+  name: nodesigtest-pool
 
 parameters:
 - name: build2019
