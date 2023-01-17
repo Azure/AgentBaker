@@ -83,6 +83,7 @@ ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided ce
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+ERR_DISABLE_SSH=172 {{/* Error disabling ssh service */}}
 
 ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
 ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
