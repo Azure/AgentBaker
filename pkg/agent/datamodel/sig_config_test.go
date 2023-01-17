@@ -53,7 +53,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(mariner.Gallery).To(Equal("akscblmariner"))
 		Expect(mariner.Definition).To(Equal("V1"))
-		Expect(mariner.Version).To(Equal("2022.12.01"))
+		Expect(mariner.Version).To(Equal("2023.01.10"))
 
 		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(4))
 
