@@ -48,7 +48,7 @@ echo "Starting inotifywait..."
 # Monitor for changes
 inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
     case $FILE in
-        aks-link-*_kube-system_*.log | azure-cns-*_kube-system_*.log| cilium-*_kube-system_*.log| konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+        aks-link-*_kube-system_*.log | azure-cns-*_kube-system_*.log | cilium-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
             case $EVENT in
                 CREATE*)
                     echo "Linking $FILE"
