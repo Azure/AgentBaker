@@ -1503,6 +1503,7 @@ type NodeBootstrappingConfiguration struct {
 	IsARM64                        bool
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
+	DisableSSH                     bool
 }
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
