@@ -376,7 +376,9 @@
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "1.6.0"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
