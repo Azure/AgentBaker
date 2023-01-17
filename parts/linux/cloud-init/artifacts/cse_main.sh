@@ -56,6 +56,10 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
+{{- if ShouldDisableSSH}}
+disableSSH || exit $ERR_DISABLE_SSH
+{{- end}}
+
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
 configureEtcEnvironment
