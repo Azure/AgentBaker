@@ -552,10 +552,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
-	fromACSUbuntuEdgeZone, err := withEdgeZoneConfig(sigConfig)
-	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntuEdgeZone: %s", err)
-	}
+	fromACSUbuntuEdgeZone := withEdgeZoneConfig(sigConfig)
 	c.SigUbuntuEdgeZoneImageConfig = getSigUbuntuEdgeZoneImageConfigMapWithOpts(fromACSUbuntuEdgeZone)
 	return *c, nil
 }
@@ -585,12 +582,12 @@ func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, 
 	}, nil
 }
 
-func withEdgeZoneConfig(acsSigConfig SIGConfig) (SigImageConfigOpt, error) {
+func withEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.Gallery = AKSUbuntuEdgeZoneGalleryName
 		c.SubscriptionID = acsSigConfig.SubscriptionID
 		c.ResourceGroup = AKSUbuntuEdgeZoneResourceGroup
-	}, nil
+	}
 }
 
 func withSubscription(subscriptionID string) SigImageConfigOpt {
