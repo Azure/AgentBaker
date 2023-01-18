@@ -68,9 +68,9 @@
                 "createdBy": "aks-vhd-pipeline",
                 "SkipASMAzSecPack": "True"
             },
+            "virtual_network_resource_group_name": "nodesigtest-agent-pool",
             "virtual_network_name": "{{user `vnet_name`}}",
-            "virtual_network_subnet_name": "{{user `subnet_name`}}",
-            "private_virtual_network_with_public_ip": "true"
+            "virtual_network_subnet_name": "{{user `subnet_name`}}"
         }
     ],
     "provisioners": [

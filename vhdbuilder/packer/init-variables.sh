@@ -7,6 +7,12 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+
+LINUX_BUILD_VNET_NAME="nodesig-pool-vnet"
+WINDOWS_BUILD_VNET_NAME="nodesig-pool-vnet"
+LINUX_BUILD_SUBNET_NAME="packer"
+WINDOWS_BUILD_SUBNET_NAME="packer"
+
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
 	CAPTURED_SIG_VERSION=${SIG_IMAGE_VERSION}
@@ -244,6 +250,10 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 fi
 
 
+# Default to the Linux build subnet
+vnet_name="${LINUX_BUILD_VNET_NAME}"
+subnet_name="${LINUX_BUILD_SUBNET_NAME}"
+
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
 # 1. we can demonstrate the whole user defined parameters all at once
 # 2. help us keep in mind that changes of these variables will influence both windows and linux VHD building
@@ -391,6 +401,10 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
+
+	# Appropriately set the name of the subnet in which the packer VM will be provisioned
+	vnet_name="${WINDOWS_BUILD_VNET_NAME}"
+	subnet_name="${WINDOWS_BUILD_SUBNET_NAME}"
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
