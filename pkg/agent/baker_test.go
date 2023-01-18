@@ -135,7 +135,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
 			IsARM64:                       false,
 			DisableUnattendedUpgrades:     false,
-			DisableSSH:                    false,
+			SSHStatus:                     datamodel.SSHUnspecified,
 		}
 
 		if configUpdator != nil {
