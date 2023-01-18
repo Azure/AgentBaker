@@ -243,13 +243,10 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2022.12.19"
+	LinuxSIGImageVersion string = "2023.01.10"
 
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
-
-	// pinned due to app armor issue
-	CBLMarinerV1Gen1SIGImageVersion string = "2022.11.12"
 
 	Ubuntu2204TLSIGImageVersion       string = "2022.10.13"
 	CBLMarinerV2Gen2TLSIGImageVersion string = "2022.11.29"
@@ -417,7 +414,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
-		Version:       CBLMarinerV1Gen1SIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{

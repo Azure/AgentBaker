@@ -886,13 +886,14 @@ configureSwapFile() {
 
     # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${swap_location}" ]]; then
-        os_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/root-part1))
-        disk_free_kb=$(df ${os_disk_path} | sed 1d | awk '{print $4}')
+        # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
+        os_device=$(readlink -f /dev/disk/azure/root)
+        disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
             echo "Will use OS disk for swap file"
             swap_location=/swapfile
         else
-            echo "Insufficient disk space on OS disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
+            echo "Insufficient disk space on OS device ${os_device} to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
             exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
         fi
     fi
@@ -3692,9 +3693,9 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
             "1.4.13-3",
-            "1.6.4-4"
+            "1.6.15-1"
         ],
-        "edge": "1.6.4-4",
+        "edge": "1.6.15-1",
         "latest": "1.5.11-2",
         "stable": "1.4.13-3"
     },
@@ -3731,10 +3732,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.22.15",
             "1.23.8-hotfix.20220620",
             "1.23.12",
+            "1.23.15-hotfix.20230114",
             "1.24.3",
             "1.24.6",
+            "1.24.9",
             "1.25.2-hotfix.20221006",
             "1.25.4",
+            "1.25.5",
             "1.26.0"
         ]
     },
@@ -5342,8 +5346,8 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.4"
-        CONTAINERD_PATCH_VERSION="4"
+        CONTAINERD_VERSION="1.6.15"
+        CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
@@ -6739,7 +6743,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.21.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.22.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -7187,8 +7191,8 @@ $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecm
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.30.0" # Will change it to the correct version when we support new Windows containerd version
-$global:StableContainerdPackage = "v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.40.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
 # The containerd package name may be changed in future
 $global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
 
