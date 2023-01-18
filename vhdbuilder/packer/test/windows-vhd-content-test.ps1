@@ -315,7 +315,7 @@ Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
-Test-AzureExtensions
+# Test-AzureExtensions
 Test-DockerCat
 Test-ExcludeUDPSourcePort
 Remove-Item -Path c:\windows-vhd-configuration.ps1

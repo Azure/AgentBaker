@@ -47,38 +47,38 @@ steps:
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
 
-  - script: |
-      echo MODE=$(MODE) && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" \
-      -e AZURE_RESOURCE_GROUP_NAME="testwindowsnet" \
-      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
-      -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
-      -e GIT_BRANCH=$(Build.SourceBranchName) \
-      -e GIT_REPO=$(Build.Repository.Uri) \
-      -e GIT_VERSION=$(Build.SourceVersion) \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e BUILD_NUMBER=$(Build.BuildNumber) \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
-      -e WINDOWS_SKU=$(WINDOWS_SKU) \
-      -e OS_TYPE="Windows" \
-      -e MODE=$(MODE) \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e GEN2_SIG_FOR_PRODUCTION=${GEN2_SIG_FOR_PRODUCTION} \
-      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
-      -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
-      -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
-      -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
-      ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
-    displayName: Building windows VHD
+  # - script: |
+  #     echo MODE=$(MODE) && \
+  #     docker run --rm \
+  #     -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+  #     -w /go/src/github.com/Azure/AgentBaker \
+  #     -e CLIENT_ID=${BUILD_CLIENT_ID} \
+  #     -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+  #     -e TENANT_ID=${BUILD_TENANT_ID} \
+  #     -e SUBSCRIPTION_ID="8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" \
+  #     -e AZURE_RESOURCE_GROUP_NAME="testwindowsnet" \
+  #     -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+  #     -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
+  #     -e GIT_BRANCH=$(Build.SourceBranchName) \
+  #     -e GIT_REPO=$(Build.Repository.Uri) \
+  #     -e GIT_VERSION=$(Build.SourceVersion) \
+  #     -e BUILD_ID=$(Build.BuildId) \
+  #     -e BUILD_NUMBER=$(Build.BuildNumber) \
+  #     -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
+  #     -e WINDOWS_SKU=$(WINDOWS_SKU) \
+  #     -e OS_TYPE="Windows" \
+  #     -e MODE=$(MODE) \
+  #     -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+  #     -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+  #     -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+  #     -e GEN2_SIG_FOR_PRODUCTION=${GEN2_SIG_FOR_PRODUCTION} \
+  #     -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+  #     -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
+  #     -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
+  #     -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
+  #     -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
+  #     ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
+  #   displayName: Building windows VHD
 
 # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
