@@ -290,7 +290,7 @@ else
 fi
 
 # doing this at vhd allows CSE to be faster with just mv
-cniUnTarNClean() {
+unpackAzureCNI() {
   CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
   mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" 
@@ -309,7 +309,7 @@ VNET_CNI_VERSIONS="
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
-    cniUnTarNClean   
+    unpackAzureCNI   
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -323,7 +323,7 @@ SWIFT_CNI_VERSIONS="
 for VNET_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
-    cniUnTarNClean
+    unpackAzureCNI
     echo "  - Azure Swift CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -335,7 +335,7 @@ OVERLAY_CNI_VERSIONS="
 for VNET_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
-    cniUnTarNClean
+    unpackAzureCNI
     echo "  - Azure Overlay CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
@@ -349,7 +349,7 @@ CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
-    cniUnTarNClean
+    unpackAzureCNI
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
