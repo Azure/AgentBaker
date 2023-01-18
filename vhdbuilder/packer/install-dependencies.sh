@@ -215,8 +215,6 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   fi
-  DRIVER_VERSION="$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
-  echo " - nvidia driver version ${DRIVER_VERSION}" >> ${VHD_LOGS_FILEPATH}
 fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
@@ -238,7 +236,6 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-grep -i "nvidia-gpu-driver-version" ${VHD_LOGS_FILEPATH}
 
 string_replace() {
   echo ${1//\*/$2}
