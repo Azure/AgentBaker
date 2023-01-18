@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
 required_env_vars=(
-    "CLASSIC_SA_CONNECTION_STRING" # This can be replaced with sas_token+account_name
     "STORAGE_ACCT_BLOB_URL"
     "VHD_NAME"
     "OS_NAME"
@@ -35,7 +34,15 @@ fi
 
 start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
 expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
-sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+
+if [[ "${OS_NAME,,}" == "windows" ]]; then
+    # we still need to use the original connection string for windows until windows builds run on the 1ES pool agents with an assigned identity
+    sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+else
+    [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating Linux VHD publishing info..." && exit 1
+    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name vhds --permissions lr --expiry --expiry ${expiry_date} --auth-mode login --as-user)
+fi
+
 if [ "$sas_token" == "" ]; then
     echo "sas_token is empty"
     exit 1
