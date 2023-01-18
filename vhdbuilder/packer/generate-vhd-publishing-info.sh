@@ -40,7 +40,7 @@ if [[ "${OS_NAME,,}" == "windows" ]]; then
     sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
 else
     [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating Linux VHD publishing info..." && exit 1
-    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name vhds --permissions lr --expiry --expiry ${expiry_date} --auth-mode login --as-user)
+    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name vhds --permissions lr --expiry ${expiry_date} --auth-mode login --as-user)
 fi
 
 if [ "$sas_token" == "" ]; then
