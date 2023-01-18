@@ -350,7 +350,7 @@ CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
+    unpackAzureCNI $CNI_PLUGINS_URL
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
