@@ -44,7 +44,7 @@ if [ "$MODE" == "default" ]; then
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
     --public-ip-address "" \
-    --tags "os=Windows" "SkipASMAzSecPack=True" "createdBy=aks-vhd-pipeline"
+    --tags 'os=Windows' 'SkipASMAzSecPack=True' 'createdBy=aks-vhd-pipeline'
 else 
   if [ "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
@@ -88,7 +88,7 @@ else
       --admin-username $TEST_VM_ADMIN_USERNAME \
       --admin-password $TEST_VM_ADMIN_PASSWORD \
       --public-ip-address "" \
-      --tags "os=Windows" "SkipASMAzSecPack=True" "createdBy=aks-vhd-pipeline" \
+      --tags 'os=Windows' 'SkipASMAzSecPack=True' 'createdBy=aks-vhd-pipeline' \
       ${TARGET_COMMAND_STRING}
       
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
