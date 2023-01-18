@@ -258,7 +258,7 @@ const (
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 
 	// Used for edge zone scenario
-	EdgeZoneSIGImageVersion string = "2022.12.13"
+	EdgeZoneSIGImageVersion string = "2023.01.09"
 )
 
 // SIG config Template
@@ -588,7 +588,6 @@ func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, 
 	}, nil
 }
 
-// TODO - refactor to not overwrite edge zones when not needed (or remove ACS config altogether and map based on AB?)
 func withEdgeZoneConfig(acsSigConfig SIGConfig) (SigImageConfigOpt, error) {
 	return func(c *SigImageConfig) {
 		c.Gallery = AKSUbuntuEdgeZoneGalleryName
