@@ -5,6 +5,7 @@
 // linux/cloud-init/artifacts/10-componentconfig.conf
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
+// linux/cloud-init/artifacts/10-kube-api.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/aks-logrotate-override.conf
 // linux/cloud-init/artifacts/aks-logrotate.service
@@ -228,6 +229,25 @@ func linuxCloudInitArtifacts10HttpproxyConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-httpproxy.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifacts10KubeApiConf = []byte(`[Service]
+Environment="KUBELET_QPS_FLAGS=--kube-api-burst=50"
+`)
+
+func linuxCloudInitArtifacts10KubeApiConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifacts10KubeApiConf, nil
+}
+
+func linuxCloudInitArtifacts10KubeApiConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifacts10KubeApiConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-kube-api.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2519,7 +2539,81 @@ echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
+timeout 60s grep -q 'NodeReady' <(journalctl -u kubelet -f --no-tail) || exit 1  
+
 exit $VALIDATION_ERR
+
+KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
+KERNEL_STARTTIME_FORMATTED=$(date -d "${KERNEL_STARTTIME}" +"%F %T.%3N" )
+CLOUDINITLOCAL_STARTTIME=$(systemctl show cloud-init-local -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+CLOUDINITLOCAL_STARTTIME_FORMATTED=$(date -d "${CLOUDINITLOCAL_STARTTIME}" +"%F %T.%3N" )
+CLOUDINIT_STARTTIME=$(systemctl show cloud-init -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+CLOUDINIT_STARTTIME_FORMATTED=$(date -d "${CLOUDINIT_STARTTIME}" +"%F %T.%3N" )
+CLOUDINITFINAL_STARTTIME=$(systemctl show cloud-final -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+CLOUDINITFINAL_STARTTIME_FORMATTED=$(date -d "${CLOUDINITFINAL_STARTTIME}" +"%F %T.%3N" )
+NETWORKD_STARTTIME=$(systemctl show systemd-networkd -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+NETWORKD_STARTTIME_FORMATTED=$(date -d "${NETWORKD_STARTTIME}" +"%F %T.%3N" )
+GUEST_AGENT_STARTTIME=$(systemctl show walinuxagent.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+GUEST_AGENT_STARTTIME_FORMATTED=$(date -d "${GUEST_AGENT_STARTTIME}" +"%F %T.%3N" )
+KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g" || true)
+KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
+KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
+SYSTEMD_SUMMARY=$(systemd-analyze || true)
+CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
+EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
+
+JSON_STRING=$( jq -n \
+                  --arg ec "$EXIT_CODE" \
+                  --arg op "$OUTPUT" \
+                  --arg er "" \
+                  --arg ed "$EXECUTION_DURATION" \
+                  --arg ks "$KERNEL_STARTTIME" \
+                  --arg cinitl "$CLOUDINITLOCAL_STARTTIME" \
+                  --arg cinit "$CLOUDINIT_STARTTIME" \
+                  --arg cf "$CLOUDINITFINAL_STARTTIME" \
+                  --arg ns "$NETWORKD_STARTTIME" \
+                  --arg cse "$CSE_STARTTIME" \
+                  --arg ga "$GUEST_AGENT_STARTTIME" \
+                  --arg ss "$SYSTEMD_SUMMARY" \
+                  --arg kubelet "$KUBELET_START_TIME" \
+                  '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
+mkdir -p /var/log/azure/aks
+echo $JSON_STRING | tee /var/log/azure/aks/provision.json
+
+# messsage_string is here because GA only accepts strings in Message.
+message_string=$( jq -n \
+--arg EXECUTION_DURATION                  "${EXECUTION_DURATION}" \
+--arg EXIT_CODE                           "${EXIT_CODE}" \
+--arg KERNEL_STARTTIME_FORMATTED          "${KERNEL_STARTTIME_FORMATTED}" \
+--arg CLOUDINITLOCAL_STARTTIME_FORMATTED  "${CLOUDINITLOCAL_STARTTIME_FORMATTED}" \
+--arg CLOUDINIT_STARTTIME_FORMATTED       "${CLOUDINIT_STARTTIME_FORMATTED}" \
+--arg CLOUDINITFINAL_STARTTIME_FORMATTED  "${CLOUDINITFINAL_STARTTIME_FORMATTED}" \
+--arg NETWORKD_STARTTIME_FORMATTED        "${NETWORKD_STARTTIME_FORMATTED}" \
+--arg GUEST_AGENT_STARTTIME_FORMATTED     "${GUEST_AGENT_STARTTIME_FORMATTED}" \
+--arg KUBELET_START_TIME_FORMATTED        "${KUBELET_START_TIME_FORMATTED}" \
+--arg KUBELET_READY_TIME_FORMATTED       "${KUBELET_READY_TIME_FORMATTED}" \
+'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED, KubeletReadyTime: $KUBELET_READY_TIME_FORMATTED } | tostring'
+)
+# this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
+# allows parsing to happening without additional manipulation
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+# arg names are defined by GA and all these are required to be correctly read by GA
+# EventPid, EventTid are required to be int. No use case for them at this point.
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${CSE_STARTTIME_FORMATTED}" \
+    --arg OperationId   "${CSE_ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "AKS.CSE.cse_start" \
+    --arg EventLevel    "${eventlevel}" \
+    --arg Message       "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 #EOF
 `)
@@ -2712,6 +2806,11 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 EVENTS_FILE_NAME=$(date +%s%3N)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
+echo -e "KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g")" >> /var/log/azure/cluster-provision.log 2>&1
+echo -e "KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N")" >> /var/log/azure/cluster-provision.log 2>&1
+echo -e "KUBELET_READY_TIME=$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)"  >> /var/log/azure/cluster-provision.log 2>&1
+echo -e "KUBELET_READY_TIME_FORMATTED=$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"  >> /var/log/azure/cluster-provision.log 2>&1
+
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
                   --arg op "$OUTPUT" \
@@ -2762,6 +2861,8 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
+
+sleep 300
 
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
@@ -5980,6 +6081,13 @@ write_files:
     }
 {{end}}
 
+- path: /etc/systemd/system/kubelet.service.d/10-kube-api.conf
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeApiDropin"}}
+
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"
   owner: root
@@ -7507,6 +7615,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
+	"linux/cloud-init/artifacts/10-kube-api.conf":                          linuxCloudInitArtifacts10KubeApiConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/aks-logrotate-override.conf":               linuxCloudInitArtifactsAksLogrotateOverrideConf,
 	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
@@ -7637,6 +7746,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
+				"10-kube-api.conf":                          &bintree{linuxCloudInitArtifacts10KubeApiConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"aks-logrotate-override.conf":               &bintree{linuxCloudInitArtifactsAksLogrotateOverrideConf, map[string]*bintree{}},
 				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},

@@ -25,6 +25,11 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 EVENTS_FILE_NAME=$(date +%s%3N)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
+echo -e "KUBELET_START_TIME=$(systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e "s/ExecMainStartTimestamp=//g")" >> /var/log/azure/cluster-provision.log 2>&1
+echo -e "KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N")" >> /var/log/azure/cluster-provision.log 2>&1
+echo -e "KUBELET_READY_TIME=$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)"  >> /var/log/azure/cluster-provision.log 2>&1
+echo -e "KUBELET_READY_TIME_FORMATTED=$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"  >> /var/log/azure/cluster-provision.log 2>&1
+
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
                   --arg op "$OUTPUT" \
@@ -75,6 +80,8 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
+
+sleep 300
 
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
