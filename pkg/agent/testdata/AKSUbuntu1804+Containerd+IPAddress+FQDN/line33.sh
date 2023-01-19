@@ -126,7 +126,7 @@ if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true"]]; then
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
 
