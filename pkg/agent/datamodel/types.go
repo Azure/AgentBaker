@@ -1513,9 +1513,9 @@ type NodeBootstrappingConfiguration struct {
 type SSHStatus int
 
 const (
-	SSHUnspecified SSHStatus = 0
-	SSHOff         SSHStatus = 1
-	SSHOn          SSHStatus = 2
+	SSHUnspecified SSHStatus = iota
+	SSHOff
+	SSHOn
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
