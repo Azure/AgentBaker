@@ -818,7 +818,9 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
+
+`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
