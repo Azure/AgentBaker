@@ -818,6 +818,7 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
+ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -844,11 +845,9 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
@@ -2422,11 +2421,11 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-{{- if EnableHostsConfigAgent}}
-logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-{{- end}}
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
 
-{{- if ShouldConfigTransparentHugePage}}
+{{ if ShouldConfigTransparentHugePage -}}
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
@@ -2464,12 +2463,12 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
-    {{- if not EnableHostsConfigAgent}}
-    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-    STS=$?
-    {{- else}}
-    STS=0
-    {{- end}}
+    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        STS=$?
+    else
+        STS=0
+    fi
     if [[ $STS != 0 ]]; then
         time nslookup ${API_SERVER_NAME}
         if [[ $RES == *"168.63.129.16"*  ]]; then
@@ -5699,7 +5698,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
-{{- if EnableHostsConfigAgent}}
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -5713,7 +5711,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-{{- end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"

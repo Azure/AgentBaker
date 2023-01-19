@@ -6,6 +6,7 @@ configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
 }
+
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
