@@ -108,6 +108,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.2.2.4",
+        "v1.2.2.5",
         "v1.3.0"
       ]
     },
@@ -123,16 +124,16 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod12032022-c9f3dc30"
+        "ciprod01092023-864ecd78"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [
-        "5.4.0-main-10-26-2022-16f02b39"
       ],
       "multiArchVersions": [
-        "6.0.1-main-11-29-2022-97e2122e"
+        "6.0.1-main-11-29-2022-97e2122e",
+        "6.1.0-main-01-11-2023-5bf41607"
       ]
     },
     {
@@ -208,6 +209,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.2.3",
+        "1.12.2.4",
         "1.12.5"
       ]
     },
@@ -286,8 +288,8 @@
         "v1.2.2.5"
       ],
       "multiArchVersions": [
-        "v1.24.0.2",
-        "v1.26.0"
+        "v1.24.0.3",
+        "v1.26.1"
       ]
     },
     {
@@ -380,7 +382,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.13.1"
+        "v1.8.13.1",
+        "v1.8.13.2"
       ]
     },
     {
@@ -400,7 +403,7 @@
   ],
   "DownloadFiles": [
     {
-      "fileName": "cni-plugins-linux-amd64-v*.tgz",
+      "fileName": "cni-plugins-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
@@ -417,7 +420,7 @@
       ]
     },
     {
-      "fileName": "azure-vnet-cni-swift-linux-amd64-v*.tgz",
+      "fileName": "azure-vnet-cni-swift-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
@@ -426,7 +429,7 @@
       ]
     },
     {
-      "fileName": "azure-vnet-cni-overlay-linux-amd64-v*.tgz",
+      "fileName": "azure-vnet-cni-overlay-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [

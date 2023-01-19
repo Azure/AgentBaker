@@ -49,8 +49,8 @@ function Collect-OldLogFiles {
         Remove-Item $_
     }
 
-    $kubeproxyOldLogFiles=Get-ChildItem (Join-Path $Folder $LogFilePattern)
-    $kubeproxyOldLogFiles | Foreach-Object {
+    $oldLogFiles=Get-ChildItem (Join-Path $Folder $LogFilePattern)
+    $oldLogFiles | Foreach-Object {
         $fileName = [IO.Path]::GetFileName($_)
         Create-SymbolLinkFile -SrcFile $_ -DestFile (Join-Path $aksLogFolder $fileName)
     }
@@ -118,6 +118,9 @@ $miscLogFiles | Foreach-Object {
 $dumpVfpPoliciesScript="C:\k\debug\dumpVfpPolicies.ps1"
 if (Test-Path $dumpVfpPoliciesScript) {
     Write-Log "Genearting vfpOutput.txt"
+    # Remove the old log since dumpVfpPolicies.ps1 always append the new logs
+    # Ignore the error if the file does not exist
+    Remove-Item -ErrorAction Ignore (Join-Path $aksLogFolder 'vfpOutput.txt')
     PowerShell -ExecutionPolicy Unrestricted -command "$dumpVfpPoliciesScript -switchName L2Bridge -outfile (Join-Path $aksLogFolder 'vfpOutput.txt')"
 }
 
