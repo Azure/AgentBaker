@@ -7,6 +7,10 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
+configPrivateClusterHosts() {
+  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
@@ -330,6 +334,10 @@ ensureGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+}
+
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
 #EOF
