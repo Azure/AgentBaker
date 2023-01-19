@@ -39,9 +39,11 @@ if [[ "${OS_NAME,,}" == "windows" ]]; then
     sas_token=$(az storage container generate-sas --name vhd --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
 else
     [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating Linux VHD publishing info..." && exit 1
+    [ -z "${OUTPUT_STORAGE_CONTAINER_NAME}" ] && echo "OUTPUT_STORAGE_CONTAINER_NAME should be set when generating Linux VHD publishing info..." && exit 1
     # max of 7 day expiration time when using user delegation SAS
     expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+7 day")
-    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name vhd --permissions lr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
+    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions lr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
+    echo "generated SAS token using output storage account name ${OUTPUT_STORAGE_ACCOUNT_NAME} and output storage container name ${OUTPUT_STORAGE_CONTAINER_NAME}"
 fi
 
 if [ "$sas_token" == "" ]; then
