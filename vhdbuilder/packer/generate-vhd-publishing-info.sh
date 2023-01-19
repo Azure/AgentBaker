@@ -41,7 +41,7 @@ if [[ "${OS_NAME,,}" == "windows" ]]; then
 else
     [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating Linux VHD publishing info..." && exit 1
     expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+7 day")
-    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name vhds --permissions lr --expiry ${expiry_date} --auth-mode login --as-user)
+    sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name vhds --permissions lr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
 fi
 
 if [ "$sas_token" == "" ]; then
