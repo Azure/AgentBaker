@@ -215,11 +215,11 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-{{- if EnableHostsConfigAgent}}
-logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-{{- end}}
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true"]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
 
-{{- if ShouldConfigTransparentHugePage}}
+{{ if ShouldConfigTransparentHugePage -}}
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 

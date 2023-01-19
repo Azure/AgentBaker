@@ -125,6 +125,11 @@ logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 if [[ "AzurePublicCloud" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
+
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true"]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
+
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 

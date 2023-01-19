@@ -7,11 +7,9 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {

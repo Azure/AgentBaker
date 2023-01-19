@@ -818,6 +818,7 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
+ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -844,11 +845,9 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
@@ -2422,11 +2421,11 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-{{- if EnableHostsConfigAgent}}
-logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-{{- end}}
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true"]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
 
-{{- if ShouldConfigTransparentHugePage}}
+{{ if ShouldConfigTransparentHugePage -}}
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
