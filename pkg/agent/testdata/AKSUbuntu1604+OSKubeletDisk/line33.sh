@@ -154,8 +154,12 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
-    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-    STS=$?
+    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        STS=$?
+    else
+        STS=0
+    fi
     if [[ $STS != 0 ]]; then
         time nslookup ${API_SERVER_NAME}
         if [[ $RES == *"168.63.129.16"*  ]]; then
