@@ -133,6 +133,7 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
   echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
+
   DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
   for componentToDownload in ${DOWNLOAD_FILES[*]}; do
     fileName=$(echo "${componentToDownload}" | jq .fileName -r)

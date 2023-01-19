@@ -70,20 +70,12 @@ if $avail ; then
 	echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
 	az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
 	echo "creating new container system"
+	set +x
 	key=$(az storage account keys list -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME | jq -r '.[0].value')
 	az storage container create --name system --account-key=$key --account-name=$STORAGE_ACCOUNT_NAME
+	set -x
 else
 	echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
-fi
-
-if [ -z "${CLIENT_ID}" ]; then
-	echo "CLIENT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
-	exit 1
-fi
-
-if [ -z "${CLIENT_SECRET}" ]; then
-	echo "CLIENT_SECRET was not set! Something happened when generating the service principal or when trying to read the sp file!"
-	exit 1
 fi
 
 if [ -z "${TENANT_ID}" ]; then
@@ -323,7 +315,9 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 		echo "Generating sas token to copy Windows base image"
 		expiry_date=$(date -u -d "20 minutes" '+%Y-%m-%dT%H:%MZ')
+		set +x
 		sas_token=$(az storage account generate-sas --account-name ${STORAGE_ACCOUNT_NAME} --permissions cw --account-key "$key" --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
+		set -x
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}?${sas_token}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
