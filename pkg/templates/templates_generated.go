@@ -5698,7 +5698,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
-{{- if EnableHostsConfigAgent}}
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -5712,7 +5711,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-{{- end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"

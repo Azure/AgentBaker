@@ -80,6 +80,20 @@ write_files:
 
 
 
+- path: /opt/azure/containers/reconcilePrivateHosts.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/3SS4U/bOhTFv/uvOJjoPUBy0/IekyhkDI2iVTDoVG1fEJtMckMtUjvYNx0b8L9PSUNJJ9EvtePj3/U992xuxDfGxjc6zIQIxFAO1lU2EL9sS1NSrk0hxC2x0qUJ5BfklSlV7t1csb4NW9t4FEC9TKKttPIFVJieQ32C/EysM816CPYVScgZczmM48G7/d7u3v+99j+et7rY2MDaphSnbl5WTHGNPdKlUQvywTib7PYH+6r/nxoM/smdn2tOmB5YbgvA5LiCjI4kkgSyL3F9AJ6RFQAwPp0m8kDCk86gvK4ffG4C4/DwEDKq68hGmDsPA2Mho8dWc/Xh+lkeIHONoOn1jH413TJUJocSKh/UpMhsv2q+6aKiv1S76yqTg9KZQ7RE4gm3nkoocw/5Xd+F48l42lg+nhxnmacQItlpqv4195Vd9tCUlKszT1z5F2lumkXmLIl2t7orxbMQ0/PRaPJjOvp4eXEyTQZ7Ii2qwORPv5xcJFKK2t8rRJ2v2Eiw0yu9WWimwti73g6uX11v8DLcmRKeUmdTUxBmLnBoXF4jBWNTguF/A6xjHJ9N0XLRyuq26MEw+iI3YsnuEIZrPCnEz1ldrg5eO7r2eDxJoq2387xKkvq9Io4na1kKBVFZ52PNseel76mzbGy18tjk7UzvITu8tcciJk7jxplOmc50ACoCLYtXmUOgDMpAxl1MnHVBr4i3yz4taUwEpTt38R5xRovYVkXR4XwtM82UrQ+OXccm+dL1mxY18RObo8tT8ScAAP//12ej24EEAAA=
+
+- path: /etc/systemd/system/reconcile-private-hosts.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/zTOMU4DMRCF4d6n8AUSn2AbBBJ0KAFRrLaYDG/ZkZyxNTOOCKdHAaV8r/m/+V0llvQIZ5Me0nQ6gJuyVOSC4LI1D8/rba/Ncje5UCBzHR6wNB9hF2Es6e3aMbmce0U6wIMspqa7laQOQ3r6Bh//znISLSfyLZfWo9DPMBRuGiQK82J3wOt/6/km2PuW5hf1oFqX9EEa+Hy4TudRQ3bDYfsg+0L8BgAA//8Sy/8V0QAAAA==
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
   encoding: gzip

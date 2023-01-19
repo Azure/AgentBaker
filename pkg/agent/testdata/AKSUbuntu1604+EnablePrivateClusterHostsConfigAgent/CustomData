@@ -79,6 +79,7 @@ write_files:
 
 
 
+
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
