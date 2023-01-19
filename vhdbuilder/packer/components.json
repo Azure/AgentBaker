@@ -7,7 +7,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "v2.0.0",
+        "v2.0.0-rc7"
+      ],
       "multiArchVersions": []
     },
     {
@@ -129,8 +132,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
-      "amd64OnlyVersions": [
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "6.0.1-main-11-29-2022-97e2122e",
         "6.1.0-main-01-11-2023-5bf41607"
@@ -288,6 +290,7 @@
         "v1.2.2.5"
       ],
       "multiArchVersions": [
+        "v1.24.0.2",
         "v1.24.0.3",
         "v1.26.1"
       ]
@@ -355,7 +358,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "1.4.8"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
