@@ -1507,7 +1507,16 @@ type NodeBootstrappingConfiguration struct {
 	IsARM64                        bool
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
+	SSHStatus                      SSHStatus
 }
+
+type SSHStatus int
+
+const (
+	SSHUnspecified SSHStatus = iota
+	SSHOff
+	SSHOn
+)
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
 type NodeBootstrapping struct {

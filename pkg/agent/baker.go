@@ -860,6 +860,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
+		"ShouldDisableSSH": func() bool {
+			return config.SSHStatus == datamodel.SSHOff
+		},
 	}
 }
 
