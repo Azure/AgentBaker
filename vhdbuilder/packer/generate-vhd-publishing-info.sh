@@ -32,6 +32,10 @@ else
     IMAGE_ARCH="x64"
 fi
 
+echo "az account show..."
+account_info=$(az account show)
+echo "${account_info}"
+
 if [[ "${OS_NAME,,}" == "windows" ]]; then
     # we still need to use the original connection string for windows until windows builds run on the 1ES pool agents with an assigned identity
     start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
