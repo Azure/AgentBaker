@@ -46,8 +46,8 @@ parameters:
   displayName: Build MarinerV1 Gen2
   type: boolean
   default: true
-- name: buildMarinerV2gen1
-  displayName: Build MarinerV2 Gen1
+- name: buildMarinerV2
+  displayName: Build MarinerV2
   type: boolean
   default: true
 - name: buildMarinerV2gen2
@@ -384,9 +384,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv1-gen2
-  - stage: build_vhd_marinerv2_gen1
+  - stage: build_vhd_marinerv2
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
+    condition: eq('${{ parameters.buildMarinerV2 }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -408,7 +408,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen1
+            artifactName: marinerv2
   - stage: build_vhd_marinerv2_gen2
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
