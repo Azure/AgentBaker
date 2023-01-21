@@ -177,7 +177,7 @@ EOF
         set -x
     fi
 
-    if ["${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
         set +x
         KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
         touch "${KUBELET_CONFIG_JSON_PATH}"
