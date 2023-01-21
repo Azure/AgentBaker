@@ -175,5 +175,5 @@ EOF
 
         cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 {
-    "name": "AzurePublicCloud",
+    "name": "${TARGET_ENVIRONMENT}",
     "managementPortalURL": "

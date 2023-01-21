@@ -175,7 +175,7 @@ EOF
 
         cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 {
-    "name": "{{GetTargetEnvironment}}",
+    "name": "${TARGET_ENVIRONMENT}",
     "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
     "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
     "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",

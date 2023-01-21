@@ -1054,7 +1054,7 @@ EOF
 
         cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 {
-    "name": "{{GetTargetEnvironment}}",
+    "name": "${TARGET_ENVIRONMENT}",
     "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
     "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
     "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
@@ -5309,8 +5309,6 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
-{{- if NeedsContainerd}}
-
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
@@ -5401,7 +5399,6 @@ downloadContainerdFromURL() {
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
-{{- end}}
 
 installMoby() {
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
