@@ -2783,7 +2783,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart={{GetDHCPv6ConfigCSEScriptFilepath}}
+ExecStart=/opt/azure/containers/enable-dhcpv6.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -5867,7 +5867,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
 
-- path: {{GetDHCPv6ConfigCSEScriptFilepath}}
+- path: /opt/azure/containers/enable-dhcpv6.sh
   permissions: "0544"
   encoding: gzip
   owner: root
