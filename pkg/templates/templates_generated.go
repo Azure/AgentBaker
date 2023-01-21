@@ -758,7 +758,6 @@ if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
-
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -858,8 +857,8 @@ KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContent}}"
 GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
-/usr/bin/nohup /bin/bash -xc "/bin/bash /opt/azure/containers/provision_start.sh" 
 
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -2656,8 +2655,7 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_startSh = []byte(`set -x
-CSE_STARTTIME=$(date)
+var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
