@@ -746,14 +746,14 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
+for i in $(seq 1 10); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+if [ $i -eq 10 ]; then exit 100; else sleep 1; fi;
 done;
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
+for i in $(seq 1 60); do
   grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-  if [ $i -eq 1200 ]; then
+  if [ $i -eq 60 ]; then
     exit 100
   else 
     sleep 1
@@ -2243,11 +2243,11 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-for i in $(seq 1 3600); do
+for i in $(seq 1 10); do
     if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
         grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
-    if [ $i -eq 3600 ]; then
+    if [ $i -eq 10 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
     else
         sleep 1
@@ -2256,16 +2256,16 @@ done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 10 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 10 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 10 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 10 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then

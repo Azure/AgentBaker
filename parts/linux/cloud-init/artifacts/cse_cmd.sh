@@ -1,12 +1,12 @@
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
+for i in $(seq 1 10); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+if [ $i -eq 10 ]; then exit 100; else sleep 1; fi;
 done;
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
+for i in $(seq 1 60); do
   grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-  if [ $i -eq 1200 ]; then
+  if [ $i -eq 60 ]; then
     exit 100
   else 
     sleep 1
