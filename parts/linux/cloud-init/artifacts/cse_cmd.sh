@@ -113,5 +113,6 @@ THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
 
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
