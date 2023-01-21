@@ -13,12 +13,10 @@ configPrivateClusterHosts() {
 
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
-    THP_ENABLED={{GetTransparentHugePageEnabled}}
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-    THP_DEFRAG={{GetTransparentHugePageDefrag}}
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
@@ -66,18 +64,18 @@ configureSwapFile() {
 }
 
 configureEtcEnvironment() {
-    {{- if HasHTTPProxy }}
-    echo 'HTTP_PROXY="{{GetHTTPProxy}}"' >> /etc/environment
-    echo 'http_proxy="{{GetHTTPProxy}}"' >> /etc/environment
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    echo 'HTTPS_PROXY="{{GetHTTPSProxy}}"' >> /etc/environment
-    echo 'https_proxy="{{GetHTTPSProxy}}"' >> /etc/environment
-    {{- end}}
-    {{- if HasNoProxy }}
-    echo 'NO_PROXY="{{GetNoProxy}}"' >> /etc/environment
-    echo 'no_proxy="{{GetNoProxy}}"' >> /etc/environment
-    {{- end}}
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+    fi
 }
 
 configureHTTPProxyCA() {
