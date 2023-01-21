@@ -860,6 +860,7 @@ THP_ENABLED="{{GetTransparentHugePageEnabled}}"
 THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
+SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
@@ -905,7 +906,7 @@ configureTransparentHugePage() {
 
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
     # Attempt to use the resource disk
