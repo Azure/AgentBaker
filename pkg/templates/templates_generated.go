@@ -5546,51 +5546,6 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
-- path: {{GetCSEHelpersScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSource"}}
-
-
-{{if IsMariner}}
-- path: {{GetCSEHelpersScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
-{{- else}}
-- path: {{GetCSEHelpersScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
-{{end}}
-
-- path: /opt/azure/containers/provision_start.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
-
-- path: /opt/azure/containers/provision.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionScript"}}
-
-- path: {{GetCSEInstallScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
-
 - path: /opt/azure/containers/provision_redact_cloud_config.py
   permissions: "0744"
   encoding: gzip
@@ -5604,29 +5559,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
-
-{{if IsMariner}}
-- path: {{GetCSEInstallScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
-{{- else}}
-- path: {{GetCSEInstallScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
-{{end}}
-
-- path: {{GetCSEConfigScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
 - path: /opt/azure/manifest.json
   permissions: "0644"
