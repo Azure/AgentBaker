@@ -83,4 +83,5 @@ NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
 ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
+SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

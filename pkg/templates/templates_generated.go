@@ -831,7 +831,9 @@ NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
 ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
+SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
+`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -2441,9 +2443,9 @@ fi
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
-{{- if ShouldConfigSwapFile}}
-logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
-{{- end}}
+if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 

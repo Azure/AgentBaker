@@ -210,7 +210,10 @@ if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
 fi
 
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
-logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+
+if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
