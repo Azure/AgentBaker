@@ -5556,7 +5556,14 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
-    
+
+- path: {{GetCSEConfigScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
+ 
 - path: /opt/azure/containers/provision_redact_cloud_config.py
   permissions: "0744"
   encoding: gzip

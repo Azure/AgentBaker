@@ -1,8 +1,9 @@
 [Unit]
-Description=a timer that delays docker-monitor from starting too soon after boot
-[Timer]
-Unit=docker-monitor.service
-OnBootSec=10min
-[Install]
-WantedBy=multi-user.target
+Description=a script that checks containerd health and restarts if needed
+After=containerd.service
+[Service]
+Restart=always
+RestartSec=10
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/health-monitor.sh container-runtime containerd
 #EOF
