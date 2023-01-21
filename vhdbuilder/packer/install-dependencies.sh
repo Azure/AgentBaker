@@ -161,6 +161,8 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
 
   # also pre-download Teleportd plugin for containerd
   downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
+
+  systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 else
   CONTAINER_RUNTIME="docker"
   MOBY_VERSION="19.03.14"
