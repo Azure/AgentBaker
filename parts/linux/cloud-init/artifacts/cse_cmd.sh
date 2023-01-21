@@ -85,6 +85,11 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+{{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
+{{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
+{{/* target environment seems to go to ARM SDK config */}}
+{{/* not sure why separate/inconsistent? */}}
+{{/* see GetCustomEnvironmentJSON for more weirdness. */}}
 TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
 CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
