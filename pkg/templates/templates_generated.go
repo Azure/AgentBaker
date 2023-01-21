@@ -857,6 +857,8 @@ HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
+SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -902,7 +904,7 @@ configureTransparentHugePage() {
 
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
     # Attempt to use the resource disk
@@ -961,9 +963,6 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
-    {{- range $i, $cert := GetCustomCATrustConfigCerts}}
-    wait_for_file 1200 1 /opt/certs/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- end}}
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 

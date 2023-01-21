@@ -109,4 +109,6 @@ HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
+SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
