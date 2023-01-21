@@ -85,7 +85,13 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+# both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true
+# CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider
+# target environment seems to go to ARM SDK config
+# not sure why separate/inconsistent?
 TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
+TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
+IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
@@ -102,5 +108,5 @@ THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
 HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
-
+KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
