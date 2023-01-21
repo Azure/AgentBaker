@@ -1,64 +1,46 @@
-{
-    "containerd": {
-        "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
-        "downloadLocation": "/opt/containerd/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.4.13-3",
-            "1.6.15-1"
-        ],
-        "edge": "1.6.15-1",
-        "latest": "1.5.11-2",
-        "stable": "1.4.13-3"
-    },
-    "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
-        "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
-        ],
-        "installed": {
-            "default": "1.0.3"
+#! /usr/bin/env python3
+
+import urllib3
+import uuid
+import xml.etree.ElementTree as ET
+
+http = urllib3.PoolManager()
+
+# Get the container_id and deployment_id from the Goal State
+goal_state_xml = http.request(
+        'GET',
+        'http://168.63.129.16/machine/?comp=goalstate',
+        headers={
+            'x-ms-version': '2012-11-30'
         }
-    },
-    "nvidia-container-runtime": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": []
-    },
-    "nvidia-drivers": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": []
-    },
-    "kubernetes": {
-        "fileName": "kubernetes-node-linux-arch.tar.gz",
-        "downloadLocation": "",
-        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
-        "versions": [
-            "1.22.11-hotfix.20220620",
-            "1.22.15",
-            "1.23.8-hotfix.20220620",
-            "1.23.12",
-            "1.23.15-hotfix.20230114",
-            "1.24.3",
-            "1.24.6",
-            "1.24.9",
-            "1.25.2-hotfix.20221006",
-            "1.25.4",
-            "1.25.5",
-            "1.26.0"
-        ]
-    },
-    "_template": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": []
-    }
-}
-#EOF
+    )
+goal_state = ET.fromstring(goal_state_xml.data.decode('utf-8'))
+container_id = goal_state.findall('./Container/ContainerId')[0].text
+role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
+deployment_id = role_config_name.split('.')[0]
+
+# Upload the logs
+with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
+    logs_data = logs.read()
+    upload_logs = http.request(
+        'PUT',
+        'http://168.63.129.16:32526/vmAgentLog',
+        headers={
+            'x-ms-version': '2015-09-01',
+            'x-ms-client-correlationid': str(uuid.uuid4()),
+            'x-ms-client-name': 'AKSCSEPlugin',
+            'x-ms-client-version': '0.1.0',
+            'x-ms-containerid': container_id,
+            'x-ms-vmagentlog-deploymentid': deployment_id,
+        },
+        body=logs_data,
+    )
+
+if upload_logs.status == 200:
+    print("Successfully uploaded logs")
+    exit(0)
+else:
+    print('Failed to upload logs')
+    print(f'Response status: {upload_logs.status}')
+    print(f'Response body:\n{upload_logs.data.decode("utf-8")}')
+    exit(1)

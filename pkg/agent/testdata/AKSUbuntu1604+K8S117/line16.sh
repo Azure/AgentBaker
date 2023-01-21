@@ -1,46 +1,67 @@
-#! /usr/bin/env python3
+import yaml
+import argparse
 
-import urllib3
-import uuid
-import xml.etree.ElementTree as ET
+# String value used to replace secret data
+REDACTED = 'REDACTED'
 
-http = urllib3.PoolManager()
+# Redact functions
+def redact_bootstrap_kubeconfig_tls_token(bootstrap_kubeconfig_write_file):
+    content_yaml = yaml.safe_load(bootstrap_kubeconfig_write_file['content'])
+    content_yaml['users'][0]['user']['token'] = REDACTED
+    bootstrap_kubeconfig_write_file['content'] = yaml.dump(content_yaml)
 
-# Get the container_id and deployment_id from the Goal State
-goal_state_xml = http.request(
-        'GET',
-        'http://168.63.129.16/machine/?comp=goalstate',
-        headers={
-            'x-ms-version': '2012-11-30'
-        }
-    )
-goal_state = ET.fromstring(goal_state_xml.data.decode('utf-8'))
-container_id = goal_state.findall('./Container/ContainerId')[0].text
-role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
-deployment_id = role_config_name.split('.')[0]
 
-# Upload the logs
-with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
-    logs_data = logs.read()
-    upload_logs = http.request(
-        'PUT',
-        'http://168.63.129.16:32526/vmAgentLog',
-        headers={
-            'x-ms-version': '2015-09-01',
-            'x-ms-client-correlationid': str(uuid.uuid4()),
-            'x-ms-client-name': 'AKSCSEPlugin',
-            'x-ms-client-version': '0.1.0',
-            'x-ms-containerid': container_id,
-            'x-ms-vmagentlog-deploymentid': deployment_id,
-        },
-        body=logs_data,
-    )
+def redact_service_principal_secret(sp_secret_write_file):
+    sp_secret_write_file['content'] = REDACTED
 
-if upload_logs.status == 200:
-    print("Successfully uploaded logs")
-    exit(0)
-else:
-    print('Failed to upload logs')
-    print(f'Response status: {upload_logs.status}')
-    print(f'Response body:\n{upload_logs.data.decode("utf-8")}')
-    exit(1)
+
+# Maps write_file's path to the corresponding function used to redact it within cloud-config.txt
+# This script will always redact these write_files if they exist within the specified cloud-config.txt
+PATH_TO_REDACT_FUNC = {
+    '/var/lib/kubelet/bootstrap-kubeconfig': redact_bootstrap_kubeconfig_tls_token,
+    '/etc/kubernetes/sp.txt': redact_service_principal_secret
+}
+
+
+def redact_cloud_config(cloud_config_path, output_path):
+    target_paths = set(PATH_TO_REDACT_FUNC.keys())
+
+    with open(cloud_config_path, 'r') as f:
+        cloud_config_data = f.read()
+    cloud_config = yaml.safe_load(cloud_config_data)
+
+    for write_file in cloud_config['write_files']:
+        if write_file['path'] in target_paths:
+            target_path = write_file['path']
+            target_paths.remove(target_path)
+
+            print('Redacting secrets from write_file: ' + target_path)
+            PATH_TO_REDACT_FUNC[target_path](write_file)
+
+        if len(target_paths) == 0:
+            break
+
+
+    print('Dumping redacted cloud-config to: ' + output_path)
+    with open(output_path, 'w+') as output_file:
+        output_file.write(yaml.dump(cloud_config))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Command line utility used to redact secrets from write_file definitions for ' +
+            str([", ".join(PATH_TO_REDACT_FUNC)]) + ' within a specified cloud-config.txt. \
+            These secrets must be redacted before cloud-config.txt can be collected for logging.')
+    parser.add_argument(
+        "--cloud-config-path",
+        required=True,
+        type=str,
+        help='Path to cloud-config.txt to redact')
+    parser.add_argument(
+        "--output-path",
+        required=True,
+        type=str,
+        help='Path to the newly generated cloud-config.txt with redacted secrets')
+
+    args = parser.parse_args()
+    redact_cloud_config(args.cloud_config_path, args.output_path)

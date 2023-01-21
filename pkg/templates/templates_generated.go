@@ -5550,6 +5550,13 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
 write_files:
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
+    
 - path: /opt/azure/containers/provision_redact_cloud_config.py
   permissions: "0744"
   encoding: gzip
