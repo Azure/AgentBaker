@@ -28,7 +28,7 @@ fi
 (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
 
 cloud-init status --wait
-repoDepotEndpoint=""
+repoDepotEndpoint="${REPO_DEPOT_ENDPOINT}"
 sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 
 # Disable systemd-timesyncd and install chrony and uses local time source
