@@ -313,6 +313,12 @@ ensureKubelet() {
 }
 
 ensureMigPartition(){
+    mkdir -p /etc/systemd/system/mig-partition.service.d/
+    touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
+    tee > /dev/null <<EOF
+[Service]
+Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+EOF
     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
