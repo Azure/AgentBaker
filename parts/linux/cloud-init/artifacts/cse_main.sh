@@ -187,10 +187,10 @@ logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
-{{/* configure and enable dhcpv6 for dual stack feature */}}
-{{- if IsIPv6DualStackFeatureEnabled}}
-logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
-{{- end}}
+# configure and enable dhcpv6 for dual stack feature
+if [ "${IPV6_DUAL_STACK_ENABLED}" == true ]; then
+    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+fi
 
 {{- if NeedsContainerd}}
 logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
