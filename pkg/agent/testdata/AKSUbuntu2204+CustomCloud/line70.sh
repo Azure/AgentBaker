@@ -156,13 +156,14 @@ EOF
     fi
 
     configureKubeletServerCert
-    set +x
-    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/akscustom.json"
-    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+        set +x
+        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+        touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
-    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 {
     "name": "akscustom",
     "managementPortalURL": "",
@@ -196,7 +197,89 @@ EOF
 }
 EOF
     set -x
+    fi
 
+    if ["${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+        touch "${KUBELET_CONFIG_JSON_PATH}"
+        chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
+        chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
+{
+    "kind": "KubeletConfiguration",
+    "apiVersion": "kubelet.config.k8s.io/v1beta1",
+    "staticPodPath": "/etc/kubernetes/manifests",
+    "address": "0.0.0.0",
+    "readOnlyPort": 10255,
+    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
+    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
+    "tlsCipherSuites": [
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "rotateCertificates": true,
+    "authentication": {
+        "x509": {
+            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
+        },
+        "webhook": {
+            "enabled": true
+        },
+        "anonymous": {}
+    },
+    "authorization": {
+        "mode": "Webhook",
+        "webhook": {}
+    },
+    "eventRecordQPS": 0,
+    "clusterDomain": "cluster.local",
+    "clusterDNS": [
+        "10.0.0.10"
+    ],
+    "streamingConnectionIdleTimeout": "4h0m0s",
+    "nodeStatusUpdateFrequency": "10s",
+    "imageGCHighThresholdPercent": 85,
+    "imageGCLowThresholdPercent": 80,
+    "cgroupsPerQOS": true,
+    "maxPods": 110,
+    "podPidsLimit": -1,
+    "resolvConf": "/etc/resolv.conf",
+    "evictionHard": {
+        "memory.available": "750Mi",
+        "nodefs.available": "10%",
+        "nodefs.inodesFree": "5%"
+    },
+    "protectKernelDefaults": true,
+    "featureGates": {
+        "DisableAcceleratorUsageMetrics": false,
+        "PodPriority": true,
+        "RotateKubeletServerCertificate": true,
+        "a": false,
+        "x": false
+    },
+    "containerLogMaxSize": "50M",
+    "systemReserved": {
+        "cpu": "2",
+        "memory": "1Gi"
+    },
+    "kubeReserved": {
+        "cpu": "100m",
+        "memory": "1638Mi"
+    },
+    "enforceNodeAllocatable": [
+        "pods"
+    ]
+}
+EOF
+        set -x
+    fi
 }
 
 configureCNI() {
