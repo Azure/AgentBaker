@@ -755,6 +755,7 @@ for i in $(seq 1 1200); do
 grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
@@ -3305,7 +3306,7 @@ fi
 (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
 
 cloud-init status --wait
-repoDepotEndpoint="{{AKSCustomCloudRepoDepotEndpoint}}"
+repoDepotEndpoint="${REPO_DEPOT_ENDPOINT}"
 sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 
 # Disable systemd-timesyncd and install chrony and uses local time source
