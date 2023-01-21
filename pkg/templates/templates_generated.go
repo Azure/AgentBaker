@@ -822,6 +822,7 @@ ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
+OUTBOUND_COMMAND="{{GetOutboundCommand}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -2284,7 +2285,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-{{GetOutboundCommand}}
+$OUTBOUND_COMMAND
 
 # Bring in OS-related vars
 source /etc/os-release
