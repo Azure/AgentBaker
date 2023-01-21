@@ -10,7 +10,7 @@ configureAdminUser(){
 configPrivateClusterHosts() {
     mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
     touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
-    tee > /dev/null <<EOF
+    tee > /dev/null /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf <<EOF
 [Service]
 Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
@@ -315,7 +315,7 @@ ensureKubelet() {
 ensureMigPartition(){
     mkdir -p /etc/systemd/system/mig-partition.service.d/
     touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
-    tee > /dev/null <<EOF
+    tee > /dev/null /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf <<EOF
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
