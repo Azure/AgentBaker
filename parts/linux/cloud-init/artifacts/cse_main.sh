@@ -1,5 +1,6 @@
 #!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+# Timeout waiting for a file
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -56,9 +57,9 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if ShouldDisableSSH}}
-disableSSH || exit $ERR_DISABLE_SSH
-{{- end}}
+if [[ "${DISABLE_SSH}" == "true" ]]; then
+    disableSSH || exit $ERR_DISABLE_SSH
+fi
 
 {{- if ShouldConfigureHTTPProxyCA}}
 configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
