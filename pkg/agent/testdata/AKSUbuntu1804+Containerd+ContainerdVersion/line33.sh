@@ -210,6 +210,10 @@ fi
 
 
 
+if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
+
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
