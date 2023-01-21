@@ -86,4 +86,10 @@ ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCali
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
 TARGET_CLOUD="{{GetTargetEnvironment}}"
+CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
+CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
+CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
+CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
+CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
+
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
