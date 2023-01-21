@@ -201,6 +201,7 @@ disableSystemdResolved() {
         cat /etc/resolv.conf
     fi
 }
+
 ensureContainerd() {
   ensureTeleportd
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
@@ -219,8 +220,31 @@ ensureTeleportd() {
     wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-ensureMonitorService() {
-    
+
+ensureDocker() {
+    DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
+    wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    usermod -aG docker ${ADMINUSER}
+    DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    DOCKER_JSON_FILE=/etc/docker/daemon.json
+    for i in $(seq 1 1200); do
+        if [ -s $DOCKER_JSON_FILE ]; then
+            jq '.' < $DOCKER_JSON_FILE && break
+        fi
+        if [ $i -eq 1200 ]; then
+            exit $ERR_FILE_WATCH_TIMEOUT
+        else
+            sleep 1
+        fi
+    done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
+    systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+
+}
+
+ensureContainerdMonitorService() {
+    # Delay start of containerd-monitor for 30 mins after booting
     CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
     wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
@@ -228,7 +252,21 @@ ensureMonitorService() {
     systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureDockerMonitorService() {
+    # Delay start of docker-monitor for 30 mins after booting
+    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
+    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
+    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
+}
 
+ensureDHCPv6() {
+    wait_for_file 3600 1 /etc/systemd/system/dhcpv6.service || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 3600 1 /opt/azure/containers/enable-dhcpv6.sh || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
+    retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
+}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
