@@ -459,9 +459,9 @@ set -x
 # kubelet thinks it's located on the temp disk (/dev/sdb). This results
 # in correct calculation of ephemeral-storage capacity.
 
-{{if eq GetKubeletDiskType "Temporary"}}
+# if aks ever supports alternatives besides temp disk
+# this mount point will need to be updated
 MOUNT_POINT="/mnt/aks"
-{{end}}
 
 KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
 KUBELET_DIR="/var/lib/kubelet"
