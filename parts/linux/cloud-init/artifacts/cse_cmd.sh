@@ -113,5 +113,5 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContent}}"
-
+GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

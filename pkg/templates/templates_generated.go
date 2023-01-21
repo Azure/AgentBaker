@@ -861,7 +861,7 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContent}}"
-
+GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1477,7 +1477,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV="{{GPUDriverVersion}}"
+export GPU_DV="${GPU_DRIVER_VERSION}"
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
