@@ -832,6 +832,7 @@ IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
 ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
+SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -2439,9 +2440,9 @@ if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
 
-{{ if ShouldConfigTransparentHugePage -}}
-logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
-{{- end}}
+if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
+fi
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
