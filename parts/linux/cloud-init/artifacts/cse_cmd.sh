@@ -89,8 +89,10 @@ SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
 # CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider
 # target environment seems to go to ARM SDK config
 # not sure why separate/inconsistent?
+# see GetCustomEnvironmentJSON for more weirdness.
 TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
+CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
 IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
@@ -109,4 +111,7 @@ HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
+SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContent}}"
+
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
