@@ -101,8 +101,8 @@ copyPackerFiles() {
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   CSE_HELPERS_DISTRO_SRC=/home/packer/provision_source_distro.sh
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
-  CSE_INSTALL_DISTRO_SRC=/home/packer/provision_installs.sh
-  CSE_INSTALL_DISTRO_DEST=/opt/azure/containers/provision_install.sh
+  CSE_INSTALL_DISTRO_SRC=/home/packer/provision_installs_distro.sh
+  CSE_INSTALL_DISTRO_DEST=/opt/azure/containers/provision_installs_distro.sh
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
