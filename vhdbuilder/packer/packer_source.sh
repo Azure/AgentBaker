@@ -81,6 +81,30 @@ copyPackerFiles() {
   AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
   AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
+  # this is enormously confusing, but maintaining compatibility across
+  # different agentbaker vhd/cse/cloud init versions means changing them is VERY risky
+  # e.g., if we put them in VHD with one name, but run against newer/older CSE with different name
+  # need to be extremely careful
+  # this will not be a problem when we eliminate cse_cmd.sh and cloud init
+  # /opt/azure/containers/provision_source.sh - cse_helpers.sh
+  # /opt/azure/containers/provision_configs.sh - cse_config.sh
+  # /opt/azure/containers/provision_installs.sh - cse_install.sh
+  # /opt/azure/containers/provision_start.sh - cse_start.sh
+  # /opt/azure/containers/provision.sh - cse_main.sh
+  CSE_HELPERS_SRC=/home/packer/provision_source.sh
+  CSE_HELPERS_DEST=/opt/azure/containers/provision_source.sh
+  CSE_INSTALL_SRC=/home/packer/provision_installs.sh
+  CSE_INSTALL_DEST=/opt/azure/containers/provision_installs.sh
+  CSE_CONFIG_SRC=/home/packer/provision_configs.sh
+  CSE_CONFIG_DEST=/opt/azure/containers/provision_configs.sh  
+  CSE_START_SRC=/home/packer/provision_start.sh
+  CSE_START_DEST=/opt/azure/containers/provision_start.sh
+  CSE_MAIN_SRC=/home/packer/provision.sh
+  CSE_MAIN_DEST=/opt/azure/containers/provision.sh
+  CSE_HELPERS_DISTRO_SRC=/home/packer/provision_source_distro.sh
+  CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
+  CSE_INSTALL_DISTRO_SRC=/home/packer/provision_installs_distro.sh
+  CSE_INSTALL_DISTRO_DEST=/opt/azure/containers/provision_installs_distro.sh
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -104,6 +128,14 @@ copyPackerFiles() {
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
   
+  cpAndMode $CSE_HELPERS_SRC $CSE_HELPERS_DEST 755
+  cpAndMode $CSE_INSTALL_SRC $CSE_INSTALL_DEST 755
+  cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 755
+  cpAndMode $CSE_START_SRC $CSE_START_DEST 755
+  cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 755
+  cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 755
+  cpAndMode $CSE_INSTALL_DISTRO_SRC $CSE_INSTALL_DISTRO_DEST 755
+
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
