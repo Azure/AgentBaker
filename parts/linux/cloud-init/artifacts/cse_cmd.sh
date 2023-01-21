@@ -116,5 +116,8 @@ KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
 GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
+CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
+CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
+CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
