@@ -61,10 +61,10 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
-configureEtcEnvironment
-{{- end}}
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+    configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+    configureEtcEnvironment
+fi
 
 {{- if ShouldConfigureCustomCATrust}}
 configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
