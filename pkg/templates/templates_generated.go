@@ -829,6 +829,7 @@ IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
+ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -2509,17 +2510,16 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        {{- if EnableUnattendedUpgrade }}
-        systemctl unmask apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.timer apt-daily-upgrade.timer
-        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
-
-        {{- end }}
-        # this is the DOWNLOAD service
-        # meaning we are wasting IO without even triggering an upgrade 
-        # -________________-
-        systemctl restart --no-block apt-daily.service
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+        fi
         aptmarkWALinuxAgent unhold &
     fi
 fi
