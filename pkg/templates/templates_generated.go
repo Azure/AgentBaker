@@ -890,6 +890,12 @@ configureAdminUser(){
 }
 
 configPrivateClusterHosts() {
+    mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
+    touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
+    tee /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf > /dev/null <<EOF
+[Service]
+Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
 configureTransparentHugePage() {
@@ -4429,7 +4435,7 @@ get-apiserver-ip-from-tags() {
 }
 
 SLEEP_SECONDS=15
-clusterFQDN="{{GetKubernetesEndpoint}}"
+clusterFQDN="${KUBE_API_SERVER_NAME}"
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0

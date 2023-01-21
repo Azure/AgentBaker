@@ -20,7 +20,7 @@ get-apiserver-ip-from-tags() {
 }
 
 SLEEP_SECONDS=15
-clusterFQDN="1.2.3.4"
+clusterFQDN="${KUBE_API_SERVER_NAME}"
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0
