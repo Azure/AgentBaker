@@ -821,6 +821,7 @@ RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -2279,9 +2280,9 @@ if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
     configureEtcEnvironment
 fi
 
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
-{{- end}}
+if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
+    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+fi
 
 {{GetOutboundCommand}}
 
