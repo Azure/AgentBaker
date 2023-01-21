@@ -4,7 +4,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart={{GetDHCPv6ConfigCSEScriptFilepath}}
+ExecStart=/opt/azure/containers/enable-dhcpv6.sh
 
 [Install]
 WantedBy=multi-user.target
