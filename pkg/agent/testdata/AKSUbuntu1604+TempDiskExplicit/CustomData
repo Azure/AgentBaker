@@ -73,8 +73,40 @@ write_files:
     H4sIAAAAAAAA/4oOzcssieUKSi0szSxKLbZNysxL0c3NL80r0StOLSrLTE7lckwrSS3CJgEIAAD//79NTUg8AAAA
 
 
+- path: /usr/local/bin/health-monitor.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
+- path: /etc/systemd/system/containerd-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
+- path: /etc/systemd/system/containerd-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
+
+- path: /etc/systemd/system/docker-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
+
+- path: /etc/systemd/system/docker-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
 
 

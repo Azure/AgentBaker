@@ -52,8 +52,40 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/4yUTU/jPBDH7/4Uoz4c4GD8LLs3lEMLaVXRpagp2kOpKseZUqvOJLLHBXbZ775KX9gtFEROsf37v1iaZHJLlqfiEoPxtmZbUXIVc3TI4qKiwjY7N5oX6aMNHBIVg1euMtqp3JJabtEfmjgkhPxQ+aWsyFnCU9b+HhlMRawtoS9OA/qVNSjac0b/eVxMss3bVIwwsPacaPegn8JumaFJzkRKK+srKpG4ax0mCtmoAuc6On5p+h/0vDY4jw4YfWlJNzeE46zfG6ej7ycii8ZgCOmj5Yw1x5B8+fZVpI9osibqxmOyvnquwwJUVbPSP6NH9dI77LJOw+KArlwW1oOsQa20V87mL9U+wxqy73WRBlp2DhM4Oi6rSAzPcO+xhrvW66S7FjzDgwHpTkA6hP9hCufACyTYxK7lUuaWijc1326cw9y2DrXf2pR6iTIstMe3bmJfJ1VolJizzh0GkAykGw9nAx9Ebf0apViit2Yn+qt6Z3jhTsD2kRKpcZPN5KHfO6GqQOl0ji4kraNfV7eddJCOZ9fDy3Q2aHfSQfa7tSdYJWf768rFEmXt4r0lWVi/GdCmhSdkDGpDbIDwj/ZoFzYeZLPOcDjOxqP2zaw7aPeyQ9jF8Lrb7826/UH6ITRu96/T0eUHTG80vP0gaH0gxKRPgbVz0/V/AIvOU1JGx1bGgH77XYs/AQAA///suTndaQQAAA==
 
+- path: /usr/local/bin/health-monitor.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
+- path: /etc/systemd/system/containerd-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
+- path: /etc/systemd/system/containerd-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
+
+- path: /etc/systemd/system/docker-monitor.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
+
+- path: /etc/systemd/system/docker-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
 
 - path: /etc/kubernetes/sp.txt

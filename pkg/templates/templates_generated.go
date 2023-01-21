@@ -5657,7 +5657,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
-{{if not .IsVHDDistro}}
 - path: /usr/local/bin/health-monitor.sh
   permissions: "0544"
   encoding: gzip
@@ -5665,14 +5664,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
 
-- path: /etc/systemd/system/kubelet-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
-
-{{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -5686,7 +5677,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
-{{- else}}
+
 - path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
@@ -5700,16 +5691,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-{{- end}}
-
-- path: /etc/apt/preferences
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
-{{end}}
-
 
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}

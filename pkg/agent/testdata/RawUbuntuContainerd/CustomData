@@ -59,21 +59,12 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/4yUTU/jPBDH7/4Uoz4c4GD8LLs3lEMLaVXRpagp2kOpKseZUqvOJLLHBXbZ775KX9gtFEROsf37v1iaZHJLlqfiEoPxtmZbUXIVc3TI4qKiwjY7N5oX6aMNHBIVg1euMtqp3JJabtEfmjgkhPxQ+aWsyFnCU9b+HhlMRawtoS9OA/qVNSjac0b/eVxMss3bVIwwsPacaPegn8JumaFJzkRKK+srKpG4ax0mCtmoAuc6On5p+h/0vDY4jw4YfWlJNzeE46zfG6ej7ycii8ZgCOmj5Yw1x5B8+fZVpI9osibqxmOyvnquwwJUVbPSP6NH9dI77LJOw+KArlwW1oOsQa20V87mL9U+wxqy73WRBlp2DhM4Oi6rSAzPcO+xhrvW66S7FjzDgwHpTkA6hP9hCufACyTYxK7lUuaWijc1326cw9y2DrXf2pR6iTIstMe3bmJfJ1VolJizzh0GkAykGw9nAx9Ebf0apViit2Yn+qt6Z3jhTsD2kRKpcZPN5KHfO6GqQOl0ji4kraNfV7eddJCOZ9fDy3Q2aHfSQfa7tSdYJWf768rFEmXt4r0lWVi/GdCmhSdkDGpDbIDwj/ZoFzYeZLPOcDjOxqP2zaw7aPeyQ9jF8Lrb7826/UH6ITRu96/T0eUHTG80vP0gaH0gxKRPgbVz0/V/AIvOU1JGx1bGgH77XYs/AQAA///suTndaQQAAA==
 
-
 - path: /usr/local/bin/health-monitor.sh
   permissions: "0544"
   encoding: gzip
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/6RWXW/bNhe+5684YYQXTgtZloH0HdIqF+uMdej6gbnZLtrCoKkjizBFCiSVJjX83wdKlG3FToptvrEknq/nOc850vlZ0liTLIVKUN3CktmSkHP4VAoLlhtRO9BGrIRiDnNgDkrnanuVJCvhymY55rpK1s0SjUKH9vByKfUyqZh1aBIum/Z/xTFZcZGUyKQr40or4bQZ25KcA1M5lMzCElFBpXNRCMyh0AbY2saoVkLhmBCLDmINSjfKoutva1FjwYQkhGvlmFBoFqZRTlS4CFmEWo0uYEMApOZMQmygYncL5hxWtbPZ5e4kPMrSQ9vjuIpVmEUpIQCigM+fIdqcNtpClgHdneUUvn59Ca5ERQD6FB0lvES+XnBdVUzlGeXOQBz7GLZmHGH9kx0Lva8FpLCOEgCUFuFH0XLN12igtt6jEL5wX6UEX6luHLyYQLQ54bqFa0hyvE1UI+VLyHWbSRQwGvVkeYiHdMLFxQFEAOSlBvqO3e0cos2h/RYMMl5ifgYfjeaIuVArcBpC9w4wB2oDRqHQ2jENaZYG2bq9LgTZ5436pEIJJ/Ythi/0NOAv9Aw+mXtfA1sxoUAo2AWxyLXK7Xgc0lqJWAONRiOYwrNnffDnz+HiwlvkWiEB+FYKieBMg4cUnv1T9o9IfX3EzONC9DOC+VlPV6dbGp02p0/r1v/qtZAS4vlvv97M/0j3Tcr7Cne6PGHd6bE3DQ0DsPfWYcWdhM489n/xt1Jnle8EfRRdj6rrRzqdkL6EwQGNNvPfZ7OPi/ns9Yf3v8yDX5u/bdWWEL/HJLrj3dFR/hcTrl1NU6iEahza9i54edkuEYpGcSe0YtInOCxqsICCmrJ0f6IbVzcuo/QJ1QSbaMQbIyGuPKyDcFsKcQGxhXjeruyrJEmn/x9PxpNxepVOppeXYQl/h+n1/9ITwxp1GQZSexsACguN6vzvd2J60LdAxoD6F/+hJb1WzynE0kF6KMauuhvLVngFRy8XeLUTTBwEk4TqrtvleSccpMRvRK6rWitUzi/2PuNm93T7YCT6cIPJ6Nzi7xBNhwPzgyqPosKrbkKS/Vhdd8SEigNDR+OQRdMWzdubn2eLNx/ezTLavuVbdfl3Pe2OZu//zGiCjic5FqyRrqUlRnVLA3iI0RPQW28HQK1uDH9w3uYd9NILm3TQ544ZB/tvhEAC7KesHaMB4eTftuGpD4FTG3JLUD6aKshlkOB4R5Ag7A7tm5PgdpEHMP1EKe3ANnWtjWtXdCHI3wEAAP//Ahp+HJ4JAAA=
-
-- path: /etc/systemd/system/kubelet-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/zSOQWrDMBBF9zrFXKBRewAtCs0FYroKWUzkbzRYlopm3Nq3L1jx7g3M+7z7dxF7uC9obPJjUktg6kyW2CgmxFlpXp/IMErgbIm4jNSgxs2UZKICjBjd52Ro4fV7UbRfiXD3ocPD3boSOP/xruc5IIaPd3fDwlKOiesmFnaou26Iw6H4VZvPNXL2Tym+d7wttYjVdtF0Fv4HAAD//zPpD7jRAAAA
-
 
 - path: /etc/systemd/system/containerd-monitor.timer
   permissions: "0644"
@@ -89,14 +80,19 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/0yOwUoDQQyG7/MUAc/t6gPMQXC9Cl08lR7i7F8muJuRJNX27YUOst6+QL6f7/iuEqf0Ai8mXyFNM1NnispBpaJ8OpWmwaKwmSp4iUqsMxk82MJJzqTAjDk9nwOWt/e9w76lIB2nDqd06Fbm5Ydv/ndOKPnpMR2wsuh9ZbxK5Bs8jVeU6a4MF7dhaYWX4UN06Cm7talEs73XrXNnFw1Z8a88PYxvr+k3AAD//2M1InfyAAAA
 
-- path: /etc/apt/preferences
+- path: /etc/systemd/system/docker-monitor.timer
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/wEAAP//AAAAAAAAAAA=
+    H4sIAAAAAAAA/1TMMU7EQAwF0N6nsES9KzjANCtAotoCEEWUwky8wWLGRp4fpNwepeQA703vbpjpUUdN+4GFF2FY12R8CXjRJvvgJeq35qmHGyL5ltF5QBLmKyOCR4Sz3KDJnxGg6e04Zjr68l+fh+avVaWrXyLwqrU83Hdzml58QFqb6UMculz20rcGO21D8wzJVUF3T9dn+gsAAP//UL9Br7YAAAA=
 
-
+- path: /etc/systemd/system/docker-monitor.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/zSOMWoDQQxF+zmFILW9yQGmCGTTBrykMi6U2W9GeFcTJDmxbx/Yibsn0Pu846dKnNIbvJh8hzTNTJ0pKgeVinJxmlu5wKiCl6jEOpPBgy2c5EwKzJjT6zlgub/uHfYjBek4dTilQzcyL79898c5oeSX53TAyqLbwniTyHd4Gm8o06YMV7dhaYWX4Ut06Bm7talEs71XKk2DRWE7u2rIiv/i9DR+vKe/AAAA///aTgUk5gAAAA==
 
 
 
