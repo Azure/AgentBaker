@@ -823,6 +823,8 @@ DISABLE_SSH="{{ShouldDisableSSH}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 OUTBOUND_COMMAND="{{GetOutboundCommand}}"
+NEEDS_CONTAINERD="{{NeedsContainerd}}"
+TELEPORT_ENABLED="{{TeleportEnabled}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -2296,10 +2298,6 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-{{- if not NeedsContainerd}}
-logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-{{- end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
     cleanUpGPUDrivers
 fi
@@ -2328,9 +2326,10 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-{{- if and NeedsContainerd TeleportEnabled}}
-logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-{{- end}}
+
+if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+fi
 
 setupCNIDirs
 
