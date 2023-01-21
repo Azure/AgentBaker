@@ -178,12 +178,6 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 
 createKubeManifestDir
 
-{{- if HasDCSeriesSKU}}
-if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    logs_to_events "AKS.CSE.installSGXDrivers" installSGXDrivers
-fi
-{{end}}
-
 {{- if HasCustomSearchDomain}}
 wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 {{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
