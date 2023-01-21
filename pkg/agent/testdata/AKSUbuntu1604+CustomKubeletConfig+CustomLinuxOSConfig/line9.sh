@@ -93,6 +93,10 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
+# this will be empty during VHD build
+# but vhd build runs with `set -o nounset`
+# so needs a default value
+# prefer empty string to avoid potential "it works but did something weird" scenarios
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
