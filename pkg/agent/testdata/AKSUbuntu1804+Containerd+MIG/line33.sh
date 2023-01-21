@@ -124,6 +124,7 @@ fi
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
+
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
@@ -137,7 +138,7 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 
-if [[ "true" == "true" ]]; then
+if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
     # fabric manager trains nvlink connections between multi instance gpus.
     # it appears this is only necessary for systems with *multiple cards*.
     # i.e., an A100 can be partitioned a maximum of 7 ways.
@@ -166,7 +167,6 @@ if [[ "${MIG_NODE}" == "true" ]]; then
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
-
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
