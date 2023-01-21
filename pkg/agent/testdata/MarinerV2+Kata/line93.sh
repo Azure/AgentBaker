@@ -1,2 +1,8 @@
+[Unit]
+Description=Reconcile /etc/hosts file for private cluster
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+Type=simple
+Restart=on-failure
+ExecStart=/bin/bash /opt/azure/containers/reconcilePrivateHosts.sh
+[Install]
+WantedBy=multi-user.target
