@@ -837,8 +837,10 @@ SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
 # CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider
 # target environment seems to go to ARM SDK config
 # not sure why separate/inconsistent?
+# see GetCustomEnvironmentJSON for more weirdness.
 TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
+CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
 IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
@@ -858,6 +860,7 @@ HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContent}}"
 
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
@@ -1052,40 +1055,8 @@ EOF
         chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
         chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
-        cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-{
-    "name": "${TARGET_ENVIRONMENT}",
-    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
-    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
-    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
-    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
-    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
-    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
-    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
-    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
-    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
-    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
-    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
-    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
-    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
-    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
-    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
-    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
-    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
-    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
-    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
-    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
-    "resourceIdentifiers": {
-        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
-        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
-        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
-        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
-        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
-        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
-    }
-}
-EOF
-    set -x
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
     fi
 
     if ["${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
@@ -1094,9 +1065,7 @@ EOF
         touch "${KUBELET_CONFIG_JSON_PATH}"
         chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-        cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetKubeletConfigFileContent}}
-EOF
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" > "${KUBELET_CONFIG_JSON_PATH}"
         set -x
     fi
 }

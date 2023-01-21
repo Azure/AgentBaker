@@ -173,40 +173,8 @@ EOF
         chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
         chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
-        cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-{
-    "name": "${TARGET_ENVIRONMENT}",
-    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
-    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
-    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
-    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
-    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
-    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
-    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
-    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
-    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
-    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
-    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
-    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
-    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
-    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
-    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
-    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
-    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
-    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
-    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
-    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
-    "resourceIdentifiers": {
-        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
-        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
-        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
-        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
-        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
-        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
-    }
-}
-EOF
-    set -x
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
     fi
 
     if ["${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
@@ -215,9 +183,7 @@ EOF
         touch "${KUBELET_CONFIG_JSON_PATH}"
         chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-        cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetKubeletConfigFileContent}}
-EOF
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" > "${KUBELET_CONFIG_JSON_PATH}"
         set -x
     fi
 }
