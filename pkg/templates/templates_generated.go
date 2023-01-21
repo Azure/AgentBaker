@@ -1124,7 +1124,6 @@ disableSystemdResolved() {
     fi
 }
 
-{{- if NeedsContainerd}}
 ensureContainerd() {
   {{- if TeleportEnabled}}
   ensureTeleportd
@@ -1149,7 +1148,7 @@ ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 {{- end}}
-{{- else}}
+
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1171,35 +1170,31 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-{{- end}}
-{{- if NeedsContainerd}}
-ensureMonitorService() {
-    {{/* Delay start of containerd-monitor for 30 mins after booting */}}
+
+ensureContainerdMonitorService() {
+    # Delay start of containerd-monitor for 30 mins after booting
     CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
     wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
     wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- else}}
-ensureMonitorService() {
-    {{/* Delay start of docker-monitor for 30 mins after booting */}}
+
+ensureDockerMonitorService() {
+    # Delay start of docker-monitor for 30 mins after booting
     DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
     wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
-{{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
     wait_for_file 3600 1 {{GetDHCPv6ServiceCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 3600 1 {{GetDHCPv6ConfigCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
-{{end}}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
@@ -2422,14 +2417,15 @@ fi
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+    logs_to_events "AKS.CSE.ensureContainerdMonitorService" ensureContainerdMonitorService
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+    logs_to_events "AKS.CSE.ensureDockerMonitorService" ensureDockerMonitorService
 fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
 
-logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
