@@ -24,7 +24,12 @@ write_files:
 
 
 
-
+- path: /opt/azure/containers/init-aks-custom-cloud.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
