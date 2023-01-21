@@ -66,9 +66,9 @@ if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
     configureEtcEnvironment
 fi
 
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
-{{- end}}
+if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
+    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+fi
 
 {{GetOutboundCommand}}
 
