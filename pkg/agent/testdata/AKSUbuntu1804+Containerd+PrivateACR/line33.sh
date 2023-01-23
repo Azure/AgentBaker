@@ -70,7 +70,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-eval $OUTBOUND_COMMAND
+retrycmd_if_failure 10 1 3 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 ret=$?
 
 echo "outbound check returned '${ret}'"
