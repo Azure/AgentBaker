@@ -185,7 +185,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	} else if cs.IsAKSCustomCloud() {
 		registry = cs.Properties.CustomCloudEnv.McrURL
 	} else {
-		registry = `mcr.microsoft.com`
+		registry = `foo.bar.baz`
 	}
 
 	if registry == "" {
