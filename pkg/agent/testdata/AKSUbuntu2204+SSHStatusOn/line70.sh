@@ -338,12 +338,15 @@ ensureGPUDrivers() {
         # no GPU on ARM64
         return
     fi
-
+    
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
-    else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+        DRIVER_VER="$(grep nvidia-gpu-driver-version ${VHD_LOGS_FILEPATH} | cut -d '=' -f 2)"
+        if [ "${GPU_DV}" != "${DRIVER_VER}" ]; then
+            logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+            sed -i "s/${DRIVER_VER}/${GPU_DV}/g" ${VHD_LOGS_FILEPATH}
+        fi
     fi
+    logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
