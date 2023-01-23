@@ -167,6 +167,12 @@ fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 
+if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
+    set +x
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET acr.io/privateacr
+    set -x
+fi
+
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
