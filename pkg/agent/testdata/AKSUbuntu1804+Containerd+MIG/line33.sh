@@ -117,6 +117,10 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
+if [ "${IS_KRUSTLET}" == "true" ]; then
+    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+fi
+
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 echo $(date),$(hostname), "Start configuring GPU drivers"
