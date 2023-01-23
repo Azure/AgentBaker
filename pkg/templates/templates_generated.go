@@ -820,6 +820,8 @@ RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
+NEEDS_CONTAINERD="{{NeedsContainerd}}"
+TELEPORT_ENABLED="{{TeleportEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
@@ -2327,9 +2329,9 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-{{- if and NeedsContainerd TeleportEnabled}}
-logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-{{- end}}
+if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+fi
 
 setupCNIDirs
 
