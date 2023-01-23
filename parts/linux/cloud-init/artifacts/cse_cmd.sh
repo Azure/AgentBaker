@@ -71,4 +71,5 @@ CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
+DISABLE_SSH="{{ShouldDisableSSH}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
