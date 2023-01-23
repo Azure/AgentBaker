@@ -2292,7 +2292,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-bash -xc "$OUTBOUND_COMMAND"
+eval $OUTBOUND_COMMAND
 ret=$?
 
 echo "outbound check returned '${ret}'"
