@@ -824,7 +824,11 @@ NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
+IS_KRUSTLET="{{IsKrustlet}}"
+GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
+NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
+`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -2337,14 +2341,13 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-{{- if IsKrustlet }}
+if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
-{{- end }}
+fi
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
-{{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
@@ -2358,7 +2361,7 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 
-if [[ "{{GPUNeedsFabricManager}}" == "true" ]]; then
+if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
     # fabric manager trains nvlink connections between multi instance gpus.
     # it appears this is only necessary for systems with *multiple cards*.
     # i.e., an A100 can be partitioned a maximum of 7 ways.
@@ -2387,13 +2390,12 @@ if [[ "${MIG_NODE}" == "true" ]]; then
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
-{{end}}
 
-{{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
-set +x
-docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
-set -x
-{{end}}
+if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
+    set +x
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+    set -x
+fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
