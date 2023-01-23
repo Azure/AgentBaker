@@ -109,13 +109,21 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+fi
 
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
+if [ "${IS_KRUSTLET}" == "true" ]; then
+    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+fi
+
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
+
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
@@ -129,7 +137,7 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 
-if [[ "false" == "true" ]]; then
+if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
     # fabric manager trains nvlink connections between multi instance gpus.
     # it appears this is only necessary for systems with *multiple cards*.
     # i.e., an A100 can be partitioned a maximum of 7 ways.
@@ -159,6 +167,11 @@ fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 
+if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
+    set +x
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET 
+    set -x
+fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
@@ -168,8 +181,17 @@ logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
+# configure and enable dhcpv6 for dual stack feature
+if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+fi
 
-logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+else
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
