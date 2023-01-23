@@ -70,7 +70,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-$OUTBOUND_COMMAND
+bash -c "$OUTBOUND_COMMAND"
 
 # Bring in OS-related vars
 source /etc/os-release
