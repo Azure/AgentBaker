@@ -386,7 +386,7 @@ stages:
             artifactName: marinerv1-gen2
   - stage: build_vhd_marinerv2_gen1
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2 }}', true)
+    condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
