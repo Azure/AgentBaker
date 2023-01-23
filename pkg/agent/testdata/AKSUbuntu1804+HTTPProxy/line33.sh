@@ -186,7 +186,13 @@ logs_to_events "AKS.CSE.configureCNI" configureCNI
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
-logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+else
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
