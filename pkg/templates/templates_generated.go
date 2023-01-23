@@ -818,6 +818,10 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
+ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
+DISABLE_SSH="{{ShouldDisableSSH}}"
+SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -844,11 +848,9 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
@@ -1383,6 +1385,10 @@ ensureGPUDrivers() {
     fi
 }
 
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+}
+
 #EOF
 `)
 
@@ -1486,6 +1492,7 @@ ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided ce
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+ERR_DISABLE_SSH=172 {{/* Error disabling ssh service */}}
 
 ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
 ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
@@ -2206,7 +2213,8 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+# Timeout waiting for a file
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -2263,14 +2271,18 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
-configureEtcEnvironment
-{{- end}}
+if [[ "${DISABLE_SSH}" == "true" ]]; then
+    disableSSH || exit $ERR_DISABLE_SSH
+fi
 
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
-{{- end}}
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+    configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+    configureEtcEnvironment
+fi
+
+if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
+    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+fi
 
 {{GetOutboundCommand}}
 
@@ -2422,11 +2434,11 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-{{- if EnableHostsConfigAgent}}
-logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-{{- end}}
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
 
-{{- if ShouldConfigTransparentHugePage}}
+{{ if ShouldConfigTransparentHugePage -}}
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
@@ -2464,12 +2476,12 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
-    {{- if not EnableHostsConfigAgent}}
-    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-    STS=$?
-    {{- else}}
-    STS=0
-    {{- end}}
+    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        STS=$?
+    else
+        STS=0
+    fi
     if [[ $STS != 0 ]]; then
         time nslookup ${API_SERVER_NAME}
         if [[ $RES == *"168.63.129.16"*  ]]; then
@@ -3732,7 +3744,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.22.15",
             "1.23.8-hotfix.20220620",
             "1.23.12",
-            "1.23.15",
+            "1.23.15-hotfix.20230114",
             "1.24.3",
             "1.24.6",
             "1.24.9",
@@ -5198,11 +5210,7 @@ removeContainerd() {
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
         wait_for_apt_locks
-        if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-            retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-        else
-            retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-        fi
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     fi
@@ -5699,7 +5707,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
-{{- if EnableHostsConfigAgent}}
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -5713,7 +5720,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-{{- end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
