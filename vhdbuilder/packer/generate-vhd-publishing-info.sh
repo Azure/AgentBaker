@@ -34,8 +34,8 @@ fi
 
 identity_name=$(az account show | jq -r '.user.name')
 if [[ "${identity_name}" == "systemAssignedIdentity" ]]; then
-    [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating Linux VHD publishing info..." && exit 1
-    [ -z "${OUTPUT_STORAGE_CONTAINER_NAME}" ] && echo "OUTPUT_STORAGE_CONTAINER_NAME should be set when generating Linux VHD publishing info..." && exit 1
+    [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating publishing with a system-assigned identity..." && exit 1
+    [ -z "${OUTPUT_STORAGE_CONTAINER_NAME}" ] && echo "OUTPUT_STORAGE_CONTAINER_NAME should be set when generating publishing info with a system-assigned identity..." && exit 1
     echo "using ${identity_name} to generate user-delegation SAS token..."
     echo "storage account name: ${OUTPUT_STORAGE_ACCOUNT_NAME}"
     echo "storage container name: ${OUTPUT_STORAGE_CONTAINER_NAME}"
@@ -43,6 +43,7 @@ if [[ "${identity_name}" == "systemAssignedIdentity" ]]; then
     expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+7 day")
     sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions lr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
 else
+    [ -z "${CLASSIC_SA_CONNECTION_STRING}" ] && echo "CLASSIC_SA_CONNECTION_STRING should be set when generating publishing info without a system-assigned identity..." && exit 1
     echo "generating traditional SAS token with CLASSIC_SA_CONNECTION_STRING..."
     # we still need to use the original connection string when not using a system-assigned identity on 1ES pools
     start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
