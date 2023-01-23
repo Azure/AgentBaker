@@ -7,11 +7,9 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
@@ -547,6 +545,10 @@ ensureGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+}
+
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
 #EOF

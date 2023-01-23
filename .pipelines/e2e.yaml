@@ -54,6 +54,7 @@ jobs:
   - bash: |
       export SCENARIO_NAME
       export $VM_SKU
+      export $SIG_VERSION_ID
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
       cd e2e
       bash e2e-scenario.sh

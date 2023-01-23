@@ -818,7 +818,18 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
+ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
+DISABLE_SSH="{{ShouldDisableSSH}}"
+NEEDS_CONTAINERD="{{NeedsContainerd}}"
+TELEPORT_ENABLED="{{TeleportEnabled}}"
+SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
+IS_KRUSTLET="{{IsKrustlet}}"
+GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
+NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
+IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
+`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -844,11 +855,9 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
 
 {{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
@@ -1386,6 +1395,10 @@ ensureGPUDrivers() {
     fi
 }
 
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+}
+
 #EOF
 `)
 
@@ -1489,6 +1502,7 @@ ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided ce
 ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+ERR_DISABLE_SSH=172 {{/* Error disabling ssh service */}}
 
 ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
 ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
@@ -2209,7 +2223,8 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+# Timeout waiting for a file
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -2266,14 +2281,18 @@ source {{GetCSEInstallScriptDistroFilepath}}
 wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
 source {{GetCSEConfigScriptFilepath}}
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
-configureEtcEnvironment
-{{- end}}
+if [[ "${DISABLE_SSH}" == "true" ]]; then
+    disableSSH || exit $ERR_DISABLE_SSH
+fi
 
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
-{{- end}}
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+    configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+    configureEtcEnvironment
+fi
+
+if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
+    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+fi
 
 {{GetOutboundCommand}}
 
@@ -2318,22 +2337,21 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-{{- if and NeedsContainerd TeleportEnabled}}
-logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-{{- end}}
+if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+fi
 
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-{{- if IsKrustlet }}
+if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
-{{- end }}
+fi
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
-{{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
@@ -2347,7 +2365,7 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 
-if [[ "{{GPUNeedsFabricManager}}" == "true" ]]; then
+if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
     # fabric manager trains nvlink connections between multi instance gpus.
     # it appears this is only necessary for systems with *multiple cards*.
     # i.e., an A100 can be partitioned a maximum of 7 ways.
@@ -2376,23 +2394,16 @@ if [[ "${MIG_NODE}" == "true" ]]; then
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
-{{end}}
 
-{{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
-set +x
-docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
-set -x
-{{end}}
+if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
+    set +x
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+    set -x
+fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
-
-{{- if HasDCSeriesSKU}}
-if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    logs_to_events "AKS.CSE.installSGXDrivers" installSGXDrivers
-fi
-{{end}}
 
 {{- if HasCustomSearchDomain}}
 wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
@@ -2403,10 +2414,10 @@ logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
-{{/* configure and enable dhcpv6 for dual stack feature */}}
-{{- if IsIPv6DualStackFeatureEnabled}}
-logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
-{{- end}}
+# configure and enable dhcpv6 for dual stack feature
+if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+fi
 
 {{- if NeedsContainerd}}
 logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
@@ -2425,11 +2436,11 @@ if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-{{- if EnableHostsConfigAgent}}
-logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-{{- end}}
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
 
-{{- if ShouldConfigTransparentHugePage}}
+{{ if ShouldConfigTransparentHugePage -}}
 logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 {{- end}}
 
@@ -2467,12 +2478,12 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
-    {{- if not EnableHostsConfigAgent}}
-    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-    STS=$?
-    {{- else}}
-    STS=0
-    {{- end}}
+    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        STS=$?
+    else
+        STS=0
+    fi
     if [[ $STS != 0 ]]; then
         time nslookup ${API_SERVER_NAME}
         if [[ $RES == *"168.63.129.16"*  ]]; then
@@ -5201,11 +5212,7 @@ removeContainerd() {
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
         wait_for_apt_locks
-        if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-            retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-        else
-            retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-        fi
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     fi
@@ -5702,7 +5709,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 {{end}}
 
-{{- if EnableHostsConfigAgent}}
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -5716,7 +5722,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-{{- end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"

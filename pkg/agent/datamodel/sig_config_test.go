@@ -51,7 +51,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuGPU1804Gen2.Definition).To(Equal("1804gen2gpu"))
 		Expect(aksUbuntuGPU1804Gen2.Version).To(Equal("2022.08.29"))
 
-		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(5))
+		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(6))
 
 		mariner := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV1]
 		Expect(mariner.ResourceGroup).To(Equal("resourcegroup"))
