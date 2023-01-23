@@ -185,7 +185,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	} else if cs.IsAKSCustomCloud() {
 		registry = cs.Properties.CustomCloudEnv.McrURL
 	} else {
-		registry = `mcr.microsoft.com`
+		registry = `foo.bar.baz`
 	}
 
 	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS
@@ -219,7 +219,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		}
 	}
 
-	cmd := `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 50 1 5 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
+	cmd := `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 10 1 3 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
 
 	if proxyVars != "" {
 		cmd = fmt.Sprintf("%s %s", proxyVars, cmd)
