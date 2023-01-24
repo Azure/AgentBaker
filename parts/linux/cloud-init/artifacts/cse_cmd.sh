@@ -91,5 +91,7 @@ CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
 CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
 CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
-
+AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
+HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
+CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
