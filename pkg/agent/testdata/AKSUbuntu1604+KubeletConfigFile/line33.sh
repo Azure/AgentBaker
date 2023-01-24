@@ -70,7 +70,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 50 1 5 nc -vz mcr.microsoft.com 443 >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time nc -vz mcr.microsoft.com 443 || exit $ERR_OUTBOUND_CONN_FAIL;
+retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 
 # Bring in OS-related vars
 source /etc/os-release
@@ -224,6 +224,11 @@ if $FULL_INSTALL_REQUIRED; then
 fi
 
 VALIDATION_ERR=0
+
+# Edge case scenarios:
+# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
+# high timeout to address high latency for private dns server to forward request to Azure DNS
+# dns check will be done only if we use FQDN for API_SERVER_NAME
 API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100
