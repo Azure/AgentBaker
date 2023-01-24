@@ -2293,9 +2293,6 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
 fi
 
 retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
-ret=$?
-
-echo "outbound check returned '${ret}'"
 
 # Bring in OS-related vars
 source /etc/os-release
