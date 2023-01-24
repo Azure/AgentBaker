@@ -217,9 +217,9 @@ if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
 
-{{ if ShouldConfigTransparentHugePage -}}
-logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
-{{- end}}
+if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
+fi
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
