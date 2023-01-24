@@ -824,6 +824,7 @@ NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
+CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
@@ -976,9 +977,9 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
-    {{- range $i, $cert := GetCustomCATrustConfigCerts}}
-    wait_for_file 1200 1 /opt/certs/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- end}}
+    for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 

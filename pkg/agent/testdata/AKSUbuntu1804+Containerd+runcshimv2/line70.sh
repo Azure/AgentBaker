@@ -89,6 +89,9 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
+    for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
