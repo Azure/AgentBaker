@@ -848,6 +848,8 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 CLIENT_TLS_BOOTSTRAPPING_ENABLED="{{IsKubeletClientTLSBootstrappingEnabled}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
+THP_ENABLED="{{GetTransparentHugePageEnabled}}"
+THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -880,12 +882,10 @@ configPrivateClusterHosts() {
 }
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
-    THP_ENABLED={{GetTransparentHugePageEnabled}}
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-    THP_DEFRAG={{GetTransparentHugePageDefrag}}
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
