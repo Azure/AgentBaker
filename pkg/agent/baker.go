@@ -416,7 +416,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
 		},
 		"GetSwapFileSizeMB": func() int32 {
-			return *profile.CustomLinuxOSConfig.SwapFileSizeMB
+			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil {
+				return *profile.CustomLinuxOSConfig.SwapFileSizeMB
+			}
+			return 0
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()

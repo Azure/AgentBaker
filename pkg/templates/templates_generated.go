@@ -889,7 +889,7 @@ configureTransparentHugePage() {
 
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    swap_size_kb=$(expr "{{GetSwapFileSizeMB}}" \* 1000)
     swap_location=""
     
     # Attempt to use the resource disk
