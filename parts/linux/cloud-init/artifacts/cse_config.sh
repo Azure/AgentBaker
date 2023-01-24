@@ -11,6 +11,7 @@ configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+{{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
     THP_ENABLED={{GetTransparentHugePageEnabled}}
@@ -24,10 +25,12 @@ configureTransparentHugePage() {
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
+{{- end}}
 
+{{- if ShouldConfigSwapFile}}
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr "{{GetSwapFileSizeMB}}" \* 1000)
+    swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
     swap_location=""
     
     # Attempt to use the resource disk
@@ -64,7 +67,9 @@ configureSwapFile() {
     retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
+{{- end}}
 
+{{- if ShouldConfigureHTTPProxy}}
 configureEtcEnvironment() {
     {{- if HasHTTPProxy }}
     echo 'HTTP_PROXY="{{GetHTTPProxy}}"' >> /etc/environment
@@ -79,6 +84,7 @@ configureEtcEnvironment() {
     echo 'no_proxy="{{GetNoProxy}}"' >> /etc/environment
     {{- end}}
 }
+{{- end}}
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
@@ -119,7 +125,7 @@ configureK8s() {
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    # Perform the required JSON escaping
+    {{/* Perform the required JSON escaping */}}
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
