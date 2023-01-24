@@ -275,14 +275,16 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        systemctl unmask apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.timer apt-daily-upgrade.timer
-        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
-        # this is the DOWNLOAD service
-        # meaning we are wasting IO without even triggering an upgrade 
-        # -________________-
-        systemctl restart --no-block apt-daily.service
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+        fi
         aptmarkWALinuxAgent unhold &
     fi
 fi
