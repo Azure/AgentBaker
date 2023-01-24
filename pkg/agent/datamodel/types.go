@@ -142,7 +142,7 @@ const (
 	AKSUbuntuGPUContainerd1804          Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
-	AKSCBLMarinerV2	                    Distro = "aks-cblmariner-v2"
+	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
@@ -281,6 +281,11 @@ type ResourceIdentifiers struct {
 
 // CustomCloudEnv represents the custom cloud env info of the AKS cluster.
 type CustomCloudEnv struct {
+	// TODO(ace): why is Name uppercase?
+	// in Linux, this was historically specified as "name" when serialized.
+	// However Windows relies on the json tag as "Name"
+	// TODO(ace): can we align on one casing?
+	SnakeCaseName                string              `json:"name,omitempty"`
 	Name                         string              `json:"Name,omitempty"`
 	McrURL                       string              `json:"mcrURL,omitempty"`
 	RepoDepotEndpoint            string              `json:"repoDepotEndpoint,omitempty"`
@@ -827,13 +832,14 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 		// Workaround to set correct name in AzureStackCloud.json
 		oldName := p.CustomCloudEnv.Name
 		p.CustomCloudEnv.Name = AzureStackCloud
+		p.CustomCloudEnv.SnakeCaseName = AzureStackCloud
 		defer func() {
 			// Restore p.CustomCloudEnv to old value
 			p.CustomCloudEnv.Name = oldName
 		}()
 		bytes, err := json.Marshal(p.CustomCloudEnv)
 		if err != nil {
-			return "", fmt.Errorf("Could not serialize CustomCloudEnv object - %s", err.Error())
+			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %s", err.Error())
 		}
 		environmentJSON = string(bytes)
 		if escape {
