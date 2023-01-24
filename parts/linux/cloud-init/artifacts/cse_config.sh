@@ -126,11 +126,7 @@ configureK8s() {
     rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    {{- if IsAKSCustomCloud}}
-    "cloud": "AzureStackCloud",
-    {{- else}}
-    "cloud": "{{GetTargetEnvironment}}",
-    {{- end}}
+    "cloud": "${TARGET_CLOUD}",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -175,64 +171,30 @@ EOF
     fi
 
     configureKubeletServerCert
-{{- if IsAKSCustomCloud}}
-    set +x
-    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/{{GetTargetEnvironment}}.json"
-    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+        set +x
+        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+        touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
-    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-{
-    "name": "{{GetTargetEnvironment}}",
-    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
-    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
-    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
-    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
-    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
-    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
-    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
-    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
-    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
-    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
-    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
-    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
-    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
-    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
-    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
-    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
-    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
-    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
-    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
-    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
-    "resourceIdentifiers": {
-        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
-        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
-        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
-        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
-        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
-        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
-    }
-}
-EOF
-    set -x
-{{end}}
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
 
-{{- if IsKubeletConfigFileEnabled}}
-    set +x
-    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
-    touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
-    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetKubeletConfigFileContent}}
-EOF
-    set -x
-{{- end}}
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+        touch "${KUBELET_CONFIG_JSON_PATH}"
+        chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
+        chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" > "${KUBELET_CONFIG_JSON_PATH}"
+        set -x
+    fi
 }
 
 configureCNI() {
-    {{/* needed for the iptables rules to work on bridges */}}
+    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables

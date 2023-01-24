@@ -114,7 +114,7 @@ configureK8s() {
     rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud": "AzurePublicCloud",
+    "cloud": "${TARGET_CLOUD}",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -159,10 +159,30 @@ EOF
     fi
 
     configureKubeletServerCert
+    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+        set +x
+        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+        touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
+
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+        touch "${KUBELET_CONFIG_JSON_PATH}"
+        chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
+        chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" > "${KUBELET_CONFIG_JSON_PATH}"
+        set -x
+    fi
 }
 
 configureCNI() {
-    
+    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
