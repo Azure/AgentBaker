@@ -842,6 +842,9 @@ CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
 AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
 HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
 CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
+HTTP_PROXY_URLS="{{GetHTTPProxy}}"
+HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
+NO_PROXY_URLS="{{GetNoProxy}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -928,22 +931,20 @@ configureSwapFile() {
 }
 {{- end}}
 
-{{- if ShouldConfigureHTTPProxy}}
 configureEtcEnvironment() {
-    {{- if HasHTTPProxy }}
-    echo 'HTTP_PROXY="{{GetHTTPProxy}}"' >> /etc/environment
-    echo 'http_proxy="{{GetHTTPProxy}}"' >> /etc/environment
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    echo 'HTTPS_PROXY="{{GetHTTPSProxy}}"' >> /etc/environment
-    echo 'https_proxy="{{GetHTTPSProxy}}"' >> /etc/environment
-    {{- end}}
-    {{- if HasNoProxy }}
-    echo 'NO_PROXY="{{GetNoProxy}}"' >> /etc/environment
-    echo 'no_proxy="{{GetNoProxy}}"' >> /etc/environment
-    {{- end}}
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+    fi
 }
-{{- end}}
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT

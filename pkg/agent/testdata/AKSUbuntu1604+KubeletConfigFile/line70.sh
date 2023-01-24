@@ -24,6 +24,21 @@ configureTransparentHugePage() {
     fi
 }
 
+configureEtcEnvironment() {
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+    fi
+}
+
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS

@@ -23,13 +23,20 @@ configureTransparentHugePage() {
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
+
 configureEtcEnvironment() {
-    echo 'HTTP_PROXY="http://myproxy.server.com:8080/"' >> /etc/environment
-    echo 'http_proxy="http://myproxy.server.com:8080/"' >> /etc/environment
-    echo 'HTTPS_PROXY="https://myproxy.server.com:8080/"' >> /etc/environment
-    echo 'https_proxy="https://myproxy.server.com:8080/"' >> /etc/environment
-    echo 'NO_PROXY="localhost,127.0.0.1"' >> /etc/environment
-    echo 'no_proxy="localhost,127.0.0.1"' >> /etc/environment
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+    fi
 }
 
 configureHTTPProxyCA() {
