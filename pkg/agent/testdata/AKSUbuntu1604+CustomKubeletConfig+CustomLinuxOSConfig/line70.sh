@@ -23,6 +23,7 @@ configureTransparentHugePage() {
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr 1500 \* 1000)

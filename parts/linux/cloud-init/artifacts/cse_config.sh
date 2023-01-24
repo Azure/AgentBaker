@@ -24,7 +24,6 @@ configureTransparentHugePage() {
     fi
 }
 
-{{- if ShouldConfigSwapFile}}
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
@@ -64,7 +63,6 @@ configureSwapFile() {
     retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
-{{- end}}
 
 configureEtcEnvironment() {
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
