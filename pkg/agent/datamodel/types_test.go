@@ -2379,3 +2379,61 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 		})
 	}
 }
+
+func TestKubernetesConfig_IsDualStack(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *KubernetesConfig
+		want   bool
+	}{
+
+		{
+			name:   "missing ipFamilies should be false",
+			config: &KubernetesConfig{},
+			want:   false,
+		},
+		{
+			name: "ipv4 only should return false",
+			config: &KubernetesConfig{
+				IPFamilies: []string{"ipv4"},
+			},
+			want: false,
+		},
+		{
+			name: "ipv4+ipv6 should return true",
+			config: &KubernetesConfig{
+				IPFamilies: []string{"ipv4", "ipv6"},
+			},
+			want: true,
+		},
+		{
+			name: "2 entries but bad data should return false",
+			config: &KubernetesConfig{
+				IPFamilies: []string{"ipv4", "v6overlay"},
+			},
+			want: false,
+		},
+		{
+			name: "dual-stack ipv6 first should return true",
+			config: &KubernetesConfig{
+				IPFamilies: []string{"IPv6", "ipv4"},
+			},
+			want: true,
+		},
+		{
+			name: "single stack ipv6 should return false",
+			config: &KubernetesConfig{
+				IPFamilies: []string{"ipv6"},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := tt.config
+			if got := k.IsDualStack(); got != tt.want {
+				t.Errorf("KubernetesConfig.IsDualStack() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

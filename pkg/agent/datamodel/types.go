@@ -542,6 +542,7 @@ type KubernetesConfig struct {
 	NetworkMode                       string            `json:"networkMode,omitempty"`
 	ContainerRuntime                  string            `json:"containerRuntime,omitempty"`
 	MaxPods                           int               `json:"maxPods,omitempty"`
+	IPFamilies                        []string          `json:"ipFamilies,omitempty"`
 	DockerBridgeSubnet                string            `json:"dockerBridgeSubnet,omitempty"`
 	DNSServiceIP                      string            `json:"dnsServiceIP,omitempty"`
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
@@ -1259,6 +1260,23 @@ func (k *KubernetesConfig) IsIPMasqAgentDisabled() bool {
 // IsIPMasqAgentEnabled checks if the ip-masq-agent addon is enabled
 func (k *KubernetesConfig) IsIPMasqAgentEnabled() bool {
 	return k.IsAddonEnabled(IPMASQAgentAddonName)
+}
+
+func (k *KubernetesConfig) IsDualStack() bool {
+	if len(k.IPFamilies) != 2 {
+		return false
+	}
+
+	v4Found, v6Found := false, false
+	for i := range k.IPFamilies {
+		if strings.EqualFold(k.IPFamilies[i], "ipv4") {
+			v4Found = true
+		} else if strings.EqualFold(k.IPFamilies[i], "ipv6") {
+			v6Found = true
+		}
+	}
+
+	return v4Found && v6Found
 }
 
 // GetAddonByName returns the KubernetesAddon instance with name `addonName`
