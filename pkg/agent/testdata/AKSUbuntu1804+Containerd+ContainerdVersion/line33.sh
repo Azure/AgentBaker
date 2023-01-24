@@ -82,7 +82,7 @@ if [[ ${ID} != "mariner" ]]; then
 fi
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved

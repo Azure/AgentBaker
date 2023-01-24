@@ -2290,12 +2290,8 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-{{- if not NeedsContainerd}}
-logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-{{- end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved

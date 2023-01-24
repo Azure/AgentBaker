@@ -80,10 +80,9 @@ if [[ ${ID} != "mariner" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
-logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
