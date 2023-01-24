@@ -830,6 +830,7 @@ NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
 OUTBOUND_COMMAND="{{GetOutboundCommand}}"
 ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
+ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -2451,13 +2452,13 @@ logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
-{{- end}} {{- end}}
+if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+fi
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
+        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
