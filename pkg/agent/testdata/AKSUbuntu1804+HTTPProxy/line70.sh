@@ -10,6 +10,19 @@ configureAdminUser(){
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
+configureTransparentHugePage() {
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    THP_ENABLED=
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+    fi
+    THP_DEFRAG=
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+    fi
+}
 configureEtcEnvironment() {
     echo 'HTTP_PROXY="http://myproxy.server.com:8080/"' >> /etc/environment
     echo 'http_proxy="http://myproxy.server.com:8080/"' >> /etc/environment

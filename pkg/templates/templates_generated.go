@@ -872,8 +872,6 @@ configureAdminUser(){
 configPrivateClusterHosts() {
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-
-{{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
     THP_ENABLED={{GetTransparentHugePageEnabled}}
@@ -887,7 +885,6 @@ configureTransparentHugePage() {
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
-{{- end}}
 
 {{- if ShouldConfigSwapFile}}
 configureSwapFile() {
