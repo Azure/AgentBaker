@@ -30,7 +30,7 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
@@ -50,7 +50,9 @@ installContainerRuntime() {
 
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-
+else
+    installMoby
+fi
 }
 
 installNetworkPlugin() {
@@ -115,6 +117,44 @@ installCrictl() {
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
+}
+
+downloadTeleportdPlugin() {
+    DOWNLOAD_URL=$1
+    TELEPORTD_VERSION=$2
+    if [[ $(isARM64) == 1 ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
+    if [[ -z ${DOWNLOAD_URL} ]]; then
+        echo "download url parameter for downloadTeleportdPlugin was not given"
+        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+    fi
+    if [[ -z ${TELEPORTD_VERSION} ]]; then
+        echo "teleportd version not given"
+        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+    fi
+    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+}
+
+installTeleportdPlugin() {
+    if [[ $(isARM64) == 1 ]]; then
+        # no arm64 teleport binaries according to owner
+        return
+    fi
+
+    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
+    local TARGET_VERSION="0.8.0"
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
+        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
+    else
+        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+    fi
+    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
 
 setupCNIDirs() {
@@ -306,21 +346,25 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
-        
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
-                removeContainerImage ${CLI_TOOL} ${image}
-                
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+                    removeContainerImage ${CLI_TOOL} ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     }
@@ -341,21 +385,25 @@ cleanUpKubeProxyImages() {
 }
 
 cleanupRetaggedImages() {
-    if [[ "AzurePublicCloud" != "AzureChinaCloud" ]]; then
-        
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+    if [[ "${TARGET_CLOUD}" != "AzureChinaCloud" ]]; then
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                 # always use ctr, even if crictl is installed.
                 # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
-                removeContainerImage "ctr" ${image}
-                
+                    removeContainerImage "ctr" ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     else

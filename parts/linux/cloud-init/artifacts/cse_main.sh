@@ -33,8 +33,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
-        grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -42,20 +42,20 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptFilepath}}
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEHelpersScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEHelpersScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptFilepath}}
+wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEConfigScriptFilepath}}
+wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
@@ -70,7 +70,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-{{GetOutboundCommand}}
+retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 
 # Bring in OS-related vars
 source /etc/os-release
@@ -173,7 +173,7 @@ echo $(date),$(hostname), "End configuring GPU drivers"
 
 if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set +x
-    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
     set -x
 fi
 
@@ -181,10 +181,10 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 
 createKubeManifestDir
 
-{{- if HasCustomSearchDomain}}
-wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-{{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
-{{end}}
+if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
+    wait_for_file 3600 1 "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
+fi
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
@@ -195,11 +195,12 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
-{{- if NeedsContainerd}}
-logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
-{{- else}}
-logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-{{- end}}
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+else
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
@@ -208,7 +209,7 @@ logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
-if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
+if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
@@ -216,24 +217,24 @@ if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
 
-{{ if ShouldConfigTransparentHugePage -}}
-logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
-{{- end}}
+if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
+fi
 
-{{- if ShouldConfigSwapFile}}
-logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
-{{- end}}
+if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
-{{- end}} {{- end}}
+if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+fi
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
+        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
@@ -241,10 +242,10 @@ fi
 
 VALIDATION_ERR=0
 
-{{- /* Edge case scenarios: */}}
-{{- /* high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster) */}}
-{{- /* high timeout to address high latency for private dns server to forward request to Azure DNS */}}
-{{- /* dns check will be done only if we use FQDN for API_SERVER_NAME */}}
+# Edge case scenarios:
+# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
+# high timeout to address high latency for private dns server to forward request to Azure DNS
+# dns check will be done only if we use FQDN for API_SERVER_NAME
 API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100
@@ -290,17 +291,16 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        {{- if EnableUnattendedUpgrade }}
-        systemctl unmask apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.timer apt-daily-upgrade.timer
-        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
-
-        {{- end }}
-        # this is the DOWNLOAD service
-        # meaning we are wasting IO without even triggering an upgrade 
-        # -________________-
-        systemctl restart --no-block apt-daily.service
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+        fi
         aptmarkWALinuxAgent unhold &
     fi
 fi

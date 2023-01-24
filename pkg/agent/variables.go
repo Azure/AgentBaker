@@ -188,6 +188,10 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		registry = `mcr.microsoft.com`
 	}
 
+	if registry == "" {
+		return ""
+	}
+
 	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS
 	// so we need to use nc for the connectivity check
 	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
@@ -200,10 +204,10 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
 	}
 
-	if registry == "" {
-		return ""
-	}
+	return connectivityCheckCommand
+}
 
+func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
 	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy
 	proxyVars := ""
 	if nbc.HTTPProxyConfig != nil {
@@ -218,12 +222,5 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
 		}
 	}
-
-	cmd := `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 50 1 5 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
-
-	if proxyVars != "" {
-		cmd = fmt.Sprintf("%s %s", proxyVars, cmd)
-	}
-
-	return cmd
+	return proxyVars
 }

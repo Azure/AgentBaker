@@ -828,6 +828,20 @@ IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
 IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
+OUTBOUND_COMMAND="{{GetOutboundCommand}}"
+ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
+ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
+SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
+SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+TARGET_CLOUD="{{GetTargetEnvironment}}"
+CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
+CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
+CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
+CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
+CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
+AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
+HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
+CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1418,94 +1432,94 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_helpersSh = []byte(`#!/bin/bash
-{{/* ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED */}}
-ERR_SYSTEMCTL_START_FAIL=4 {{/* Service could not be started or enabled by systemctl */}}
-ERR_CLOUD_INIT_TIMEOUT=5 {{/* Timeout waiting for cloud-init runcmd to complete */}}
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
-ERR_HOLD_WALINUXAGENT=7 {{/* Unable to place walinuxagent apt package on hold during install */}}
-ERR_RELEASE_HOLD_WALINUXAGENT=8 {{/* Unable to release hold on walinuxagent apt package after install */}}
-ERR_APT_INSTALL_TIMEOUT=9 {{/* Timeout installing required apt packages */}}
-ERR_DOCKER_INSTALL_TIMEOUT=20 {{/* Timeout waiting for docker install */}}
-ERR_DOCKER_DOWNLOAD_TIMEOUT=21 {{/* Timout waiting for docker downloads */}}
-ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 {{/* Timeout waiting to download docker repo key */}}
-ERR_DOCKER_APT_KEY_TIMEOUT=23 {{/* Timeout waiting for docker apt-key */}}
-ERR_DOCKER_START_FAIL=24 {{/* Docker could not be started by systemctl */}}
-ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
-ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
-ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
-ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
-ERR_RUNC_INSTALL_TIMEOUT=29 {{/* Timeout waiting for moby-runc install */}}
-ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
-ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
-ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
-ERR_IMG_DOWNLOAD_TIMEOUT=33 {{/* Timeout waiting for img download */}}
-ERR_KUBELET_START_FAIL=34 {{/* kubelet could not be started by systemctl */}}
-ERR_DOCKER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a Docker image */}}
-ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 {{/* Timeout trying to pull a containerd image via cli tool ctr */}}
-ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 {{/* Timeout trying to pull a containerd image via cli tool crictl */}}
-ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
-ERR_CNI_DOWNLOAD_TIMEOUT=41 {{/* Timeout waiting for CNI downloads */}}
-ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 {{/* Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb */}}
-ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
-{{/* ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED */}}
-ERR_SYSTEMD_INSTALL_FAIL=48 {{/* Unable to install required systemd version */}}
-ERR_MODPROBE_FAIL=49 {{/* Unable to load a kernel module using modprobe */}}
-ERR_OUTBOUND_CONN_FAIL=50 {{/* Unable to establish outbound connection */}}
-ERR_K8S_API_SERVER_CONN_FAIL=51 {{/* Unable to establish connection to k8s api server*/}}
-ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL=52 {{/* Unable to resolve k8s api server name */}}
-ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 {{/* Unable to resolve k8s api server name due to Azure DNS issue */}}
-ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key */}}
-ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
-ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
-ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
-ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
-ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
-ERR_GPU_DOWNLOAD_TIMEOUT=83 {{/* Timeout waiting for GPU driver download */}}
-ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
-ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
-ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
-ERR_GPU_INFO_ROM_CORRUPTED=87 {{/* info ROM corrupted error when executing nvidia-smi */}}
-ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 {{/* Timeout waiting for SGX prereqs to download */}}
-ERR_SGX_DRIVERS_START_FAIL=91 {{/* Failed to execute SGX driver binary */}}
-ERR_APT_DAILY_TIMEOUT=98 {{/* Timeout waiting for apt daily updates */}}
-ERR_APT_UPDATE_TIMEOUT=99 {{/* Timeout waiting for apt-get update to complete */}}
-ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 {{/* Timeout waiting for cloud-init to place this script on the vm */}}
-ERR_APT_DIST_UPGRADE_TIMEOUT=101 {{/* Timeout waiting for apt-get dist-upgrade to complete */}}
-ERR_APT_PURGE_FAIL=102 {{/* Error purging distro packages */}}
-ERR_SYSCTL_RELOAD=103 {{/* Error reloading sysctl config */}}
-ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement */}}
-ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
-ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
-ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
-ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
-ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
-ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
-ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
+# ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED 
+ERR_SYSTEMCTL_START_FAIL=4 # Service could not be started or enabled by systemctl
+ERR_CLOUD_INIT_TIMEOUT=5 # Timeout waiting for cloud-init runcmd to complete
+ERR_FILE_WATCH_TIMEOUT=6 # Timeout waiting for a file
+ERR_HOLD_WALINUXAGENT=7 # Unable to place walinuxagent apt package on hold during install
+ERR_RELEASE_HOLD_WALINUXAGENT=8 # Unable to release hold on walinuxagent apt package after install
+ERR_APT_INSTALL_TIMEOUT=9 # Timeout installing required apt packages
+ERR_DOCKER_INSTALL_TIMEOUT=20 # Timeout waiting for docker install
+ERR_DOCKER_DOWNLOAD_TIMEOUT=21 # Timout waiting for docker downloads
+ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 # Timeout waiting to download docker repo key
+ERR_DOCKER_APT_KEY_TIMEOUT=23 # Timeout waiting for docker apt-key
+ERR_DOCKER_START_FAIL=24 # Docker could not be started by systemctl
+ERR_MOBY_APT_LIST_TIMEOUT=25 # Timeout waiting for moby apt sources
+ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 # Timeout waiting for MS GPG key download
+ERR_MOBY_INSTALL_TIMEOUT=27 # Timeout waiting for moby-docker install
+ERR_CONTAINERD_INSTALL_TIMEOUT=28 # Timeout waiting for moby-containerd install
+ERR_RUNC_INSTALL_TIMEOUT=29 # Timeout waiting for moby-runc install
+ERR_K8S_RUNNING_TIMEOUT=30 # Timeout waiting for k8s cluster to be healthy
+ERR_K8S_DOWNLOAD_TIMEOUT=31 # Timeout waiting for Kubernetes downloads
+ERR_KUBECTL_NOT_FOUND=32 # kubectl client binary not found on local disk
+ERR_IMG_DOWNLOAD_TIMEOUT=33 # Timeout waiting for img download
+ERR_KUBELET_START_FAIL=34 # kubelet could not be started by systemctl
+ERR_DOCKER_IMG_PULL_TIMEOUT=35 # Timeout trying to pull a Docker image
+ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 # Timeout trying to pull a containerd image via cli tool ctr
+ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 # Timeout trying to pull a containerd image via cli tool crictl
+ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 # Unable to locate containerd debian pkg file
+ERR_CNI_DOWNLOAD_TIMEOUT=41 # Timeout waiting for CNI downloads
+ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
+ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 # Failed to add repo pkg file
+# ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED
+ERR_SYSTEMD_INSTALL_FAIL=48 # Unable to install required systemd version
+ERR_MODPROBE_FAIL=49 # Unable to load a kernel module using modprobe
+ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
+ERR_K8S_API_SERVER_CONN_FAIL=51 # Unable to establish connection to k8s api serve
+ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL=52 # Unable to resolve k8s api server name
+ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 # Unable to resolve k8s api server name due to Azure DNS issue
+ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 # Timeout waiting to download kata repo key
+ERR_KATA_APT_KEY_TIMEOUT=61 # Timeout waiting for kata apt-key
+ERR_KATA_INSTALL_TIMEOUT=62 # Timeout waiting for kata install
+ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 # Timeout waiting for containerd downloads
+ERR_RUNC_DOWNLOAD_TIMEOUT=71 # Timeout waiting for runc downloads
+ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 # Unable to configure custom search domains
+ERR_GPU_DOWNLOAD_TIMEOUT=83 # Timeout waiting for GPU driver download
+ERR_GPU_DRIVERS_START_FAIL=84 # nvidia-modprobe could not be started by systemctl
+ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 # Timeout waiting for GPU drivers install
+ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started by systemctl
+ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
+ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
+ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
+ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
+ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
+ERR_APT_DIST_UPGRADE_TIMEOUT=101 # Timeout waiting for apt-get dist-upgrade to complete
+ERR_APT_PURGE_FAIL=102 # Error purging distro packages
+ERR_SYSCTL_RELOAD=103 # Error reloading sysctl config
+ERR_CIS_ASSIGN_ROOT_PW=111 # Error assigning root password in CIS enforcement
+ERR_CIS_ASSIGN_FILE_PERMISSION=112 # Error assigning permission to a file in CIS enforcement
+ERR_PACKER_COPY_FILE=113 # Error writing a file to disk during VHD CI
+ERR_CIS_APPLY_PASSWORD_CONFIG=115 # Error applying CIS-recommended passwd configuration
+ERR_SYSTEMD_DOCKER_STOP_FAIL=116 # Error stopping dockerd
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
+ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
+ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 
-ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
-ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
+ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
-{{/* Azure Stack specific errors */}}
-ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azure Resource Manager */}}
-ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
-ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
+# Azure Stack specific errors
+ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
+ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
+ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
 
-ERR_SWAP_CREATE_FAIL=130 {{/* Error allocating swap file */}}
-ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
+ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
-ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
-ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
+ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
+ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 
-ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
-ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided certificates */}}
+ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
+ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
 
-ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
-ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
-ERR_DISABLE_SSH=172 {{/* Error disabling ssh service */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
+ERR_DISABLE_SSH=172 # Error disabling ssh service
 
-ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
-ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
+ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
+ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -1794,7 +1808,7 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-{{if NeedsContainerd}}
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
@@ -1814,9 +1828,9 @@ installContainerRuntime() {
 
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-{{else}}
+else
     installMoby
-{{end}}
+fi
 }
 
 installNetworkPlugin() {
@@ -1853,7 +1867,6 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{- if NeedsContainerd}}
 
 downloadCrictl() {
     CRICTL_VERSION=$1
@@ -1883,7 +1896,7 @@ installCrictl() {
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
-{{- if TeleportEnabled}}
+
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
@@ -1921,8 +1934,6 @@ installTeleportdPlugin() {
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
-{{- end}}
-{{- end}}
 
 setupCNIDirs() {
     mkdir -p $CNI_BIN_DIR
@@ -2113,25 +2124,25 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        {{if NeedsContainerd}}
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-        {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
-                removeContainerImage ${CLI_TOOL} ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+                    removeContainerImage ${CLI_TOOL} ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     }
@@ -2152,25 +2163,25 @@ cleanUpKubeProxyImages() {
 }
 
 cleanupRetaggedImages() {
-    if [[ "{{GetTargetEnvironment}}" != "AzureChinaCloud" ]]; then
-        {{if NeedsContainerd}}
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+    if [[ "${TARGET_CLOUD}" != "AzureChinaCloud" ]]; then
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-        {{end}}
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                 # always use ctr, even if crictl is installed.
                 # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
-                removeContainerImage "ctr" ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                    removeContainerImage "ctr" ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     else
@@ -2257,8 +2268,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
-        grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -2266,20 +2277,20 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptFilepath}}
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEHelpersScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEHelpersScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptFilepath}}
+wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEConfigScriptFilepath}}
+wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
@@ -2294,7 +2305,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-{{GetOutboundCommand}}
+retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 
 # Bring in OS-related vars
 source /etc/os-release
@@ -2397,7 +2408,7 @@ echo $(date),$(hostname), "End configuring GPU drivers"
 
 if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set +x
-    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
     set -x
 fi
 
@@ -2405,10 +2416,10 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 
 createKubeManifestDir
 
-{{- if HasCustomSearchDomain}}
-wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-{{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
-{{end}}
+if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
+    wait_for_file 3600 1 "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
+fi
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
@@ -2419,11 +2430,12 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
-{{- if NeedsContainerd}}
-logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
-{{- else}}
-logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-{{- end}}
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+else
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
@@ -2432,7 +2444,7 @@ logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
-if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
+if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
@@ -2440,24 +2452,24 @@ if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
 
-{{ if ShouldConfigTransparentHugePage -}}
-logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
-{{- end}}
+if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
+fi
 
-{{- if ShouldConfigSwapFile}}
-logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
-{{- end}}
+if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
-{{- end}} {{- end}}
+if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+fi
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
+        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
@@ -2465,10 +2477,10 @@ fi
 
 VALIDATION_ERR=0
 
-{{- /* Edge case scenarios: */}}
-{{- /* high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster) */}}
-{{- /* high timeout to address high latency for private dns server to forward request to Azure DNS */}}
-{{- /* dns check will be done only if we use FQDN for API_SERVER_NAME */}}
+# Edge case scenarios:
+# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
+# high timeout to address high latency for private dns server to forward request to Azure DNS
+# dns check will be done only if we use FQDN for API_SERVER_NAME
 API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100
@@ -2514,17 +2526,16 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        {{- if EnableUnattendedUpgrade }}
-        systemctl unmask apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.timer apt-daily-upgrade.timer
-        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
-
-        {{- end }}
-        # this is the DOWNLOAD service
-        # meaning we are wasting IO without even triggering an upgrade 
-        # -________________-
-        systemctl restart --no-block apt-daily.service
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+        fi
         aptmarkWALinuxAgent unhold &
     fi
 fi
@@ -4993,7 +5004,7 @@ while true; do
 done &
 
 # Manually sync all matching logs once
-for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|konnectivity|tunnelfront)-*_kube-system_*.log"); do
+for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|azure-cns|cilium|konnectivity|tunnelfront)-*_kube-system_*.log"); do
    echo "Linking $TUNNEL_LOG_FILE"
    /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
 done
@@ -5002,7 +5013,7 @@ echo "Starting inotifywait..."
 # Monitor for changes
 inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
     case $FILE in
-        aks-link-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+        aks-link-*_kube-system_*.log | azure-cns-*_kube-system_*.log | cilium-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
             case $EVENT in
                 CREATE*)
                     echo "Linking $FILE"
