@@ -33,8 +33,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
-        grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -42,20 +42,20 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptFilepath}}
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEHelpersScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEHelpersScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptFilepath}}
+wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEConfigScriptFilepath}}
+wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH

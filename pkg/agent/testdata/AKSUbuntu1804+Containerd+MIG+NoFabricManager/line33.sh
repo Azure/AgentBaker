@@ -33,8 +33,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s /opt/azure/containers/provision_source.sh ]; then
-        grep -Fq '#HELPERSEOF' /opt/azure/containers/provision_source.sh && break
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -42,20 +42,20 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" /opt/azure/containers/provision_source.sh
-source /opt/azure/containers/provision_source.sh
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 /opt/azure/containers/provision_source_distro.sh || exit $ERR_FILE_WATCH_TIMEOUT
-source /opt/azure/containers/provision_source_distro.sh
+wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 /opt/azure/containers/provision_installs.sh || exit $ERR_FILE_WATCH_TIMEOUT
-source /opt/azure/containers/provision_installs.sh
+wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 /opt/azure/containers/provision_installs_distro.sh || exit $ERR_FILE_WATCH_TIMEOUT
-source /opt/azure/containers/provision_installs_distro.sh
+wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 /opt/azure/containers/provision_configs.sh || exit $ERR_FILE_WATCH_TIMEOUT
-source /opt/azure/containers/provision_configs.sh
+wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
