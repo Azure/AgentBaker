@@ -31,8 +31,8 @@ copyPackerFiles() {
   KMS_SERVICE_DEST=/etc/systemd/system/kms.service
   HEALTH_MONITOR_SRC=/home/packer/health-monitor.sh
   HEALTH_MONITOR_DEST=/usr/local/bin/health-monitor.sh
-  KUBELET_MONITOR_SERVICE_SRC=/home/packer/kubelet-monitor.service
-  KUBELET_MONITOR_SERVICE_DEST=/etc/systemd/system/kubelet-monitor.service
+  MIG_PARTITION_SRC=/home/packer/mig-partition.sh
+  MIG_PARTITION_DEST=/opt/azure/containers/mig-partition.sh
   DOCKER_MONITOR_SERVICE_SRC=/home/packer/docker-monitor.service
   DOCKER_MONITOR_SERVICE_DEST=/etc/systemd/system/docker-monitor.service
   DOCKER_MONITOR_TIMER_SRC=/home/packer/docker-monitor.timer
@@ -125,7 +125,7 @@ copyPackerFiles() {
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
-  cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
+  cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
