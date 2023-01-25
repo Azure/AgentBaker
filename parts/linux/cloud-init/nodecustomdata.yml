@@ -496,16 +496,6 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-- path: /etc/sysctl.d/11-containerd.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    net.ipv4.ip_forward = 1
-    net.ipv4.conf.all.forwarding = 1
-    net.ipv6.conf.all.forwarding = 1
-    net.bridge.bridge-nf-call-iptables = 1
-    #EOF
-
 {{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"

@@ -104,10 +104,23 @@ if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBU
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
+mkdir -p "${CONTAINERD_SERVICE_DIR}"
+tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
+
+tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
-    forceEnableIpForward
     setMarinerNetworkdConfig
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
