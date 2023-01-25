@@ -50,7 +50,7 @@ stages:
             -e AZURE_LOCATION=${AZURE_LOCATION} \
             -e FEATURE_FLAGS=${FEATURE_FLAGS} \
             -e GIT_VERSION=$(Build.SourceVersion) \
-            -e BUILD_DEFINITION_NAME=$(Build.DefinitionName) \
+            -e BUILD_DEFINITION_NAME="$(Build.DefinitionName)" \
             -e BUILD_ID=$(Build.BuildId) \
             -e BUILD_NUMBER=$(Build.BuildNumber) \
             -e OS_VERSION=${OS_VERSION} \
