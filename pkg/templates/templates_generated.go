@@ -2390,7 +2390,13 @@ if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
+            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
@@ -5730,16 +5736,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
-
-- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="MIG_STRATEGY=--mig-strategy single"
-    ExecStart=
-    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
-    #EOF
 {{end}}
 
 {{- if HasKubeletDiskType}}
