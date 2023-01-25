@@ -14,12 +14,14 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
+// linux/cloud-init/artifacts/block_wireserver.sh
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
+// linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -496,6 +498,34 @@ func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsBlock_wireserverSh = []byte(`#!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+`)
+
+func linuxCloudInitArtifactsBlock_wireserverShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBlock_wireserverSh, nil
+}
+
+func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBlock_wireserverShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/block_wireserver.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCiSyslogWatcherPath = []byte(`[Unit]
 Description=Monitor the ContainerInsights syslog status file for changes
 
@@ -741,6 +771,25 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsContainerd_exec_startConf = []byte(`[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+`)
+
+func linuxCloudInitArtifactsContainerd_exec_startConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerd_exec_startConf, nil
+}
+
+func linuxCloudInitArtifactsContainerd_exec_startConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerd_exec_startConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd_exec_start.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1121,9 +1170,17 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
@@ -1162,24 +1219,6 @@ ensureDocker() {
 
 }
 
-ensureContainerdMonitorService() {
-    # Delay start of containerd-monitor for 30 mins after booting
-    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureDockerMonitorService() {
-    # Delay start of docker-monitor for 30 mins after booting
-    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureDHCPv6() {
     wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1198,6 +1237,19 @@ ensureKubelet() {
         wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+ #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
@@ -5637,23 +5689,12 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
 
-{{if not .IsVHDDistro}}
-- path: /opt/azure/containers/provision_cis.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionCIS"}}
-{{end}}
-
-{{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
-{{end}}
 
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
@@ -5724,60 +5765,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
-
-{{if not .IsVHDDistro}}
-- path: /usr/local/bin/health-monitor.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
-
-- path: /etc/systemd/system/kubelet-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
-
-{{if NeedsContainerd}}
-- path: /etc/systemd/system/containerd-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/containerd-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
-{{- else}}
-- path: /etc/systemd/system/docker-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/docker-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-{{- end}}
-
-- path: /etc/apt/preferences
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
-{{end}}
-
 
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
@@ -5893,15 +5880,6 @@ write_files:
 {{end}}
 
 {{if RequiresDocker}}
-    {{if not .IsVHDDistro}}
-- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-  permissions: "0644"
-  encoding: gzip
-  owner: "root"
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
-    {{end}}
-
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6117,16 +6095,6 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-- path: /etc/sysctl.d/11-containerd.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    net.ipv4.ip_forward = 1
-    net.ipv4.conf.all.forwarding = 1
-    net.ipv6.conf.all.forwarding = 1
-    net.bridge.bridge-nf-call-iptables = 1
-    #EOF
-
 {{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
@@ -6198,14 +6166,12 @@ write_files:
     {{GetParameter "clientCertificate"}}
 {{- end}}
 
-{{if HasCustomSearchDomain}}
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-{{end}}
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
@@ -6289,23 +6255,6 @@ write_files:
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{end}}
-    #EOF
-
-- path: /opt/azure/containers/kubelet.sh
-  permissions: "0755"
-  owner: root
-  content: |
-    #!/bin/bash
-    # Disallow container from reaching out to the special IP address 168.63.129.16
-    # for TCP protocol (which http uses)
-    #
-    # 168.63.129.16 contains protected settings that have priviledged info.
-    #
-    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
-    #
-    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
-    # for DNS.
-    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
 - path: /etc/sysctl.d/999-sysctl-aks.conf
@@ -7470,12 +7419,14 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
+	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
+	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7599,12 +7550,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
+				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},

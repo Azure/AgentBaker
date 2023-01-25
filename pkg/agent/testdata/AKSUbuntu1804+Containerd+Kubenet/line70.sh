@@ -233,9 +233,17 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
@@ -274,24 +282,6 @@ ensureDocker() {
 
 }
 
-ensureContainerdMonitorService() {
-    # Delay start of containerd-monitor for 30 mins after booting
-    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureDockerMonitorService() {
-    # Delay start of docker-monitor for 30 mins after booting
-    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureDHCPv6() {
     wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
@@ -310,6 +300,19 @@ ensureKubelet() {
         wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+ #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }

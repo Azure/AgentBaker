@@ -106,6 +106,16 @@
         },
         {
           "type": "file",
+          "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
+          "destination": "/home/packer/containerd_exec_start.conf"
+        },
+        {
+          "type": "file",
+          "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
+          "destination": "/home/packer/block_wireserver.sh"
+        },
+        {
+          "type": "file",
           "source": "parts/linux/cloud-init/artifacts/cis.sh",
           "destination": "/home/packer/cis.sh"
         },
