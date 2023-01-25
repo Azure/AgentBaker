@@ -334,7 +334,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
-        - template: ./template/.builder-release-template.yaml
+        - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-minimal-containerd
   - stage: build_vhd_1804_gen2_gpu_containerd
