@@ -76,9 +76,12 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/8SUXU/bPBiGz/srorw9exc7H001ehZKJtBYigKZNE0ochID1lIbOQ4wqvz3yW5J0tYNG5vE6f3cz5d92auRYRiGmTMqEKGYF+bMWGtKvyEljtASmzPDXLLsp9UZ0/FqvoiugrMojE/Sr2F8ebaImv/Rc82xtRW7CK7mp60DFDgzP3QtCvZIS4aKc5YjQRiVrSC7F7BrBV88lS4xic9lzp0Q99UMQjkmyEqWgZxxDB4JLdhjBSgWKgR31oADa8DxKjlOoqsknS9Owij4EjawJLR+krtfJGkQz0+b3YKD51JnNRV1WzYOz8PgMmzqgfPq99o9uwfMK8JoZc6M762qIg6YAMezvJ57o0+B41uO2crXvXq4uFVX3bp6sRIJXIl11AeOY7n9aCVQVm5yN51VsFl7TF7T/BW0pCUdr+Ikmu/jpNQ3giQL/3uEVFXtuDAjjJL8ECp/uudbAbCBbfH8yN1HYBPx9RAQWglUlnj7K1ifF75BdbmBwAZeV6DZum36QAqCukchdxZE3fUBAl67yIFbO3Qe17qRCk6k5x0H+VFnmFMs8MAQnceirMCWIslCPL8DAnFw+/wXU75AjvLKWhLOGQcKPvn2FeJdc/gwXikWw5P0c3IcpsdnURB/a8mEGaGIE1xB/cB9cPfnHmLXdeUPc8fEDXkCru269tS190GWNl8je+DjbyR7wNE8Din7vWzPdpyJxjYBms/VnYCpVj3SqD5w+1M6tq3L9YGuuw90e0+B3XvTW9ilAi/v5R/+HuiPmtF/4eLT6FcAAAD///cctahuCAAA
 
-
-
-
+- path: /opt/azure/containers/init-aks-custom-cloud.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    
 
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
@@ -196,7 +199,12 @@ write_files:
   content: |
     
 
-
+- path: /opt/azure/containers/setup-custom-search-domains.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/5yQQYsaQRCF7/MrKsZDcmjbFSTXDDpBQVeZUQK5NGVPjXbs6Zauko3Z+N/D7uwlq6dcCurx3uPxffygdy7oHfIhYxJQvzKO52QJev3nSVWYWbFYF2Vlvs0XxTrfzK69d4bpvNqUq3u+jOwhQg+gDqyYMNkD9J8n22qzWpqqyMvJzExXy3z+aB7zZXHtwR8QIlAImsTqQPIU01G7IJQatMSDWo+Hyvp4rpULTga22Wd8YaHWijeJWDAJjIYwhochvBW4sM+e0IlpYjJ4EuOjPXKWSNLFtrVxjWnQ+XOil9AYHkZDwJOo/QuPC7jAgt5DIvRtDczcHSUxegbGdofKxraNoXv+lU4XOcQwGnx5k73bMZzQHnFPRyf3lnXc3qMqi3yxNOu8qr6vyukrrddJ8DO6AGp7w7YLbKuivH7tf7pfesM/gUb1W4PO1Q/9Gf4zl/0NAAD///uJhCVYAgAA
 
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
