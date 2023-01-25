@@ -872,6 +872,7 @@ DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 IS_KRUSTLET="{{IsKrustlet}}"
@@ -1021,7 +1022,7 @@ configureEtcEnvironment() {
 }
 
 configureHTTPProxyCA() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
 
@@ -5722,7 +5723,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-{{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
@@ -5736,9 +5736,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
-{{end}}
 
-{{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -5753,6 +5751,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
+{{- if HasKubeletDiskType}}
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
   permissions: "0600"
   encoding: gzip
@@ -5808,15 +5807,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
-{{- end}}
-
-{{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.crt
-  permissions: "0644"
-  owner: root
-  content: |
-{{GetHTTPProxyCA}}
-    #EOF
 {{- end}}
 
 {{- if ShouldConfigureCustomCATrust}}

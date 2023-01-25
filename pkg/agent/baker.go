@@ -815,8 +815,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetHTTPProxyCA": func() string {
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
-				dec, _ := base64.StdEncoding.DecodeString(*config.HTTPProxyConfig.TrustedCA)
-				return datamodel.IndentString(string(dec), 4)
+				return *config.HTTPProxyConfig.TrustedCA
 			}
 			return ""
 		},
