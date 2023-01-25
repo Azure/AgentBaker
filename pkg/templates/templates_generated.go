@@ -919,6 +919,7 @@ CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
 CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
+HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -2521,6 +2522,15 @@ fi
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
+
+if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+    tee "/etc/systemd/system/kubelet.service.d/10-bindmount.conf" > /dev/null <<EOF
+[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
@@ -5784,15 +5794,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
-
-{{- if HasKubeletDiskType}}
-- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
-{{end}}
 
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
