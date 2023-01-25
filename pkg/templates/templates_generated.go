@@ -1162,24 +1162,6 @@ ensureDocker() {
 
 }
 
-ensureContainerdMonitorService() {
-    # Delay start of containerd-monitor for 30 mins after booting
-    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureDockerMonitorService() {
-    # Delay start of docker-monitor for 30 mins after booting
-    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureDHCPv6() {
     wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
@@ -5714,53 +5696,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
-{{if not .IsVHDDistro}}
-- path: /usr/local/bin/health-monitor.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
-
-{{if NeedsContainerd}}
-- path: /etc/systemd/system/containerd-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/containerd-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
-{{- else}}
-- path: /etc/systemd/system/docker-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/docker-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-{{- end}}
-
-- path: /etc/apt/preferences
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
-{{end}}
-
-
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
@@ -5875,15 +5810,6 @@ write_files:
 {{end}}
 
 {{if RequiresDocker}}
-    {{if not .IsVHDDistro}}
-- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-  permissions: "0644"
-  encoding: gzip
-  owner: "root"
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
-    {{end}}
-
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root

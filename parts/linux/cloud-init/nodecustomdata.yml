@@ -167,53 +167,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
 
-{{if not .IsVHDDistro}}
-- path: /usr/local/bin/health-monitor.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
-
-{{if NeedsContainerd}}
-- path: /etc/systemd/system/containerd-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/containerd-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
-{{- else}}
-- path: /etc/systemd/system/docker-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/docker-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-{{- end}}
-
-- path: /etc/apt/preferences
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
-{{end}}
-
-
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
@@ -328,15 +281,6 @@ write_files:
 {{end}}
 
 {{if RequiresDocker}}
-    {{if not .IsVHDDistro}}
-- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-  permissions: "0644"
-  encoding: gzip
-  owner: "root"
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
-    {{end}}
-
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root
