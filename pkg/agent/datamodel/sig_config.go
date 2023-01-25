@@ -1,8 +1,12 @@
 package datamodel
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -245,8 +249,6 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2023.01.19"
-
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
@@ -259,6 +261,33 @@ const (
 	// Used for edge zone scenario
 	EdgeZoneSIGImageVersion string = "2023.01.09"
 )
+
+type sigVersion struct {
+	OSType  string `json:"ostype"`
+	Version string `json:"version"`
+}
+
+//go:embed linux_sig_version.json
+var LinuxVersionJSONContentsEmbedded string
+
+var LinuxSIGImageVersion, _ = getSIGVersionFromEmbeddedString(LinuxVersionJSONContentsEmbedded)
+
+func getSIGVersionFromEmbeddedString(contents string) (string, error) {
+
+	if len(contents) == 0 {
+		return "", errors.New("no contents in file")
+	}
+
+	var sigImageStruct sigVersion
+	err := json.Unmarshal([]byte(contents), &sigImageStruct)
+
+	if err != nil {
+		return "", err
+	}
+
+	sigImageVersion := sigImageStruct.Version
+	return sigImageVersion, nil
+}
 
 // SIG config Template
 var (
