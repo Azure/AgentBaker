@@ -871,6 +871,7 @@ ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
+SHOULD_CONFIGURE_HTTP_PROXY="{{ShouldConfigureHTTPProxy}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
@@ -1007,18 +1008,43 @@ configureSwapFile() {
 }
 
 configureEtcEnvironment() {
+    mkdir -p /etc/systemd/system.conf.d/
+    touch /etc/systemd/system.conf.d/proxy.conf
+    chmod 0644 /etc/systemd/system.conf.d/proxy.conf
+
+    mkdir -p  /etc/apt/apt.conf.d
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
+    touch /etc/apt/apt.conf.d/95proxy
+
+    # TODO(ace): this pains me but quick and dirty refactor
+    echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
         echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${HTTPS_PROXY_URLS}" != "" ]; then
         echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
         echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${NO_PROXY_URLS}" != "" ]; then
         echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
         echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+        echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
+
+    # for kubelet to pick up the proxy
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+    tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/environment
+EOF
 }
 
 configureHTTPProxyCA() {
@@ -2323,10 +2349,13 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
-if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
-    configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
+    if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+        configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+    fi
     configureEtcEnvironment
 fi
+
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
@@ -5775,44 +5804,6 @@ write_files:
     APT::Periodic::Unattended-Upgrade "1";
 {{end}}
 {{end}}
-
-{{- if ShouldConfigureHTTPProxy}}
-- path: /etc/apt/apt.conf.d/95proxy
-  permissions: "0644"
-  owner: root
-  content: |
-    {{- if HasHTTPProxy }}
-    Acquire::http::proxy "{{GetHTTPProxy}}";
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    Acquire::https::proxy "{{GetHTTPSProxy}}";
-    {{- end}}
-
-- path: /etc/systemd/system.conf.d/proxy.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Manager]
-    {{- if HasHTTPProxy }}
-    DefaultEnvironment="HTTP_PROXY={{GetHTTPProxy}}"
-    DefaultEnvironment="http_proxy={{GetHTTPProxy}}"
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    DefaultEnvironment="HTTPS_PROXY={{GetHTTPSProxy}}"
-    DefaultEnvironment="https_proxy={{GetHTTPSProxy}}"
-    {{- end}}
-    {{- if HasNoProxy }}
-    DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
-    DefaultEnvironment="no_proxy={{GetNoProxy}}"
-    {{- end}}
-
-- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
-{{- end}}
 
 {{- if ShouldConfigureCustomCATrust}}
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
