@@ -5,7 +5,7 @@ ifeq (${OS_SKU},UbuntuMinimal)
     @echo "${MODE}: Building with Hyper-v generation 1 VM"
 	@echo "Using packer template file vhd-image-builder-sigminimal.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-sigminimal.json
-endif
+else
 ifeq (${OS_SKU},Ubuntu)
 ifeq (${ARCHITECTURE},ARM64)
 ifeq (${HYPERV_GENERATION},V2)
