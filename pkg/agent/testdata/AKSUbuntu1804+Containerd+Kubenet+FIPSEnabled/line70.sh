@@ -69,18 +69,43 @@ configureSwapFile() {
 }
 
 configureEtcEnvironment() {
+    mkdir -p /etc/systemd/system.conf.d/
+    touch /etc/systemd/system.conf.d/proxy.conf
+    chmod 0644 /etc/systemd/system.conf.d/proxy.conf
+
+    mkdir -p  /etc/apt/apt.conf.d
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
+    touch /etc/apt/apt.conf.d/95proxy
+
+    # TODO(ace): this pains me but quick and dirty refactor
+    echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
         echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${HTTPS_PROXY_URLS}" != "" ]; then
         echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
         echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${NO_PROXY_URLS}" != "" ]; then
         echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
         echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+        echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
+
+    # for kubelet to pick up the proxy
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+    tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/environment
+EOF
 }
 
 configureHTTPProxyCA() {
