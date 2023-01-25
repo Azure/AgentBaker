@@ -266,9 +266,9 @@ type sigVersion struct {
 }
 
 //go:embed linux_sig_version.json
-var LinuxVersionJSONContentsEmbedded string
+var linuxVersionJSONContentsEmbedded string
 
-var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(LinuxVersionJSONContentsEmbedded)
+var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
 
 func getSIGVersionFromEmbeddedString(contents string) string {
 
