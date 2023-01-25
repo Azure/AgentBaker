@@ -85,6 +85,8 @@ copyPackerFiles() {
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
+  KUBELET_SERVICE_SRC=/home/packer/kubelet.service
+  KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -108,6 +110,7 @@ copyPackerFiles() {
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
   
+  cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
