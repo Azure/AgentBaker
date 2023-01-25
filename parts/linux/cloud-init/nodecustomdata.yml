@@ -90,23 +90,12 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
 
-{{if not .IsVHDDistro}}
-- path: /opt/azure/containers/provision_cis.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionCIS"}}
-{{end}}
-
-{{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
-{{end}}
 
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
@@ -185,13 +174,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
-
-- path: /etc/systemd/system/kubelet-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
 
 {{if NeedsContainerd}}
 - path: /etc/systemd/system/containerd-monitor.timer
@@ -651,14 +633,12 @@ write_files:
     {{GetParameter "clientCertificate"}}
 {{- end}}
 
-{{if HasCustomSearchDomain}}
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-{{end}}
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
