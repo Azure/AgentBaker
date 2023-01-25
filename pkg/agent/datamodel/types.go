@@ -129,37 +129,40 @@ type Distro string
 
 // Distro string consts
 const (
-	Ubuntu                             Distro = "ubuntu"
-	Ubuntu1804                         Distro = "ubuntu-18.04"
-	Ubuntu1804Gen2                     Distro = "ubuntu-18.04-gen2"
-	AKSUbuntu1804Gen2                  Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
-	AKSUbuntu1604                      Distro = "aks-ubuntu-16.04"
-	AKSUbuntu1804                      Distro = "aks-ubuntu-18.04"
-	AKSUbuntuGPU1804                   Distro = "aks-ubuntu-gpu-18.04"
-	AKSUbuntuGPU1804Gen2               Distro = "aks-ubuntu-gpu-18.04-gen2"
-	AKSUbuntuContainerd1804            Distro = "aks-ubuntu-containerd-18.04"
-	AKSUbuntuContainerd1804Gen2        Distro = "aks-ubuntu-containerd-18.04-gen2"
-	AKSUbuntuGPUContainerd1804         Distro = "aks-ubuntu-gpu-containerd-18.04"
-	AKSUbuntuGPUContainerd1804Gen2     Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
-	AKSCBLMarinerV1                    Distro = "aks-cblmariner-v1"
-	AKSCBLMarinerV2Gen2                Distro = "aks-cblmariner-v2-gen2"
-	AKSCBLMarinerV2Gen2Kata            Distro = "aks-cblmariner-v2-gen2-kata"
-	AKSCBLMarinerV2Gen2TL              Distro = "aks-cblmariner-v2-gen2-tl"
-	AKSUbuntuFipsContainerd1804        Distro = "aks-ubuntu-fips-containerd-18.04"
-	AKSUbuntuFipsContainerd1804Gen2    Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
-	AKSUbuntuFipsGPUContainerd1804     Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
-	AKSUbuntuFipsGPUContainerd1804Gen2 Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
-	AKSUbuntuArm64Containerd1804Gen2   Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
-	AKSUbuntuContainerd2204            Distro = "aks-ubuntu-containerd-22.04"
-	AKSUbuntuContainerd2204Gen2        Distro = "aks-ubuntu-containerd-22.04-gen2"
-	AKSUbuntuContainerd2004CVMGen2     Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
-	AKSUbuntuArm64Containerd2204Gen2   Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-	AKSCBLMarinerV2Arm64Gen2           Distro = "aks-cblmariner-v2-arm64-gen2"
-	AKSUbuntuContainerd2204TLGen2      Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	RHEL                               Distro = "rhel"
-	CoreOS                             Distro = "coreos"
-	AKS1604Deprecated                  Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
-	AKS1804Deprecated                  Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
+	Ubuntu                              Distro = "ubuntu"
+	Ubuntu1804                          Distro = "ubuntu-18.04"
+	Ubuntu1804Gen2                      Distro = "ubuntu-18.04-gen2"
+	AKSUbuntu1804Gen2                   Distro = "ubuntu-18.04-gen2" // same distro as Ubuntu1804Gen2, renamed for clarity
+	AKSUbuntu1604                       Distro = "aks-ubuntu-16.04"
+	AKSUbuntu1804                       Distro = "aks-ubuntu-18.04"
+	AKSUbuntuGPU1804                    Distro = "aks-ubuntu-gpu-18.04"
+	AKSUbuntuGPU1804Gen2                Distro = "aks-ubuntu-gpu-18.04-gen2"
+	AKSUbuntuContainerd1804             Distro = "aks-ubuntu-containerd-18.04"
+	AKSUbuntuContainerd1804Gen2         Distro = "aks-ubuntu-containerd-18.04-gen2"
+	AKSUbuntuGPUContainerd1804          Distro = "aks-ubuntu-gpu-containerd-18.04"
+	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
+	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
+	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
+	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
+	AKSUbuntuFipsGPUContainerd1804      Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
+	AKSUbuntuFipsGPUContainerd1804Gen2  Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
+	AKSUbuntuArm64Containerd1804Gen2    Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
+	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
+	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
+	AKSUbuntuContainerd2204             Distro = "aks-ubuntu-containerd-22.04"
+	AKSUbuntuContainerd2204Gen2         Distro = "aks-ubuntu-containerd-22.04-gen2"
+	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
+	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
+	RHEL                                Distro = "rhel"
+	CoreOS                              Distro = "coreos"
+	AKS1604Deprecated                   Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
+	AKS1804Deprecated                   Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
 
 	// Windows string const
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker
@@ -192,6 +195,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
+	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
@@ -200,6 +204,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
+	AKSUbuntuEdgeZoneContainerd1804,
+	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -275,6 +281,11 @@ type ResourceIdentifiers struct {
 
 // CustomCloudEnv represents the custom cloud env info of the AKS cluster.
 type CustomCloudEnv struct {
+	// TODO(ace): why is Name uppercase?
+	// in Linux, this was historically specified as "name" when serialized.
+	// However Windows relies on the json tag as "Name"
+	// TODO(ace): can we align on one casing?
+	SnakeCaseName                string              `json:"name,omitempty"`
 	Name                         string              `json:"Name,omitempty"`
 	McrURL                       string              `json:"mcrURL,omitempty"`
 	RepoDepotEndpoint            string              `json:"repoDepotEndpoint,omitempty"`
@@ -821,13 +832,14 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 		// Workaround to set correct name in AzureStackCloud.json
 		oldName := p.CustomCloudEnv.Name
 		p.CustomCloudEnv.Name = AzureStackCloud
+		p.CustomCloudEnv.SnakeCaseName = AzureStackCloud
 		defer func() {
 			// Restore p.CustomCloudEnv to old value
 			p.CustomCloudEnv.Name = oldName
 		}()
 		bytes, err := json.Marshal(p.CustomCloudEnv)
 		if err != nil {
-			return "", fmt.Errorf("Could not serialize CustomCloudEnv object - %s", err.Error())
+			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %s", err.Error())
 		}
 		environmentJSON = string(bytes)
 		if escape {
@@ -1503,7 +1515,16 @@ type NodeBootstrappingConfiguration struct {
 	IsARM64                        bool
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
+	SSHStatus                      SSHStatus
 }
+
+type SSHStatus int
+
+const (
+	SSHUnspecified SSHStatus = iota
+	SSHOff
+	SSHOn
+)
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
 type NodeBootstrapping struct {

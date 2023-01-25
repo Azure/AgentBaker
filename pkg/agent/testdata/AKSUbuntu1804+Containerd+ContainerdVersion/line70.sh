@@ -7,12 +7,91 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
+configPrivateClusterHosts() {
+    mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
+    touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
+    tee /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf > /dev/null <<EOF
+[Service]
+Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
+  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
+}
+configureTransparentHugePage() {
+    ETC_SYSFS_CONF="/etc/sysfs.conf"
+    if [[ "${THP_ENABLED}" != "" ]]; then
+        echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
+        echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
+    fi
+    if [[ "${THP_DEFRAG}" != "" ]]; then
+        echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
+        echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
+    fi
+}
+
+configureSwapFile() {
+    # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
+    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
+    swap_location=""
+    
+    # Attempt to use the resource disk
+    if [[ -L /dev/disk/azure/resource-part1 ]]; then
+        resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
+        disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
+        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+            echo "Will use resource disk for swap file"
+            swap_location=${resource_disk_path}/swapfile
+        else
+            echo "Insufficient disk space on resource disk to create swap file: request ${swap_size_kb} free ${disk_free_kb}, attempting to fall back to OS disk..."
+        fi
+    fi
+
+    # If we couldn't use the resource disk, attempt to use the OS disk
+    if [[ -z "${swap_location}" ]]; then
+        # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
+        os_device=$(readlink -f /dev/disk/azure/root)
+        disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
+        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+            echo "Will use OS disk for swap file"
+            swap_location=/swapfile
+        else
+            echo "Insufficient disk space on OS device ${os_device} to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
+            exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
+        fi
+    fi
+
+    echo "Swap file will be saved to: ${swap_location}"
+    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    chmod 600 ${swap_location}
+    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    echo "${swap_location} none swap sw 0 0" >> /etc/fstab
+}
+
+configureEtcEnvironment() {
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+    fi
+}
+
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
+    for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
@@ -43,14 +122,14 @@ configureK8s() {
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    
+    # Perform the required JSON escaping
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud": "AzurePublicCloud",
+    "cloud": "${TARGET_CLOUD}",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -95,10 +174,30 @@ EOF
     fi
 
     configureKubeletServerCert
+    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+        set +x
+        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+        touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
+
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+        touch "${KUBELET_CONFIG_JSON_PATH}"
+        chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
+        chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
+        set -x
+    fi
 }
 
 configureCNI() {
-    
+    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
@@ -129,38 +228,101 @@ disableSystemdResolved() {
         cat /etc/resolv.conf
     fi
 }
+
 ensureContainerd() {
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  if [ "${TELEPORT_ENABLED}" == "true" ]; then
+    ensureTeleportd
+  fi
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-ensureMonitorService() {
-    
-    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
+
+ensureNoDupOnPromiscuBridge() {
+    wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
 
+ensureDocker() {
+    DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
+    wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    usermod -aG docker ${ADMINUSER}
+    DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    DOCKER_JSON_FILE=/etc/docker/daemon.json
+    for i in $(seq 1 1200); do
+        if [ -s $DOCKER_JSON_FILE ]; then
+            jq '.' < $DOCKER_JSON_FILE && break
+        fi
+        if [ $i -eq 1200 ]; then
+            exit $ERR_FILE_WATCH_TIMEOUT
+        else
+            sleep 1
+        fi
+    done
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
+    systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+
+}
+
+ensureDHCPv6() {
+    wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
+    retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
+}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    else
+        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+        wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+ #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-    
-    
 }
 
 ensureMigPartition(){
+    mkdir -p /etc/systemd/system/mig-partition.service.d/
+    touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
+    tee /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf > /dev/null <<EOF
+[Service]
+Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+EOF
     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -330,6 +492,10 @@ ensureGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+}
+
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
 #EOF

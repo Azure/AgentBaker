@@ -354,6 +354,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
+		"GetKubeletConfigFileContentBase64": func() string {
+			return base64.StdEncoding.EncodeToString([]byte(GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)))
+		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
@@ -365,13 +368,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
-		},
-		"GetKrustletFlags": func() string {
-			maxPods := config.KubeletConfig["--max-pods"]
-			if maxPods != "" {
-				return fmt.Sprintf("--max-pods=\"%s\"", maxPods)
-			}
-			return ""
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
@@ -416,7 +412,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
 		},
 		"GetSwapFileSizeMB": func() int32 {
-			return *profile.CustomLinuxOSConfig.SwapFileSizeMB
+			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil {
+				return *profile.CustomLinuxOSConfig.SwapFileSizeMB
+			}
+			return 0
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
@@ -830,6 +829,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasMessageOfTheDay": func() bool {
 			return profile.MessageOfTheDay != ""
 		},
+		"GetProxyVariables": func() string {
+			return getProxyVariables(config)
+		},
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
@@ -859,6 +861,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return cs.Properties.WindowsProfile.GetLogGeneratorIntervalInMinutes()
 			}
 			return 0
+		},
+		"ShouldDisableSSH": func() bool {
+			return config.SSHStatus == datamodel.SSHOff
 		},
 	}
 }

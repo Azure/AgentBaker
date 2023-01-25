@@ -14,12 +14,14 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
+// linux/cloud-init/artifacts/block_wireserver.sh
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
+// linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -45,7 +47,6 @@
 // linux/cloud-init/artifacts/ipv6_nftables.service
 // linux/cloud-init/artifacts/ipv6_nftables.sh
 // linux/cloud-init/artifacts/kms.service
-// linux/cloud-init/artifacts/krustlet.service
 // linux/cloud-init/artifacts/kubelet-monitor.service
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
@@ -460,9 +461,9 @@ set -x
 # kubelet thinks it's located on the temp disk (/dev/sdb). This results
 # in correct calculation of ephemeral-storage capacity.
 
-{{if eq GetKubeletDiskType "Temporary"}}
+# if aks ever supports alternatives besides temp disk
+# this mount point will need to be updated
 MOUNT_POINT="/mnt/aks"
-{{end}}
 
 KUBELET_MOUNT_POINT="${MOUNT_POINT}/kubelet"
 KUBELET_DIR="/var/lib/kubelet"
@@ -493,6 +494,34 @@ func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsBlock_wireserverSh = []byte(`#!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+`)
+
+func linuxCloudInitArtifactsBlock_wireserverShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBlock_wireserverSh, nil
+}
+
+func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBlock_wireserverShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/block_wireserver.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -746,6 +775,25 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsContainerd_exec_startConf = []byte(`[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+`)
+
+func linuxCloudInitArtifactsContainerd_exec_startConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerd_exec_startConf, nil
+}
+
+func linuxCloudInitArtifactsContainerd_exec_startConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerd_exec_startConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd_exec_start.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
@@ -756,6 +804,7 @@ for i in $(seq 1 1200); do
 grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
@@ -818,7 +867,58 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
+ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
+DISABLE_SSH="{{ShouldDisableSSH}}"
+NEEDS_CONTAINERD="{{NeedsContainerd}}"
+TELEPORT_ENABLED="{{TeleportEnabled}}"
+SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
+CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
+IS_KRUSTLET="{{IsKrustlet}}"
+GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
+NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
+IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
+OUTBOUND_COMMAND="{{GetOutboundCommand}}"
+ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
+ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
+SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
+SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+{{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
+{{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
+{{/* target environment seems to go to ARM SDK config */}}
+{{/* not sure why separate/inconsistent? */}}
+{{/* see GetCustomEnvironmentJSON for more weirdness. */}}
+TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
+TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
+CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
+IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
+CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
+CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
+CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
+CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
+CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
+AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
+HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
+CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
+HTTP_PROXY_URLS="{{GetHTTPProxy}}"
+HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
+NO_PROXY_URLS="{{GetNoProxy}}"
+CLIENT_TLS_BOOTSTRAPPING_ENABLED="{{IsKubeletClientTLSBootstrappingEnabled}}"
+DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
+DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
+THP_ENABLED="{{GetTransparentHugePageEnabled}}"
+THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
+KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
+KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
+SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
+GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
+CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
+CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
+CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
+
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
+`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -844,32 +944,30 @@ configureAdminUser(){
     chage -l "${ADMINUSER}"
 }
 
-{{- if EnableHostsConfigAgent}}
 configPrivateClusterHosts() {
+    mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
+    touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
+    tee /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf > /dev/null <<EOF
+[Service]
+Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
-
-{{- if ShouldConfigTransparentHugePage}}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
-    THP_ENABLED={{GetTransparentHugePageEnabled}}
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-    THP_DEFRAG={{GetTransparentHugePageDefrag}}
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
-{{- end}}
 
-{{- if ShouldConfigSwapFile}}
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr {{GetSwapFileSizeMB}} \* 1000)
+    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
     # Attempt to use the resource disk
@@ -906,24 +1004,21 @@ configureSwapFile() {
     retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
-{{- end}}
 
-{{- if ShouldConfigureHTTPProxy}}
 configureEtcEnvironment() {
-    {{- if HasHTTPProxy }}
-    echo 'HTTP_PROXY="{{GetHTTPProxy}}"' >> /etc/environment
-    echo 'http_proxy="{{GetHTTPProxy}}"' >> /etc/environment
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    echo 'HTTPS_PROXY="{{GetHTTPSProxy}}"' >> /etc/environment
-    echo 'https_proxy="{{GetHTTPSProxy}}"' >> /etc/environment
-    {{- end}}
-    {{- if HasNoProxy }}
-    echo 'NO_PROXY="{{GetNoProxy}}"' >> /etc/environment
-    echo 'no_proxy="{{GetNoProxy}}"' >> /etc/environment
-    {{- end}}
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+    fi
 }
-{{- end}}
 
 configureHTTPProxyCA() {
     wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
@@ -931,9 +1026,9 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
-    {{- range $i, $cert := GetCustomCATrustConfigCerts}}
-    wait_for_file 1200 1 /opt/certs/00000000000000cert{{$i}}.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- end}}
+    for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
@@ -964,18 +1059,14 @@ configureK8s() {
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    {{/* Perform the required JSON escaping */}}
+    # Perform the required JSON escaping
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    {{- if IsAKSCustomCloud}}
-    "cloud": "AzureStackCloud",
-    {{- else}}
-    "cloud": "{{GetTargetEnvironment}}",
-    {{- end}}
+    "cloud": "${TARGET_CLOUD}",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -1020,64 +1111,30 @@ EOF
     fi
 
     configureKubeletServerCert
-{{- if IsAKSCustomCloud}}
-    set +x
-    AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/{{GetTargetEnvironment}}.json"
-    touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-    chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+        set +x
+        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+        touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
 
-    cat << EOF > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
-{
-    "name": "{{GetTargetEnvironment}}",
-    "managementPortalURL": "{{AKSCustomCloudManagementPortalURL}}",
-    "publishSettingsURL": "{{AKSCustomCloudPublishSettingsURL}}",
-    "serviceManagementEndpoint": "{{AKSCustomCloudServiceManagementEndpoint}}",
-    "resourceManagerEndpoint": "{{AKSCustomCloudResourceManagerEndpoint}}",
-    "activeDirectoryEndpoint": "{{AKSCustomCloudActiveDirectoryEndpoint}}",
-    "galleryEndpoint": "{{AKSCustomCloudGalleryEndpoint}}",
-    "keyVaultEndpoint": "{{AKSCustomCloudKeyVaultEndpoint}}",
-    "graphEndpoint": "{{AKSCustomCloudGraphEndpoint}}",
-    "serviceBusEndpoint": "{{AKSCustomCloudServiceBusEndpoint}}",
-    "batchManagementEndpoint": "{{AKSCustomCloudBatchManagementEndpoint}}",
-    "storageEndpointSuffix": "{{AKSCustomCloudStorageEndpointSuffix}}",
-    "sqlDatabaseDNSSuffix": "{{AKSCustomCloudSqlDatabaseDNSSuffix}}",
-    "trafficManagerDNSSuffix": "{{AKSCustomCloudTrafficManagerDNSSuffix}}",
-    "keyVaultDNSSuffix": "{{AKSCustomCloudKeyVaultDNSSuffix}}",
-    "serviceBusEndpointSuffix": "{{AKSCustomCloudServiceBusEndpointSuffix}}",
-    "serviceManagementVMDNSSuffix": "{{AKSCustomCloudServiceManagementVMDNSSuffix}}",
-    "resourceManagerVMDNSSuffix": "{{AKSCustomCloudResourceManagerVMDNSSuffix}}",
-    "containerRegistryDNSSuffix": "{{AKSCustomCloudContainerRegistryDNSSuffix}}",
-    "cosmosDBDNSSuffix": "{{AKSCustomCloudCosmosDBDNSSuffix}}",
-    "tokenAudience": "{{AKSCustomCloudTokenAudience}}",
-    "resourceIdentifiers": {
-        "graph": "{{AKSCustomCloudResourceIdentifiersGraph}}",
-        "keyVault": "{{AKSCustomCloudResourceIdentifiersKeyVault}}",
-        "datalake": "{{AKSCustomCloudResourceIdentifiersDatalake}}",
-        "batch": "{{AKSCustomCloudResourceIdentifiersBatch}}",
-        "operationalInsights": "{{AKSCustomCloudResourceIdentifiersOperationalInsights}}",
-        "storage": "{{AKSCustomCloudResourceIdentifiersStorage}}"
-    }
-}
-EOF
-    set -x
-{{end}}
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
 
-{{- if IsKubeletConfigFileEnabled}}
-    set +x
-    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
-    touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
-    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{{GetKubeletConfigFileContent}}
-EOF
-    set -x
-{{- end}}
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+        touch "${KUBELET_CONFIG_JSON_PATH}"
+        chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
+        chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
+        set -x
+    fi
 }
 
 configureCNI() {
-    {{/* needed for the iptables rules to work on bridges */}}
+    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
@@ -1109,32 +1166,37 @@ disableSystemdResolved() {
     fi
 }
 
-{{- if NeedsContainerd}}
 ensureContainerd() {
-  {{- if TeleportEnabled}}
-  ensureTeleportd
-  {{- end}}
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  if [ "${TELEPORT_ENABLED}" == "true" ]; then
+    ensureTeleportd
+  fi
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+
 ensureNoDupOnPromiscuBridge() {
     wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
-{{- if TeleportEnabled}}
+
 ensureTeleportd() {
     wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
-{{- end}}
-{{- else}}
+
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -1156,62 +1218,48 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-{{- end}}
-{{- if NeedsContainerd}}
-ensureMonitorService() {
-    {{/* Delay start of containerd-monitor for 30 mins after booting */}}
-    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{- else}}
-ensureMonitorService() {
-    {{/* Delay start of docker-monitor for 30 mins after booting */}}
-    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-{{- end}}
 
-{{if IsIPv6DualStackFeatureEnabled}}
 ensureDHCPv6() {
-    wait_for_file 3600 1 {{GetDHCPv6ServiceCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 3600 1 {{GetDHCPv6ConfigCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
-{{end}}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    {{if IsKubeletClientTLSBootstrappingEnabled -}}
-    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-    wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- else -}}
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    {{- end}}
+    if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    else
+        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+        wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+ #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-    {{if HasAntreaNetworkPolicy}}
-    while [ ! -f /etc/cni/net.d/10-antrea.conf ]; do
-        sleep 3
-    done
-    {{end}}
-    {{if HasFlannelNetworkPlugin}}
-    while [ ! -f /etc/cni/net.d/10-flannel.conf ]; do
-        sleep 3
-    done
-    {{end}}
 }
 
 ensureMigPartition(){
+    mkdir -p /etc/systemd/system/mig-partition.service.d/
+    touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
+    tee /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf > /dev/null <<EOF
+[Service]
+Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+EOF
     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -1383,6 +1431,10 @@ ensureGPUDrivers() {
     fi
 }
 
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+}
+
 #EOF
 `)
 
@@ -1402,100 +1454,105 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_helpersSh = []byte(`#!/bin/bash
-{{/* ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED */}}
-ERR_SYSTEMCTL_START_FAIL=4 {{/* Service could not be started or enabled by systemctl */}}
-ERR_CLOUD_INIT_TIMEOUT=5 {{/* Timeout waiting for cloud-init runcmd to complete */}}
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
-ERR_HOLD_WALINUXAGENT=7 {{/* Unable to place walinuxagent apt package on hold during install */}}
-ERR_RELEASE_HOLD_WALINUXAGENT=8 {{/* Unable to release hold on walinuxagent apt package after install */}}
-ERR_APT_INSTALL_TIMEOUT=9 {{/* Timeout installing required apt packages */}}
-ERR_DOCKER_INSTALL_TIMEOUT=20 {{/* Timeout waiting for docker install */}}
-ERR_DOCKER_DOWNLOAD_TIMEOUT=21 {{/* Timout waiting for docker downloads */}}
-ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 {{/* Timeout waiting to download docker repo key */}}
-ERR_DOCKER_APT_KEY_TIMEOUT=23 {{/* Timeout waiting for docker apt-key */}}
-ERR_DOCKER_START_FAIL=24 {{/* Docker could not be started by systemctl */}}
-ERR_MOBY_APT_LIST_TIMEOUT=25 {{/* Timeout waiting for moby apt sources */}}
-ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 {{/* Timeout waiting for MS GPG key download */}}
-ERR_MOBY_INSTALL_TIMEOUT=27 {{/* Timeout waiting for moby-docker install */}}
-ERR_CONTAINERD_INSTALL_TIMEOUT=28 {{/* Timeout waiting for moby-containerd install */}}
-ERR_RUNC_INSTALL_TIMEOUT=29 {{/* Timeout waiting for moby-runc install */}}
-ERR_K8S_RUNNING_TIMEOUT=30 {{/* Timeout waiting for k8s cluster to be healthy */}}
-ERR_K8S_DOWNLOAD_TIMEOUT=31 {{/* Timeout waiting for Kubernetes downloads */}}
-ERR_KUBECTL_NOT_FOUND=32 {{/* kubectl client binary not found on local disk */}}
-ERR_IMG_DOWNLOAD_TIMEOUT=33 {{/* Timeout waiting for img download */}}
-ERR_KUBELET_START_FAIL=34 {{/* kubelet could not be started by systemctl */}}
-ERR_DOCKER_IMG_PULL_TIMEOUT=35 {{/* Timeout trying to pull a Docker image */}}
-ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 {{/* Timeout trying to pull a containerd image via cli tool ctr */}}
-ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 {{/* Timeout trying to pull a containerd image via cli tool crictl */}}
-ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 {{/* Unable to locate containerd debian pkg file */}}
-ERR_CNI_DOWNLOAD_TIMEOUT=41 {{/* Timeout waiting for CNI downloads */}}
-ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 {{/* Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb */}}
-ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 {{/* Failed to add repo pkg file */}}
-{{/* ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED */}}
-ERR_SYSTEMD_INSTALL_FAIL=48 {{/* Unable to install required systemd version */}}
-ERR_MODPROBE_FAIL=49 {{/* Unable to load a kernel module using modprobe */}}
-ERR_OUTBOUND_CONN_FAIL=50 {{/* Unable to establish outbound connection */}}
-ERR_K8S_API_SERVER_CONN_FAIL=51 {{/* Unable to establish connection to k8s api server*/}}
-ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL=52 {{/* Unable to resolve k8s api server name */}}
-ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 {{/* Unable to resolve k8s api server name due to Azure DNS issue */}}
-ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 {{/* Timeout waiting to download kata repo key */}}
-ERR_KATA_APT_KEY_TIMEOUT=61 {{/* Timeout waiting for kata apt-key */}}
-ERR_KATA_INSTALL_TIMEOUT=62 {{/* Timeout waiting for kata install */}}
-ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 {{/* Timeout waiting for containerd downloads */}}
-ERR_RUNC_DOWNLOAD_TIMEOUT=71 {{/* Timeout waiting for runc downloads */}}
-ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 {{/* Unable to configure custom search domains */}}
-ERR_GPU_DOWNLOAD_TIMEOUT=83 {{/* Timeout waiting for GPU driver download */}}
-ERR_GPU_DRIVERS_START_FAIL=84 {{/* nvidia-modprobe could not be started by systemctl */}}
-ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 {{/* Timeout waiting for GPU drivers install */}}
-ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 {{/* nvidia device plugin could not be started by systemctl */}}
-ERR_GPU_INFO_ROM_CORRUPTED=87 {{/* info ROM corrupted error when executing nvidia-smi */}}
-ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 {{/* Timeout waiting for SGX prereqs to download */}}
-ERR_SGX_DRIVERS_START_FAIL=91 {{/* Failed to execute SGX driver binary */}}
-ERR_APT_DAILY_TIMEOUT=98 {{/* Timeout waiting for apt daily updates */}}
-ERR_APT_UPDATE_TIMEOUT=99 {{/* Timeout waiting for apt-get update to complete */}}
-ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 {{/* Timeout waiting for cloud-init to place this script on the vm */}}
-ERR_APT_DIST_UPGRADE_TIMEOUT=101 {{/* Timeout waiting for apt-get dist-upgrade to complete */}}
-ERR_APT_PURGE_FAIL=102 {{/* Error purging distro packages */}}
-ERR_SYSCTL_RELOAD=103 {{/* Error reloading sysctl config */}}
-ERR_CIS_ASSIGN_ROOT_PW=111 {{/* Error assigning root password in CIS enforcement */}}
-ERR_CIS_ASSIGN_FILE_PERMISSION=112 {{/* Error assigning permission to a file in CIS enforcement */}}
-ERR_PACKER_COPY_FILE=113 {{/* Error writing a file to disk during VHD CI */}}
-ERR_CIS_APPLY_PASSWORD_CONFIG=115 {{/* Error applying CIS-recommended passwd configuration */}}
-ERR_SYSTEMD_DOCKER_STOP_FAIL=116 {{/* Error stopping dockerd */}}
-ERR_CRICTL_DOWNLOAD_TIMEOUT=117 {{/* Timeout waiting for crictl downloads */}}
-ERR_CRICTL_OPERATION_ERROR=118 {{/* Error executing a crictl operation */}}
-ERR_CTR_OPERATION_ERROR=119 {{/* Error executing a ctr containerd cli operation */}}
+# ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED 
+ERR_SYSTEMCTL_START_FAIL=4 # Service could not be started or enabled by systemctl
+ERR_CLOUD_INIT_TIMEOUT=5 # Timeout waiting for cloud-init runcmd to complete
+ERR_FILE_WATCH_TIMEOUT=6 # Timeout waiting for a file
+ERR_HOLD_WALINUXAGENT=7 # Unable to place walinuxagent apt package on hold during install
+ERR_RELEASE_HOLD_WALINUXAGENT=8 # Unable to release hold on walinuxagent apt package after install
+ERR_APT_INSTALL_TIMEOUT=9 # Timeout installing required apt packages
+ERR_DOCKER_INSTALL_TIMEOUT=20 # Timeout waiting for docker install
+ERR_DOCKER_DOWNLOAD_TIMEOUT=21 # Timout waiting for docker downloads
+ERR_DOCKER_KEY_DOWNLOAD_TIMEOUT=22 # Timeout waiting to download docker repo key
+ERR_DOCKER_APT_KEY_TIMEOUT=23 # Timeout waiting for docker apt-key
+ERR_DOCKER_START_FAIL=24 # Docker could not be started by systemctl
+ERR_MOBY_APT_LIST_TIMEOUT=25 # Timeout waiting for moby apt sources
+ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT=26 # Timeout waiting for MS GPG key download
+ERR_MOBY_INSTALL_TIMEOUT=27 # Timeout waiting for moby-docker install
+ERR_CONTAINERD_INSTALL_TIMEOUT=28 # Timeout waiting for moby-containerd install
+ERR_RUNC_INSTALL_TIMEOUT=29 # Timeout waiting for moby-runc install
+ERR_K8S_RUNNING_TIMEOUT=30 # Timeout waiting for k8s cluster to be healthy
+ERR_K8S_DOWNLOAD_TIMEOUT=31 # Timeout waiting for Kubernetes downloads
+ERR_KUBECTL_NOT_FOUND=32 # kubectl client binary not found on local disk
+ERR_IMG_DOWNLOAD_TIMEOUT=33 # Timeout waiting for img download
+ERR_KUBELET_START_FAIL=34 # kubelet could not be started by systemctl
+ERR_DOCKER_IMG_PULL_TIMEOUT=35 # Timeout trying to pull a Docker image
+ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 # Timeout trying to pull a containerd image via cli tool ctr
+ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 # Timeout trying to pull a containerd image via cli tool crictl
+ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 # Unable to locate containerd debian pkg file
+ERR_CNI_DOWNLOAD_TIMEOUT=41 # Timeout waiting for CNI downloads
+ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
+ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 # Failed to add repo pkg file
+# ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED
+ERR_SYSTEMD_INSTALL_FAIL=48 # Unable to install required systemd version
+ERR_MODPROBE_FAIL=49 # Unable to load a kernel module using modprobe
+ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
+ERR_K8S_API_SERVER_CONN_FAIL=51 # Unable to establish connection to k8s api serve
+ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL=52 # Unable to resolve k8s api server name
+ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 # Unable to resolve k8s api server name due to Azure DNS issue
+ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 # Timeout waiting to download kata repo key
+ERR_KATA_APT_KEY_TIMEOUT=61 # Timeout waiting for kata apt-key
+ERR_KATA_INSTALL_TIMEOUT=62 # Timeout waiting for kata install
+ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 # Timeout waiting for containerd downloads
+ERR_RUNC_DOWNLOAD_TIMEOUT=71 # Timeout waiting for runc downloads
+ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 # Unable to configure custom search domains
+ERR_GPU_DOWNLOAD_TIMEOUT=83 # Timeout waiting for GPU driver download
+ERR_GPU_DRIVERS_START_FAIL=84 # nvidia-modprobe could not be started by systemctl
+ERR_GPU_DRIVERS_INSTALL_TIMEOUT=85 # Timeout waiting for GPU drivers install
+ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started by systemctl
+ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
+ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
+ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
+ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
+ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
+ERR_APT_DIST_UPGRADE_TIMEOUT=101 # Timeout waiting for apt-get dist-upgrade to complete
+ERR_APT_PURGE_FAIL=102 # Error purging distro packages
+ERR_SYSCTL_RELOAD=103 # Error reloading sysctl config
+ERR_CIS_ASSIGN_ROOT_PW=111 # Error assigning root password in CIS enforcement
+ERR_CIS_ASSIGN_FILE_PERMISSION=112 # Error assigning permission to a file in CIS enforcement
+ERR_PACKER_COPY_FILE=113 # Error writing a file to disk during VHD CI
+ERR_CIS_APPLY_PASSWORD_CONFIG=115 # Error applying CIS-recommended passwd configuration
+ERR_SYSTEMD_DOCKER_STOP_FAIL=116 # Error stopping dockerd
+ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
+ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
+ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 
-ERR_VHD_FILE_NOT_FOUND=124 {{/* VHD log file not found on VM built from VHD distro */}}
-ERR_VHD_BUILD_ERROR=125 {{/* Reserved for VHD CI exit conditions */}}
+ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
-{{/* Azure Stack specific errors */}}
-ERR_AZURE_STACK_GET_ARM_TOKEN=120 {{/* Error generating a token to use with Azure Resource Manager */}}
-ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 {{/* Error fetching the network configuration for the node */}}
-ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 {{/* Error fetching the subnet address prefix for a subnet ID */}}
+# Azure Stack specific errors
+ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
+ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
+ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
 
-ERR_SWAP_CREATE_FAIL=130 {{/* Error allocating swap file */}}
-ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 {{/* Error insufficient disk space for swap file creation */}}
+ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
+ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
-ERR_TELEPORTD_DOWNLOAD_ERR=150 {{/* Error downloading teleportd binary */}}
-ERR_TELEPORTD_INSTALL_ERR=151 {{/* Error installing teleportd binary */}}
+ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
+ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 
-ERR_HTTP_PROXY_CA_CONVERT=160 {{/* Error converting http proxy ca cert from pem to crt format */}}
-ERR_UPDATE_CA_CERTS=161 {{/* Error updating ca certs to include user-provided certificates */}}
+ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
+ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
 
-ERR_DISBALE_IPTABLES=170 {{/* Error disabling iptables service */}}
+ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
-ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 {{/* Timeout waiting for krustlet downloads */}}
+ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
+ERR_DISABLE_SSH=172 # Error disabling ssh service
 
-ERR_VHD_REBOOT_REQUIRED=200 {{/* Reserved for VHD reboot required exit condition */}}
-ERR_NO_PACKAGES_FOUND=201 {{/* Reserved for no security packages found exit condition */}}
+ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
+ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
-export GPU_DV="{{GPUDriverVersion}}"
+# this will be empty during VHD build
+# but vhd build runs with `+"`"+`set -o nounset`+"`"+`
+# so needs a default value
+# prefer empty string to avoid potential "it works but did something weird" scenarios
+export GPU_DV="${GPU_DRIVER_VERSION:=}"
 export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
@@ -1777,7 +1834,7 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-{{if NeedsContainerd}}
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
@@ -1797,9 +1854,9 @@ installContainerRuntime() {
 
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-{{else}}
+else
     installMoby
-{{end}}
+fi
 }
 
 installNetworkPlugin() {
@@ -1836,7 +1893,6 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{- if NeedsContainerd}}
 
 downloadCrictl() {
     CRICTL_VERSION=$1
@@ -1866,7 +1922,7 @@ installCrictl() {
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
-{{- if TeleportEnabled}}
+
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
@@ -1904,8 +1960,6 @@ installTeleportdPlugin() {
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
-{{- end}}
-{{- end}}
 
 setupCNIDirs() {
     mkdir -p $CNI_BIN_DIR
@@ -2096,25 +2150,25 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        {{if NeedsContainerd}}
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-        {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
-                removeContainerImage ${CLI_TOOL} ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+                    removeContainerImage ${CLI_TOOL} ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     }
@@ -2135,25 +2189,25 @@ cleanUpKubeProxyImages() {
 }
 
 cleanupRetaggedImages() {
-    if [[ "{{GetTargetEnvironment}}" != "AzureChinaCloud" ]]; then
-        {{if NeedsContainerd}}
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+    if [[ "${TARGET_CLOUD}" != "AzureChinaCloud" ]]; then
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-        {{end}}
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                 # always use ctr, even if crictl is installed.
                 # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
-                removeContainerImage "ctr" ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                    removeContainerImage "ctr" ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     else
@@ -2206,7 +2260,8 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6 {{/* Timeout waiting for a file */}}
+# Timeout waiting for a file
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -2239,8 +2294,8 @@ fi
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
-    if [ -s {{GetCSEHelpersScriptFilepath}} ]; then
-        grep -Fq '#HELPERSEOF' {{GetCSEHelpersScriptFilepath}} && break
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -2248,31 +2303,35 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/#HELPERSEOF/d" {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptFilepath}}
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEHelpersScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEHelpersScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptFilepath}}
+wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEInstallScriptDistroFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEInstallScriptDistroFilepath}}
+wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 {{GetCSEConfigScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-source {{GetCSEConfigScriptFilepath}}
+wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+source "${CSE_CONFIG_FILEPATH}"
 
-{{- if ShouldConfigureHTTPProxyCA}}
-configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
-configureEtcEnvironment
-{{- end}}
+if [[ "${DISABLE_SSH}" == "true" ]]; then
+    disableSSH || exit $ERR_DISABLE_SSH
+fi
 
-{{- if ShouldConfigureCustomCATrust}}
-configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
-{{- end}}
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+    configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+    configureEtcEnvironment
+fi
 
-{{GetOutboundCommand}}
+if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
+    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+fi
+
+retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 
 # Bring in OS-related vars
 source /etc/os-release
@@ -2283,12 +2342,8 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-{{- if not NeedsContainerd}}
-logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-{{- end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
@@ -2315,22 +2370,21 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-{{- if and NeedsContainerd TeleportEnabled}}
-logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-{{- end}}
+if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+fi
 
 setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-{{- if IsKrustlet }}
+if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
-{{- end }}
+fi
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
-{{- if IsNSeriesSKU}}
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
@@ -2344,7 +2398,7 @@ if [[ "${GPU_NODE}" = true ]]; then
     fi
 fi
 
-if [[ "{{GPUNeedsFabricManager}}" == "true" ]]; then
+if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
     # fabric manager trains nvlink connections between multi instance gpus.
     # it appears this is only necessary for systems with *multiple cards*.
     # i.e., an A100 can be partitioned a maximum of 7 ways.
@@ -2373,77 +2427,72 @@ if [[ "${MIG_NODE}" == "true" ]]; then
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
-{{end}}
 
-{{- if and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}
-set +x
-docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET {{GetPrivateAzureRegistryServer}}
-set -x
-{{end}}
+if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
+    set +x
+    docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
+    set -x
+fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
 
-{{- if HasDCSeriesSKU}}
-if [[ ${SGX_NODE} == true && ! -e "/dev/sgx" ]]; then
-    logs_to_events "AKS.CSE.installSGXDrivers" installSGXDrivers
+if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
+    wait_for_file 3600 1 "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
-{{end}}
-
-{{- if HasCustomSearchDomain}}
-wait_for_file 3600 1 {{GetCustomSearchDomainsCSEScriptFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
-{{GetCustomSearchDomainsCSEScriptFilepath}} > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
-{{end}}
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
-{{/* configure and enable dhcpv6 for dual stack feature */}}
-{{- if IsIPv6DualStackFeatureEnabled}}
-logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
-{{- end}}
+# configure and enable dhcpv6 for dual stack feature
+if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+fi
 
-{{- if NeedsContainerd}}
-logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd {{/* containerd should not be configured until cni has been configured first */}}
-{{- else}}
-logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-{{- end}}
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # containerd should not be configured until cni has been configured first
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+    logs_to_events "AKS.CSE.ensureContainerdMonitorService" ensureContainerdMonitorService
+else
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+    logs_to_events "AKS.CSE.ensureDockerMonitorService" ensureDockerMonitorService
+fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
 
-logs_to_events "AKS.CSE.ensureMonitorService" ensureMonitorService
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
-if [[ "{{GetTargetEnvironment}}" == "AzureChinaCloud" ]]; then
+if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-{{- if EnableHostsConfigAgent}}
-logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-{{- end}}
+if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+fi
 
-{{- if ShouldConfigTransparentHugePage}}
-logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
-{{- end}}
+if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
+fi
 
-{{- if ShouldConfigSwapFile}}
-logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
-{{- end}}
+if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
-{{- if NeedsContainerd}} {{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
-{{- end}} {{- end}}
+if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+fi
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        {{/* mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 */}}
+        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
@@ -2451,10 +2500,10 @@ fi
 
 VALIDATION_ERR=0
 
-{{- /* Edge case scenarios: */}}
-{{- /* high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster) */}}
-{{- /* high timeout to address high latency for private dns server to forward request to Azure DNS */}}
-{{- /* dns check will be done only if we use FQDN for API_SERVER_NAME */}}
+# Edge case scenarios:
+# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
+# high timeout to address high latency for private dns server to forward request to Azure DNS
+# dns check will be done only if we use FQDN for API_SERVER_NAME
 API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100
@@ -2464,12 +2513,12 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
-    {{- if not EnableHostsConfigAgent}}
-    RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
-    STS=$?
-    {{- else}}
-    STS=0
-    {{- end}}
+    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        STS=$?
+    else
+        STS=0
+    fi
     if [[ $STS != 0 ]]; then
         time nslookup ${API_SERVER_NAME}
         if [[ $RES == *"168.63.129.16"*  ]]; then
@@ -2500,17 +2549,16 @@ if $REBOOTREQUIRED; then
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
-        {{- if EnableUnattendedUpgrade }}
-        systemctl unmask apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.service apt-daily-upgrade.service
-        systemctl enable apt-daily.timer apt-daily-upgrade.timer
-        systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
-
-        {{- end }}
-        # this is the DOWNLOAD service
-        # meaning we are wasting IO without even triggering an upgrade 
-        # -________________-
-        systemctl restart --no-block apt-daily.service
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+        fi
         aptmarkWALinuxAgent unhold &
     fi
 fi
@@ -2803,7 +2851,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart={{GetDHCPv6ConfigCSEScriptFilepath}}
+ExecStart=/opt/azure/containers/enable-dhcpv6.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -3309,7 +3357,7 @@ fi
 (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
 
 cloud-init status --wait
-repoDepotEndpoint="{{AKSCustomCloudRepoDepotEndpoint}}"
+repoDepotEndpoint="${REPO_DEPOT_ENDPOINT}"
 sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 
 # Disable systemd-timesyncd and install chrony and uses local time source
@@ -3555,40 +3603,6 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsKrustletService = []byte(`[Unit]
-Description=Krustlet
-
-[Service]
-Restart=on-failure
-RestartSec=5s
-EnvironmentFile=/etc/default/kubelet
-Environment=KUBECONFIG=/var/lib/kubelet/kubeconfig
-Environment=KRUSTLET_CERT_FILE=/etc/kubernetes/certs/kubeletserver.crt
-Environment=KRUSTLET_PRIVATE_KEY_FILE=/etc/kubernetes/certs/kubeletserver.key
-Environment=KRUSTLET_DATA_DIR=/etc/krustlet
-Environment=RUST_LOG=wasi_provider=info,main=info
-Environment=KRUSTLET_BOOTSTRAP_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-ExecStart=/usr/local/bin/krustlet-wagi --node-labels="${KUBELET_NODE_LABELS}" {{GetKrustletFlags}}
-
-[Install]
-WantedBy=multi-user.target
-`)
-
-func linuxCloudInitArtifactsKrustletServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsKrustletService, nil
-}
-
-func linuxCloudInitArtifactsKrustletService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsKrustletServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/krustlet.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsKubeletMonitorService = []byte(`[Unit]
 Description=a script that checks kubelet health and restarts if needed
 After=kubelet.service
@@ -3732,7 +3746,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.22.15",
             "1.23.8-hotfix.20220620",
             "1.23.12",
-            "1.23.15",
+            "1.23.15-hotfix.20230114",
             "1.24.3",
             "1.24.6",
             "1.24.9",
@@ -3990,10 +4004,11 @@ Description=Apply MIG configuration on Nvidia A100 GPU
 [Service]
 Restart=on-failure
 ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh {{GetGPUInstanceProfile}}
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${GPU_INSTANCE_PROFILE}
 
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsMigPartitionServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsMigPartitionService, nil
@@ -4480,7 +4495,7 @@ get-apiserver-ip-from-tags() {
 }
 
 SLEEP_SECONDS=15
-clusterFQDN="{{GetKubernetesEndpoint}}"
+clusterFQDN="${KUBE_API_SERVER_NAME}"
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0
@@ -4555,16 +4570,15 @@ func linuxCloudInitArtifactsRsyslogD60CisConf() (*asset, error) {
 
 var _linuxCloudInitArtifactsSetupCustomSearchDomainsSh = []byte(`#!/bin/bash
 set -x
-source {{GetCSEHelpersScriptFilepath}}
-source {{GetCSEHelpersScriptDistroFilepath}}
+source "${CSE_HELPERS_FILEPATH}"
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-
-echo "  dns-search {{GetSearchDomainName}}" | tee -a /etc/network/interfaces.d/50-cloud-init.cfg
+echo "  dns-search ${CUSTOM_SEARCH_DOMAIN_NAME}" | tee -a /etc/network/interfaces.d/50-cloud-init.cfg
 systemctl_restart 20 5 10 networking
 wait_for_apt_locks
 retrycmd_if_failure 10 5 120 apt-get -y install realmd sssd sssd-tools samba-common samba samba-common python2.7 samba-libs packagekit
 wait_for_apt_locks
-echo "{{GetSearchDomainRealmPassword}}" | realm join -U {{GetSearchDomainRealmUser}}@$(echo "{{GetSearchDomainName}}" | tr /a-z/ /A-Z/) $(echo "{{GetSearchDomainName}}" | tr /a-z/ /A-Z/)
+echo "${CUSTOM_SEARCH_REALM_PASSWORD}" | realm join -U ${CUSTOM_SEARCH_REALM_USER}@$(echo "${CUSTOM_SEARCH_DOMAIN_NAME}" | tr /a-z/ /A-Z/) $(echo "${CUSTOM_SEARCH_DOMAIN_NAME}" | tr /a-z/ /A-Z/)
 `)
 
 func linuxCloudInitArtifactsSetupCustomSearchDomainsShBytes() ([]byte, error) {
@@ -4979,7 +4993,7 @@ while true; do
 done &
 
 # Manually sync all matching logs once
-for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|konnectivity|tunnelfront)-*_kube-system_*.log"); do
+for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|azure-cns|cilium|konnectivity|tunnelfront)-*_kube-system_*.log"); do
    echo "Linking $TUNNEL_LOG_FILE"
    /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
 done
@@ -4988,7 +5002,7 @@ echo "Starting inotifywait..."
 # Monitor for changes
 inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
     case $FILE in
-        aks-link-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+        aks-link-*_kube-system_*.log | azure-cns-*_kube-system_*.log | cilium-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
             case $EVENT in
                 CREATE*)
                     echo "Linking $FILE"
@@ -5198,11 +5212,7 @@ removeContainerd() {
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
         wait_for_apt_locks
-        if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-            retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-        else
-            retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-        fi
+        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     else
         retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     fi
@@ -5308,8 +5318,6 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
-{{- if NeedsContainerd}}
-
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
@@ -5400,7 +5408,6 @@ downloadContainerdFromURL() {
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
-{{- end}}
 
 installMoby() {
     ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
@@ -5681,25 +5688,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
 
-{{if not .IsVHDDistro}}
-- path: /opt/azure/containers/provision_cis.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionCIS"}}
-{{end}}
-
-{{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
-{{end}}
 
-{{- if EnableHostsConfigAgent}}
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -5713,7 +5708,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-{{- end}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
@@ -5770,60 +5764,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
 {{end}}
-
-{{if not .IsVHDDistro}}
-- path: /usr/local/bin/health-monitor.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "healthMonitorScript"}}
-
-- path: /etc/systemd/system/kubelet-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeletMonitorSystemdService"}}
-
-{{if NeedsContainerd}}
-- path: /etc/systemd/system/containerd-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/containerd-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdMonitorSystemdService"}}
-{{- else}}
-- path: /etc/systemd/system/docker-monitor.timer
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdTimer"}}
-
-- path: /etc/systemd/system/docker-monitor.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerMonitorSystemdService"}}
-{{- end}}
-
-- path: /etc/apt/preferences
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aptPreferences"}}
-{{end}}
-
 
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
@@ -5930,7 +5870,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
 
-- path: {{GetDHCPv6ConfigCSEScriptFilepath}}
+- path: /opt/azure/containers/enable-dhcpv6.sh
   permissions: "0544"
   encoding: gzip
   owner: root
@@ -5939,15 +5879,6 @@ write_files:
 {{end}}
 
 {{if RequiresDocker}}
-    {{if not .IsVHDDistro}}
-- path: /etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-  permissions: "0644"
-  encoding: gzip
-  owner: "root"
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dockerClearMountPropagationFlags"}}
-    {{end}}
-
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6163,16 +6094,6 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-- path: /etc/sysctl.d/11-containerd.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    net.ipv4.ip_forward = 1
-    net.ipv4.conf.all.forwarding = 1
-    net.ipv6.conf.all.forwarding = 1
-    net.bridge.bridge-nf-call-iptables = 1
-    #EOF
-
 {{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
@@ -6244,14 +6165,12 @@ write_files:
     {{GetParameter "clientCertificate"}}
 {{- end}}
 
-{{if HasCustomSearchDomain}}
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-{{end}}
 
 {{- if IsKubeletConfigFileEnabled}}
 - path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
@@ -6335,23 +6254,6 @@ write_files:
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{end}}
-    #EOF
-
-- path: /opt/azure/containers/kubelet.sh
-  permissions: "0755"
-  owner: root
-  content: |
-    #!/bin/bash
-    # Disallow container from reaching out to the special IP address 168.63.129.16
-    # for TCP protocol (which http uses)
-    #
-    # 168.63.129.16 contains protected settings that have priviledged info.
-    #
-    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
-    #
-    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
-    # for DNS.
-    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     #EOF
 
 - path: /etc/sysctl.d/999-sysctl-aks.conf
@@ -7516,12 +7418,14 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
+	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
+	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7547,7 +7451,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/ipv6_nftables.service":                     linuxCloudInitArtifactsIpv6_nftablesService,
 	"linux/cloud-init/artifacts/ipv6_nftables.sh":                          linuxCloudInitArtifactsIpv6_nftablesSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
-	"linux/cloud-init/artifacts/krustlet.service":                          linuxCloudInitArtifactsKrustletService,
 	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
@@ -7646,12 +7549,14 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
+				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
@@ -7677,7 +7582,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"ipv6_nftables.service":                     &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
 				"ipv6_nftables.sh":                          &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
-				"krustlet.service":                          &bintree{linuxCloudInitArtifactsKrustletService, map[string]*bintree{}},
 				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},

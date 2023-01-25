@@ -16,7 +16,7 @@ jobs:
 - job: Setup_Test_Cluster
   steps:
   - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az login --identity
       az account set -s $(AZURE_SUBSCRIPTION_ID)
     displayName: az login
   - bash: bash .pipelines/scripts/setup_go.sh
@@ -48,12 +48,13 @@ jobs:
   - download: current
     artifact: clusterConfig
   - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az login --identity
       az account set -s $(AZURE_SUBSCRIPTION_ID)
     displayName: az login
   - bash: |
       export SCENARIO_NAME
       export $VM_SKU
+      export $SIG_VERSION_ID
       cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
       cd e2e
       bash e2e-scenario.sh

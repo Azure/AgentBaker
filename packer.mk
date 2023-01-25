@@ -44,6 +44,10 @@ ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
 	@echo "Using packer template file vhd-image-builder-mariner2-gen2.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
+else
+	@echo "${MODE}: Building with Hyper-v generation 1 VM"
+	@echo "Using packer template file vhd-image-builder-mariner2-gen2.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
 endif
 endif
 else ifeq (${OS_VERSION},V2kata)
