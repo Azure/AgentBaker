@@ -120,6 +120,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kubelet.service",
+      "destination": "/home/packer/kubelet.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
       "destination": "/home/packer/reconcile-private-hosts.sh"
     },
