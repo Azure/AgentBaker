@@ -20,7 +20,7 @@ pr_title="VersionBump"
 # This function finds the current SIG Image version from the input JSON file
 find_current_image_version() {
     filepath=$1
-    current_image_version=$(jq .version $filepath)
+    current_image_version=$(jq -r .version $filepath)
     echo "Current image version is: ${current_image_version}"
 }
 

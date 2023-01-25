@@ -3,7 +3,6 @@ package datamodel
 import (
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -271,21 +270,21 @@ var LinuxVersionJSONContentsEmbedded string
 
 var LinuxSIGImageVersion, _ = getSIGVersionFromEmbeddedString(LinuxVersionJSONContentsEmbedded)
 
-func getSIGVersionFromEmbeddedString(contents string) (string, error) {
+func getSIGVersionFromEmbeddedString(contents string) string {
 
 	if len(contents) == 0 {
-		return "", errors.New("no contents in file")
+		panic("SIG version is empty")
 	}
 
 	var sigImageStruct sigVersion
 	err := json.Unmarshal([]byte(contents), &sigImageStruct)
 
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
 	sigImageVersion := sigImageStruct.Version
-	return sigImageVersion, nil
+	return sigImageVersion
 }
 
 // SIG config Template
