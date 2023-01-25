@@ -245,7 +245,7 @@ EOF
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    tee "" > /dev/null <<'EOF'
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
