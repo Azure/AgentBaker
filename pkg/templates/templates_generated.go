@@ -1123,7 +1123,12 @@ ensureContainerd() {
   fi
   wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
@@ -6023,16 +6028,6 @@ write_files:
   owner: root
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
-    #EOF
-
-- path: /etc/sysctl.d/11-containerd.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    net.ipv4.ip_forward = 1
-    net.ipv4.conf.all.forwarding = 1
-    net.ipv6.conf.all.forwarding = 1
-    net.bridge.bridge-nf-call-iptables = 1
     #EOF
 
 {{if TeleportEnabled}}
