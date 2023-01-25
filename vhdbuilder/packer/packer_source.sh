@@ -81,6 +81,8 @@ copyPackerFiles() {
   AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
   AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
+  BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
+  BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -104,6 +106,7 @@ copyPackerFiles() {
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
   
+  cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644

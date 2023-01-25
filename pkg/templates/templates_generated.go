@@ -14,6 +14,7 @@
 // linux/cloud-init/artifacts/apt-preferences
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
+// linux/cloud-init/artifacts/block_wireserver.sh
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
@@ -493,6 +494,34 @@ func linuxCloudInitArtifactsBindMountSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/bind-mount.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsBlock_wireserverSh = []byte(`#!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+`)
+
+func linuxCloudInitArtifactsBlock_wireserverShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsBlock_wireserverSh, nil
+}
+
+func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsBlock_wireserverShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/block_wireserver.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1208,6 +1237,19 @@ ensureKubelet() {
         wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+ #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
@@ -6215,23 +6257,6 @@ write_files:
 {{end}}
     #EOF
 
-- path: /opt/azure/containers/kubelet.sh
-  permissions: "0755"
-  owner: root
-  content: |
-    #!/bin/bash
-    # Disallow container from reaching out to the special IP address 168.63.129.16
-    # for TCP protocol (which http uses)
-    #
-    # 168.63.129.16 contains protected settings that have priviledged info.
-    #
-    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
-    #
-    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
-    # for DNS.
-    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
-    #EOF
-
 - path: /etc/sysctl.d/999-sysctl-aks.conf
   permissions: "0644"
   owner: root
@@ -7394,6 +7419,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
+	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
@@ -7524,6 +7550,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
+				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
