@@ -38,9 +38,9 @@
       "image_sku": "minimal-18_04-daily-lts",
       "image_version": "latest",
       "azure_tags": {
-        "build_definition_name": "{{user `build_definition_name`}}",
-        "build_number": "{{user `build_number`}}",
-        "build_id": "{{user `build_id`}}",
+        "buildDefinitionName": "{{user `build_definition_name`}}",
+        "buildNumber": "{{user `build_number`}}",
+        "buildId": "{{user `build_id`}}",
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
