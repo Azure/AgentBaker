@@ -327,8 +327,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/kubelet-monitor.service",
-      "destination": "/home/packer/kubelet-monitor.service"
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
+      "destination": "/home/packer/mig-partition.sh"
     },
     {
       "type": "file",
