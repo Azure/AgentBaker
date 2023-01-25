@@ -116,8 +116,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
-      "destination": "/home/packer/block_wireserver.sh"
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
+      "destination": "/home/packer/reconcile-private-hosts.sh"
     },
     {
       "type": "file",
