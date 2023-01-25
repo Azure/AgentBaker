@@ -118,7 +118,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-{{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
@@ -133,18 +132,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="MIG_STRATEGY=--mig-strategy single"
-    ExecStart=
-    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
-    #EOF
-{{end}}
-
-{{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -159,6 +146,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
+{{- if HasKubeletDiskType}}
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
   permissions: "0600"
   encoding: gzip
@@ -216,15 +204,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
-{{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.crt
-  permissions: "0644"
-  owner: root
-  content: |
-{{GetHTTPProxyCA}}
-    #EOF
-{{- end}}
-
 {{- if ShouldConfigureCustomCATrust}}
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
 {{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
@@ -235,15 +214,6 @@ write_files:
     {{$cert}}
     #EOF
 {{end}}
-{{- end}}
-
-{{- if HasMessageOfTheDay}}
-- path: /etc/motd
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetMessageOfTheDay}}
 {{- end}}
 
 {{- if HasServicePrincipalSecret}}

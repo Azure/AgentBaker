@@ -6,6 +6,7 @@
       "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
       "location": "{{env `AZURE_LOCATION`}}",
       "vm_size": "{{env `AZURE_VM_SIZE`}}",
+      "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
       "build_number": "{{env `BUILD_NUMBER`}}",
       "build_id": "{{env `BUILD_ID`}}",
       "commit": "{{env `GIT_VERSION`}}",
@@ -39,6 +40,9 @@
         "image_sku": "{{user `img_sku`}}",
         "image_version": "latest",
         "azure_tags": {
+          "buildDefinitionName": "{{user `build_definition_name`}}",
+          "buildNumber": "{{user `build_number`}}",
+          "buildId": "{{user `build_id`}}",
           "SkipLinuxAzSecPack": "true",
           "os": "Linux",
           "now": "{{user `create_time`}}",

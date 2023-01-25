@@ -872,6 +872,7 @@ DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 IS_KRUSTLET="{{IsKrustlet}}"
@@ -916,7 +917,7 @@ GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
 CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
 CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
-
+MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1021,7 +1022,7 @@ configureEtcEnvironment() {
 }
 
 configureHTTPProxyCA() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
 
@@ -2390,7 +2391,13 @@ if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
+            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
@@ -2463,6 +2470,10 @@ fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
+
+if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
+fi
 
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
@@ -2568,6 +2579,7 @@ echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
+
 
 #EOF
 `)
@@ -5716,7 +5728,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-{{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
@@ -5731,18 +5742,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="MIG_STRATEGY=--mig-strategy single"
-    ExecStart=
-    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
-    #EOF
-{{end}}
-
-{{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -5757,6 +5756,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
+{{- if HasKubeletDiskType}}
 - path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
   permissions: "0600"
   encoding: gzip
@@ -5814,15 +5814,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
 {{- end}}
 
-{{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.crt
-  permissions: "0644"
-  owner: root
-  content: |
-{{GetHTTPProxyCA}}
-    #EOF
-{{- end}}
-
 {{- if ShouldConfigureCustomCATrust}}
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
 {{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
@@ -5833,15 +5824,6 @@ write_files:
     {{$cert}}
     #EOF
 {{end}}
-{{- end}}
-
-{{- if HasMessageOfTheDay}}
-- path: /etc/motd
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetMessageOfTheDay}}
 {{- end}}
 
 {{- if HasServicePrincipalSecret}}

@@ -129,7 +129,13 @@ if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
+            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
@@ -202,6 +208,10 @@ fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
+
+if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
+fi
 
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
@@ -307,5 +317,6 @@ echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
+
 
 #EOF
