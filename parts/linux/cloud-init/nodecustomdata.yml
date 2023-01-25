@@ -216,15 +216,6 @@ write_files:
 {{end}}
 {{- end}}
 
-{{- if HasMessageOfTheDay}}
-- path: /etc/motd
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetMessageOfTheDay}}
-{{- end}}
-
 {{- if HasServicePrincipalSecret}}
 - path: /etc/kubernetes/sp.txt
   permissions: "0600"

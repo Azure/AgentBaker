@@ -209,6 +209,10 @@ fi
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
 
+if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
+fi
+
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
@@ -313,5 +317,6 @@ echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
+
 
 #EOF
