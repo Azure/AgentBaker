@@ -149,7 +149,29 @@ write_files:
   content: |
     U2VjcmV0CiNFT0Y=
 
+- path: /etc/systemd/system/dhcpv6.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/zTNsc6CMBAH8P1e45uh27d10IiJkwMaB8JQy19prNfmeqD49A7EJ/h1Zw7a0w7FS8gaEluwu0YMo8/zP21uCrEMfSV5VIljYNTq5A4l6lrIHDx6Oi0ZNjHKmJSaN3yrTtSalNW4zyQwPrG6wJBiVqBahbqMRN2Bi7oYe7o4VgzbxT6nqKGaCuTH/TXHPX0DAAD//wVR54mwAAAA
 
+- path: /opt/azure/containers/enable-dhcpv6.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/3RS3WqcQBS+n6f4apZNezG6W4g3TQPFaCpdFMKG3hTEHY/rUDNjnZlNYOO7F9cKbbq58XD+vh/PXLwLnOmDnVQBqQN2pWkYM2TBaQoaneyoLmU75Y6x26/RJo2zbVhEeZYUSbqJPwdkRVA1ohs/rSRlQ19oVbNokz/cFmmWbosouZvmFNkn3f8MpLLU16Ug41fB1YqLVruKSyWtL+o9Yz2VFXgPXuHyElm8/Z7ffzuRpncP91+2aZ7h+hpxHuHlBbZ3xOQIB7LNClKRDVE6qxkAuA6mJepwNaezUvA1eAguarxlA7ytERzKPmjl7vXAyOa3VBoy4IeJfNYT5xFjZVUVsi6UtgU9S2PN+w84nlTse+rAfz0n8BbH9eCN4ePgjeskGj1Xb27+NNjA2NSItKrl3vVS7Ucj3SGE7/seY1Y70bxtZLnEf3LgWflI2lmsV588LI5nLjyMmz9Oos/sL45nrzOMYP++gL9wjKs0ZF3pJzX9tOVyrrnuVHlttrRSKwj92LVkyWMXcZ6w3wEAAP//V01dfMMCAAA=
+
+- path: /etc/systemd/system/docker.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip=
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
 
 
 
@@ -287,10 +309,55 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+    #EOF
+
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/zyNvUoEQRCE83mKBuO9AfMNDjxTwcXouGB+ar3GvZ6hu0fEpxeV26z4qqjv/Cbsl/AEK8rducl8rJUq6uiE7ClvIB0bjNam9DEyBE5Zub6DWKhru7GV0YbRrVWE4+rQuTTxxAKtB4N+crkXvw8bfKfn5T9cwivMk/rcZFoTb0NxRwvK/BhOXyjL3yJmlpiTXSm27jF9D0XcjRYhNhSTtKmOfrBreDi9PIefAAAA//+1G3Iw6wAAAA==
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    H4sIAAAAAAAA/7xVXU8bRxR9319xWCMVN1ovpJHSUtHKAiqhhmAFeAIeZmeudwdmZzbzYeKC/3s163Vih01KKiVv9nycc8+5d88MtvJC6rxgrkqSASzVZkbwlXSQU9wTmCVoA2V0SRbBSV2isaaWjgcTHAorRUmojSBMjQU32jOpyYpkgILxu9KaoMV+xCrJQ4RGSc48CTSM35F3mFpTozEC3sCRnUlOJ5NIXxhftQUYDV8RHKtjMYKwYzQt78V1XtjdVSFMC2xsRmDZQHpHaoqZZLgjq0lBBIqM62JaFQVFjUYPk0Es2lUmKIGpVJ4sTPAt6keKJXwy6DxzoA+MezXHfcU87kJBKqo25Fp7hOF3ZF0l6xdxT5NPBqi8b9x+npfSV6EYcVPncdNq8uTWfzZBqfzlr6/3XicJFZ4Vihwyvyoue4Px3+fZ0fHR5SSbvDs7PTk/xMs/ckGzXAelEjnF1RW2/0RG77GLm5vfoxidAADxyiB9et8GRWDKEhNzOPLp8vQH6bGbTGWHuYVsipw8z7mWuSY/EvnebvZpGrK4xo2eKul8HzPXMg7PVJbQxiM0mJMfjUaRKTaEmFXzNfK9SJ4su/6W1XSwvcOZ/4Ya8Ijb98gs0lGjQim1u7rBIxwp4n5n5OcN4eAA1+mS4zod4hGj5Z90mHRzc2rEj6JeY0yHne/p9sPa8iLF1gFSbwOlfR5338j2wyfbFq3bUj/5Dr5ifdv3jca7ucu5Ys5F7fkGfs6EsOTcN9XzzO537T+ZHGzvyAaRKX6v958hPqK01CA7NkilJo+dq93st5ufr0fDh18Wy9/pxqm+AyvLs3+i6yvmxfONbkMgqqvYLAYVZDN7hc6e/9TaGHEeCk1+LIT9QRMnG1aPXMv6mfyNavo94G1uRr2CPNla6u5hiQn+k+uSk9VYEsAyXXah+mUhzwyE0/HhyqJnjOYwSZYlMyEi8tMQ7MIWvGJSp73Z+7bn2iB2F5rue/ZaqF6kcc/prMHJZPYKmfs4VKfjwwUygxn56gWyTDaZsxxro4nsFuPDw+PJxXfh2ZyBSHb07mzyBaqzy4vJ5UVb0Vdsah8bb1anW49wG+omLj65uGqbCb4Jvh0KTfdqHuFI9BBFeLff3783K9L1B/P/PLJdRA6Oz/76NwAA//+rs4yxXgkAAA==
 
 
-
-
+- path: /etc/systemd/system/nvidia-modprobe.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Installs and loads Nvidia GPU kernel module
+    [Service]
+    Type=oneshot
+    RemainAfterExit=true
+    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+    ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
+    [Install]
+    WantedBy=multi-user.target
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"

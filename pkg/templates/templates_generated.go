@@ -5844,7 +5844,6 @@ write_files:
     {{GetKubeletClientKey}}
 {{- end}}
 
-{{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
   encoding: gzip
@@ -5858,9 +5857,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
-{{end}}
 
-{{if RequiresDocker}}
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -5871,6 +5868,7 @@ write_files:
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
 
+{{if RequiresDocker}}
 - path: /etc/docker/daemon.json
   permissions: "0644"
   owner: root
@@ -6076,7 +6074,6 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-{{if TeleportEnabled}}
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
   owner: root
@@ -6096,8 +6093,7 @@ write_files:
     [Install]
     WantedBy=multi-user.target
     #EOF
-{{end}}
-{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
+
 - path: /etc/systemd/system/ensure-no-dup.service
   permissions: "0644"
   encoding: gzip
@@ -6111,10 +6107,8 @@ write_files:
   encoding: gzip
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-{{- end}}
 {{end}}
 
-{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
@@ -6129,7 +6123,6 @@ write_files:
     ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
     [Install]
     WantedBy=multi-user.target
-{{end}}
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"

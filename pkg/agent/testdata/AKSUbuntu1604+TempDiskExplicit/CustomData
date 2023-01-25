@@ -156,8 +156,19 @@ write_files:
   content: |
     U2VjcmV0CiNFT0Y=
 
+- path: /etc/systemd/system/dhcpv6.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/zTNsc6CMBAH8P1e45uh27d10IiJkwMaB8JQy19prNfmeqD49A7EJ/h1Zw7a0w7FS8gaEluwu0YMo8/zP21uCrEMfSV5VIljYNTq5A4l6lrIHDx6Oi0ZNjHKmJSaN3yrTtSalNW4zyQwPrG6wJBiVqBahbqMRN2Bi7oYe7o4VgzbxT6nqKGaCuTH/TXHPX0DAAD//wVR54mwAAAA
 
-
+- path: /opt/azure/containers/enable-dhcpv6.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/3RS3WqcQBS+n6f4apZNezG6W4g3TQPFaCpdFMKG3hTEHY/rUDNjnZlNYOO7F9cKbbq58XD+vh/PXLwLnOmDnVQBqQN2pWkYM2TBaQoaneyoLmU75Y6x26/RJo2zbVhEeZYUSbqJPwdkRVA1ohs/rSRlQ19oVbNokz/cFmmWbosouZvmFNkn3f8MpLLU16Ug41fB1YqLVruKSyWtL+o9Yz2VFXgPXuHyElm8/Z7ffzuRpncP91+2aZ7h+hpxHuHlBbZ3xOQIB7LNClKRDVE6qxkAuA6mJepwNaezUvA1eAguarxlA7ytERzKPmjl7vXAyOa3VBoy4IeJfNYT5xFjZVUVsi6UtgU9S2PN+w84nlTse+rAfz0n8BbH9eCN4ePgjeskGj1Xb27+NNjA2NSItKrl3vVS7Ucj3SGE7/seY1Y70bxtZLnEf3LgWflI2lmsV588LI5nLjyMmz9Oos/sL45nrzOMYP++gL9wjKs0ZF3pJzX9tOVyrrnuVHlttrRSKwj92LVkyWMXcZ6w3wEAAP//V01dfMMCAAA=
 
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
@@ -168,6 +179,7 @@ write_files:
     ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip=
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
+
 
 - path: /etc/docker/daemon.json
   permissions: "0644"
@@ -208,7 +220,20 @@ write_files:
 
 
 
-
+- path: /etc/systemd/system/nvidia-modprobe.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Installs and loads Nvidia GPU kernel module
+    [Service]
+    Type=oneshot
+    RemainAfterExit=true
+    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+    ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
+    [Install]
+    WantedBy=multi-user.target
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
