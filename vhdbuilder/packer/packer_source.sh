@@ -83,6 +83,8 @@ copyPackerFiles() {
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
+  RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
+  RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -107,6 +109,7 @@ copyPackerFiles() {
   fi
   
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
+  cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
