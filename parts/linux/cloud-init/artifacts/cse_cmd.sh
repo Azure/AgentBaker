@@ -80,6 +80,9 @@ SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
+{{end}}
 IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"

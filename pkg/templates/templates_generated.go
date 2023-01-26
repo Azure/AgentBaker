@@ -876,6 +876,9 @@ SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
+{{end}}
 IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
@@ -1060,8 +1063,13 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
+    mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
+        # causes bad substitution errors in bash
+        # dynamically declare and use `+"`"+`!`+"`"+` to add a layer of indirection
+        declare varname=CUSTOM_CA_CERT_${i} 
+        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
@@ -5890,18 +5898,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
-
-{{- if ShouldConfigureCustomCATrust}}
-{{range $i, $cert := GetCustomCATrustConfigCerts}}
-{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
-- path: /opt/certs/00000000000000cert{{$i}}.crt
-  permissions: "0644"
-  owner: root
-  content: |
-    {{$cert}}
-    #EOF
-{{end}}
-{{- end}}
 
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
