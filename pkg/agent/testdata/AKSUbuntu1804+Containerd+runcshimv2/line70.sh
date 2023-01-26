@@ -114,8 +114,13 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
+    mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
+        # causes bad substitution errors in bash
+        # dynamically declare and use `!` to add a layer of indirection
+        declare varname=CUSTOM_CA_CERT_${i} 
+        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }

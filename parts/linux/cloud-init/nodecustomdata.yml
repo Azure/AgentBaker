@@ -146,18 +146,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-{{- if ShouldConfigureCustomCATrust}}
-{{range $i, $cert := GetCustomCATrustConfigCerts}}
-{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
-- path: /opt/certs/00000000000000cert{{$i}}.crt
-  permissions: "0644"
-  owner: root
-  content: |
-    {{$cert}}
-    #EOF
-{{end}}
-{{- end}}
-
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
   encoding: gzip
