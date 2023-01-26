@@ -386,6 +386,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCustomSysctlConfigByName": func(fn string) interface{} {
 			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
+				// TODO(ace): this should be removed.
+				// yes, enumerating fields of a struct is annoying without reflection.
+				// that means your api/implementation is probably wrong.
 				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
 				return v.FieldByName(fn).Interface()
 			}
@@ -530,8 +533,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletClientKey": func() string {
 			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.CertificateProfile.ClientPrivateKey, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey))
+				return encoded
+			}
+			return ""
+		},
+		"GetKubeletClientCert": func() string {
+			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientCertificate != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientCertificate))
 				return encoded
 			}
 			return ""
@@ -541,8 +550,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetServicePrincipalSecret": func() string {
 			if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.ServicePrincipalProfile.Secret, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.ServicePrincipalProfile.Secret))
 				return encoded
 			}
 			return ""
@@ -861,6 +869,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
 		},
+		"GetSysctlContent": func() string {
+			sysctlTemplate := template.Must(template.New("sysctl").Parse(sysctlTemplateString))
+			var b bytes.Buffer
+			if err := sysctlTemplate.Execute(&b, profile); err != nil {
+				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+			}
+			return base64.StdEncoding.EncodeToString(b.Bytes())
+		},
 	}
 }
 
@@ -898,3 +914,110 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }
+
+const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
+# https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+net.ipv4.tcp_retries2=8
+net.core.message_burst=80
+net.core.message_cost=40
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{end}}{{end}}{{- else}}
+net.core.somaxconn=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{end}}{{end}}{{- else}}
+net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{end}}{{end}}{{- else}}
+net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{end}}{{end}}{{- else}}
+net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{end}}{{end}}{{- else}}
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if .CustomLinuxOSConfig}}
+{{if .CustomLinuxOSConfig.Sysctls}}
+# The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+net.ipv4.tcp_tw_reuse={{if $s.NetIpv4TcpTwReuse}}1{{else}}0{{end}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+{{- end}}
+`
