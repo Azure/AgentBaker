@@ -152,6 +152,34 @@ copyPackerFiles() {
   SETUP_SEARCH_DEST=/opt/azure/containers/setup-custom-search-domains.sh
   cpAndMode $SETUP_SEARCH_SRC $SETUP_SEARCH_DEST 0744
 
+  CSE_MAIN_SRC=/home/packer/provision.sh
+  CSE_MAIN_DEST=/opt/azure/containers/provision.sh
+  cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
+  
+  CSE_START_SRC=/home/packer/provision_start.sh
+  CSE_START_DEST=/opt/azure/containers/provision_start.sh
+  cpAndMode $CSE_START_SRC $CSE_START_DEST 0744
+
+  CSE_CONFIG_SRC=/home/packer/provision_configs.sh
+  CSE_CONFIG_DEST=/opt/azure/containers/provision_configs.sh
+  cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
+
+  CSE_INSTALL_SRC=/home/packer/provision_installs.sh
+  CSE_INSTALL_DEST=/opt/azure/containers/provision_installs.sh
+  cpAndMode $CSE_INSTALL_SRC $CSE_INSTALL_DEST 0744
+
+  CSE_INSTALL_DISTRO_SRC=/home/packer/provision_installs_distro.sh
+  CSE_INSTALL_DISTRO_DEST=/opt/azure/containers/provision_installs_distro.sh
+  cpAndMode $CSE_INSTALL_DISTRO_SRC $CSE_INSTALL_DISTRO_DEST 0744
+
+  CSE_HELPERS_SRC=/home/packer/provision_source.sh
+  CSE_HELPERS_DEST=/opt/azure/containers/provision_source.sh
+  cpAndMode $CSE_HELPERS_SRC $CSE_HELPERS_DEST 0744
+
+  CSE_HELPERS_DISTRO_SRC=/home/packer/provision_source_distro.sh
+  CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
+  cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
