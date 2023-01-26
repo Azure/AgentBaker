@@ -922,6 +922,7 @@ MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
+TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1260,11 +1261,62 @@ ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
+        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
+        touch "${KUBELET_TLS_DROP_IN}"
+        chmod 0600 "${KUBELET_TLS_DROP_IN}"
+        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+EOF
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "${TLS_BOOTSTRAP_TOKEN}"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-        wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
+        touch "${KUBECONFIG_FILE}"
+        chmod 0644 "${KUBECONFIG_FILE}"
+        tee "${KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key
+contexts:
+- context:
+  cluster: localcluster
+    user: client
+    name: localclustercontext
+current-context: localclustercontext
+EOF
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
@@ -6149,61 +6201,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
 {{ end }}
-
-{{if IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /var/lib/kubelet/bootstrap-kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: kubelet-bootstrap
-      user:
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-    contexts:
-    - context:
-        cluster: localcluster
-        user: kubelet-bootstrap
-      name: bootstrap-context
-    current-context: bootstrap-context
-    #EOF
-- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
-{{else -}}
-- path: /var/lib/kubelet/kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: client
-      user:
-        client-certificate: /etc/kubernetes/certs/client.crt
-        client-key: /etc/kubernetes/certs/client.key
-    contexts:
-    - context:
-        cluster: localcluster
-        user: client
-      name: localclustercontext
-    current-context: localclustercontext
-    #EOF
-{{- end}}
 
 - path: /etc/default/kubelet
   permissions: "0644"
