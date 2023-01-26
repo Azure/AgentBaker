@@ -69,28 +69,58 @@ configureSwapFile() {
 }
 
 configureEtcEnvironment() {
+    mkdir -p /etc/systemd/system.conf.d/
+    touch /etc/systemd/system.conf.d/proxy.conf
+    chmod 0644 /etc/systemd/system.conf.d/proxy.conf
+
+    mkdir -p  /etc/apt/apt.conf.d
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
+    touch /etc/apt/apt.conf.d/95proxy
+
+    # TODO(ace): this pains me but quick and dirty refactor
+    echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
         echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${HTTPS_PROXY_URLS}" != "" ]; then
         echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
         echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${NO_PROXY_URLS}" != "" ]; then
         echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
         echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+        echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
+
+    # for kubelet to pick up the proxy
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+    tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/environment
+EOF
 }
 
 configureHTTPProxyCA() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
+    mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
+        # causes bad substitution errors in bash
+        # dynamically declare and use `!` to add a layer of indirection
+        declare varname=CUSTOM_CA_CERT_${i} 
+        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
@@ -115,10 +145,16 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
-    SP_FILE="/etc/kubernetes/sp.txt"
-
-    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "/etc/kubernetes/certs"
+    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+    fi
+    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    fi
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+    fi
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
@@ -193,6 +229,13 @@ EOF
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
         echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
         set -x
+        KUBELET_CONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-componentconfig.conf"
+        touch "${KUBELET_CONFIG_DROP_IN}"
+        chmod 0600 "${KUBELET_CONFIG_DROP_IN}"
+        tee "${KUBELET_CONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
+EOF
     fi
 }
 
@@ -233,6 +276,7 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
@@ -291,13 +335,73 @@ ensureDHCPv6() {
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p /etc/default
+    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
+    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH} "]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
+    fi
+    
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
+        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
+        touch "${KUBELET_TLS_DROP_IN}"
+        chmod 0600 "${KUBELET_TLS_DROP_IN}"
+        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+EOF
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "${TLS_BOOTSTRAP_TOKEN}"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-        wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
+        touch "${KUBECONFIG_FILE}"
+        chmod 0644 "${KUBECONFIG_FILE}"
+        tee "${KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key
+contexts:
+- context:
+  cluster: localcluster
+    user: client
+    name: localclustercontext
+current-context: localclustercontext
+EOF
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
@@ -328,7 +432,10 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 

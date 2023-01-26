@@ -63,6 +63,10 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
+echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
+cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
+echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
+
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
