@@ -269,7 +269,7 @@ type sigVersion struct {
 var linuxVersionJSONContentsEmbedded string
 
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
-var Ubuntu2204MinimalSIGImageVersion string = "000.000.000.2204"
+var Ubuntu2204MinimalSIGImageVersion string = "000.000.2204"
 
 func getSIGVersionFromEmbeddedString(contents string) string {
 
