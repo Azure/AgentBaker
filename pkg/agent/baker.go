@@ -533,8 +533,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletClientKey": func() string {
 			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.CertificateProfile.ClientPrivateKey, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey))
+				return encoded
+			}
+			return ""
+		},
+		"GetKubeletClientCert": func() string {
+			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientCertificate != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientCertificate))
 				return encoded
 			}
 			return ""
@@ -544,8 +550,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetServicePrincipalSecret": func() string {
 			if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.ServicePrincipalProfile.Secret, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.ServicePrincipalProfile.Secret))
 				return encoded
 			}
 			return ""
