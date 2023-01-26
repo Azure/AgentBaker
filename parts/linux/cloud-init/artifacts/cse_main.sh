@@ -355,27 +355,25 @@ else
         fi
         aptmarkWALinuxAgent unhold &
     elif [[ $OS == $MARINER_OS_NAME ]]; then
-        {{- if EnableUnattendedUpgrade }}
-        {{- if IsKata }}
-        # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
-        # only be done reliably via image updates as of now so never enable automatic updates.
-        echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
-        {{- else }}
-        # By default the dnf-automatic is service is notify only in Mariner.
-        # Enable the automatic install timer and the check-restart timer.
-        # Stop the notify only dnf timer since we've enabled the auto install one.
-        # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-        systemctl disable dnf-automatic-notifyonly.timer
-        systemctl stop dnf-automatic-notifyonly.timer
-        # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
-        systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
-        systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-        systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-        # The check-restart service which will inform kured of required restarts should already be running
-        {{- end }}
-        {{- else }}
-        : # Bash does not allow empty if/else blocks, add a noop here
-        {{- end }}
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            if [ "${IS_KATA}" == "true" ]; then
+                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
+                # only be done reliably via image updates as of now so never enable automatic updates.
+                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
+            else
+                # By default the dnf-automatic is service is notify only in Mariner.
+                # Enable the automatic install timer and the check-restart timer.
+                # Stop the notify only dnf timer since we've enabled the auto install one.
+                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+                systemctl disable dnf-automatic-notifyonly.timer
+                systemctl stop dnf-automatic-notifyonly.timer
+                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                # The check-restart service which will inform kured of required restarts should already be running
+            fi
+        fi
     fi
 fi
 
