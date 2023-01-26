@@ -173,7 +173,18 @@ write_files:
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
 
-
+- path: /etc/docker/daemon.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {
+      "live-restore": true,
+      "log-driver": "json-file",
+      "log-opts":  {
+         "max-size": "50m",
+         "max-file": "5"
+      }
+    }
 
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"
@@ -196,7 +207,6 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/5SUUW/bthfF3/kpTh2jbfL/00pSbA8JUmxLvCKAlwyxt2EoioCmriRCFKmRlFNt3ncfSNmO2yQDpif7irw893cOdfAK2VKZbCl8xdj87vIiWwmXaVtm0poglCHn2dV88VgXf3aOMlH7rLW5Z+wAPzhlSiiD2zl3pEWgHLEhVsJ55m3nJCGjIDPr4wISnuK+a+OD0BrK2KCKngdrtYcqECrq3zhCo7yPrQtnm1iEakRJTBX4+BHjv66v/sbFBUaNcFHnCJ8+ncdlhgHSNo0wOfhq2/5BqID3WU6rzHRa4/T96xOs18hNAbVRwvsvxTDSnvCf2ok28JICuMXVz3V5djazsj47W6iGbBcu3h0fD6c8MzorVMQyp4BS2+Uyjm7boKzx8BahEiEKaUsyKJ1Yelij+wRG29LjgfAgTGC+sm0A96DPITZ6LESlqcIO8FscoLAOzziOYEGflQ+JNV6B5xjP7y7xCJhkZcENRrFPMsm6Yc1272QyGTHgoVKavm6SWwYAXhO1OPkm/dl1TNtya2h7zCj+mYw2fH4SNaWhc/JBGREBIVeOZLCuj/kxNkBoRyLv0TryZAJr6lw58Bbjq/kiYQ7CBQgshaxLZzuTo3VWkk/TS03CoGsHsimAOWmK0Y6xT2awA1RiReZNwJLIoLG5KhTl8SqcorKd8xMsKuUhtLYPHl1q7ShSRuiMIR27sYPhFFEEchBw5KO2CRvQBdfRhlihTI4XbiJ46FtCAa6VqT1OwJtGGfzv5PQYfBDPtsjffXt8zCJVvB6Qmk5o3cP3Rka1aESQVbQ1KbNGEosGL365uZnO7me3H+5/vJ5N46Tjt9tM8g8YRYOz796K2icZ66SRS+PXUmnVNevaGkMyqJUK/XpgUDhrwiE/uq+7JXHf+0DN/dFE23J0uI3KkIOZMnUUNf5KRwzM8CHTBnxWPFmQXM/SxGxolewfvlu7+5wSG3FYo4J1KdKyEqYkz/avPf8DvAF34LRJxf+lIxFoyPd6k/kYQFxd300vF7d3v2P66/Rmgahml38pPGG8IZkq8dnCe44I1tghfeH9APqFl/v4X1iyZ8pzKw53Oh8nGEbbG2H7XN5Nv19Mjw6fvMBTT3dGPnn2nR2Nd0SzYUsszRfZv+w/P/+iTF7ITSn+HFLxTwAAAP//FJDA2AoHAAA=
-
 
 - path: /etc/containerd/config.toml
   permissions: "0644"
@@ -232,6 +242,7 @@ write_files:
         address = "/run/teleportd/snapshotter.sock"
     #EOF
 
+
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -261,33 +272,6 @@ write_files:
           }]
       }
 
-- path: /etc/systemd/system/containerd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=containerd daemon
-    After=network.target
-
-    [Service]
-    ExecStartPre=/sbin/modprobe overlay
-    ExecStart=/usr/bin/containerd
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    OOMScoreAdjust=-999
-    # Having non-zero Limit*s causes performance problems due to accounting overhead
-    # in the kernel. We recommend using cgroups to do container-local accounting.
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=infinity
-    TasksMax=infinity
-
-    [Install]
-    WantedBy=multi-user.target
-
-    #EOF
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -302,6 +286,21 @@ write_files:
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
+
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/zyNvUoEQRCE83mKBuO9AfMNDjxTwcXouGB+ar3GvZ6hu0fEpxeV26z4qqjv/Cbsl/AEK8rducl8rJUq6uiE7ClvIB0bjNam9DEyBE5Zub6DWKhru7GV0YbRrVWE4+rQuTTxxAKtB4N+crkXvw8bfKfn5T9cwivMk/rcZFoTb0NxRwvK/BhOXyjL3yJmlpiTXSm27jF9D0XcjRYhNhSTtKmOfrBreDi9PIefAAAA//+1G3Iw6wAAAA==
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    H4sIAAAAAAAA/7xVXU8bRxR9319xWCMVN1ovpJHSUtHKAiqhhmAFeAIeZmeudwdmZzbzYeKC/3s163Vih01KKiVv9nycc8+5d88MtvJC6rxgrkqSASzVZkbwlXSQU9wTmCVoA2V0SRbBSV2isaaWjgcTHAorRUmojSBMjQU32jOpyYpkgILxu9KaoMV+xCrJQ4RGSc48CTSM35F3mFpTozEC3sCRnUlOJ5NIXxhftQUYDV8RHKtjMYKwYzQt78V1XtjdVSFMC2xsRmDZQHpHaoqZZLgjq0lBBIqM62JaFQVFjUYPk0Es2lUmKIGpVJ4sTPAt6keKJXwy6DxzoA+MezXHfcU87kJBKqo25Fp7hOF3ZF0l6xdxT5NPBqi8b9x+npfSV6EYcVPncdNq8uTWfzZBqfzlr6/3XicJFZ4Vihwyvyoue4Px3+fZ0fHR5SSbvDs7PTk/xMs/ckGzXAelEjnF1RW2/0RG77GLm5vfoxidAADxyiB9et8GRWDKEhNzOPLp8vQH6bGbTGWHuYVsipw8z7mWuSY/EvnebvZpGrK4xo2eKul8HzPXMg7PVJbQxiM0mJMfjUaRKTaEmFXzNfK9SJ4su/6W1XSwvcOZ/4Ya8Ijb98gs0lGjQim1u7rBIxwp4n5n5OcN4eAA1+mS4zod4hGj5Z90mHRzc2rEj6JeY0yHne/p9sPa8iLF1gFSbwOlfR5338j2wyfbFq3bUj/5Dr5ifdv3jca7ucu5Ys5F7fkGfs6EsOTcN9XzzO537T+ZHGzvyAaRKX6v958hPqK01CA7NkilJo+dq93st5ufr0fDh18Wy9/pxqm+AyvLs3+i6yvmxfONbkMgqqvYLAYVZDN7hc6e/9TaGHEeCk1+LIT9QRMnG1aPXMv6mfyNavo94G1uRr2CPNla6u5hiQn+k+uSk9VYEsAyXXah+mUhzwyE0/HhyqJnjOYwSZYlMyEi8tMQ7MIWvGJSp73Z+7bn2iB2F5rue/ZaqF6kcc/prMHJZPYKmfs4VKfjwwUygxn56gWyTDaZsxxro4nsFuPDw+PJxXfh2ZyBSHb07mzyBaqzy4vJ5UVb0Vdsah8bb1anW49wG+omLj65uGqbCb4Jvh0KTfdqHuFI9BBFeLff3783K9L1B/P/PLJdRA6Oz/76NwAA//+rs4yxXgkAAA==
+
 
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
@@ -322,21 +321,6 @@ write_files:
     [Install]
     WantedBy=multi-user.target
     #EOF
-
-- path: /etc/systemd/system/ensure-no-dup.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/zyNvUoEQRCE83mKBuO9AfMNDjxTwcXouGB+ar3GvZ6hu0fEpxeV26z4qqjv/Cbsl/AEK8rducl8rJUq6uiE7ClvIB0bjNam9DEyBE5Zub6DWKhru7GV0YbRrVWE4+rQuTTxxAKtB4N+crkXvw8bfKfn5T9cwivMk/rcZFoTb0NxRwvK/BhOXyjL3yJmlpiTXSm27jF9D0XcjRYhNhSTtKmOfrBreDi9PIefAAAA//+1G3Iw6wAAAA==
-
-- path: /opt/azure/containers/ensure-no-dup.sh
-  permissions: "0755"
-  owner: root
-  encoding: gzip
-  content: !!binary |
-    H4sIAAAAAAAA/7xVXU8bRxR9319xWCMVN1ovpJHSUtHKAiqhhmAFeAIeZmeudwdmZzbzYeKC/3s163Vih01KKiVv9nycc8+5d88MtvJC6rxgrkqSASzVZkbwlXSQU9wTmCVoA2V0SRbBSV2isaaWjgcTHAorRUmojSBMjQU32jOpyYpkgILxu9KaoMV+xCrJQ4RGSc48CTSM35F3mFpTozEC3sCRnUlOJ5NIXxhftQUYDV8RHKtjMYKwYzQt78V1XtjdVSFMC2xsRmDZQHpHaoqZZLgjq0lBBIqM62JaFQVFjUYPk0Es2lUmKIGpVJ4sTPAt6keKJXwy6DxzoA+MezXHfcU87kJBKqo25Fp7hOF3ZF0l6xdxT5NPBqi8b9x+npfSV6EYcVPncdNq8uTWfzZBqfzlr6/3XicJFZ4Vihwyvyoue4Px3+fZ0fHR5SSbvDs7PTk/xMs/ckGzXAelEjnF1RW2/0RG77GLm5vfoxidAADxyiB9et8GRWDKEhNzOPLp8vQH6bGbTGWHuYVsipw8z7mWuSY/EvnebvZpGrK4xo2eKul8HzPXMg7PVJbQxiM0mJMfjUaRKTaEmFXzNfK9SJ4su/6W1XSwvcOZ/4Ya8Ijb98gs0lGjQim1u7rBIxwp4n5n5OcN4eAA1+mS4zod4hGj5Z90mHRzc2rEj6JeY0yHne/p9sPa8iLF1gFSbwOlfR5338j2wyfbFq3bUj/5Dr5ifdv3jca7ucu5Ys5F7fkGfs6EsOTcN9XzzO537T+ZHGzvyAaRKX6v958hPqK01CA7NkilJo+dq93st5ufr0fDh18Wy9/pxqm+AyvLs3+i6yvmxfONbkMgqqvYLAYVZDN7hc6e/9TaGHEeCk1+LIT9QRMnG1aPXMv6mfyNavo94G1uRr2CPNla6u5hiQn+k+uSk9VYEsAyXXah+mUhzwyE0/HhyqJnjOYwSZYlMyEi8tMQ7MIWvGJSp73Z+7bn2iB2F5rue/ZaqF6kcc/prMHJZPYKmfs4VKfjwwUygxn56gWyTDaZsxxro4nsFuPDw+PJxXfh2ZyBSHb07mzyBaqzy4vJ5UVb0Vdsah8bb1anW49wG+omLj65uGqbCb4Jvh0KTfdqHuFI9BBFeLff3783K9L1B/P/PLJdRA6Oz/76NwAA//+rs4yxXgkAAA==
-
 
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"

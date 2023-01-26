@@ -5930,7 +5930,6 @@ write_files:
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
 
-{{if RequiresDocker}}
 - path: /etc/docker/daemon.json
   permissions: "0644"
   owner: root
@@ -5951,7 +5950,6 @@ write_files:
       }{{end}}{{if HasDataDir}},
       "data-root": "{{GetDataDir}}"{{- end}}
     }
-{{end}}
 
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"
@@ -5975,7 +5973,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
-{{if NeedsContainerd}}
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
@@ -6049,6 +6046,7 @@ write_files:
     {{- end}}
     #EOF
 
+{{if NeedsContainerd}}
 - path: /etc/containerd/kubenet_template.conf
   permissions: "0644"
   owner: root
@@ -6078,33 +6076,6 @@ write_files:
           }]
       }
 
-- path: /etc/systemd/system/containerd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=containerd daemon
-    After=network.target
-
-    [Service]
-    ExecStartPre=/sbin/modprobe overlay
-    ExecStart=/usr/bin/containerd
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    OOMScoreAdjust=-999
-    # Having non-zero Limit*s causes performance problems due to accounting overhead
-    # in the kernel. We recommend using cgroups to do container-local accounting.
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=infinity
-    TasksMax=infinity
-
-    [Install]
-    WantedBy=multi-user.target
-
-    #EOF
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6119,6 +6090,21 @@ write_files:
   content: |
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
+
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
+{{end}}
 
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
@@ -6139,21 +6125,6 @@ write_files:
     [Install]
     WantedBy=multi-user.target
     #EOF
-
-- path: /etc/systemd/system/ensure-no-dup.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
-
-- path: /opt/azure/containers/ensure-no-dup.sh
-  permissions: "0755"
-  owner: root
-  encoding: gzip
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-{{end}}
 
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"

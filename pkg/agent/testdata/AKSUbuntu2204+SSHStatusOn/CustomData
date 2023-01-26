@@ -173,7 +173,6 @@ write_files:
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
     #EOF
 
-
 - path: /etc/docker/daemon.json
   permissions: "0644"
   owner: root
@@ -186,7 +185,6 @@ write_files:
          "max-file": "5"
       }
     }
-
 
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"
@@ -210,7 +208,53 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/5SUUW/bthfF3/kpTh2jbfL/00pSbA8JUmxLvCKAlwyxt2EoioCmriRCFKmRlFNt3ncfSNmO2yQDpif7irw893cOdfAK2VKZbCl8xdj87vIiWwmXaVtm0poglCHn2dV88VgXf3aOMlH7rLW5Z+wAPzhlSiiD2zl3pEWgHLEhVsJ55m3nJCGjIDPr4wISnuK+a+OD0BrK2KCKngdrtYcqECrq3zhCo7yPrQtnm1iEakRJTBX4+BHjv66v/sbFBUaNcFHnCJ8+ncdlhgHSNo0wOfhq2/5BqID3WU6rzHRa4/T96xOs18hNAbVRwvsvxTDSnvCf2ok28JICuMXVz3V5djazsj47W6iGbBcu3h0fD6c8MzorVMQyp4BS2+Uyjm7boKzx8BahEiEKaUsyKJ1Yelij+wRG29LjgfAgTGC+sm0A96DPITZ6LESlqcIO8FscoLAOzziOYEGflQ+JNV6B5xjP7y7xCJhkZcENRrFPMsm6Yc1272QyGTHgoVKavm6SWwYAXhO1OPkm/dl1TNtya2h7zCj+mYw2fH4SNaWhc/JBGREBIVeOZLCuj/kxNkBoRyLv0TryZAJr6lw58Bbjq/kiYQ7CBQgshaxLZzuTo3VWkk/TS03CoGsHsimAOWmK0Y6xT2awA1RiReZNwJLIoLG5KhTl8SqcorKd8xMsKuUhtLYPHl1q7ShSRuiMIR27sYPhFFEEchBw5KO2CRvQBdfRhlihTI4XbiJ46FtCAa6VqT1OwJtGGfzv5PQYfBDPtsjffXt8zCJVvB6Qmk5o3cP3Rka1aESQVbQ1KbNGEosGL365uZnO7me3H+5/vJ5N46Tjt9tM8g8YRYOz796K2icZ66SRS+PXUmnVNevaGkMyqJUK/XpgUDhrwiE/uq+7JXHf+0DN/dFE23J0uI3KkIOZMnUUNf5KRwzM8CHTBnxWPFmQXM/SxGxolewfvlu7+5wSG3FYo4J1KdKyEqYkz/avPf8DvAF34LRJxf+lIxFoyPd6k/kYQFxd300vF7d3v2P66/Rmgahml38pPGG8IZkq8dnCe44I1tghfeH9APqFl/v4X1iyZ8pzKw53Oh8nGEbbG2H7XN5Nv19Mjw6fvMBTT3dGPnn2nR2Nd0SzYUsszRfZv+w/P/+iTF7ITSn+HFLxTwAAAP//FJDA2AoHAAA=
 
+- path: /etc/containerd/config.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    version = 2
+    oom_score = 0
+    [plugins."io.containerd.grpc.v1.cri"]
+      sandbox_image = ""
+      [plugins."io.containerd.grpc.v1.cri".containerd]
+        default_runtime_name = "runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          BinaryName = "/usr/bin/runc"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+          runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+          BinaryName = "/usr/bin/runc"
+      [plugins."io.containerd.grpc.v1.cri".registry]
+        config_path = "/etc/containerd/certs.d"
+      [plugins."io.containerd.grpc.v1.cri".registry.headers]
+        X-Meta-Source-Client = ["azure/aks"]
+    [metrics]
+      address = "0.0.0.0:10257"
+    #EOF
 
+
+
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+    #EOF
 
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
