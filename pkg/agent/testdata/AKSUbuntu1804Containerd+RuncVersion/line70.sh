@@ -8,6 +8,12 @@ configureAdminUser(){
 }
 
 configPrivateClusterHosts() {
+    mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
+    touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
+    tee /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf > /dev/null <<EOF
+[Service]
+Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
 configureTransparentHugePage() {
@@ -63,26 +69,54 @@ configureSwapFile() {
 }
 
 configureEtcEnvironment() {
+    mkdir -p /etc/systemd/system.conf.d/
+    touch /etc/systemd/system.conf.d/proxy.conf
+    chmod 0644 /etc/systemd/system.conf.d/proxy.conf
+
+    mkdir -p  /etc/apt/apt.conf.d
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
+    touch /etc/apt/apt.conf.d/95proxy
+
+    # TODO(ace): this pains me but quick and dirty refactor
+    echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
         echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${HTTPS_PROXY_URLS}" != "" ]; then
         echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
         echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
     if [ "${NO_PROXY_URLS}" != "" ]; then
         echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
         echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+        echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
+
+    # for kubelet to pick up the proxy
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+    tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/environment
+EOF
 }
 
 configureHTTPProxyCA() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
     update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
+    for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+    done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
 
@@ -224,9 +258,17 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
-  wait_for_file 1200 1 /etc/systemd/system/containerd.service.d/exec_start.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
   wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  wait_for_file 1200 1 /etc/sysctl.d/11-containerd.conf || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
@@ -265,24 +307,6 @@ ensureDocker() {
 
 }
 
-ensureContainerdMonitorService() {
-    # Delay start of containerd-monitor for 30 mins after booting
-    CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/containerd-monitor.timer
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    CONTAINERD_MONITOR_SYSTEMD_FILE=/etc/systemd/system/containerd-monitor.service
-    wait_for_file 1200 1 $CONTAINERD_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureDockerMonitorService() {
-    # Delay start of docker-monitor for 30 mins after booting
-    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureDHCPv6() {
     wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
@@ -294,24 +318,96 @@ ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
+        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
+        touch "${KUBELET_TLS_DROP_IN}"
+        chmod 0600 "${KUBELET_TLS_DROP_IN}"
+        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+EOF
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "${TLS_BOOTSTRAP_TOKEN}"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-        wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
+        touch "${KUBECONFIG_FILE}"
+        chmod 0644 "${KUBECONFIG_FILE}"
+        tee "${KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key
+contexts:
+- context:
+  cluster: localcluster
+    user: client
+    name: localclustercontext
+current-context: localclustercontext
+EOF
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+ #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureMigPartition(){
+    mkdir -p /etc/systemd/system/mig-partition.service.d/
+    touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
+    tee /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf > /dev/null <<EOF
+[Service]
+Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+EOF
     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 

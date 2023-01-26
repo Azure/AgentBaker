@@ -31,12 +31,14 @@ copyPackerFiles() {
   KMS_SERVICE_DEST=/etc/systemd/system/kms.service
   HEALTH_MONITOR_SRC=/home/packer/health-monitor.sh
   HEALTH_MONITOR_DEST=/usr/local/bin/health-monitor.sh
-  KUBELET_MONITOR_SERVICE_SRC=/home/packer/kubelet-monitor.service
-  KUBELET_MONITOR_SERVICE_DEST=/etc/systemd/system/kubelet-monitor.service
+  MIG_PARTITION_SRC=/home/packer/mig-partition.sh
+  MIG_PARTITION_DEST=/opt/azure/containers/mig-partition.sh
   DOCKER_MONITOR_SERVICE_SRC=/home/packer/docker-monitor.service
   DOCKER_MONITOR_SERVICE_DEST=/etc/systemd/system/docker-monitor.service
   DOCKER_MONITOR_TIMER_SRC=/home/packer/docker-monitor.timer
   DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
+  CONTAINERD_EXEC_START_SRC=/home/packer/containerd_exec_start.conf
+  CONTAINERD_EXEC_START_DEST=/etc/systemd/system/containerd.service.d/exec_start.conf
   CONTAINERD_MONITOR_SERVICE_SRC=/home/packer/containerd-monitor.service
   CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
   CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
@@ -79,6 +81,12 @@ copyPackerFiles() {
   AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
   AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
+  BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
+  BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
+  RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
+  RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
+  KUBELET_SERVICE_SRC=/home/packer/kubelet.service
+  KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -102,6 +110,9 @@ copyPackerFiles() {
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
   
+  cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
+  cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
+  cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
@@ -117,7 +128,8 @@ copyPackerFiles() {
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
-  cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
+  cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
+  cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644

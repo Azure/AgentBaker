@@ -8,6 +8,7 @@ for i in $(seq 1 1200); do
 grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
@@ -74,8 +75,11 @@ ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
+SHOULD_CONFIGURE_HTTP_PROXY="{{ShouldConfigureHTTPProxy}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
+CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
 IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
@@ -113,5 +117,14 @@ THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
-
+GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
+GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
+CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
+CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
+CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
+MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
+HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
+NEEDS_CGROUPV2="{{Is2204VHD}}"
+SYSCTL_CONTENT="{{GetSysctlContent}}"
+TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

@@ -61,10 +61,13 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
-if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
-    configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
+    if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+        configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+    fi
     configureEtcEnvironment
 fi
+
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
@@ -81,12 +84,8 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-{{- if not NeedsContainerd}}
-logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-{{- end}}
-
 if [[ "${GPU_NODE}" != "true" ]]; then
-    cleanUpGPUDrivers
+    logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
@@ -113,7 +112,7 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -133,7 +132,13 @@ if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-            logs_to_events "AKS.CSE.mig_strategy" "wait_for_file 3600 1 /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" || exit $ERR_FILE_WATCH_TIMEOUT
+            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+[Service]
+Environment="MIG_STRATEGY=--mig-strategy single"
+ExecStart=
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
@@ -198,14 +203,16 @@ fi
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
-    logs_to_events "AKS.CSE.ensureContainerdMonitorService" ensureContainerdMonitorService
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-    logs_to_events "AKS.CSE.ensureDockerMonitorService" ensureDockerMonitorService
 fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
 logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
+
+if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
+fi
 
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
@@ -224,6 +231,30 @@ fi
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
+
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+if [ "${NEEDS_CGROUPV2}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
+EOF
+fi
+
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+EOF
+fi
+
+if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-bindmount.conf" > /dev/null <<EOF
+[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
@@ -311,5 +342,6 @@ echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
+
 
 #EOF
