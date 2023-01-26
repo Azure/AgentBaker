@@ -365,26 +365,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 
-- path: /etc/default/kubelet
-  permissions: "0644"
-  owner: root
-  content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
-    KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY={{GetParameter "networkPolicy"}}
-{{- if not (IsKubernetesVersionGe "1.17.0")}}
-    KUBELET_IMAGE={{GetHyperkubeImageReference}}
-{{end}}
-{{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
-{{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
-{{end}}
-{{- if IsAKSCustomCloud}}
-    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
-{{end}}
-    #EOF
-
 runcmd:
 - set -x
 - . {{GetCSEHelpersScriptFilepath}}

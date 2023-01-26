@@ -133,4 +133,15 @@ HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
+KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
+NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+KUBELET_IMAGE="{{GetHyperkubeImageReference}}"
+{{end}}
+{{if IsKubernetesVersionGe "1.16.0"}}
+KUBELET_NODE_LABELS="{{GetAgentKubernetesLabels . }}"
+{{else}}
+KUBELET_NODE_LABELS="{{GetAgentKubernetesLabelsDeprecated . }}"
+{{end}}
+AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTargetEnvironment}}.json{{end}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
