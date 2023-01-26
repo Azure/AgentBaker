@@ -34,6 +34,14 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed cat syslog"
     fi
+    exec_on_host "$SSH_CMD cat /etc/containerd/config.toml" $SCENARIO_NAME-logs/containerd.toml || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat containerd.toml"
+    fi
+    exec_on_host "$SSH_CMD cat /etc/containerd/kubenet_template.conf" $SCENARIO_NAME-logs/kubenet_template.conf || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat kubenet_template.conf"
+    fi
     set -x
     echo "debug done"
 }
@@ -144,7 +152,9 @@ for i in $(seq 1 10); do
     kubectl get nodes | grep $vmInstanceName
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
-    if [ -z "$(kubectl get nodes | grep $vmInstanceName | grep -v "NotReady")" ]; then
+    kubectl get nodes | grep $vmInstanceName | grep "Ready" | grep -v "NotReady"
+    retval=$?
+    if [ "${retval}" != "0" ]; then
         log "retrying attempt $i"
         sleep 10
         continue
@@ -191,7 +201,7 @@ for i in $(seq 1 10); do
     set -e
     if [ "$retval" -ne 0 ]; then
         log "retrying attempt $i"
-        sleep 10
+        sleep 3
         continue
     fi
     break;

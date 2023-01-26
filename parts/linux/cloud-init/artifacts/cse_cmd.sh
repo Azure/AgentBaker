@@ -1,12 +1,9 @@
+mkdir -p "/etc/kubernetes/certs"
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
-grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
+for i in $(seq 1 10); do
 grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+if [ $i -eq 10 ]; then exit 100; else sleep 1; fi;
 done;
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
@@ -133,6 +130,7 @@ HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
+KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
