@@ -22,6 +22,7 @@
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd_exec_start.conf
+// linux/cloud-init/artifacts/crictl.yaml
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -73,8 +74,10 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
+// linux/cloud-init/artifacts/sync-tunnel-logs.service
 // linux/cloud-init/artifacts/sync-tunnel-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
+// linux/cloud-init/artifacts/teleportd.service
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
 // linux/cloud-init/artifacts/update_certs.path
@@ -790,6 +793,24 @@ func linuxCloudInitArtifactsContainerd_exec_startConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd_exec_start.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCrictlYaml = []byte(`runtime-endpoint: unix:///run/containerd/containerd.sock
+`)
+
+func linuxCloudInitArtifactsCrictlYamlBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCrictlYaml, nil
+}
+
+func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCrictlYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/crictl.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4370,8 +4391,10 @@ Type=oneshot
 RemainAfterExit=true
 ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
 ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsNvidiaModprobeServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsNvidiaModprobeService, nil
@@ -5158,6 +5181,33 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSyncTunnelLogsService = []byte(`[Unit]
+Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+After=containerd.service
+
+[Service]
+ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsSyncTunnelLogsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncTunnelLogsService, nil
+}
+
+func linuxCloudInitArtifactsSyncTunnelLogsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
 
 SRC=/var/log/containers
@@ -5278,6 +5328,37 @@ func linuxCloudInitArtifactsSysctlD60CisConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sysctl-d-60-CIS.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsTeleportdService = []byte(`[Unit]
+Description=teleportd teleport runtime
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+Delegate=yes
+KillMode=process
+Restart=always
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=1048576
+TasksMax=infinity
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsTeleportdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsTeleportdService, nil
+}
+
+func linuxCloudInitArtifactsTeleportdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsTeleportdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/teleportd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7231,6 +7312,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
+	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7282,8 +7364,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
+	"linux/cloud-init/artifacts/sync-tunnel-logs.service":                  linuxCloudInitArtifactsSyncTunnelLogsService,
 	"linux/cloud-init/artifacts/sync-tunnel-logs.sh":                       linuxCloudInitArtifactsSyncTunnelLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
+	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
@@ -7362,6 +7446,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
+				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
@@ -7415,8 +7500,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
+				"sync-tunnel-logs.service":        &bintree{linuxCloudInitArtifactsSyncTunnelLogsService, map[string]*bintree{}},
 				"sync-tunnel-logs.sh":             &bintree{linuxCloudInitArtifactsSyncTunnelLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
+				"teleportd.service":               &bintree{linuxCloudInitArtifactsTeleportdService, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
