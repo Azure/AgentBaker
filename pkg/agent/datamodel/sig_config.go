@@ -1,6 +1,8 @@
 package datamodel
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -97,6 +99,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSCBLMarinerV1,
+	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
@@ -134,6 +137,7 @@ var AvailableGen2Distros []Distro = []Distro{
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
+	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
@@ -243,20 +247,52 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2023.01.19"
-
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Ubuntu2204TLSIGImageVersion       string = "2022.10.13"
-	CBLMarinerV2Gen2TLSIGImageVersion string = "2022.11.29"
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
-
-	// Used for edge zone scenario
-	EdgeZoneSIGImageVersion string = "2023.01.09"
 )
+
+type sigVersion struct {
+	OSType  string `json:"ostype"`
+	Version string `json:"version"`
+}
+
+//go:embed linux_sig_version.json
+var linuxVersionJSONContentsEmbedded string
+
+//go:embed 2204_sig_version.json
+var ubuntu2204JSONContentsEmbedded string
+
+//go:embed mariner_v2_gen2_sig_version.json
+var marinerV2Gen2JSONContentsEmbedded string
+
+//go:embed edge_zone_sig_version.json
+var edgeZoneJSONContentsEmbedded string
+
+var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
+var Ubuntu2204TLSIGImageVersion = getSIGVersionFromEmbeddedString(ubuntu2204JSONContentsEmbedded)
+var CBLMarinerV2Gen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2Gen2JSONContentsEmbedded)
+var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
+
+func getSIGVersionFromEmbeddedString(contents string) string {
+
+	if len(contents) == 0 {
+		panic("SIG version is empty")
+	}
+
+	var sigImageStruct sigVersion
+	err := json.Unmarshal([]byte(contents), &sigImageStruct)
+
+	if err != nil {
+		panic(err)
+	}
+
+	sigImageVersion := sigImageStruct.Version
+	return sigImageVersion
+}
 
 // SIG config Template
 var (
@@ -417,6 +453,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2Gen1ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -500,6 +543,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSCBLMarinerV1:          SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2:          SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:      SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),

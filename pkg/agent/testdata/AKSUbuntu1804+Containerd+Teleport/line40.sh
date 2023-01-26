@@ -30,7 +30,7 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
@@ -50,7 +50,9 @@ installContainerRuntime() {
 
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-
+else
+    installMoby
+fi
 }
 
 installNetworkPlugin() {
@@ -116,6 +118,7 @@ installCrictl() {
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
+
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
@@ -343,21 +346,25 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
-        
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
-                removeContainerImage ${CLI_TOOL} ${image}
-                
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+                    removeContainerImage ${CLI_TOOL} ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     }
@@ -378,21 +385,25 @@ cleanUpKubeProxyImages() {
 }
 
 cleanupRetaggedImages() {
-    if [[ "AzurePublicCloud" != "AzureChinaCloud" ]]; then
-        
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+    if [[ "${TARGET_CLOUD}" != "AzureChinaCloud" ]]; then
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                 # always use ctr, even if crictl is installed.
                 # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
-                removeContainerImage "ctr" ${image}
-                
+                    removeContainerImage "ctr" ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     else

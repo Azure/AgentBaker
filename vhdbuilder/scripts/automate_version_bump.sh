@@ -17,16 +17,10 @@ build_ids=$3
 branch_name=imageBump/$new_image_version
 pr_title="VersionBump"
 
-# This function finds the current SIG Image version from pkg/agent/datamodelosimageconfig.go
+# This function finds the current SIG Image version from the input JSON file
 find_current_image_version() {
     filepath=$1
-    while read -r p; do
-        if [[ $p == *"LinuxSIGImageVersion"* ]]; then
-            current_image_version=$(echo $p | awk -F'\"' '{print $2}')
-            echo "Image version is $current_image_version, cut from line $p"
-            break
-        fi
-    done < $filepath
+    current_image_version=$(jq -r .version $filepath)
     echo "Current image version is: ${current_image_version}"
 }
 
@@ -34,7 +28,7 @@ find_current_image_version() {
 update_image_version() {
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/bakerapi_test.go
     sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config.go
-    sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/sig_config_test.go
+    sed -i "s/${current_image_version}/${new_image_version}/g" pkg/agent/datamodel/linux_sig_version.json
 }
 
 create_image_bump_pr() {
@@ -82,6 +76,6 @@ cut_official_branch() {
 }
 
 set_git_config
-find_current_image_version "pkg/agent/datamodel/sig_config.go"
+find_current_image_version "linux_sig_version.json"
 create_image_bump_pr
 cut_official_branch

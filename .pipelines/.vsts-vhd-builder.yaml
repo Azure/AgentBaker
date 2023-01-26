@@ -50,6 +50,7 @@ stages:
             -e AZURE_LOCATION=${AZURE_LOCATION} \
             -e FEATURE_FLAGS=${FEATURE_FLAGS} \
             -e GIT_VERSION=$(Build.SourceVersion) \
+            -e BUILD_DEFINITION_NAME="$(Build.DefinitionName)" \
             -e BUILD_ID=$(Build.BuildId) \
             -e BUILD_NUMBER=$(Build.BuildNumber) \
             -e OS_VERSION=${OS_VERSION} \
@@ -189,7 +190,8 @@ stages:
             -e CLIENT_SECRET="$(CLIENT_SECRET)" \
             -e TENANT_ID=${TENANT_ID} \
             -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-            -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+            -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+            -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
             -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
             -e VHD_NAME=${VHD_NAME} \
             -e OS_NAME="Linux" \

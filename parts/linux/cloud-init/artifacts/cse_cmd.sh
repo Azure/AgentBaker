@@ -8,6 +8,7 @@ for i in $(seq 1 1200); do
 grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
 if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
 done;
+REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
@@ -71,4 +72,59 @@ CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
+DISABLE_SSH="{{ShouldDisableSSH}}"
+NEEDS_CONTAINERD="{{NeedsContainerd}}"
+TELEPORT_ENABLED="{{TeleportEnabled}}"
+SHOULD_CONFIGURE_HTTP_PROXY="{{ShouldConfigureHTTPProxy}}"
+SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
+HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
+SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
+CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
+IS_KRUSTLET="{{IsKrustlet}}"
+GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
+NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
+IPV6_DUAL_STACK_ENABLED="{{IsIPv6DualStackFeatureEnabled}}"
+OUTBOUND_COMMAND="{{GetOutboundCommand}}"
+ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
+ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
+SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
+SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+{{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
+{{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
+{{/* target environment seems to go to ARM SDK config */}}
+{{/* not sure why separate/inconsistent? */}}
+{{/* see GetCustomEnvironmentJSON for more weirdness. */}}
+TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
+TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
+CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
+IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
+CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
+CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
+CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
+CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
+CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"
+AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
+HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
+CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
+HTTP_PROXY_URLS="{{GetHTTPProxy}}"
+HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
+NO_PROXY_URLS="{{GetNoProxy}}"
+CLIENT_TLS_BOOTSTRAPPING_ENABLED="{{IsKubeletClientTLSBootstrappingEnabled}}"
+DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
+DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
+THP_ENABLED="{{GetTransparentHugePageEnabled}}"
+THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
+KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
+KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
+SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
+GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
+GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
+CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
+CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
+CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
+MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
+HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
+NEEDS_CGROUPV2="{{Is2204VHD}}"
+SYSCTL_CONTENT="{{GetSysctlContent}}"
+TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
