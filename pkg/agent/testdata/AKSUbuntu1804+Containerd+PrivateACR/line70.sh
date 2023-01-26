@@ -218,6 +218,13 @@ EOF
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
         echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
         set -x
+        KUBELET_CONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-componentconfig.conf"
+        touch "${KUBELET_CONFIG_DROP_IN}"
+        chmod 0600 "${KUBELET_CONFIG_DROP_IN}"
+        tee "${KUBELET_CONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
+EOF
     fi
 }
 
@@ -258,6 +265,7 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT

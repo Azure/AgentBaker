@@ -191,6 +191,10 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
+
+# for drop ins, so they don't all have to check/create the dir
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
@@ -232,8 +236,6 @@ fi
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
-
-mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF

@@ -1161,6 +1161,13 @@ EOF
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
         echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
         set -x
+        KUBELET_CONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-componentconfig.conf"
+        touch "${KUBELET_CONFIG_DROP_IN}"
+        chmod 0600 "${KUBELET_CONFIG_DROP_IN}"
+        tee "${KUBELET_CONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
+EOF
     fi
 }
 
@@ -1201,6 +1208,7 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
@@ -2537,6 +2545,10 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
+
+# for drop ins, so they don't all have to check/create the dir
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
@@ -2578,8 +2590,6 @@ fi
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
-
-mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
@@ -6163,15 +6173,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{- if IsKubeletConfigFileEnabled}}
-- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
-{{ end }}
 
 - path: /etc/default/kubelet
   permissions: "0644"
