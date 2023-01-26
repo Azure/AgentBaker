@@ -146,15 +146,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-{{- if HasKubeletDiskType}}
-- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
-{{end}}
-
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
@@ -266,22 +257,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
 {{if NeedsContainerd}}
-- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-
-{{- if Is2204VHD}}
-- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
-{{- end}}
-
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root

@@ -235,6 +235,30 @@ if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
 
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+if [ "${NEEDS_CGROUPV2}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
+EOF
+fi
+
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+EOF
+fi
+
+if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-bindmount.conf" > /dev/null <<EOF
+[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+EOF
+fi
+
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet

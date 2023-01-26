@@ -919,6 +919,8 @@ CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
 CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
+HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
+NEEDS_CGROUPV2="{{Is2204VHD}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -2521,6 +2523,30 @@ fi
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+fi
+
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+if [ "${NEEDS_CGROUPV2}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
+EOF
+fi
+
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+EOF
+fi
+
+if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
+    tee "/etc/systemd/system/kubelet.service.d/10-bindmount.conf" > /dev/null <<EOF
+[Unit]
+Requires=bind-mount.service
+After=bind-mount.service
+EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
@@ -5785,15 +5811,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-{{- if HasKubeletDiskType}}
-- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
-{{end}}
-
 {{if not IsMariner}}
 {{if EnableUnattendedUpgrade }}
 - path: /etc/apt/apt.conf.d/99periodic
@@ -5905,22 +5922,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
 {{if NeedsContainerd}}
-- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-
-{{- if Is2204VHD}}
-- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
-{{- end}}
-
 - path: /etc/containerd/config.toml
   permissions: "0644"
   owner: root
