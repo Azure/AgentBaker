@@ -2493,10 +2493,8 @@ fi
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
-    logs_to_events "AKS.CSE.ensureContainerdMonitorService" ensureContainerdMonitorService
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-    logs_to_events "AKS.CSE.ensureDockerMonitorService" ensureDockerMonitorService
 fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
