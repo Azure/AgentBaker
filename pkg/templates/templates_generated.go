@@ -921,6 +921,8 @@ CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
+SYSCTL_CONTENT="{{GetSysctlContent}}"
+TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1259,11 +1261,62 @@ ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
+        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
+        touch "${KUBELET_TLS_DROP_IN}"
+        chmod 0600 "${KUBELET_TLS_DROP_IN}"
+        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+EOF
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        wait_for_file 1200 1 $BOOTSTRAP_KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "${TLS_BOOTSTRAP_TOKEN}"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-        wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+        mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
+        touch "${KUBECONFIG_FILE}"
+        chmod 0644 "${KUBECONFIG_FILE}"
+        tee "${KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key
+contexts:
+- context:
+  cluster: localcluster
+    user: client
+    name: localclustercontext
+current-context: localclustercontext
+EOF
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
@@ -1294,7 +1347,10 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -2402,7 +2458,7 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -2493,10 +2549,8 @@ fi
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
-    logs_to_events "AKS.CSE.ensureContainerdMonitorService" ensureContainerdMonitorService
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
-    logs_to_events "AKS.CSE.ensureDockerMonitorService" ensureDockerMonitorService
 fi
 
 # Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
@@ -6148,61 +6202,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
 {{ end }}
 
-{{if IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /var/lib/kubelet/bootstrap-kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: kubelet-bootstrap
-      user:
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-    contexts:
-    - context:
-        cluster: localcluster
-        user: kubelet-bootstrap
-      name: bootstrap-context
-    current-context: bootstrap-context
-    #EOF
-- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
-{{else -}}
-- path: /var/lib/kubelet/kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: client
-      user:
-        client-certificate: /etc/kubernetes/certs/client.crt
-        client-key: /etc/kubernetes/certs/client.key
-    contexts:
-    - context:
-        cluster: localcluster
-        user: client
-      name: localclustercontext
-    current-context: localclustercontext
-    #EOF
-{{- end}}
-
 - path: /etc/default/kubelet
   permissions: "0644"
   owner: root
@@ -6221,115 +6220,6 @@ write_files:
 {{- if IsAKSCustomCloud}}
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{end}}
-    #EOF
-
-- path: /etc/sysctl.d/999-sysctl-aks.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    # This is a partial workaround to this upstream Kubernetes issue:
-    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-    net.ipv4.tcp_retries2=8
-    net.core.message_burst=80
-    net.core.message_cost=40
-{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
-    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
-{{- else}}
-    net.core.somaxconn=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
-    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-{{- else}}
-    net.ipv4.tcp_max_syn_backlog=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
-    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh1=4096
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
-    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh2=8192
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
-    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh3=16384
-{{- end}}
-{{if ShouldConfigCustomSysctl}}
-    # The following are sysctl configs passed from API
-{{- $s:=.CustomLinuxOSConfig.Sysctls}}
-{{- if $s.NetCoreNetdevMaxBacklog}}
-    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
-{{- end}}
-{{- if $s.NetCoreRmemDefault}}
-    net.core.rmem_default={{$s.NetCoreRmemDefault}}
-{{- end}}
-{{- if $s.NetCoreRmemMax}}
-    net.core.rmem_max={{$s.NetCoreRmemMax}}
-{{- end}}
-{{- if $s.NetCoreWmemDefault}}
-    net.core.wmem_default={{$s.NetCoreWmemDefault}}
-{{- end}}
-{{- if $s.NetCoreWmemMax}}
-    net.core.wmem_max={{$s.NetCoreWmemMax}}
-{{- end}}
-{{- if $s.NetCoreOptmemMax}}
-    net.core.optmem_max={{$s.NetCoreOptmemMax}}
-{{- end}}
-{{- if $s.NetIpv4TcpMaxTwBuckets}}
-    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
-{{- end}}
-{{- if $s.NetIpv4TcpFinTimeout}}
-    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveTime}}
-    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveProbes}}
-    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
-{{- end}}
-{{- if $s.NetIpv4TcpkeepaliveIntvl}}
-    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpTwReuse}}
-    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
-{{- end}}
-{{- if $s.NetIpv4IpLocalPortRange}}
-    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackMax}}
-    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackBuckets}}
-    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
-{{- end}}
-{{- if $s.FsInotifyMaxUserWatches}}
-    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
-{{- end}}
-{{- if $s.FsFileMax}}
-    fs.file-max={{$s.FsFileMax}}
-{{- end}}
-{{- if $s.FsAioMaxNr}}
-    fs.aio-max-nr={{$s.FsAioMaxNr}}
-{{- end}}
-{{- if $s.FsNrOpen}}
-    fs.nr_open={{$s.FsNrOpen}}
-{{- end}}
-{{- if $s.KernelThreadsMax}}
-    kernel.threads-max={{$s.KernelThreadsMax}}
-{{- end}}
-{{- if $s.VMMaxMapCount}}
-    vm.max_map_count={{$s.VMMaxMapCount}}
-{{- end}}
-{{- if $s.VMSwappiness}}
-    vm.swappiness={{$s.VMSwappiness}}
-{{- end}}
-{{- if $s.VMVfsCachePressure}}
-    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
-{{- end}}
-{{- end}}
     #EOF
 
 runcmd:
