@@ -269,6 +269,7 @@ type sigVersion struct {
 var linuxVersionJSONContentsEmbedded string
 
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
+var Ubuntu2204MinimalSIGImageVersion string = "000.000.000.2204"
 
 func getSIGVersionFromEmbeddedString(contents string) string {
 
@@ -415,21 +416,21 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Ubuntu2204MinimalSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       Ubuntu2204MinimalSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204TLGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2TLcontainerd",
-		Version:       Ubuntu2204TLSIGImageVersion,
+		Version:       Ubuntu2204MinimalSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{

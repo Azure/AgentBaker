@@ -101,13 +101,13 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204Containerd.Definition).To(Equal("2204containerd"))
-		Expect(aksUbuntu2204Containerd.Version).To(Equal("2023.01.19"))
+		Expect(aksUbuntu2204Containerd.Version).To(Equal(Ubuntu2204MinimalSIGImageVersion))
 
 		aksUbuntu2204Gen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204Gen2]
 		Expect(aksUbuntu2204Gen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204Gen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204Gen2Containerd.Definition).To(Equal("2204gen2containerd"))
-		Expect(aksUbuntu2204Gen2Containerd.Version).To(Equal("2023.01.19"))
+		Expect(aksUbuntu2204Gen2Containerd.Version).To(Equal(Ubuntu2204MinimalSIGImageVersion))
 
 		aksUbuntu2004CVMGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2004CVMGen2]
 		Expect(aksUbuntu2004CVMGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
@@ -125,7 +125,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
-		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2022.10.13"))
+		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal(Ubuntu2204MinimalSIGImageVersion))
 
 		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(2))
 
