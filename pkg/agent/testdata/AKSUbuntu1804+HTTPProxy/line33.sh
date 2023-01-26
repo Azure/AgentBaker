@@ -109,7 +109,7 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" && "${TELEPORT_ENABLED}" == "true" ]; then 
+if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
