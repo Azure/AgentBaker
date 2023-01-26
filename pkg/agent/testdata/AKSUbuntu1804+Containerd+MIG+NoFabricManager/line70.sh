@@ -353,7 +353,10 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
