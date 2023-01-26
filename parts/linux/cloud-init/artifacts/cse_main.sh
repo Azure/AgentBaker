@@ -245,6 +245,37 @@ EOF
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # gross, but the backticks make it very hard to do in Go
+    # TODO: move entirely into vhd.
+    # alternatively, can we verify this is safe with docker?
+    # or just do it even if not because docker is out of support?
+    mkdir -p /etc/containerd
+    tee "/etc/containerd/kubenet_template.conf" > /dev/null <<'EOF'
+{
+    "cniVersion": "0.3.1",
+    "name": "kubenet",
+    "plugins": [{
+    "type": "bridge",
+    "bridge": "cbr0",
+    "mtu": 1500,
+    "addIf": "eth0",
+    "isGateway": true,
+    "ipMasq": false,
+    "promiscMode": true,
+    "hairpinMode": false,
+    "ipam": {
+        "type": "host-local",
+        "ranges": [{{`{{range $i, $range := .PodCIDRRanges}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}[{"subnet": "{{`{{$range}}`}}"}]{{`{{end}}`}}],
+        "routes": [{{`{{range $i, $route := .Routes}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}{"dst": "{{`{{$route}}`}}"}{{`{{end}}`}}]
+    }
+    },
+    {
+    "type": "portmap",
+    "capabilities": {"portMappings": true},
+    "externalSetMarkChain": "KUBE-MARK-MASQ"
+    }]
+}
+EOF
     tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
