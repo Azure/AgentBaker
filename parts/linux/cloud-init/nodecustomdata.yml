@@ -169,24 +169,6 @@ write_files:
 {{end}}
 {{- end}}
 
-{{- if HasServicePrincipalSecret}}
-- path: /etc/kubernetes/sp.txt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetServicePrincipalSecret}}
-{{- end}}
-
-{{- if HasKubeletClientKey}}
-- path: /etc/kubernetes/certs/client.key
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetKubeletClientKey}}
-{{- end}}
-
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
   encoding: gzip
@@ -428,15 +410,6 @@ write_files:
   owner: root
   content: |
     {{GetParameter "caCertificate"}}
-
-{{if not IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /etc/kubernetes/certs/client.crt
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "clientCertificate"}}
-{{- end}}
 
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"

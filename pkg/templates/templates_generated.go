@@ -910,6 +910,9 @@ DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
 THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
+SERVICE_PRINCIPAL_FILE_CONTENT="{{GetServicePrincipalSecret}}"
+KUBELET_CLIENT_CONTENT="{{GetKubeletClientKey}}"
+KUBELET_CLIENT_CERT_CONTENT="{{GetKubeletClientCert}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
@@ -1083,10 +1086,16 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
-    SP_FILE="/etc/kubernetes/sp.txt"
-
-    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "/etc/kubernetes/certs"
+    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+    fi
+    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    fi
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+    fi
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
@@ -5898,24 +5907,6 @@ write_files:
 {{end}}
 {{- end}}
 
-{{- if HasServicePrincipalSecret}}
-- path: /etc/kubernetes/sp.txt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetServicePrincipalSecret}}
-{{- end}}
-
-{{- if HasKubeletClientKey}}
-- path: /etc/kubernetes/certs/client.key
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetKubeletClientKey}}
-{{- end}}
-
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
   encoding: gzip
@@ -6157,15 +6148,6 @@ write_files:
   owner: root
   content: |
     {{GetParameter "caCertificate"}}
-
-{{if not IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /etc/kubernetes/certs/client.crt
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "clientCertificate"}}
-{{- end}}
 
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
