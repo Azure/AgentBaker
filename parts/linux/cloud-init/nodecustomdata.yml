@@ -146,17 +146,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-{{if not IsMariner}}
-{{if EnableUnattendedUpgrade }}
-- path: /etc/apt/apt.conf.d/99periodic
-  permissions: "0644"
-  owner: root
-  content: |
-    APT::Periodic::Update-Package-Lists "1";
-    APT::Periodic::Unattended-Upgrade "1";
-{{end}}
-{{end}}
-
 {{- if ShouldConfigureCustomCATrust}}
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
 {{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}

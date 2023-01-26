@@ -2689,6 +2689,12 @@ else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
+            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
+            touch "${UU_CONFIG_DIR}"
+            chmod 0644 "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
             systemctl unmask apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
@@ -2697,6 +2703,7 @@ else
             # meaning we are wasting IO without even triggering an upgrade 
             # -________________-
             systemctl restart --no-block apt-daily.service
+            
         fi
         aptmarkWALinuxAgent unhold &
     fi
@@ -5883,17 +5890,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
-
-{{if not IsMariner}}
-{{if EnableUnattendedUpgrade }}
-- path: /etc/apt/apt.conf.d/99periodic
-  permissions: "0644"
-  owner: root
-  content: |
-    APT::Periodic::Update-Package-Lists "1";
-    APT::Periodic::Unattended-Upgrade "1";
-{{end}}
-{{end}}
 
 {{- if ShouldConfigureCustomCATrust}}
 {{range $i, $cert := GetCustomCATrustConfigCerts}}
