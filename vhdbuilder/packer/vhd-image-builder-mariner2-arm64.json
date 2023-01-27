@@ -301,6 +301,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nvidia-modprobe.service",
+      "destination": "/home/packer/nvidia-modprobe.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pwquality-CIS.conf",
       "destination": "/home/packer/pwquality-CIS.conf"
     },

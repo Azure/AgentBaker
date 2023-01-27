@@ -32,7 +32,6 @@ cleanupContainerdDlFiles() {
 installContainerRuntime() {
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
     local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
