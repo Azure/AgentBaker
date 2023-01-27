@@ -145,4 +145,5 @@ KUBELET_NODE_LABELS="{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTargetEnvironment}}.json{{end}}"
 KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
+KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
