@@ -203,6 +203,8 @@ if [[ "$retval" -eq 0 ]]; then
     kubectl get nodes -o wide | grep $vmInstanceName
 else
     err "Node did not join cluster"
+    kubectl get node -o yaml "$vmInstanceName"
+    kubectl get nodes -o wide
     FAILED=1
 fi
 
