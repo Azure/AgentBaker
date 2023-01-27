@@ -961,6 +961,7 @@ KUBELET_NODE_LABELS="{{GetAgentKubernetesLabels . }}"
 KUBELET_NODE_LABELS="{{GetAgentKubernetesLabelsDeprecated . }}"
 {{end}}
 AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTargetEnvironment}}.json{{end}}"
+KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1315,6 +1316,9 @@ ensureDHCPv6() {
 }
 
 ensureKubelet() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" >> "${KUBELET_DEFAULT_FILE}"
@@ -6235,13 +6239,6 @@ write_files:
     ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
     [Install]
     WantedBy=multi-user.target
-
-- path: /etc/kubernetes/certs/ca.crt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "caCertificate"}}
 
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
