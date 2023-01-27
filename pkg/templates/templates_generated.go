@@ -963,6 +963,7 @@ KUBELET_NODE_LABELS="{{GetAgentKubernetesLabelsDeprecated . }}"
 AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTargetEnvironment}}.json{{end}}"
 KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
+CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1264,7 +1265,9 @@ ensureContainerd() {
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
-  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+
+  mkdir -p /etc/containerd
+  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -2423,6 +2426,8 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
       exit 0
 fi
+
+aptmarkWALinuxAgent hold &
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
@@ -6079,80 +6084,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{- if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{- end}}
-        {{- if IsNSeriesSKU }}
-        default_runtime_name = "nvidia-container-runtime"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-          {{- if Is2204VHD }}
-          SystemdCgroup = true
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-        {{- else}}
-        default_runtime_name = "runc"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-          BinaryName = "/usr/bin/runc"
-          {{- if Is2204VHD }}
-          SystemdCgroup = true
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-          BinaryName = "/usr/bin/runc"
-        {{- end}}
-        {{- if IsKata }}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-          runtime_type = "io.containerd.kata.v2"
-        {{- end}}
-        {{- if IsKrustlet }}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-          runtime_type = "io.containerd.spin.v1"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-          runtime_type = "io.containerd.slight.v1"
-        {{- end}}
-      {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{- end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{- if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{- end}}
-    #EOF
-
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6223,12 +6154,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-runcmd:
-- set -x
-- . {{GetCSEHelpersScriptFilepath}}
-- . {{GetCSEHelpersScriptDistroFilepath}}
-- aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}
 `)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {

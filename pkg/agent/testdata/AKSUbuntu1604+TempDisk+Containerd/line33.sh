@@ -7,6 +7,8 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+aptmarkWALinuxAgent hold &
+
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}

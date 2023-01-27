@@ -281,7 +281,9 @@ ensureContainerd() {
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
-  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+
+  mkdir -p /etc/containerd
+  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
