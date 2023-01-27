@@ -351,13 +351,6 @@ write_files:
     [Install]
     WantedBy=multi-user.target
 
-- path: /etc/kubernetes/certs/ca.crt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "caCertificate"}}
-
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
