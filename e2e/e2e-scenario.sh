@@ -42,6 +42,34 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed cat kubenet_template.conf"
     fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision.sh" $SCENARIO_NAME-logs/cse_main.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse_main.sh"
+    fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision_start.sh" $SCENARIO_NAME-logs/cse_start.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse.sh"
+    fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision_configs.sh" $SCENARIO_NAME-logs/cse_config.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse.sh"
+    fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision_source.sh" $SCENARIO_NAME-logs/cse_helpers.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse.sh"
+    fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision_source_distro.sh" $SCENARIO_NAME-logs/cse_helpers_distro.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse.sh"
+    fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision_installs.sh" $SCENARIO_NAME-logs/cse_install.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse.sh"
+    fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision_installs_distro.sh" $SCENARIO_NAME-logs/cse_install_distro.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse.sh"
+    fi
     set -x
     echo "debug done"
 }
