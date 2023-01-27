@@ -70,6 +70,10 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed cat cse.sh"
     fi
+    exec_on_host "$SSH_CMD cat /etc/cni/net.d/10-containerd-net.conflist" $SCENARIO_NAME-logs/10-containerd.conflist || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat conflist"
+    fi
     set -x
     echo "debug done"
 }
