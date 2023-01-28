@@ -17,7 +17,8 @@
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
         "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
         "vnet_name": "{{env `VNET_NAME`}}",
-        "subnet_name": "{{env `SUBNET_NAME`}}"
+        "subnet_name": "{{env `SUBNET_NAME`}}",
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
     },
     "builders": [
         {
@@ -50,7 +51,7 @@
                 "createdBy": "aks-vhd-pipeline",
                 "SkipASMAzSecPack": "True"
             },
-            "virtual_network_resource_group_name": "nodesigtest-agent-pool",
+            "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
             "virtual_network_subnet_name": "{{user `subnet_name`}}"
         }
