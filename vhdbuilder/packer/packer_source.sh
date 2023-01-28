@@ -31,8 +31,8 @@ copyPackerFiles() {
   KMS_SERVICE_DEST=/etc/systemd/system/kms.service
   HEALTH_MONITOR_SRC=/home/packer/health-monitor.sh
   HEALTH_MONITOR_DEST=/usr/local/bin/health-monitor.sh
-  KUBELET_MONITOR_SERVICE_SRC=/home/packer/kubelet-monitor.service
-  KUBELET_MONITOR_SERVICE_DEST=/etc/systemd/system/kubelet-monitor.service
+  MIG_PARTITION_SRC=/home/packer/mig-partition.sh
+  MIG_PARTITION_DEST=/opt/azure/containers/mig-partition.sh
   DOCKER_MONITOR_SERVICE_SRC=/home/packer/docker-monitor.service
   DOCKER_MONITOR_SERVICE_DEST=/etc/systemd/system/docker-monitor.service
   DOCKER_MONITOR_TIMER_SRC=/home/packer/docker-monitor.timer
@@ -85,6 +85,100 @@ copyPackerFiles() {
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
+  KUBELET_SERVICE_SRC=/home/packer/kubelet.service
+  KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  
+  CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
+  CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
+  cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 0744
+
+  CSE_SEND_SRC=/home/packer/cse_send_logs.py
+  CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
+  cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
+
+  INIT_CUSTOM_CLOUD_SRC=/home/packer/init-aks-custom-cloud.sh
+  INIT_CUSTOM_CLOUD_DEST=/opt/azure/containers/init-aks-custom-cloud.sh
+  cpAndMode $INIT_CUSTOM_CLOUD_SRC $INIT_CUSTOM_CLOUD_DEST 0744
+
+  PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
+  PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
+  cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
+
+  MIG_PART_SRC=/home/packer/mig-partition.service
+  MIG_PART_DEST=/etc/systemd/system/mig-partition.service
+  cpAndMode $MIG_PART_SRC $MIG_PART_DEST 600
+
+  MNT_SH_SRC=/home/packer/bind-mount.sh
+  MNT_SH_DEST=/opt/azure/containers/bind-mount.sh
+  cpAndMode $MNT_SH_SRC $MNT_SH_DEST 0544
+
+  MNT_SVC_SRC=/home/packer/bind-mount.service
+  MNT_SVC_DEST=/etc/systemd/system/bind-mount.service
+  cpAndMode $MNT_SVC_SRC $MNT_SVC_DEST 600
+
+  DHCP6_SH_SRC=/home/packer/enable-dhcpv6.sh
+  DHCP6_SH_DEST=/opt/azure/containers/enable-dhcpv6.sh
+  cpAndMode $DHCP6_SH_SRC $DHCP6_SH_DEST 0544
+
+  DHCP6_SVC_SRC=/home/packer/dhcpv6.service
+  DHCP6_SVC_DEST=/etc/systemd/system/dhcpv6.service
+  cpAndMode $DHCP6_SVC_SRC $DHCP6_SVC_DEST 600
+
+  SYNC_LOGS_SH_SRC=/home/packer/sync-tunnel-logs.sh
+  SYNC_LOGS_SH_DEST=/opt/azure/containers/sync-tunnel-logs.sh
+  cpAndMode $SYNC_LOGS_SH_SRC $SYNC_LOGS_SH_DEST 0544
+
+  SYNC_LOGS_SVC_SRC=/home/packer/sync-tunnel-logs.service
+  SYNC_LOGS_SVC_DEST=/etc/systemd/system/sync-tunnel-logs.service
+  cpAndMode $SYNC_LOGS_SVC_SRC $SYNC_LOGS_SVC_DEST 600
+
+  CRICTL_SRC=/home/packer/crictl.yaml
+  CRICTL_DEST=/etc/crictl.yaml
+  cpAndMode $CRICTL_SRC $CRICTL_DEST 0644
+
+  NO_DUP_SH_SRC=/home/packer/ensure-no-dup.sh
+  NO_DUP_SH_DEST=/opt/azure/containers/ensure-no-dup.sh
+  cpAndMode $NO_DUP_SH_SRC $NO_DUP_SH_DEST 0755
+
+  NO_DUP_SVC_SRC=/home/packer/ensure-no-dup.service
+  NO_DUP_SVC_DEST=/etc/systemd/system/ensure-no-dup.service
+  cpAndMode $NO_DUP_SVC_SRC $NO_DUP_SVC_DEST 600
+
+  TELED_SRC=/home/packer/teleportd.service
+  TELED_DEST=/etc/systemd/system/teleportd.service
+  cpAndMode $TELED_SRC $TELED_DEST 600
+
+  SETUP_SEARCH_SRC=/home/packer/setup-custom-search-domains.sh
+  SETUP_SEARCH_DEST=/opt/azure/containers/setup-custom-search-domains.sh
+  cpAndMode $SETUP_SEARCH_SRC $SETUP_SEARCH_DEST 0744
+
+  CSE_MAIN_SRC=/home/packer/provision.sh
+  CSE_MAIN_DEST=/opt/azure/containers/provision.sh
+  cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
+  
+  CSE_START_SRC=/home/packer/provision_start.sh
+  CSE_START_DEST=/opt/azure/containers/provision_start.sh
+  cpAndMode $CSE_START_SRC $CSE_START_DEST 0744
+
+  CSE_CONFIG_SRC=/home/packer/provision_configs.sh
+  CSE_CONFIG_DEST=/opt/azure/containers/provision_configs.sh
+  cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
+
+  CSE_INSTALL_SRC=/home/packer/provision_installs.sh
+  CSE_INSTALL_DEST=/opt/azure/containers/provision_installs.sh
+  cpAndMode $CSE_INSTALL_SRC $CSE_INSTALL_DEST 0744
+
+  CSE_INSTALL_DISTRO_SRC=/home/packer/provision_installs_distro.sh
+  CSE_INSTALL_DISTRO_DEST=/opt/azure/containers/provision_installs_distro.sh
+  cpAndMode $CSE_INSTALL_DISTRO_SRC $CSE_INSTALL_DISTRO_DEST 0744
+
+  CSE_HELPERS_SRC=/home/packer/provision_source.sh
+  CSE_HELPERS_DEST=/opt/azure/containers/provision_source.sh
+  cpAndMode $CSE_HELPERS_SRC $CSE_HELPERS_DEST 0744
+
+  CSE_HELPERS_DISTRO_SRC=/home/packer/provision_source_distro.sh
+  CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
+  cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -108,6 +202,7 @@ copyPackerFiles() {
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
   
+  cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
@@ -125,7 +220,7 @@ copyPackerFiles() {
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
-  cpAndMode $KUBELET_MONITOR_SERVICE_SRC $KUBELET_MONITOR_SERVICE_DEST 644
+  cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644

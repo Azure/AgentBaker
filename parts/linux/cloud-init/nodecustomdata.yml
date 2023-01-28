@@ -118,7 +118,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-{{- if IsMIGEnabledNode}}
 - path: /etc/systemd/system/mig-partition.service
   permissions: "0644"
   encoding: gzip
@@ -133,18 +132,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-- path: /etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="MIG_STRATEGY=--mig-strategy single"
-    ExecStart=
-    ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
-    #EOF
-{{end}}
-
-{{- if HasKubeletDiskType}}
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -159,112 +146,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-- path: /etc/systemd/system/kubelet.service.d/10-bindmount.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "bindMountDropin"}}
-{{end}}
-
-{{if not IsMariner}}
-{{if EnableUnattendedUpgrade }}
-- path: /etc/apt/apt.conf.d/99periodic
-  permissions: "0644"
-  owner: root
-  content: |
-    APT::Periodic::Update-Package-Lists "1";
-    APT::Periodic::Unattended-Upgrade "1";
-{{end}}
-{{end}}
-
-{{- if ShouldConfigureHTTPProxy}}
-- path: /etc/apt/apt.conf.d/95proxy
-  permissions: "0644"
-  owner: root
-  content: |
-    {{- if HasHTTPProxy }}
-    Acquire::http::proxy "{{GetHTTPProxy}}";
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    Acquire::https::proxy "{{GetHTTPSProxy}}";
-    {{- end}}
-
-- path: /etc/systemd/system.conf.d/proxy.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Manager]
-    {{- if HasHTTPProxy }}
-    DefaultEnvironment="HTTP_PROXY={{GetHTTPProxy}}"
-    DefaultEnvironment="http_proxy={{GetHTTPProxy}}"
-    {{- end}}
-    {{- if HasHTTPSProxy }}
-    DefaultEnvironment="HTTPS_PROXY={{GetHTTPSProxy}}"
-    DefaultEnvironment="https_proxy={{GetHTTPSProxy}}"
-    {{- end}}
-    {{- if HasNoProxy }}
-    DefaultEnvironment="NO_PROXY={{GetNoProxy}}"
-    DefaultEnvironment="no_proxy={{GetNoProxy}}"
-    {{- end}}
-
-- path: /etc/systemd/system/kubelet.service.d/10-httpproxy.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "httpProxyDropin"}}
-{{- end}}
-
-{{- if ShouldConfigureHTTPProxyCA}}
-- path: /usr/local/share/ca-certificates/proxyCA.crt
-  permissions: "0644"
-  owner: root
-  content: |
-{{GetHTTPProxyCA}}
-    #EOF
-{{- end}}
-
-{{- if ShouldConfigureCustomCATrust}}
-{{range $i, $cert := GetCustomCATrustConfigCerts}}
-{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
-- path: /opt/certs/00000000000000cert{{$i}}.crt
-  permissions: "0644"
-  owner: root
-  content: |
-    {{$cert}}
-    #EOF
-{{end}}
-{{- end}}
-
-{{- if HasMessageOfTheDay}}
-- path: /etc/motd
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetMessageOfTheDay}}
-{{- end}}
-
-{{- if HasServicePrincipalSecret}}
-- path: /etc/kubernetes/sp.txt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetServicePrincipalSecret}}
-{{- end}}
-
-{{- if HasKubeletClientKey}}
-- path: /etc/kubernetes/certs/client.key
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetKubeletClientKey}}
-{{- end}}
-
-{{if IsIPv6DualStackFeatureEnabled}}
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
   encoding: gzip
@@ -278,9 +159,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
-{{end}}
 
-{{if RequiresDocker}}
 - path: /etc/systemd/system/docker.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -311,7 +190,6 @@ write_files:
       }{{end}}{{if HasDataDir}},
       "data-root": "{{GetDataDir}}"{{- end}}
     }
-{{end}}
 
 - path: /etc/systemd/system/sync-tunnel-logs.service
   permissions: "0644"
@@ -335,152 +213,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
-{{if NeedsContainerd}}
-- path: /etc/systemd/system/kubelet.service.d/10-containerd.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "containerdKubeletDropin"}}
-
-{{- if Is2204VHD}}
-- path: /etc/systemd/system/kubelet.service.d/10-cgroupv2.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "cgroupv2KubeletDropin"}}
-{{- end}}
-
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{- if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{- end}}
-        {{- if IsNSeriesSKU }}
-        default_runtime_name = "nvidia-container-runtime"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-          {{- if Is2204VHD }}
-          SystemdCgroup = true
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-        {{- else}}
-        default_runtime_name = "runc"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-          BinaryName = "/usr/bin/runc"
-          {{- if Is2204VHD }}
-          SystemdCgroup = true
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-          BinaryName = "/usr/bin/runc"
-        {{- end}}
-        {{- if IsKata }}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-          runtime_type = "io.containerd.kata.v2"
-        {{- end}}
-        {{- if IsKrustlet }}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-          runtime_type = "io.containerd.spin.v1"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-          runtime_type = "io.containerd.slight.v1"
-        {{- end}}
-      {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{- end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{- if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{- end}}
-    #EOF
-
-- path: /etc/containerd/kubenet_template.conf
-  permissions: "0644"
-  owner: root
-  content: |
-      {
-          "cniVersion": "0.3.1",
-          "name": "kubenet",
-          "plugins": [{
-            "type": "bridge",
-            "bridge": "cbr0",
-            "mtu": 1500,
-            "addIf": "eth0",
-            "isGateway": true,
-            "ipMasq": false,
-            "promiscMode": true,
-            "hairpinMode": false,
-            "ipam": {
-                "type": "host-local",
-                "ranges": [{{`{{range $i, $range := .PodCIDRRanges}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}[{"subnet": "{{`{{$range}}`}}"}]{{`{{end}}`}}],
-                "routes": [{{`{{range $i, $route := .Routes}}`}}{{`{{if $i}}`}}, {{`{{end}}`}}{"dst": "{{`{{$route}}`}}"}{{`{{end}}`}}]
-            }
-          },
-          {
-            "type": "portmap",
-            "capabilities": {"portMappings": true},
-            "externalSetMarkChain": "KUBE-MARK-MASQ"
-          }]
-      }
-
-- path: /etc/systemd/system/containerd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=containerd daemon
-    After=network.target
-
-    [Service]
-    ExecStartPre=/sbin/modprobe overlay
-    ExecStart=/usr/bin/containerd
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    OOMScoreAdjust=-999
-    # Having non-zero Limit*s causes performance problems due to accounting overhead
-    # in the kernel. We recommend using cgroups to do container-local accounting.
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=infinity
-    TasksMax=infinity
-
-    [Install]
-    WantedBy=multi-user.target
-
-    #EOF
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -496,7 +228,20 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-{{if TeleportEnabled}}
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
+
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
+
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
   owner: root
@@ -516,25 +261,7 @@ write_files:
     [Install]
     WantedBy=multi-user.target
     #EOF
-{{end}}
-{{- if and IsKubenet (not HasCalicoNetworkPolicy)}}
-- path: /etc/systemd/system/ensure-no-dup.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
 
-- path: /opt/azure/containers/ensure-no-dup.sh
-  permissions: "0755"
-  owner: root
-  encoding: gzip
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-{{- end}}
-{{end}}
-
-{{if IsNSeriesSKU}}
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
   owner: root
@@ -549,23 +276,6 @@ write_files:
     ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
     [Install]
     WantedBy=multi-user.target
-{{end}}
-
-- path: /etc/kubernetes/certs/ca.crt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "caCertificate"}}
-
-{{if not IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /etc/kubernetes/certs/client.crt
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "clientCertificate"}}
-{{- end}}
 
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
@@ -573,202 +283,3 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{- if IsKubeletConfigFileEnabled}}
-- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
-{{ end }}
-
-{{if IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /var/lib/kubelet/bootstrap-kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: kubelet-bootstrap
-      user:
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-    contexts:
-    - context:
-        cluster: localcluster
-        user: kubelet-bootstrap
-      name: bootstrap-context
-    current-context: bootstrap-context
-    #EOF
-- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "tlsBootstrapDropin"}}
-{{else -}}
-- path: /var/lib/kubelet/kubeconfig
-  permissions: "0644"
-  owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: client
-      user:
-        client-certificate: /etc/kubernetes/certs/client.crt
-        client-key: /etc/kubernetes/certs/client.key
-    contexts:
-    - context:
-        cluster: localcluster
-        user: client
-      name: localclustercontext
-    current-context: localclustercontext
-    #EOF
-{{- end}}
-
-- path: /etc/default/kubelet
-  permissions: "0644"
-  owner: root
-  content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
-    KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY={{GetParameter "networkPolicy"}}
-{{- if not (IsKubernetesVersionGe "1.17.0")}}
-    KUBELET_IMAGE={{GetHyperkubeImageReference}}
-{{end}}
-{{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
-{{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
-{{end}}
-{{- if IsAKSCustomCloud}}
-    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
-{{end}}
-    #EOF
-
-- path: /etc/sysctl.d/999-sysctl-aks.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    # This is a partial workaround to this upstream Kubernetes issue:
-    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-    net.ipv4.tcp_retries2=8
-    net.core.message_burst=80
-    net.core.message_cost=40
-{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
-    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
-{{- else}}
-    net.core.somaxconn=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
-    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-{{- else}}
-    net.ipv4.tcp_max_syn_backlog=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
-    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh1=4096
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
-    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh2=8192
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
-    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh3=16384
-{{- end}}
-{{if ShouldConfigCustomSysctl}}
-    # The following are sysctl configs passed from API
-{{- $s:=.CustomLinuxOSConfig.Sysctls}}
-{{- if $s.NetCoreNetdevMaxBacklog}}
-    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
-{{- end}}
-{{- if $s.NetCoreRmemDefault}}
-    net.core.rmem_default={{$s.NetCoreRmemDefault}}
-{{- end}}
-{{- if $s.NetCoreRmemMax}}
-    net.core.rmem_max={{$s.NetCoreRmemMax}}
-{{- end}}
-{{- if $s.NetCoreWmemDefault}}
-    net.core.wmem_default={{$s.NetCoreWmemDefault}}
-{{- end}}
-{{- if $s.NetCoreWmemMax}}
-    net.core.wmem_max={{$s.NetCoreWmemMax}}
-{{- end}}
-{{- if $s.NetCoreOptmemMax}}
-    net.core.optmem_max={{$s.NetCoreOptmemMax}}
-{{- end}}
-{{- if $s.NetIpv4TcpMaxTwBuckets}}
-    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
-{{- end}}
-{{- if $s.NetIpv4TcpFinTimeout}}
-    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveTime}}
-    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveProbes}}
-    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
-{{- end}}
-{{- if $s.NetIpv4TcpkeepaliveIntvl}}
-    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpTwReuse}}
-    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
-{{- end}}
-{{- if $s.NetIpv4IpLocalPortRange}}
-    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackMax}}
-    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackBuckets}}
-    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
-{{- end}}
-{{- if $s.FsInotifyMaxUserWatches}}
-    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
-{{- end}}
-{{- if $s.FsFileMax}}
-    fs.file-max={{$s.FsFileMax}}
-{{- end}}
-{{- if $s.FsAioMaxNr}}
-    fs.aio-max-nr={{$s.FsAioMaxNr}}
-{{- end}}
-{{- if $s.FsNrOpen}}
-    fs.nr_open={{$s.FsNrOpen}}
-{{- end}}
-{{- if $s.KernelThreadsMax}}
-    kernel.threads-max={{$s.KernelThreadsMax}}
-{{- end}}
-{{- if $s.VMMaxMapCount}}
-    vm.max_map_count={{$s.VMMaxMapCount}}
-{{- end}}
-{{- if $s.VMSwappiness}}
-    vm.swappiness={{$s.VMSwappiness}}
-{{- end}}
-{{- if $s.VMVfsCachePressure}}
-    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
-{{- end}}
-{{- end}}
-    #EOF
-
-runcmd:
-- set -x
-- . {{GetCSEHelpersScriptFilepath}}
-- . {{GetCSEHelpersScriptDistroFilepath}}
-- aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}
