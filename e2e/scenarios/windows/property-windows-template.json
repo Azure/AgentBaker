@@ -57,7 +57,7 @@
         "enableWinDSR": true
       },
       "windowsProfile": {
-        "cseScriptsPackageURL": "https://acs-mirror.azureedge.net/aks/windows/cse/",
+        "cseScriptsPackageURL": "${csePackageURL}",
         "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
         "enableAutomaticUpdates": false,
         "enableCSIProxy": true,

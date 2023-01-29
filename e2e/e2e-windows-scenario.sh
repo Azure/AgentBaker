@@ -15,27 +15,27 @@ collect-logs() {
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_CONTAINER_NAME --https-only)
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_LOG_CONTAINER --https-only)
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts @upload-cse-logs.ps1 \
-        --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_CONTAINER_NAME arg3=$DEPLOYMENT_VMSS_NAME arg4=$token
+        --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token
     if [ "$retval" != "0" ]; then
         echo "failed in uploading cse logs"
     fi
-    wget https://aka.ms/downloadazcopy-v10-linux
-    tar -xvf downloadazcopy-v10-linux
+    # wget https://aka.ms/downloadazcopy-v10-linux
+    # tar -xvf downloadazcopy-v10-linux
     tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
     array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_CONTAINER_NAME}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
+    ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
     if [ "$retval" != "0" ]; then
         echo "failed in downloading cse logs"
     else
-        ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_CONTAINER_NAME}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
+        ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
         if [ "$retval" != "0" ]; then
             echo "failed in deleting cse logs in remote storage"
         fi
@@ -44,6 +44,36 @@ collect-logs() {
 
     echo "collect cse logs done"
 }
+
+DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
+export DEPLOYMENT_VMSS_NAME
+
+# download azcopy
+wget https://aka.ms/downloadazcopy-v10-linux
+tar -xvf downloadazcopy-v10-linux
+
+# zip and upload cse package
+cd ../staging/cse/windows
+zip -r ../../../e2e/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
+echo "zip cse packages done"
+
+set +x
+expiryTime=$(date --date="2 day" +%Y-%m-%d)
+token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
+tokenWithoutQuote=${token//\"}
+
+csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+export csePackageURL
+
+cd ../../../e2e
+
+array=(azcopy_*)
+${array[0]}/azcopy copy ${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+set -x
+
+echo "upload cse packages done"
+
+envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json
 
 set +x
 WINDOWS_PASSWORD=$({
@@ -65,8 +95,6 @@ export KUBECONFIG
 
 clientCertificate=$(grep "client-certificate-data" $KUBECONFIG | awk '{print $2}')
 kubectl rollout status deploy/debug
-
-DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 
 tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
@@ -109,6 +137,10 @@ az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
 retval=$?
 set -e
 
+# delete cse package in storage account
+${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+echo "delete cse package in storage account done"
+
 log "Collect cse log"
 collect-logs
 
@@ -124,7 +156,6 @@ VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -g $MC_RESOURCE_GROUP_NAME \
                     -ojson | \
                     jq -r '.[].osProfile.computerName')
-export DEPLOYMENT_VMSS_NAME
 export VMSS_INSTANCE_NAME
 
 # Sleep to let the automatic upgrade of the VM finish
