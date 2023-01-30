@@ -26,8 +26,7 @@ collect-logs() {
     if [ "$retval" != "0" ]; then
         echo "failed in uploading cse logs"
     fi
-    # wget https://aka.ms/downloadazcopy-v10-linux
-    # tar -xvf downloadazcopy-v10-linux
+
     tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
     array=(azcopy_*)
@@ -190,7 +189,7 @@ fi
 POD_NAME=$(mktemp -u podName-XXXXXXX | tr '[:upper:]' '[:lower:]')
 export POD_NAME
 envsubst < pod-windows-template.yaml > pod-windows.yaml
-sleep 5
+
 kubectl apply -f pod-windows.yaml
 
 # Sleep to let Pod Status=Running
