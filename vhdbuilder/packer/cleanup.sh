@@ -1,5 +1,9 @@
 #!/bin/bash -x
 
+# deadline for packer resource group deletion is 24 hours
+(( packerRgExpirationInSecs = 24 * 60 * 60 ))
+(( packerRgDeadline = $(date +%s)-${packerRgExpirationInSecs%.*} ))
+
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
@@ -18,6 +22,12 @@ if [[ -n "$PKR_RG_NAME" ]]; then
     az group delete --name ${PKR_RG_NAME} --yes
   fi
 fi
+
+# clean up any other packer resource groups more than 24 hours old
+for packer_rg in $(az group list | jq -r --arg dl $packerRgDeadline '.[] | select(.name | test("pkr-Resource-Group-*")) | select(.tags.now < $dl).name'); do
+  echo "deleting old packer resource group ${packer_rg}..."
+  az group delete --name ${packer_rg} --yes --no-wait
+done
 
 #clean up the vnet resource group for Windows
 if [ -n "${VNET_RESOURCE_GROUP_NAME}" ]; then
