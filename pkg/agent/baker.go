@@ -47,7 +47,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
+		config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -69,7 +69,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		profile, t.getBakerFuncMap(config, parameters, variables))
+		profile, getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -103,7 +103,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
+		getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -125,7 +125,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	str, e := t.getSingleLine(
 		kubernetesWindowsAgentCSECommandPS1,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
+		getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -179,7 +179,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
@@ -354,6 +354,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
+		"GetKubeletConfigFileContentBase64": func() string {
+			return base64.StdEncoding.EncodeToString([]byte(GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)))
+		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
@@ -365,13 +368,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
-		},
-		"GetKrustletFlags": func() string {
-			maxPods := config.KubeletConfig["--max-pods"]
-			if maxPods != "" {
-				return fmt.Sprintf("--max-pods=\"%s\"", maxPods)
-			}
-			return ""
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
@@ -390,6 +386,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCustomSysctlConfigByName": func(fn string) interface{} {
 			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
+				// TODO(ace): this should be removed.
+				// yes, enumerating fields of a struct is annoying without reflection.
+				// that means your api/implementation is probably wrong.
 				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
 				return v.FieldByName(fn).Interface()
 			}
@@ -416,7 +415,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
 		},
 		"GetSwapFileSizeMB": func() int32 {
-			return *profile.CustomLinuxOSConfig.SwapFileSizeMB
+			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil {
+				return *profile.CustomLinuxOSConfig.SwapFileSizeMB
+			}
+			return 0
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
@@ -531,8 +533,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletClientKey": func() string {
 			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.CertificateProfile.ClientPrivateKey, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey))
+				return encoded
+			}
+			return ""
+		},
+		"GetKubeletClientCert": func() string {
+			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientCertificate != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientCertificate))
 				return encoded
 			}
 			return ""
@@ -542,8 +550,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetServicePrincipalSecret": func() string {
 			if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.ServicePrincipalProfile.Secret, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.ServicePrincipalProfile.Secret))
 				return encoded
 			}
 			return ""
@@ -627,6 +634,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return base64.StdEncoding.EncodeToString([]byte(data))
 			}
 			return ""
+		},
+		"GetKubenetTemplate": func() string {
+			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
+		},
+		"GetContainerdConfigContent": func() string {
+			parameters := getParameters(config, "baker", "1.0")
+			// get variable cloudInit
+			variables := getCustomDataVariables(config)
+			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config, parameters, variables)).Parse(containerdConfigTemplateString))
+			var b bytes.Buffer
+			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
+				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+			}
+			return base64.StdEncoding.EncodeToString(b.Bytes())
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
@@ -816,8 +837,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetHTTPProxyCA": func() string {
 			if config.HTTPProxyConfig != nil && config.HTTPProxyConfig.TrustedCA != nil {
-				dec, _ := base64.StdEncoding.DecodeString(*config.HTTPProxyConfig.TrustedCA)
-				return datamodel.IndentString(string(dec), 4)
+				return *config.HTTPProxyConfig.TrustedCA
 			}
 			return ""
 		},
@@ -826,9 +846,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetMessageOfTheDay": func() string {
 			return profile.MessageOfTheDay
-		},
-		"HasMessageOfTheDay": func() bool {
-			return profile.MessageOfTheDay != ""
 		},
 		"GetProxyVariables": func() string {
 			return getProxyVariables(config)
@@ -865,6 +882,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
+		},
+		"GetSysctlContent": func() string {
+			sysctlTemplate := template.Must(template.New("sysctl").Parse(sysctlTemplateString))
+			var b bytes.Buffer
+			if err := sysctlTemplate.Execute(&b, profile); err != nil {
+				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+			}
+			return base64.StdEncoding.EncodeToString(b.Bytes())
 		},
 	}
 }
@@ -903,3 +928,206 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }
+
+const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
+# https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+net.ipv4.tcp_retries2=8
+net.core.message_burst=80
+net.core.message_cost=40
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{end}}{{end}}{{- else}}
+net.core.somaxconn=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{end}}{{end}}{{- else}}
+net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{end}}{{end}}{{- else}}
+net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{end}}{{end}}{{- else}}
+net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{end}}{{end}}{{- else}}
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if .CustomLinuxOSConfig}}
+{{if .CustomLinuxOSConfig.Sysctls}}
+# The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+net.ipv4.tcp_tw_reuse={{if $s.NetIpv4TcpTwReuse}}1{{else}}0{{end}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+{{- end}}
+`
+
+const kubenetCniTemplate = `
+{
+    "cniVersion": "0.3.1",
+    "name": "kubenet",
+    "plugins": [{
+    "type": "bridge",
+    "bridge": "cbr0",
+    "mtu": 1500,
+    "addIf": "eth0",
+    "isGateway": true,
+    "ipMasq": false,
+    "promiscMode": true,
+    "hairpinMode": false,
+    "ipam": {
+        "type": "host-local",
+        "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
+        "routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
+    }
+    },
+    {
+    "type": "portmap",
+    "capabilities": {"portMappings": true},
+    "externalSetMarkChain": "KUBE-MARK-MASQ"
+    }]
+}
+`
+
+const containerdConfigTemplateString = `version = 2
+oom_score = 0{{if HasDataDir }}
+root = "{{GetDataDir}}"{{- end}}
+[plugins."io.containerd.grpc.v1.cri"]
+	sandbox_image = "{{GetPodInfraContainerSpec}}"
+	[plugins."io.containerd.grpc.v1.cri".containerd]
+		{{- if TeleportEnabled }}
+		snapshotter = "teleportd"
+		disable_snapshot_annotations = false
+		{{- end}}
+		{{- if IsNSeriesSKU }}
+		default_runtime_name = "nvidia-container-runtime"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+			BinaryName = "/usr/bin/nvidia-container-runtime"
+			{{- if Is2204VHD }}
+			SystemdCgroup = true
+			{{- end}}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+			BinaryName = "/usr/bin/nvidia-container-runtime"
+		{{- else}}
+		default_runtime_name = "runc"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+			BinaryName = "/usr/bin/runc"
+			{{- if Is2204VHD }}
+			SystemdCgroup = true
+			{{- end}}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+			BinaryName = "/usr/bin/runc"
+		{{- end}}
+		{{- if IsKata }}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+			runtime_type = "io.containerd.kata.v2"
+		{{- end}}
+		{{- if IsKrustlet }}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+			runtime_type = "io.containerd.spin.v1"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+			runtime_type = "io.containerd.slight.v1"
+		{{- end}}
+	{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+	[plugins."io.containerd.grpc.v1.cri".cni]
+		bin_dir = "/opt/cni/bin"
+		conf_dir = "/etc/cni/net.d"
+		conf_template = "/etc/containerd/kubenet_template.conf"
+	{{- end}}
+	{{- if IsKubernetesVersionGe "1.22.0"}}
+	[plugins."io.containerd.grpc.v1.cri".registry]
+		config_path = "/etc/containerd/certs.d"
+	{{- end}}
+	[plugins."io.containerd.grpc.v1.cri".registry.headers]
+		X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+	address = "0.0.0.0:10257"
+{{- if TeleportEnabled }}
+[proxy_plugins]
+	[proxy_plugins.teleportd]
+		type = "snapshot"
+		address = "/run/teleportd/snapshotter.sock"
+{{- end}}
+`

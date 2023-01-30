@@ -1,6 +1,8 @@
 package datamodel
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -245,20 +247,52 @@ const (
 )
 
 const (
-	LinuxSIGImageVersion string = "2023.01.19"
-
 	// DO NOT MODIFY: used for freezing linux images with docker
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	Ubuntu2204TLSIGImageVersion       string = "2022.10.13"
-	CBLMarinerV2Gen2TLSIGImageVersion string = "2022.11.29"
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
-
-	// Used for edge zone scenario
-	EdgeZoneSIGImageVersion string = "2023.01.09"
 )
+
+type sigVersion struct {
+	OSType  string `json:"ostype"`
+	Version string `json:"version"`
+}
+
+//go:embed linux_sig_version.json
+var linuxVersionJSONContentsEmbedded string
+
+//go:embed 2204_sig_version.json
+var ubuntu2204JSONContentsEmbedded string
+
+//go:embed mariner_v2_gen2_sig_version.json
+var marinerV2Gen2JSONContentsEmbedded string
+
+//go:embed edge_zone_sig_version.json
+var edgeZoneJSONContentsEmbedded string
+
+var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
+var Ubuntu2204TLSIGImageVersion = getSIGVersionFromEmbeddedString(ubuntu2204JSONContentsEmbedded)
+var CBLMarinerV2Gen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2Gen2JSONContentsEmbedded)
+var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
+
+func getSIGVersionFromEmbeddedString(contents string) string {
+
+	if len(contents) == 0 {
+		panic("SIG version is empty")
+	}
+
+	var sigImageStruct sigVersion
+	err := json.Unmarshal([]byte(contents), &sigImageStruct)
+
+	if err != nil {
+		panic(err)
+	}
+
+	sigImageVersion := sigImageStruct.Version
+	return sigImageVersion
+}
 
 // SIG config Template
 var (

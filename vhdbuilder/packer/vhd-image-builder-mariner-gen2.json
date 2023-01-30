@@ -6,6 +6,7 @@
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "location": "{{env `AZURE_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
+    "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
     "build_number": "{{env `BUILD_NUMBER`}}",
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
@@ -31,6 +32,9 @@
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "azure_tags": {
+        "buildDefinitionName": "{{user `build_definition_name`}}",
+        "buildNumber": "{{user `build_number`}}",
+        "buildId": "{{user `build_id`}}",
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
@@ -104,6 +108,121 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
       "destination": "/home/packer/provision_source_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+      "destination": "/home/packer/provision_configs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+      "destination": "/home/packer/provision.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
+      "destination": "/home/packer/provision_start.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
+      "destination": "/home/packer/containerd_exec_start.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kubelet.service",
+      "destination": "/home/packer/kubelet.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
+      "destination": "/home/packer/reconcile-private-hosts.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
+      "destination": "/home/packer/block_wireserver.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
+      "destination": "/home/packer/cse_redact_cloud_config.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
+      "destination": "/home/packer/cse_send_logs.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
+      "destination": "/home/packer/init-aks-custom-cloud.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.service",
+      "destination": "/home/packer/reconcile-private-hosts.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.service",
+      "destination": "/home/packer/mig-partition.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.sh",
+      "destination": "/home/packer/bind-mount.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.service",
+      "destination": "/home/packer/bind-mount.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/enable-dhcpv6.sh",
+      "destination": "/home/packer/enable-dhcpv6.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/dhcpv6.service",
+      "destination": "/home/packer/dhcpv6.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sync-tunnel-logs.sh",
+      "destination": "/home/packer/sync-tunnel-logs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sync-tunnel-logs.service",
+      "destination": "/home/packer/sync-tunnel-logs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/crictl.yaml",
+      "destination": "/home/packer/crictl.yaml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.sh",
+      "destination": "/home/packer/ensure-no-dup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.service",
+      "destination": "/home/packer/ensure-no-dup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/teleportd.service",
+      "destination": "/home/packer/teleportd.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
+      "destination": "/home/packer/setup-custom-search-domains.sh"
     },
     {
       "type": "file",
@@ -292,8 +411,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/kubelet-monitor.service",
-      "destination": "/home/packer/kubelet-monitor.service"
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
+      "destination": "/home/packer/mig-partition.sh"
     },
     {
       "type": "file",
