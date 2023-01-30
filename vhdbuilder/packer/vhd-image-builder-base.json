@@ -34,7 +34,6 @@
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
-      "client_id": "336a05e1-4968-4da3-b5a0-ec1531151212",
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
