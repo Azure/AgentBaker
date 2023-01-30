@@ -25,11 +25,11 @@ fi
 
 # clean up any other packer resource groups more than 24 hours old
 for packer_rg in $(az group list | jq -r --arg dl $packerRgDeadline '.[] | select(.name | test("pkr-Resource-Group-*")) | select(.tags.now < $dl).name'); do
-  echo "deleting old packer resource group ${packer_rg}..."
+  echo "Deleting old packer resource group ${packer_rg}..."
   az group delete --name ${packer_rg} --yes --no-wait
 done
 
-#clean up the vnet resource group for Windows
+# clean up the vnet resource group for Windows
 if [ -n "${VNET_RESOURCE_GROUP_NAME}" ]; then
   id=$(az group show --name ${VNET_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
@@ -38,18 +38,18 @@ if [ -n "${VNET_RESOURCE_GROUP_NAME}" ]; then
   fi
 fi
 
-#clean up managed image
+# clean up managed image
 if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
   if [[ "$MODE" != "default" ]]; then
     id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
     if [ -n "$id" ]; then
-      echo "deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
+      echo "Deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
       az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
     fi
   fi
 fi
 
-#cleanup imported sig image version
+# cleanup imported sig image version
 if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   id=$(az sig image-version show -e 1.0.0 -i ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
@@ -58,7 +58,7 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   fi
 fi
 
-#cleanup imported sig image definition
+# cleanup imported sig image definition
 if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   id=$(az sig image-definition show --gallery-image-definition ${IMPORTED_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
@@ -67,7 +67,7 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   fi
 fi
 
-#cleanup imported image
+# cleanup imported image
 if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   id=$(az image show -n ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
@@ -76,9 +76,9 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
   fi
 fi
 
-#cleanup built sig image if the generated sig is for production only, but not for test purpose.
-#For Gen 2, it follows the sigMode. If SIG_FOR_PRODUCTION is set to true, the sig has been converted to VHD before this step.
-#And since we only need to upload the converted VHD to the classic storage account, there's no need to keep the built sig.
+# cleanup built sig image if the generated sig is for production only, but not for test purpose.
+# For Gen 2, it follows the sigMode. If SIG_FOR_PRODUCTION is set to true, the sig has been converted to VHD before this step.
+# And since we only need to upload the converted VHD to the classic storage account, there's no need to keep the built sig.
 if [[ "$GEN2_SIG_FOR_PRODUCTION" == "True" ]]; then
   if [[ -n "${SIG_IMAGE_NAME}" ]]; then
     # Delete sig image version first
@@ -88,7 +88,7 @@ if [[ "$GEN2_SIG_FOR_PRODUCTION" == "True" ]]; then
         az sig image-version show -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
         echo "Deleting sig image-version ${version} ${SIG_IMAGE_NAME} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
         az sig image-version delete -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
-        #double confirm
+        # double confirm
         id=$(az sig image-version show -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
         if [ -n "$id" ]; then
             echo "Deleting sig image-version $version failed"
@@ -118,7 +118,7 @@ if [[ "$GEN2_SIG_FOR_PRODUCTION" == "True" ]]; then
   fi
 fi
 
-#clean up arm64 OS disk snapshot
+# clean up arm64 OS disk snapshot
 if [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
   id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
@@ -126,7 +126,7 @@ if [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]
   fi
 fi
 
-#clean up the temporary storage account
+# clean up the temporary storage account
 if [[ -n "${SA_NAME}" ]]; then
   id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
@@ -134,14 +134,14 @@ if [[ -n "${SA_NAME}" ]]; then
   fi
 fi
 
-#delete the SIG version that was created during a dry-run of linuxVhdMode
+# delete the SIG version that was created during a dry-run of linuxVhdMode
 if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
-  echo "running dry-run in mode ${MODE}, attempting to delete output SIG version: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION}"
+  echo "Running dry-run in mode ${MODE}, attempting to delete output SIG version: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION}"
   id=$(az sig image-definition show -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} | jq '.id')
   if [ -n "$id" ]; then
     az sig image-version delete -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION}
   else
-    echo "specified image-definition ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME} does not exist, will not delete SIG image version"
+    echo "Specified image-definition ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME} does not exist, will not delete SIG image version"
   fi
 fi
 
@@ -191,7 +191,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   set -x
 fi
 
-#clean up storage account created over a week ago
+# clean up storage account created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
   echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
   echo "That is, those created before $(date -d@$deadline) As shown below"
