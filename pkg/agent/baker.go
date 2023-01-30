@@ -47,7 +47,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		config.AgentPoolProfile, t.getBakerFuncMap(config, parameters, variables))
+		config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -69,7 +69,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		profile, t.getBakerFuncMap(config, parameters, variables))
+		profile, getBakerFuncMap(config, parameters, variables))
 
 	if e != nil {
 		panic(e)
@@ -103,7 +103,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	str, e := t.getSingleLine(
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
+		getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -125,7 +125,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	str, e := t.getSingleLine(
 		kubernetesWindowsAgentCSECommandPS1,
 		config.AgentPoolProfile,
-		t.getBakerFuncMap(config, parameters, variables),
+		getBakerFuncMap(config, parameters, variables),
 	)
 
 	if e != nil {
@@ -179,7 +179,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func (t *TemplateGenerator) getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
@@ -533,8 +533,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletClientKey": func() string {
 			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.CertificateProfile.ClientPrivateKey, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey))
+				return encoded
+			}
+			return ""
+		},
+		"GetKubeletClientCert": func() string {
+			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientCertificate != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientCertificate))
 				return encoded
 			}
 			return ""
@@ -544,8 +550,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetServicePrincipalSecret": func() string {
 			if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
-				padded := fmt.Sprintf("%s\n%s", cs.Properties.ServicePrincipalProfile.Secret, "#EOF")
-				encoded := base64.StdEncoding.EncodeToString([]byte(padded))
+				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.ServicePrincipalProfile.Secret))
 				return encoded
 			}
 			return ""
@@ -629,6 +634,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return base64.StdEncoding.EncodeToString([]byte(data))
 			}
 			return ""
+		},
+		"GetKubenetTemplate": func() string {
+			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
+		},
+		"GetContainerdConfigContent": func() string {
+			parameters := getParameters(config, "baker", "1.0")
+			// get variable cloudInit
+			variables := getCustomDataVariables(config)
+			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config, parameters, variables)).Parse(containerdConfigTemplateString))
+			var b bytes.Buffer
+			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
+				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+			}
+			return base64.StdEncoding.EncodeToString(b.Bytes())
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
@@ -1014,5 +1033,101 @@ vm.swappiness={{$s.VMSwappiness}}
 vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
 {{- end}}
 {{- end}}
+{{- end}}
+`
+
+const kubenetCniTemplate = `
+{
+    "cniVersion": "0.3.1",
+    "name": "kubenet",
+    "plugins": [{
+    "type": "bridge",
+    "bridge": "cbr0",
+    "mtu": 1500,
+    "addIf": "eth0",
+    "isGateway": true,
+    "ipMasq": false,
+    "promiscMode": true,
+    "hairpinMode": false,
+    "ipam": {
+        "type": "host-local",
+        "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
+        "routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
+    }
+    },
+    {
+    "type": "portmap",
+    "capabilities": {"portMappings": true},
+    "externalSetMarkChain": "KUBE-MARK-MASQ"
+    }]
+}
+`
+
+const containerdConfigTemplateString = `version = 2
+oom_score = 0{{if HasDataDir }}
+root = "{{GetDataDir}}"{{- end}}
+[plugins."io.containerd.grpc.v1.cri"]
+	sandbox_image = "{{GetPodInfraContainerSpec}}"
+	[plugins."io.containerd.grpc.v1.cri".containerd]
+		{{- if TeleportEnabled }}
+		snapshotter = "teleportd"
+		disable_snapshot_annotations = false
+		{{- end}}
+		{{- if IsNSeriesSKU }}
+		default_runtime_name = "nvidia-container-runtime"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+			BinaryName = "/usr/bin/nvidia-container-runtime"
+			{{- if Is2204VHD }}
+			SystemdCgroup = true
+			{{- end}}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+			BinaryName = "/usr/bin/nvidia-container-runtime"
+		{{- else}}
+		default_runtime_name = "runc"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+			BinaryName = "/usr/bin/runc"
+			{{- if Is2204VHD }}
+			SystemdCgroup = true
+			{{- end}}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+			runtime_type = "io.containerd.runc.v2"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+			BinaryName = "/usr/bin/runc"
+		{{- end}}
+		{{- if IsKata }}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+			runtime_type = "io.containerd.kata.v2"
+		{{- end}}
+		{{- if IsKrustlet }}
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+			runtime_type = "io.containerd.spin.v1"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+			runtime_type = "io.containerd.slight.v1"
+		{{- end}}
+	{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+	[plugins."io.containerd.grpc.v1.cri".cni]
+		bin_dir = "/opt/cni/bin"
+		conf_dir = "/etc/cni/net.d"
+		conf_template = "/etc/containerd/kubenet_template.conf"
+	{{- end}}
+	{{- if IsKubernetesVersionGe "1.22.0"}}
+	[plugins."io.containerd.grpc.v1.cri".registry]
+		config_path = "/etc/containerd/certs.d"
+	{{- end}}
+	[plugins."io.containerd.grpc.v1.cri".registry.headers]
+		X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+	address = "0.0.0.0:10257"
+{{- if TeleportEnabled }}
+[proxy_plugins]
+	[proxy_plugins.teleportd]
+		type = "snapshot"
+		address = "/run/teleportd/snapshotter.sock"
 {{- end}}
 `

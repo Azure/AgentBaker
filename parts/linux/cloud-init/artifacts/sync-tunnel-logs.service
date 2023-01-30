@@ -1,0 +1,10 @@
+[Unit]
+Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+After=containerd.service
+
+[Service]
+ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

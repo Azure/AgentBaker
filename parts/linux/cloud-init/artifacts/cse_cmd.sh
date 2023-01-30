@@ -80,6 +80,9 @@ SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
+{{end}}
 IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
@@ -114,6 +117,9 @@ DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
 THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
+SERVICE_PRINCIPAL_FILE_CONTENT="{{GetServicePrincipalSecret}}"
+KUBELET_CLIENT_CONTENT="{{GetKubeletClientKey}}"
+KUBELET_CLIENT_CERT_CONTENT="{{GetKubeletClientCert}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
@@ -127,4 +133,18 @@ HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
+KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
+NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+KUBELET_IMAGE="{{GetHyperkubeImageReference}}"
+{{end}}
+{{if IsKubernetesVersionGe "1.16.0"}}
+KUBELET_NODE_LABELS="{{GetAgentKubernetesLabels . }}"
+{{else}}
+KUBELET_NODE_LABELS="{{GetAgentKubernetesLabelsDeprecated . }}"
+{{end}}
+AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTargetEnvironment}}.json{{end}}"
+KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
+KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
+CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"

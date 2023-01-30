@@ -22,6 +22,7 @@
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd_exec_start.conf
+// linux/cloud-init/artifacts/crictl.yaml
 // linux/cloud-init/artifacts/cse_cmd.sh
 // linux/cloud-init/artifacts/cse_config.sh
 // linux/cloud-init/artifacts/cse_helpers.sh
@@ -73,8 +74,10 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
+// linux/cloud-init/artifacts/sync-tunnel-logs.service
 // linux/cloud-init/artifacts/sync-tunnel-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
+// linux/cloud-init/artifacts/teleportd.service
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
 // linux/cloud-init/artifacts/update_certs.path
@@ -794,6 +797,24 @@ func linuxCloudInitArtifactsContainerd_exec_startConf() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsCrictlYaml = []byte(`runtime-endpoint: unix:///run/containerd/containerd.sock
+`)
+
+func linuxCloudInitArtifactsCrictlYamlBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCrictlYaml, nil
+}
+
+func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCrictlYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/crictl.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
 for i in $(seq 1 1200); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
@@ -876,6 +897,9 @@ SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
 SHOULD_CONFIGURE_CUSTOM_CA_TRUST="{{ShouldConfigureCustomCATrust}}"
 CUSTOM_CA_TRUST_COUNT="{{len GetCustomCATrustConfigCerts}}"
+{{range $i, $cert := GetCustomCATrustConfigCerts}}
+CUSTOM_CA_CERT_{{$i}}="{{$cert}}"
+{{end}}
 IS_KRUSTLET="{{IsKrustlet}}"
 GPU_NEEDS_FABRIC_MANAGER="{{GPUNeedsFabricManager}}"
 NEEDS_DOCKER_LOGIN="{{and IsDockerContainerRuntime HasPrivateAzureRegistryServer}}"
@@ -910,6 +934,9 @@ DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
 THP_DEFRAG="{{GetTransparentHugePageDefrag}}"
+SERVICE_PRINCIPAL_FILE_CONTENT="{{GetServicePrincipalSecret}}"
+KUBELET_CLIENT_CONTENT="{{GetKubeletClientKey}}"
+KUBELET_CLIENT_CERT_CONTENT="{{GetKubeletClientCert}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
@@ -923,6 +950,20 @@ HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
+KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
+NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+KUBELET_IMAGE="{{GetHyperkubeImageReference}}"
+{{end}}
+{{if IsKubernetesVersionGe "1.16.0"}}
+KUBELET_NODE_LABELS="{{GetAgentKubernetesLabels . }}"
+{{else}}
+KUBELET_NODE_LABELS="{{GetAgentKubernetesLabelsDeprecated . }}"
+{{end}}
+AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTargetEnvironment}}.json{{end}}"
+KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
+KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
+CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1057,8 +1098,13 @@ configureHTTPProxyCA() {
 }
 
 configureCustomCaCertificate() {
+    mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        wait_for_file 1200 1 /opt/certs/00000000000000cert${i}.crt || exit $ERR_FILE_WATCH_TIMEOUT
+        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
+        # causes bad substitution errors in bash
+        # dynamically declare and use `+"`"+`!`+"`"+` to add a layer of indirection
+        declare varname=CUSTOM_CA_CERT_${i} 
+        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
 }
@@ -1083,10 +1129,16 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
-    SP_FILE="/etc/kubernetes/sp.txt"
-
-    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "/etc/kubernetes/certs"
+    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+    fi
+    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    fi
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+    fi
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
@@ -1161,6 +1213,13 @@ EOF
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
         echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
         set -x
+        KUBELET_CONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-componentconfig.conf"
+        touch "${KUBELET_CONFIG_DROP_IN}"
+        chmod 0600 "${KUBELET_CONFIG_DROP_IN}"
+        tee "${KUBELET_CONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
+EOF
     fi
 }
 
@@ -1201,11 +1260,14 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
-  wait_for_file 1200 1 /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+
+  mkdir -p /etc/containerd
+  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -1258,8 +1320,20 @@ ensureDHCPv6() {
 }
 
 ensureKubelet() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p /etc/default
+    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
+    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
+    fi
+    
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
@@ -2353,6 +2427,8 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+aptmarkWALinuxAgent hold &
+
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
@@ -2537,6 +2613,10 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
+
+# for drop ins, so they don't all have to check/create the dir
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
@@ -2579,8 +2659,6 @@ if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
 
-mkdir -p "/etc/systemd/system/kubelet.service.d"
-
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
 [Service]
@@ -2589,6 +2667,13 @@ EOF
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # gross, but the backticks make it very hard to do in Go
+    # TODO: move entirely into vhd.
+    # alternatively, can we verify this is safe with docker?
+    # or just do it even if not because docker is out of support?
+    mkdir -p /etc/containerd
+    echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
+
     tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
@@ -2634,7 +2719,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
@@ -2670,6 +2755,12 @@ else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
+            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
+            touch "${UU_CONFIG_DIR}"
+            chmod 0644 "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
             systemctl unmask apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
@@ -2678,6 +2769,7 @@ else
             # meaning we are wasting IO without even triggering an upgrade 
             # -________________-
             systemctl restart --no-block apt-daily.service
+            
         fi
         aptmarkWALinuxAgent unhold &
     fi
@@ -4285,8 +4377,10 @@ Type=oneshot
 RemainAfterExit=true
 ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
 ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
 [Install]
-WantedBy=multi-user.target`)
+WantedBy=multi-user.target
+`)
 
 func linuxCloudInitArtifactsNvidiaModprobeServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsNvidiaModprobeService, nil
@@ -5073,6 +5167,33 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSyncTunnelLogsService = []byte(`[Unit]
+Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+After=containerd.service
+
+[Service]
+ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsSyncTunnelLogsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncTunnelLogsService, nil
+}
+
+func linuxCloudInitArtifactsSyncTunnelLogsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
 
 SRC=/var/log/containers
@@ -5193,6 +5314,37 @@ func linuxCloudInitArtifactsSysctlD60CisConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sysctl-d-60-CIS.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsTeleportdService = []byte(`[Unit]
+Description=teleportd teleport runtime
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+Delegate=yes
+KillMode=process
+Restart=always
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=1048576
+TasksMax=infinity
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsTeleportdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsTeleportdService, nil
+}
+
+func linuxCloudInitArtifactsTeleportdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsTeleportdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/teleportd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -5865,47 +6017,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-{{if not IsMariner}}
-{{if EnableUnattendedUpgrade }}
-- path: /etc/apt/apt.conf.d/99periodic
-  permissions: "0644"
-  owner: root
-  content: |
-    APT::Periodic::Update-Package-Lists "1";
-    APT::Periodic::Unattended-Upgrade "1";
-{{end}}
-{{end}}
-
-{{- if ShouldConfigureCustomCATrust}}
-{{range $i, $cert := GetCustomCATrustConfigCerts}}
-{{/* adding a prefix made of zeros to match removal logic used by custom ca trust pod, which handles old cert removal */}}
-- path: /opt/certs/00000000000000cert{{$i}}.crt
-  permissions: "0644"
-  owner: root
-  content: |
-    {{$cert}}
-    #EOF
-{{end}}
-{{- end}}
-
-{{- if HasServicePrincipalSecret}}
-- path: /etc/kubernetes/sp.txt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetServicePrincipalSecret}}
-{{- end}}
-
-{{- if HasKubeletClientKey}}
-- path: /etc/kubernetes/certs/client.key
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetKubeletClientKey}}
-{{- end}}
-
 - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
   permissions: "0644"
   encoding: gzip
@@ -5973,109 +6084,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
 
-- path: /etc/containerd/config.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    version = 2
-    oom_score = 0{{if HasDataDir }}
-    root = "{{GetDataDir}}"{{- end}}
-    [plugins."io.containerd.grpc.v1.cri"]
-      sandbox_image = "{{GetPodInfraContainerSpec}}"
-      [plugins."io.containerd.grpc.v1.cri".containerd]
-        {{- if TeleportEnabled }}
-        snapshotter = "teleportd"
-        disable_snapshot_annotations = false
-        {{- end}}
-        {{- if IsNSeriesSKU }}
-        default_runtime_name = "nvidia-container-runtime"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-          {{- if Is2204VHD }}
-          SystemdCgroup = true
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-        {{- else}}
-        default_runtime_name = "runc"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-          BinaryName = "/usr/bin/runc"
-          {{- if Is2204VHD }}
-          SystemdCgroup = true
-          {{- end}}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-          runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-          BinaryName = "/usr/bin/runc"
-        {{- end}}
-        {{- if IsKata }}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-          runtime_type = "io.containerd.kata.v2"
-        {{- end}}
-        {{- if IsKrustlet }}
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-          runtime_type = "io.containerd.spin.v1"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-          runtime_type = "io.containerd.slight.v1"
-        {{- end}}
-      {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-      [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        conf_template = "/etc/containerd/kubenet_template.conf"
-      {{- end}}
-      {{- if IsKubernetesVersionGe "1.22.0"}}
-      [plugins."io.containerd.grpc.v1.cri".registry]
-        config_path = "/etc/containerd/certs.d"
-      {{- end}}
-      [plugins."io.containerd.grpc.v1.cri".registry.headers]
-        X-Meta-Source-Client = ["azure/aks"]
-    [metrics]
-      address = "0.0.0.0:10257"
-    {{- if TeleportEnabled }}
-    [proxy_plugins]
-      [proxy_plugins.teleportd]
-        type = "snapshot"
-        address = "/run/teleportd/snapshotter.sock"
-    {{- end}}
-    #EOF
-
-{{if NeedsContainerd}}
-- path: /etc/containerd/kubenet_template.conf
-  permissions: "0644"
-  owner: root
-  content: |
-      {
-          "cniVersion": "0.3.1",
-          "name": "kubenet",
-          "plugins": [{
-            "type": "bridge",
-            "bridge": "cbr0",
-            "mtu": 1500,
-            "addIf": "eth0",
-            "isGateway": true,
-            "ipMasq": false,
-            "promiscMode": true,
-            "hairpinMode": false,
-            "ipam": {
-                "type": "host-local",
-                "ranges": [{{`+"`"+`{{range $i, $range := .PodCIDRRanges}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}[{"subnet": "{{`+"`"+`{{$range}}`+"`"+`}}"}]{{`+"`"+`{{end}}`+"`"+`}}],
-                "routes": [{{`+"`"+`{{range $i, $route := .Routes}}`+"`"+`}}{{`+"`"+`{{if $i}}`+"`"+`}}, {{`+"`"+`{{end}}`+"`"+`}}{"dst": "{{`+"`"+`{{$route}}`+"`"+`}}"}{{`+"`"+`{{end}}`+"`"+`}}]
-            }
-          },
-          {
-            "type": "portmap",
-            "capabilities": {"portMappings": true},
-            "externalSetMarkChain": "KUBE-MARK-MASQ"
-          }]
-      }
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6104,7 +6112,6 @@ write_files:
   encoding: gzip
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-{{end}}
 
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
@@ -6141,63 +6148,13 @@ write_files:
     [Install]
     WantedBy=multi-user.target
 
-- path: /etc/kubernetes/certs/ca.crt
-  permissions: "0600"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "caCertificate"}}
-
-{{if not IsKubeletClientTLSBootstrappingEnabled -}}
-- path: /etc/kubernetes/certs/client.crt
-  permissions: "0644"
-  encoding: base64
-  owner: root
-  content: |
-    {{GetParameter "clientCertificate"}}
-{{- end}}
-
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{- if IsKubeletConfigFileEnabled}}
-- path: /etc/systemd/system/kubelet.service.d/10-componentconfig.conf
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "componentConfigDropin"}}
-{{ end }}
-
-- path: /etc/default/kubelet
-  permissions: "0644"
-  owner: root
-  content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
-    KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY={{GetParameter "networkPolicy"}}
-{{- if not (IsKubernetesVersionGe "1.17.0")}}
-    KUBELET_IMAGE={{GetHyperkubeImageReference}}
-{{end}}
-{{if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
-{{else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
-{{end}}
-{{- if IsAKSCustomCloud}}
-    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
-{{end}}
-    #EOF
-
-runcmd:
-- set -x
-- . {{GetCSEHelpersScriptFilepath}}
-- . {{GetCSEHelpersScriptDistroFilepath}}
-- aptmarkWALinuxAgent hold{{GetKubernetesAgentPreprovisionYaml .}}`)
+`)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
 	return _linuxCloudInitNodecustomdataYml, nil
@@ -7254,6 +7211,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
+	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
 	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
 	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
@@ -7305,8 +7263,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
+	"linux/cloud-init/artifacts/sync-tunnel-logs.service":                  linuxCloudInitArtifactsSyncTunnelLogsService,
 	"linux/cloud-init/artifacts/sync-tunnel-logs.sh":                       linuxCloudInitArtifactsSyncTunnelLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
+	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
@@ -7385,6 +7345,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
+				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
 				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
 				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
@@ -7438,8 +7399,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
+				"sync-tunnel-logs.service":        &bintree{linuxCloudInitArtifactsSyncTunnelLogsService, map[string]*bintree{}},
 				"sync-tunnel-logs.sh":             &bintree{linuxCloudInitArtifactsSyncTunnelLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
+				"teleportd.service":               &bintree{linuxCloudInitArtifactsTeleportdService, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
