@@ -5871,6 +5871,8 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
 
+{{ if not UseSelfContainedVHD }}
+
 write_files:
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
@@ -6154,6 +6156,8 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+{{ end }}
 `)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
