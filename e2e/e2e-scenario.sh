@@ -34,6 +34,10 @@ debug() {
     if [ "$retval" != "0" ]; then
         echo "failed cat syslog"
     fi
+    exec_on_host "$SSH_CMD cat /opt/azure/containers/provision.sh" $SCENARIO_NAME-logs/cse_main.sh || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat cse_main.sh"
+    fi
     set -x
     echo "debug done"
 }
@@ -144,7 +148,9 @@ for i in $(seq 1 10); do
     kubectl get nodes | grep $vmInstanceName
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
-    if [ -z "$(kubectl get nodes | grep $vmInstanceName | grep -v "NotReady")" ]; then
+    kubectl get nodes | grep $vmInstanceName | grep "Ready" | grep -v "NotReady"
+    retval=$?
+    if [ "${retval}" != "0" ]; then
         log "retrying attempt $i"
         sleep 10
         continue
@@ -161,6 +167,8 @@ if [[ "$retval" -eq 0 ]]; then
     kubectl get nodes -o wide | grep $vmInstanceName
 else
     err "Node did not join cluster"
+    kubectl get node -o yaml "$vmInstanceName"
+    kubectl get nodes -o wide
     FAILED=1
 fi
 

@@ -815,15 +815,16 @@ func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`mkdir -p "/etc/kubernetes/certs"
+echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
+for i in $(seq 1 60); do
 grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+if [ $i -eq 60 ]; then exit 100; else sleep 1; fi;
 done;
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
+for i in $(seq 1 60); do
 grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
+if [ $i -eq 60 ]; then exit 100; else sleep 1; fi;
 done;
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
@@ -1119,6 +1120,7 @@ configureKubeletServerCert() {
 }
 
 configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -1129,7 +1131,6 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
-    mkdir -p "/etc/kubernetes/certs"
     if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
         echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
     fi
@@ -1995,7 +1996,6 @@ cleanupContainerdDlFiles() {
 installContainerRuntime() {
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
     local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
@@ -2454,11 +2454,11 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-for i in $(seq 1 3600); do
+for i in $(seq 1 60); do
     if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
         grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
-    if [ $i -eq 3600 ]; then
+    if [ $i -eq 60 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
     else
         sleep 1
@@ -2467,16 +2467,16 @@ done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 60 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 60 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 60 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+wait_for_file 60 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
@@ -2948,7 +2948,7 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
-timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+timeout -k5s 5m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
@@ -5870,290 +5870,6 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 }
 
 var _linuxCloudInitNodecustomdataYml = []byte(`#cloud-config
-
-write_files:
-- path: {{GetCSEHelpersScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSource"}}
-
-
-{{if IsMariner}}
-- path: {{GetCSEHelpersScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
-{{- else}}
-- path: {{GetCSEHelpersScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
-{{end}}
-
-- path: /opt/azure/containers/provision_start.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
-
-- path: /opt/azure/containers/provision.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionScript"}}
-
-- path: {{GetCSEInstallScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
-
-- path: /opt/azure/containers/provision_redact_cloud_config.py
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
-
-- path: /opt/azure/containers/provision_send_logs.py
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
-
-{{if IsMariner}}
-- path: {{GetCSEInstallScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
-{{- else}}
-- path: {{GetCSEInstallScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
-{{end}}
-
-- path: {{GetCSEConfigScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
-
-- path: /opt/azure/manifest.json
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
-
-- path: {{GetInitAKSCustomCloudFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
-
-- path: /opt/azure/containers/reconcilePrivateHosts.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsScript"}}
-
-- path: /etc/systemd/system/reconcile-private-hosts.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-
-- path: /etc/systemd/system/kubelet.service
-  permissions: "0600"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
-
-- path: /etc/systemd/system/mig-partition.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
-
-- path: /opt/azure/containers/mig-partition.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
-
-- path: /opt/azure/containers/bind-mount.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
-
-- path: /etc/systemd/system/bind-mount.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
-
-- path: {{GetDHCPv6ServiceCSEScriptFilepath}}
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
-
-- path: /opt/azure/containers/enable-dhcpv6.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
-
-- path: /etc/systemd/system/docker.service.d/exec_start.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    ExecStart=
-    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip={{GetParameter "dockerBridgeCidr"}}
-    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-    #EOF
-
-- path: /etc/docker/daemon.json
-  permissions: "0644"
-  owner: root
-  content: |
-    {
-      "live-restore": true,
-      "log-driver": "json-file",
-      "log-opts":  {
-         "max-size": "50m",
-         "max-file": "5"
-      }{{if IsNSeriesSKU}}
-      ,"default-runtime": "nvidia",
-      "runtimes": {
-         "nvidia": {
-             "path": "/usr/bin/nvidia-container-runtime",
-             "runtimeArgs": []
-        }
-      }{{end}}{{if HasDataDir}},
-      "data-root": "{{GetDataDir}}"{{- end}}
-    }
-
-- path: /etc/systemd/system/sync-tunnel-logs.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
-    After=containerd.service
-
-    [Service]
-    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
-    Restart=always
-
-    [Install]
-    WantedBy=multi-user.target
-
-- path: /opt/azure/containers/sync-tunnel-logs.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
-
-- path: /etc/systemd/system/containerd.service.d/exec_start.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-    #EOF
-
-- path: /etc/crictl.yaml
-  permissions: "0644"
-  owner: root
-  content: |
-    runtime-endpoint: unix:///run/containerd/containerd.sock
-    #EOF
-
-- path: /etc/systemd/system/ensure-no-dup.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
-
-- path: /opt/azure/containers/ensure-no-dup.sh
-  permissions: "0755"
-  owner: root
-  encoding: gzip
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-
-- path: /etc/systemd/system/teleportd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=teleportd teleport runtime
-    After=network.target
-    [Service]
-    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=1048576
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
-    #EOF
-
-- path: /etc/systemd/system/nvidia-modprobe.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Installs and loads Nvidia GPU kernel module
-    [Service]
-    Type=oneshot
-    RemainAfterExit=true
-    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-    ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
-    [Install]
-    WantedBy=multi-user.target
-
-- path: {{GetCustomSearchDomainsCSEScriptFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 `)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
