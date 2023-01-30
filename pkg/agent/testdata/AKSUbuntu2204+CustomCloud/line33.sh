@@ -7,6 +7,8 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+aptmarkWALinuxAgent hold &
+
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
@@ -191,6 +193,10 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
+
+# for drop ins, so they don't all have to check/create the dir
+mkdir -p "/etc/systemd/system/kubelet.service.d"
+
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
@@ -233,8 +239,6 @@ if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
 
-mkdir -p "/etc/systemd/system/kubelet.service.d"
-
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
 [Service]
@@ -243,6 +247,13 @@ EOF
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    # gross, but the backticks make it very hard to do in Go
+    # TODO: move entirely into vhd.
+    # alternatively, can we verify this is safe with docker?
+    # or just do it even if not because docker is out of support?
+    mkdir -p /etc/containerd
+    echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
+
     tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
@@ -288,7 +299,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME})
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
@@ -324,6 +335,12 @@ else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
+            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
+            touch "${UU_CONFIG_DIR}"
+            chmod 0644 "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
             systemctl unmask apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
@@ -332,6 +349,7 @@ else
             # meaning we are wasting IO without even triggering an upgrade 
             # -________________-
             systemctl restart --no-block apt-daily.service
+            
         fi
         aptmarkWALinuxAgent unhold &
     fi
