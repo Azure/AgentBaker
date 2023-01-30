@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-# deadline for packer resource group deletion is 24 hours
+# deadline for old packer resource group deletion is 24 hours
 (( packerRgExpirationInSecs = 24 * 60 * 60 ))
 (( packerRgDeadline = $(date +%s)-${packerRgExpirationInSecs%.*} ))
 
