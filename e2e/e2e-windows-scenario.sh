@@ -52,8 +52,9 @@ wget https://aka.ms/downloadazcopy-v10-linux
 tar -xvf downloadazcopy-v10-linux
 
 # zip and upload cse package
+timeStamp=$(date +%s)
 cd ../staging/cse/windows
-zip -r ../../../e2e/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
+zip -r ../../../e2e/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
 echo "zip cse packages done"
 
 set +x
@@ -61,14 +62,34 @@ expiryTime=$(date --date="2 day" +%Y-%m-%d)
 token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
 tokenWithoutQuote=${token//\"}
 
-csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
 export csePackageURL
 
 cd ../../../e2e
 
 array=(azcopy_*)
-${array[0]}/azcopy copy ${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+noExistStr="File count: 0"
+listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
+
+for i in $(seq 1 10); do
+    if [[ "$listResult" != *"$noExistStr"* ]]; then
+        echo "Cse package with the same exists, retry $i to use new name..."
+        timeStamp=$(date +%s)
+        listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
+        sleep 10
+        continue
+    fi
+    ${array[0]}/azcopy copy ${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip $csePackageURL
+    break;
+done
+
 set -x
+
+listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
+if [[ "$listResult" == *"$noExistStr"* ]]; then
+    err "failed to upload cse package"
+    exit 1
+fi
 
 echo "upload cse packages done"
 
@@ -137,8 +158,14 @@ retval=$?
 set -e
 
 # delete cse package in storage account
-${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
-echo "delete cse package in storage account done"
+${array[0]}/azcopy rm $csePackageURL
+retval=$?
+
+if [[ "$retval" != "0" ]]; then
+    err "failed to delete cse package in storage account"
+else
+    echo "delete cse package in storage account done"
+fi
 
 log "Collect cse log"
 collect-logs
