@@ -16,19 +16,21 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 MAX_BLOCK_COUNT=30298176 # 30 GB
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # shellcheck disable=SC2021
+  current_kernel="$(uname -r | cut -d- -f-2)"
+  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
+  elif
+    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
+  fi
+
   # remove apport
   apt-get purge --auto-remove apport open-vm-tools -y
 
-  if [[ "${ENABLE_FIPS,,}" != "true" ]]; then
-    # shellcheck disable=SC2021
-    current_kernel="$(uname -r | cut -d- -f-2)"
-    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
-
-    # strip old kernels/packages
-    apt-get -y autoclean || exit 1
-    apt-get -y autoremove --purge || exit 1
-    apt-get -y clean || exit 1
-  fi
+  # strip old kernels/packages
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
 fi
 
 # shellcheck disable=SC2129
