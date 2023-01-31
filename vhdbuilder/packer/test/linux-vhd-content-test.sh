@@ -212,9 +212,9 @@ testFips() {
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
         fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
         if [[ "${fips_enabled}" == "1" ]]; then
-          echo "FIPS is enabled."
+          echo "FIPS is enabled."
         else
-          err $test "FIPS is not enabled."
+          err $test "content of /proc/sys/crypto/fips_enabled is not 1."
         fi
     else
         err $test "FIPS is not enabled."
