@@ -1,4 +1,4 @@
-Starting build on  Tue Jan 31 16:20:03 UTC 2023
+Starting build on  Tue Jan 31 16:19:08 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -37,11 +37,131 @@ Components downloaded in this VHD build (some of the below components might get 
   - [cached] runc 1.0.0-rc92
   - [cached] runc 1.0.0-rc95
   - [cached] runc 1.0.3
+-rw-r--r-- 1 root  root  735264 Dec  9 14:39 /opt/gpu/nvidia-container-toolkit_1.11.0-1_amd64.deb
+-rw-r--r-- 1 root  root 1842156 Dec  9 14:39 /opt/gpu/nvidia-container-toolkit-base_1.11.0-1_amd64.deb
+-rw-r--r-- 1 root  root    4988 Dec  9 14:39 /opt/gpu/nvidia-container-runtime_3.11.0-1_all.deb
+-rw-r--r-- 1 root  root  927068 Dec  9 14:39 /opt/gpu/libnvidia-container1_1.11.0-1_amd64.deb
+-rw-r--r-- 1 root  root   24292 Dec  9 14:39 /opt/gpu/libnvidia-container-tools_1.11.0-1_amd64.deb
+-rwxr-xr-x 1 root  root     761 Dec 15 22:38 /opt/gpu/package_manager_helpers.sh
+-rw-r--r-- 1 root  root    2515 Dec 15 22:38 /opt/gpu/download.sh
+-rw-r--r-- 1 root  root      44 Dec 15 22:38 /opt/gpu/blacklist-nouveau.conf
+-rw-r--r-- 1 root  root     676 Dec 15 22:38 /opt/gpu/10-nvidia-runtime.toml
+-rw-r--r-- 1 root  root     307 Dec 15 22:39 /opt/gpu/config.sh
+
+/opt/gpu/fabricmanager-linux-x86_64-510.47.03:
+total 44
+-rw-r--r-- 1 25503 tape 4192 Jan 25  2022 third-party-notices.txt
+drwxr-xr-x 2 25503 tape 4096 Jan 25  2022 systemd
+drwxr-xr-x 3 25503 tape 4096 Jan 25  2022 share
+drwxr-xr-x 2 25503 tape 4096 Jan 25  2022 lib
+drwxr-xr-x 2 25503 tape 4096 Jan 25  2022 include
+drwxr-xr-x 2 25503 tape 4096 Jan 25  2022 etc
+drwxr-xr-x 2 25503 tape 4096 Jan 25  2022 bin
+-rw-r--r-- 1 25503 tape 6121 Jan 25  2022 LICENSE
+drwxr-xr-x 2 25503 tape 4096 Dec 15 22:39 sbin
+
+/opt/gpu/NVIDIA-Linux-x86_64-510.47.03:
+total 595488
+-rwx------ 1 root root    478976 Jan 24  2022 nvngx.dll
+-rwx------ 1 root root   1419264 Jan 24  2022 _nvngx.dll
+-rw-r--r-- 1 root root      6121 Jan 24  2022 LICENSE
+-rw-r--r-- 1 root root       489 Jan 24  2022 nvidia-drm-outputclass.conf
+-rw-r--r-- 1 root root     17255 Jan 24  2022 nvidia-settings.png
+-rw-r--r-- 1 root root        96 Jan 24  2022 15_nvidia_gbm.json
+-rw-r--r-- 1 root root       115 Jan 24  2022 10_nvidia_wayland.json
+-rw-r--r-- 1 root root       254 Jan 24  2022 nvidia-dbus.conf
+-rwxr-xr-x 1 root root     29553 Jan 24  2022 makeself.sh
+-rw-r--r-- 1 root root        22 Jan 24  2022 nvidia.icd
+-rw-r--r-- 1 root root       107 Jan 24  2022 10_nvidia.json
+-rw-r--r-- 1 root root      9179 Jan 24  2022 nvidia-application-profiles-510.47.03-rc
+-rw-r--r-- 1 root root      7110 Jan 24  2022 nvidia-application-profiles-510.47.03-key-documentation
+-rw-r--r-- 1 root root    348603 Jan 24  2022 NVIDIA_Changelog
+-rwxr-xr-x 1 root root     18456 Jan 24  2022 libnvidia-tls.so.510.47.03
+-rwxr-xr-x 1 root root     80224 Jan 24  2022 libEGL.so.1.1.0
+-rwxr-xr-x 1 root root     26752 Jan 24  2022 libEGL.so.510.47.03
+-rw-r--r-- 1 root root      8075 Jan 24  2022 nvidia-xconfig.1.gz
+-rwxr-xr-x 1 root root    207424 Jan 24  2022 nvidia-xconfig
+-rw-r--r-- 1 root root       643 Jan 24  2022 nvidia_layers.json
+-rw-r--r-- 1 root root       140 Jan 24  2022 nvidia_icd.json
+-rw-r--r-- 1 root root      7203 Jan 24  2022 nvidia-persistenced-init.tar.bz2
+-rwxr-xr-x 1 root root     47088 Jan 24  2022 libnvidia-opticalflow.so.510.47.03
+-rwxr-xr-x 1 root root    649320 Jan 24  2022 libGL.so.1.7.0
+-rwxr-xr-x 1 root root     39128 Jan 24  2022 mkprecompiled
+-rwxr-xr-x 1 root root    221552 Jan 24  2022 libnvidia-cfg.so.510.47.03
+-rwxr--r-- 1 root root     23352 Jan 24  2022 makeself-help-script.sh
+-rwxr-xr-x 1 root root     43104 Jan 24  2022 libGLESv1_CM.so.1.2.0
+-rwxr-xr-x 1 root root    204224 Jan 24  2022 nvidia-persistenced
+-rw-r--r-- 1 root root      8626 Jan 24  2022 nvidia-installer.1.gz
+-rwxr-xr-x 1 root root    351248 Jan 24  2022 nvidia-installer
+-rw-r--r-- 1 root root      2321 Jan 24  2022 nvidia-persistenced.1.gz
+-rwxr-xr-x 1 root root     79968 Jan 24  2022 libGLESv2.so.2.1.0
+-rwxr-xr-x 1 root root     67880 Jan 24  2022 libGLESv1_CM_nvidia.so.510.47.03
+-rwxr-xr-x 1 root root    260912 Jan 24  2022 nvidia-debugdump
+-rwxr-xr-x 1 root root    117032 Jan 24  2022 libGLESv2_nvidia.so.510.47.03
+-rw-r--r-- 1 root root      2489 Jan 24  2022 nvidia-cuda-mps-control.1.gz
+-rw-r--r-- 1 root root    674086 Jan 24  2022 README.txt
+-rwxr-xr-x 1 root root    137512 Jan 24  2022 libGLX.so.0
+-rwxr-xr-x 1 root root    198752 Jan 24  2022 libOpenGL.so.0
+-rwxr-xr-x 1 root root    952472 Jan 24  2022 libGLdispatch.so.0
+-rwxr-xr-x 1 root root    133856 Jan 24  2022 libnvidia-fbc.so.510.47.03
+-rwxr-xr-x 1 root root    116768 Jan 24  2022 libnvidia-encode.so.510.47.03
+-rw-r--r-- 1 root root      1388 Jan 24  2022 nvidia-modprobe.1.gz
+-rwxr-xr-x 1 root root     39232 Jan 24  2022 nvidia-modprobe
+-rwxr-xr-x 1 root root    115176 Jan 24  2022 libnvidia-allocator.so.510.47.03
+-rwxr-xr-x 1 root root    667200 Jan 24  2022 libvdpau_nvidia.so.510.47.03
+-rwxr-xr-x 1 root root     22656 Jan 24  2022 libnvidia-egl-gbm.so.1.1.0
+-rwxr-xr-x 1 root root     56416 Jan 24  2022 libnvidia-egl-wayland.so.1.1.9
+-rw-r--r-- 1 root root       640 Jan 24  2022 nvidia-settings.desktop
+-rw-r--r-- 1 root root      8609 Jan 24  2022 nvidia-settings.1.gz
+-rwxr-xr-x 1 root root    627560 Jan 24  2022 libnvidia-glsi.so.510.47.03
+-rwxr-xr-x 1 root root   3310152 Jan 24  2022 libnvidia-ngx.so.510.47.03
+-rwxr-xr-x 1 root root   5180200 Jan 24  2022 libnvcuvid.so.510.47.03
+-rwxr-xr-x 1 root root   1316880 Jan 24  2022 libEGL_nvidia.so.510.47.03
+-rwxr-xr-x 1 root root    302248 Jan 24  2022 nvidia-settings
+-rwxr-xr-x 1 root root   1380200 Jan 24  2022 libnvidia-gtk3.so.510.47.03
+-rwxr-xr-x 1 root root   1371496 Jan 24  2022 libnvidia-gtk2.so.510.47.03
+-rwxr-xr-x 1 root root     18504 Jan 24  2022 libnvidia-vulkan-producer.so.510.47.03
+-rwxr-xr-x 1 root root   1293712 Jan 24  2022 libGLX_nvidia.so.510.47.03
+-rwxr-xr-x 1 root root   3896400 Jan 24  2022 nvidia-ngx-updater
+-rwxr-xr-x 1 root root    978560 Jan 24  2022 nvidia-powerd
+-rwxr-xr-x 1 root root    690808 Jan 24  2022 nvidia-smi
+-rwxr-xr-x 1 root root   1873144 Jan 24  2022 libnvidia-ml.so.510.47.03
+-rw-r--r-- 1 root root     22702 Jan 24  2022 nvidia-smi.1.gz
+-rwxr-xr-x 1 root root  12684968 Jan 24  2022 libglxserver_nvidia.so.510.47.03
+-rwxr-xr-x 1 root root  11488696 Jan 24  2022 libnvidia-ptxjitcompiler.so.510.47.03
+-rwxr-xr-x 1 root root   6202080 Jan 24  2022 nvidia_drv.so
+-rwxr-xr-x 1 root root     14488 Jan 24  2022 nvidia-cuda-mps-server
+-rwxr-xr-x 1 root root     49920 Jan 24  2022 nvidia-cuda-mps-control
+-rwxr-xr-x 1 root root     30856 Jan 24  2022 libOpenCL.so.1.0.0
+-rwxr-xr-x 1 root root  31715856 Jan 24  2022 libnvidia-eglcore.so.510.47.03
+-rwxr-xr-x 1 root root  22851528 Jan 24  2022 libcuda.so.510.47.03
+-rwxr-xr-x 1 root root  18088528 Jan 24  2022 libnvidia-opencl.so.510.47.03
+-rwxr-xr-x 1 root root  34116272 Jan 24  2022 libnvidia-glcore.so.510.47.03
+-rwxr-xr-x 1 root root  56104312 Jan 24  2022 libnvidia-compiler.so.510.47.03
+-rwxr-xr-x 1 root root  26949368 Jan 24  2022 libnvidia-nvvm.so.4.0.0
+-rwxr-xr-x 1 root root  16601624 Jan 24  2022 libnvidia-glvkspirv.so.510.47.03
+-rwxr-xr-x 1 root root  80876320 Jan 24  2022 libnvidia-rtcore.so.510.47.03
+-rwxr-xr-x 1 root root 176075136 Jan 24  2022 libnvoptix.so.510.47.03
+-rwxr-xr-x 1 root root  85507584 Jan 24  2022 libnvidia-compiler-next.so.510.47.03
+drwxr-xr-x 4 root root      4096 Jan 24  2022 systemd
+drwxr-xr-x 2 root root      4096 Jan 24  2022 supported-gpus
+drwxr-xr-x 2 root root      4096 Jan 24  2022 libglvnd_install_checker
+drwxr-xr-x 2 root root      4096 Jan 24  2022 html
+drwxr-xr-x 2 root root      4096 Jan 24  2022 firmware
+-rw-r--r-- 1 root root       236 Jan 24  2022 pkg-history.txt
+drwxr-xr-x 3 root root      4096 Jan 24  2022 32
+-r-xr-xr-x 1 root root     36977 Jan 24  2022 nvidia-bug-report.sh
+drwxr-xr-x 8 root root      4096 Jan 24  2022 kernel
+
+/opt/gpu/nvidia-docker2_2.8.0-1:
+total 8
+drwxr-xr-x 4 root root 4096 Dec 15 22:39 share
+drwxr-xr-x 2 root root 4096 Dec 15 22:39 bin
   - bpftrace
   - nvidia-docker2=2.8.0-1
   - nvidia-container-runtime=3.6.0
-  - nvidia-gpu-driver-version=
-  - nvidia-fabricmanager=
+  - nvidia-gpu-driver-version={{GPUDriverVersion}}
+  - nvidia-fabricmanager={{GPUDriverVersion}}
   - bcc-tools
   - libbcc-examples
 containerd images pre-pulled:
@@ -69,7 +189,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01182023-095c864a
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01092023-864ecd78
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.0.1-main-11-29-2022-97e2122e
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.1.0-main-01-11-2023-5bf41607
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.6.0
@@ -116,8 +236,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0.3
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.2.2
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.2.0
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0
@@ -142,27 +262,6 @@ containerd images pre-pulled:
   - Azure Overlay CNI version 1.4.35
   - CNI plugin version 1.1.1
   - mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0
-  - /var/lib/kubelet/device-plugins
-  - extracted nvidia-device-plugin...
-total 17232
--rwxr-xr-x 1 root root      900 Jan 31 16:29 nvidia-sleep.sh
--rwxr-xr-x 1 root root   351248 Jan 31 16:29 nvidia-installer
--rwxr-xr-x 1 root root    36977 Jan 31 16:29 nvidia-bug-report.sh
--rwxr-xr-x 1 root root   690808 Jan 31 16:29 nvidia-smi
--rwxr-xr-x 1 root root   260912 Jan 31 16:29 nvidia-debugdump
--rwxr-xr-x 1 root root    14488 Jan 31 16:29 nvidia-cuda-mps-server
--rwxr-xr-x 1 root root    49920 Jan 31 16:29 nvidia-cuda-mps-control
--rwxr-xr-x 1 root root   204224 Jan 31 16:29 nvidia-persistenced
--rwxr-xr-x 1 root root   978560 Jan 31 16:29 nvidia-powerd
--rwxr-xr-x 1 root root   207424 Jan 31 16:29 nvidia-xconfig
--rwxr-xr-x 1 root root   302248 Jan 31 16:29 nvidia-settings
--rwxr-xr-x 1 root root  3896400 Jan 31 16:29 nvidia-ngx-updater
-lrwxrwxrwx 1 root root       16 Jan 31 16:29 nvidia-uninstall -> nvidia-installer
--rwxr-xr-x 1 root root 10625472 Jan 31 16:50 nvidia-device-plugin
-  - mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0
-  - mcr.microsoft.com/aks/acc/sgx-plugin:0.5
-  - mcr.microsoft.com/aks/acc/sgx-webhook:1.0
-  - mcr.microsoft.com/aks/acc/sgx-attestation:3.1
   - mcr.microsoft.com/oss/nginx/nginx:1.13.12-alpine
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.11-hotfix.20221109.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.15-hotfix.20221109.1
@@ -208,12 +307,12 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48021504 Jan  3 21:00 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root 124214400 Jan 16 04:29 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root  46604288 Jan 16 04:29 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root       593 Jan 31 16:20 /usr/local/bin/logrotate.sh
--r-xr--r-- 1 root root      2462 Jan 31 16:20 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Jan 31 16:20 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Jan 31 16:27 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root  47622592 Jan 31 16:27 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root  35384960 Jan 31 16:30 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root       593 Jan 31 16:19 /usr/local/bin/logrotate.sh
+-r-xr--r-- 1 root root      2462 Jan 31 16:19 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Jan 31 16:19 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Jan 31 16:26 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root  47622592 Jan 31 16:26 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root  35384960 Jan 31 16:27 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/bionic-updates,bionic-security,now 0.6.45-1ubuntu1.3 amd64 [installed,automatic]
@@ -535,8 +634,6 @@ libnss-systemd/bionic-updates,bionic-security,now 237-3ubuntu10.56 amd64 [instal
 libnss3/bionic-updates,bionic-security,now 2:3.35-2ubuntu2.15 amd64 [installed,automatic]
 libntfs-3g88/bionic-updates,bionic-security,now 1:2017.3.23-2ubuntu0.18.04.5 amd64 [installed,automatic]
 libnuma1/bionic-updates,now 2.0.11-2.1ubuntu0.1 amd64 [installed,automatic]
-libnvidia-container-tools/now 1.11.0-1 amd64 [installed,local]
-libnvidia-container1/now 1.11.0-1 amd64 [installed,local]
 libonig4/bionic,now 6.7.0-1 amd64 [installed,automatic]
 libp11-kit0/bionic-updates,bionic-security,now 0.23.9-2ubuntu0.1 amd64 [installed,automatic]
 libpam-cap/bionic,now 1:2.25-1.2 amd64 [installed,automatic]
@@ -698,9 +795,6 @@ nfs-common/bionic-updates,now 1:1.3.4-2.1ubuntu5.5 amd64 [installed]
 nftables/bionic,now 0.8.2-1 amd64 [installed]
 nplan/bionic-updates,now 0.99-0ubuntu3~18.04.5 all [installed,automatic]
 ntfs-3g/bionic-updates,bionic-security,now 1:2017.3.23-2ubuntu0.18.04.5 amd64 [installed,automatic]
-nvidia-container-runtime/now 3.11.0-1 all [installed,local]
-nvidia-container-toolkit/now 1.11.0-1 amd64 [installed,local]
-nvidia-container-toolkit-base/now 1.11.0-1 amd64 [installed,local]
 open-iscsi/bionic-updates,now 2.0.874-5ubuntu2.11 amd64 [installed]
 openssh-client/bionic-updates,now 1:7.6p1-4ubuntu0.7 amd64 [installed,automatic]
 openssh-server/bionic-updates,now 1:7.6p1-4ubuntu0.7 amd64 [installed]
@@ -884,23 +978,23 @@ zlib1g/bionic-updates,bionic-security,now 1:1.2.11.dfsg-0ubuntu2.2 amd64 [instal
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-udev             56G     0   56G   0% /dev
-tmpfs            12G  648K   12G   1% /run
-/dev/sda1        29G   27G  2.4G  92% /
-tmpfs            56G     0   56G   0% /dev/shm
+udev            3.4G     0  3.4G   0% /dev
+tmpfs           696M  720K  695M   1% /run
+/dev/sda1        29G   26G  3.3G  89% /
+tmpfs           3.4G     0  3.4G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
-tmpfs            56G     0   56G   0% /sys/fs/cgroup
+tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
 /dev/sda15      105M  5.2M  100M   5% /boot/efi
-/dev/sdb1       724G   32K  687G   1% /mnt
-tmpfs            12G     0   12G   0% /run/user/1000
+/dev/sdb1        14G   28K   13G   1% /mnt
+tmpfs           696M     0  696M   0% /run/user/1000
 Using kernel:
 Linux version 5.4.0-1101-azure (buildd@lcy02-amd64-064) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #107~18.04.1-Ubuntu SMP Tue Jan 10 21:14:56 UTC 2023
-Install completed successfully on  Tue Jan 31 16:57:06 UTC 2023
-VSTS Build NUMBER: 20230131.6_v20230125_67955920
-VSTS Build ID: 67955920
-Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
+Install completed successfully on  Tue Jan 31 16:54:20 UTC 2023
+VSTS Build NUMBER: 20230131.5_v20230119_67955900
+VSTS Build ID: 67955900
+Commit: e0f4bf659e03be35e8920afbc59cfa8daff77305
 Ubuntu version: 18.04
-Hyperv generation: V2
-Feature flags: fullgpudaemon
+Hyperv generation: V1
+Feature flags: None
 Container runtime: containerd
 FIPS enabled: 
