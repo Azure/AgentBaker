@@ -1,4 +1,4 @@
-Starting build on  Wed Jan 25 15:56:06 UTC 2023
+Starting build on  Tue Jan 31 16:27:15 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -307,11 +307,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root     48021504 Jan  3 21:00 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root    124214400 Jan 16 04:29 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root     46604288 Jan 16 04:29 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root         2462 Jan 25 15:56 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root          705 Jan 25 15:56 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root     36014944 Jan 25 16:05 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root     47622592 Jan 25 16:05 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root     35384960 Jan 25 16:09 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root         2462 Jan 31 16:27 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root          705 Jan 31 16:27 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root     36014944 Jan 31 16:36 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root     47622592 Jan 31 16:36 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root     35384960 Jan 31 16:40 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 adduser/jammy,now 3.118ubuntu5 all [installed,automatic]
@@ -326,9 +326,9 @@ bash-completion/jammy,now 1:2.11-5ubuntu1 all [installed,automatic]
 bash/jammy,now 5.1-6ubuntu1 amd64 [installed]
 bc/jammy,now 1.07.1-3build1 amd64 [installed,automatic]
 bcache-tools/jammy,now 1.0.8-4ubuntu3 amd64 [installed]
-bind9-dnsutils/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.2 amd64 [installed,automatic]
-bind9-host/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.2 amd64 [installed,automatic]
-bind9-libs/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.2 amd64 [installed,automatic]
+bind9-dnsutils/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.3 amd64 [installed,automatic]
+bind9-host/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.3 amd64 [installed,automatic]
+bind9-libs/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.3 amd64 [installed,automatic]
 binutils-common/jammy-updates,jammy-security,now 2.38-4ubuntu2.1 amd64 [installed,automatic]
 binutils-x86-64-linux-gnu/jammy-updates,jammy-security,now 2.38-4ubuntu2.1 amd64 [installed,automatic]
 binutils/jammy-updates,jammy-security,now 2.38-4ubuntu2.1 amd64 [installed,automatic]
@@ -381,7 +381,7 @@ dkms/jammy-updates,now 2.8.7-2ubuntu2.1 all [installed]
 dmeventd/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
 dmidecode/jammy-updates,now 3.3-3ubuntu0.1 amd64 [installed,automatic]
 dmsetup/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
-dnsutils/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.2 all [installed]
+dnsutils/jammy-updates,jammy-security,now 1:9.18.1-1ubuntu1.3 all [installed]
 dosfstools/jammy,now 4.2-1build3 amd64 [installed,automatic]
 dpkg-dev/jammy-updates,jammy-security,now 1.21.1ubuntu2.1 all [installed,automatic]
 dpkg/jammy-updates,jammy-security,now 1.21.1ubuntu2.1 amd64 [installed,automatic]
@@ -430,8 +430,8 @@ gpgv/jammy-updates,jammy-security,now 2.2.27-3ubuntu2.1 amd64 [installed,automat
 grep/jammy,now 3.7-1build1 amd64 [installed]
 groff-base/jammy,now 1.22.4-8build1 amd64 [installed,automatic]
 grub-common/jammy-updates,now 2.06-2ubuntu7.1 amd64 [installed,automatic]
-grub-efi-amd64-bin/jammy-updates,jammy-security,now 2.06-2ubuntu10 amd64 [installed]
-grub-efi-amd64-signed/jammy-updates,jammy-security,now 1.182~22.04.1+2.06-2ubuntu10 amd64 [installed]
+grub-efi-amd64-bin/jammy-security,now 2.06-2ubuntu10 amd64 [installed,upgradable to: 2.06-2ubuntu14]
+grub-efi-amd64-signed/jammy-security,now 1.182~22.04.1+2.06-2ubuntu10 amd64 [installed,upgradable to: 1.187.2+2.06-2ubuntu14]
 grub-gfxpayload-lists/jammy,now 0.7 amd64 [installed,automatic]
 grub-pc-bin/jammy-updates,now 2.06-2ubuntu7.1 amd64 [installed,automatic]
 grub-pc/jammy-updates,now 2.06-2ubuntu7.1 amd64 [installed,automatic]
@@ -460,7 +460,7 @@ isc-dhcp-client/jammy-updates,jammy-security,now 4.4.1-2.3ubuntu2.3 amd64 [insta
 isc-dhcp-common/jammy-updates,jammy-security,now 4.4.1-2.3ubuntu2.3 amd64 [installed,automatic]
 iso-codes/jammy,now 4.9.0-1 all [installed,automatic]
 jq/jammy,now 1.6-2.1ubuntu3 amd64 [installed]
-kbd/jammy,now 2.3.0-3ubuntu4 amd64 [installed,automatic]
+kbd/jammy,now 2.3.0-3ubuntu4 amd64 [installed,upgradable to: 2.3.0-3ubuntu4.22.04]
 keyboard-configuration/jammy,now 1.205ubuntu3 all [installed,automatic]
 keyutils/jammy,now 1.6.1-2ubuntu3 amd64 [installed]
 klibc-utils/jammy,now 2.0.10-4 amd64 [installed,automatic]
@@ -531,8 +531,8 @@ libdevmapper-event1.02.1/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automa
 libdevmapper1.02.1/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
 libdns-export1110/jammy,now 1:9.11.19+dfsg-2.1ubuntu3 amd64 [installed,automatic]
 libdpkg-perl/jammy-updates,jammy-security,now 1.21.1ubuntu2.1 all [installed,automatic]
-libdrm-common/jammy,now 2.4.110-1ubuntu1 all [installed,automatic]
-libdrm2/jammy,now 2.4.110-1ubuntu1 amd64 [installed,automatic]
+libdrm-common/jammy,now 2.4.110-1ubuntu1 all [installed,upgradable to: 2.4.113-2~ubuntu0.22.04.1]
+libdrm2/jammy,now 2.4.110-1ubuntu1 amd64 [installed,upgradable to: 2.4.113-2~ubuntu0.22.04.1]
 libdw1/jammy,now 0.186-1build1 amd64 [installed,automatic]
 libeatmydata1/jammy,now 130-2build1 amd64 [installed]
 libedit2/jammy,now 3.1-20210910-1build1 amd64 [installed,automatic]
@@ -579,7 +579,7 @@ libgoogle-perftools4/jammy,now 2.9.1-0ubuntu3 amd64 [installed,automatic]
 libgpg-error0/jammy,now 1.43-3 amd64 [installed,automatic]
 libgpgme11/jammy,now 1.16.0-1.2ubuntu4 amd64 [installed]
 libgpm2/jammy,now 1.20.7-10build1 amd64 [installed,automatic]
-libgssapi-krb5-2/jammy,now 1.19.2-2 amd64 [installed,automatic]
+libgssapi-krb5-2/jammy-updates,jammy-security,now 1.19.2-2ubuntu0.1 amd64 [installed,automatic]
 libgstreamer1.0-0/jammy-updates,now 1.20.3-0ubuntu1 amd64 [installed,automatic]
 libgudev-1.0-0/jammy,now 1:237-2build1 amd64 [installed]
 libgusb2/jammy,now 0.3.10-1 amd64 [installed]
@@ -604,12 +604,12 @@ libjq1/jammy,now 1.6-2.1ubuntu3 amd64 [installed,automatic]
 libjson-c5/jammy-updates,now 0.15-3~ubuntu1.22.04.1 amd64 [installed,automatic]
 libjson-glib-1.0-0/jammy,now 1.6.6-1build1 amd64 [installed]
 libjson-glib-1.0-common/jammy,now 1.6.6-1build1 all [installed]
-libk5crypto3/jammy,now 1.19.2-2 amd64 [installed,automatic]
+libk5crypto3/jammy-updates,jammy-security,now 1.19.2-2ubuntu0.1 amd64 [installed,automatic]
 libkeyutils1/jammy,now 1.6.1-2ubuntu3 amd64 [installed,automatic]
 libklibc/jammy,now 2.0.10-4 amd64 [installed,automatic]
 libkmod2/jammy,now 29-1ubuntu1 amd64 [installed,automatic]
-libkrb5-3/jammy,now 1.19.2-2 amd64 [installed,automatic]
-libkrb5support0/jammy,now 1.19.2-2 amd64 [installed,automatic]
+libkrb5-3/jammy-updates,jammy-security,now 1.19.2-2ubuntu0.1 amd64 [installed,automatic]
+libkrb5support0/jammy-updates,jammy-security,now 1.19.2-2ubuntu0.1 amd64 [installed,automatic]
 libksba8/jammy-updates,jammy-security,now 1.6.0-2ubuntu0.2 amd64 [installed,automatic]
 libldap-2.5-0/jammy-updates,now 2.5.13+dfsg-0ubuntu0.22.04.1 amd64 [installed,automatic]
 libldap-common/jammy-updates,now 2.5.13+dfsg-0ubuntu0.22.04.1 all [installed,automatic]
@@ -937,7 +937,7 @@ python3-serial/jammy,now 3.5-1 all [installed]
 python3-service-identity/jammy,now 18.1.0-6 all [installed,automatic]
 python3-setuptools/jammy-updates,jammy-security,now 59.6.0-1.2ubuntu0.22.04.1 all [installed]
 python3-six/jammy,now 1.16.0-3ubuntu1 all [installed,automatic]
-python3-software-properties/jammy-updates,now 0.99.22.4 all [installed,automatic]
+python3-software-properties/now 0.99.22.4 all [installed,upgradable to: 0.99.22.5]
 python3-twisted/jammy-updates,jammy-security,now 22.1.0-2ubuntu2.3 all [installed,automatic]
 python3-tz/jammy-updates,now 2022.1-1ubuntu0.22.04.0 all [installed]
 python3-update-manager/jammy-updates,now 1:22.04.10 all [installed,automatic]
@@ -967,7 +967,7 @@ sg3-utils/jammy,now 1.46-1build1 amd64 [installed,automatic]
 shared-mime-info/jammy,now 2.1-2 amd64 [installed,automatic]
 shim-signed/jammy,now 1.51+15.4-0ubuntu9 amd64 [installed]
 socat/jammy,now 1.7.4.1-3ubuntu4 amd64 [installed]
-software-properties-common/jammy-updates,now 0.99.22.4 all [installed]
+software-properties-common/now 0.99.22.4 all [installed,upgradable to: 0.99.22.5]
 sosreport/jammy-updates,now 4.4-1ubuntu1.22.04.1 amd64 [installed]
 ssh-import-id/jammy,now 5.11-0ubuntu1 all [installed]
 strace/jammy,now 5.16-0ubuntu3 amd64 [installed,automatic]
@@ -990,7 +990,7 @@ tnftp/jammy,now 20210827-4build1 amd64 [installed,automatic]
 tpm-udev/jammy,now 0.6 all [installed]
 traceroute/jammy,now 1:2.1.0-2 amd64 [installed]
 tzdata/jammy-updates,jammy-security,now 2022g-0ubuntu0.22.04.1 all [installed,automatic]
-ubuntu-advantage-tools/jammy-updates,now 27.12~22.04.1 amd64 [installed,automatic]
+ubuntu-advantage-tools/now 27.12~22.04.1 amd64 [installed,upgradable to: 27.13.2~22.04.1]
 ubuntu-keyring/jammy,now 2021.03.26 all [installed,automatic]
 ubuntu-minimal/jammy,now 1.481 amd64 [installed]
 ubuntu-release-upgrader-core/jammy-updates,now 1:22.04.15 all [installed,automatic]
@@ -1031,15 +1031,15 @@ Filesystem      Size  Used Avail Use% Mounted on
 tmpfs           3.9G     0  3.9G   0% /dev/shm
 tmpfs           1.6G  812K  1.6G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
-/dev/sdb15      105M  5.3M  100M   5% /boot/efi
-/dev/sda1        16G   28K   15G   1% /mnt
+/dev/sda15      105M  5.3M  100M   5% /boot/efi
+/dev/sdb1        16G   28K   15G   1% /mnt
 tmpfs           796M     0  796M   0% /run/user/1000
 Using kernel:
 Linux version 5.15.0-1031-azure (buildd@lcy02-amd64-010) (gcc (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #38-Ubuntu SMP Mon Jan 9 12:49:59 UTC 2023
-Install completed successfully on  Wed Jan 25 16:45:48 UTC 2023
-VSTS Build NUMBER: 20230125.3_master_67678050
-VSTS Build ID: 67678050
-Commit: 6e2f3b9ff99f8086038357f62c98772789c8d2ea
+Install completed successfully on  Tue Jan 31 17:15:08 UTC 2023
+VSTS Build NUMBER: 20230131.6_v20230125_67955920
+VSTS Build ID: 67955920
+Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
 Ubuntu version: 22.04
 Hyperv generation: V1
 Feature flags: None

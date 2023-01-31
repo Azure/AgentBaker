@@ -1,4 +1,4 @@
-Starting build on  Wed Jan 25 15:56:40 UTC 2023
+Starting build on  Tue Jan 31 16:27:20 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -165,17 +165,17 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    48021504 Jan  3 21:00 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root   124214400 Jan 16 04:29 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root    46604288 Jan 16 04:29 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root        2462 Jan 25 15:56 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root         705 Jan 25 15:56 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Jan 25 15:58 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root    47622592 Jan 25 15:58 /usr/local/bin/containerd-shim-slight-v1
--rwxr-x--- 1 root root    35384960 Jan 25 15:59 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root        2462 Jan 31 16:27 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root         705 Jan 31 16:27 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    36014944 Jan 31 16:29 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root    47622592 Jan 31 16:29 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-x--- 1 root root    35384960 Jan 31 16:30 /usr/local/bin/bpftrace
 === Installed Packages Begin
 iotop-0.6-7.cm1.noarch
 filesystem-1.1-7.cm1.x86_64
 oniguruma-6.9.5-2.cm1.x86_64
 libgcc-9.1.0-7.cm1.x86_64
-kernel-devel-5.10.161.1-1.cm1.x86_64
+kernel-devel-5.10.164.1-1.cm1.x86_64
 libstdc++-9.1.0-7.cm1.x86_64
 lsof-4.93.2-3.cm1.x86_64
 xz-libs-5.2.4-3.cm1.x86_64
@@ -192,7 +192,7 @@ bash-4.4.23-1.cm1.x86_64
 traceroute-2.1.0-5.cm1.x86_64
 xz-5.2.4-3.cm1.x86_64
 libapparmor-2.13-12.cm1.x86_64
-kernel-5.10.161.1-1.cm1.x86_64
+kernel-5.10.164.1-1.cm1.x86_64
 moby-runc-1.1.2+azure-4.cm1.x86_64
 grub2-efi-binary-2.06~rc1-9.cm1.x86_64
 libcgroup-0.41-24.cm1.x86_64
@@ -221,7 +221,7 @@ e2fsprogs-libs-1.44.6-4.cm1.x86_64
 mariner-repos-shared-1.0-16.cm1.noarch
 dbus-1.13.6-5.cm1.x86_64
 libssh2-1.9.0-1.cm1.x86_64
-curl-7.86.0-1.cm1.x86_64
+curl-7.86.0-2.cm1.x86_64
 libpwquality-1.4.2-7.cm1.x86_64
 python3-3.7.13-5.cm1.x86_64
 iana-etc-2.30-5.cm1.noarch
@@ -286,8 +286,8 @@ python3-cryptography-3.3.2-1.cm1.x86_64
 python3-requests-2.22.0-2.cm1.noarch
 cloud-init-azure-kvp-21.4-2.cm1.noarch
 cloud-utils-growpart-0.32-3.cm1.noarch
-hypervvssd-5.10.161.1-1.cm1.x86_64
-hypervfcopyd-5.10.161.1-1.cm1.x86_64
+hypervvssd-5.10.164.1-1.cm1.x86_64
+hypervfcopyd-5.10.164.1-1.cm1.x86_64
 libnl3-3.4.0-6.cm1.x86_64
 netplan-0.95-1.cm1.x86_64
 openssh-server-8.9p1-1.cm1.x86_64
@@ -314,7 +314,7 @@ nss-3.73-1.cm1.x86_64
 libserf-1.3.9-6.cm1.x86_64
 subversion-perl-1.14.0-5.cm1.x86_64
 inotify-tools-3.14-2.cm1.x86_64
-mariner-release-1.0-53.cm1.noarch
+mariner-release-1.0-54.cm1.noarch
 ipset-7.1-2.cm1.x86_64
 glibc-2.28-24.cm1.x86_64
 jq-1.5-6.cm1.x86_64
@@ -360,10 +360,10 @@ ncurses-6.3-2.cm1.x86_64
 lua-5.3.5-9.cm1.x86_64
 util-linux-2.32.1-7.cm1.x86_64
 libxml2-2.9.14-3.cm1.x86_64
-krb5-1.18.4-2.cm1.x86_64
+krb5-1.18.4-3.cm1.x86_64
 libassuan-2.5.1-3.cm1.x86_64
 zchunk-libs-1.1.5-2.cm1.x86_64
-curl-libs-7.86.0-1.cm1.x86_64
+curl-libs-7.86.0-2.cm1.x86_64
 cracklib-dicts-2.9.7-3.cm1.x86_64
 gdbm-1.18-3.cm1.x86_64
 python3-libs-3.7.13-5.cm1.x86_64
@@ -394,7 +394,7 @@ bzip2-1.0.6-15.cm1.x86_64
 findutils-4.6.0-8.cm1.x86_64
 libtool-2.4.6-8.cm1.x86_64
 sed-4.5-3.cm1.x86_64
-vim-9.0.0982-1.cm1.x86_64
+vim-9.0.1189-1.cm1.x86_64
 lvm2-2.03.05-6.cm1.x86_64
 bind-utils-9.16.33-1.cm1.x86_64
 tdnf-2.1.0-7.cm1.x86_64
@@ -428,9 +428,9 @@ python3-packaging-17.1-6.cm1.noarch
 python3-pyOpenSSL-18.0.0-6.cm1.noarch
 cloud-init-21.4-2.cm1.noarch
 gptfdisk-1.0.4-4.cm1.x86_64
-hyperv-daemons-license-5.10.161.1-1.cm1.noarch
-hypervkvpd-5.10.161.1-1.cm1.x86_64
-hyperv-daemons-5.10.161.1-1.cm1.x86_64
+hyperv-daemons-license-5.10.164.1-1.cm1.noarch
+hypervkvpd-5.10.164.1-1.cm1.x86_64
+hyperv-daemons-5.10.164.1-1.cm1.x86_64
 wpa_supplicant-2.10-1.cm1.x86_64
 ncurses-term-6.3-2.cm1.x86_64
 python2-libs-2.7.18-11.cm1.x86_64
@@ -461,7 +461,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        3.4G     0  3.4G   0% /dev
 tmpfs           3.4G     0  3.4G   0% /dev/shm
-tmpfs           3.4G  632K  3.4G   1% /run
+tmpfs           3.4G  628K  3.4G   1% /run
 tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
 /dev/sdb3        30G   21G  7.8G  73% /
 tmpfs           3.4G  4.0K  3.4G   1% /tmp
@@ -469,11 +469,11 @@ tmpfs           3.4G  4.0K  3.4G   1% /tmp
 /dev/sda1        14G   28K   13G   1% /mnt
 tmpfs           683M     0  683M   0% /run/user/1000
 Using kernel:
-Linux version 5.10.161.1-1.cm1 (root@CBL-Mariner) (gcc (GCC) 9.1.0, GNU ld (GNU Binutils) 2.36.1) #1 SMP Fri Jan 6 13:17:01 UTC 2023
-Install completed successfully on  Wed Jan 25 16:19:03 UTC 2023
-VSTS Build NUMBER: 20230125.3_master_67678050
-VSTS Build ID: 67678050
-Commit: 6e2f3b9ff99f8086038357f62c98772789c8d2ea
+Linux version 5.10.164.1-1.cm1 (root@CBL-Mariner) (gcc (GCC) 9.1.0, GNU ld (GNU Binutils) 2.36.1) #1 SMP Tue Jan 24 21:45:24 UTC 2023
+Install completed successfully on  Tue Jan 31 16:48:03 UTC 2023
+VSTS Build NUMBER: 20230131.6_v20230125_67955920
+VSTS Build ID: 67955920
+Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
 Ubuntu version: 
 Hyperv generation: V1
 Feature flags: None

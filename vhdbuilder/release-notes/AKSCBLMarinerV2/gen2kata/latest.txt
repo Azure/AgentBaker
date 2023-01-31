@@ -1,4 +1,4 @@
-Starting build on  Wed Jan 25 16:03:53 UTC 2023
+Starting build on  Tue Jan 31 16:30:40 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -186,11 +186,11 @@ lrwxrwxrwx 1 root root          32 Dec 22 09:58 /usr/local/bin/containerd-shim-k
 -rwxr-xr-x 1 root root    48021504 Jan  3 21:00 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root   124214400 Jan 16 04:29 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root    46604288 Jan 16 04:29 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root        2462 Jan 25 16:03 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root         705 Jan 25 16:03 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Jan 25 16:07 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root    47622592 Jan 25 16:07 /usr/local/bin/containerd-shim-slight-v1
--rwxr-x--- 1 root root    35384960 Jan 25 16:08 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root        2462 Jan 31 16:30 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root         705 Jan 31 16:30 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    36014944 Jan 31 16:33 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root    47622592 Jan 31 16:33 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-x--- 1 root root    35384960 Jan 31 16:34 /usr/local/bin/bpftrace
 === Installed Packages Begin
 filesystem-1.1-12.cm2.x86_64
 glibc-2.35-3.cm2.x86_64
@@ -742,10 +742,10 @@ tmpfs           7.6G  4.0K  7.6G   1% /tmp
 tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
 Linux version 5.15.80.mshv2-hvl1.m2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sun Dec 18 19:11:35 UTC 2022
-Install completed successfully on  Wed Jan 25 16:33:36 UTC 2023
-VSTS Build NUMBER: 20230125.3_master_67678050
-VSTS Build ID: 67678050
-Commit: 6e2f3b9ff99f8086038357f62c98772789c8d2ea
+Install completed successfully on  Tue Jan 31 16:52:31 UTC 2023
+VSTS Build NUMBER: 20230131.6_v20230125_67955920
+VSTS Build ID: 67955920
+Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata

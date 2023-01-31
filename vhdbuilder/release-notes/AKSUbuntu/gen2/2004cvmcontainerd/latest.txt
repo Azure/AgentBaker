@@ -1,4 +1,4 @@
-Starting build on  Wed Jan 25 15:56:21 UTC 2023
+Starting build on  Tue Jan 31 16:23:17 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -311,11 +311,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root           48021504 Jan  3 21:00 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root          124214400 Jan 16 04:29 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root           46604288 Jan 16 04:29 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root               2462 Jan 25 15:56 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root                705 Jan 25 15:56 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root           36014944 Jan 25 16:13 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root           47622592 Jan 25 16:13 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root           35384960 Jan 25 16:15 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root               2462 Jan 31 16:23 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root                705 Jan 31 16:23 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root           36014944 Jan 31 16:36 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root           47622592 Jan 31 16:36 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root           35384960 Jan 31 16:38 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/focal-updates,focal-security,now 0.6.55-0ubuntu12~20.04.5 amd64 [installed,automatic]
@@ -334,9 +334,9 @@ bash-completion/focal,now 1:2.10-1ubuntu1 all [installed,automatic]
 bash/focal-updates,focal-security,now 5.0-6ubuntu1.2 amd64 [installed]
 bc/focal,now 1.07.1-2build1 amd64 [installed,automatic]
 bcache-tools/focal-updates,now 1.0.8-3ubuntu0.1 amd64 [installed]
-bind9-dnsutils/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.11 amd64 [installed,automatic]
-bind9-host/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.11 amd64 [installed,automatic]
-bind9-libs/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.11 amd64 [installed,automatic]
+bind9-dnsutils/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.12 amd64 [installed,automatic]
+bind9-host/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.12 amd64 [installed,automatic]
+bind9-libs/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.12 amd64 [installed,automatic]
 binfmt-support/focal,now 2.2.0-2 amd64 [installed,automatic]
 binutils-common/focal-updates,focal-security,now 2.34-6ubuntu1.4 amd64 [installed,automatic]
 binutils-x86-64-linux-gnu/focal-updates,focal-security,now 2.34-6ubuntu1.4 amd64 [installed,automatic]
@@ -392,7 +392,7 @@ dkms/focal-updates,now 2.8.1-5ubuntu2 all [installed]
 dmeventd/focal,now 2:1.02.167-1ubuntu1 amd64 [installed,automatic]
 dmidecode/focal,now 3.2-3 amd64 [installed,automatic]
 dmsetup/focal,now 2:1.02.167-1ubuntu1 amd64 [installed,automatic]
-dnsutils/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.11 all [installed]
+dnsutils/focal-updates,focal-security,now 1:9.16.1-0ubuntu2.12 all [installed]
 dosfstools/focal,now 4.1-2 amd64 [installed,automatic]
 dpkg-dev/focal-updates,focal-security,now 1.19.7ubuntu3.2 all [installed,automatic]
 dpkg/focal-updates,focal-security,now 1.19.7ubuntu3.2 amd64 [installed,automatic]
@@ -444,9 +444,9 @@ gpgv/focal-updates,focal-security,now 2.2.19-3ubuntu2.2 amd64 [installed,automat
 grep/focal,now 3.4-1 amd64 [installed]
 groff-base/focal,now 1.22.4-4build1 amd64 [installed,automatic]
 grub-common/focal-updates,now 2.04-1ubuntu26.16 amd64 [installed,automatic]
-grub-efi-amd64-bin/focal-updates,now 2.04-1ubuntu47.5 amd64 [installed]
-grub-efi-amd64-signed/focal-updates,now 1.173.4+2.04-1ubuntu47.5 amd64 [installed]
-grub-efi-amd64/focal-updates,now 2.04-1ubuntu47.5 amd64 [installed,automatic]
+grub-efi-amd64-bin/focal-updates,now 2.06-2ubuntu14 amd64 [installed]
+grub-efi-amd64-signed/focal-updates,now 1.187.2~20.04.2+2.06-2ubuntu14 amd64 [installed]
+grub-efi-amd64/focal-updates,now 2.06-2ubuntu14 amd64 [installed,automatic]
 grub-efi/focal-updates,now 2.04-1ubuntu26.16 amd64 [installed]
 grub2-common/focal-updates,now 2.04-1ubuntu26.16 amd64 [installed,automatic]
 gsettings-desktop-schemas/focal,now 3.36.0-1ubuntu1 all [installed,automatic]
@@ -480,7 +480,7 @@ keyutils/focal-updates,now 1.6-6ubuntu1.1 amd64 [installed]
 klibc-utils/focal-updates,focal-security,now 2.0.7-1ubuntu5.1 amd64 [installed,automatic]
 kmod/focal-updates,now 27-1ubuntu2.1 amd64 [installed]
 kpartx/focal-updates,focal-security,now 0.8.3-1ubuntu2.1 amd64 [installed,automatic]
-krb5-locales/focal-updates,focal-security,now 1.17-6ubuntu4.1 all [installed,automatic]
+krb5-locales/focal-updates,focal-security,now 1.17-6ubuntu4.2 all [installed,automatic]
 landscape-common/focal-updates,now 19.12-0ubuntu4.3 amd64 [installed]
 language-selector-common/focal-updates,now 0.204.2 all [installed,automatic]
 less/focal-updates,now 551-1ubuntu0.1 amd64 [installed,automatic]
@@ -595,7 +595,7 @@ libgoogle-perftools4/focal,now 2.7-1ubuntu2 amd64 [installed,automatic]
 libgpg-error0/focal,now 1.37-1 amd64 [installed,automatic]
 libgpgme11/focal,now 1.13.1-7ubuntu2 amd64 [installed,automatic]
 libgpm2/focal,now 1.20.7-5 amd64 [installed,automatic]
-libgssapi-krb5-2/focal-updates,focal-security,now 1.17-6ubuntu4.1 amd64 [installed,automatic]
+libgssapi-krb5-2/focal-updates,focal-security,now 1.17-6ubuntu4.2 amd64 [installed,automatic]
 libgssapi3-heimdal/focal-updates,focal-security,now 7.7.0+dfsg-1ubuntu1.3 amd64 [installed,automatic]
 libgstreamer1.0-0/focal-updates,focal-security,now 1.16.3-0ubuntu1.1 amd64 [installed,automatic]
 libgudev-1.0-0/focal,now 1:233-1 amd64 [installed,automatic]
@@ -622,13 +622,13 @@ libjq1/focal-updates,now 1.6-1ubuntu0.20.04.1 amd64 [installed,automatic]
 libjson-c4/focal-updates,focal-security,now 0.13.1+dfsg-7ubuntu0.3 amd64 [installed,automatic]
 libjson-glib-1.0-0/focal,now 1.4.4-2ubuntu2 amd64 [installed,automatic]
 libjson-glib-1.0-common/focal,now 1.4.4-2ubuntu2 all [installed,automatic]
-libk5crypto3/focal-updates,focal-security,now 1.17-6ubuntu4.1 amd64 [installed,automatic]
+libk5crypto3/focal-updates,focal-security,now 1.17-6ubuntu4.2 amd64 [installed,automatic]
 libkeyutils1/focal-updates,now 1.6-6ubuntu1.1 amd64 [installed,automatic]
 libklibc/focal-updates,focal-security,now 2.0.7-1ubuntu5.1 amd64 [installed,automatic]
 libkmod2/focal-updates,now 27-1ubuntu2.1 amd64 [installed,automatic]
 libkrb5-26-heimdal/focal-updates,focal-security,now 7.7.0+dfsg-1ubuntu1.3 amd64 [installed,automatic]
-libkrb5-3/focal-updates,focal-security,now 1.17-6ubuntu4.1 amd64 [installed,automatic]
-libkrb5support0/focal-updates,focal-security,now 1.17-6ubuntu4.1 amd64 [installed,automatic]
+libkrb5-3/focal-updates,focal-security,now 1.17-6ubuntu4.2 amd64 [installed,automatic]
+libkrb5support0/focal-updates,focal-security,now 1.17-6ubuntu4.2 amd64 [installed,automatic]
 libksba8/focal-updates,focal-security,now 1.3.5-2ubuntu0.20.04.2 amd64 [installed,automatic]
 libldap-2.4-2/focal-updates,focal-security,now 2.4.49+dfsg-2ubuntu1.9 amd64 [installed,automatic]
 libldap-common/focal-updates,focal-security,now 2.4.49+dfsg-2ubuntu1.9 all [installed,automatic]
@@ -775,7 +775,7 @@ libuv1/focal-updates,focal-security,now 1.34.2-1ubuntu1.3 amd64 [installed,autom
 libvolume-key1/focal,now 0.3.12-3.1 amd64 [installed,automatic]
 libvorbis0a/focal,now 1.3.6-2ubuntu1 amd64 [installed,automatic]
 libvorbisfile3/focal,now 1.3.6-2ubuntu1 amd64 [installed,automatic]
-libwbclient0/focal-updates,focal-security,now 2:4.13.17~dfsg-0ubuntu1.20.04.4 amd64 [installed]
+libwbclient0/focal-updates,focal-security,now 2:4.13.17~dfsg-0ubuntu1.20.04.5 amd64 [installed]
 libwind0-heimdal/focal-updates,focal-security,now 7.7.0+dfsg-1ubuntu1.3 amd64 [installed,automatic]
 libwrap0/focal,now 7.6.q-30 amd64 [installed]
 libx11-6/focal-updates,focal-security,now 2:1.6.9-2ubuntu1.2 amd64 [installed,automatic]
@@ -954,7 +954,7 @@ python3-service-identity/focal,now 18.1.0-5build1 all [installed,automatic]
 python3-setuptools/focal-updates,focal-security,now 45.2.0-1ubuntu0.1 all [installed]
 python3-simplejson/focal,now 3.16.0-2ubuntu2 amd64 [installed,automatic]
 python3-six/focal,now 1.14.0-2 all [installed,automatic]
-python3-software-properties/focal-updates,now 0.99.9.8 all [installed,automatic]
+python3-software-properties/focal-updates,now 0.99.9.10 all [installed,automatic]
 python3-twisted-bin/focal-updates,focal-security,now 18.9.0-11ubuntu0.20.04.2 amd64 [installed,automatic]
 python3-twisted/focal-updates,focal-security,now 18.9.0-11ubuntu0.20.04.2 all [installed,automatic]
 python3-update-manager/focal-updates,now 1:20.04.10.11 all [installed,automatic]
@@ -982,7 +982,7 @@ sg3-utils/focal,now 1.44-1ubuntu2 amd64 [installed,automatic]
 shared-mime-info/focal,now 1.15-1 amd64 [installed,automatic]
 shim-signed/focal-updates,focal-security,now 1.40.7+15.4-0ubuntu9 amd64 [installed]
 socat/focal,now 1.7.3.3-2 amd64 [installed]
-software-properties-common/focal-updates,now 0.99.9.8 all [installed]
+software-properties-common/focal-updates,now 0.99.9.10 all [installed]
 sosreport/focal-updates,now 4.4-1ubuntu0.20.04.1 amd64 [installed]
 sound-theme-freedesktop/focal,now 0.8-2ubuntu1 all [installed,automatic]
 ssh-import-id/focal,now 5.10-0ubuntu1 all [installed]
@@ -1002,7 +1002,7 @@ tmux/focal-updates,now 3.0a-2ubuntu0.3 amd64 [installed]
 tpm-udev/focal,now 0.4 all [installed,automatic]
 traceroute/focal,now 1:2.1.0-2 amd64 [installed]
 tzdata/focal-updates,focal-security,now 2022g-0ubuntu0.20.04.1 all [installed,automatic]
-ubuntu-advantage-tools/focal-updates,now 27.12~20.04.1 amd64 [installed,automatic]
+ubuntu-advantage-tools/focal-updates,now 27.13.2~20.04.1 amd64 [installed,automatic]
 ubuntu-keyring/focal-updates,now 2020.02.11.4 all [installed,automatic]
 ubuntu-minimal/focal-updates,now 1.450.2 amd64 [installed]
 ubuntu-release-upgrader-core/focal-updates,now 1:20.04.39 all [installed,automatic]
@@ -1044,15 +1044,14 @@ tmpfs           695M  9.0M  686M   2% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
 /dev/sda1        29G   27G  2.6G  92% /
-/dev/sda15      105M   42M   63M  41% /boot/efi
 /dev/sdb1        14G   41M   13G   1% /mnt
 tmpfs           695M     0  695M   0% /run/user/1000
 Using kernel:
 Linux version 5.4.0-1080-azure-cvm (buildd@lcy02-amd64-050) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.1)) #83+cvm1-Ubuntu SMP Tue May 24 00:43:05 UTC 2022
-Install completed successfully on  Wed Jan 25 16:44:54 UTC 2023
-VSTS Build NUMBER: 20230125.3_master_67678050
-VSTS Build ID: 67678050
-Commit: 6e2f3b9ff99f8086038357f62c98772789c8d2ea
+Install completed successfully on  Tue Jan 31 17:08:18 UTC 2023
+VSTS Build NUMBER: 20230131.6_v20230125_67955920
+VSTS Build ID: 67955920
+Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
 Ubuntu version: 20.04
 Hyperv generation: V2
 Feature flags: None

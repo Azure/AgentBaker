@@ -1,4 +1,4 @@
-Starting build on  Wed Jan 25 15:57:25 UTC 2023
+Starting build on  Tue Jan 31 16:29:24 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -166,11 +166,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    46465024 Jan  3 21:01 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root   122090872 Jan 16 04:30 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root    46202880 Jan 16 04:30 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root        2462 Jan 25 15:57 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root         705 Jan 25 15:57 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    33595200 Jan 25 15:59 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root    44976688 Jan 25 15:59 /usr/local/bin/containerd-shim-slight-v1
--rwxr-x--- 1 root root    35384960 Jan 25 16:00 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root        2462 Jan 31 16:29 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root         705 Jan 31 16:29 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    33595200 Jan 31 16:32 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root    44976688 Jan 31 16:32 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-x--- 1 root root    35384960 Jan 31 16:32 /usr/local/bin/bpftrace
 === Installed Packages Begin
 mariner-release-2.0-31.cm2.noarch
 filesystem-1.1-12.cm2.aarch64
@@ -641,9 +641,9 @@ libserf-1.3.9-8.cm2.aarch64
 subversion-1.14.2-1.cm2.aarch64
 subversion-perl-1.14.2-1.cm2.aarch64
 perl-YAML-1.30-2.cm2.noarch
+perl-DBI-1.643-2.cm2.aarch64
 perl-CGI-4.54-3.cm2.noarch
 less-590-1.cm2.aarch64
-perl-DBI-1.643-2.cm2.aarch64
 git-2.33.4-1.cm2.aarch64
 inotify-tools-3.22.1.0-1.cm2.aarch64
 iotop-0.6-10.cm2.noarch
@@ -694,10 +694,10 @@ tmpfs           7.7G  4.0K  7.7G   1% /tmp
 tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
 Linux version 5.15.86.1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sat Jan 7 02:20:04 UTC 2023
-Install completed successfully on  Wed Jan 25 16:17:31 UTC 2023
-VSTS Build NUMBER: 20230125.3_master_67678050
-VSTS Build ID: 67678050
-Commit: 6e2f3b9ff99f8086038357f62c98772789c8d2ea
+Install completed successfully on  Tue Jan 31 16:50:40 UTC 2023
+VSTS Build NUMBER: 20230131.6_v20230125_67955920
+VSTS Build ID: 67955920
+Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
