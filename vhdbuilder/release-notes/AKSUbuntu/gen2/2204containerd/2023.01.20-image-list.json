@@ -1,5 +1,33 @@
 [
   {
+    "id": "sha256:6735b0c56fb8e69833cff6e56292051e9bd7cff6bbd21456affab220bc6afefb",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-attestation:3.1"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:83e182c0032c66b353b4a597f1c9a1e5e045c7f97a208ef32f4947e22a9ff373",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:45a0446d3c49da0f85b41cdc7f8f6907396588a18614923625eb88e987b19028",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-plugin:0.5"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:47acec1bd9e176c2c66d719183fcf6ac9417d8d57d0f424c9e2ff6bf406ffa97",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-webhook:1.0"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:afa50b5f5d252c3b77c003e6ddfcddba856c9c955e13052d532149026df1235e",
     "repoTags": [
       "mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1",
@@ -718,6 +746,13 @@
     "id": "sha256:ebe2c7c61055cae340273904364fd6c6c0e8bab75ef97777263b248264acf3c8",
     "repoTags": [
       "mcr.microsoft.com/oss/nginx/nginx:1.13.12-alpine"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:96df020f3d684cad767bea459d81e7c0a7acf550f94b4d2d369bb2cfe12892cd",
+    "repoTags": [
+      "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0"
     ],
     "repoDigests": []
   },

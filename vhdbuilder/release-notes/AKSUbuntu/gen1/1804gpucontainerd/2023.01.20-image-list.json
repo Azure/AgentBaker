@@ -722,6 +722,13 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:96df020f3d684cad767bea459d81e7c0a7acf550f94b4d2d369bb2cfe12892cd",
+    "repoTags": [
+      "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:9f12d04a32d2ee2b22271d64ef4525cce50a5292752f55a55c378b36758deb51",
     "repoTags": [
       "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.10.0"
