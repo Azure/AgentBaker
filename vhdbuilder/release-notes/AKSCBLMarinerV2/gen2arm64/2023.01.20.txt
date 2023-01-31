@@ -1,4 +1,4 @@
-Starting build on  Tue Jan 31 16:29:24 UTC 2023
+Starting build on  Tue Jan 31 16:30:42 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -37,8 +37,8 @@ Components downloaded in this VHD build (some of the below components might get 
   - bpftrace
   - nvidia-docker2=2.8.0-1
   - nvidia-container-runtime=3.6.0
-  - nvidia-gpu-driver-version=
-  - nvidia-fabricmanager=
+  - nvidia-gpu-driver-version={{GPUDriverVersion}}
+  - nvidia-fabricmanager={{GPUDriverVersion}}
   - bcc-tools
   - libbcc-examples
 containerd images pre-pulled:
@@ -61,7 +61,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01182023-095c864a
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01092023-864ecd78
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.0.1-main-11-29-2022-97e2122e
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.1.0-main-01-11-2023-5bf41607
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.6.0
@@ -98,8 +98,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.5
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0.3
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.8.1
@@ -166,11 +166,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    46465024 Jan  3 21:01 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root   122090872 Jan 16 04:30 /usr/local/bin/kubelet-1.23.15
 -rwxr-xr-x 1 root root    46202880 Jan 16 04:30 /usr/local/bin/kubectl-1.23.15
--r-xr--r-- 1 root root        2462 Jan 31 16:29 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root         705 Jan 31 16:29 /usr/local/bin/ci-syslog-watcher.sh
+-r-xr--r-- 1 root root        2462 Jan 31 16:30 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root         705 Jan 31 16:30 /usr/local/bin/ci-syslog-watcher.sh
 -rwxr-xr-x 1 root root    33595200 Jan 31 16:32 /usr/local/bin/containerd-shim-spin-v1
 -rwxr-xr-x 1 root root    44976688 Jan 31 16:32 /usr/local/bin/containerd-shim-slight-v1
--rwxr-x--- 1 root root    35384960 Jan 31 16:32 /usr/local/bin/bpftrace
+-rwxr-x--- 1 root root    35384960 Jan 31 16:33 /usr/local/bin/bpftrace
 === Installed Packages Begin
 mariner-release-2.0-31.cm2.noarch
 filesystem-1.1-12.cm2.aarch64
@@ -686,7 +686,7 @@ devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs           7.7G     0  7.7G   0% /dev/shm
 tmpfs           3.1G  8.7M  3.1G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   19G  9.7G  66% /
+/dev/sda3        29G   18G  9.9G  65% /
 tmpfs           7.7G  4.0K  7.7G   1% /tmp
 /dev/sda2       459M   61M  369M  15% /boot
 /dev/sda1       8.0M  2.2M  5.8M  28% /boot/efi
@@ -694,10 +694,10 @@ tmpfs           7.7G  4.0K  7.7G   1% /tmp
 tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
 Linux version 5.15.86.1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sat Jan 7 02:20:04 UTC 2023
-Install completed successfully on  Tue Jan 31 16:50:40 UTC 2023
-VSTS Build NUMBER: 20230131.6_v20230125_67955920
-VSTS Build ID: 67955920
-Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
+Install completed successfully on  Tue Jan 31 16:46:59 UTC 2023
+VSTS Build NUMBER: 20230131.5_v20230119_67955900
+VSTS Build ID: 67955900
+Commit: e0f4bf659e03be35e8920afbc59cfa8daff77305
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None

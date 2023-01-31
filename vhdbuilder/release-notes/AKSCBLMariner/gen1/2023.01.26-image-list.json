@@ -78,9 +78,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:0489ea2ca8c10c485ad54ff41895e76a25ba715e98b993e2fe72b38b049d88ef",
+    "id": "sha256:37979945e821298973de884c61e65d7d0035db5700679603d5d63e4c9b6ecf24",
     "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01092023-864ecd78"
+      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01182023-095c864a"
     ],
     "repoDigests": []
   },
@@ -365,16 +365,16 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:c9c4a9d77faf3c3db84d1d28bc39fbc4fabbba328d1c73c25c5a9de705d655f3",
+    "id": "sha256:38e1376422990beb8e975bc16ddf23f3b267b2e1aeeacc8bea7e8d4a6a07ac86",
     "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0"
+      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0"
     ],
     "repoDigests": []
   },
   {
-    "id": "sha256:38e1376422990beb8e975bc16ddf23f3b267b2e1aeeacc8bea7e8d4a6a07ac86",
+    "id": "sha256:3831db28392c7fde53d177411620e11a7d740e96e8205056a7143b37811eb7f2",
     "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0"
+      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1"
     ],
     "repoDigests": []
   },
@@ -543,132 +543,6 @@
     "id": "sha256:118423f7cc377517e6c27a2ed0f14c94356d9454f6f274de50364f94700f47d0",
     "repoTags": [
       "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v2.5.0.12"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:4ad194081b937a5f9d2a32b1d44ce07e1e138fbbfc26b1c71c21a38e3fccf0ab",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.11-hotfix.20221109.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:10f31a2b3954b33017578d9fe456e42a601c6c9ab68093a6d2757c955790d808",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.15-hotfix.20221109.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:93a37eda9cadee91cdd50901f9a3d860d2b41b683b0c2368c036448b6baa4b47",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.12-hotfix.20221109.2"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:7fea7741216d609658b50957f8af36b40edfef9f281067ef73cdfdc36a5643ab",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.12-hotfix.20221109.3"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:145bb37bcb993c2940f56353e8def587644b9de4565f4ae243c0cf86c0b4777b",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.15-hotfix.20230114.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:0e66f06bdcf879ea0b156a2303a60c5b34b93001c8bcaf9d7d1cca6cf97cea89",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.8-hotfix.20221109.2"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:6bef220a30d201c38afb2e0b32ad2c773b05d1a56a09697879677c7759b9edd3",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.23.8-hotfix.20221109.3"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:38fbdb4b8a2afbc503127ee0a08ab47030de6dc0cc1e7c7f217a234226820a39",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.3-hotfix.20221109.2"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:20cc4e240a565a9aefdb24907d4481a2953639e95bf15fcf86854c0a5639b5f7",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.3-hotfix.20221216.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:edffb8d29f5648e0990a1f8c21920cbcbbc7c6e90ab3bfa010acde4647e13534",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.6-hotfix.20221109.2"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:0ece60735c3b73cdb7576c734fe1f3a09ecff4d74534659def4890a1804cf4ec",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.6-hotfix.20221216.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:3e9fbe929ca97c2dc7de763ce653a0c0e63e4d5994b5d51a11d9538f7dd7b8f0",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.9"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:8755aba4420657a88d1ef33ca8d92881544fcfb5101a7e7e060a688cdcddf7b4",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.2-hotfix.20221109"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:de3571bee707918546fd295def3025f64618b25533597fce5bbc221f84af5c33",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.2-hotfix.20221216"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:0c17cd3b4d434f1fb09b254c8fcc24d27d6eb6131edcae0cf4946586e68da3e4",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.4"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:2de0bfa6e866b878e2783c4ca7673d4ba900461111868893282c8ae47d51a9e4",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.4-hotfix.20221216"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:8728b5f10faa374281a0b3d2a79fefd1e35e7897030eab58df2e69938d20fa7e",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.5"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:a2d928de7729b25063bf70c57d8212b59ecb9867879dac2d1577f6b78257df01",
-    "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0"
     ],
     "repoDigests": []
   },

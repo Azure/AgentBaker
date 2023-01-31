@@ -1,4 +1,4 @@
-Starting build on  Tue Jan 31 16:30:47 UTC 2023
+Starting build on  Tue Jan 31 16:30:37 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -38,8 +38,8 @@ Components downloaded in this VHD build (some of the below components might get 
   - bpftrace
   - nvidia-docker2=2.8.0-1
   - nvidia-container-runtime=3.6.0
-  - nvidia-gpu-driver-version=
-  - nvidia-fabricmanager=
+  - nvidia-gpu-driver-version={{GPUDriverVersion}}
+  - nvidia-fabricmanager={{GPUDriverVersion}}
   - bcc-tools
   - libbcc-examples
 containerd images pre-pulled:
@@ -62,7 +62,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01182023-095c864a
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01092023-864ecd78
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.0.1-main-11-29-2022-97e2122e
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.1.0-main-01-11-2023-5bf41607
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.6.0
@@ -99,8 +99,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.5
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0.3
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.8.1
@@ -169,9 +169,9 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root     46202880 Jan 16 04:30 /usr/local/bin/kubectl-1.23.15
 -r-xr--r-- 1 root root         2462 Jan 31 16:30 /usr/local/bin/health-monitor.sh
 -rwxr-xr-x 1 root root          705 Jan 31 16:30 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root     33595200 Jan 31 16:42 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root     44976688 Jan 31 16:42 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root     35384960 Jan 31 16:43 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root     33595200 Jan 31 16:37 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root     44976688 Jan 31 16:37 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root     35384960 Jan 31 16:38 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 adduser/jammy,now 3.118ubuntu5 all [installed,automatic]
@@ -391,8 +391,8 @@ libdevmapper-event1.02.1/jammy,now 2:1.02.175-2.1ubuntu4 arm64 [installed,automa
 libdevmapper1.02.1/jammy,now 2:1.02.175-2.1ubuntu4 arm64 [installed,automatic]
 libdns-export1110/jammy,now 1:9.11.19+dfsg-2.1ubuntu3 arm64 [installed,automatic]
 libdpkg-perl/jammy-updates,jammy-security,now 1.21.1ubuntu2.1 all [installed,automatic]
-libdrm-common/jammy-updates,now 2.4.113-2~ubuntu0.22.04.1 all [installed,automatic]
-libdrm2/jammy-updates,now 2.4.113-2~ubuntu0.22.04.1 arm64 [installed,automatic]
+libdrm-common/jammy,now 2.4.110-1ubuntu1 all [installed,upgradable to: 2.4.113-2~ubuntu0.22.04.1]
+libdrm2/jammy,now 2.4.110-1ubuntu1 arm64 [installed,upgradable to: 2.4.113-2~ubuntu0.22.04.1]
 libdw1/jammy,now 0.186-1build1 arm64 [installed,automatic]
 libeatmydata1/jammy,now 130-2build1 arm64 [installed]
 libedit2/jammy,now 3.1-20210910-1build1 arm64 [installed,automatic]
@@ -891,19 +891,19 @@ zstd/jammy,now 1.4.8+dfsg-3build1 arm64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   20G  9.8G  67% /
+/dev/root        29G   19G   10G  66% /
 tmpfs           7.8G     0  7.8G   0% /dev/shm
-tmpfs           3.2G  708K  3.2G   1% /run
+tmpfs           3.2G  712K  3.2G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
 /dev/sda15       98M  5.1M   93M   6% /boot/efi
 /dev/sdb1       147G   32K  140G   1% /mnt
 tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
 Linux version 5.15.0-1031-azure (buildd@bos02-arm64-052) (gcc (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #38-Ubuntu SMP Mon Jan 9 12:53:31 UTC 2023
-Install completed successfully on  Tue Jan 31 17:09:55 UTC 2023
-VSTS Build NUMBER: 20230131.6_v20230125_67955920
-VSTS Build ID: 67955920
-Commit: 4c37f3c7a19bde33b98ed0ff01f776e9b2ce762b
+Install completed successfully on  Tue Jan 31 17:02:11 UTC 2023
+VSTS Build NUMBER: 20230131.5_v20230119_67955900
+VSTS Build ID: 67955900
+Commit: e0f4bf659e03be35e8920afbc59cfa8daff77305
 Ubuntu version: 22.04
 Hyperv generation: V2
 Feature flags: None
