@@ -46,6 +46,10 @@ installDeps() {
         fi
     fi
 
+    if [[ "${IS_MINIMAL_SKU,,}" == "true" ]]; then
+        pkg_list+=(apparmor)
+    fi
+
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
             journalctl --no-pager -u $apt_package
