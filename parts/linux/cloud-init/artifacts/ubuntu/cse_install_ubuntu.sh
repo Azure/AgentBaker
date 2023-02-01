@@ -47,7 +47,7 @@ installDeps() {
     fi
 
     if [[ "${IS_MINIMAL_SKU,,}" == "true" ]]; then
-        pkg_list+=(apparmor)
+        pkg_list+=(apparmor apparmor-utils)
     fi
 
     for apt_package in ${pkg_list[*]}; do
