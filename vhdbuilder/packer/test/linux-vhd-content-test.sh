@@ -210,7 +210,12 @@ testFips() {
   if [[ ${os_version} == "18.04" && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
-        echo "FIPS is enabled."
+        fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
+        if [[ "${fips_enabled}" == "1" ]]; then
+          echo "FIPS is enabled."
+        else
+          err $test "content of /proc/sys/crypto/fips_enabled is not 1."
+        fi
     else
         err $test "FIPS is not enabled."
     fi

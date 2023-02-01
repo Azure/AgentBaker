@@ -1,5 +1,33 @@
 [
   {
+    "id": "sha256:6735b0c56fb8e69833cff6e56292051e9bd7cff6bbd21456affab220bc6afefb",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-attestation:3.1"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:83e182c0032c66b353b4a597f1c9a1e5e045c7f97a208ef32f4947e22a9ff373",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-device-plugin:1.0"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:45a0446d3c49da0f85b41cdc7f8f6907396588a18614923625eb88e987b19028",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-plugin:0.5"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:47acec1bd9e176c2c66d719183fcf6ac9417d8d57d0f424c9e2ff6bf406ffa97",
+    "repoTags": [
+      "mcr.microsoft.com/aks/acc/sgx-webhook:1.0"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:afa50b5f5d252c3b77c003e6ddfcddba856c9c955e13052d532149026df1235e",
     "repoTags": [
       "mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1",
@@ -78,9 +106,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:0489ea2ca8c10c485ad54ff41895e76a25ba715e98b993e2fe72b38b049d88ef",
+    "id": "sha256:37979945e821298973de884c61e65d7d0035db5700679603d5d63e4c9b6ecf24",
     "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01092023-864ecd78"
+      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01182023-095c864a"
     ],
     "repoDigests": []
   },
@@ -365,16 +393,16 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:c9c4a9d77faf3c3db84d1d28bc39fbc4fabbba328d1c73c25c5a9de705d655f3",
+    "id": "sha256:38e1376422990beb8e975bc16ddf23f3b267b2e1aeeacc8bea7e8d4a6a07ac86",
     "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.23.0"
+      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0"
     ],
     "repoDigests": []
   },
   {
-    "id": "sha256:38e1376422990beb8e975bc16ddf23f3b267b2e1aeeacc8bea7e8d4a6a07ac86",
+    "id": "sha256:3831db28392c7fde53d177411620e11a7d740e96e8205056a7143b37811eb7f2",
     "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0"
+      "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1"
     ],
     "repoDigests": []
   },
@@ -718,6 +746,13 @@
     "id": "sha256:ebe2c7c61055cae340273904364fd6c6c0e8bab75ef97777263b248264acf3c8",
     "repoTags": [
       "mcr.microsoft.com/oss/nginx/nginx:1.13.12-alpine"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:96df020f3d684cad767bea459d81e7c0a7acf550f94b4d2d369bb2cfe12892cd",
+    "repoTags": [
+      "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0"
     ],
     "repoDigests": []
   },
