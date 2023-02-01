@@ -76,7 +76,6 @@ for i in $(seq 1 10); do
         echo "Cse package with the same exists, retry $i to use new name..."
         timeStamp=$(date +%s)
         listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
-        sleep 10
         continue
     fi
     ${array[0]}/azcopy copy ${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip $csePackageURL
