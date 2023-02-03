@@ -364,7 +364,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220512.2",
-        "prod_20221215.1"
+        "prod_20221215.1",
+        "prod_20230203.1"
       ]
     },
     {
@@ -372,7 +373,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220512.2",
-        "prod_20221215.1"
+        "prod_20221215.1",
+        "prod_20230203.1"
       ]
     },
     {
