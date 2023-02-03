@@ -559,11 +559,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.WindowsProfile.GetSSHEnabled()
 		},
 		"IsIPv6DualStackFeatureEnabled": func() bool {
-			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") ||
-				cs.Properties.OrchestratorProfile.KubernetesConfig.IsDualStack()
+			return cs.Properties.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack")
 		},
 		"IsAzureCNIOverlayFeatureEnabled": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay")
+		},
+		"IsAzureCNIOverlayDualStackFeatureEnabled": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay") &&
+				cs.Properties.OrchestratorProfile.KubernetesConfig.IsDualStack()
 		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)

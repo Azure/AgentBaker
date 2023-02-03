@@ -15,7 +15,8 @@ $global:NetworkMode = "L2Bridge"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 $UseContainerD = ($global:ContainerRuntime -eq "containerd")
-$IsDualStackEnabled = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates -contains "IPv6DualStack=true"
+$IsDualStackEnabled = ($Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates -contains "IPv6DualStack=true") `
+                        -Or ($Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels -like "*kubernetes.azure.com/podv6network-type=overlay*")
 
 $global:HNSModule = "c:\k\hns.psm1"
 if ($global:ContainerRuntime -eq "containerd") {
