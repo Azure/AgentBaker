@@ -1,0 +1,8 @@
+[Unit]
+Description=Adds certificates passed in managed cluster body during node provisioning in AKS
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/update_certs.sh
+ExecStart=/opt/scripts/restart_containerd.sh
+RestartSec=5

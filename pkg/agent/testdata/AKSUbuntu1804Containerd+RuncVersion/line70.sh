@@ -122,7 +122,7 @@ configureCustomCaCertificate() {
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
-    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs_provisioning.service || exit $ERR_UPDATE_CA_CERTS
 }
 
 

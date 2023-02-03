@@ -341,6 +341,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/restart_containerd.sh",
+      "destination": "/home/packer/restart_containerd.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ci-syslog-watcher.path",
       "destination": "/home/packer/ci-syslog-watcher.path"
     },

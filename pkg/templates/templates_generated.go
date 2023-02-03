@@ -69,6 +69,7 @@
 // linux/cloud-init/artifacts/pwquality-CIS.conf
 // linux/cloud-init/artifacts/reconcile-private-hosts.service
 // linux/cloud-init/artifacts/reconcile-private-hosts.sh
+// linux/cloud-init/artifacts/restart_containerd.sh
 // linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sshd_config
@@ -83,6 +84,7 @@
 // linux/cloud-init/artifacts/update_certs.path
 // linux/cloud-init/artifacts/update_certs.service
 // linux/cloud-init/artifacts/update_certs.sh
+// linux/cloud-init/artifacts/update_certs_provisioning.service
 // linux/cloud-init/nodecustomdata.yml
 // windows/csecmd.ps1
 // windows/kuberneteswindowssetup.ps1
@@ -1106,7 +1108,7 @@ configureCustomCaCertificate() {
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
-    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs_provisioning.service || exit $ERR_UPDATE_CA_CERTS
 }
 
 
@@ -4751,6 +4753,27 @@ func linuxCloudInitArtifactsReconcilePrivateHostsSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsRestart_containerdSh = []byte(`#!/bin/bash
+
+echo "Restarting containerd"
+systemctl restart containerd
+`)
+
+func linuxCloudInitArtifactsRestart_containerdShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsRestart_containerdSh, nil
+}
+
+func linuxCloudInitArtifactsRestart_containerdSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsRestart_containerdShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/restart_containerd.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsRsyslogD60CisConf = []byte(`# 4.2.1.2 Ensure logging is configured (Not Scored)
 *.emerg                            :omusrmsg:*
 mail.*                             -/var/log/mail
@@ -5865,6 +5888,31 @@ func linuxCloudInitArtifactsUpdate_certsSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUpdate_certs_provisioningService = []byte(`[Unit]
+Description=Adds certificates passed in managed cluster body during node provisioning in AKS
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/update_certs.sh
+ExecStart=/opt/scripts/restart_containerd.sh
+RestartSec=5
+`)
+
+func linuxCloudInitArtifactsUpdate_certs_provisioningServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUpdate_certs_provisioningService, nil
+}
+
+func linuxCloudInitArtifactsUpdate_certs_provisioningService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUpdate_certs_provisioningServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/update_certs_provisioning.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7258,6 +7306,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/pwquality-CIS.conf":                        linuxCloudInitArtifactsPwqualityCisConf,
 	"linux/cloud-init/artifacts/reconcile-private-hosts.service":           linuxCloudInitArtifactsReconcilePrivateHostsService,
 	"linux/cloud-init/artifacts/reconcile-private-hosts.sh":                linuxCloudInitArtifactsReconcilePrivateHostsSh,
+	"linux/cloud-init/artifacts/restart_containerd.sh":                     linuxCloudInitArtifactsRestart_containerdSh,
 	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
@@ -7272,6 +7321,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
 	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
 	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
+	"linux/cloud-init/artifacts/update_certs_provisioning.service":         linuxCloudInitArtifactsUpdate_certs_provisioningService,
 	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
 	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
 	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
@@ -7394,6 +7444,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"pwquality-CIS.conf":              &bintree{linuxCloudInitArtifactsPwqualityCisConf, map[string]*bintree{}},
 				"reconcile-private-hosts.service": &bintree{linuxCloudInitArtifactsReconcilePrivateHostsService, map[string]*bintree{}},
 				"reconcile-private-hosts.sh":      &bintree{linuxCloudInitArtifactsReconcilePrivateHostsSh, map[string]*bintree{}},
+				"restart_containerd.sh":           &bintree{linuxCloudInitArtifactsRestart_containerdSh, map[string]*bintree{}},
 				"rsyslog-d-60-CIS.conf":           &bintree{linuxCloudInitArtifactsRsyslogD60CisConf, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":  &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
@@ -7407,9 +7458,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
 					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
 				}},
-				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
-				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
-				"update_certs.sh":      &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
+				"update_certs.path":                 &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
+				"update_certs.service":              &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
+				"update_certs.sh":                   &bintree{linuxCloudInitArtifactsUpdate_certsSh, map[string]*bintree{}},
+				"update_certs_provisioning.service": &bintree{linuxCloudInitArtifactsUpdate_certs_provisioningService, map[string]*bintree{}},
 			}},
 			"nodecustomdata.yml": &bintree{linuxCloudInitNodecustomdataYml, map[string]*bintree{}},
 		}},
