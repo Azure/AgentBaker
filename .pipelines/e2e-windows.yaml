@@ -17,53 +17,41 @@ variables:
 pool:
   name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
 
-jobs:
-- job: Setup_Test_Cluster
-  steps:
-  - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-      az account set -s $(AZURE_SUBSCRIPTION_ID)
-    displayName: az login
-  - bash: bash .pipelines/scripts/setup_go.sh
-    displayName: setup go
-  - bash: |
-      go version
-      cd e2e
-      bash ./e2e-starter.sh
-      bash e2e-create-windows-nodepool.sh
-    displayName: Setup Test Cluster
-  - publish: $(System.DefaultWorkingDirectory)/e2e
-    artifact: clusterConfig
-    condition: always()
+parameters:
+- name: test2019containerd
+  displayName: Test 2019 containerd
+  type: boolean
+  default: True
+- name: test2022containerd
+  displayName: Test 2022 containerd
+  type: boolean
+  default: True
+- name: test2022containerdgen2
+  displayName: Test 2022 containerd Gen 2
+  type: boolean
+  default: True
 
-- job: Generate_Matrix
-  steps:
-  - bash: |
-      stringifyJson=$(cat e2e/matrix-windows.json | jq -r tojson | sed 's/\\//g')
-      echo "##vso[task.setVariable variable=scenarioMatrix;isOutput=true]"$stringifyJson
-    name: matrix
-- job: Test
-  dependsOn:
-    - Setup_Test_Cluster
-    - Generate_Matrix
-  strategy:
-    matrix: $[ dependencies.Generate_Matrix.outputs['matrix.scenarioMatrix'] ]
-    maxParallel: 3
-  steps:
-  - download: current
-    artifact: clusterConfig
-  - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-      az account set -s $(AZURE_SUBSCRIPTION_ID)
-    displayName: az login
-  - bash: |
-      export SCENARIO_NAME
-      export $VM_SKU
-      cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
-      cd e2e
-      bash e2e-windows-scenario.sh
-    env:
-      MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
-  - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
-    artifact: $(SCENARIO_NAME)-logs
-    condition: always()
+stages:
+- stage: test_2019_containerd
+  dependsOn: []
+  condition: eq('${{ parameters.test2019containerd }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2019-containerd
+
+- stage: test_2022_containerd
+  dependsOn: []
+  condition: eq('${{ parameters.test2022containerd }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2022-containerd
+
+- stage: test_2022_containerd_gen2
+  dependsOn: []
+  condition: eq('${{ parameters.test2022containerdgen2 }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2022-containerd-gen2
