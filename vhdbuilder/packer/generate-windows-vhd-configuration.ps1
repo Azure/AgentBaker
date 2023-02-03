@@ -33,7 +33,7 @@ switch -Regex ($windowsSKU) {
 }
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.47/binaries/containerd-v0.0.47-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
 
 $global:defaultDockerVersion = "20.10.9"
 
@@ -42,42 +42,49 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.5", # for k8s 1.25.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10042022-3c05dd1b")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
 } elseif ($windowsSku -eq "2019-containerd") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
@@ -85,29 +92,32 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10042022-3c05dd1b")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
 } elseif ($windowsSku -eq "2022-containerd" -or $windowsSku -eq "2022-containerd-gen2") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+            "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.22.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.23.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.21.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.22.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod10042022-3c05dd1b",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29")
@@ -117,28 +127,26 @@ if ($windowsSku -eq "2019") {
 
 $global:map = @{
     "c:\akse-cache\"              = @(
-        "https://github.com/Azure/AgentBaker/raw/master/vhdbuilder/scripts/windows/collect-windows-logs.ps1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/win-bridge.exe",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/collectlogs.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/portReservationTest.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.cmd",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.cmd",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/stoppacketcapture.cmd",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/starthnstrace.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/debug/startpacketcapture.ps1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/VFP.psm1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/debug/networkhealth.ps1",
-        "https://github.com/microsoft/SDN/raw/master/Kubernetes/windows/helper.psm1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.psm1",
-        "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/hns.v2.psm1",
+        "https://github.com/Azure/AgentBaker/raw/master/staging/cse/windows/debug/collect-windows-logs.ps1",
+        # Please also update staging/cse/windows/debug/update-debug-scripts.ps1 before we remove below scripts from SDN repo
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/collectlogs.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/dumpVfpPolicies.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/portReservationTest.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/starthnstrace.cmd",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/startpacketcapture.cmd",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/stoppacketcapture.cmd",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/starthnstrace.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/startpacketcapture.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/VFP.psm1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/debug/networkmonitor/networkhealth.ps1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/helper.psm1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.psm1",
+        "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.v2.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.12.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.13.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.14.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.15.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.16.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.20.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.21.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.22.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -185,19 +193,26 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.5-hotfix.20220728/windowszip/v1.23.5-hotfix.20220728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.7/windowszip/v1.23.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.23.8-hotfix.20220728/windowszip/v1.23.8-hotfix.20220728-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.23.12-hotfix.20220922/windowszip/v1.23.12-hotfix.20220922-1int.zip", 
-        "https://acs-mirror.azureedge.net/kubernetes/v1.24.3-hotfix.20221006/windowszip/v1.24.3-hotfix.20221006-1int.zip", 
-        "https://acs-mirror.azureedge.net/kubernetes/v1.24.6-hotfix.20221006/windowszip/v1.24.6-hotfix.20221006-1int.zip", 
-        "https://acs-mirror.azureedge.net/kubernetes/v1.25.2-hotfix.20221006/windowszip/v1.25.2-hotfix.20221006-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.12-hotfix.20220922/windowszip/v1.23.12-hotfix.20220922-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.23.15-hotfix.20230114/windowszip/v1.23.15-hotfix.20230114-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.3-hotfix.20221006/windowszip/v1.24.3-hotfix.20221006-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.6-hotfix.20221006/windowszip/v1.24.6-hotfix.20221006-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/windowszip/v1.24.9-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.2-hotfix.20221006/windowszip/v1.25.2-hotfix.20221006-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.4/windowszip/v1.25.4-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.5/windowszip/v1.25.5-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/windowszip/v1.26.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.22.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.41/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.41.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
     );
     "c:\akse-cache\calico\" = @(
-        "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip"
+        "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
+        "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
     )
 }
 '@

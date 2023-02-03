@@ -135,6 +135,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
 			IsARM64:                       false,
 			DisableUnattendedUpgrades:     false,
+			SSHStatus:                     datamodel.SSHUnspecified,
 		}
 
 		if configUpdator != nil {
@@ -532,8 +533,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.KubeletConfig = map[string]string{}
 			config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
 			config.EnableNvidia = true
-			config.GPUInstanceProfile = "mig-3g"
+			config.GPUInstanceProfile = "MIG7g"
 		}),
+
+		Entry("AKSUbuntu1804 containerd with multi-instance non-fabricmanager GPU", "AKSUbuntu1804+Containerd+MIG+NoFabricManager", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.KubeletConfig = map[string]string{}
+			config.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+			config.EnableNvidia = true
+			config.GPUInstanceProfile = "MIG7g"
+		}),
+
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -584,6 +596,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+		}),
+		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.SSHStatus = datamodel.SSHOn
+		}),
+		Entry("AKSUbuntu2204 DisableSSH with disabled ssh", "AKSUbuntu2204+SSHStatusOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.SSHStatus = datamodel.SSHOff
+		}),
+		Entry("AKSUbuntu2204 in China", "AKSUbuntu2204+China", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "AzureChinaCloud",
+			}
+			config.ContainerService.Location = "chinaeast2"
+		}),
+		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
 		}))
 })
 

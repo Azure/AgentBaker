@@ -9,15 +9,15 @@ removeContainerd() {
 installDeps() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
 
-    # install additional apparmor deps for 2.0; additionally, install kernel-headers by default for 2.0 and moving forward.
+    # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor kernel-headers; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -26,7 +26,12 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    if ! dnf_install 30 1 600 cuda; then
+    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
+    # Need to process the return value of "uname -r" to get the %{version} value
+    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    CUDA_VERSION="*_${KERNEL_VERSION}*"
+
+    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
@@ -35,7 +40,7 @@ installNvidiaContainerRuntime() {
     MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
     MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
     
-    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi

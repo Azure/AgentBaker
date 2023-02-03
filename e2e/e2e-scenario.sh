@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euxo pipefail
+set -exo pipefail
 
 source e2e-helper.sh
 
@@ -29,6 +29,10 @@ debug() {
     exec_on_host "$SSH_CMD journalctl -u kubelet -r | head -n 500" $SCENARIO_NAME-logs/kubelet.log  || retval=$?
     if [ "$retval" != "0" ]; then
         echo "failed journalctl -u kubelet"
+    fi
+    exec_on_host "$SSH_CMD cat /var/log/syslog" $SCENARIO_NAME-logs/syslog || retval=$?
+    if [ "$retval" != "0" ]; then
+        echo "failed cat syslog"
     fi
     set -x
     echo "debug done"
@@ -63,9 +67,21 @@ EOF
 cat $SCENARIO_NAME-vmss.json
 
 # Create a test VMSS with 1 instance 
-# TODO 3: Discuss about the --image version, probably go with aks-ubuntu-1804-gen2-2021-q2:latest
-#       However, how to incorporate chaning quarters?
 log "Creating VMSS"
+
+# If a custom SIG_VERSION_ID was not provided via the scenario matrix or via the command line, default to a locked 1804Gen2 image for now
+if [ -z "$SIG_VERSION_ID" ]; then
+    SIG_VERSION_ID="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026"
+    echo "SIG_VERSION_ID was not provided via matrix or command line, using default: $SIG_VERSION_ID"
+else
+    # Verify that the specified SIG version ID actually exists before attempting to use it, fail hard if it doesn't
+    id=$(az resource show --ids "$SIG_VERSION_ID")
+    if [ -z "$id" ]; then
+        echo "unable to find SIG_VERSION_ID $SIG_VERSION_ID for use in e2e test"
+        exit 1
+    fi
+fi
+
 vmssStartTime=$(date +%s)
 az vmss create -n ${VMSS_NAME} \
     -g $MC_RESOURCE_GROUP_NAME \
@@ -75,7 +91,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "microsoft-aks:aks:aks-ubuntu-1804-2022-q1:2022.02.01" \
+    --image $SIG_VERSION_ID \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson

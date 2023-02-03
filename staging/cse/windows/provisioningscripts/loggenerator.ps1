@@ -1,0 +1,177 @@
+﻿# NOTE: We do not log in this script since we do not have log rotation for the generated logs now.
+
+$Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
+$global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
+$aksLogFolder="C:\WindowsAzure\Logs\aks"
+$isInitializing=$False
+$LogPath="c:\k\loggenerator.log"
+$isEnableLog=$False
+
+filter Timestamp { "$(Get-Date -Format o): $_" }
+
+function Write-Log ($message) {
+    if ($isEnableLog) {
+        $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+    }
+}
+
+if (!(Test-Path $aksLogFolder)) {
+    $isInitializing=$True
+    Write-Log "Creating $aksLogFolder"
+    New-Item -ItemType Directory -Path $aksLogFolder > $null
+}
+
+function Create-SymbolLinkFile {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $SrcFile,
+        [Parameter(Mandatory = $true)][string]
+        $DestFile
+    )
+
+    if ((Test-Path $SrcFile) -and !(Test-Path $DestFile)) {
+        Write-Log "Creating SymbolicLink $DestFile for $SrcFile"
+        New-Item -ItemType SymbolicLink -Path $DestFile -Target $SrcFile
+    }
+}
+
+function Collect-OldLogFiles {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Folder,
+        [Parameter(Mandatory = $true)][string]
+        $LogFilePattern
+    )
+
+    $oldSymbolLinkFiles=Get-ChildItem (Join-Path $aksLogFolder $LogFilePattern)
+    $oldSymbolLinkFiles | Foreach-Object {
+        Write-Log "Removing $_"
+        Remove-Item $_
+    }
+
+    $oldLogFiles=Get-ChildItem (Join-Path $Folder $LogFilePattern)
+    $oldLogFiles | Foreach-Object {
+        $fileName = [IO.Path]::GetFileName($_)
+        Create-SymbolLinkFile -SrcFile $_ -DestFile (Join-Path $aksLogFolder $fileName)
+    }
+}
+
+# Log files in c:\AzureData
+$kLogFiles = @(
+    "CustomDataSetupScript.log"
+)
+$kLogFiles | Foreach-Object {
+    Create-SymbolLinkFile -SrcFile (Join-Path "C:\AzureData\" $_) -DestFile (Join-Path $aksLogFolder $_)
+}
+
+# Log files in c:\k
+$kLogFiles = @(
+    "azure-vnet.json",
+    "azure-vnet-ipam.json",
+    "kubeclusterconfig.json",
+    "config.toml",
+    "bootstrap-config",
+    "kubelet.err.log",
+    "kubelet.log",
+    "kubeproxy.log",
+    "kubeproxy.err.log",
+    "azure-vnet-telemetry.log",
+    "azure-vnet.log",
+    "csi-proxy.log",
+    "csi-proxy.err.log",
+    "containerd.log",
+    "containerd.err.log",
+    "hnsremediator.log"
+)
+$kLogFiles | Foreach-Object {
+    Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)
+}
+
+$calicoLogFolder="C:\CalicoWindows\logs\"
+if (Test-Path $calicoLogFolder) {
+    $calicoLogFiles = @(
+        "calico-felix.err.log",
+        "calico-felix.log",
+        "calico-node.err.log",
+        "calico-node.log"
+    )
+    $calicoLogFiles | Foreach-Object {
+        Create-SymbolLinkFile -SrcFile (Join-Path $calicoLogFolder $_) -DestFile (Join-Path $aksLogFolder $_)
+    }
+    Collect-OldLogFiles -Folder $calicoLogFolder -LogFilePattern calico-felix-*.*.log
+    Collect-OldLogFiles -Folder $calicoLogFolder -LogFilePattern calico-node-*.*.log
+}
+
+# Misc files
+$miscLogFiles = @(
+    "C:\k\azurecni\netconf\10-azure.conflist",
+    "c:\ProgramData\containerd\root\panic.log",
+    "C:\windows\system32\winevt\Logs\Microsoft-AKSGMSAPlugin%4Admin.evtx",
+    "C:\windows\system32\winevt\Logs\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+)
+$miscLogFiles | Foreach-Object {
+    $fileName = [IO.Path]::GetFileName($_)
+    Create-SymbolLinkFile -SrcFile $_ -DestFile (Join-Path $aksLogFolder $fileName)
+}
+
+# Collect HNS polices
+$dumpVfpPoliciesScript="C:\k\debug\dumpVfpPolicies.ps1"
+if (Test-Path $dumpVfpPoliciesScript) {
+    Write-Log "Genearting vfpOutput.txt"
+    # Remove the old log since dumpVfpPolicies.ps1 always append the new logs
+    # Ignore the error if the file does not exist
+    Remove-Item -ErrorAction Ignore (Join-Path $aksLogFolder 'vfpOutput.txt')
+    PowerShell -ExecutionPolicy Unrestricted -command "$dumpVfpPoliciesScript -switchName L2Bridge -outfile (Join-Path $aksLogFolder 'vfpOutput.txt')"
+}
+
+# Collect old log files
+Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern kubeproxy.err-*.*.log
+Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern kubelet.err-*.*.log
+Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern containerd.err-*.*.log
+Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet.log.*
+Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet-ipam.log.*
+
+# Collect running containers
+if ($global:ContainerRuntime -eq "containerd") {
+    Write-Log "Genearting cri-containerd-containers.txt"
+    crictl.exe ps -a > (Join-Path $aksLogFolder "cri-containerd-containers.txt")
+}
+
+# Collect disk usage
+Write-Log "Genearting disk-usage.txt"
+$diskUsageFile = Join-Path $aksLogFolder ("disk-usage.txt")
+Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Expression={$_.size/1gb}}, @{Name="Free Space(GB)";Expression={$_.freespace/1gb}}, @{Name="Free (%)";Expression={"{0,6:P0}" -f(($_.freespace/1gb) / ($_.size/1gb))}}, DeviceID, DriveType | Where-Object DriveType -EQ '3' > $diskUsageFile
+
+# Collect available memory
+Write-Log "Genearting available-memory.txt"
+$availableMemoryFile = Join-Path $aksLogFolder ("available-memory.txt")
+Get-Counter '\Memory\Available MBytes' > $availableMemoryFile
+
+# We only need to generate and upload the logs after the node is provisioned
+# WAWindowsAgent will generate and upload the logs every 15 minutes so we do not need to do it again
+if ($isInitializing) {
+    Write-Log "Start to upload guestvmlogs when initializing"
+    $tempWorkFoler = [Io.path]::Combine($env:TEMP, "guestvmlogs")
+    try {
+        # Create a work folder
+        Write-Log "Creating $tempWorkFoler"
+        New-Item -ItemType Directory -Path $tempWorkFoler
+        cd $tempWorkFoler
+
+        # Generate logs
+        Write-Log "Generating guestvmlogs"
+        Invoke-Expression(Get-Childitem -Path "C:\WindowsAzure\" -Filter "CollectGuestLogs.exe" -Recurse | sort LastAccessTime -desc | select -first 1).FullName
+
+        # Get the output
+        $logFile=(Get-Childitem -Path $tempWorkFoler  -Filter "*.zip").FullName
+
+        # Upload logs
+        Write-Log "Start to uploading $logFile"
+        C:\AzureData\windows\sendlogs.ps1 -Path $logFile
+    } finally {
+        if (Test-Path $tempWorkFoler) {
+            Write-Log "Removing $tempWorkFoler"
+            Remove-Item -Path $tempWorkFoler -Force -Recurse > $null
+        }
+    }
+}

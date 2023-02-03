@@ -39,7 +39,9 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$true)][string]
         $VNetCIDR,
         [Parameter(Mandatory=$true)][bool]
-        $IsDualStackEnabled
+        $IsDualStackEnabled,
+        [Parameter(Mandatory=$false)][bool]
+        $IsAzureCNIOverlayEnabled
     )
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
@@ -62,18 +64,37 @@ function Set-AzureCNIConfig
 
         # $configJson.plugins[0].AdditionalArgs[0] is OutboundNAT. Replace OutBoundNAT with LoopbackDSR for IMDS.
         $configJson.plugins[0].AdditionalArgs[0] = $jsonContent
+
+        # TODO: Remove it after Windows OS fixes the issue.
+        Write-Log "Update RegKey to disable the incompatible HNSControlFlag (0x10) for feature DisableWindowsOutboundNat"
+        $hnsControlFlag=0x10
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSControlFlag is $currentValue"
+            # Set the bit to 0 if the bit is 1
+            if ([int]$currentValue.HNSControlFlag -band $hnsControlFlag) {
+                $hnsControlFlag=([int]$currentValue.HNSControlFlag -bxor $hnsControlFlag)
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
+            }
+        } else {
+            # Set 0 to disable all features under HNSControlFlag (0x10 defaults enable)
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value 0
+        }
     } else {
         # Fill in DNS information for kubernetes.
+        $exceptionAddresses = @()
         if ($IsDualStackEnabled){
             $subnetToPass = $KubeClusterCIDR -split ","
-            $exceptionAddresses = @($subnetToPass[0])
+            $exceptionAddresses += $subnetToPass[0]
+        } else {
+            $exceptionAddresses += $KubeClusterCIDR
         }
-        else {
-            $exceptionAddresses = @($KubeClusterCIDR)
-        }
-        $vnetCIDRs = $VNetCIDR -split ","
-        foreach ($cidr in $vnetCIDRs) {
-            $exceptionAddresses += $cidr
+
+        if (!$IsAzureCNIOverlayEnabled) {
+            $vnetCIDRs = $VNetCIDR -split ","
+            foreach ($cidr in $vnetCIDRs) {
+                $exceptionAddresses += $cidr
+            }
         }
 
         $osBuildNumber = (get-wmiobject win32_operatingsystem).BuildNumber
@@ -93,10 +114,15 @@ function Set-AzureCNIConfig
 
     if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"
-        $jsonContent = [PSCustomObject]@{
-            'enableLoopbackDSR' = $True
+        # Add {enableLoopbackDSR:true} if windowsSettings exists, otherwise, add {windowsSettings:{enableLoopbackDSR:true}}
+        if (Get-Member -InputObject $configJson.plugins[0] -name "windowsSettings" -Membertype Properties) {
+            $configJson.plugins[0].windowsSettings | Add-Member -Name "enableLoopbackDSR" -Value $True -MemberType NoteProperty
+        } else {
+            $jsonContent = [PSCustomObject]@{
+                'enableLoopbackDSR' = $True
+            }
+            $configJson.plugins[0] | Add-Member -Name "windowsSettings" -Value $jsonContent -MemberType NoteProperty
         }
-        $configJson.plugins[0]|Add-Member -Name "windowsSettings" -Value $jsonContent -MemberType NoteProperty
 
         # $configJson.plugins[0].AdditionalArgs[1] is ROUTE. Remove ROUTE if WinDSR is enabled.
         $configJson.plugins[0].AdditionalArgs = @($configJson.plugins[0].AdditionalArgs | Where-Object { $_ -ne $configJson.plugins[0].AdditionalArgs[1] })
@@ -387,8 +413,6 @@ function New-ExternalHnsNetwork
 function Get-HnsPsm1
 {
     Param(
-        [string]
-        $HnsUrl = "https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/",
         [Parameter(Mandatory=$true)][string]
         $HNSModule
     )
@@ -396,6 +420,12 @@ function Get-HnsPsm1
     # HNSModule is C:\k\hns.psm1 when container runtime is Docker
     # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
     $fileName = [IO.Path]::GetFileName($HNSModule)
-    $HnsUrl = [IO.Path]::Combine($HnsUrl, $fileName)
-    DownloadFileOverHttp -Url $HnsUrl -DestinationPath "$HNSModule" -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE
+    # Get-LogCollectionScripts will copy hns module file to C:\k\debug
+    $sourceFile = [IO.Path]::Combine('C:\k\debug\', $fileName)
+    try {
+        Write-Log "Copying $sourceFile to $HNSModule."
+        Copy-Item -Path $sourceFile -Destination "$HNSModule"
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE -ErrorMessage "Failed to copy $sourceFile to $HNSModule. Error: $_"
+    }
 }

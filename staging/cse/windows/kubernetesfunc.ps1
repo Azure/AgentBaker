@@ -37,29 +37,12 @@ function Initialize-DataDirectories {
 }
 
 function Get-LogCollectionScripts {
-    # github.com is not in the required endpoints https://docs.microsoft.com/en-us/azure/aks/limit-egress-traffic
-    # We only can copy below scripts from cache folder in the VHD
-    # To add a new script, you need
-    #  1. Add the script in vhdbuilder/packer/generate-windows-vhd-configuration.ps1
-    #  2. Build a new AKS Windows VHD and update the VHD version in AKS RP
-    #  3. Update this function to add the script
-    Write-Log "Copying various log collect scripts and depencencies"
-    $destinationFolder='c:\k\debug'
-    Create-Directory -FullPath $destinationFolder -DirectoryUsage "storing debug scripts"
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'collect-windows-logs.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'collectlogs.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'dumpVfpPolicies.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'portReservationTest.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.cmd'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.cmd'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'stoppacketcapture.cmd'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'VFP.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'networkhealth.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'helper.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'hns.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'hns.v2.psm1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'starthnstrace.ps1'
-    CopyFileFromCache -DestinationFolder $destinationFolder -FileName 'startpacketcapture.ps1'
+    Write-Log "Moving various log collect scripts and depencencies"
+    try {
+        Move-Item -Path 'C:\AzureData\windows\debug' -Destination 'c:\k\'
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS -ErrorMessage "Failed to move log collect scripts and depencencies from C:\AzureData\windows\debug to C:\k. Error: $_"
+    }
 }
 
 function Register-LogsCleanupScriptTask {

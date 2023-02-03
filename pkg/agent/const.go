@@ -31,8 +31,10 @@ const (
 	kubernetesWindowsAgentCSECommandPS1 = "windows/csecmd.ps1"
 	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM
 	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
-	// Windows custom scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
+	// Windows CSE helper scripts. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
 	kubernetesWindowsCSEHelperPS1 = "windows/windowscsehelper.ps1"
+	// Windows script to upload CSE logs. These should all be listed in baker.go:func GetKubernetesWindowsAgentFunctions
+	kubernetesWindowsSendLogsPS1 = "windows/sendlogs.ps1"
 )
 
 // cloud-init (i.e. ARM customData) source file references
@@ -61,7 +63,6 @@ const (
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
 	syncTunnelLogsScript                      = "linux/cloud-init/artifacts/sync-tunnel-logs.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
-	krustletSystemdService                    = "linux/cloud-init/artifacts/krustlet.service"
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
 	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"
 	dockerClearMountPropagationFlags          = "linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf"

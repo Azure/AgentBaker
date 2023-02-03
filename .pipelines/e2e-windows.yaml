@@ -1,0 +1,69 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
+
+pr:
+  branches:
+    include:
+    - main
+    - 'official/*'
+  paths:
+    include:
+    - '.pipelines/*'
+    - 'e2e/*'
+    - 'parts/windows/*'
+
+variables:
+- group: ab-e2e-windows
+
+pool:
+  name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
+
+jobs:
+- job: Setup_Test_Cluster
+  steps:
+  - bash: |
+      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az account set -s $(AZURE_SUBSCRIPTION_ID)
+    displayName: az login
+  - bash: bash .pipelines/scripts/setup_go.sh
+    displayName: setup go
+  - bash: |
+      go version
+      cd e2e
+      bash ./e2e-starter.sh
+      bash e2e-create-windows-nodepool.sh
+    displayName: Setup Test Cluster
+  - publish: $(System.DefaultWorkingDirectory)/e2e
+    artifact: clusterConfig
+    condition: always()
+
+- job: Generate_Matrix
+  steps:
+  - bash: |
+      stringifyJson=$(cat e2e/matrix-windows.json | jq -r tojson | sed 's/\\//g')
+      echo "##vso[task.setVariable variable=scenarioMatrix;isOutput=true]"$stringifyJson
+    name: matrix
+- job: Test
+  dependsOn:
+    - Setup_Test_Cluster
+    - Generate_Matrix
+  strategy:
+    matrix: $[ dependencies.Generate_Matrix.outputs['matrix.scenarioMatrix'] ]
+    maxParallel: 3
+  steps:
+  - download: current
+    artifact: clusterConfig
+  - bash: |
+      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az account set -s $(AZURE_SUBSCRIPTION_ID)
+    displayName: az login
+  - bash: |
+      export SCENARIO_NAME
+      export $VM_SKU
+      cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
+      cd e2e
+      bash e2e-windows-scenario.sh
+    env:
+      MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
+  - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
+    artifact: $(SCENARIO_NAME)-logs
+    condition: always()

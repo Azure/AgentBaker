@@ -445,24 +445,76 @@ function New-HostsConfigService {
     & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
 }
 
-function CopyFileFromCache {
+function Register-LogCollectorScriptTask {
     Param(
-        [Parameter(Mandatory = $true)][string]
-        $DestinationFolder,
-        [Parameter(Mandatory = $true)][string]
-        $FileName
+        [Parameter(Mandatory = $true)][int]
+        $IntervalInMinutes
     )
-    $search = @()
-    if (Test-Path $global:CacheDir) {
-        $search = [IO.Directory]::GetFiles($global:CacheDir, $FileName, [IO.SearchOption]::AllDirectories)
+    Write-Log "Creating a scheduled task to run loggenerator.ps1"
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\loggenerator.ps1`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -Once -At (Get-Date).Date -RepeatIndefinitely -RepetitionInterval (New-TimeSpan -Minutes $IntervalInMinutes)
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-log-generator-task"
+    Register-ScheduledTask -TaskName "aks-log-generator-task" -InputObject $definition
+}
+
+function Enable-GuestVMLogs {
+    Param(
+        [Parameter(Mandatory = $true)][int]
+        $IntervalInMinutes
+    )
+    if ($IntervalInMinutes -le 0) {
+        Write-Log "Do not add AKS logs in GuestVMLogs"
+        return
     }
 
-    if ($search.Count -ne 0) {
-        $DestinationPath=[io.path]::Combine($DestinationFolder, $FileName)
-        Write-Log "Using cached version of $FileName - Copying file from $($search[0]) to $DestinationPath"
-        Copy-Item -Path $search[0] -Destination $DestinationPath -Force
-    }
-    else {
-        Write-Log "WARNING: $FileName is missed in cached folder $global:CacheDir"
+    Register-LogCollectorScriptTask -IntervalInMinutes $IntervalInMinutes
+}
+
+function Upload-GuestVMLogs {
+    Param(
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
+    )
+
+    try {
+        if ($ExitCode -ne 0) {
+            # We do not reuse aks-log-generator-task or loggenerator.ps1 since neither may exist
+            Write-Log "Start to upload guestvmlogs when failing in node provisioning"
+
+            $aksLogFolder="C:\WindowsAzure\Logs\aks"
+            $tempWorkFoler = [Io.path]::Combine($env:TEMP, "guestvmlogs")
+
+            Write-Log "Creating $aksLogFolder"
+            # The folder "C:\WindowsAzure\Logs" may not exist
+            New-Item -ItemType Directory -Force -Path $aksLogFolder > $null
+
+            Write-Log "Creating SymbolicLink for C:\AzureData\CustomDataSetupScript.log in $aksLogFolder"
+            New-Item -ItemType SymbolicLink -Path (Join-Path $aksLogFolder "CustomDataSetupScript.log") -Target "C:\AzureData\CustomDataSetupScript.log" > $null
+
+            # Create a work folder
+            Write-Log "Creating $tempWorkFoler"
+            Create-Directory -FullPath $tempWorkFoler
+            cd $tempWorkFoler
+
+            # Generate logs
+            Write-Log "Generating guestvmlogs"
+            Invoke-Expression(Get-Childitem -Path "C:\WindowsAzure\" -Filter "CollectGuestLogs.exe" -Recurse | sort LastAccessTime -desc | select -first 1).FullName
+
+            # Get the output
+            $logFile=(Get-Childitem -Path $tempWorkFoler  -Filter "*.zip").FullName
+
+            # Upload logs
+            Write-Log "Start to uploading $logFile"
+            C:\AzureData\windows\sendlogs.ps1 -Path $logFile
+        } elseif (Get-ScheduledTask -TaskName 'aks-log-generator-task' -ErrorAction Ignore) {
+            Write-Log "Start the scheduled task aks-log-generator-task to upload the CSE log immediately"
+            # Upload the full node logs if it succeeds and it is enabled
+            Start-ScheduledTask -TaskName 'aks-log-generator-task'
+        }
+    } catch {
+        # This should not impact the node provisioning result
+        Write-Log "Failed to upload CustomDataSetupScript.log. $_"
     }
 }

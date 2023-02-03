@@ -1,5 +1,11 @@
 #!/bin/bash -x
 
+EXPIRATION_IN_HOURS=168
+# convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
+(( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
+# deadline = the "date +%s" representation of the oldest age we're willing to keep
+(( deadline=$(date +%s)-${expirationInSecs%.*} ))
+
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 fi
@@ -118,14 +124,65 @@ if [[ -n "${SA_NAME}" ]]; then
   fi
 fi
 
+#delete the SIG version that was created during a dry-run of linuxVhdMode
+if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
+  echo "running dry-run in mode ${MODE}, attempting to delete output SIG version: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION}"
+  id=$(az sig image-definition show -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} | jq '.id')
+  if [ -n "$id" ]; then
+    az sig image-version delete -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION}
+  else
+    echo "specified image-definition ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME} does not exist, will not delete SIG image version"
+  fi
+fi
+
+# attempt to clean up managed images and associated SIG versions created over a week ago
+if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
+  set +x # to avoid blowing up logs
+  echo "Looking for managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
+
+  managed_image_ids=""
+  sig_version_ids=""
+  # we limit deletions to 25 managed images to make sure the build doesn't take too long and can finish successfully
+  for image in $(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|1804*|2004*|2204*")) | select(.tags.now < $dl).name' | head -n 25 | tr -d '\"' || ""); do
+    managed_image_ids="${managed_image_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${image}"
+    sig_version_ids="${sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image%-*}/versions/${image#*-}"
+    echo "Will delete managed image ${image} and associated SIG version from resource group ${AZURE_RESOURCE_GROUP_NAME}"
+  done
+
+  if [[ -n "${managed_image_ids}" ]]; then
+    echo "Attempting to delete $(echo ${managed_image_ids} | wc -w) managed images..."
+    az resource delete --ids ${managed_image_ids} > /dev/null || echo "managed image deletion was not successful, continuing..."
+  else
+    echo "Did not find any managed images eligible for deletion"
+  fi
+
+  if [[ -n "${sig_version_ids}" ]]; then
+    echo "Attempting to delete $(echo ${sig_version_ids} | wc -w) SIG image versions associated with old managed images..."
+    az resource delete --ids ${sig_version_ids} > /dev/null || echo "SIG image version deletion was not successful, continuing..."
+  else
+    echo "Did not find any SIG versions associated with old managed images eligible for deletion"
+  fi
+
+  old_sig_version_ids=""
+  # we limit deletion to 15 SIG image versions per image definition
+  for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|1804*|2004*|2204*")).name' | tr -d '\"' || ""); do
+    for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | head -n 15 | tr -d '\"' || ""); do
+      old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
+    done
+  done
+
+  if [[ -n "${old_sig_version_ids}" ]]; then
+    echo "Attempting to delete $(echo ${old_sig_version_ids} | wc -w) SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
+    az resource delete --ids ${old_sig_version_ids} > /dev/null || echo "SIG image version deletion was not successful, continuing..."
+  else
+    echo "Did not find any old SIG versions eligible for deletion"
+  fi
+  
+  set -x
+fi
+
 #clean up storage account created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
-  EXPIRATION_IN_HOURS=168
-  # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
-  (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
-  # deadline = the "date +%s" representation of the oldest age we're willing to keep
-  (( deadline=$(date +%s)-${expirationInSecs%.*} ))
-  echo "Current time is $(date)"
   echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
   echo "That is, those created before $(date -d@$deadline) As shown below"
   az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""

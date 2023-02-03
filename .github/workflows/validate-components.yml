@@ -11,13 +11,16 @@ jobs:
     environment: test
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.9'
       - name: 'install cue'
         run: |
           go version
           GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
           export PATH="$PATH:$GOPATH/bin"
           pushd /tmp
-          GO111MODULE=on go get cuelang.org/go/cmd/cue
+          GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
           popd
       - name: 'validate components.json'
         run: |

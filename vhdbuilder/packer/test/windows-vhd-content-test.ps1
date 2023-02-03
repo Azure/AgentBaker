@@ -161,7 +161,10 @@ function Test-FilesToCacheOnVHD
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+                            # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
+                            # so we can ignore the different hash values.
+                            "v1.26.0-1int.zip"
                         )
 
                         $isIgnore=$False
@@ -238,6 +241,25 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
         if ($result.EnableCompartmentNamespace -ne 1) {
             Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
+            exit 1
+        }
+    }
+    if ($env:WindowsSKU -Like '2019*') {
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
+        if (($result.HNSControlFlag -band 0x50) -ne 0x50) {
+            Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled)
+        if ($result.WcifsSOPCountDisabled -ne 0) {
+            Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
+            exit 1
+        }
+    }
+    if ($env:WindowsSKU -Like '2022*') {
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
+        if ($result.2629306509 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
             exit 1
         }
     }

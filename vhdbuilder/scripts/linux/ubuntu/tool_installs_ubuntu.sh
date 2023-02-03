@@ -148,18 +148,7 @@ installFIPS() {
         if [[ ${image} != "linux-image-$(uname -r)" ]]; then
             apt_get_purge 5 10 120 ${image} || exit 1
         fi
-        retrycmd_if_failure 120 5 25 apt-mark hold ${image} || exit 1
     done
-
-    echo "purging unattended-upgrades in FIPS VHD..."
-    apt_get_purge 5 10 120 unattended-upgrades || exit 1
-
-    echo "adding ua repository..."
-    retrycmd_if_failure 5 10 120 add-apt-repository -y ppa:ua-client/stable || exit $ERR_ADD_UA_APT_REPO
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-
-    echo "installing ua tools..."
-    apt_get_install 5 10 120 ubuntu-advantage-tools || exit $ERR_UA_TOOLS_INSTALL_TIMEOUT
 
     echo "auto attaching ua..."
     retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
@@ -172,25 +161,19 @@ installFIPS() {
 
     # 'ua status' for logging
     ua status
-    # new 'ua detach' removes fips-updates kernel entry from grub.cfg, backup it
-    cp -f /boot/grub/grub.cfg /tmp/
+
+    echo "detaching ua..."
+    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
 
     # now the fips packages/kernel are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 ua detach --assume-yes || $ERR_UA_DETACH
-    mv -f /tmp/grub.cfg /boot/grub/
-    echo "removing ua tools..."
-    apt_get_purge 5 10 120 ubuntu-advantage-tools
-    rm -f /etc/apt/trusted.gpg.d/ua-client_ubuntu_stable.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
-    rm -f /etc/apt/sources.list.d/ua-client-ubuntu-stable-bionic.list
     rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
     rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
-    rm -f /etc/apt/sources.list.d/ubuntu-fips.list
-    rm -f /etc/apt/auth.conf.d/80ubuntu-advantage
+    rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
+    rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 

@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  vmImage: ubuntu-18.04
+  name: $(POOL_NAME)
 
 parameters:
 - name: build2019
@@ -44,7 +44,6 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
@@ -67,7 +66,6 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-containerd-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
@@ -90,7 +88,6 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2022-containerd-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
@@ -113,7 +110,6 @@ stages:
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd-gen2'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2022-containerd-gen2-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_GEN2_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'

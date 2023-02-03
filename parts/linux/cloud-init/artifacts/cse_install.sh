@@ -30,48 +30,29 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-{{if NeedsContainerd}}
+if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local stable_containerd
-    local latest_containerd
+    local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        stable_containerd="$(jq -r .containerd.stable "$MANIFEST_FILEPATH")"
-        latest_containerd="$(jq -r .containerd.latest "$MANIFEST_FILEPATH")"
-        edge_containerd="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
 
-    # todo(ace): read 1.22 from a manifest and track it against supported versions
-    if semverCompare ${KUBERNETES_VERSION} "1.24.0"; then
-        containerd_version="$(echo "$edge_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$edge_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $edge_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi        
-    elif semverCompare ${KUBERNETES_VERSION} "1.22.0"; then
-        containerd_version="$(echo "$latest_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$latest_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $latest_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    else
-        containerd_version="$(echo "$stable_containerd" | cut -d- -f1)"
-        containerd_patch_version="$(echo "$stable_containerd" | cut -d- -f2)"
-        if [ -z "$containerd_version" ] || [ "$containerd_version" == "null" ]  || [ "$containerd_patch_version" == "null" ]; then
-            echo "invalid container version: $stable_containerd"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_version} ${containerd_patch_version}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_version}"
-{{else}}
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi 
+
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
+else
     installMoby
-{{end}}
+fi
 }
 
 installNetworkPlugin() {
@@ -108,7 +89,6 @@ downloadAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
-{{- if NeedsContainerd}}
 
 downloadCrictl() {
     CRICTL_VERSION=$1
@@ -122,9 +102,8 @@ downloadCrictl() {
 installCrictl() {
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
-    local CRICTL_VERSION=${KUBERNETES_VERSION%.*}.0
-    if [[ ${currentVersion} =~ ${CRICTL_VERSION} ]]; then
-        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${CRICTL_VERSION}"
+    if [[ "${currentVersion}" != "" ]]; then
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
     else
         # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
         # if the vhd does not have crictl pre-baked, return early
@@ -139,7 +118,7 @@ installCrictl() {
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
-{{- if TeleportEnabled}}
+
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
@@ -177,8 +156,6 @@ installTeleportdPlugin() {
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
-{{- end}}
-{{- end}}
 
 setupCNIDirs() {
     mkdir -p $CNI_BIN_DIR
@@ -192,19 +169,41 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadCNI
+        fi
+
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+    
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-        downloadAzureCNI
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
+    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+    if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            downloadAzureCNI
+        fi
+        
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+
     chown -R root:root $CNI_BIN_DIR
 }
 
@@ -277,11 +276,6 @@ installKubeletKubectlAndKubeProxy() {
 
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
-
-    if [ -n "${KUBEPROXY_URL}" ]; then
-        #kubeproxy is a system addon that is dictated by control plane so it shouldn't block node provisioning
-        pullContainerImage ${CLI_TOOL} ${KUBEPROXY_URL} &
-    fi
 }
 
 pullContainerImage() {
@@ -340,12 +334,11 @@ retagMCRImagesForChina() {
 removeContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        ctr --namespace k8s.io image rm $CONTAINER_IMAGE_URL
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl rmi $CONTAINER_IMAGE_URL
-    else
+    if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
+    else
+        # crictl should always be present
+        crictl rm $CONTAINER_IMAGE_URL
     fi
 }
 
@@ -353,25 +346,25 @@ cleanUpImages() {
     local targetImage=$1
     export targetImage
     function cleanupImagesRun() {
-        {{if NeedsContainerd}}
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
-        {{end}}
         local exit_code=$?
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
-                removeContainerImage ${CLI_TOOL} ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+                    removeContainerImage ${CLI_TOOL} ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     }
@@ -392,25 +385,25 @@ cleanUpKubeProxyImages() {
 }
 
 cleanupRetaggedImages() {
-    if [[ "{{GetTargetEnvironment}}" != "AzureChinaCloud" ]]; then
-        {{if NeedsContainerd}}
-        if [[ "${CLI_TOOL}" == "crictl" ]]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+    if [[ "${TARGET_CLOUD}" != "AzureChinaCloud" ]]; then
+        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            else
+                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            fi
         else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
+            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        {{else}}
-        images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-        {{end}}
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
-                {{if NeedsContainerd}}
+                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                 # always use ctr, even if crictl is installed.
                 # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
-                removeContainerImage "ctr" ${image}
-                {{else}}
-                removeContainerImage "docker" ${image}
-                {{end}}
+                    removeContainerImage "ctr" ${image}
+                else
+                    removeContainerImage "docker" ${image}
+                fi
             done
         fi
     else
