@@ -50,6 +50,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -78,6 +79,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -106,6 +108,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
