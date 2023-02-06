@@ -2495,7 +2495,9 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
 fi
 
-retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+if [[ -n "${OUTBOUND_COMMAND}" ]]; then
+    retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+fi
 
 # Bring in OS-related vars
 source /etc/os-release
