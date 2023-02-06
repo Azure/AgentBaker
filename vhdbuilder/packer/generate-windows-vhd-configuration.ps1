@@ -49,7 +49,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -77,7 +77,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -105,7 +105,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.24.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.25.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -206,6 +206,7 @@ $global:map = @{
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.22/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.22.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.41/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.41.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
     );
