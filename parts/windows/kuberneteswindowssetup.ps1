@@ -157,7 +157,7 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 # $global:NetworkPolicy = "{{GetParameter "networkPolicy"}}" # BUG: unused
 $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
-$global:IsDualStackEnabled = {{if or IsIPv6DualStackFeatureEnabled IsAzureCNIOverlayDualStackFeatureEnabled}}$true{{else}}$false{{end}}
+$global:IsDualStackEnabled = {{if or IsIPv6DualStackFeatureEnabled IsDualStack}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
 # CSI Proxy settings

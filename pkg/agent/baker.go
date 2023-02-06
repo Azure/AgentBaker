@@ -564,9 +564,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAzureCNIOverlayFeatureEnabled": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay")
 		},
-		"IsAzureCNIOverlayDualStackFeatureEnabled": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay") &&
-				cs.Properties.OrchestratorProfile.KubernetesConfig.IsDualStack()
+		"IsDualStack": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsDualStack()
 		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
