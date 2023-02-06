@@ -4,7 +4,8 @@ set -euxo pipefail
 build_ids=$1
 global_image_version="${IMAGE_VERSION:=}"
 for build_id in $build_ids; do
-    artifacts=($(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'))
+    artifacts=()
+    while IFS='' read -r line; do artifacts+=("$line"); done < <(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name')
     artifacts=(${artifacts[@]//vhd*})
     printf '%s\n' "${artifacts[@]}"
     for artifact in ${artifacts[@]}; do    # Retrieve what artifacts were published
