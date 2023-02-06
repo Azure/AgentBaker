@@ -28,6 +28,7 @@ jobs:
     displayName: setup go
   - bash: |
       go version
+      go env
       cd e2e
       bash ./e2e-starter.sh
       bash e2e-create-windows-nodepool.sh
