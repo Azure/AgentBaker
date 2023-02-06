@@ -1106,7 +1106,9 @@ configureCustomCaCertificate() {
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
+    # This will block until the service is considered active. Update_certs.service is a oneshot type of unit, it is considered active when the ExecStart= command terminates with a zero status code.
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart containerd
 }
 
 
