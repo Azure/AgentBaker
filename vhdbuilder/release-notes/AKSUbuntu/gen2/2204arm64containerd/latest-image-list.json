@@ -610,6 +610,13 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:e7af9a5c12833d9e9affe59e69eb1cd40b76dd1a325c86ead673cbf9d6fd90b3",
+    "repoTags": [
+      "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.11.0"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:e489bab2a1543b30f95309c71e96f69f4e45f0cc31a26bc33b74bcf31efbdae4",
     "repoTags": [
       "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.8.1"

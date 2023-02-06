@@ -109,7 +109,8 @@
       "multiArchVersions": [
         "v1.2.2.4",
         "v1.2.2.5",
-        "v1.3.0"
+        "v1.3.0",
+        "v1.3.0.1"
       ]
     },
     {
@@ -129,11 +130,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
-      "amd64OnlyVersions": [
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.0.1-main-11-29-2022-97e2122e",
-        "6.1.0-main-01-11-2023-5bf41607"
+        "6.1.0-main-01-11-2023-5bf41607",
+        "6.2.0-main-01-31-2023-e1e3858b"
       ]
     },
     {
@@ -210,7 +210,8 @@
       "multiArchVersions": [
         "1.12.2.3",
         "1.12.2.4",
-        "1.12.5"
+        "1.12.5",
+        "1.12.5.1"
       ]
     },
     {
@@ -289,7 +290,7 @@
       ],
       "multiArchVersions": [
         "v1.24.0.3",
-        "v1.26.1"
+        "v1.26.2"
       ]
     },
     {
@@ -363,7 +364,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220512.2",
-        "prod_20221215.1"
+        "prod_20221215.1",
+        "prod_20230203.1"
       ]
     },
     {
@@ -371,7 +373,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "prod_20220512.2",
-        "prod_20221215.1"
+        "prod_20221215.1",
+        "prod_20230203.1"
       ]
     },
     {
