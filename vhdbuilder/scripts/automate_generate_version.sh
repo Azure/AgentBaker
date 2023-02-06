@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -euxo pipefail
+set -euxo pipefail
 
 build_ids=$1
 global_image_version="${IMAGE_VERSION:=}"
