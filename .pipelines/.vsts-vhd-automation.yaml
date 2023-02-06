@@ -30,9 +30,12 @@ steps:
         rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
   displayName: 'Clean up go environment'
 - bash: |
+        set -x
+        az version
         az upgrade
         az extension add -n azure-devops --yes
         az version
+        set +x
         echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
         az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
   env:

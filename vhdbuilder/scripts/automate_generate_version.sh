@@ -6,6 +6,7 @@ global_image_version="${IMAGE_VERSION:=}"
 for build_id in $build_ids; do
     #artifacts=()
     #while IFS='' read -r line; do artifacts+=("$line"); done < <(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name')
+    az pipelines runs artifact list --run-id $build_id --debug
     artifacts=($(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'))
     artifacts=(${artifacts[@]//vhd*})
     printf '%s\n' "${artifacts[@]}"
@@ -16,7 +17,7 @@ for build_id in $build_ids; do
         # some SKUs will have todays date some will have tomorrows based on when they are triggered because of UTC conversion
         # TODO(amaheshwari): Change VHD script to use a common var for image version that is plumbed down to all SKUs
         #if [[ $artifact == *"publishing-info"* ]]; then
-            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $build_id
+            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $build_id --debug
             current_image_version=$(jq -r .image_version < vhd-publishing-info.json)
             if [[ $global_image_version != $current_image_version ]]; then
                 if [[ -z $global_image_version ]]; then
