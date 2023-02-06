@@ -1,10 +1,13 @@
 #!/bin/bash
-set -euxo pipefail
+#set -euxo pipefail
 
 build_ids=$1
 global_image_version="${IMAGE_VERSION:=}"
 for build_id in $build_ids; do
-    for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
+    artifacts=($(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'))
+    artifacts=(${artifacts[@]//vhd*})
+    printf '%s\n' "${artifacts[@]}"
+    for artifact in ${artifacts[@]}; do    # Retrieve what artifacts were published
         # This loop is because of how the Image Version is set for builds. 
         # It uses the UTC time of when the build for a particular SKU ends. 
         # So in the past, it has happened that you trigger a build at say 3/4pm PST, 
