@@ -1516,7 +1516,16 @@ type NodeBootstrappingConfiguration struct {
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
 	SSHStatus                      SSHStatus
+	IsVHDSelfContained             FeatureState
 }
+
+type FeatureState int
+
+const (
+	FeatureStateUnspecified FeatureState = iota
+	FeatureStateEnabled
+	FeatureStateDisabled
+)
 
 type SSHStatus int
 

@@ -891,6 +891,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes())
 		},
+		"UseSelfContainedVHD": func() bool {
+			return config.IsVHDSelfContained == datamodel.FeatureStateEnabled
+		},
 	}
 }
 
