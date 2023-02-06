@@ -122,8 +122,16 @@ configureCustomCaCertificate() {
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
     done
-    # This will block until the service is considered active. Update_certs.service is a oneshot type of unit, it is considered active when the ExecStart= command terminates with a zero status code.
+    # This will block until the service is considered active.
+    # Update_certs.service is a oneshot type of unit that
+    # is considered active when the ExecStart= command terminates with a zero status code.
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    # after new certs are added to trust store, containerd will not pick them up properly before restart.
+    # aim here is to have this working straight away for a freshly provisioned node
+    # so we force a restart after the certs are updated
+    # custom CA daemonset copies certs passed by the user to the node, what then triggers update_certs.path unit
+    # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
+    # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
     systemctl restart containerd
 }
 
