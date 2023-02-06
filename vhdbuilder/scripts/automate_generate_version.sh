@@ -1,4 +1,7 @@
 #!/bin/bash
+echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
+az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
+
 set -euxo pipefail
 
 build_ids=$1
