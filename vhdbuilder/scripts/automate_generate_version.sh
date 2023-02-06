@@ -1,4 +1,5 @@
 #!/bin/bash
+az version
 echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
 az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
 
