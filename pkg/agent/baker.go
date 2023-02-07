@@ -829,9 +829,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"HasMessageOfTheDay": func() bool {
 			return profile.MessageOfTheDay != ""
 		},
-		"GetProxyVariables": func() string {
-			return getProxyVariables(config)
-		},
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
