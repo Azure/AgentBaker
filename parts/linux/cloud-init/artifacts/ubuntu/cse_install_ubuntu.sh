@@ -46,7 +46,7 @@ installDeps() {
         fi
     fi
 
-    pkg_list+=(apparmor apparmor-utils)
+    # pkg_list+=(apparmor apparmor-utils)
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
