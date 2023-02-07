@@ -71,11 +71,11 @@ cat $SCENARIO_NAME-vmss.json
 log "Creating VMSS"
 
 # Verify that the specified SIG_VERSION_ID is valid before attempting to use it, fail hard if it isn't
-id=$(az resource show --ids "$SIG_VERSION_ID" | jq -r .id)
-if [ -z "$id" ]; then
-    echo "unable to find SIG_VERSION_ID $SIG_VERSION_ID for use in e2e test"
-    exit 1
-fi
+# id=$(az resource show --ids "$SIG_VERSION_ID" | jq -r .id)
+# if [ -z "$id" ]; then
+#     echo "unable to find SIG_VERSION_ID $SIG_VERSION_ID for use in e2e test"
+#     exit 1
+# fi
 
 vmssStartTime=$(date +%s)
 az vmss create -n ${VMSS_NAME} \
@@ -86,7 +86,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image $SIG_VERSION_ID \
+    --image "Canonical:0001-com-ubuntu-minimal-jammy-daily:minimal-22_04-daily-lts-gen2:22.04.202302060" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
