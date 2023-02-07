@@ -86,7 +86,7 @@ az vmss create -n ${VMSS_NAME} \
     --vm-sku $VM_SKU \
     --instance-count 1 \
     --assign-identity $msiResourceID \
-    --image "Canonical:0001-com-ubuntu-minimal-jammy-daily:minimal-22_04-daily-lts-gen2:22.04.202302060" \
+    --image "Canonical:0001-com-ubuntu-minimal-jammy-daily:minimal-22_04-daily-lts-gen2:22.04.202301300" \
     --upgrade-policy-mode Automatic \
     --ssh-key-values ~/.ssh/id_rsa.pub \
     -ojson
