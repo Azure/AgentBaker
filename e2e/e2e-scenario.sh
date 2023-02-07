@@ -134,6 +134,7 @@ fi
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
+nodeReady="false"
 for i in $(seq 1 10); do
     set +e
     kubectl get nodes | grep $vmInstanceName
@@ -144,6 +145,7 @@ for i in $(seq 1 10); do
         sleep 10
         continue
     fi
+    nodeReady="true"
     break;
 done
 waitForNodeEndTime=$(date +%s)
@@ -151,7 +153,7 @@ log "Waited $((waitForNodeEndTime-waitForNodeStartTime)) seconds for node to joi
 
 FAILED=0
 # Check if the node joined the cluster
-if [[ "$retval" -eq 0 ]]; then
+if [[ "${nodeReady}" == "true" ]]; then
     ok "Test succeeded, node joined the cluster"
     kubectl get nodes -o wide | grep $vmInstanceName
 else
