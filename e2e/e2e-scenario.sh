@@ -166,6 +166,7 @@ tail -n 50 $SCENARIO_NAME-logs/cluster-provision.log || true
 
 if [ "$FAILED" == "1" ]; then
     echo "node join failed, dumping logs for debug"
+    kubectl describe node $vmInstanceName
     head -n 500 $SCENARIO_NAME-logs/kubelet.log || true
     cat $SCENARIO_NAME-logs/kubelet-status.txt || true
     exit 1
