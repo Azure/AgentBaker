@@ -3978,7 +3978,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.25.2-hotfix.20221006",
             "1.25.4",
             "1.25.5",
-            "1.26.0"
+            "1.26.0",
+            "1.26.1"
         ]
     },
     "_template": {
