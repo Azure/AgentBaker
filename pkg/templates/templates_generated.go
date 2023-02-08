@@ -2532,10 +2532,10 @@ if [ -f $VHD_LOGS_FILEPATH ]; then
     logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
-    if [[ "${IS_VHD}" = true ]]; then
-        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-        exit $ERR_VHD_FILE_NOT_FOUND
-    fi
+    # if [[ "${IS_VHD}" = true ]]; then
+    #     echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+    #     exit $ERR_VHD_FILE_NOT_FOUND
+    # fi
     FULL_INSTALL_REQUIRED=true
 fi
 
@@ -2699,6 +2699,42 @@ Requires=bind-mount.service
 After=bind-mount.service
 EOF
 fi
+
+mkdir -p /etc/sysctl.d/
+touch /etc/sysctl.d/60-CIS.conf
+tee /etc/sysctl.d/60-CIS.conf > /dev/null <<EOF
+# 3.1.2 Ensure packet redirect sending is disabled
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+# 3.2.1 Ensure source routed packets are not accepted 
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.default.accept_source_route = 0
+# 3.2.2 Ensure ICMP redirects are not accepted
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+# 3.2.3 Ensure secure ICMP redirects are not accepted
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+# 3.2.4 Ensure suspicious packets are logged
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+# 3.3.1 Ensure IPv6 router advertisements are not accepted
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+# 3.3.2 Ensure IPv6 redirects are not accepted
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+# refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
+vm.overcommit_memory = 1
+kernel.panic = 10
+kernel.panic_on_oops = 1
+# to ensure node stability, we set this to the PID_MAX_LIMIT on 64-bit systems: refer to https://kubernetes.io/docs/concepts/policy/pid-limiting/
+kernel.pid_max = 4194304
+# https://github.com/Azure/AKS/issues/772
+fs.inotify.max_user_watches = 1048576
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+fs.inotify.max_user_instances = 1024
+EOF
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
@@ -5530,6 +5566,8 @@ installDeps() {
             pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
         fi
     fi
+
+    pkg_list+=(apparmor apparmor-utils)
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
