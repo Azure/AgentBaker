@@ -23,7 +23,7 @@ function generate_image_bom_for_containerd() {
     IFS=$IFS_backup
     jq --slurpfile images $temp_image_bom -n '$images | group_by(.id) | map({id:.[0].id, repoTags:map(.repoTags | add) | unique, repoDigests:map(.repoDigests | add) | unique})' > /opt/azure/containers/image-bom.json
     rm -f $temp_image_bom
-    # jq < /opt/azure/containers/image-bom.json
+    cat /opt/azure/containers/image-bom.json
 }
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
