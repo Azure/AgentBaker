@@ -94,3 +94,12 @@ $collectLogsScript=($collectLogsScript | Where { $_ -notlike '*DownloadFile*' })
 # Remove Invoke-WebRequest in collectlogs.ps1
 $collectLogsScript=($collectLogsScript | Where { $_ -notlike '*Invoke-WebRequest*' })
 $collectLogsScript | Set-Content collectlogs.ps1
+
+# Update startpacketcapture.ps1
+Write-Host "************************************************************" 
+Write-Host "Please manually remove Get-WebFile and the download steps in"
+Write-Host "           dumpVfpPolicies.ps1                              "
+Write-Host "           starthnstrace.ps1                                "
+Write-Host "           startpacketcapture.ps1                           "
+Write-Host "************************************************************" 
+

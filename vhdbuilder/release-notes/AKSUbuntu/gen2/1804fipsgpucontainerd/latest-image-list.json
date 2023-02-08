@@ -78,6 +78,13 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:273c1be3cdabd57f2962ebce2bcb8be43d67b3a2832ac43cb504963f0696c231",
+    "repoTags": [
+      "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20230203.1"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:3dc4b173e8e0be16357d12538068c2e0a82ecc8d8909e23670d4dd3402a644ae",
     "repoTags": [
       "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20220512.2"
@@ -92,9 +99,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:48a211854acfd347662d07be56feb121972e18ebe5ccbe12d0e06974214476b2",
+    "id": "sha256:88ae45b5f3aeb65a58856d91c053c4b27fd195788a778b931a88b23624fca093",
     "repoTags": [
-      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.0.1-main-11-29-2022-97e2122e"
+      "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20230203.1"
     ],
     "repoDigests": []
   },
@@ -102,6 +109,13 @@
     "id": "sha256:f0f0e671a2d292094989e3a2960c01073bd8b205717e1522968bee1f4b9fc2e4",
     "repoTags": [
       "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.1.0-main-01-11-2023-5bf41607"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:e9079dd74f6961ca5c805dfdcb311de25e1271cf3d891f5848a4701b447e3d94",
+    "repoTags": [
+      "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.2.0-main-01-31-2023-e1e3858b"
     ],
     "repoDigests": []
   },
@@ -351,6 +365,13 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:fcb8eb2a428c200368187ea0ea5e025dd27d02dbe22b5659ca00537cba9d4c97",
+    "repoTags": [
+      "mcr.microsoft.com/oss/cilium/cilium:1.12.5.1"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:e967733fd6c24a5bf93c4fcbdcbc63e38d4d7ebfafbeec1d4b47644386cb51eb",
     "repoTags": [
       "mcr.microsoft.com/oss/cilium/operator-generic:1.12.2"
@@ -379,9 +400,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:dd06b5c6319a4bf09db16ad96c051ff14e10564060b389112baf7c4ffca0483d",
+    "id": "sha256:c9f876fb22616e9fdc6f09b61cde40e0e99af80763f26883dcdd5b9130d9750c",
     "repoTags": [
-      "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.1"
+      "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2"
     ],
     "repoDigests": []
   },
@@ -445,6 +466,13 @@
     "id": "sha256:c057d0401004453e61fadc42c8dc13f7ae003bd082a4df696296222a94876f58",
     "repoTags": [
       "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:173cabe25a4b6b472f8a7f4451016c5d67aea43f9a0ec4c0e59ac8701681e6d3",
+    "repoTags": [
+      "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0.1"
     ],
     "repoDigests": []
   },
