@@ -15,7 +15,8 @@ function generate_image_bom_for_containerd() {
         # skip image tags that consist of a sha256 hash
         [[ $tag == sha256* ]] && continue
         digest=$(echo $image | awk '{print $2}')
-        id=$(echo "$crictl_list" | grep -e "$tag" | awk '{print $2}')
+        # intentionally match on "tag " so we don't return more than one match
+        id=$(echo "$crictl_list" | grep -e "$tag " | awk '{print $2}')
 
         jq --arg repoTag "$tag" --arg repoDigest "$digest" --arg id "$id" -n '{id:$id, repoTags:[$repoTag], repoDigests:[$repoDigest]}' >> $temp_image_bom
     done
