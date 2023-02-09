@@ -13,7 +13,7 @@ function generate_image_bom_for_containerd() {
     for digest in $digests; do
         digest_entries=$(echo "$ctr_list" | grep -e "$digest")
         tags=$(echo "$digest_entries" | awk '{print $1}' | grep -v "sha256")
-        id=$(echo "$digest_entries" | awk '{print $1}' | grep "sha256")
+        id=$(echo "$digest_entries" | awk '{print $1}' | grep -e "sha256")
 
         jq --arg tags "$tags" --arg digest "$digest" --arg id "$id" -n '{id:$id, repoTags:$tags | split("\n"), repoDigests:[$digest]}' >> $temp_image_bom
     done
