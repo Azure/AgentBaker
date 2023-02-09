@@ -12,7 +12,7 @@ function generate_image_bom_for_containerd() {
 
     for image in $ctr_list; do
         tag=$(echo $image | awk '{print $1}')
-        # skip image tags that consist of a sha256 hash
+        # only look at tags
         [[ $tag == sha256* ]] && continue
         digest=$(echo $image | awk '{print $2}')
         # intentionally match on "tag " so we don't return more than one match
