@@ -7,18 +7,15 @@ function generate_image_bom_for_containerd() {
     temp_image_bom=/opt/azure/containers/temp-image-bom.json
     IFS_backup=$IFS
     IFS=$'\n'
-    ctr_list=$(ctr --namespace k8s.io image list | sed 1d | awk '{print $1, $3}')
-    crictl_list=$(crictl images --no-trunc | sed 1d | awk '{printf "%s:%s %s\n", $1,$2,$3;}')
+    ctr_list=$(ctr -n k8s.io image list | sed 1d | awk '{print $1, $3}')
+    digests=$(echo "$ctr_list" | awk '{print $2}')
 
-    for image in $ctr_list; do
-        tag=$(echo $image | awk '{print $1}')
-        # only look at tags
-        [[ $tag == sha256* ]] && continue
-        digest=$(echo $image | awk '{print $2}')
-        # intentionally match on "tag " so we don't return more than one match
-        id=$(echo "$crictl_list" | grep -e "$tag " | awk '{print $2}')
+    for digest in $digests; do
+        digest_entries=$(echo "$ctr_list" | grep -e "$digest")
+        tags=$(echo "$digest_entries" | awk '{print $1}' | grep -v "sha256")
+        id=$(echo "$digest_entries" | awk '{print $1}' | grep "sha256")
 
-        jq --arg repoTag "$tag" --arg repoDigest "$digest" --arg id "$id" -n '{id:$id, repoTags:[$repoTag], repoDigests:[$repoDigest]}' >> $temp_image_bom
+        jq --arg tags "$tags" --arg digest "$digest" --arg id "$id" -n '{id:$id, repoTags:[$tags | split("\n")], repoDigests:[$digest]}' >> $temp_image_bom
     done
 
     IFS=$IFS_backup
@@ -36,4 +33,3 @@ else
 fi
 
 chmod a+r /opt/azure/containers/image-bom.json
-
