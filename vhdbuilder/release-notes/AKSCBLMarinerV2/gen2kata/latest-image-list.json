@@ -57,6 +57,13 @@
     "repoDigests": []
   },
   {
+    "id": "sha256:c645528a9d602baa571733519344cde31b8136a166db19d7368fa6a24fddda81",
+    "repoTags": [
+      "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20230208.1"
+    ],
+    "repoDigests": []
+  },
+  {
     "id": "sha256:3dc4b173e8e0be16357d12538068c2e0a82ecc8d8909e23670d4dd3402a644ae",
     "repoTags": [
       "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20220512.2"
@@ -74,6 +81,13 @@
     "id": "sha256:88ae45b5f3aeb65a58856d91c053c4b27fd195788a778b931a88b23624fca093",
     "repoTags": [
       "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20230203.1"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:a227b2325801c524290739aa592946d32081a82d0023462df1ae3408c9b0d701",
+    "repoTags": [
+      "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20230208.1"
     ],
     "repoDigests": []
   },
@@ -127,9 +141,9 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:8c747fba2d8e74a13ec73904a4bc6f7cdd8aefd51481d71aceb74be0b36d286a",
+    "id": "sha256:ae6923f82e470496af83e3b9cdc1163a1ba8dfc08afac020f01297709e172e94",
     "repoTags": [
-      "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.3"
+      "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.4"
     ],
     "repoDigests": []
   },
@@ -183,13 +197,6 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:06233e6ab36aaa8d1994b20ccec7b4375f6d08290f09e063e361e3d9ea6ae1bd",
-    "repoTags": [
-      "mcr.microsoft.com/oss/calico/cni:v3.21.6"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:b49c99eaac83b24dbf65091bd234ef1ccfb55d390f39b06dab35d5fe7d6eecd2",
     "repoTags": [
       "mcr.microsoft.com/oss/calico/cni:v3.23.3"
@@ -211,13 +218,6 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:5cf3b7f3d7fe67fe52e33e5fd0ea81590328000988d65ea0dd38da7594be71d0",
-    "repoTags": [
-      "mcr.microsoft.com/oss/calico/kube-controllers:v3.21.6"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:a78a224bbdf668376be932a4e6082ecb19d972e587a68c31a4908018f49da48d",
     "repoTags": [
       "mcr.microsoft.com/oss/calico/kube-controllers:v3.23.3"
@@ -228,13 +228,6 @@
     "id": "sha256:c21754d779c56c3aa9a447af5bb0a4ba0af662622bc886c36dd00c4024eb3f36",
     "repoTags": [
       "mcr.microsoft.com/oss/calico/kube-controllers:v3.24.0"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:392e95c5645cb178c5b61a07c5cb94b2d8935f265516e8461e770802fcdee314",
-    "repoTags": [
-      "mcr.microsoft.com/oss/calico/node:v3.21.6"
     ],
     "repoDigests": []
   },
@@ -260,13 +253,6 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:20ddfe941f2fb613b8d53c5022bdb506bba3f1c75e723f88bd565e884c60cd98",
-    "repoTags": [
-      "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v3.21.6"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:0d88211ed303ad62c319666fcea6ebb7c68eccc67a28e6cf429b39e2e048c35d",
     "repoTags": [
       "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v3.23.3"
@@ -284,13 +270,6 @@
     "id": "sha256:d72089f5f0f48850f21c22a49d67718851a5f9259af786e62e912ce658c65078",
     "repoTags": [
       "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v3.8.9.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:3ed72779a50d89795f9d7718cd45b6db32bbe5f62fc44935ac939b0cc52d344a",
-    "repoTags": [
-      "mcr.microsoft.com/oss/calico/typha:v3.21.6"
     ],
     "repoDigests": []
   },
@@ -316,20 +295,6 @@
     "repoDigests": []
   },
   {
-    "id": "sha256:1b02c70a99a1e30484c23022290535077d10d408eab015dbd1ac536fff9450d6",
-    "repoTags": [
-      "mcr.microsoft.com/oss/cilium/cilium:1.12.2.3"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:e87868cd45a628f4eadd01d2665452d99ec14f711a78caf967018fddb25cfa7e",
-    "repoTags": [
-      "mcr.microsoft.com/oss/cilium/cilium:1.12.2.4"
-    ],
-    "repoDigests": []
-  },
-  {
     "id": "sha256:c2c7635820a0c97ab2b6e4ed2c2a7687eeeaa42eabc585ebcfcbebf8da1ce0b0",
     "repoTags": [
       "mcr.microsoft.com/oss/cilium/cilium:1.12.5"
@@ -340,13 +305,6 @@
     "id": "sha256:fcb8eb2a428c200368187ea0ea5e025dd27d02dbe22b5659ca00537cba9d4c97",
     "repoTags": [
       "mcr.microsoft.com/oss/cilium/cilium:1.12.5.1"
-    ],
-    "repoDigests": []
-  },
-  {
-    "id": "sha256:e967733fd6c24a5bf93c4fcbdcbc63e38d4d7ebfafbeec1d4b47644386cb51eb",
-    "repoTags": [
-      "mcr.microsoft.com/oss/cilium/operator-generic:1.12.2"
     ],
     "repoDigests": []
   },
@@ -697,6 +655,13 @@
     "id": "sha256:a2d928de7729b25063bf70c57d8212b59ecb9867879dac2d1577f6b78257df01",
     "repoTags": [
       "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0"
+    ],
+    "repoDigests": []
+  },
+  {
+    "id": "sha256:ded50e33a25650e8519acbe902b841596ed9cf14aa73401ea12c112acdf52812",
+    "repoTags": [
+      "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.1"
     ],
     "repoDigests": []
   },
