@@ -23,6 +23,10 @@ function generate_image_bom_for_containerd() {
     rm -f $temp_image_bom
 }
 
+function generate_image_bom_for_docker() {
+    docker inspect $(docker images -aq) -f '{"id":"{{.ID}}","repoTags":{{json .RepoTags}},"repoDigests":{{json .RepoDigests}}}' | jq --slurp . | jq  'map({id:.id, repoTags:.repoTags, repoDigests:.repoDigests | map(split("@")[1])})' > /opt/azure/containers/image-bom.json
+}
+
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     generate_image_bom_for_containerd
 elif [[ ${CONTAINER_RUNTIME} == "docker" ]]; then
