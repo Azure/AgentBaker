@@ -18,9 +18,9 @@ function generate_image_bom_for_containerd() {
 
         jq --arg tags "$tags" --arg digest "$digest" --arg id "$id" -n '{id:$id, repoTags:$tags | split("\n"), repoDigests:[$digest]}' >> $TEMP_IMAGE_BOM_PATH
     done
-    
+
     IFS=$IFS_backup
-    jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:.[0].repoTags | unique, repoDigests:map(.repoDigests | add) | unique})' > $IMAGE_BOM_PATH
+    jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:[.[].repoTags] | add | unique, repoDigests:[.[].repoDigests] | add | unique})' > $IMAGE_BOM_PATH
     rm -f $TEMP_IMAGE_BOM_PATH
 }
 
