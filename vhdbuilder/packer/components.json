@@ -149,7 +149,6 @@
         "v3.8.9.3"
       ],
       "multiArchVersions": [
-        "v3.21.6",
         "v3.23.3",
         "v3.24.0"
       ]
@@ -160,7 +159,6 @@
         "v3.8.9.5"
       ],
       "multiArchVersions": [
-        "v3.21.6",
         "v3.23.3",
         "v3.24.0"
       ]
@@ -171,7 +169,6 @@
         "v3.8.9"
       ],
       "multiArchVersions": [
-        "v3.21.6",
         "v3.23.3",
         "v3.24.0"
       ]
@@ -182,7 +179,6 @@
         "v3.8.9.1"
       ],
       "multiArchVersions": [
-        "v3.21.6",
         "v3.23.3",
         "v3.24.0"
       ]
@@ -191,7 +187,6 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.21.6",
         "v3.23.3",
         "v3.24.0"
       ]
@@ -200,7 +195,6 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.2",
         "1.12.5"
       ]
     },
@@ -208,8 +202,6 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.2.3",
-        "1.12.2.4",
         "1.12.5",
         "1.12.5.1"
       ]
@@ -365,7 +357,8 @@
       "multiArchVersions": [
         "prod_20220512.2",
         "prod_20221215.1",
-        "prod_20230203.1"
+        "prod_20230203.1",
+        "prod_20230208.1"
       ]
     },
     {
@@ -374,7 +367,8 @@
       "multiArchVersions": [
         "prod_20220512.2",
         "prod_20221215.1",
-        "prod_20230203.1"
+        "prod_20230203.1",
+        "prod_20230208.1"
       ]
     },
     {
