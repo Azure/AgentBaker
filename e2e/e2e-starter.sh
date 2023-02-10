@@ -8,6 +8,10 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
+if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"
+fi
+
 rgStartTime=$(date +%s)
 az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
 rgEndTime=$(date +%s)
@@ -38,7 +42,7 @@ fi
 if [ "$create_cluster" == "true" ]; then
     log "Creating cluster $CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
-    if [ "$RESOURCE_GROUP_NAME" == "agentbaker-e2e-test-windows" ]; then
+    if [[ "$RESOURCE_GROUP_NAME" == *"windows"* ]]; then
         az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
     else
         az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson

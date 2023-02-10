@@ -6,9 +6,9 @@
             "defaultValue": "",
             "type": "string"
         },
-        "galleries_windowsabgallery_externalid": {
-            "defaultValue": "/subscriptions/a15c116e-99e3-4c59-aebc-8f864929b4a0/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/AKSWindows",
-            "type": "string"
+        "galleries_AKSWindows_externalid": {
+            "defaultValue": "",
+            "type": "String"
         }
     },
     "resources": [
@@ -17,11 +17,6 @@
             "apiVersion": "2022-03-01",
             "name": "[parameters('virtualMachineScaleSets_akswin30_name')]",
             "location": "eastus",
-            "sku": {
-                "name": "Standard_D2s_v3",
-                "tier": "Standard",
-                "capacity": 1
-            },
             "properties": {
                 "singlePlacementGroup": false,
                 "orchestrationMode": "Uniform",
@@ -48,17 +43,8 @@
                         "customData": ""
                     },
                     "storageProfile": {
-                        "osDisk": {
-                            "osType": "Windows",
-                            "createOption": "FromImage",
-                            "caching": "ReadWrite",
-                            "managedDisk": {
-                                "storageAccountType": "Premium_LRS"
-                            },
-                            "diskSizeGB": 128
-                        },
                         "imageReference": {
-                            "id": "[concat(parameters('galleries_windowsabgallery_externalid'), '/images/windows-2019-containerd/versions/2022.11.03')]"
+                            "id": ""
                         }
                     },
                     "networkProfile": {
