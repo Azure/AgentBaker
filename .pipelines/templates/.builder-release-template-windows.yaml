@@ -4,37 +4,26 @@ parameters:
       default: 2019
 
 steps:
-# For Gen 2, if we want to use sig for test purpose only, we set the pipeline variables
-#               SIG_GALLERY_NAME, SIG_IMAGE_NAME_PREFIX, and SIG_IMAGE_VERSION.
-#               SIG_IMAGE_NAME_PREFIX will be used to define the task variable SIG_IMAGE_NAME for
-#               the packer destination SIG.
-#               SIG_IMAGE_NAME, SIG_GALLERY_NAME, and SIG_IMAGE_VERSION will be passed below.
-#               Task variable GEN2_SIG_FOR_PRODUCTION is set to False and passed to the following steps.
-#               Built sig will not be deleted because it is for future testing.
-#            if we want to publish the VHD, instead of using pipeline variables,
-#               we will hard-code the task variables SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION.
-#               Task variable GEN2_SIG_FOR_PRODUCTION is set to True and passed to the following steps.
-#               Built sig will be deleted because it has been converted to VHD, and thus not needed.
-#               Use the suffix $RANDOM to avoid duplication while running concurrent builds.
+# Merge gen1, gen2, and sig modes into one mode for Windows VHD builds - use sig only.
+# 1. If sig is for test purpose only, SIG_GALLERY_NAME, SIG_IMAGE_NAME_PREFIX, and SIG_IMAGE_VERSION are set.
+#     Task variable SIG_FOR_PRODUCTION is set to False and passed to the following steps.
+# 2. If sig is for production, we will hard-code the task variables SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION.
+#     $RANDOM is appended to avoid duplicate gallery name running concurrent builds.
+#     Task variable SIG_FOR_PRODUCTION is set to True and passed to the following steps.
+#     Built sig will be deleted because it has been converted to VHD, and thus not needed.
   - bash: |
-      if [[ $(HYPERV_GENERATION) == "V2" ]]; then \
-        m="sigMode"; \
-        if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then \   
+      m="windowsVhdMode"
+      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then \   
           sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"; \
-          echo "##vso[task.setvariable variable=GEN2_SIG_FOR_PRODUCTION]False"; \
-        else
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"; \
+      else
           sigImageName="windows-${WINDOWS_SKU}-$RANDOM"; \
-          sigGalleryName="WS2022Gen2Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \          
+          WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
+          sigGalleryName="WS${WS_SKU}Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \          
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
-          echo "##vso[task.setvariable variable=GEN2_SIG_FOR_PRODUCTION]True"; \
-        fi
-      elif [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then 
-        m="sigMode"; sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"; \
-        echo "##vso[task.setvariable variable=GEN2_SIG_FOR_PRODUCTION]False"; \
-      else 
-        m="default"; \
-      fi && \
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \    
+      fi
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
       echo "##vso[task.setvariable variable=MODE]$m" && \
@@ -71,7 +60,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e GEN2_SIG_FOR_PRODUCTION=${GEN2_SIG_FOR_PRODUCTION} \
+      -e SIG_FOR_PRODUCTION=${SIG_FOR_PRODUCTION} \
       -e HYPERV_GENERATION=${HYPERV_GENERATION} \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
       -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
@@ -115,26 +104,6 @@ steps:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
 
-# Default Gen 1: packer VHD=>VHD in classic SA
-  - script: |
-      echo MODE=$(MODE) && \
-      OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)" && \
-      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e CLASSIC_BLOB=${STORAGE_ACCT_BLOB_URL} \
-      -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
-      -e OS_DISK_SAS=${OS_DISK_SAS} \
-      -e OS_TYPE="Windows" \
-      ${CONTAINER_IMAGE} make -f packer.mk az-copy
-    displayName: Copying resource to Classic Storage Account
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables['MODE'], 'default'))
-
 # Moved conversion to VHD before cleanup.
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
 # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
@@ -160,13 +129,13 @@ steps:
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.GEN2_SIG_FOR_PRODUCTION, 'True'))
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
 
 # SA_NAME:             Temporary storage account name
-# IMPORTED_IMAGE_NAME: Build output for sigMode is SIG. Packer does not support building a SIG from raw
+# IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
 #                      VHD blob directly. Will use this as an intermediate sig to import from raw VHD url.
 #                      Can be deleted after building.
-# SIG_IMAGE_NAME:      Packer-generated SIG image for sigMode. (Gen 2 included) If GEN2_SIG_FOR_PRODUCTION = True
+# SIG_IMAGE_NAME:      Packer-generated SIG image for windowsVhdMode. (Gen 2 included) If SIG_FOR_PRODUCTION = True
 #                      This image should be deleted. Otherwise, we keep it.
 #                      Used to define the IMAGE_NAME below.
 # IMAGE_NAME:          Managed image created by packer: ManagedImageName in log. No longer used.
@@ -196,18 +165,19 @@ steps:
       -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e GEN2_SIG_FOR_PRODUCTION=${GEN2_SIG_FOR_PRODUCTION} \
+      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+      -e SIG_FOR_PRODUCTION=${SIG_FOR_PRODUCTION} \
       -e OS_TYPE="Windows" \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
 
-# Set VHD_NAME and SKU_NAME for Gen 2, which will be published.
+# Set VHD_NAME and SKU_NAME which will be published.
 # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
-# Perform this step only if we want to publish the VHD: Default Gen 1 or Gen 2 (sigMode) and the built sig is for production.
+# Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
   - bash: |
       echo MODE=$(MODE) && \
-      if [[ "${GEN2_SIG_FOR_PRODUCTION}" == "True" ]]; then captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
+      if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
       [ -n "${captured_sig_version}" ] && VHD_NAME="${captured_sig_version}.vhd"; \
       SKU_NAME="windows-$WINDOWS_SKU"; \
       else \
@@ -235,14 +205,12 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
-                   or(and(eq(variables['MODE'], 'sigMode'), eq(variables.GEN2_SIG_FOR_PRODUCTION, 'True')), 
-                      eq(variables['MODE'], 'default')))
+                   eq(variables.SIG_FOR_PRODUCTION, 'True'))
 
-# Will be stepped in if a) under Default Gen 1 mode or b) under sigMode and the sig is for producing Gen 2 image
+# Will be stepped in if the sig is for production
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
-                   or(and(eq(variables['MODE'], 'sigMode'), eq(variables.GEN2_SIG_FOR_PRODUCTION, 'True')), 
-                      eq(variables['MODE'], 'default')))
+                   eq(variables.SIG_FOR_PRODUCTION, 'True'))

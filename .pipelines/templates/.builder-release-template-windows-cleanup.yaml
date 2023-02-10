@@ -1,0 +1,21 @@
+steps:
+# The task to backfill delete older resources in production pipeline or in check in pipeline with skipimagedeletionbackfill=False
+  - bash: |
+      m="windowsVhdMode"
+      echo "Set build mode to $m" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e MODE=$m \
+      -e DRY_RUN=${DRY_RUN} \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e BACKFILL_RESOURCE_DELETION=${BACKFILL_RESOURCE_DELETION} \
+      -e OS_TYPE="Windows" \
+      ${CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
+    displayName: Backfill Clean Up Older Resources
+    condition: always()
