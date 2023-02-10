@@ -22,6 +22,7 @@ if [[ "$out" != *"winnp"* ]]; then
         az aks nodepool add --resource-group $RESOURCE_GROUP_NAME --cluster-name $CLUSTER_NAME --name "winnp" --os-type Windows --os-sku Windows2022 --node-vm-size Standard_DS2_v2 --node-count 1
     else
         err "Invalid windows e2e image version"
+        exit 1
     fi
     log "Created windows nodepool"
 else
