@@ -25,6 +25,10 @@ parameters:
   displayName: Dry run
   type: boolean
   default: False
+- name: backfillresourcedeletion
+  displayName: Perform Resource Backfill Deletion
+  type: boolean
+  default: False
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
@@ -39,6 +43,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
@@ -60,6 +65,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
@@ -81,6 +87,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
@@ -102,6 +109,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
@@ -113,3 +121,16 @@ stages:
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
             artifactName: 2022-containerd-gen2
+  
+   - stage: backfill_cleanup_outdated_resources
+    dependsOn: []
+    condition: always()
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template-windows-cleanup.yaml

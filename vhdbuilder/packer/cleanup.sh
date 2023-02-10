@@ -19,15 +19,6 @@ if [[ -n "$PKR_RG_NAME" ]]; then
   fi
 fi
 
-#clean up the vnet resource group for Windows
-if [ -n "${VNET_RESOURCE_GROUP_NAME}" ]; then
-  id=$(az group show --name ${VNET_RESOURCE_GROUP_NAME} | jq .id)
-  if [ -n "$id" ]; then
-    echo "Deleting packer resource group ${VNET_RESOURCE_GROUP_NAME}"
-    az group delete --name ${VNET_RESOURCE_GROUP_NAME} --yes --no-wait
-  fi
-fi
-
 #clean up managed image
 if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
   if [[ "$MODE" != "default" ]]; then
@@ -67,9 +58,9 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
 fi
 
 #cleanup built sig image if the generated sig is for production only, but not for test purpose.
-#For Gen 2, it follows the sigMode. If SIG_FOR_PRODUCTION is set to true, the sig has been converted to VHD before this step.
+#If SIG_FOR_PRODUCTION is set to true, the sig has been converted to VHD before this step.
 #And since we only need to upload the converted VHD to the classic storage account, there's no need to keep the built sig.
-if [[ "$GEN2_SIG_FOR_PRODUCTION" == "True" ]]; then
+if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
   if [[ -n "${SIG_IMAGE_NAME}" ]]; then
     # Delete sig image version first
     echo "SIG_IMAGE_NAME is ${SIG_IMAGE_NAME}, deleting sig image version first"
@@ -109,7 +100,7 @@ if [[ "$GEN2_SIG_FOR_PRODUCTION" == "True" ]]; then
 fi
 
 #clean up arm64 OS disk snapshot
-if [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
+if [[ "${MODE}" == "linuxVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
   id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
     az snapshot delete -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
@@ -136,7 +127,7 @@ if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
 fi
 
 # attempt to clean up managed images and associated SIG versions created over a week ago
-if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
+if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   set +x # to avoid blowing up logs
   echo "Looking for managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
@@ -181,7 +172,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   set -x
 fi
 
-#clean up storage account created over a week ago
+# clean up storage accounts created over a week ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
   echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
   echo "That is, those created before $(date -d@$deadline) As shown below"
