@@ -10,7 +10,7 @@ if [[ "${MODE}" != "windowsVhdMode" ]]; then
   exit 0
 fi
 
-if [[ "${BACKFILL_RESOURCE_DELETION}" == "False" ]] then
+if [[ "${BACKFILL_RESOURCE_DELETION}" == "False" ]]; then
   exit 0
 fi
 
