@@ -253,6 +253,7 @@ EOF
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
+  - bcc-examples
   - libbcc-examples
 EOF
 
