@@ -133,8 +133,32 @@ Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet-ipam.log.*
 
 # Collect running containers
 if ($global:ContainerRuntime -eq "containerd") {
+    Write-Host "Generating containerd-info.txt"
+    containerd.exe --v > (Join-Path $aksLogFolder "containerd-info.txt")
+
+    Write-Host "Generating containerd-containers.txt"
+    ctr.exe -n k8s.io c ls > (Join-Path $aksLogFolder "containerd-containers.txt")
+  
+    Write-Host "Generating containerd-tasks.txt"
+    ctr.exe -n k8s.io t ls > (Join-Path $aksLogFolder "containerd-tasks.txt")
+  
+    Write-Host "Generating containerd-snapshot.txt"
+    ctr.exe -n k8s.io snapshot ls > (Join-Path $aksLogFolder "containerd-snapshot.txt")
+    
     Write-Log "Genearting cri-containerd-containers.txt"
     crictl.exe ps -a > (Join-Path $aksLogFolder "cri-containerd-containers.txt")
+
+    Write-Host "Generating cri-containerd-pods.txt"
+    crictl.exe pods > (Join-Path $aksLogFolder "cri-containerd-pods.txt")
+
+    Write-Host "Generating cri-containerd-images.txt"
+    crictl.exe images > (Join-Path $aksLogFolder "cri-containerd-images.txt")
+}
+
+# Use runhcs shim diagnostic tool
+Write-Host "Collecting logs of runhcs shim diagnostic tool"
+foreach ($line in shimdiag.exe list) {
+    shimdiag.exe stacks $line > (Join-Path $aksLogFolder "$line.txt")
 }
 
 # Collect disk usage
@@ -146,6 +170,12 @@ Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Express
 Write-Log "Genearting available-memory.txt"
 $availableMemoryFile = Join-Path $aksLogFolder ("available-memory.txt")
 Get-Counter '\Memory\Available MBytes' > $availableMemoryFile
+
+# Collect process info
+Write-Host "Collecting process info for Container Platform team"
+Get-Process containerd-shim-runhcs-v1 > (Join-Path $aksLogFolder "process-containerd-shim-runhcs-v1.txt")
+Get-Process CExecSvc > (Join-Path $aksLogFolder "process-CExecSvc.txt")
+Get-Process vmcompute > (Join-Path $aksLogFolder "process-vmcompute.txt")
 
 # We only need to generate and upload the logs after the node is provisioned
 # WAWindowsAgent will generate and upload the logs every 15 minutes so we do not need to do it again

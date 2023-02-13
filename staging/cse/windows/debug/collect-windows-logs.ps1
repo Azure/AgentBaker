@@ -134,20 +134,56 @@ if ($res) {
   Write-Host "Collecting Containerd running containers - tasks"
   & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+
+  Write-Host "Collecting Containerd running containers - snapshot"
+  & ctr.exe -n k8s.io snapshot ls > "$ENV:TEMP\$timeStamp-containerd-snapshot.txt"
+  $paths += "$ENV:TEMP\$timeStamp-containerd-snapshot.txt"
 }
 else {
   Write-Host "ctr.exe command not available"
 }
 
-# log containers the CRI plugin is aware of, and their state.
-Write-Host "Collecting CRI plugin containers"
+# log containers, pods and images the CRI plugin is aware of, and their state.
 $res = Get-Command crictl.exe -ErrorAction SilentlyContinue
 if ($res) {
+  Write-Host "Collecting CRI plugin containers"
   & crictl.exe ps -a > "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
   $paths += "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
+
+  Write-Host "Collecting CRI plugin pods"
+  & crictl.exe pods > "$ENV:TEMP\$timeStamp-cri-containerd-pods.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-pods.txt"
+
+  Write-Host "Collecting CRI plugin images"
+  & crictl.exe images > "$ENV:TEMP\$timeStamp-cri-containerd-images.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-images.txt"
 }
 else {
   Write-Host "crictl.exe command not available"
+}
+
+# use runhcs shim diagnostic tool 
+$res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs of runhcs shim diagnostic tool"
+  foreach ($line in shimdiag.exe list) {
+    shimdiag.exe stacks $line > "$ENV:TEMP\$line.txt"
+    $paths += "$ENV:TEMP\$line.txt"
+  }
+}
+else {
+  Write-Host "shimdiag.exe command not available"
+}
+
+# log containerd info
+$res = Get-Command containerd.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs of containerd info"
+  & containerd.exe --v > "$ENV:TEMP\$timeStamp-containerd-info.txt"
+  $paths += "$ENV:TEMP\$timeStamp-containerd-info.txt"
+}
+else {
+  Write-Host "containerd.exe command not available"
 }
 
 # Containerd panic log is outside the c:\k folder
@@ -192,6 +228,14 @@ Write-Host "Collecting disk usage"
 $tempDiskUsageFile = Join-Path ([System.IO.Path]::GetTempPath()) ("disk-usage.txt")
 Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Expression={$_.size/1gb}}, @{Name="Free Space(GB)";Expression={$_.freespace/1gb}}, @{Name="Free (%)";Expression={"{0,6:P0}" -f(($_.freespace/1gb) / ($_.size/1gb))}}, DeviceID, DriveType | Where-Object DriveType -EQ '3' > $tempDiskUsageFile
 $paths += $tempDiskUsageFile
+
+Write-Host "Collecting process info for Container Platform team"
+Get-Process containerd-shim-runhcs-v1 > "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+$paths += "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+Get-Process CExecSvc > "$ENV:TEMP\process-CExecSvc.txt"
+$paths += "$ENV:TEMP\process-CExecSvc.txt"
+Get-Process vmcompute > "$ENV:TEMP\process-vmcompute.txt"
+$paths += "$ENV:TEMP\process-vmcompute.txt"
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
