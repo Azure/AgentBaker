@@ -21,7 +21,8 @@
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
-    "subnet_name": "{{env `SUBNET_NAME`}}"
+    "subnet_name": "{{env `SUBNET_NAME`}}",
+    "run_vhd_cleanup": "{{env `RUN_VHD_CLEANUP`}}"
   },
   "builders": [
     {
@@ -458,7 +459,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh",
+        "sudo RUN_VHD_CLEANUP={{user `run_vhd_cleanup`}} FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh",
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
@@ -501,8 +502,19 @@
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /bin/bash -eux /home/packer/cis.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo RUN_VHD_CLEANUP={{user `run_vhd_cleanup`}} /bin/bash -eux /home/packer/cleanup-vhd.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ]
