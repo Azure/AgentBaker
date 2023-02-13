@@ -512,7 +512,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ]
