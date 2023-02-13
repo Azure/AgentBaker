@@ -1058,11 +1058,6 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 	return buf.String()
 }
 
-// IsNotRebootWindowsNode returns true if it does not need to reboot Windows node
-func (w *AgentPoolProfile) IsNotRebootWindowsNode() bool {
-	return w.NotRebootWindowsNode != nil && *w.NotRebootWindowsNode
-}
-
 // HasSecrets returns true if the customer specified secrets to install
 func (l *LinuxProfile) HasSecrets() bool {
 	return len(l.Secrets) > 0

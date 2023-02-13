@@ -6408,8 +6408,6 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
-$global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
-
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
 
@@ -6716,28 +6714,22 @@ try
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
 
-    if ($global:IsNotRebootWindowsNode) {
-        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
-        Start-ScheduledTask -TaskName "k8s-restart-job"
+    Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+    Start-ScheduledTask -TaskName "k8s-restart-job"
 
-        $timeout = 180 ##  seconds
-        $timer = [Diagnostics.Stopwatch]::StartNew()
-        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-            # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
-            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-            }
-
-            Write-Log -Message "Waiting on NodeResetScriptTask..."
-            Start-Sleep -Seconds 3
+    $timeout = 180 ##  seconds
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+        # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
+        if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
         }
-        $timer.Stop()
-        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-    } else {
-        # Postpone restart-computer so we can generate CSE response before restarting computer
-        Write-Log "Setup Complete, reboot computer"
-        Postpone-RestartComputer
+
+        Write-Log -Message "Waiting on NodeResetScriptTask..."
+        Start-Sleep -Seconds 3
     }
+    $timer.Stop()
+    Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 }
 catch
 {
