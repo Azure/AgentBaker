@@ -251,7 +251,7 @@ copyPackerFiles() {
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
 
-  if [[ "${RUN_VHD_CLEANUP,,}" == "true" ]]; then
+  if [[ "${RUN_VHD_CLEANUP,,}" == "false" ]]; then
     cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
   fi
 }
