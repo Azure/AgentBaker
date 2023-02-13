@@ -565,18 +565,8 @@
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cis.sh"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo RUN_VHD_CLEANUP={{user `run_vhd_cleanup`}} /bin/bash -eux /home/packer/cleanup-vhd.sh"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
+        "sudo /bin/bash -eux /home/packer/cis.sh",
+        "sudo RUN_VHD_CLEANUP={{user `run_vhd_cleanup`}} /bin/bash -eux /home/packer/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
