@@ -45,7 +45,7 @@ func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 	router.Methods("GET").Path("/healthz").Name("healthz").HandlerFunc(healthz)
 
 	// global timeout and panic handlers.
-	router.Use(timeoutHandler(), recoveryHandler())
+	router.Use(timeoutHandler(api.Options.Timeout), recoveryHandler())
 
 	return router
 }
@@ -63,8 +63,8 @@ func recoveryHandler() mux.MiddlewareFunc {
 	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))
 }
 
-func timeoutHandler() mux.MiddlewareFunc {
+func timeoutHandler(timeout time.Duration) mux.MiddlewareFunc {
 	return func(h http.Handler) http.Handler {
-		return http.TimeoutHandler(h, time.Second*30, "")
+		return http.TimeoutHandler(h, timeout, "")
 	}
 }

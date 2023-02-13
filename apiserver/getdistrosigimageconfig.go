@@ -1,12 +1,10 @@
 package apiserver
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	agent "github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -19,10 +17,6 @@ const (
 
 // GetDistroSigImageConfig endpoint for sig config for all distros in one shot.
 func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
 	var config datamodel.GetLatestSigImageConfigRequest
 
 	err := json.NewDecoder(r.Body).Decode(&config)
