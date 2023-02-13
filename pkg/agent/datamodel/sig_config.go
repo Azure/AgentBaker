@@ -103,6 +103,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
+	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -142,6 +143,7 @@ var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
+	AKSCBLMarinerV2KataGen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled
@@ -272,10 +274,14 @@ var marinerV2Gen2JSONContentsEmbedded string
 //go:embed edge_zone_sig_version.json
 var edgeZoneJSONContentsEmbedded string
 
+//go:embed mariner_v2_kata_gen2_tl_sig_version.json
+var marinerV2KataGen2TLJSONContentsEmbedded string
+
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
 var Ubuntu2204TLSIGImageVersion = getSIGVersionFromEmbeddedString(ubuntu2204JSONContentsEmbedded)
 var CBLMarinerV2Gen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2Gen2JSONContentsEmbedded)
 var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
+var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
 
 func getSIGVersionFromEmbeddedString(contents string) string {
 
@@ -488,6 +494,13 @@ var (
 		Version:       CBLMarinerV2Gen2TLSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2katagen2TL",
+		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -548,6 +561,7 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV2Gen2Kata:  SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2: SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:    SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2KataGen2TL: SIGCBLMarinerV2KataGen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
