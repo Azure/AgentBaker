@@ -1397,9 +1397,9 @@ users:
     client-key: /etc/kubernetes/certs/client.key
 contexts:
 - context:
-  cluster: localcluster
+    cluster: localcluster
     user: client
-    name: localclustercontext
+  name: localclustercontext
 current-context: localclustercontext
 EOF
     fi
