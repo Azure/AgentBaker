@@ -1739,7 +1739,7 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
+        timeout $timeout "${@}" && break || \
         if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
