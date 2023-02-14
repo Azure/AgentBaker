@@ -87,6 +87,8 @@ copyPackerFiles() {
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
+  VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -248,6 +250,10 @@ copyPackerFiles() {
   fi
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
+
+  # Always copy the VHD cleanup script responsible for prepping the instance for first boot
+  # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
+  cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 }
 
 cpAndMode() {

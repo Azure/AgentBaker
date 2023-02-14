@@ -7,6 +7,7 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
 	CAPTURED_SIG_VERSION=${SIG_IMAGE_VERSION}
@@ -213,7 +214,6 @@ if [[ "$OS_SKU" == "CBLMariner" ]]; then
 		fi
 	fi
 fi
-
 
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
 # 1. we can demonstrate the whole user defined parameters all at once

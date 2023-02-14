@@ -565,7 +565,7 @@
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /bin/bash -eux /home/packer/cleanup-vhd.sh",
+        "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
